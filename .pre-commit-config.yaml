@@ -1,0 +1,170 @@
+# Pre-commit configuration for Google Drive Clone project
+# This file sets up pre-commit hooks for code quality and formatting
+
+repos:
+  # Pre-commit hooks repository
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Basic file checks
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+      - id: end-of-file-fixer
+        description: "Ensure files end with a newline"
+      - id: check-yaml
+        description: "Check YAML syntax"
+      - id: check-json
+        description: "Check JSON syntax"
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+      - id: check-case-conflict
+        description: "Check for files that would conflict in case-insensitive filesystems"
+      - id: check-added-large-files
+        description: "Prevent large files from being committed"
+        args: ['--maxkb=1000']
+      - id: check-ast
+        description: "Check syntax of Python, JavaScript, and other files"
+      - id: check-docstring-first
+        description: "Check that docstrings are first in Python files"
+      - id: check-json
+        description: "Check JSON syntax"
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+      - id: check-yaml
+        description: "Check YAML syntax"
+      - id: debug-statements
+        description: "Check for debugger imports and py.test breakpoints"
+      - id: name-tests-test
+        description: "Check that test files are named correctly"
+      - id: requirements-txt-fixer
+        description: "Sort requirements.txt files"
+      - id: fix-byte-order-marker
+        description: "Remove UTF-8 byte order marker"
+
+  # TODO: commented for now because it's not working
+  # # Prettier for code formatting (local hook)
+  # - repo: local
+  #   hooks:
+  #     - id: prettier
+  #       name: "Prettier - Format code"
+  #       description: "Format code with Prettier"
+  #       entry: bash -c 'cd frontend && npm run format'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: ^frontend/
+
+  # TODO: commented for now because it's not working
+  # # ESLint for JavaScript/TypeScript linting (local hook)
+  # - repo: local
+  #   hooks:
+  #     - id: eslint-frontend
+  #       name: "ESLint - Frontend"
+  #       description: "Lint frontend JavaScript/TypeScript files"
+  #       entry: bash -c 'cd frontend && npm run lint'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: ^frontend/
+  #       stages: [pre-commit]
+
+  #     - id: eslint-nest-rest
+  #       name: "ESLint - NestJS API"
+  #       description: "Lint NestJS API TypeScript files"
+  #       entry: bash -c 'cd nest-api-rest && npm run lint'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: ^nest-api-rest/
+  #       stages: [pre-commit]
+
+  #     - id: eslint-nest-graphql
+  #       name: "ESLint - GraphQL API"
+  #       description: "Lint GraphQL API TypeScript files"
+  #       entry: bash -c 'cd nest-graphql && npm run lint'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: ^nest-graphql/
+  #       stages: [pre-commit]
+
+  # TODO: commented for now because it's not working
+  # # TypeScript type checking
+  # - repo: local
+  #   hooks:
+  #     - id: typescript-check
+  #       name: "TypeScript - Type check"
+  #       description: "Run TypeScript type checking"
+  #       entry: bash -c 'cd frontend && npm run check'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: \.(ts|tsx|svelte)$
+  #       stages: [pre-commit]
+
+  # # Security checks
+  # - repo: https://github.com/Yelp/detect-secrets
+  #   rev: v1.4.0
+  #   hooks:
+  #     - id: detect-secrets
+  #       description: "Detect secrets in code"
+  #       args: ['--baseline', '.secrets.baseline', '--exclude-files', 'package-lock.json']
+
+  # # Python import sorting with isort
+  # - repo: https://github.com/pycqa/isort
+  #   rev: 5.13.2
+  #   hooks:
+  #     - id: isort
+  #       description: "Sort Python imports"
+  #       args: ["--profile", "black"]
+  #       files: \.py$
+
+  # # Commit message formatting
+  # - repo: https://github.com/commitizen-tools/commitizen
+  #   rev: v3.20.0
+  #   hooks:
+  #     - id: commitizen
+  #       stages: [commit-msg]
+
+  # # tests
+  # - repo: local
+  #   hooks:
+  #     - id: test-nest-api-rest
+  #       name: "Test Nest API Rest"
+  #       description: "Run Nest API Rest tests"
+  #       entry: bash -c 'cd nest-api-rest && npm run test'
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       files: ^nest-api-rest/
+  #       stages: [pre-commit]
+
+# Global configuration
+default_language_version:
+  node: "18"
+
+# Default stages for hooks
+default_stages: [pre-commit]
+
+# Skip hooks for specific file patterns
+exclude: |
+  (?x)^(
+      \.git/|
+      \.venv/|
+      node_modules/|
+      \.next/|
+      \.svelte-kit/|
+      dist/|
+      build/|
+      coverage/|
+      \.env|
+      \.env\.local|
+      \.env\.development|
+      \.env\.test|
+      \.env\.production|
+      package-lock\.json|
+      yarn\.lock|
+      pnpm-lock\.yaml|
+      \.DS_Store|
+      Thumbs\.db
+  )$
