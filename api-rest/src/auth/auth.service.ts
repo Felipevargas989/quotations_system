@@ -9,10 +9,14 @@ export class AuthService {
 
   constructor(private readonly configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseServiceKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseServiceKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase configuration. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+      throw new Error(
+        'Missing Supabase configuration. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.',
+      );
     }
 
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -20,7 +24,10 @@ export class AuthService {
 
   async validateToken(token: string): Promise<User> {
     try {
-      const { data: { user }, error } = await this.supabase.auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await this.supabase.auth.getUser(token);
 
       if (error || !user) {
         throw new UnauthorizedException('Invalid token');

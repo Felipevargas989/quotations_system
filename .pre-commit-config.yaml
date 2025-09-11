@@ -42,17 +42,17 @@ repos:
         description: "Remove UTF-8 byte order marker"
 
   # TODO: commented for now because it's not working
-  # # Prettier for code formatting (local hook)
-  # - repo: local
-  #   hooks:
-  #     - id: prettier
-  #       name: "Prettier - Format code"
-  #       description: "Format code with Prettier"
-  #       entry: bash -c 'cd frontend && npm run format'
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
-  #       files: ^frontend/
+  # Prettier for code formatting (local hook)
+  - repo: local
+    hooks:
+      - id: prettier
+        name: "Prettier - Format code"
+        description: "Format code with Prettier"
+        entry: bash -c 'cd api-rest && npm run format'
+        language: system
+        pass_filenames: false
+        always_run: true
+        files: ^api-rest/
 
   # TODO: commented for now because it's not working
   # # ESLint for JavaScript/TypeScript linting (local hook)
