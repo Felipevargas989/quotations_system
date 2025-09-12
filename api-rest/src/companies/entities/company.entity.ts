@@ -1,1 +1,4 @@
-export class Company {}
+export class Company {
+  id: number;
+  name: string;
+}

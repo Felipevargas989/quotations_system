@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
-import { User } from './interfaces/auth.interfaces';
+import { UserAuth } from './interfaces/auth.interfaces';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -21,9 +21,9 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const user: User = await this.authService.validateToken(token);
+      const user: UserAuth = await this.authService.validateToken(token);
       // Attach user to request object
-      (request as Request & { user: User }).user = user;
+      (request as Request & { user: UserAuth }).user = user;
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {

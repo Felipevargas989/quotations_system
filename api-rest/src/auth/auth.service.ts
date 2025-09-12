@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
-import { User } from './interfaces/auth.interfaces';
+import { UserAuth } from './interfaces/auth.interfaces';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +22,7 @@ export class AuthService {
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
-  async validateToken(token: string): Promise<User> {
+  async validateToken(token: string): Promise<UserAuth> {
     try {
       const {
         data: { user },
@@ -35,7 +35,6 @@ export class AuthService {
 
       return {
         id: user.id,
-        email: user.email,
         ...user.user_metadata,
       };
     } catch (error) {

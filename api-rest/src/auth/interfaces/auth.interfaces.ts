@@ -1,5 +1,3 @@
-export interface User {
+export interface UserAuth {
   id: string;
-  email?: string;
-  [key: string]: any;
 }
