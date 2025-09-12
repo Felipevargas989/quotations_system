@@ -9,11 +9,22 @@ import { ClientsModule } from './clients/clients.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { AuthGuard } from './auth';
 import { APP_GUARD } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // makes ConfigService available everywhere without importing
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            singleLine: true,
+          },
+        },
+      },
     }),
     AuthModule,
     ConfigModule,
