@@ -5,10 +5,31 @@ import {
   RequestType,
 } from '../constants/constants';
 
-// TODO: define structure
-export interface QuotationItem {
-  id: string;
-}
+type BaseService = {
+  codigo: string;
+  nombre: string;
+  precio: number;
+  quantity: number;
+  categoria: string;
+};
+
+type FixedService = BaseService & {
+  max_precio: number;
+  min_precio: number;
+  tipo_calculo: string;
+  precio_por_persona: number;
+};
+
+type VariableService = {
+  category: string;
+  items: BaseService[];
+};
+
+export type QuotationItem = {
+  fixed_services: FixedService[];
+  variable_services: VariableService[];
+};
+
 export interface Quotation {
   id: string;
   quotation_number: number;
