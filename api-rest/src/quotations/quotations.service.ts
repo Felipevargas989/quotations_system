@@ -1,20 +1,55 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { UsersRepository } from 'src/users/users.repository';
+import {
+  EventType,
+  PaymentPlanType,
+  QuotationStatus,
+  RequestType,
+} from './constants/constants';
+import { CreateQuotationDto } from './dto/create-quotation.dto';
+import { CreateQuotation } from './interfaces/quotations.interface';
 import { QuotationsRepository } from './quotations.repository';
 
 @Injectable()
 export class QuotationsService {
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
-    private readonly usersRepository: UsersRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
   }
-  // create(createQuotationDto: CreateQuotationDto) {
-  //   return 'This action adds a new quotation';
-  // }
+  create(
+    createQuotationDto: CreateQuotationDto,
+    companyId: number,
+    userId: string,
+  ) {
+    const newQuotation: CreateQuotation = {
+      client_id: createQuotationDto.client_id,
+      event_type: createQuotationDto.event_type as EventType,
+      people_count: createQuotationDto.people_count,
+      observations: createQuotationDto.observations,
+      event_date: new Date(createQuotationDto.event_date),
+      company_id: companyId,
+      total_amount: 0,
+      // TODO: set real statuses
+      quotation_status: QuotationStatus.PENDING,
+      // TODO: set real quotation number (from prevous number from the same company)
+      quotation_number: 0,
+      user_id: userId,
+      value_per_person: 0,
+      fixed_value: 0,
+      // TODO: set real request type
+      request_type: RequestType.REQUERIMIENTO,
+      requires_invoice: false,
+      has_contract: false,
+      // TODO: set real payment plan type
+      payment_plan_type: PaymentPlanType.DEFAULT,
+      discount_percentage: 0,
+      subtotal_amount: 0,
+      items: [],
+    };
+    return this.quotationsRepository.create(newQuotation);
+  }
 
   async findAll(companyId: number) {
     this.logger.info(`findAll quotations with params ${companyId}`);

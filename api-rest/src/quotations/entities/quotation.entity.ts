@@ -1,23 +1,9 @@
-// TODO: set real statuses
-export enum QuotationStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-}
-
-// TODO: set real statuses
-export enum RequestType {
-  INVOICE = 'invoice',
-  CASH = 'cash',
-}
-
-// TODO: set real statuses
-export enum PaymentPlanType {
-  MONTHLY = 'monthly',
-  QUARTERLY = 'quarterly',
-  YEARLY = 'yearly',
-}
+import {
+  EventType,
+  PaymentPlanType,
+  QuotationStatus,
+  RequestType,
+} from '../constants/constants';
 
 // TODO: define structure
 export interface QuotationItem {
@@ -30,10 +16,10 @@ export interface Quotation {
   total_amount: number;
   people_count: number;
   quotation_status: QuotationStatus;
-  observations: string;
+  observations?: string;
   created_at: Date;
   client_id: string;
-  event_type: string;
+  event_type: EventType;
   event_date: Date;
   value_per_person: number;
   fixed_value: number;

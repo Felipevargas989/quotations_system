@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Quotation } from './entities/quotation.entity';
+import { CreateQuotation } from './interfaces/quotations.interface';
 
 @Injectable()
 export class QuotationsRepository {
@@ -21,5 +22,20 @@ export class QuotationsRepository {
       .eq('company_id', company_id);
     if (error) throw error;
     return data as Quotation[];
+  }
+
+  async create(createQuotation: CreateQuotation) {
+    this.logger.info(
+      `create quotation with createQuotationDto ${JSON.stringify(createQuotation)}`,
+    );
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .insert([createQuotation])
+      .select()
+      .single();
+    if (error) {
+      throw error;
+    }
+    return data as Quotation;
   }
 }

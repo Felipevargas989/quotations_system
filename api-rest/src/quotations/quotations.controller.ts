@@ -1,7 +1,8 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
+import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { QuotationsService } from './quotations.service';
 
 @Controller('quotations')
@@ -13,10 +14,17 @@ export class QuotationsController {
     this.logger.setContext(QuotationsController.name);
   }
 
-  // @Post()
-  // create(@Body() createQuotationDto: CreateQuotationDto) {
-  //   return this.quotationsService.create(createQuotationDto);
-  // }
+  @Post()
+  create(
+    @Body() createQuotationDto: CreateQuotationDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.quotationsService.create(
+      createQuotationDto,
+      user.company_id,
+      user.id,
+    );
+  }
 
   @Get()
   findAll(@CurrentUser() user: User) {
