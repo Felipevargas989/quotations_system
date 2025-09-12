@@ -51,4 +51,20 @@ export class ClientsRepository {
     if (error) throw error;
     return data as unknown as Client;
   }
+
+  async remove(id: string, companyId: number) {
+    this.logger.info(`remove client with id ${id}`);
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+    if (error) {
+      // TODO: manage error with quotations linked to the client
+      throw error;
+    }
+    return data as unknown as Client;
+  }
 }

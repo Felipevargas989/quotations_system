@@ -44,7 +44,8 @@ export class ClientsService {
     return this.clientsRepository.update(id, updateClientDto, companyId);
   }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} client`;
-  // }
+  remove(id: string, companyId: number) {
+    this.logger.info(`remove client with id ${id}`);
+    return this.clientsRepository.remove(id, companyId);
+  }
 }
