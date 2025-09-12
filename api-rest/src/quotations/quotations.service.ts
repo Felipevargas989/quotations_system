@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { User } from 'src/users/entities/user.entity';
-import { QuotationsRepository } from './quotations.repository';
-import { UsersRepository } from 'src/users/users.repository';
 import { PinoLogger } from 'nestjs-pino';
+import { User } from 'src/users/entities/user.entity';
+import { UsersRepository } from 'src/users/users.repository';
+import { QuotationsRepository } from './quotations.repository';
 
 @Injectable()
 export class QuotationsService {

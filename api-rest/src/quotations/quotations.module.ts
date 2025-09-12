@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { QuotationsService } from './quotations.service';
+import { SupabaseModule } from 'src/supabase/supabase.module';
+import { UsersRepository } from 'src/users/users.repository';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
-import { UsersRepository } from 'src/users/users.repository';
-import { SupabaseModule } from 'src/supabase/supabase.module';
+import { QuotationsService } from './quotations.service';
 
 @Module({
   imports: [SupabaseModule],

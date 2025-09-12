@@ -1,8 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { QuotationsService } from './quotations.service';
+import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
-import { PinoLogger } from 'nestjs-pino';
+import { QuotationsService } from './quotations.service';
 
 @Controller('quotations')
 export class QuotationsController {

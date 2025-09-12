@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Quotation } from './entities/quotation.entity';
-import { Company } from 'src/companies/entities/company.entity';
-import { PinoLogger } from 'nestjs-pino';
 
 @Injectable()
 export class QuotationsRepository {
