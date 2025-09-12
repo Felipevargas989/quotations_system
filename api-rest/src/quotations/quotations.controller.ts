@@ -21,7 +21,7 @@ export class QuotationsController {
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /quotations with user ${user.id}`);
-    return this.quotationsService.findAll(user);
+    return this.quotationsService.findAll(user.company_id);
   }
 
   // @Get(':id')

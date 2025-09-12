@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { User } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { QuotationsRepository } from './quotations.repository';
 
@@ -17,10 +16,9 @@ export class QuotationsService {
   //   return 'This action adds a new quotation';
   // }
 
-  async findAll(user: User) {
-    this.logger.info(`findAll quotations with params ${user.id}`);
-    const userExtended = await this.usersRepository.findOne(user.id);
-    return this.quotationsRepository.findAll(userExtended.company_id);
+  async findAll(companyId: number) {
+    this.logger.info(`findAll quotations with params ${companyId}`);
+    return this.quotationsRepository.findAll(companyId);
   }
 
   // findOne(id: number) {

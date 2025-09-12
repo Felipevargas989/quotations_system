@@ -18,7 +18,7 @@ export class ClientsController {
     this.logger.info(
       `POST /clients with createClientDto ${JSON.stringify(createClientDto)}`,
     );
-    return this.clientsService.create(createClientDto, user.id);
+    return this.clientsService.create(createClientDto, user.company_id);
   }
 
   // @Get()

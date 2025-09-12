@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { UsersRepository } from 'src/users/users.repository';
 import { ClientsRepository } from './clients.repository';
 import { CreateClientDto } from './dto/create-client.dto';
 import { CreateClient } from './interfaces/clients.interfaces';
@@ -10,22 +9,18 @@ export class ClientsService {
   constructor(
     private readonly clientsRepository: ClientsRepository,
     private readonly logger: PinoLogger,
-    private readonly usersRepository: UsersRepository,
   ) {
     this.logger.setContext(ClientsService.name);
   }
-  async create(createClientDto: CreateClientDto, userId: string) {
+  async create(createClientDto: CreateClientDto, companyId: number) {
     this.logger.info(
       `create client with createClientDto ${JSON.stringify(createClientDto)}`,
     );
 
-    // get user company id
-    const user = await this.usersRepository.findOne(userId);
-
     // create new client object
     const newClient: CreateClient = {
       ...createClientDto,
-      company_id: user.company_id,
+      company_id: companyId,
     };
 
     // create new client
