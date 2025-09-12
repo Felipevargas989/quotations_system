@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
+import { UpdateClientDto } from './dto/update-client.dto';
+
 @Controller('clients')
 export class ClientsController {
   constructor(
@@ -32,10 +34,17 @@ export class ClientsController {
   //   return this.clientsService.findOne(+id);
   // }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateClientDto: UpdateClientDto) {
-  //   return this.clientsService.update(+id, updateClientDto);
-  // }
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateClientDto: UpdateClientDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `PATCH /clients/${id} with updateClientDto ${JSON.stringify(updateClientDto)}`,
+    );
+    return this.clientsService.update(id, updateClientDto, user.company_id);
+  }
 
   // @Delete(':id')
   // remove(@Param('id') id: string) {

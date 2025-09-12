@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsRepository } from './clients.repository';
 import { CreateClientDto } from './dto/create-client.dto';
+import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateClient } from './interfaces/clients.interfaces';
 
 @Injectable()
@@ -36,9 +37,12 @@ export class ClientsService {
   //   return `This action returns a #${id} client`;
   // }
 
-  // update(id: number, updateClientDto: UpdateClientDto) {
-  //   return `This action updates a #${id} client`;
-  // }
+  update(id: string, updateClientDto: UpdateClientDto, companyId: number) {
+    this.logger.info(
+      `update client with id ${id} and updateClientDto ${JSON.stringify(updateClientDto)}`,
+    );
+    return this.clientsRepository.update(id, updateClientDto, companyId);
+  }
 
   // remove(id: number) {
   //   return `This action removes a #${id} client`;

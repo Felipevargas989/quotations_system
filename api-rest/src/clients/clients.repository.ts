@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Client } from './entities/client.entity';
-import { CreateClient } from './interfaces/clients.interfaces';
+import { CreateClient, UpdateClient } from './interfaces/clients.interfaces';
 
 @Injectable()
 export class ClientsRepository {
@@ -35,5 +35,20 @@ export class ClientsRepository {
       .order('name');
     if (error) throw error;
     return data as unknown as Client[];
+  }
+
+  async update(id: string, updateClient: UpdateClient, companyId: number) {
+    this.logger.info(
+      `update client with id ${id} and updateClient ${JSON.stringify(updateClient)}`,
+    );
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .update(updateClient)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as unknown as Client;
   }
 }
