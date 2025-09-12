@@ -60,4 +60,19 @@ export class QuotationsRepository {
     }
     return data as Quotation;
   }
+
+  async remove(id: string, companyId: number) {
+    this.logger.info(
+      `remove quotation with id ${id} and companyId ${companyId}`,
+    );
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) {
+      throw error;
+    }
+    return data as unknown as Quotation;
+  }
 }

@@ -69,7 +69,7 @@ export class QuotationsService {
     return this.quotationsRepository.update(id, updateQuotationDto, companyId);
   }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} quotation`;
-  // }
+  remove(id: string, companyId: number) {
+    return this.quotationsRepository.remove(id, companyId);
+  }
 }
