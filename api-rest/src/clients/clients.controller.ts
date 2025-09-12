@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
@@ -21,10 +21,11 @@ export class ClientsController {
     return this.clientsService.create(createClientDto, user.company_id);
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.clientsService.findAll();
-  // }
+  @Get()
+  findAll(@CurrentUser() user: User) {
+    this.logger.info(`GET /clients with user ${user.id}`);
+    return this.clientsService.findAll(user.company_id);
+  }
 
   // @Get(':id')
   // findOne(@Param('id') id: string) {

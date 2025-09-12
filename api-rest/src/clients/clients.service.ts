@@ -27,9 +27,10 @@ export class ClientsService {
     return this.clientsRepository.create(newClient);
   }
 
-  // findAll() {
-  //   return `This action returns all clients`;
-  // }
+  findAll(companyId: number) {
+    this.logger.info(`findAll clients with companyId ${companyId}`);
+    return this.clientsRepository.findAll(companyId);
+  }
 
   // findOne(id: number) {
   //   return `This action returns a #${id} client`;

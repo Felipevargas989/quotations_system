@@ -25,4 +25,15 @@ export class ClientsRepository {
     if (error) throw error;
     return data as unknown as Client;
   }
+
+  async findAll(companyId: number) {
+    this.logger.info(`findAll clients with companyId ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+    if (error) throw error;
+    return data as unknown as Client[];
+  }
 }
