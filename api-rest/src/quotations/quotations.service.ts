@@ -7,6 +7,7 @@ import {
   RequestType,
 } from './constants/constants';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
+import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { CreateQuotation } from './interfaces/quotations.interface';
 import { QuotationsRepository } from './quotations.repository';
 
@@ -60,9 +61,13 @@ export class QuotationsService {
   //   return `This action returns a #${id} quotation`;
   // }
 
-  // update(id: number, updateQuotationDto: UpdateQuotationDto) {
-  //   return `This action updates a #${id} quotation`;
-  // }
+  update(
+    id: string,
+    updateQuotationDto: UpdateQuotationDto,
+    companyId: number,
+  ) {
+    return this.quotationsRepository.update(id, updateQuotationDto, companyId);
+  }
 
   // remove(id: number) {
   //   return `This action removes a #${id} quotation`;

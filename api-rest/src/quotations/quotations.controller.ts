@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
+import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
 
 @Controller('quotations')
@@ -37,13 +38,18 @@ export class QuotationsController {
   //   return this.quotationsService.findOne(+id);
   // }
 
-  // @Patch(':id')
-  // update(
-  //   @Param('id') id: string,
-  //   @Body() updateQuotationDto: UpdateQuotationDto,
-  // ) {
-  //   return this.quotationsService.update(+id, updateQuotationDto);
-  // }
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateQuotationDto: UpdateQuotationDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.quotationsService.update(
+      id,
+      updateQuotationDto,
+      user.company_id,
+    );
+  }
 
   // @Delete(':id')
   // remove(@Param('id') id: string) {
