@@ -7,6 +7,7 @@ import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
+import { PaymentsModule } from './payments/payments.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { UsersModule } from './users/users.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     ClientsModule,
     QuotationsModule,
+    PaymentsModule,
   ],
   controllers: [],
   providers: [

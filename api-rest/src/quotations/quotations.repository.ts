@@ -40,6 +40,17 @@ export class QuotationsRepository {
     return data as Quotation[];
   }
 
+  async findOne(id: string): Promise<Quotation> {
+    this.logger.info(`find quotation with id ${id}`);
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data as Quotation;
+  }
+
   async create(createQuotation: CreateQuotation) {
     this.logger.info(
       `create quotation with createQuotationDto ${JSON.stringify(createQuotation)}`,

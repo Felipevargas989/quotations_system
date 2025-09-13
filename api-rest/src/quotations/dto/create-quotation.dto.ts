@@ -1,10 +1,10 @@
 import {
-  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -15,7 +15,7 @@ import {
   QuotationStatus,
   RequestType,
 } from '../constants/constants';
-import { QuotationItem } from '../entities/quotation.entity';
+import type { QuotationItem } from '../entities/quotation.entity';
 
 export class CreateQuotationDto {
   @IsString()
@@ -84,7 +84,7 @@ export class CreateQuotationDto {
   @Min(0, { message: 'Subtotal amount must be non-negative' })
   subtotal_amount?: number;
 
-  @IsArray()
+  @IsObject()
   @IsOptional()
-  items?: QuotationItem[];
+  items?: QuotationItem;
 }

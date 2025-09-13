@@ -46,10 +46,10 @@ export class QuotationsController {
     return this.quotationsService.findAll(user.company_id, request_type);
   }
 
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.quotationsService.findOne(+id);
-  // }
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.quotationsService.findOne(id);
+  }
 
   @Patch(':id')
   update(

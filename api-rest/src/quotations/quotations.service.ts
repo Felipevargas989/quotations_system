@@ -60,9 +60,9 @@ export class QuotationsService {
     return this.quotationsRepository.findAll(companyId, request_type);
   }
 
-  // findOne(id: number) {
-  //   return `This action returns a #${id} quotation`;
-  // }
+  findOne(id: string) {
+    return this.quotationsRepository.findOne(id);
+  }
 
   update(
     id: string,
