@@ -8,11 +8,6 @@ import {
 import { apiRequest } from "./api";
 
 export const getQuotations = async (requirementType: QuotationRequestType) => {
-  // const { data, error } = await supabase
-  //   .from("quotations")
-  //   .select("*")
-  //   .eq("request_type", requirementType)
-  //   .eq("company_id", companyId);
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}`,
     "GET",
@@ -21,16 +16,11 @@ export const getQuotations = async (requirementType: QuotationRequestType) => {
 };
 
 export const deleteQuotation = async (quotationId: string) => {
-  // const { error } = await supabase
-  //   .from("quotations")
-  //   .delete()
-  //   .eq("id", quotationId);
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,
     "DELETE",
   );
 
-  // TODO: check if the response is an error
   return { error: response.error };
 };
 
@@ -55,7 +45,7 @@ export const updateQuotation = async (
   //   .single();
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,
-    "PUT",
+    "PATCH",
     quotation,
   );
   return { data: response as Quotation, error: response.error };
