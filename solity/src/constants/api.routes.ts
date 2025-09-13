@@ -3,4 +3,5 @@ export const API_ROUTES = {
   QUOTATIONS: "/quotations",
   CLIENTS: "/clients",
   PAYMENTS: "/payments",
+  PAYMENTS_PLAN: "/payments/plan",
 };

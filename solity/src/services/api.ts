@@ -82,12 +82,18 @@ api.interceptors.response.use(
 );
 
 // function to make a request to the API REST
-export const apiRequest = async (url: string, method: string, data?: any) => {
+export const apiRequest = async (
+  url: string,
+  method: string,
+  data?: any,
+  params?: any,
+) => {
   try {
     const response = await api.request({
       url,
       method,
       data,
+      params,
     });
     return response.data;
   } catch (error) {

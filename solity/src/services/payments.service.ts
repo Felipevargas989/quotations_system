@@ -1,5 +1,7 @@
 import { API_ROUTES } from "../constants/api.routes";
+import { CreatePayment } from "../types/payments.types";
 import { supabase } from "../lib/supabase";
+import { Quotation } from "../types/quotations.types";
 import { apiRequest } from "./api";
 import { deletePaymentTransactionsByPaymentId } from "./paymentTransactions.service";
 
@@ -35,9 +37,14 @@ export const getPayments = async () => {
 
 // Get payments for a specific quotation
 export const getPaymentsByQuotationId = async (quotationId: string) => {
-  const response = await apiRequest(`${API_ROUTES.PAYMENTS}`, "GET", {
-    quotationId,
-  });
+  const response = await apiRequest(
+    `${API_ROUTES.PAYMENTS}`,
+    "GET",
+    undefined,
+    {
+      quotationId,
+    },
+  );
   return { data: response };
 };
 
@@ -206,4 +213,15 @@ export const checkAndUpdateOverduePayments = async (companyId: number) => {
     console.error("Error in checkAndUpdateOverduePayments:", error);
     return { success: false, error, updatedCount: 0 };
   }
+};
+
+export const createPaymentPlan = async (
+  quotationId: Quotation["id"],
+  payments: CreatePayment[],
+) => {
+  const response = await apiRequest(`${API_ROUTES.PAYMENTS_PLAN}`, "POST", {
+    quotation_id: quotationId,
+    payments,
+  });
+  return response;
 };

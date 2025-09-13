@@ -7,9 +7,9 @@ interface PaymentPlanEditorProps {
   quotation: {
     id: string;
     quotation_number: string;
-    client_name: string;
+
     total_amount: number;
-    event_date?: string;
+    event_date?: Date;
   };
   onSave: (customPlan: any[]) => void;
   onCancel: () => void;
@@ -207,7 +207,8 @@ export default function PaymentPlanEditor({
                 Editar Plan de Pagos
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                {quotation.quotation_number} - {quotation.client_name}
+                {/* {quotation.quotation_number} - {quotation.client_name} */}
+                QUOTATATION_NUMBER - CLIENT_NAME
               </p>
               <p className="text-lg font-bold text-green-600">
                 Total: ${quotation.total_amount.toLocaleString()}

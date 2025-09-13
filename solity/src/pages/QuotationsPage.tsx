@@ -17,7 +17,11 @@ import {
   getQuotations,
   updateQuotation,
 } from "../services/quotations.service";
-import { getPaymentsByQuotationId } from "../services/payments.service";
+import {
+  createPaymentPlan,
+  getPaymentsByQuotationId,
+} from "../services/payments.service";
+import { CreatePayment } from "../types/payments.types";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
@@ -208,7 +212,7 @@ export default function QuotationsPage() {
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     try {
-      if (newStatus === "aceptada") {
+      if (newStatus === QuotationStatus.ACEPTADA) {
         const quotation = quotations.find((q) => q.id === quotationId);
         if (quotation) {
           // Check if payment plan already exists
@@ -224,34 +228,16 @@ export default function QuotationsPage() {
           if (existingPayments && existingPayments.length > 0) {
             //
             // Payment plan already exists, just update the status
-            const { data, error } = await supabase
-              .from("quotations")
-              .update({ quotation_status: "aceptada" })
-              .eq("id", quotationId)
-              // .eq("company_id", companyId)
-              .select();
+            const { data, error } = await updateQuotation(
+              { quotation_status: newStatus as QuotationStatus },
+              quotationId,
+            );
 
             if (error) {
               throw new Error(
                 `Error actualizando cotización: ${error.message}`,
               );
             }
-
-            if (!data || data.length === 0) {
-              throw new Error("No se encontró la cotización para actualizar");
-            }
-
-            setQuotations((prev) =>
-              prev.map((q) =>
-                q.id === quotationId
-                  ? {
-                      ...q,
-                      quotation_status:
-                        "aceptada" as Quotation["quotation_status"],
-                    }
-                  : q,
-              ),
-            );
 
             alert(
               "✅ Cotización aceptada exitosamente (plan de pagos ya existía)",
@@ -293,16 +279,13 @@ export default function QuotationsPage() {
     if (!quotationForPaymentPlan) return;
 
     try {
-      // Eliminar pagos existentes si los hay
-      await supabase
-        .from("payments")
-        .delete()
-        .eq("quotation_id", quotationForPaymentPlan.id);
-
+      // Create payments
       const eventDateObj = quotationForPaymentPlan.event_date
         ? new Date(quotationForPaymentPlan.event_date)
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const today = new Date();
+
+      // create payments array
       const paymentsToCreate = customPlan.map((payment, index) => {
         let dueDate;
 
@@ -321,13 +304,13 @@ export default function QuotationsPage() {
           );
         }
 
-        const paymentToCreate = {
+        const paymentToCreate: CreatePayment = {
           quotation_id: quotationForPaymentPlan.id,
           payment_number: index + 1,
           amount: Math.round(
             (quotationForPaymentPlan.total_amount * payment.percentage) / 100,
           ),
-          due_date: dueDate.toISOString().split("T")[0],
+          due_date: dueDate,
           status: "pendiente",
           payment_type: payment.payment_type,
           notes: payment.notes || "",
@@ -335,32 +318,8 @@ export default function QuotationsPage() {
         return paymentToCreate;
       });
 
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .insert(paymentsToCreate);
-
-      if (paymentError) throw paymentError;
-
-      // Now update the quotation status to 'aceptada'
-      const { error: statusError } = await supabase
-        .from("quotations")
-        .update({ quotation_status: "aceptada" })
-        .eq("id", quotationForPaymentPlan.id);
-      // .eq("company_id", companyId);
-
-      if (statusError) throw statusError;
-
-      // Update local state
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === quotationForPaymentPlan.id
-            ? {
-                ...q,
-                quotation_status: "aceptada" as Quotation["quotation_status"],
-              }
-            : q,
-        ),
-      );
+      // call API reques to create paymet plan
+      await createPaymentPlan(quotationForPaymentPlan.id, paymentsToCreate);
 
       alert("✅ Plan de pagos creado y cotización aceptada exitosamente");
       setShowPaymentPlanEditor(false);
@@ -368,7 +327,6 @@ export default function QuotationsPage() {
       await fetchQuotations();
       await fetchRequirements();
     } catch (error) {
-      console.error("Error creating payment plan:", error);
       alert(
         `Error al crear el plan de pagos: ${error instanceof Error ? error.message : "Error desconocido"}`,
       );
@@ -462,15 +420,21 @@ export default function QuotationsPage() {
             setViewingQuotation(null);
           }}
         />
-      )}
+      )} */}
 
       {showPaymentPlanEditor && quotationForPaymentPlan && (
         <PaymentPlanEditor
-          quotation={quotationForPaymentPlan}
+          quotation={{
+            id: quotationForPaymentPlan.id,
+            quotation_number:
+              quotationForPaymentPlan.quotation_number.toString(),
+            total_amount: quotationForPaymentPlan.total_amount,
+            event_date: quotationForPaymentPlan.event_date,
+          }}
           onSave={handlePaymentPlanSave}
           onCancel={handlePaymentPlanCancel}
         />
-      )} */}
+      )}
 
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-6">
