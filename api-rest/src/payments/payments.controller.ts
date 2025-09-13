@@ -1,17 +1,29 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
+import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly logger: PinoLogger,
+  ) {}
 
-  // @Post()
-  // create(@Body() createPaymentDto: CreatePaymentDto) {
-  //   return this.paymentsService.create(createPaymentDto);
-  // }
+  @Post('plan')
+  createPaymentPlan(
+    @Body() createPaymentPlanDto: CreatePaymentPlanDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /payments/plan with user ${user.id}`);
+    return this.paymentsService.createPaymentPlan(
+      createPaymentPlanDto,
+      user.company_id,
+    );
+  }
 
   @Get()
   findAllPaymensFromQuotation(
