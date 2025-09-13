@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { RequestType } from './constants/constants';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { Quotation } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
@@ -15,12 +16,20 @@ export class QuotationsRepository {
     this.logger.setContext(QuotationsRepository.name);
   }
 
-  async findAll(company_id: Company['id']): Promise<Quotation[]> {
+  async findAll(
+    company_id: Company['id'],
+    request_type?: RequestType,
+  ): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
-    const { data, error } = await this.supabase.client
+    const query = this.supabase.client
       .from('quotations')
       .select('*')
       .eq('company_id', company_id);
+    if (request_type) {
+      query.eq('request_type', request_type);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data as Quotation[];
   }

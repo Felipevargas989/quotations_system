@@ -6,10 +6,12 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
+import { RequestType } from './constants/constants';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
@@ -36,9 +38,12 @@ export class QuotationsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: User) {
+  findAll(
+    @CurrentUser() user: User,
+    @Query('request_type') request_type?: RequestType,
+  ) {
     this.logger.info(`GET /quotations with user ${user.id}`);
-    return this.quotationsService.findAll(user.company_id);
+    return this.quotationsService.findAll(user.company_id, request_type);
   }
 
   // @Get(':id')

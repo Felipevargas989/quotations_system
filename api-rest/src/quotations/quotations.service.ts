@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import {
-  EventType,
   PaymentPlanType,
   QuotationStatus,
   RequestType,
@@ -26,7 +25,7 @@ export class QuotationsService {
   ) {
     const newQuotation: CreateQuotation = {
       client_id: createQuotationDto.client_id,
-      event_type: createQuotationDto.event_type as EventType,
+      event_type: createQuotationDto.event_type,
       people_count: createQuotationDto.people_count,
       observations: createQuotationDto.observations,
       event_date: new Date(createQuotationDto.event_date),
@@ -52,9 +51,9 @@ export class QuotationsService {
     return this.quotationsRepository.create(newQuotation);
   }
 
-  async findAll(companyId: number) {
+  async findAll(companyId: number, request_type?: RequestType) {
     this.logger.info(`findAll quotations with params ${companyId}`);
-    return this.quotationsRepository.findAll(companyId);
+    return this.quotationsRepository.findAll(companyId, request_type);
   }
 
   // findOne(id: number) {
