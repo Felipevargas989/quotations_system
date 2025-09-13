@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Save, RotateCcw, ArrowLeft, Plus, Trash2, X } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import {
   getPaymentsByQuotationId,
   updatePaymentAmount,
@@ -13,6 +12,18 @@ import {
 } from "../hooks/useGoogleSheets";
 import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
+import {
+  createQuotation,
+  getQuotationById,
+  updateQuotation,
+} from "../services/quotations.service";
+import { createClient, getClients } from "../services/clients.service";
+import { ClientFormData } from "../types/clients.types";
+import {
+  EventType,
+  QuotationRequestType,
+  QuotationStatus,
+} from "../types/quotations.types";
 
 interface QuotationFormProps {
   quotation?: any;
@@ -20,6 +31,7 @@ interface QuotationFormProps {
   isFromRequirement?: boolean;
 }
 
+// TODO: use already defined types
 interface SelectedService {
   codigo: string;
   nombre: string;
@@ -36,6 +48,7 @@ interface ServiceBox {
   services: SelectedService[]; // Each box has its own services
 }
 
+// TODO: use already defined types
 interface SelectedFixedService {
   codigo: string;
   nombre: string;
@@ -53,14 +66,12 @@ export default function QuotationForm({
   onSave,
   isFromRequirement = false,
 }: QuotationFormProps) {
-  const { user, userRole, companyId } = useAuth();
+  const { user, userRole } = useAuth();
   const { products, loading: productsLoading } = useGoogleSheets();
   const { fixedServices, calculatePrice } = useGoogleSheetsFixed();
 
+  // TODO: add type
   const [formData, setFormData] = useState({
-    client_name: "",
-    client_email: "",
-    phone: "",
     event_type: "",
     event_date: "",
     people_count: 1,
@@ -73,7 +84,7 @@ export default function QuotationForm({
     value_per_person: 0,
     fixed_value: 0,
     client_id: "",
-    items: undefined as any,
+    items: [],
   });
 
   const [clients, setClients] = useState<any[]>([]);
@@ -97,7 +108,7 @@ export default function QuotationForm({
   const [subtotalBeforeDiscount, setSubtotalBeforeDiscount] = useState(0);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
-  const [clientFormData, setClientFormData] = useState({
+  const [clientFormData, setClientFormData] = useState<ClientFormData>({
     name: "",
     email: "",
     phone: "",
@@ -341,29 +352,11 @@ export default function QuotationForm({
 
   const loadItemsFromDatabase = async (quotationId: string) => {
     try {
-      console.log("🔄 Cargando items desde JSON para cotización:", quotationId);
-
-      const { data: quotationData, error } = await supabase
-        .from("quotations")
-        .select("items")
-        .eq("id", quotationId)
-        .eq("company_id", companyId)
-        .single();
-
-      if (error) {
-        console.error("❌ Error cargando items:", error);
-        return;
-      }
-
-      console.log("📊 Quotation data received:", quotationData);
-      console.log("📊 Items field:", quotationData?.items);
-      console.log("📊 Items type:", typeof quotationData?.items);
+      const { data: quotationData } = await getQuotationById(quotationId);
 
       if (quotationData?.items) {
-        console.log("✅ Items cargados desde JSON:", quotationData.items);
         loadExistingItemsFromJSON(quotationData.items);
       } else {
-        console.log("ℹ️ No hay items previos para esta cotización");
         // Limpiar servicios seleccionados si no hay items
         setSelectedFixedServices([]);
       }
@@ -554,16 +547,10 @@ export default function QuotationForm({
 
   const loadClients = async () => {
     try {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .order("name")
-        .eq("company_id", companyId);
+      const { data } = await getClients();
 
-      if (error) throw error;
-      setClients(data || []);
+      setClients(data);
     } catch (error) {
-      console.error("Error loading clients:", error);
       setClients([]);
     }
   };
@@ -575,9 +562,6 @@ export default function QuotationForm({
     if (selectedClient) {
       setFormData((prev) => ({
         ...prev,
-        client_name: selectedClient.name,
-        client_email: selectedClient.email || "",
-        phone: selectedClient.phone || "",
         client_id: clientId,
       }));
     }
@@ -604,13 +588,7 @@ export default function QuotationForm({
     setClientLoading(true);
 
     try {
-      const { data: newClient, error } = await supabase
-        .from("clients")
-        .insert([{ ...clientFormData, company_id: companyId }])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const { data: newClient } = await createClient(clientFormData);
 
       if (newClient) {
         // Add the new client to the local state immediately
@@ -838,22 +816,19 @@ export default function QuotationForm({
         })),
       };
 
-      console.log(
-        "💾 Saving items data structure:",
-        JSON.stringify(itemsData, null, 2),
-      );
-
       const quotationData = {
         ...formData,
+        event_type: formData.event_type as EventType,
+        event_date: new Date(formData.event_date),
+        request_type: formData.request_type as QuotationRequestType,
         value_per_person: Math.round(formData.value_per_person),
         fixed_value: Math.round(formData.fixed_value),
         subtotal_amount: Math.round(formData.subtotal_amount),
         total_amount: Math.round(formData.total_amount),
         items: itemsData,
-        user_id: user.id,
         quotation_status: isFromRequirement
-          ? "enviada"
-          : formData.quotation_status,
+          ? QuotationStatus.ENVIADA
+          : (formData.quotation_status as QuotationStatus),
       };
 
       if (quotation?.id || isFromRequirement) {
@@ -865,11 +840,7 @@ export default function QuotationForm({
           );
         }
 
-        const { error } = await supabase
-          .from("quotations")
-          .update(quotationData)
-          .eq("id", targetId)
-          .eq("company_id", companyId);
+        const { error } = await updateQuotation(quotationData, targetId);
 
         if (error) throw error;
 
@@ -880,9 +851,7 @@ export default function QuotationForm({
         }
       } else {
         // Crear nueva cotización
-        const { error } = await supabase
-          .from("quotations")
-          .insert([{ ...quotationData, company_id: companyId }]);
+        const { error } = await createQuotation(quotationData);
 
         if (error) throw error;
       }
@@ -894,7 +863,6 @@ export default function QuotationForm({
       );
       if (onSave) onSave();
     } catch (error) {
-      console.error("Error saving quotation:", error);
       alert(
         `Error al guardar la cotización: ${error instanceof Error ? error.message : "Error desconocido"}`,
       );
@@ -917,9 +885,6 @@ export default function QuotationForm({
     setDiscountPercentage(0);
     setIsEditingExisting(false);
     setFormData({
-      client_name: "",
-      client_email: "",
-      phone: "",
       event_type: "",
       event_date: "",
       people_count: 1,
@@ -932,7 +897,7 @@ export default function QuotationForm({
       value_per_person: 0,
       fixed_value: 0,
       client_id: "",
-      items: undefined,
+      items: [],
     });
   };
 
@@ -1349,7 +1314,7 @@ export default function QuotationForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Nombre del Cliente
@@ -1389,7 +1354,7 @@ export default function QuotationForm({
                   placeholder="Seleccione un cliente"
                 />
               </div>
-            </div>
+            </div> */}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
               <div>

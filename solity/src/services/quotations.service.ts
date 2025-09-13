@@ -37,16 +37,18 @@ export const updateQuotation = async (
   quotation: QuotationFormDataUpdate,
   quotationId: string,
 ) => {
-  // const { data, error } = await supabase
-  //   .from("quotations")
-  //   .update(quotation)
-  //   .eq("id", quotationId)
-  //   .select()
-  //   .single();
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,
     "PATCH",
     quotation,
+  );
+  return { data: response as Quotation, error: response.error };
+};
+
+export const getQuotationById = async (quotationId: string) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}`,
+    "GET",
   );
   return { data: response as Quotation, error: response.error };
 };

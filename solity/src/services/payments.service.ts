@@ -1,4 +1,6 @@
+import { API_ROUTES } from "../constants/api.routes";
 import { supabase } from "../lib/supabase";
+import { apiRequest } from "./api";
 import { deletePaymentTransactionsByPaymentId } from "./paymentTransactions.service";
 
 export const getPayments = async () => {
@@ -33,13 +35,10 @@ export const getPayments = async () => {
 
 // Get payments for a specific quotation
 export const getPaymentsByQuotationId = async (quotationId: string) => {
-  const { data, error } = await supabase
-    .from("payments")
-    .select("*")
-    .eq("quotation_id", quotationId)
-    .order("due_date", { ascending: false });
-
-  return { data, error };
+  const response = await apiRequest(`${API_ROUTES.PAYMENTS}`, "GET", {
+    quotationId,
+  });
+  return { data: response };
 };
 
 // Update payment amount

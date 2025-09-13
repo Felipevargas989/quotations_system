@@ -2,6 +2,8 @@
  * Validation utility functions for form validation
  */
 
+import { ClientFormData } from "../types/clients.types";
+
 /**
  * Validates email format
  * @param email - The email to validate
@@ -69,19 +71,13 @@ export const validateClientForm = (formData: {
  * @param formData - Object containing name, email, phone, contact_person, and client_type fields
  * @returns Object with validation results and error messages
  */
-export const validateCompleteClientForm = (formData: {
-  name: string;
-  email: string;
-  phone: string;
-  contact_person: string;
-  client_type: string;
-}) => {
+export const validateCompleteClientForm = (formData: ClientFormData) => {
   const nameError = !formData.name.trim()
     ? "Nombre del cliente es requerido"
     : "";
-  const emailError = validateEmail(formData.email);
-  const phoneError = validatePhone(formData.phone);
-  const contactPersonError = !formData.contact_person.trim()
+  const emailError = validateEmail(formData.email || "");
+  const phoneError = validatePhone(formData.phone || "");
+  const contactPersonError = !formData.contact_person?.trim()
     ? "Persona de contacto es requerida"
     : "";
 

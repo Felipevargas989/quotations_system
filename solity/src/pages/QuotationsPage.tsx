@@ -1,42 +1,26 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
 import QuotationForm from "../components/QuotationForm";
 import QuotationViewer from "../components/QuotationViewer";
 import { ROLE_GROUPS } from "../constants/permissions";
 import PaymentPlanEditor from "../components/PaymentPlanEditor";
-
-interface Quotation {
-  id: string;
-  quotation_number: string;
-  client_name: string;
-  client_email: string;
-  phone: string;
-  event_type: string;
-  event_date: string;
-  people_count: number;
-  subtotal_amount: number;
-  discount_percentage?: number;
-  total_amount: number;
-  quotation_status:
-    | "solicitada"
-    | "enviada"
-    | "en_negociacion"
-    | "aceptada"
-    | "rechazada";
-  request_type: string;
-  created_at: string;
-  observations: string;
-  value_per_person: number;
-  fixed_value: number;
-  user_id?: string;
-  client_id?: string;
-  items?: any; // JSON field containing variable_services and fixed_services
-}
+import {
+  Quotation,
+  QuotationFormData,
+  QuotationRequestType,
+  QuotationStatus,
+} from "../types/quotations.types";
+import {
+  deleteQuotation,
+  getQuotations,
+  updateQuotation,
+} from "../services/quotations.service";
+import { getPaymentsByQuotationId } from "../services/payments.service";
 
 export default function QuotationsPage() {
-  const { user, userRole, companyId } = useAuth();
+  const { user, userRole } = useAuth();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [requirements, setRequirements] = useState<Quotation[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -79,20 +63,10 @@ export default function QuotationsPage() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from("quotations")
-        .select("*")
-        .or(`user_id.eq.${user.id},request_type.eq.cotizacion`)
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION);
 
       // Filtrar solo cotizaciones (no requerimientos)
-      const quotationsOnly = (data || []).filter(
-        (item) => item.request_type === "cotizacion" || !item.request_type,
-      );
-      setQuotations(quotationsOnly);
+      setQuotations(data);
     } catch (error) {
       console.error("Error fetching quotations:", error);
     } finally {
@@ -109,16 +83,8 @@ export default function QuotationsPage() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from("quotations")
-        .select("*")
-        .eq("quotation_status", "solicitada")
-        .eq("request_type", "requerimiento")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setRequirements(data || []);
+      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO);
+      setRequirements(data);
     } catch (error) {
       console.error("Error fetching requirements:", error);
     }
@@ -144,18 +110,7 @@ export default function QuotationsPage() {
 
     try {
       // Delete the quotation (items are now stored in JSON field)
-      const { error: quotationError } = await supabase
-        .from("quotations")
-        .delete()
-        .eq("id", quotationId);
-
-      if (quotationError) {
-        console.error("Error deleting quotation:", quotationError);
-        throw new Error("Error al eliminar la cotización");
-      }
-
-      // Update local state
-      setQuotations((prev) => prev.filter((q) => q.id !== quotationId));
+      await deleteQuotation(quotationId);
 
       alert("✅ Cotización eliminada exitosamente");
       await fetchQuotations();
@@ -168,71 +123,70 @@ export default function QuotationsPage() {
     }
   };
 
-  const handleCreateQuotationFromRequirement = async (
-    requirementId: string,
-  ) => {
-    try {
-      if (!user?.id) {
-        alert("Error: Usuario no autenticado");
-        return;
-      }
+  // const handleCreateQuotationFromRequirement = async (
+  //   requirement: Quotation,
+  // ) => {
+  //   try {
+  //     if (!user?.id) {
+  //       alert("Error: Usuario no autenticado");
+  //       return;
+  //     }
 
-      // Obtener los datos del requerimiento
-      const { data: requirement, error } = await supabase
-        .from("quotations")
-        .select("*")
-        .eq("id", requirementId)
-        .eq("company_id", companyId)
-        .single();
+  //     // // Obtener los datos del requerimiento
+  //     // const { data: requirement, error } = await supabase
+  //     //   .from("quotations")
+  //     //   .select("*")
+  //     //   .eq("id", requirementId)
+  //     //   .eq("company_id", companyId)
+  //     //   .single();
 
-      if (error) throw error;
+  //     // if (error) throw error;
 
-      console.log(
-        "📋 Requerimiento cargado para editar:",
-        requirement.quotation_number,
-        "ID:",
-        requirement.id,
-      );
+  //     // console.log(
+  //     //   "📋 Requerimiento cargado para editar:",
+  //     //   requirement.quotation_number,
+  //     //   "ID:",
+  //     //   requirement.id,
+  //     // );
 
-      // Crear cotización prellenada con datos del requerimiento
-      const quotationData = {
-        id: requirement.id, // CRÍTICO: Incluir el ID para que sea actualización
-        quotation_number: requirement.quotation_number, // Mantener el mismo número
-        client_name: requirement.client_name,
-        client_email: requirement.client_email || "",
-        phone: requirement.phone || "",
-        event_type: requirement.event_type || "",
-        event_date: requirement.event_date || "",
-        people_count: requirement.people_count || 1,
-        subtotal_amount: 0,
-        discount_percentage: 0,
-        total_amount: 0,
-        created_at: requirement.created_at || new Date().toISOString(),
-        quotation_status: "enviada", // Estado inicial "enviada"
-        request_type: "cotizacion",
-        observations: requirement.observations || "", // Prellenar observaciones
-        value_per_person: 0,
-        fixed_value: 0,
-        user_id: user?.id || "",
-        client_id: requirement.client_id || "",
-      };
+  //     // Crear cotización prellenada con datos del requerimiento
+  //     const quotationData: QuotationFormData = {
+  //       // id: requirement.id, // CRÍTICO: Incluir el ID para que sea actualización
+  //       // quotation_number: requirement.quotation_number, // Mantener el mismo número
+  //       event_type: requirement.event_type || "",
+  //       event_date: requirement.event_date || "",
+  //       people_count: requirement.people_count || 1,
+  //       // subtotal_amount: 0,
+  //       // discount_percentage: 0,
+  //       total_amount: 0,
+  //       created_at: requirement.created_at || new Date().toISOString(),
+  //       quotation_status: QuotationStatus.ENVIADA, // Estado inicial "enviada"
+  //       request_type: QuotationRequestType.COTIZACION,
+  //       observations: requirement.observations || "", // Prellenar observaciones
+  //       value_per_person: 0,
+  //       fixed_value: 0,
+  //       // user_id: user?.id || "",
+  //       client_id: requirement.client_id || "",
+  //     };
 
-      setEditingQuotation(quotationData as Quotation);
-      setCreatingFromRequirement(requirementId);
-      setShowForm(true);
-    } catch (error) {
-      console.error("Error creating quotation from requirement:", error);
-      alert("Error al crear cotización desde requerimiento");
-    }
-  };
+  //     setEditingQuotation(quotationData as Quotation);
+  //     setCreatingFromRequirement(requirementId);
+  //     setShowForm(true);
+  //   } catch (error) {
+  //     console.error("Error creating quotation from requirement:", error);
+  //     alert("Error al crear cotización desde requerimiento");
+  //   }
+  // };
 
   const filteredQuotations = quotations.filter((quotation) => {
-    const matchesSearch =
-      quotation.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quotation.quotation_number.toString() === searchTerm.toLowerCase();
+    // TODO: add filter by client_name
+    // const matchesSearch =
+    //   quotation.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //   quotation.quotation_number.toString() === searchTerm.toLowerCase();
     const matchesStatus =
       statusFilter === "all" || quotation.quotation_status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // return matchesSearch && matchesStatus;
+    return matchesStatus;
   });
 
   const getStatusColor = (status: string) => {
@@ -258,18 +212,23 @@ export default function QuotationsPage() {
         const quotation = quotations.find((q) => q.id === quotationId);
         if (quotation) {
           // Check if payment plan already exists
-          const { data: existingPayments } = await supabase
-            .from("payments")
-            .select("id")
-            .eq("quotation_id", quotationId);
+          // const { data: existingPayments } = await supabase
+          //   .from("payments")
+          //   .select("id")
+          //   .eq("quotation_id", quotationId);
+          const { data: existingPayments } =
+            await getPaymentsByQuotationId(quotationId);
+
+          console.log("existingPayments", existingPayments);
 
           if (existingPayments && existingPayments.length > 0) {
+            //
             // Payment plan already exists, just update the status
             const { data, error } = await supabase
               .from("quotations")
               .update({ quotation_status: "aceptada" })
               .eq("id", quotationId)
-              .eq("company_id", companyId)
+              // .eq("company_id", companyId)
               .select();
 
             if (error) {
@@ -310,37 +269,19 @@ export default function QuotationsPage() {
       }
 
       // For other statuses or after payment plan is accepted, update the status
-      const { data, error } = await supabase
-        .from("quotations")
-        .update({ quotation_status: newStatus })
-        .eq("id", quotationId)
-        .eq("company_id", companyId)
-        .select();
+      const { data, error } = await updateQuotation(
+        { quotation_status: newStatus as QuotationStatus },
+        quotationId,
+      );
 
       if (error) {
         throw new Error(`Error actualizando cotización: ${error.message}`);
       }
 
-      if (!data || data.length === 0) {
-        throw new Error("No se encontró la cotización para actualizar");
-      }
-
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === quotationId
-            ? {
-                ...q,
-                quotation_status: newStatus as Quotation["quotation_status"],
-              }
-            : q,
-        ),
-      );
-
       alert(`✅ Estado actualizado correctamente a: ${newStatus}`);
       await fetchQuotations();
       await fetchRequirements();
     } catch (error) {
-      console.error("Error updating quotation status:", error);
       alert(
         `Error al actualizar el estado: ${error instanceof Error ? error.message : "Error desconocido"}`,
       );
@@ -404,8 +345,8 @@ export default function QuotationsPage() {
       const { error: statusError } = await supabase
         .from("quotations")
         .update({ quotation_status: "aceptada" })
-        .eq("id", quotationForPaymentPlan.id)
-        .eq("company_id", companyId);
+        .eq("id", quotationForPaymentPlan.id);
+      // .eq("company_id", companyId);
 
       if (statusError) throw statusError;
 
@@ -513,7 +454,7 @@ export default function QuotationsPage() {
         </button>
       </div>
 
-      {showViewer && viewingQuotation && (
+      {/* {showViewer && viewingQuotation && (
         <QuotationViewer
           quotation={viewingQuotation}
           onClose={() => {
@@ -529,7 +470,7 @@ export default function QuotationsPage() {
           onSave={handlePaymentPlanSave}
           onCancel={handlePaymentPlanCancel}
         />
-      )}
+      )} */}
 
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -610,7 +551,8 @@ export default function QuotationsPage() {
                     {quotation.quotation_number}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quotation.client_name}
+                    {/* {quotation.client_name} */}
+                    CLIENT_NAME_HERE
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
@@ -670,7 +612,7 @@ export default function QuotationsPage() {
                           onClick={() =>
                             handleDeleteQuotation(
                               quotation.id,
-                              quotation.quotation_number,
+                              quotation.quotation_number.toString(),
                             )
                           }
                           className="text-red-600 hover:text-red-900"
@@ -699,7 +641,7 @@ export default function QuotationsPage() {
           </p>
         </div>
         <RequirementsForQuotations
-          onCreateQuotation={handleCreateQuotationFromRequirement}
+          // onCreateQuotation={handleCreateQuotationFromRequirement}
           requirements={requirements}
         />
       </div>
@@ -709,10 +651,10 @@ export default function QuotationsPage() {
 
 // Componente para mostrar requerimientos que pueden convertirse en cotizaciones
 function RequirementsForQuotations({
-  onCreateQuotation,
+  // onCreateQuotation,
   requirements,
 }: {
-  onCreateQuotation: (id: string) => void;
+  // onCreateQuotation: (id: string) => void;
   requirements: Quotation[];
 }) {
   return (
@@ -754,7 +696,8 @@ function RequirementsForQuotations({
                   {requirement.quotation_number}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {requirement.client_name}
+                  {/* {requirement.client_name} */}
+                  CLIENT_NAME_HERE
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {requirement.event_type || "No especificado"}
@@ -769,7 +712,7 @@ function RequirementsForQuotations({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
-                    onClick={() => onCreateQuotation(requirement.id)}
+                    // onClick={() => onCreateQuotation(requirement.id)}
                     className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
                   >
                     <PlusCircle size={14} />

@@ -18,30 +18,65 @@ export enum PaymentPlanType {
   CUSTOM = "custom",
 }
 
+export type BaseService = {
+  codigo: string;
+  nombre: string;
+  precio: number;
+  quantity: number;
+  categoria: string;
+};
+
+export type FixedService = BaseService & {
+  max_precio: number;
+  min_precio: number;
+  tipo_calculo: string;
+  precio_por_persona: number;
+};
+
+export type VariableService = {
+  category: string;
+  items: BaseService[];
+};
+
+export type QuotationItem = {
+  fixed_services: FixedService[];
+  variable_services: VariableService[];
+};
+
+// Define enums to define the quotation event type
+export enum EventType {
+  ALMUERZO_O_CENA = "Almuerzo o Cena",
+  PASEO_DE_CURSO = "Paseo de Curso",
+  USO_SALONES = "Uso salones",
+  ESTADIA_Y_ALIMENTACION = "Estadía y Alimentación",
+  PASEO_FIN_DE_ANIO = "Paseo fin de año",
+  CELEBRACIONES = "Celebraciones",
+  MATRIMONIOS = "Matrimonios",
+  GRADUACION = "Graduación",
+}
+
 export interface Quotation {
   id: string;
   quotation_number: number;
-  event_type: string;
-  event_date: string;
-  people_count: number;
-  subtotal_amount?: number;
-  discount_percentage?: number;
+  user_id: string;
   total_amount: number;
+  people_count: number;
   quotation_status: QuotationStatus;
-  request_type: QuotationRequestType;
-  created_at: string;
-  updated_at: string;
   observations?: string;
-  value_per_person?: number;
-  fixed_value?: number;
-  user_id?: string;
-  // TODO: this should be required
-  client_id?: string;
-  responsible_user?: string;
-  items?: any; // JSON field containing variable_services and fixed_services
-  requires_invoice?: boolean;
-  has_contract?: boolean;
-  payment_plan_type?: PaymentPlanType;
+  created_at: Date;
+  client_id: string;
+  event_type: EventType;
+  event_date: Date;
+  value_per_person: number;
+  fixed_value: number;
+  request_type: QuotationRequestType;
+  updated_at: Date;
+  requires_invoice: boolean;
+  has_contract: boolean;
+  payment_plan_type: PaymentPlanType;
+  discount_percentage: number;
+  subtotal_amount: number;
+  items: QuotationItem[];
   company_id: number;
 }
 
@@ -57,14 +92,4 @@ export interface QuotationFormData
     | "quotation_status"
   > {}
 
-export interface QuotationFormDataUpdate
-  extends Omit<
-    QuotationFormData,
-    | "company_id"
-    | "quotation_number"
-    | "quotation_status"
-    | "request_type"
-    | "user_id"
-    | "created_at"
-    | "updated_at"
-  > {}
+export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
