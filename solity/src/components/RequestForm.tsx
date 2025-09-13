@@ -73,7 +73,17 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   useEffect(() => {
     loadClients();
     if (request) {
-      setFormData(request);
+      const requestData: QuotationFormData = {
+        request_type: request.request_type,
+        quotation_status: request.quotation_status,
+        event_type: request.event_type,
+        event_date: request.event_date,
+        people_count: request.people_count,
+        observations: request.observations,
+        client_id: request.client_id,
+      };
+
+      setFormData(requestData);
       // If editing and has client_id, set as existing client
       if (request.client_id) {
         setIsExistingClient(true);
@@ -184,6 +194,9 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
     try {
       if (request?.id) {
+        console.log("formData", formData);
+        console.log("request.id", request.id);
+
         const { error } = await updateQuotation(formData, request.id);
 
         if (error) throw error;
