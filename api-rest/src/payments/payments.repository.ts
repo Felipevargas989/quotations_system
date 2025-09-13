@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Payment } from './entities/payment.entity';
+import { PaymentWithTransactionsAndQuotation } from './interfaces/payments.types';
 
 @Injectable()
 export class PaymentsRepository {
@@ -32,6 +34,44 @@ export class PaymentsRepository {
       )
       .eq('quotations.company_id', companyId)
       .eq('quotation_id', quotationId);
+  }
+
+  async findAllPaymentsWithTransactions(companyId: Company['id']): Promise<{
+    data: PaymentWithTransactionsAndQuotation[];
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(
+      `findAllPaymentsWithTransactions with companyId ${companyId}`,
+    );
+    const { data, error } = await this.supabase.client
+      .from('payments')
+      .select(
+        `
+      *,
+      quotations!inner (
+        id,
+        company_id,
+        quotation_number,
+        total_amount,
+        requires_invoice,
+        has_contract
+      ),
+      payment_transactions (
+        id,
+        amount,
+        transaction_date,
+        created_at
+      )
+    `,
+      )
+      .eq('quotations.company_id', companyId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      this.logger.error(error);
+      return { data: [], error };
+    }
+    return { data: data as PaymentWithTransactionsAndQuotation[], error };
   }
 
   async createPaymentPlan(payments: Payment[]) {

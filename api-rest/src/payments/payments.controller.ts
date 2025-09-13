@@ -36,6 +36,14 @@ export class PaymentsController {
     );
   }
 
+  @Get('transactions')
+  findAllPaymentsWithTransactions(@CurrentUser() user: User) {
+    this.logger.info(`GET /payments/transactions with user ${user.id}`);
+    return this.paymentsService.findAllPaymentsWithTransactions(
+      user.company_id,
+    );
+  }
+
   // @Get(':id')
   // findOne(@Param('id') id: string) {
   //   return this.paymentsService.findOne(+id);

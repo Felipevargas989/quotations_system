@@ -18,3 +18,15 @@ export class Payment {
   // TODO: check if necessary now bcs the payment_transactino contains that info
   payment_method?: string;
 }
+export class PaymentTransaction {
+  id: string;
+  payment_id: string;
+  quotation_id: string;
+  amount: number;
+  payment_method: string;
+  transaction_date: string;
+  notes?: string;
+  created_by: string;
+  created_at: string;
+  receipt_photo_url?: string;
+}
