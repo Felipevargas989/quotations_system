@@ -33,7 +33,7 @@ import {
 import { ROLE_GROUPS } from "../constants/permissions";
 
 export default function PaymentsPage() {
-  const { userRole, companyId } = useAuth();
+  const { userRole } = useAuth();
   const [payments, setPayments] = useState<PaymentWithTransactions[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -43,8 +43,8 @@ export default function PaymentsPage() {
     has_contract: false,
     notes: "",
   });
-  const [showPlanEditor, setShowPlanEditor] = useState(false);
-  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  // const [showPlanEditor, setShowPlanEditor] = useState(false);
+  // const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentWithTransactions | null>(null);
@@ -83,10 +83,9 @@ export default function PaymentsPage() {
   }, [userRole]);
 
   const loadPayments = async () => {
-    if (!companyId) return;
     try {
-      const paymentsData = await getPaymentsWithTransactions(companyId);
-      setPayments(paymentsData || []);
+      const { data: paymentsData } = await getPaymentsWithTransactions();
+      setPayments(paymentsData);
     } catch (error) {
       console.error("Error loading payments:", error);
       setPayments([]);
@@ -96,113 +95,112 @@ export default function PaymentsPage() {
   };
 
   const handleManualUpdateOverduePayments = async () => {
-    if (!companyId) return;
+    alert("Not implemented yet");
+    //   setUpdatingPayments(true);
+    //   setLastUpdateResult(null);
 
-    setUpdatingPayments(true);
-    setLastUpdateResult(null);
+    //   try {
+    //     const result = await checkAndUpdateOverduePayments(companyId);
 
-    try {
-      const result = await checkAndUpdateOverduePayments(companyId);
+    //     if (result?.success) {
+    //       setLastUpdateResult({
+    //         success: true,
+    //         updatedCount: result.updatedCount || 0,
+    //         message:
+    //           result.updatedCount > 0
+    //             ? `✅ Se actualizaron ${result.updatedCount} pagos vencidos`
+    //             : "✅ No se encontraron pagos vencidos",
+    //       });
 
-      if (result?.success) {
-        setLastUpdateResult({
-          success: true,
-          updatedCount: result.updatedCount || 0,
-          message:
-            result.updatedCount > 0
-              ? `✅ Se actualizaron ${result.updatedCount} pagos vencidos`
-              : "✅ No se encontraron pagos vencidos",
-        });
+    //       // Reload payments to show updated statuses
+    //       await loadPayments();
+    //     } else {
+    //       setLastUpdateResult({
+    //         success: false,
+    //         updatedCount: 0,
+    //         message: "❌ Error al actualizar pagos vencidos",
+    //       });
+    //     }
+    //   } catch (error) {
+    //     console.error("Error in manual update:", error);
+    //     setLastUpdateResult({
+    //       success: false,
+    //       updatedCount: 0,
+    //       message: "❌ Error inesperado al actualizar pagos",
+    //     });
+    //   } finally {
+    //     setUpdatingPayments(false);
+    //   }
+    // };
 
-        // Reload payments to show updated statuses
-        await loadPayments();
-      } else {
-        setLastUpdateResult({
-          success: false,
-          updatedCount: 0,
-          message: "❌ Error al actualizar pagos vencidos",
-        });
-      }
-    } catch (error) {
-      console.error("Error in manual update:", error);
-      setLastUpdateResult({
-        success: false,
-        updatedCount: 0,
-        message: "❌ Error inesperado al actualizar pagos",
-      });
-    } finally {
-      setUpdatingPayments(false);
-    }
+    // const createCustomPaymentPlan = async (
+    //   quotationId: string,
+    //   totalAmount: number,
+    //   eventDate: string,
+    //   customPlan: any[],
+    // ) => {
+    //   try {
+    //     // Eliminar pagos existentes
+    //     await supabase.from("payments").delete().eq("quotation_id", quotationId);
+
+    //     const eventDateObj = new Date(eventDate);
+    //     const today = new Date();
+
+    //     const paymentsToCreate = customPlan.map((payment, index) => {
+    //       let dueDate;
+
+    //       if (
+    //         payment.payment_type === "Pago Único" ||
+    //         payment.payment_type === "Abono de Reserva"
+    //       ) {
+    //         dueDate = today;
+    //       } else {
+    //         dueDate = addDays(eventDateObj, -payment.days_before_event);
+    //       }
+
+    //       return {
+    //         quotation_id: quotationId,
+    //         payment_number: index + 1,
+    //         amount: Math.round((totalAmount * payment.percentage) / 100),
+    //         due_date: format(dueDate, "yyyy-MM-dd"),
+    //         status: "pendiente",
+    //         payment_type: payment.payment_type,
+    //         notes: payment.notes || "",
+    //       };
+    //     });
+
+    //     const { error } = await supabase
+    //       .from("payments")
+    //       .insert(paymentsToCreate);
+
+    //     if (error) throw error;
+
+    //     await loadPayments();
+    //     return { success: true };
+    //   } catch (error) {
+    //     console.error("Error creating custom payment plan:", error);
+    //     return { success: false, error };
+    //   }
   };
 
-  const createCustomPaymentPlan = async (
-    quotationId: string,
-    totalAmount: number,
-    eventDate: string,
-    customPlan: any[],
-  ) => {
-    try {
-      // Eliminar pagos existentes
-      await supabase.from("payments").delete().eq("quotation_id", quotationId);
-
-      const eventDateObj = new Date(eventDate);
-      const today = new Date();
-
-      const paymentsToCreate = customPlan.map((payment, index) => {
-        let dueDate;
-
-        if (
-          payment.payment_type === "Pago Único" ||
-          payment.payment_type === "Abono de Reserva"
-        ) {
-          dueDate = today;
-        } else {
-          dueDate = addDays(eventDateObj, -payment.days_before_event);
-        }
-
-        return {
-          quotation_id: quotationId,
-          payment_number: index + 1,
-          amount: Math.round((totalAmount * payment.percentage) / 100),
-          due_date: format(dueDate, "yyyy-MM-dd"),
-          status: "pendiente",
-          payment_type: payment.payment_type,
-          notes: payment.notes || "",
-        };
-      });
-
-      const { error } = await supabase
-        .from("payments")
-        .insert(paymentsToCreate);
-
-      if (error) throw error;
-
-      await loadPayments();
-      return { success: true };
-    } catch (error) {
-      console.error("Error creating custom payment plan:", error);
-      return { success: false, error };
-    }
-  };
-
-  const handleStatusChange = (
-    payment: PaymentWithTransactions,
-    newStatus: string,
-  ) => {
-    if (newStatus === "pagado") {
-      // Abrir modal para capturar fecha y medio de pago
-      setSelectedPayment(payment);
-      setPaymentForm({
-        paid_date: new Date().toISOString().split("T")[0],
-        payment_method: "",
-        notes: payment.notes || "",
-      });
-      setShowPaymentModal(true);
-    } else {
-      // Cambiar directamente a pendiente o vencido
-      updatePaymentStatus(payment.id, newStatus);
-    }
-  };
+  // const handleStatusChange = (
+  //   payment: PaymentWithTransactions,
+  //   newStatus: string,
+  // ) => {
+  //   if (newStatus === "pagado") {
+  //     // Abrir modal para capturar fecha y medio de pago
+  //     setSelectedPayment(payment);
+  //     setPaymentForm({
+  //       paid_date: new Date().toISOString().split("T")[0],
+  //       payment_method: "",
+  //       notes: payment.notes || "",
+  //     });
+  //     setShowPaymentModal(true);
+  //   } else {
+  //     // Cambiar directamente a pendiente o vencido
+  //     updatePaymentStatus(payment.id, newStatus);
+  //   }
+  // };
 
   const updatePaymentStatus = async (
     paymentId: string,
@@ -252,8 +250,7 @@ export default function PaymentsPage() {
           has_contract: editForm.has_contract,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", quotationId)
-        .eq("company_id", companyId);
+        .eq("id", quotationId);
 
       if (error) throw error;
 
@@ -545,7 +542,7 @@ export default function PaymentsPage() {
       )}
 
       {/* Editor de Plan de Pagos */}
-      {showPlanEditor && selectedQuotation && (
+      {/* {showPlanEditor && selectedQuotation && (
         <PaymentPlanEditor
           quotation={selectedQuotation}
           onSave={async (customPlan) => {
@@ -569,7 +566,7 @@ export default function PaymentsPage() {
             setSelectedQuotation(null);
           }}
         />
-      )}
+      )} */}
 
       {/* Modal para capturar fecha y medio de pago */}
       {showPaymentModal && selectedPayment && (

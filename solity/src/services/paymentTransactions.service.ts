@@ -1,4 +1,6 @@
+import { API_ROUTES } from "../constants/api.routes";
 import { supabase } from "../lib/supabase";
+import { apiRequest } from "./api";
 
 export interface PaymentTransaction {
   id: number;
@@ -150,74 +152,16 @@ export const getPaymentTransactions = async (
   }
 };
 
-export const getPaymentsWithTransactions = async (
-  companyId: number,
-): Promise<PaymentWithTransactions[]> => {
+export const getPaymentsWithTransactions = async (): Promise<{
+  data: PaymentWithTransactions[];
+}> => {
   try {
-    const { data: payments, error } = await supabase
-      .from("payments")
-      .select(
-        `
-        *,
-        quotations (
-          quotation_number,
-          client_name,
-          total_amount,
-          requires_invoice,
-          has_contract
-        )
-      `,
-      )
-      .order("created_at", { ascending: false })
-      .eq("company_id", companyId);
-
-    if (error) throw error;
-
-    // Get all payment transactions
-    const { data: allTransactions, error: transactionsError } = await supabase
-      .from("payment_transactions")
-      .select("*")
-      .order("transaction_date", { ascending: false });
-
-    if (transactionsError) throw transactionsError;
-
-    // Group transactions by payment_id
-    const transactionsByPayment =
-      allTransactions?.reduce(
-        (acc, transaction) => {
-          if (!acc[transaction.payment_id]) {
-            acc[transaction.payment_id] = [];
-          }
-          acc[transaction.payment_id].push(transaction);
-          return acc;
-        },
-        {} as Record<string, any[]>,
-      ) || {};
-
-    // Calculate paid_amount and other metrics for each payment
-    const paymentsWithTransactions =
-      payments?.map((payment) => {
-        const transactions = transactionsByPayment[payment.id] || [];
-        const paid_amount = transactions.reduce(
-          (sum: number, t: any) => sum + t.amount,
-          0,
-        );
-        const payment_count = transactions.length;
-        const last_payment_date =
-          transactions.length > 0 ? transactions[0].transaction_date : null;
-
-        return {
-          ...payment,
-          transactions,
-          paid_amount,
-          payment_count,
-          last_payment_date,
-        };
-      }) || [];
-
-    return paymentsWithTransactions;
+    const response = await apiRequest(
+      `${API_ROUTES.PAYMENTS_TRANSACTIONS}`,
+      "GET",
+    );
+    return { data: response };
   } catch (error) {
-    console.error("Error fetching payments with transactions:", error);
     throw error;
   }
 };
