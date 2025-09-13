@@ -1,0 +1,229 @@
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase.ts";
+import { UserRole } from "../constants/permissions";
+
+interface AuthContextType {
+  user: User | null;
+  userRole: UserRole | null;
+  companyId: number | null;
+  loading: boolean;
+  signIn: (
+    email: string,
+    password: string,
+  ) => Promise<{ error?: any; userRole?: string; companyId?: number }>;
+  signUp: (email: string, password: string) => Promise<any>;
+  signOut: () => Promise<void>;
+  refreshSession: () => Promise<any>;
+  loadUserProfile: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadUserProfile = async () => {
+    if (!user) {
+      setUserRole(null);
+      setCompanyId(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("role, company_id")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (error) {
+      } else if (data && data.length > 0) {
+        setUserRole(data[0].role as UserRole);
+        setCompanyId(data[0].company_id);
+      } else {
+        setCompanyId(null);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Get initial session with better error handling
+    const getInitialSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+        if (error) {
+          // Clear invalid refresh tokens
+          if (
+            error.message &&
+            error.message.includes("Invalid Refresh Token")
+          ) {
+            await supabase.auth.signOut();
+          }
+        }
+        setUser(session?.user ?? null);
+      } catch (error) {
+        // Clear invalid refresh tokens
+        if (
+          error instanceof Error &&
+          error.message.includes("Invalid Refresh Token")
+        ) {
+          await supabase.auth.signOut();
+        }
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load user profile whenever user changes
+  useEffect(() => {
+    loadUserProfile();
+  }, [user]);
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      // Check for refresh token errors
+      if (
+        result.error &&
+        result.error.message &&
+        result.error.message.includes("Invalid Refresh Token")
+      ) {
+        await supabase.auth.signOut();
+      }
+
+      // If sign in was successful, get the user's role and company_id
+      if (result.data?.user && !result.error) {
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from("user_profiles")
+            .select("role, company_id")
+            .eq("user_id", result.data.user.id)
+            .limit(1);
+
+          if (profileError) {
+            return { ...result, userRole: "vendedor", companyId: null }; // Default role
+          } else if (profileData && profileData.length > 0) {
+            return {
+              ...result,
+              userRole: profileData[0].role,
+              companyId: profileData[0].company_id,
+            };
+          } else {
+            return { ...result, userRole: "vendedor", companyId: null }; // Default role
+          }
+        } catch (profileError) {
+          return { ...result, userRole: "vendedor", companyId: null }; // Default role
+        }
+      }
+
+      return result;
+    } catch (error) {
+      // Clear invalid refresh tokens
+      if (
+        error instanceof Error &&
+        error.message.includes("Invalid Refresh Token")
+      ) {
+        await supabase.auth.signOut();
+      }
+      return { error };
+    }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: undefined,
+        },
+      });
+      // Check for refresh token errors
+      if (
+        result.error &&
+        result.error.message &&
+        result.error.message.includes("Invalid Refresh Token")
+      ) {
+        await supabase.auth.signOut();
+      }
+      return result;
+    } catch (error) {
+      // Clear invalid refresh tokens
+      if (
+        error instanceof Error &&
+        error.message.includes("Invalid Refresh Token")
+      ) {
+        await supabase.auth.signOut();
+      }
+      return { error };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error in signOut:", error);
+    }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        return { error };
+      }
+      return { data, error: null };
+    } catch (error) {
+      return { error };
+    }
+  };
+
+  const value: AuthContextType = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    refreshSession,
+    userRole,
+    companyId,
+    loadUserProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
