@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
 import QuotationForm from "../components/QuotationForm";
 import QuotationViewer from "../components/QuotationViewer";
 import { ROLE_GROUPS } from "../constants/permissions";
@@ -127,60 +126,61 @@ export default function QuotationsPage() {
     }
   };
 
-  // const handleCreateQuotationFromRequirement = async (
-  //   requirement: Quotation,
-  // ) => {
-  //   try {
-  //     if (!user?.id) {
-  //       alert("Error: Usuario no autenticado");
-  //       return;
-  //     }
+  const handleCreateQuotationFromRequirement = async (
+    requirement: Quotation,
+  ) => {
+    alert("IMPLEMENT THIS");
+    //   try {
+    //     if (!user?.id) {
+    //       alert("Error: Usuario no autenticado");
+    //       return;
+    //     }
 
-  //     // // Obtener los datos del requerimiento
-  //     // const { data: requirement, error } = await supabase
-  //     //   .from("quotations")
-  //     //   .select("*")
-  //     //   .eq("id", requirementId)
-  //     //   .eq("company_id", companyId)
-  //     //   .single();
+    //     // // Obtener los datos del requerimiento
+    //     // const { data: requirement, error } = await supabase
+    //     //   .from("quotations")
+    //     //   .select("*")
+    //     //   .eq("id", requirementId)
+    //     //   .eq("company_id", companyId)
+    //     //   .single();
 
-  //     // if (error) throw error;
+    //     // if (error) throw error;
 
-  //     // console.log(
-  //     //   "📋 Requerimiento cargado para editar:",
-  //     //   requirement.quotation_number,
-  //     //   "ID:",
-  //     //   requirement.id,
-  //     // );
+    //     // console.log(
+    //     //   "📋 Requerimiento cargado para editar:",
+    //     //   requirement.quotation_number,
+    //     //   "ID:",
+    //     //   requirement.id,
+    //     // );
 
-  //     // Crear cotización prellenada con datos del requerimiento
-  //     const quotationData: QuotationFormData = {
-  //       // id: requirement.id, // CRÍTICO: Incluir el ID para que sea actualización
-  //       // quotation_number: requirement.quotation_number, // Mantener el mismo número
-  //       event_type: requirement.event_type || "",
-  //       event_date: requirement.event_date || "",
-  //       people_count: requirement.people_count || 1,
-  //       // subtotal_amount: 0,
-  //       // discount_percentage: 0,
-  //       total_amount: 0,
-  //       created_at: requirement.created_at || new Date().toISOString(),
-  //       quotation_status: QuotationStatus.ENVIADA, // Estado inicial "enviada"
-  //       request_type: QuotationRequestType.COTIZACION,
-  //       observations: requirement.observations || "", // Prellenar observaciones
-  //       value_per_person: 0,
-  //       fixed_value: 0,
-  //       // user_id: user?.id || "",
-  //       client_id: requirement.client_id || "",
-  //     };
+    //     // Crear cotización prellenada con datos del requerimiento
+    //     const quotationData: QuotationFormData = {
+    //       // id: requirement.id, // CRÍTICO: Incluir el ID para que sea actualización
+    //       // quotation_number: requirement.quotation_number, // Mantener el mismo número
+    //       event_type: requirement.event_type || "",
+    //       event_date: requirement.event_date || "",
+    //       people_count: requirement.people_count || 1,
+    //       // subtotal_amount: 0,
+    //       // discount_percentage: 0,
+    //       total_amount: 0,
+    //       created_at: requirement.created_at || new Date().toISOString(),
+    //       quotation_status: QuotationStatus.ENVIADA, // Estado inicial "enviada"
+    //       request_type: QuotationRequestType.COTIZACION,
+    //       observations: requirement.observations || "", // Prellenar observaciones
+    //       value_per_person: 0,
+    //       fixed_value: 0,
+    //       // user_id: user?.id || "",
+    //       client_id: requirement.client_id || "",
+    //     };
 
-  //     setEditingQuotation(quotationData as Quotation);
-  //     setCreatingFromRequirement(requirementId);
-  //     setShowForm(true);
-  //   } catch (error) {
-  //     console.error("Error creating quotation from requirement:", error);
-  //     alert("Error al crear cotización desde requerimiento");
-  //   }
-  // };
+    //     setEditingQuotation(quotationData as Quotation);
+    //     setCreatingFromRequirement(requirementId);
+    //     setShowForm(true);
+    //   } catch (error) {
+    //     console.error("Error creating quotation from requirement:", error);
+    //     alert("Error al crear cotización desde requerimiento");
+    //   }
+  };
 
   const filteredQuotations = quotations.filter((quotation) => {
     // TODO: add filter by client_name
@@ -216,14 +216,8 @@ export default function QuotationsPage() {
         const quotation = quotations.find((q) => q.id === quotationId);
         if (quotation) {
           // Check if payment plan already exists
-          // const { data: existingPayments } = await supabase
-          //   .from("payments")
-          //   .select("id")
-          //   .eq("quotation_id", quotationId);
           const { data: existingPayments } =
             await getPaymentsByQuotationId(quotationId);
-
-          console.log("existingPayments", existingPayments);
 
           if (existingPayments && existingPayments.length > 0) {
             //
@@ -605,7 +599,7 @@ export default function QuotationsPage() {
           </p>
         </div>
         <RequirementsForQuotations
-          // onCreateQuotation={handleCreateQuotationFromRequirement}
+          onCreateQuotation={handleCreateQuotationFromRequirement}
           requirements={requirements}
         />
       </div>
@@ -615,10 +609,10 @@ export default function QuotationsPage() {
 
 // Componente para mostrar requerimientos que pueden convertirse en cotizaciones
 function RequirementsForQuotations({
-  // onCreateQuotation,
+  onCreateQuotation,
   requirements,
 }: {
-  // onCreateQuotation: (id: string) => void;
+  onCreateQuotation: (id: string) => void;
   requirements: Quotation[];
 }) {
   return (
@@ -676,7 +670,7 @@ function RequirementsForQuotations({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
-                    // onClick={() => onCreateQuotation(requirement.id)}
+                    onClick={() => onCreateQuotation(requirement.id)}
                     className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
                   >
                     <PlusCircle size={14} />
