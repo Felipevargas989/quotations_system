@@ -8,7 +8,6 @@ import {
   Phone,
   Mail,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import {
   validateEmail,
@@ -16,27 +15,22 @@ import {
   validateClientForm,
 } from "../utils/validation";
 import { CLIENT_TYPES } from "../constants/clientTypes";
-
-interface Client {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  client_type: string;
-  address?: string;
-  contact_person?: string;
-  notes?: string;
-  created_at: string;
-}
+import {
+  createClient,
+  deleteClient,
+  getClients,
+  updateClient,
+} from "../services/clients.service";
+import { Client, ClientFormData } from "../types/clients.types";
 
 export default function ClientsPage() {
-  const { user, companyId } = useAuth();
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ClientFormData>({
     name: "",
     email: "",
     phone: "",
@@ -59,22 +53,16 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadClients();
-  }, [user, companyId]);
+  }, [user]);
 
   const loadClients = async () => {
-    if (!user || !companyId) return;
+    if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setClients(data || []);
+      const { data } = await getClients();
+      setClients(data);
     } catch (error) {
-      console.error("Error loading clients:", error);
+      // TODO: handle error
     } finally {
       setLoading(false);
     }
@@ -92,22 +80,12 @@ export default function ClientsPage() {
 
     try {
       if (editingClient) {
-        const { error } = await supabase
-          .from("clients")
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingClient.id);
+        await updateClient(formData, editingClient.id);
 
-        if (error) throw error;
         alert("Cliente actualizado exitosamente");
       } else {
-        const { error } = await supabase
-          .from("clients")
-          .insert([{ ...formData, company_id: companyId }]);
+        await createClient(formData);
 
-        if (error) throw error;
         alert("Cliente creado exitosamente");
       }
 
@@ -128,7 +106,6 @@ export default function ClientsPage() {
       });
       loadClients();
     } catch (error) {
-      console.error("Error saving client:", error);
       alert("Error al guardar el cliente");
     }
   };
@@ -155,16 +132,9 @@ export default function ClientsPage() {
     if (!confirm("¿Estás seguro de que quieres eliminar este cliente?")) return;
 
     try {
-      const { error } = await supabase
-        .from("clients")
-        .delete()
-        .eq("id", clientId)
-        .eq("company_id", companyId);
-
-      if (error) throw error;
-
-      setClients((prev) => prev.filter((c) => c.id !== clientId));
+      await deleteClient(clientId);
       alert("Cliente eliminado exitosamente");
+      loadClients();
     } catch (error) {
       console.error("Error deleting client:", error);
       alert("Error al eliminar el cliente");
