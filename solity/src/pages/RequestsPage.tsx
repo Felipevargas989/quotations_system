@@ -19,7 +19,7 @@ import {
 } from "../services/quotations.service.ts";
 
 export default function RequestsPage() {
-  const { user, userRole, companyId } = useAuth();
+  const { user, userRole } = useAuth();
   const [requests, setRequests] = useState<Quotation[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Quotation | null>(null);
@@ -28,20 +28,16 @@ export default function RequestsPage() {
 
   useEffect(() => {
     fetchRequests();
-  }, [user, companyId]);
+  }, [user]);
 
   const fetchRequests = async () => {
-    if (!user || !companyId) return;
+    if (!user) return;
 
     try {
-      const { data, error } = await getQuotations(
-        companyId.toString(),
-        QuotationRequestType.REQUERIMIENTO,
-      );
+      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO);
 
-      if (error) throw error;
-      setRequests(data || []);
-      console.log(data);
+      // if (error) throw error;
+      setRequests(data);
     } catch (error) {
       console.error("Error fetching requests:", error);
       setRequests([]);
@@ -63,9 +59,7 @@ export default function RequestsPage() {
       return;
 
     try {
-      if (!companyId) throw new Error("Company ID is required");
-
-      const { error } = await deleteQuotation(requestId, companyId.toString());
+      const { error } = await deleteQuotation(requestId);
 
       if (error) throw error;
 
