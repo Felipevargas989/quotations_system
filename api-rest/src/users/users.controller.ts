@@ -1,7 +1,8 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
+import { API_ROUTES } from 'src/constants/api.routes';
 import { UsersService } from './users.service';
 
-@Controller('users')
+@Controller(API_ROUTES.USERS)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -15,10 +16,10 @@ export class UsersController {
   //   return this.usersService.findAll();
   // }
 
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.usersService.findOne(+id);
-  // }
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
+  }
 
   // @Patch(':id')
   // update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
