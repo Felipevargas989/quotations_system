@@ -45,8 +45,8 @@ export class CreateQuotationDto {
   total_amount?: number;
 
   @IsEnum(QuotationStatus)
-  @IsOptional()
-  quotation_status?: QuotationStatus;
+  @IsNotEmpty()
+  quotation_status: QuotationStatus;
 
   @IsNumber()
   @IsOptional()
@@ -59,8 +59,8 @@ export class CreateQuotationDto {
   fixed_value?: number;
 
   @IsEnum(RequestType)
-  @IsOptional()
-  request_type?: RequestType;
+  @IsNotEmpty()
+  request_type: RequestType;
 
   @IsBoolean()
   @IsOptional()

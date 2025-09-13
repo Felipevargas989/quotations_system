@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import {
-  PaymentPlanType,
-  QuotationStatus,
-  RequestType,
-} from './constants/constants';
+import { PaymentPlanType, RequestType } from './constants/constants';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { CreateQuotation } from './interfaces/quotations.interface';
@@ -18,11 +14,22 @@ export class QuotationsService {
   ) {
     this.logger.setContext(QuotationsService.name);
   }
-  create(
+  async create(
     createQuotationDto: CreateQuotationDto,
     companyId: number,
     userId: string,
   ) {
+    // set quotation number as the last quotation number + 1
+    // get all quotations from the same company
+    const quotations = await this.quotationsRepository.findAll(
+      companyId,
+      undefined,
+      'quotation_number',
+      'asc',
+    );
+    const lastQuotation = quotations[quotations.length - 1];
+    const quotationNumber = lastQuotation.quotation_number + 1;
+
     const newQuotation: CreateQuotation = {
       client_id: createQuotationDto.client_id,
       event_type: createQuotationDto.event_type,
@@ -31,15 +38,12 @@ export class QuotationsService {
       event_date: new Date(createQuotationDto.event_date),
       company_id: companyId,
       total_amount: 0,
-      // TODO: set real statuses
-      quotation_status: QuotationStatus.PENDING,
-      // TODO: set real quotation number (from prevous number from the same company)
-      quotation_number: 0,
+      quotation_status: createQuotationDto.quotation_status,
+      quotation_number: quotationNumber,
       user_id: userId,
       value_per_person: 0,
       fixed_value: 0,
-      // TODO: set real request type
-      request_type: RequestType.REQUERIMIENTO,
+      request_type: createQuotationDto.request_type,
       requires_invoice: false,
       has_contract: false,
       // TODO: set real payment plan type

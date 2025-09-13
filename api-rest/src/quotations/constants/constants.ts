@@ -24,10 +24,10 @@ export enum RequestType {
   COTIZACION = 'cotizacion',
 }
 
-// TODO: set real statuses
 export enum QuotationStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  SOLICITADA = 'solicitada',
+  ENVIADA = 'enviada',
+  EN_NEGOCIACION = 'en_negociacion',
+  ACEPTADA = 'aceptada',
+  RECHAZADA = 'rechazada',
 }

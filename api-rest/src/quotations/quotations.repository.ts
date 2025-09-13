@@ -19,6 +19,8 @@ export class QuotationsRepository {
   async findAll(
     company_id: Company['id'],
     request_type?: RequestType,
+    sort_by?: string,
+    sort_order?: 'asc' | 'desc',
   ): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
     const query = this.supabase.client
@@ -27,6 +29,10 @@ export class QuotationsRepository {
       .eq('company_id', company_id);
     if (request_type) {
       query.eq('request_type', request_type);
+    }
+
+    if (sort_by) {
+      query.order(sort_by, { ascending: sort_order === 'asc' });
     }
 
     const { data, error } = await query;
