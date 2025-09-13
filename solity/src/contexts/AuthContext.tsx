@@ -35,8 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await getUser(user.id);
 
       if (error) {
-      } else if (data && data.length > 0) {
-        setUserRole(data[0].role as UserRole);
+      } else if (data) {
+        setUserRole(data.role as UserRole);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -111,22 +111,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If sign in was successful, get the user's role
       if (result.data?.user && !result.error) {
         try {
-          const { data: profileData, error: profileError } = await getUser(
-            result.data.user.id,
-          );
+          const { data: profileData } = await getUser(result.data.user.id);
 
-          if (profileError) {
-            return { ...result, userRole: "vendedor" }; // Default role
-          } else if (profileData && profileData.length > 0) {
-            return {
-              ...result,
-              userRole: profileData[0].role,
-            };
-          } else {
-            return { ...result, userRole: "vendedor" }; // Default role
-          }
+          return {
+            ...result,
+            userRole: profileData.role,
+          };
         } catch (profileError) {
-          return { ...result, userRole: "vendedor" }; // Default role
+          return result;
         }
       }
 
