@@ -13,7 +13,6 @@ import {
 } from "../services/quotations.service";
 import {
   QuotationFormData,
-  QuotationFormDataUpdate,
   QuotationRequestType,
   QuotationStatus,
 } from "../types/quotations.types";
@@ -24,19 +23,15 @@ interface RequestFormProps {
 }
 
 export default function RequestForm({ request, onSave }: RequestFormProps) {
-  const { user, companyId } = useAuth();
-  const [formData, setFormData] = useState({
-    client_name: "",
-    client_email: "",
-    phone: "",
+  const { user } = useAuth();
+  const [formData, setFormData] = useState<
+    Omit<QuotationFormData, "request_type" | "quotation_status">
+  >({
     event_type: "",
     event_date: "",
     people_count: 1,
-    quotation_status: "solicitada",
-    request_type: "requerimiento",
     observations: "",
     client_id: "",
-    clients: undefined as any,
   });
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,14 +95,11 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   const loadClients = async () => {
     try {
-      if (!companyId) throw new Error("Company ID is required");
+      const { data } = await getClients();
 
-      const { data, error } = await getClients(companyId.toString());
-
-      if (error) throw error;
-      setClients(data || []);
+      // if (error) throw error;
+      setClients(data);
     } catch (error) {
-      console.error("Error loading clients:", error);
       setClients([]);
     }
   };
@@ -121,14 +113,8 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         clientData || clients.find((c) => c.id === clientId);
 
       if (selectedClient) {
-        const email = selectedClient.email || "";
-        const phone = selectedClient.phone || "";
-
         setFormData((prev) => ({
           ...prev,
-          client_name: selectedClient.name,
-          client_email: email,
-          phone: phone,
           client_id: clientId,
         }));
         setIsExistingClient(true);
@@ -138,9 +124,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     } else {
       setFormData((prev) => ({
         ...prev,
-        client_name: "",
-        client_email: "",
-        phone: "",
         client_id: "",
       }));
 
@@ -155,18 +138,15 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     setClientLoading(true);
 
     try {
-      if (!companyId) throw new Error("Company ID is required");
-
       const payload: ClientFormData = {
         ...clientFormData,
-        company_id: companyId?.toString(),
         address: "",
         notes: "",
       };
 
-      const { data: newClient, error } = await createClient(payload);
+      const { data: newClient } = await createClient(payload);
 
-      if (error) throw error;
+      // if (error) throw error;
 
       if (newClient) {
         // Add the new client to the local state immediately
@@ -198,37 +178,22 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !companyId) return;
+    if (!user) return;
 
     setLoading(true);
 
     try {
-      // Remove clients object from formData as it's not a column in quotations table
-      const { clients, ...requestDataWithoutClients } = formData;
-
       if (request?.id) {
-        const requestData: QuotationFormDataUpdate = {
-          ...requestDataWithoutClients,
-          total_amount: 0,
-          value_per_person: 0,
-          fixed_value: 0,
-        };
-
-        const { error } = await updateQuotation(requestData, request.id);
+        const { error } = await updateQuotation(formData, request.id);
 
         if (error) throw error;
         alert("Requerimiento actualizado exitosamente");
       } else {
-        const requestData: QuotationFormData = {
-          ...requestDataWithoutClients,
-          total_amount: 0,
-          value_per_person: 0,
-          fixed_value: 0,
-          company_id: companyId,
-          quotation_status: QuotationStatus.SOLICITADA,
+        const { error } = await createQuotation({
+          ...formData,
           request_type: QuotationRequestType.REQUERIMIENTO,
-        };
-        const { error } = await createQuotation(requestData);
+          quotation_status: QuotationStatus.SOLICITADA,
+        });
 
         if (error) throw error;
         alert("Requerimiento creado exitosamente");
@@ -236,7 +201,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
       if (onSave) onSave();
     } catch (error) {
-      console.error("Error saving request:", error);
       alert("Error al guardar el requerimiento");
     } finally {
       setLoading(false);
@@ -245,17 +209,11 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   const handleClear = () => {
     setFormData({
-      client_name: "",
-      client_email: "",
-      phone: "",
       event_type: "",
       event_date: "",
       people_count: 1,
-      quotation_status: "solicitada",
-      request_type: "requerimiento",
       observations: "",
       client_id: "",
-      clients: undefined,
     });
     setIsExistingClient(false);
   };
@@ -505,7 +463,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         </div>
 
         {/* Información del cliente */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Nombre del Cliente *
@@ -513,7 +471,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
             <input
               type="text"
               required
-              value={formData.client_name}
+              value={selectedClient?.name}
               readOnly
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
               placeholder="Seleccione un cliente"
@@ -545,7 +503,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
               placeholder="Seleccione un cliente"
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Información del evento */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

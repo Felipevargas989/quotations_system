@@ -21,14 +21,8 @@ export enum PaymentPlanType {
 export interface Quotation {
   id: string;
   quotation_number: number;
-  // TODO: remove this field
-  client_name: string;
-  // TODO: remove this field
-  client_email?: string;
-  // TODO: remove this field
-  phone?: string;
-  event_type?: string;
-  event_date?: string;
+  event_type: string;
+  event_date: string;
   people_count: number;
   subtotal_amount?: number;
   discount_percentage?: number;
@@ -52,9 +46,15 @@ export interface Quotation {
 }
 
 export interface QuotationFormData
-  extends Omit<
+  extends Pick<
     Quotation,
-    "id" | "quotation_number" | "created_at" | "updated_at"
+    | "client_id"
+    | "event_type"
+    | "event_date"
+    | "people_count"
+    | "observations"
+    | "request_type"
+    | "quotation_status"
   > {}
 
 export interface QuotationFormDataUpdate

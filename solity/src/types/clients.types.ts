@@ -13,4 +13,4 @@ export interface Client {
 }
 
 export interface ClientFormData
-  extends Omit<Client, "id" | "created_at" | "updated_at"> {}
+  extends Omit<Client, "id" | "created_at" | "updated_at" | "company_id"> {}
