@@ -2,16 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.ts";
 import { UserRole } from "../constants/permissions";
+import { getUser } from "../services/users.service.ts";
 
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
-  companyId: number | null;
   loading: boolean;
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{ error?: any; userRole?: string; companyId?: number }>;
+  ) => Promise<{ error?: any; userRole?: string }>;
   signUp: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<any>;
@@ -23,29 +23,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [companyId, setCompanyId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserProfile = async () => {
     if (!user) {
       setUserRole(null);
-      setCompanyId(null);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("role, company_id")
-        .eq("user_id", user.id)
-        .limit(1);
+      const { data, error } = await getUser(user.id);
 
       if (error) {
       } else if (data && data.length > 0) {
         setUserRole(data[0].role as UserRole);
-        setCompanyId(data[0].company_id);
-      } else {
-        setCompanyId(null);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -117,28 +108,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
       }
 
-      // If sign in was successful, get the user's role and company_id
+      // If sign in was successful, get the user's role
       if (result.data?.user && !result.error) {
         try {
-          const { data: profileData, error: profileError } = await supabase
-            .from("user_profiles")
-            .select("role, company_id")
-            .eq("user_id", result.data.user.id)
-            .limit(1);
+          const { data: profileData, error: profileError } = await getUser(
+            result.data.user.id,
+          );
 
           if (profileError) {
-            return { ...result, userRole: "vendedor", companyId: null }; // Default role
+            return { ...result, userRole: "vendedor" }; // Default role
           } else if (profileData && profileData.length > 0) {
             return {
               ...result,
               userRole: profileData[0].role,
-              companyId: profileData[0].company_id,
             };
           } else {
-            return { ...result, userRole: "vendedor", companyId: null }; // Default role
+            return { ...result, userRole: "vendedor" }; // Default role
           }
         } catch (profileError) {
-          return { ...result, userRole: "vendedor", companyId: null }; // Default role
+          return { ...result, userRole: "vendedor" }; // Default role
         }
       }
 
@@ -213,7 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession,
     userRole,
-    companyId,
     loadUserProfile,
   };
 
