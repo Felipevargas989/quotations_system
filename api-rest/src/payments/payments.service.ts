@@ -7,6 +7,7 @@ import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { PaymentStatus } from './constants';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
+import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { PaymentTransaction } from './entities/payment.entity';
 import { CreatePaymentTransaction } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
@@ -101,11 +102,34 @@ export class PaymentsService {
     createPaymentTransactionDto: CreatePaymentTransactionDto,
     companyId: Company['id'],
   ) {
+    return this.createOrUpdatePaymentTransaction(
+      createPaymentTransactionDto,
+      companyId,
+    );
+  }
+
+  async updatePaymentTransaction(
+    id: string,
+    updatePaymentTransactionDto: UpdatePaymentTransactionDto,
+    companyId: Company['id'],
+  ) {
+    return this.createOrUpdatePaymentTransaction(
+      updatePaymentTransactionDto,
+      companyId,
+    );
+  }
+
+  async createOrUpdatePaymentTransaction(
+    payload: CreatePaymentTransactionDto | UpdatePaymentTransactionDto,
+    companyId: Company['id'],
+  ) {
     try {
+      let transaction: PaymentTransaction | null = null;
+
       // 1. Get current payment to validate against limits
       const { data: payment, error: paymentError } =
         await this.paymentsRepository.findPaymentById(
-          createPaymentTransactionDto.payment_id,
+          payload.payment_id,
           companyId,
         );
 
@@ -121,7 +145,7 @@ export class PaymentsService {
       // 2. Get all current transactions for this payment to calculate current total
       const { data: transactions, error: transactionsError } =
         await this.paymentsRepository.findAllTransactionsByPaymentId(
-          createPaymentTransactionDto.payment_id,
+          payload.payment_id,
         );
 
       if (transactionsError) {
@@ -134,7 +158,7 @@ export class PaymentsService {
         (sum: number, t: PaymentTransaction) => sum + t.amount,
         0,
       );
-      const new_paid = current_paid + createPaymentTransactionDto.amount;
+      const new_paid = current_paid + payload.amount;
       if (new_paid > payment.amount) {
         this.logger.error('Current paid is greater than amount');
         throw new Error(
@@ -142,17 +166,38 @@ export class PaymentsService {
         );
       }
 
-      // 4. Create new transaction
-      const { data: newTransaction, error: newTransactionError } =
-        await this.paymentsRepository.createPaymentTransaction(
-          createPaymentTransactionDto as CreatePaymentTransaction,
-        );
+      // 4. Create one or update transaction
 
-      if (newTransactionError) {
-        this.logger.error(newTransactionError);
-        throw newTransactionError;
+      // 4.1 Create new transaction
+      if (payload instanceof CreatePaymentTransactionDto) {
+        const { data: newTransaction, error: newTransactionError } =
+          await this.paymentsRepository.createPaymentTransaction(
+            payload as CreatePaymentTransaction,
+          );
+
+        if (newTransactionError) {
+          this.logger.error(newTransactionError);
+          throw newTransactionError;
+        }
+
+        transaction = newTransaction;
       }
 
+      // 4.2 Update transaction
+      else {
+        const { data: updatedTransaction, error: updatedTransactionError } =
+          await this.paymentsRepository.updatePaymentTransaction(
+            payload.id,
+            payload,
+          );
+
+        if (updatedTransactionError) {
+          this.logger.error(updatedTransaction);
+          throw updatedTransactionError;
+        }
+
+        transaction = updatedTransaction;
+      }
       // 5.0 Define payment status
       const getPaymentStatus = () => {
         if (new_paid === payment.amount) {
@@ -166,10 +211,9 @@ export class PaymentsService {
 
       // 5.1 Update payment status
       const { error: updatedPaymentError } =
-        await this.paymentsRepository.updatePayment(
-          createPaymentTransactionDto.payment_id,
-          { status: getPaymentStatus() },
-        );
+        await this.paymentsRepository.updatePayment(payload.payment_id, {
+          status: getPaymentStatus(),
+        });
 
       if (updatedPaymentError) {
         this.logger.error(updatedPaymentError);
@@ -177,7 +221,7 @@ export class PaymentsService {
       }
 
       // 6. Return new transaction
-      return newTransaction;
+      return transaction;
     } catch (error) {
       this.logger.error(error);
       throw new Error(error);

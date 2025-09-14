@@ -1,10 +1,19 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
+import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -53,6 +62,19 @@ export class PaymentsController {
     this.logger.info(`POST /payments/transactions with user ${user.id}`);
     return this.paymentsService.createPaymentTransaction(
       createPaymentTransactionDto,
+      user.company_id,
+    );
+  }
+
+  @Patch(':id')
+  updatePaymentTransaction(
+    @Param('id') id: string,
+    @Body() updatePaymentTransactionDto: UpdatePaymentTransactionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.paymentsService.updatePaymentTransaction(
+      id,
+      updatePaymentTransactionDto,
       user.company_id,
     );
   }

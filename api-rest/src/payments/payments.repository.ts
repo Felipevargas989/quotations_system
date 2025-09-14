@@ -4,7 +4,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { Payment } from './entities/payment.entity';
+import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
+import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
   CreatePaymentTransaction,
   PaymentWithTransactionsAndQuotation,
@@ -143,5 +144,18 @@ export class PaymentsRepository {
       .from('payments')
       .update(updatePayment)
       .eq('id', paymentId);
+  }
+
+  async updatePaymentTransaction(
+    paymentTransactionId: PaymentTransaction['id'],
+    updatePaymentTransaction: UpdatePaymentTransactionDto,
+  ) {
+    this.logger.info(
+      `updatePaymentTransaction with paymentTransactionId ${paymentTransactionId} and updatePaymentTransaction ${JSON.stringify(updatePaymentTransaction)}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .update(updatePaymentTransaction)
+      .eq('id', paymentTransactionId);
   }
 }
