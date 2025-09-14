@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { PaymentTransaction } from '../entities/payment.entity';
@@ -19,6 +20,7 @@ export class CreatePaymentTransactionDto {
 
   @IsNumber()
   @IsNotEmpty()
+  @Min(0, { message: 'Amount debe ser mayor a 0' })
   amount: number;
 
   @IsString()
