@@ -11,6 +11,8 @@ import {
 import {
   PaymentWithTransactions,
   PaymentTransaction,
+  createPaymentTransaction,
+  updatePaymentTransaction,
 } from "../services/paymentTransactions.service";
 import {
   uploadPaymentReceipt,
@@ -176,10 +178,6 @@ export default function PaymentTransactionModal({
     try {
       if (isEditing) {
         // Update existing transaction
-        const { updatePaymentTransaction } = await import(
-          "../services/paymentTransactions.service"
-        );
-
         await updatePaymentTransaction(transaction!.id, {
           amount: formData.amount,
           payment_method: formData.payment_method,
@@ -191,10 +189,6 @@ export default function PaymentTransactionModal({
         alert("✅ Transacción de pago actualizada exitosamente");
       } else {
         // Create new transaction
-        const { createPaymentTransaction } = await import(
-          "../services/paymentTransactions.service"
-        );
-
         await createPaymentTransaction({
           payment_id: payment.id,
           quotation_id: payment.quotation_id,
