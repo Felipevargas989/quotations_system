@@ -4,8 +4,11 @@ import { Company } from 'src/companies/entities/company.entity';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
+import { PaymentStatus } from './constants';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
+import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { PaymentTransaction } from './entities/payment.entity';
+import { CreatePaymentTransaction } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
 
 @Injectable()
@@ -79,6 +82,7 @@ export class PaymentsService {
         transactions.length > 0 ? transactions[0].transaction_date : null;
 
       // delete payment_transactions from payment object
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { payment_transactions, ...paymentWithoutTransactions } = payment;
 
       return {
@@ -93,6 +97,92 @@ export class PaymentsService {
     return paymentsWithTransactions;
   }
 
+  async createPaymentTransaction(
+    createPaymentTransactionDto: CreatePaymentTransactionDto,
+    companyId: Company['id'],
+  ) {
+    try {
+      // 1. Get current payment to validate against limits
+      const { data: payment, error: paymentError } =
+        await this.paymentsRepository.findPaymentById(
+          createPaymentTransactionDto.payment_id,
+          companyId,
+        );
+
+      if (paymentError) {
+        this.logger.error(paymentError);
+        throw paymentError;
+      }
+      if (!payment) {
+        this.logger.error('Payment not found');
+        throw new Error('Payment not found');
+      }
+
+      // 2. Get all current transactions for this payment to calculate current total
+      const { data: transactions, error: transactionsError } =
+        await this.paymentsRepository.findAllTransactionsByPaymentId(
+          createPaymentTransactionDto.payment_id,
+        );
+
+      if (transactionsError) {
+        this.logger.error(transactionsError);
+        throw transactionsError;
+      }
+
+      // 3. Run validation of current_paid < amount
+      const current_paid = transactions.reduce(
+        (sum: number, t: PaymentTransaction) => sum + t.amount,
+        0,
+      );
+      const new_paid = current_paid + createPaymentTransactionDto.amount;
+      if (new_paid > payment.amount) {
+        this.logger.error('Current paid is greater than amount');
+        throw new Error(
+          `El monto total no puede exceder ${payment.amount - current_paid}`,
+        );
+      }
+
+      // 4. Create new transaction
+      const { data: newTransaction, error: newTransactionError } =
+        await this.paymentsRepository.createPaymentTransaction(
+          createPaymentTransactionDto as CreatePaymentTransaction,
+        );
+
+      if (newTransactionError) {
+        this.logger.error(newTransactionError);
+        throw newTransactionError;
+      }
+
+      // 5.0 Define payment status
+      const getPaymentStatus = () => {
+        if (new_paid === payment.amount) {
+          return PaymentStatus.PAGADO;
+        }
+        if (payment.due_date < new Date()) {
+          return PaymentStatus.VENCIDO;
+        }
+        return PaymentStatus.PENDIENTE;
+      };
+
+      // 5.1 Update payment status
+      const { error: updatedPaymentError } =
+        await this.paymentsRepository.updatePayment(
+          createPaymentTransactionDto.payment_id,
+          { status: getPaymentStatus() },
+        );
+
+      if (updatedPaymentError) {
+        this.logger.error(updatedPaymentError);
+        throw updatedPaymentError;
+      }
+
+      // 6. Return new transaction
+      return newTransaction;
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
   // findOne(id: number) {
   //   return `This action returns a #${id} payment`;
   // }

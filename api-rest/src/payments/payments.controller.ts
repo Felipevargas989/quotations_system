@@ -4,6 +4,7 @@ import { CurrentUser } from 'src/auth';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
+import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -44,6 +45,17 @@ export class PaymentsController {
     );
   }
 
+  @Post('transactions')
+  createPaymentTransaction(
+    @Body() createPaymentTransactionDto: CreatePaymentTransactionDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /payments/transactions with user ${user.id}`);
+    return this.paymentsService.createPaymentTransaction(
+      createPaymentTransactionDto,
+      user.company_id,
+    );
+  }
   // @Get(':id')
   // findOne(@Param('id') id: string) {
   //   return this.paymentsService.findOne(+id);

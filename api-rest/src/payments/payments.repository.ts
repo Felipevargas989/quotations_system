@@ -5,7 +5,11 @@ import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Payment } from './entities/payment.entity';
-import { PaymentWithTransactionsAndQuotation } from './interfaces/payments.types';
+import {
+  CreatePaymentTransaction,
+  PaymentWithTransactionsAndQuotation,
+  UpdatePayment,
+} from './interfaces/payments.types';
 
 @Injectable()
 export class PaymentsRepository {
@@ -92,5 +96,52 @@ export class PaymentsRepository {
       .from('payments')
       .delete()
       .eq('quotation_id', quotationId);
+  }
+
+  async findPaymentById(
+    paymentId: Payment['id'],
+    companyId: Company['id'],
+  ): Promise<{
+    data: Payment | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(
+      `findPaymentById with paymentId ${paymentId} and companyId ${companyId}`,
+    );
+    return this.supabase.client
+      .from('payments')
+      .select('*, quotations!inner (company_id)')
+      .eq('id', paymentId)
+      .eq('quotations.company_id', companyId)
+      .single();
+  }
+
+  async findAllTransactionsByPaymentId(paymentId: Payment['id']) {
+    this.logger.info(
+      `findAllTransactionsByPaymentId with paymentId ${paymentId}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .select('*')
+      .eq('payment_id', paymentId);
+  }
+
+  async createPaymentTransaction(paymentTransaction: CreatePaymentTransaction) {
+    this.logger.info(
+      `createPaymentTransaction with paymentTransaction ${JSON.stringify(paymentTransaction)}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .insert(paymentTransaction);
+  }
+
+  async updatePayment(paymentId: Payment['id'], updatePayment: UpdatePayment) {
+    this.logger.info(
+      `updatePayment with paymentId ${paymentId} and status ${JSON.stringify(updatePayment)}`,
+    );
+    return this.supabase.client
+      .from('payments')
+      .update(updatePayment)
+      .eq('id', paymentId);
   }
 }
