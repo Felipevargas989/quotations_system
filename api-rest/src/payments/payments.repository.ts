@@ -65,6 +65,7 @@ export class PaymentsRepository {
         id,
         amount,
         transaction_date,
+        notes,
         created_at
       )
     `,

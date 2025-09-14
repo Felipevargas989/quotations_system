@@ -30,6 +30,9 @@ export class QuotationsController {
     @Body() createQuotationDto: CreateQuotationDto,
     @CurrentUser() user: User,
   ) {
+    this.logger.info(
+      `POST /quotations with createQuotationDto ${JSON.stringify(createQuotationDto)}`,
+    );
     return this.quotationsService.create(
       createQuotationDto,
       user.company_id,
@@ -57,6 +60,9 @@ export class QuotationsController {
     @Body() updateQuotationDto: UpdateQuotationDto,
     @CurrentUser() user: User,
   ) {
+    this.logger.info(
+      `PATCH /quotations/${id} with updateQuotationDto ${JSON.stringify(updateQuotationDto)}`,
+    );
     return this.quotationsService.update(
       id,
       updateQuotationDto,

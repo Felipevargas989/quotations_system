@@ -51,6 +51,6 @@ export interface Quotation {
   payment_plan_type: PaymentPlanType;
   discount_percentage: number;
   subtotal_amount: number;
-  items: QuotationItem[];
+  items: QuotationItem;
   company_id: number;
 }
