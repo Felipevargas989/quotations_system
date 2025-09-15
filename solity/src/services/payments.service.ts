@@ -3,7 +3,6 @@ import { CreatePayment } from "../types/payments.types";
 import { supabase } from "../lib/supabase";
 import { Quotation } from "../types/quotations.types";
 import { apiRequest } from "./api";
-import { deletePaymentTransactionsByPaymentId } from "./paymentTransactions.service";
 
 export const getPayments = async () => {
   // Obtener TODOS los pagos con información de cotizaciones
@@ -139,20 +138,15 @@ export const deletePayment = async (
   transactions: any[] = [],
 ) => {
   try {
-    // First delete all related payment transactions in bulk
-    await deletePaymentTransactionsByPaymentId(paymentId);
-
-    // Then delete the payment itself
-    const { error } = await supabase
-      .from("payments")
-      .delete()
-      .eq("id", paymentId);
+    const { error } = await apiRequest(
+      `${API_ROUTES.PAYMENTS}/${paymentId}`,
+      "DELETE",
+    );
 
     if (error) throw error;
 
     return { success: true, error: null };
   } catch (error) {
-    console.error("Error deleting payment:", error);
     return { success: false, error };
   }
 };

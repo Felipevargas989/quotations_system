@@ -92,23 +92,6 @@ export const deletePaymentTransaction = async (transactionId: number) => {
   }
 };
 
-export const deletePaymentTransactionsByPaymentId = async (
-  paymentId: string,
-) => {
-  try {
-    const { error } = await supabase
-      .from("payment_transactions")
-      .delete()
-      .eq("payment_id", paymentId);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting payment transactions by payment ID:", error);
-    throw error;
-  }
-};
-
 export const updatePaymentTransaction = async (
   transactionId: number,
   updates: {
