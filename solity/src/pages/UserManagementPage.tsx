@@ -11,13 +11,13 @@ import {
   UserPlus,
   Trash2,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../constants/permissions";
 import {
   getUsers,
   createUser as createUserService,
   updateUser,
+  deleteUser as deleteUserService,
 } from "../services/users.service";
 import { UpdateUser } from "../types/users.types";
 
@@ -197,16 +197,9 @@ export default function UserManagementPage() {
     setDeleting(true);
     try {
       // Delete user profile first
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .delete()
-        .eq("id", deletingUser.id);
+      const { error } = await deleteUserService(deletingUser.id);
 
-      if (profileError) throw profileError;
-
-      // Note: We can't delete from auth.users with anon key
-      // The user will remain in auth but won't have a profile
-      // They won't be able to access the system without a profile
+      if (error) throw error;
 
       // Refresh users list
       await loadUsers();
@@ -217,7 +210,6 @@ export default function UserManagementPage() {
 
       alert("Usuario eliminado correctamente");
     } catch (error) {
-      console.error("Error deleting user:", error);
       alert("Error al eliminar el usuario: " + (error as Error).message);
     } finally {
       setDeleting(false);

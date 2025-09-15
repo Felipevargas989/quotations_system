@@ -38,3 +38,12 @@ export const updateUser = async (id: string, user: UpdateUser) => {
     return { data: null, error };
   }
 };
+
+export const deleteUser = async (id: string) => {
+  try {
+    const data = await apiRequest(`${API_ROUTES.USERS}/${id}`, "DELETE");
+    return { data };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
