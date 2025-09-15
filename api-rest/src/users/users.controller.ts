@@ -1,7 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { API_ROUTES } from 'src/constants/api.routes';
+import { CreateUserDto } from './dto/create-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
@@ -14,10 +15,13 @@ export class UsersController {
     this.logger.setContext(UsersController.name);
   }
 
-  // @Post()
-  // create(@Body() createUserDto: CreateUserDto) {
-  //   return this.usersService.create(createUserDto);
-  // }
+  @Post()
+  create(@Body() createUserDto: CreateUserDto, @CurrentUser() user: User) {
+    this.logger.info(
+      `POST /users with createUserDto ${JSON.stringify(createUserDto)}`,
+    );
+    return this.usersService.create(createUserDto, user.company_id);
+  }
 
   @Get()
   findAll(@CurrentUser() user: User) {

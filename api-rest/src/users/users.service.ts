@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
-import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { User, UserAuth } from './entities/user.entity';
+import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
 
 @Injectable()
@@ -13,9 +15,32 @@ export class UsersService {
     this.logger.setContext(UsersService.name);
   }
 
-  // create(createUserDto: CreateUserDto) {
-  //   return 'This action adds a new user';
-  // }
+  async create(
+    createUserDto: CreateUserDto,
+    companyId: Company['id'],
+  ): Promise<any> {
+    try {
+      // 1. Create user in auth.users table
+      const { data, error } =
+        await this.usersRepository.createAuthUser(createUserDto);
+      const userAuth = data as UserAuth;
+
+      if (error) throw error;
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...rest } = createUserDto;
+      const newUser: CreateUser = {
+        ...rest,
+        user_id: userAuth.id,
+        company_id: companyId,
+      };
+      // 2. Create user in public.user_profiles table
+      return this.usersRepository.createUser(newUser);
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
 
   findAll(companyId: Company['id']) {
     this.logger.info(`findAll users with companyId ${companyId}`);

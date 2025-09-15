@@ -1,10 +1,19 @@
+import { Company } from 'src/companies/entities/company.entity';
+
 // TODO: set real roles
 export enum UserRole {
-  ADMIN = 'admin',
-  USER = 'user',
+  ADMINISTRADOR = 'administrador',
+  VENDEDOR = 'vendedor',
+  OPERACIONES = 'operaciones',
+  RECEPCION = 'recepcion',
 }
 
-export interface User {
+export type UserAuth = {
+  id: string;
+  email: string;
+};
+
+export type User = {
   id: string;
   user_id: string;
   email: string;
@@ -12,5 +21,5 @@ export interface User {
   role: UserRole;
   created_at: Date;
   updated_at: Date;
-  company_id: number;
-}
+  company_id: Company['id'];
+};

@@ -5,9 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { User, UserAuth } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { AuthService } from './auth.service';
-import { UserAuth } from './interfaces/auth.interfaces';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -25,17 +25,21 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const user: UserAuth = await this.authService.validateToken(token);
+      const user: Pick<UserAuth, 'id'> =
+        await this.authService.validateToken(token);
 
       // Fetch the full user data including company_id from the database
-      const fullUser = await this.usersRepository.findOne(user.id);
+      const fullUser: User = await this.usersRepository.findOne(user.id);
 
       // Attach the full user with company_id to request object
-      (request as Request & { user: UserAuth & { company_id: number } }).user =
-        {
-          ...user,
-          company_id: fullUser.company_id,
-        };
+      (
+        request as Request & {
+          user: Pick<UserAuth, 'id'> & { company_id: number };
+        }
+      ).user = {
+        id: user.id,
+        company_id: fullUser.company_id,
+      };
 
       return true;
     } catch (error) {
