@@ -15,6 +15,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
+import { Payment } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -91,6 +92,12 @@ export class PaymentsController {
   // update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
   //   return this.paymentsService.update(+id, updatePaymentDto);
   // }
+
+  @Delete(':id')
+  removePayment(@Param('id') id: Payment['id']) {
+    this.logger.info(`DELETE /payments/${id}`);
+    return this.paymentsService.removePayment(id);
+  }
 
   @Delete('transactions/:id')
   removePaymentTransaction(@Param('id') id: number) {

@@ -268,4 +268,20 @@ export class PaymentsService {
     this.logger.info(`removePaymentTransaction with id ${id}`);
     return this.paymentsRepository.removePaymentTransaction(id);
   }
+
+  async removePayment(id: Payment['id']) {
+    this.logger.info(`removePayment with id ${id}`);
+
+    // 1. remove all payment_transactions related to the payment
+    const { error } =
+      await this.paymentsRepository.removePaymentTransactionsByPaymentId(id);
+
+    if (error) {
+      this.logger.error(error);
+      throw error;
+    }
+
+    // 2. remove the payment by payment_id
+    return this.paymentsRepository.removePayment(id);
+  }
 }

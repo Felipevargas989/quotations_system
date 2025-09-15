@@ -189,4 +189,19 @@ export class PaymentsRepository {
       .delete()
       .eq('id', paymentTransactionId);
   }
+
+  async removePayment(paymentId: Payment['id']) {
+    this.logger.info(`removePayment with paymentId ${paymentId}`);
+    return this.supabase.client.from('payments').delete().eq('id', paymentId);
+  }
+
+  async removePaymentTransactionsByPaymentId(paymentId: Payment['id']) {
+    this.logger.info(
+      `removePaymentTransactionsByPaymentId with paymentId ${paymentId}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .delete()
+      .eq('payment_id', paymentId);
+  }
 }
