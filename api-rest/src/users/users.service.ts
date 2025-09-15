@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserAuth } from './entities/user.entity';
 import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
@@ -51,9 +52,12 @@ export class UsersService {
     return this.usersRepository.findOne(id);
   }
 
-  // update(id: number, updateUserDto: UpdateUserDto) {
-  //   return `This action updates a #${id} user`;
-  // }
+  update(id: User['id'], updateUserDto: UpdateUserDto) {
+    this.logger.info(
+      `update user with id ${id} and updateUserDto ${JSON.stringify(updateUserDto)}`,
+    );
+    return this.usersRepository.update(id, updateUserDto);
+  }
 
   // remove(id: number) {
   //   return `This action removes a #${id} user`;

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
@@ -34,10 +35,13 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-  //   return this.usersService.update(+id, updateUserDto);
-  // }
+  @Patch(':id')
+  update(@Param('id') id: User['id'], @Body() updateUserDto: UpdateUserDto) {
+    this.logger.info(
+      `PATCH /users/${id} with updateUserDto ${JSON.stringify(updateUserDto)}`,
+    );
+    return this.usersService.update(id, updateUserDto);
+  }
 
   // @Delete(':id')
   // remove(@Param('id') id: string) {

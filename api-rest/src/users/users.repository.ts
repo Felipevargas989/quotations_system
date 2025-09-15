@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { CreateUser } from './types';
 
@@ -53,6 +54,18 @@ export class UsersRepository {
     return await this.supabase.client
       .from('user_profiles')
       .insert([createUser])
+      .select()
+      .single();
+  }
+
+  async update(id: User['id'], updateUserDto: UpdateUserDto) {
+    this.logger.info(
+      `update user with id ${id} and updateUserDto ${JSON.stringify(updateUserDto)}`,
+    );
+    return await this.supabase.client
+      .from('user_profiles')
+      .update(updateUserDto)
+      .eq('id', id)
       .select()
       .single();
   }
