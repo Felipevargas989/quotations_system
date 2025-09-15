@@ -14,7 +14,10 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../constants/permissions";
-import { getUsers } from "../services/users.service";
+import {
+  getUsers,
+  createUser as createUserService,
+} from "../services/users.service";
 
 interface UserProfile {
   id: string;
@@ -131,49 +134,11 @@ export default function UserManagementPage() {
         alert("Usuario actualizado correctamente");
       } else {
         // Create new user
-        const response = await fetch(
-          "https://uonjtbyoxawxvhuikbgx.supabase.co/functions/v1/register-user",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: createForm.email,
-              password: createForm.password,
-            }),
-          },
-        );
+        const response = await createUserService(createForm);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (response.error) throw response.error;
 
-        const result = await response.json();
-
-        if (result.uuid) {
-          // Update the user profile with the correct role and full_name (trigger already created it with default values)
-          const { error: profileError } = await supabase
-            .from("user_profiles")
-            .insert([
-              {
-                full_name: createForm.full_name,
-                role: createForm.role,
-                updated_at: new Date().toISOString(),
-                user_id: result.uuid,
-                email: createForm.email,
-              },
-            ]);
-
-          if (profileError) throw profileError;
-
-          // Refresh users list
-          await loadUsers();
-
-          alert("Usuario creado correctamente");
-        } else {
-          throw new Error("No se recibió UUID del servidor");
-        }
+        await loadUsers();
       }
 
       // Reset form and close modal
