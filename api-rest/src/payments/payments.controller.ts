@@ -66,14 +66,17 @@ export class PaymentsController {
     );
   }
 
-  @Patch(':id')
+  @Patch('transactions/:id')
   updatePaymentTransaction(
-    @Param('id') id: string,
+    @Param('id') paymentTransactionId: string,
     @Body() updatePaymentTransactionDto: UpdatePaymentTransactionDto,
     @CurrentUser() user: User,
   ) {
+    this.logger.info(
+      `PATCH /payments/transactions/${paymentTransactionId} with updatePaymentTransactionDto ${JSON.stringify(updatePaymentTransactionDto)}`,
+    );
     return this.paymentsService.updatePaymentTransaction(
-      id,
+      paymentTransactionId,
       updatePaymentTransactionDto,
       user.company_id,
     );

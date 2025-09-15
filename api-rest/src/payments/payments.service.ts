@@ -9,7 +9,10 @@ import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { PaymentTransaction } from './entities/payment.entity';
-import { CreatePaymentTransaction } from './interfaces/payments.types';
+import {
+  CreatePaymentTransaction,
+  UpdatePaymentTransaction,
+} from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
 
 @Injectable()
@@ -109,29 +112,53 @@ export class PaymentsService {
   }
 
   async updatePaymentTransaction(
-    id: string,
+    paymentTransactionId: string,
     updatePaymentTransactionDto: UpdatePaymentTransactionDto,
     companyId: Company['id'],
   ) {
+    this.logger.info(
+      `updatePaymentTransaction with id ${paymentTransactionId} and updatePaymentTransactionDto ${JSON.stringify(updatePaymentTransactionDto)}`,
+    );
     return this.createOrUpdatePaymentTransaction(
-      updatePaymentTransactionDto,
+      {
+        ...updatePaymentTransactionDto,
+        payment_transaction_id: paymentTransactionId,
+      } as UpdatePaymentTransaction,
       companyId,
+      true,
     );
   }
 
   async createOrUpdatePaymentTransaction(
-    payload: CreatePaymentTransactionDto | UpdatePaymentTransactionDto,
+    payload: CreatePaymentTransactionDto | UpdatePaymentTransaction,
     companyId: Company['id'],
+    isUpdate: boolean = false,
   ) {
     try {
       let transaction: PaymentTransaction | null = null;
+      let payment_id: string = !isUpdate
+        ? (payload as CreatePaymentTransactionDto).payment_id
+        : '';
+      // 0. if it's udpate, get payment_id from paymentTransactionId
+      if (isUpdate) {
+        const { data: transactionFromDB, error: transactionError } =
+          await this.paymentsRepository.findPaymentTransactionById(
+            (payload as UpdatePaymentTransaction).payment_transaction_id,
+          );
+        if (transactionError) {
+          this.logger.error(transactionError);
+          throw transactionError;
+        }
+        if (!transactionFromDB) {
+          this.logger.error('Transaction not found');
+          throw new Error('Transaction not found');
+        }
+        payment_id = transactionFromDB.payment_id;
+      }
 
       // 1. Get current payment to validate against limits
       const { data: payment, error: paymentError } =
-        await this.paymentsRepository.findPaymentById(
-          payload.payment_id,
-          companyId,
-        );
+        await this.paymentsRepository.findPaymentById(payment_id, companyId);
 
       if (paymentError) {
         this.logger.error(paymentError);
@@ -145,7 +172,7 @@ export class PaymentsService {
       // 2. Get all current transactions for this payment to calculate current total
       const { data: transactions, error: transactionsError } =
         await this.paymentsRepository.findAllTransactionsByPaymentId(
-          payload.payment_id,
+          payment_id,
         );
 
       if (transactionsError) {
@@ -169,7 +196,7 @@ export class PaymentsService {
       // 4. Create one or update transaction
 
       // 4.1 Create new transaction
-      if (payload instanceof CreatePaymentTransactionDto) {
+      if (!isUpdate) {
         const { data: newTransaction, error: newTransactionError } =
           await this.paymentsRepository.createPaymentTransaction(
             payload as CreatePaymentTransaction,
@@ -185,10 +212,13 @@ export class PaymentsService {
 
       // 4.2 Update transaction
       else {
+        const { payment_transaction_id, ...payloadWithoutId } =
+          payload as UpdatePaymentTransaction;
+
         const { data: updatedTransaction, error: updatedTransactionError } =
           await this.paymentsRepository.updatePaymentTransaction(
-            payload.id,
-            payload,
+            payment_transaction_id,
+            payloadWithoutId,
           );
 
         if (updatedTransactionError) {
@@ -211,7 +241,7 @@ export class PaymentsService {
 
       // 5.1 Update payment status
       const { error: updatedPaymentError } =
-        await this.paymentsRepository.updatePayment(payload.payment_id, {
+        await this.paymentsRepository.updatePayment(payment_id, {
           status: getPaymentStatus(),
         });
 

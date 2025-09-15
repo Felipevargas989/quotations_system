@@ -161,4 +161,20 @@ export class PaymentsRepository {
       .update(updatePaymentTransaction)
       .eq('id', paymentTransactionId);
   }
+
+  async findPaymentTransactionById(
+    paymentTransactionId: PaymentTransaction['id'],
+  ): Promise<{
+    data: PaymentTransaction | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(
+      `findPaymentTransactionById with paymentTransactionId ${paymentTransactionId}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .select('*')
+      .eq('id', paymentTransactionId)
+      .single();
+  }
 }
