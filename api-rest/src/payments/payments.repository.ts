@@ -177,4 +177,16 @@ export class PaymentsRepository {
       .eq('id', paymentTransactionId)
       .single();
   }
+
+  async removePaymentTransaction(
+    paymentTransactionId: PaymentTransaction['id'],
+  ) {
+    this.logger.info(
+      `removePaymentTransaction with paymentTransactionId ${paymentTransactionId}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .delete()
+      .eq('id', paymentTransactionId);
+  }
 }

@@ -7,12 +7,12 @@ import {
   Min,
 } from 'class-validator';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
-import { PaymentTransaction } from '../entities/payment.entity';
+import { Payment, PaymentTransaction } from '../entities/payment.entity';
 
 export class CreatePaymentTransactionDto {
   @IsString()
   @IsNotEmpty()
-  payment_id: PaymentTransaction['id'];
+  payment_id: Payment['id'];
 
   @IsString()
   @IsNotEmpty()

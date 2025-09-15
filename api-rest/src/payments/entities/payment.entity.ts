@@ -1,3 +1,5 @@
+import { Quotation } from 'src/quotations/entities/quotation.entity';
+
 export class Payment {
   id: string;
   quotation_id: string;
@@ -19,14 +21,14 @@ export class Payment {
   payment_method?: string;
 }
 export class PaymentTransaction {
-  id: string;
-  payment_id: string;
-  quotation_id: string;
+  id: number;
+  payment_id: Payment['id'];
+  quotation_id: Quotation['id'];
   amount: number;
   payment_method: string;
   transaction_date: string;
   notes?: string;
-  created_by: string;
-  created_at: string;
+  created_by: Date;
+  created_at: Date;
   receipt_photo_url?: string;
 }

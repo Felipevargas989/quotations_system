@@ -8,7 +8,7 @@ import { PaymentStatus } from './constants';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
-import { PaymentTransaction } from './entities/payment.entity';
+import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
   CreatePaymentTransaction,
   UpdatePaymentTransaction,
@@ -112,7 +112,7 @@ export class PaymentsService {
   }
 
   async updatePaymentTransaction(
-    paymentTransactionId: string,
+    paymentTransactionId: PaymentTransaction['id'],
     updatePaymentTransactionDto: UpdatePaymentTransactionDto,
     companyId: Company['id'],
   ) {
@@ -136,7 +136,7 @@ export class PaymentsService {
   ) {
     try {
       let transaction: PaymentTransaction | null = null;
-      let payment_id: string = !isUpdate
+      let payment_id: Payment['id'] = !isUpdate
         ? (payload as CreatePaymentTransactionDto).payment_id
         : '';
       // 0. if it's udpate, get payment_id from paymentTransactionId
@@ -264,8 +264,8 @@ export class PaymentsService {
   // update(id: number, updatePaymentDto: UpdatePaymentDto) {
   //   return `This action updates a #${id} payment`;
   // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} payment`;
-  // }
+  removePaymentTransaction(id: number) {
+    this.logger.info(`removePaymentTransaction with id ${id}`);
+    return this.paymentsRepository.removePaymentTransaction(id);
+  }
 }

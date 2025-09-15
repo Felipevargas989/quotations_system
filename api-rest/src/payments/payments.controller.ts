@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -76,7 +77,7 @@ export class PaymentsController {
       `PATCH /payments/transactions/${paymentTransactionId} with updatePaymentTransactionDto ${JSON.stringify(updatePaymentTransactionDto)}`,
     );
     return this.paymentsService.updatePaymentTransaction(
-      paymentTransactionId,
+      +paymentTransactionId,
       updatePaymentTransactionDto,
       user.company_id,
     );
@@ -91,8 +92,9 @@ export class PaymentsController {
   //   return this.paymentsService.update(+id, updatePaymentDto);
   // }
 
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.paymentsService.remove(+id);
-  // }
+  @Delete('transactions/:id')
+  removePaymentTransaction(@Param('id') id: number) {
+    this.logger.info(`DELETE /payments/transactions/${id}`);
+    return this.paymentsService.removePaymentTransaction(+id);
+  }
 }
