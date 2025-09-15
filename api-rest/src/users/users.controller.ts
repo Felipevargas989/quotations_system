@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { API_ROUTES } from 'src/constants/api.routes';
@@ -43,8 +51,9 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.usersService.remove(+id);
-  // }
+  @Delete(':id')
+  remove(@Param('id') id: User['id'], @CurrentUser() user: User) {
+    this.logger.info(`DELETE /users/${id} with user ${user.id}`);
+    return this.usersService.remove(id, user.company_id);
+  }
 }

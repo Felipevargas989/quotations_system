@@ -69,4 +69,23 @@ export class UsersRepository {
       .select()
       .single();
   }
+
+  async remove(id: User['id'], companyId: Company['id']) {
+    this.logger.info(`remove user with id ${id} and companyId ${companyId}`);
+    return await this.supabase.client
+      .from('user_profiles')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+  }
+
+  async removeAuthUser(id: User['id'], companyId: Company['id']) {
+    this.logger.info(
+      `remove auth user with id ${id} and companyId ${companyId}`,
+    );
+    // TODO: check because it's not working.
+    return await this.supabase.client.auth.admin.deleteUser(id);
+  }
 }

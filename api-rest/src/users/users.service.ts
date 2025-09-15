@@ -59,7 +59,28 @@ export class UsersService {
     return this.usersRepository.update(id, updateUserDto);
   }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} user`;
-  // }
+  async remove(id: User['id'], companyId: Company['id']) {
+    this.logger.info(`remove user with id ${id} and companyId ${companyId}`);
+
+    // 1. remove user from public.user_profiles table
+    const { error } = await this.usersRepository.remove(id, companyId);
+
+    if (error) {
+      this.logger.error(error);
+      throw error;
+    }
+
+    // 2. remove user from auth.users table
+    const { error: authError } = await this.usersRepository.removeAuthUser(
+      id,
+      companyId,
+    );
+
+    if (authError) {
+      this.logger.error(authError);
+      throw authError;
+    }
+
+    return { message: 'User removed successfully' };
+  }
 }
