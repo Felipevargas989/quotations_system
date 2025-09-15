@@ -14,6 +14,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../constants/permissions";
+import { getUsers } from "../services/users.service";
 
 interface UserProfile {
   id: string;
@@ -25,7 +26,7 @@ interface UserProfile {
 }
 
 export default function UserManagementPage() {
-  const { user, companyId } = useAuth();
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,15 +72,11 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [companyId]);
+  }, []);
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
+      const { data, error } = await getUsers();
 
       if (error) throw error;
       setUsers(data || []);
@@ -124,8 +121,7 @@ export default function UserManagementPage() {
             role: createForm.role,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", editingUserId)
-          .eq("company_id", companyId);
+          .eq("id", editingUserId);
 
         if (profileError) throw profileError;
 
@@ -164,7 +160,6 @@ export default function UserManagementPage() {
                 full_name: createForm.full_name,
                 role: createForm.role,
                 updated_at: new Date().toISOString(),
-                company_id: companyId,
                 user_id: result.uuid,
                 email: createForm.email,
               },
@@ -238,8 +233,7 @@ export default function UserManagementPage() {
       const { error: profileError } = await supabase
         .from("user_profiles")
         .delete()
-        .eq("id", deletingUser.id)
-        .eq("company_id", companyId);
+        .eq("id", deletingUser.id);
 
       if (profileError) throw profileError;
 

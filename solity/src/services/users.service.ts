@@ -10,3 +10,12 @@ export const getUser = async (userId: string) => {
     return { data: null, error };
   }
 };
+
+export const getUsers = async () => {
+  try {
+    const data = await apiRequest(`${API_ROUTES.USERS}`, "GET");
+    return { data };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
