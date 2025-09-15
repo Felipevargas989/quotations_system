@@ -17,7 +17,9 @@ import { UserRole } from "../constants/permissions";
 import {
   getUsers,
   createUser as createUserService,
+  updateUser,
 } from "../services/users.service";
+import { UpdateUser } from "../types/users.types";
 
 interface UserProfile {
   id: string;
@@ -115,16 +117,16 @@ export default function UserManagementPage() {
 
     setCreatingUser(true);
     try {
-      if (isEditing) {
+      if (isEditing && editingUserId) {
         // Update existing user
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .update({
-            full_name: createForm.full_name,
-            role: createForm.role,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingUserId);
+        const editedUser: UpdateUser = {
+          full_name: createForm.full_name,
+          role: createForm.role,
+        };
+        const { error: profileError } = await updateUser(
+          editingUserId,
+          editedUser,
+        );
 
         if (profileError) throw profileError;
 
