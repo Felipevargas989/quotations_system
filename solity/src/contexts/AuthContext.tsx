@@ -7,11 +7,12 @@ import { getUser } from "../services/users.service.ts";
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
+  companyId: string | null;
   loading: boolean;
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{ error?: any; userRole?: string }>;
+  ) => Promise<{ error?: any; userRole?: string; companyId?: string }>;
   signUp: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<any>;
@@ -23,11 +24,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserProfile = async () => {
     if (!user) {
       setUserRole(null);
+      setCompanyId(null);
       return;
     }
 
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
       } else if (data) {
         setUserRole(data.role as UserRole);
+        setCompanyId(data.company_id);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -108,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
       }
 
-      // If sign in was successful, get the user's role
+      // If sign in was successful, get the user's role and company_id
       if (result.data?.user && !result.error) {
         try {
           const { data: profileData } = await getUser(result.data.user.id);
@@ -116,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return {
             ...result,
             userRole: profileData.role,
+            companyId: profileData.company_id,
           };
         } catch (profileError) {
           return result;
@@ -193,6 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession,
     userRole,
+    companyId,
     loadUserProfile,
   };
 

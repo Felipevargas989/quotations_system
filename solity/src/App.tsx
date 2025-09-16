@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
 import PermissionGuard from "./components/PermissionGuard";
@@ -14,14 +13,14 @@ import QuotationsPage from "./pages/QuotationsPage";
 import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
-import { checkAndUpdateOverduePayments } from "./services/payments.service.ts";
 import SuperAdminPage from "./pages/superAdmin/Index.tsx";
 
 function App() {
-  useEffect(() => {
-    // Check for overdue payments on app startup
-    checkAndUpdateOverduePayments();
-  }, []);
+  // TODO: check if this is needed
+  // useEffect(() => {
+  //   // Check for overdue payments on app startup
+  //   // checkAndUpdateOverduePayments();
+  // }, []);
 
   return (
     <AuthProvider>

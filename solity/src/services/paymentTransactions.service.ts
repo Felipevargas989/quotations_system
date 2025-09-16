@@ -39,7 +39,6 @@ export interface PaymentWithTransactions {
   transactions: PaymentTransaction[];
   quotations: {
     quotation_number: number;
-    client_name: string;
     total_amount: number;
     requires_invoice: boolean;
     has_contract: boolean;

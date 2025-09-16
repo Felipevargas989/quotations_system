@@ -22,7 +22,11 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { getQuotations } from "../services/quotations.service";
-import { QuotationRequestType } from "../types/quotations.types";
+import {
+  Quotation,
+  QuotationRequestType,
+  QuotationStatus,
+} from "../types/quotations.types";
 import { getClients } from "../services/clients.service";
 
 interface DashboardData {
@@ -66,16 +70,14 @@ export default function DashboardPage() {
 
       // 1. Total de requerimientos (TODOS)
       const { data: requestsData } = await getQuotations(
-        companyId.toString(),
         QuotationRequestType.REQUERIMIENTO,
       );
 
       // 2. Total de clientes (TODOS)
-      const { data: clientsData } = await getClients(companyId.toString());
+      const { data: clientsData } = await getClients();
 
       // 3. Cotizaciones por estado (TODAS)
       const { data: quotationsData } = await getQuotations(
-        companyId.toString(),
         QuotationRequestType.COTIZACION,
       );
 
@@ -83,9 +85,9 @@ export default function DashboardPage() {
       // TODO: check if move to service
       const { data: paymentsData } = await supabase
         .from("payments")
-        .select("id, amount, due_date, status")
+        .select("id, amount, due_date, status, quotations!inner(company_id)")
         .eq("status", "pendiente")
-        .eq("company_id", companyId.toString())
+        .eq("quotations.company_id", companyId.toString())
         .gte("due_date", new Date().toISOString().split("T")[0])
         .order("due_date");
 
@@ -95,9 +97,11 @@ export default function DashboardPage() {
 
       // Calcular ventas totales (cotizaciones aceptadas)
       const acceptedQuotations =
-        quotationsData?.filter((q) => q.quotation_status === "aceptada") || [];
+        quotationsData?.filter(
+          (q: Quotation) => q.quotation_status === QuotationStatus.ACEPTADA,
+        ) || [];
       const totalSales = acceptedQuotations.reduce(
-        (sum, q) => sum + (q.total_amount || 0),
+        (sum: number, q: Quotation) => sum + (q.total_amount || 0),
         0,
       );
 
@@ -106,7 +110,8 @@ export default function DashboardPage() {
       const lastMonth = subMonths(currentMonth, 1);
 
       const currentMonthRequests =
-        requestsData?.filter((r) => {
+        requestsData?.filter((r: Quotation) => {
+          // @ts-ignore
           const createdDate = parseISO(r.created_at);
           return (
             createdDate >= startOfMonth(currentMonth) &&
@@ -115,7 +120,8 @@ export default function DashboardPage() {
         }).length || 0;
 
       const lastMonthRequests =
-        requestsData?.filter((r) => {
+        requestsData?.filter((r: Quotation) => {
+          // @ts-ignore
           const createdDate = parseISO(r.created_at);
           return (
             createdDate >= startOfMonth(lastMonth) &&
@@ -136,7 +142,8 @@ export default function DashboardPage() {
       for (let i = 5; i >= 0; i--) {
         const month = subMonths(currentMonth, i);
         const monthRequests =
-          requestsData?.filter((r) => {
+          requestsData?.filter((r: Quotation) => {
+            // @ts-ignore
             const createdDate = parseISO(r.created_at);
             return (
               createdDate >= startOfMonth(month) &&
@@ -159,7 +166,7 @@ export default function DashboardPage() {
         rechazada: { count: 0, amount: 0 },
       };
 
-      quotationsData?.forEach((q) => {
+      quotationsData?.forEach((q: Quotation) => {
         if (statusCounts[q.quotation_status as keyof typeof statusCounts]) {
           statusCounts[q.quotation_status as keyof typeof statusCounts].count++;
           statusCounts[
@@ -192,8 +199,9 @@ export default function DashboardPage() {
       for (let i = 5; i >= 0; i--) {
         const month = subMonths(currentMonth, i);
         const monthEvents =
-          quotationsData?.filter((q) => {
+          quotationsData?.filter((q: Quotation) => {
             if (!q.event_date) return false;
+            // @ts-ignore
             const eventDate = parseISO(q.event_date);
             return (
               eventDate >= startOfMonth(month) && eventDate <= endOfMonth(month)

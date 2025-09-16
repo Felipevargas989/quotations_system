@@ -12,7 +12,6 @@ export const getPayments = async () => {
           *,
           quotations!inner(
             quotation_number,
-            client_name,
             event_date,
             total_amount,
             requires_invoice,
@@ -154,13 +153,14 @@ export const deletePayment = async (
 // Check and update overdue payments
 export const checkAndUpdateOverduePayments = async (companyId: number) => {
   try {
+    console.log("checkAndUpdateOverduePayments", companyId);
     const today = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD format
 
     // Get all pending payments that are overdue
     const { data: overduePayments, error: fetchError } = await supabase
       .from("payments")
       .select(
-        "id, payment_number, due_date, status, quotations!inner(quotation_number, client_name)",
+        "id, payment_number, due_date, status, quotations!inner(quotation_number)",
       )
       .eq("status", "pendiente")
       .eq("quotations.company_id", companyId)

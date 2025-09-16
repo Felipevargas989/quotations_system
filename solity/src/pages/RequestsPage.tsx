@@ -238,7 +238,8 @@ export default function RequestsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {request.client_name}
+                          {/* {request.client_name} */}
+                          CLIENT_NAME
                         </div>
                         {/* TODO: check if this is needed */}
                         {/* {request.clients && (
