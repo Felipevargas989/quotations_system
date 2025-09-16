@@ -1,45 +1,10 @@
 import { X, Download, FileText, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Quotation } from "../types/quotations.types";
 
 interface QuotationViewerProps {
-  quotation: {
-    id: string;
-    quotation_number: string;
-    client_name: string;
-    client_email?: string;
-    phone?: string;
-    event_type?: string;
-    event_date?: string;
-    people_count: number;
-    total_amount: number;
-    quotation_status: string;
-    observations?: string;
-    created_at: string;
-    items?: {
-      variable_services: Array<{
-        category: string;
-        items: Array<{
-          codigo: string;
-          nombre: string;
-          precio: number;
-          categoria: string;
-          quantity: number;
-        }>;
-      }>;
-      fixed_services: Array<{
-        codigo: string;
-        nombre: string;
-        precio: number;
-        categoria: string;
-        quantity: number;
-        tipo_calculo?: string;
-        min_precio?: number;
-        max_precio?: number;
-        precio_por_persona?: number;
-      }>;
-    };
-  };
+  quotation: Quotation;
   onClose: () => void;
 }
 
@@ -427,7 +392,7 @@ export default function QuotationViewer({
             <div class="info-grid">
               <div class="info-item">
                 <span class="info-label">Cliente</span>
-                <span class="info-value">${quotation.client_name}</span>
+                <span class="info-value">CLIENT_NAME_HERE</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Fecha Cotización</span>
@@ -627,7 +592,8 @@ export default function QuotationViewer({
                   Cotización #{quotation.quotation_number}
                 </h2>
                 <p className="text-blue-100 text-sm">
-                  {quotation.client_name} •{" "}
+                  {/* {quotation.client_name} •{" "} */}
+                  CLIENT_NAME_HERE •{" "}
                   {format(new Date(quotation.created_at), "dd/MM/yyyy", {
                     locale: es,
                   })}
@@ -674,7 +640,8 @@ export default function QuotationViewer({
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <p className="text-sm text-gray-600 mb-1">Cliente</p>
                   <p className="font-medium text-gray-900">
-                    {quotation.client_name}
+                    {/* {quotation.client_name} */}
+                    CLIENT_NAME_HERE
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-gray-200">

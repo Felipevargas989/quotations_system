@@ -375,7 +375,7 @@ export default function QuotationsPage() {
         </button>
       </div>
 
-      {/* {showViewer && viewingQuotation && (
+      {showViewer && viewingQuotation && (
         <QuotationViewer
           quotation={viewingQuotation}
           onClose={() => {
@@ -383,7 +383,7 @@ export default function QuotationsPage() {
             setViewingQuotation(null);
           }}
         />
-      )} */}
+      )}
 
       {showPaymentPlanEditor && quotationForPaymentPlan && (
         <PaymentPlanEditor
