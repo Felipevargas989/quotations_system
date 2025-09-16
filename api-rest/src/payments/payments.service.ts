@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { QuotationStatus } from 'src/quotations/constants/constants';
@@ -7,9 +8,12 @@ import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { PaymentStatus } from './constants';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
+  CreatePayment,
   CreatePaymentTransaction,
   UpdatePaymentTransaction,
 } from './interfaces/payments.types';
@@ -48,17 +52,76 @@ export class PaymentsService {
     );
   }
 
-  // create(createPaymentDto: CreatePaymentDto) {
-  //   return 'This action adds a new payment';
-  // }
+  async createPayment(
+    createPaymentDto: CreatePaymentDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(
+      `createPayment with createPaymentDto ${JSON.stringify(createPaymentDto)}`,
+    );
+
+    try {
+      let nextPaymentNumber: number = 1;
+
+      // 1. Get the next payment number for this payment
+      const { data: payments, error: paymentsError } =
+        await this.paymentsRepository.findAllPaymentsFromQuotation(
+          createPaymentDto.quotation_id,
+          companyId,
+        );
+      if (paymentsError) {
+        this.logger.error(paymentsError);
+        throw paymentsError;
+      }
+      if (payments && payments.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        nextPaymentNumber = payments[payments.length - 1].payment_number + 1;
+      }
+
+      // 2. Set due_date
+      // Calculate due_date: if event_date exists, use 1 week after event date; otherwise use today
+      const { data: quotation, error: quotationError } =
+        await this.quotationsRepository.findOne(createPaymentDto.quotation_id);
+      if (quotationError) {
+        this.logger.error(quotationError);
+        throw quotationError;
+      }
+
+      if (!quotation) {
+        this.logger.error('Quotation not found');
+        throw new Error('Quotation not found');
+      }
+
+      const dueDate = quotation.event_date
+        ? new Date(quotation.event_date).getTime() + 7 * 24 * 60 * 60 * 1000
+        : new Date().getTime();
+
+      // 3. create payment
+      const newPayment: CreatePayment = {
+        quotation_id: createPaymentDto.quotation_id,
+        amount: createPaymentDto.amount,
+        notes: createPaymentDto.notes,
+        status: PaymentStatus.PENDIENTE,
+        payment_number: nextPaymentNumber,
+        due_date: new Date(dueDate),
+      };
+
+      return this.paymentsRepository.createPayment(newPayment);
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
 
   findAllPaymentsFromQuotation(
     quotationId: Quotation['id'],
     companyId: Company['id'],
-  ) {
+    filterStatus?: PaymentStatus[],
+  ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
     return this.paymentsRepository.findAllPaymentsFromQuotation(
       quotationId,
       companyId,
+      filterStatus,
     );
   }
 
@@ -261,9 +324,9 @@ export class PaymentsService {
   //   return `This action returns a #${id} payment`;
   // }
 
-  // update(id: number, updatePaymentDto: UpdatePaymentDto) {
-  //   return `This action updates a #${id} payment`;
-  // }
+  update(id: Payment['id'], updatePaymentDto: UpdatePaymentDto) {
+    return this.paymentsRepository.updatePayment(id, updatePaymentDto);
+  }
   removePaymentTransaction(id: number) {
     this.logger.info(`removePaymentTransaction with id ${id}`);
     return this.paymentsRepository.removePaymentTransaction(id);

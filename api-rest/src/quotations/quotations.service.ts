@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { PaymentPlanType, RequestType } from './constants/constants';
+import { PaymentStatus } from 'src/payments/constants';
+import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
+import { PaymentsService } from 'src/payments/payments.service';
+import {
+  PaymentPlanType,
+  QuotationStatus,
+  RequestType,
+} from './constants/constants';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
@@ -11,6 +18,8 @@ import { QuotationsRepository } from './quotations.repository';
 export class QuotationsService {
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
+    // private readonly paymentsRepository: PaymentsRepository,
+    private readonly paymentsService: PaymentsService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
@@ -70,12 +79,87 @@ export class QuotationsService {
     return this.quotationsRepository.findOne(id);
   }
 
-  update(
+  async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,
     companyId: number,
   ) {
-    return this.quotationsRepository.update(id, updateQuotationDto, companyId);
+    try {
+      // 0. Get quotation
+      const { data: quotation, error } =
+        await this.quotationsRepository.findOne(id);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!quotation) {
+        throw new Error('Quotation not found');
+      }
+
+      // 1. Check quotation status
+      // If quotation_states is accepted, handle update payment plan (payments)
+      if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+        // 2.1 If new total_amount is less than previous one, throw error and not update quotation
+        if (
+          updateQuotationDto.total_amount &&
+          updateQuotationDto.total_amount < quotation.total_amount
+        ) {
+          throw new Error(
+            'No se puede disminuir el total_amount de una cotización aceptada',
+          );
+        }
+
+        // 2.2 If new total_amount is greater thant previous one, update payments
+        if (
+          updateQuotationDto.total_amount &&
+          updateQuotationDto.total_amount > quotation.total_amount
+        ) {
+          // Get all payments PENDIENTE or VENCIDO
+          const { data: payments, error: paymentsError } =
+            await this.paymentsService.findAllPaymentsFromQuotation(
+              id,
+              companyId,
+              [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
+            );
+          if (paymentsError) {
+            throw paymentsError;
+          }
+          // If payments, then get the last one and increase the amount by the difference between the new total_amount and the previous total_amount
+          if (payments && payments.length > 0) {
+            // Get the last payment and increase the amount by the difference between the new total_amount and the previous total_amount
+            const lastPayment = payments[payments.length - 1];
+            const newAmount =
+              lastPayment.amount +
+              (updateQuotationDto.total_amount - quotation.total_amount);
+            await this.paymentsService.update(lastPayment.id, {
+              amount: newAmount,
+            });
+          }
+
+          // If not payments, then create new payment with the difference between the new total_amount and the previous total_amount
+          else if (!payments || payments.length === 0) {
+            const newPayment: CreatePaymentDto = {
+              quotation_id: id,
+              amount: updateQuotationDto.total_amount - quotation.total_amount,
+              notes: 'Pago creado por diferencia de total_amount',
+            };
+            await this.paymentsService.createPayment(newPayment, companyId);
+          }
+        }
+      }
+
+      // update quotation
+      return this.quotationsRepository.update(
+        id,
+        updateQuotationDto,
+        companyId,
+      );
+      // 3. If quotation_status is not accepted, update quotation
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 
   remove(id: string, companyId: number) {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
@@ -40,15 +41,16 @@ export class QuotationsRepository {
     return data as Quotation[];
   }
 
-  async findOne(id: string): Promise<Quotation> {
+  async findOne(id: string): Promise<{
+    data: Quotation | null;
+    error: PostgrestError | null;
+  }> {
     this.logger.info(`find quotation with id ${id}`);
-    const { data, error } = await this.supabase.client
+    return await this.supabase.client
       .from('quotations')
       .select('*')
       .eq('id', id)
       .single();
-    if (error) throw error;
-    return data as Quotation;
   }
 
   async create(createQuotation: CreateQuotation) {

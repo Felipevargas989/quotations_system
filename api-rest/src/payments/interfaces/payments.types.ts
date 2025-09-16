@@ -19,3 +19,8 @@ export type UpdatePayment = Partial<
 export type UpdatePaymentTransaction = UpdatePaymentTransactionDto & {
   payment_transaction_id: PaymentTransaction['id'];
 };
+
+export type CreatePayment = Omit<
+  Payment,
+  'id' | 'created_at' | 'updated_at' | 'payment_method'
+>;

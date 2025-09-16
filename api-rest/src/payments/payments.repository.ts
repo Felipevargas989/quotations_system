@@ -4,9 +4,11 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { PaymentStatus } from './constants';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
+  CreatePayment,
   CreatePaymentTransaction,
   PaymentWithTransactionsAndQuotation,
   UpdatePayment,
@@ -23,22 +25,32 @@ export class PaymentsRepository {
   async findAllPaymentsFromQuotation(
     quotationId: Quotation['id'],
     companyId: Company['id'],
-  ) {
+    filterStatus?: PaymentStatus[],
+  ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
     this.logger.info(
       `findAllPaymentsFromQuotation with quotationId ${quotationId} and companyId ${companyId}`,
     );
-    return this.supabase.client
-      .from('payments')
-      .select(
-        `
+    // crate query object
+    const query = this.supabase.client.from('payments').select(
+      `
         *,
         quotations (
           company_id
         )
-        `,
-      )
+      `,
+    );
+
+    if (filterStatus) {
+      query.in('status', filterStatus);
+    }
+    query
       .eq('quotations.company_id', companyId)
-      .eq('quotation_id', quotationId);
+      .eq('quotation_id', quotationId)
+      // be careful when changing this, it will affect the payment number in update payment plan
+      .order('payment_number', { ascending: true });
+
+    const { data, error } = await query;
+    return { data, error };
   }
 
   async findAllPaymentsWithTransactions(companyId: Company['id']): Promise<{
@@ -87,6 +99,11 @@ export class PaymentsRepository {
       `createPaymentPlan with payments ${JSON.stringify(payments)}`,
     );
     return this.supabase.client.from('payments').insert(payments);
+  }
+
+  async createPayment(payment: CreatePayment) {
+    this.logger.info(`createPayment with payment ${JSON.stringify(payment)}`);
+    return this.supabase.client.from('payments').insert(payment);
   }
 
   async deletePaymentsByQuotationId(
