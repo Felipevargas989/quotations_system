@@ -732,7 +732,9 @@ export default function QuotationForm({
         ...formData,
         event_type: formData.event_type,
         event_date: new Date(formData.event_date),
-        request_type: formData.request_type,
+        request_type: isFromRequirement
+          ? QuotationRequestType.COTIZACION
+          : formData.request_type,
         value_per_person: Math.round(formData.value_per_person),
         fixed_value: Math.round(formData.fixed_value),
         subtotal_amount: Math.round(formData.subtotal_amount),

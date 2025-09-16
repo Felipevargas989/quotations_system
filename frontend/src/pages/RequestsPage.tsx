@@ -66,21 +66,22 @@ export default function RequestsPage() {
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
       alert("Requerimiento eliminado exitosamente");
     } catch (error) {
-      console.error("Error deleting request:", error);
       alert("Error al eliminar el requerimiento");
     }
   };
 
   const filteredRequests = requests.filter((request) => {
-    const matchesSearch =
-      request.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.quotation_number?.toString() === searchTerm.toLowerCase() ||
-      request.event_type?.toLowerCase().includes(searchTerm.toLowerCase());
+    // TODO: implememnt filter
+    // const matchesSearch =
+    //   request.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //   request.quotation_number?.toString() === searchTerm.toLowerCase() ||
+    //   request.event_type?.toLowerCase().includes(searchTerm.toLowerCase());
     // Solo mostrar requerimientos en estado "solicitada"
-    const isRequiredStatus = request.quotation_status === "solicitada";
-    const isRequiredType =
-      request.request_type === "requerimiento" || !request.request_type;
-    return matchesSearch && isRequiredStatus && isRequiredType;
+    // const isRequiredStatus = request.quotation_status === "solicitada";
+    // const isRequiredType =
+    //   request.request_type === "requerimiento" || !request.request_type;
+    // return matchesSearch && isRequiredStatus && isRequiredType;
+    return true;
   });
 
   const getStatusColor = (status: string) => {

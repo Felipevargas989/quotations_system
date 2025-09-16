@@ -13,6 +13,7 @@ import {
 } from "../types/quotations.types";
 import {
   deleteQuotation,
+  getQuotationById,
   getQuotations,
   updateQuotation,
 } from "../services/quotations.service";
@@ -127,59 +128,27 @@ export default function QuotationsPage() {
   };
 
   const handleCreateQuotationFromRequirement = async (
-    requirement: Quotation,
+    requirementId: Quotation["id"],
   ) => {
-    alert("IMPLEMENT THIS");
-    //   try {
-    //     if (!user?.id) {
-    //       alert("Error: Usuario no autenticado");
-    //       return;
-    //     }
+    try {
+      if (!user?.id) {
+        alert("Error: Usuario no autenticado");
+        return;
+      }
 
-    //     // // Obtener los datos del requerimiento
-    //     // const { data: requirement, error } = await supabase
-    //     //   .from("quotations")
-    //     //   .select("*")
-    //     //   .eq("id", requirementId)
-    //     //   .eq("company_id", companyId)
-    //     //   .single();
+      // // Obtener los datos del requerimiento
+      const { data: requirement, error } =
+        await getQuotationById(requirementId);
 
-    //     // if (error) throw error;
+      if (error) throw error;
+      if (!requirement) throw new Error("Requerimiento no encontrado");
 
-    //     // console.log(
-    //     //   "📋 Requerimiento cargado para editar:",
-    //     //   requirement.quotation_number,
-    //     //   "ID:",
-    //     //   requirement.id,
-    //     // );
-
-    //     // Crear cotización prellenada con datos del requerimiento
-    //     const quotationData: QuotationFormData = {
-    //       // id: requirement.id, // CRÍTICO: Incluir el ID para que sea actualización
-    //       // quotation_number: requirement.quotation_number, // Mantener el mismo número
-    //       event_type: requirement.event_type || "",
-    //       event_date: requirement.event_date || "",
-    //       people_count: requirement.people_count || 1,
-    //       // subtotal_amount: 0,
-    //       // discount_percentage: 0,
-    //       total_amount: 0,
-    //       created_at: requirement.created_at || new Date().toISOString(),
-    //       quotation_status: QuotationStatus.ENVIADA, // Estado inicial "enviada"
-    //       request_type: QuotationRequestType.COTIZACION,
-    //       observations: requirement.observations || "", // Prellenar observaciones
-    //       value_per_person: 0,
-    //       fixed_value: 0,
-    //       // user_id: user?.id || "",
-    //       client_id: requirement.client_id || "",
-    //     };
-
-    //     setEditingQuotation(quotationData as Quotation);
-    //     setCreatingFromRequirement(requirementId);
-    //     setShowForm(true);
-    //   } catch (error) {
-    //     console.error("Error creating quotation from requirement:", error);
-    //     alert("Error al crear cotización desde requerimiento");
-    //   }
+      setEditingQuotation(requirement);
+      setCreatingFromRequirement(requirementId);
+      setShowForm(true);
+    } catch (error) {
+      alert("Error al crear cotización desde requerimiento");
+    }
   };
 
   const filteredQuotations = quotations.filter((quotation) => {
