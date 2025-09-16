@@ -76,7 +76,7 @@ export interface Quotation {
   payment_plan_type: PaymentPlanType;
   discount_percentage: number;
   subtotal_amount: number;
-  items: QuotationItem[];
+  items: QuotationItem;
   company_id: number;
 }
 
@@ -90,8 +90,15 @@ export interface QuotationFormData
     | "observations"
     | "request_type"
     | "quotation_status"
-    | "requires_invoice"
-    | "has_contract"
-  > {}
+    | "subtotal_amount"
+    | "discount_percentage"
+    | "total_amount"
+    | "value_per_person"
+    | "fixed_value"
+    | "items"
+  > {
+  has_contract?: Quotation["has_contract"];
+  requires_invoice?: Quotation["requires_invoice"];
+}
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}

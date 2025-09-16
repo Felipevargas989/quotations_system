@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
 import { Save, RotateCcw, ArrowLeft, Plus, Trash2, X } from "lucide-react";
-import {
-  getPaymentsByQuotationId,
-  updatePaymentAmount,
-  createPayment,
-} from "../services/payments.service";
 import { useAuth } from "../contexts/AuthContext";
 import {
   useGoogleSheets,
@@ -21,6 +16,8 @@ import { createClient, getClients } from "../services/clients.service";
 import { ClientFormData } from "../types/clients.types";
 import {
   EventType,
+  QuotationFormData,
+  QuotationFormDataUpdate,
   QuotationRequestType,
   QuotationStatus,
 } from "../types/quotations.types";
@@ -71,20 +68,25 @@ export default function QuotationForm({
   const { fixedServices, calculatePrice } = useGoogleSheetsFixed();
 
   // TODO: add type
-  const [formData, setFormData] = useState({
-    event_type: "",
-    event_date: "",
+  const [formData, setFormData] = useState<QuotationFormData>({
+    event_type: EventType.ALMUERZO_O_CENA,
+    event_date: new Date(),
     people_count: 1,
     subtotal_amount: 0,
     discount_percentage: 0,
     total_amount: 0,
-    quotation_status: isFromRequirement ? "enviada" : "solicitada",
-    request_type: "cotizacion",
+    quotation_status: isFromRequirement
+      ? QuotationStatus.ENVIADA
+      : QuotationStatus.SOLICITADA,
+    request_type: QuotationRequestType.COTIZACION,
     observations: "",
     value_per_person: 0,
     fixed_value: 0,
     client_id: "",
-    items: [],
+    items: {
+      variable_services: [],
+      fixed_services: [],
+    },
   });
 
   const [clients, setClients] = useState<any[]>([]);
@@ -173,84 +175,12 @@ export default function QuotationForm({
     return Math.round(formData.total_amount) >= Math.round(originalTotalPrice);
   };
 
-  // Handle payment updates when quotation price increases
-  const handlePaymentUpdate = async (priceDifference: number) => {
-    if (!quotation?.id) return;
-
-    try {
-      // Get all payments for this quotation
-      const { data: payments, error: paymentsError } =
-        await getPaymentsByQuotationId(quotation.id);
-
-      if (paymentsError) {
-        console.error("Error fetching payments:", paymentsError);
-        return;
-      }
-
-      // Find payments with status 'pendiente' or 'vencido'
-      const pendingOrOverduePayments =
-        payments?.filter(
-          (payment) =>
-            payment.status === "pendiente" || payment.status === "vencido",
-        ) || [];
-
-      if (pendingOrOverduePayments.length > 0) {
-        // Update the last pending/overdue payment with the price difference
-        const paymentToUpdate = pendingOrOverduePayments[0];
-        const newAmount = paymentToUpdate.amount + priceDifference;
-
-        const { error: updateError } = await updatePaymentAmount(
-          paymentToUpdate.id,
-          newAmount,
-        );
-
-        if (updateError) {
-          console.error("Error updating payment:", updateError);
-          alert("Error al actualizar el pago. Por favor, inténtalo de nuevo.");
-          return;
-        }
-
-        alert(
-          `Se ha actualizado el pago ${paymentToUpdate.payment_number} con el precio diferencial de ${priceDifference}, quedando con nuevo monto de ${newAmount}`,
-        );
-        console.log(
-          `✅ Payment updated: ${paymentToUpdate.id} - New amount: ${newAmount}`,
-        );
-      } else {
-        // Create a new payment with the price difference
-        const { error: createError } = await createPayment(
-          quotation.id,
-          priceDifference,
-          "Actualización de cotización luego de ser aceptada",
-        );
-
-        if (createError) {
-          console.error("Error creating payment:", createError);
-          alert("Error al crear el nuevo pago. Por favor, inténtalo de nuevo.");
-          return;
-        }
-
-        alert(
-          `Se ha creado un nuevo pago para el precio diferencial de ${priceDifference}`,
-        );
-        console.log(
-          `✅ New payment created for price difference: ${priceDifference}`,
-        );
-      }
-    } catch (error) {
-      console.error("Error handling payment update:", error);
-      alert(
-        "Error al procesar la actualización del pago. Por favor, inténtalo de nuevo.",
-      );
-    }
-  };
-
   // Validation for quotation form
   const isQuotationFormValid = () => {
     const basicValidation =
       formData.client_id.trim() !== "" &&
       formData.event_type.trim() !== "" &&
-      formData.event_date.trim() !== "";
+      formData.event_date.toString().trim() !== "";
 
     // For restricted editing, also check that original services are present and price is sufficient
     if (isRestrictedEditing) {
@@ -264,17 +194,6 @@ export default function QuotationForm({
 
     return basicValidation;
   };
-
-  const eventTypes = [
-    "Almuerzo o Cena",
-    "Paseo de Curso",
-    "Uso salones",
-    "Estadía y Alimentación",
-    "Paseo fin de año",
-    "Celebraciones",
-    "Matrimonios",
-    "Graduación",
-  ];
 
   useEffect(() => {
     loadClients();
@@ -294,16 +213,15 @@ export default function QuotationForm({
 
   useEffect(() => {
     if (quotation) {
-      console.log("🔄 Quotation received:", quotation);
-      setFormData(quotation);
+      setFormData({
+        ...quotation,
+        event_date: new Date(quotation.event_date),
+      });
       setIsEditingExisting(!!quotation.id);
 
       // SIEMPRE cargar items desde la base de datos si tiene ID
       if (quotation.id) {
-        console.log("🔄 Loading items for quotation ID:", quotation.id);
         loadItemsFromDatabase(quotation.id);
-      } else {
-        console.log("ℹ️ No quotation ID, skipping item loading");
       }
     }
   }, [quotation]);
@@ -366,8 +284,6 @@ export default function QuotationForm({
   };
 
   const loadExistingItemsFromJSON = (itemsData: any) => {
-    console.log("📦 Procesando items desde JSON:", itemsData);
-
     // Cargar servicios variables (cada service box es una entidad separada)
     const serviceBoxesData: ServiceBox[] = [];
 
@@ -427,10 +343,6 @@ export default function QuotationForm({
     setOriginalVariableServices([...allVariableServices]);
     setOriginalFixedServices([...fixedServicesLoaded]);
     setOriginalTotalPrice(quotation.total_amount); // Save original total amount from quotation
-
-    console.log("✅ Service boxes cargados:", serviceBoxesData.length);
-    console.log("✅ Servicios fijos cargados:", fixedServicesLoaded.length);
-    console.log("✅ Servicios originales guardados para modo restringido");
 
     // Set service boxes from loaded data
     if (serviceBoxesData.length > 0) {
@@ -790,7 +702,7 @@ export default function QuotationForm({
 
     try {
       // Prepare items JSON structure - each service box is saved as a separate entity
-      const itemsData = {
+      const itemsData: QuotationFormData["items"] = {
         variable_services: serviceBoxes
           .filter((box) => box.selectedCategory && box.services.length > 0)
           .map((box) => ({
@@ -818,9 +730,9 @@ export default function QuotationForm({
 
       const quotationData = {
         ...formData,
-        event_type: formData.event_type as EventType,
+        event_type: formData.event_type,
         event_date: new Date(formData.event_date),
-        request_type: formData.request_type as QuotationRequestType,
+        request_type: formData.request_type,
         value_per_person: Math.round(formData.value_per_person),
         fixed_value: Math.round(formData.fixed_value),
         subtotal_amount: Math.round(formData.subtotal_amount),
@@ -828,9 +740,10 @@ export default function QuotationForm({
         items: itemsData,
         quotation_status: isFromRequirement
           ? QuotationStatus.ENVIADA
-          : (formData.quotation_status as QuotationStatus),
+          : formData.quotation_status,
       };
 
+      // if quotation already exists (from requirement or updating a quotation)
       if (quotation?.id || isFromRequirement) {
         // Actualizar cotización existente
         const targetId = quotation?.id;
@@ -840,17 +753,26 @@ export default function QuotationForm({
           );
         }
 
-        const { error } = await updateQuotation(quotationData, targetId);
+        const updatedQuotation: QuotationFormDataUpdate = {
+          client_id: quotationData.client_id,
+          event_type: quotationData.event_type,
+          event_date: new Date(quotationData.event_date),
+          request_type: quotationData.request_type,
+          value_per_person: Math.round(quotationData.value_per_person),
+          fixed_value: Math.round(quotationData.fixed_value),
+          subtotal_amount: Math.round(quotationData.subtotal_amount),
+          total_amount: Math.round(quotationData.total_amount),
+          items: quotationData.items,
+          quotation_status: quotationData.quotation_status,
+          people_count: quotationData.people_count,
+        };
+        const { error } = await updateQuotation(updatedQuotation, targetId);
 
         if (error) throw error;
-
-        // Handle payment updates if price increased for accepted quotations
-        if (isRestrictedEditing && formData.total_amount > originalTotalPrice) {
-          const priceDifference = formData.total_amount - originalTotalPrice;
-          await handlePaymentUpdate(priceDifference);
-        }
-      } else {
-        // Crear nueva cotización
+      }
+      // if quotation does not exist
+      else {
+        // Create new quotation
         const { error } = await createQuotation(quotationData);
 
         if (error) throw error;
@@ -885,19 +807,22 @@ export default function QuotationForm({
     setDiscountPercentage(0);
     setIsEditingExisting(false);
     setFormData({
-      event_type: "",
-      event_date: "",
+      event_type: EventType.ALMUERZO_O_CENA,
+      event_date: new Date(),
       people_count: 1,
       subtotal_amount: 0,
       discount_percentage: 0,
       total_amount: 0,
-      quotation_status: "solicitada",
-      request_type: "cotizacion",
+      quotation_status: QuotationStatus.SOLICITADA,
+      request_type: QuotationRequestType.COTIZACION,
       observations: "",
       value_per_person: 0,
       fixed_value: 0,
       client_id: "",
-      items: [],
+      items: {
+        variable_services: [],
+        fixed_services: [],
+      },
     });
   };
 
@@ -1367,13 +1292,13 @@ export default function QuotationForm({
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      event_type: e.target.value,
+                      event_type: e.target.value as EventType,
                     }))
                   }
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Seleccionar tipo</option>
-                  {eventTypes.map((type) => (
+                  {Object.values(EventType).map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
@@ -1387,11 +1312,11 @@ export default function QuotationForm({
                 </label>
                 <input
                   type="date"
-                  value={formData.event_date}
+                  value={formData.event_date.toISOString().split("T")[0]}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      event_date: e.target.value,
+                      event_date: new Date(e.target.value),
                     }))
                   }
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"

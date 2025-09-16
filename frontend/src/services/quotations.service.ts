@@ -50,5 +50,5 @@ export const getQuotationById = async (quotationId: string) => {
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,
     "GET",
   );
-  return { data: response as Quotation, error: response.error };
+  return { data: response.data as Quotation, error: response.error };
 };
