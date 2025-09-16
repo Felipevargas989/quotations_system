@@ -8,6 +8,7 @@ import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
 import { PaymentsModule } from './payments/payments.module';
 import { QuotationsModule } from './quotations/quotations.module';
+import { ServicesModule } from './services/services.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { UsersModule } from './users/users.module';
 
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     ClientsModule,
     QuotationsModule,
     PaymentsModule,
+    ServicesModule,
   ],
   controllers: [],
   providers: [
