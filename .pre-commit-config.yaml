@@ -56,11 +56,11 @@ repos:
       - id: prettier-solity
         name: "Prettier - Solity Frontend"
         description: "Format Solity frontend code with Prettier"
-        entry: bash -c 'source ~/.zshrc && cd solity && npm run format'
+        entry: bash -c 'source ~/.zshrc && cd frontend && npm run format'
         language: system
         pass_filenames: false
         always_run: true
-        files: ^solity/
+        files: ^frontend/
 
   # TODO: commented for now because it's not working
   # # ESLint for JavaScript/TypeScript linting (local hook)
