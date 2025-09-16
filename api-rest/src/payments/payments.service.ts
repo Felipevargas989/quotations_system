@@ -202,9 +202,11 @@ export class PaymentsService {
       let payment_id: Payment['id'] = !isUpdate
         ? (payload as CreatePaymentTransactionDto).payment_id
         : '';
+      let transactionFromDB: PaymentTransaction | null = null;
+
       // 0. if it's udpate, get payment_id from paymentTransactionId
       if (isUpdate) {
-        const { data: transactionFromDB, error: transactionError } =
+        const { data: _transactionFromDB, error: transactionError } =
           await this.paymentsRepository.findPaymentTransactionById(
             (payload as UpdatePaymentTransaction).payment_transaction_id,
           );
@@ -212,10 +214,11 @@ export class PaymentsService {
           this.logger.error(transactionError);
           throw transactionError;
         }
-        if (!transactionFromDB) {
+        if (!_transactionFromDB) {
           this.logger.error('Transaction not found');
           throw new Error('Transaction not found');
         }
+        transactionFromDB = _transactionFromDB;
         payment_id = transactionFromDB.payment_id;
       }
 
@@ -248,7 +251,10 @@ export class PaymentsService {
         (sum: number, t: PaymentTransaction) => sum + t.amount,
         0,
       );
-      const new_paid = current_paid + payload.amount;
+      const new_paid =
+        current_paid +
+        payload.amount -
+        (isUpdate ? transactionFromDB?.amount || 0 : 0);
       if (new_paid > payment.amount) {
         this.logger.error('Current paid is greater than amount');
         throw new Error(

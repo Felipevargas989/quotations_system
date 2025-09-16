@@ -15,7 +15,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
-import { Payment } from './entities/payment.entity';
+import { Payment, PaymentTransaction } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -70,7 +70,7 @@ export class PaymentsController {
 
   @Patch('transactions/:id')
   updatePaymentTransaction(
-    @Param('id') paymentTransactionId: string,
+    @Param('id') paymentTransactionId: PaymentTransaction['id'],
     @Body() updatePaymentTransactionDto: UpdatePaymentTransactionDto,
     @CurrentUser() user: User,
   ) {
@@ -78,7 +78,7 @@ export class PaymentsController {
       `PATCH /payments/transactions/${paymentTransactionId} with updatePaymentTransactionDto ${JSON.stringify(updatePaymentTransactionDto)}`,
     );
     return this.paymentsService.updatePaymentTransaction(
-      +paymentTransactionId,
+      paymentTransactionId,
       updatePaymentTransactionDto,
       user.company_id,
     );
