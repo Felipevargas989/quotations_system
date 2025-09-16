@@ -40,8 +40,10 @@ export class QuotationsService {
       'quotation_number',
       'asc',
     );
-    const lastQuotation = quotations[quotations.length - 1];
-    const quotationNumber = lastQuotation.quotation_number + 1;
+    let quotationNumber = 1;
+    if (quotations.length > 0) {
+      quotationNumber = quotations[quotations.length - 1].quotation_number + 1;
+    }
     const defaultItems: QuotationItem = {
       fixed_services: [],
       variable_services: [],
