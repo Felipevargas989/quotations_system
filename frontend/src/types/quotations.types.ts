@@ -90,6 +90,8 @@ export interface QuotationFormData
     | "observations"
     | "request_type"
     | "quotation_status"
+    | "requires_invoice"
+    | "has_contract"
   > {}
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}

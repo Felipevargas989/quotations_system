@@ -121,65 +121,6 @@ export const deletePayment = async (
   }
 };
 
-// Check and update overdue payments
-export const checkAndUpdateOverduePayments = async (companyId: number) => {
-  try {
-    console.log("checkAndUpdateOverduePayments", companyId);
-    const today = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD format
-
-    // Get all pending payments that are overdue
-    const { data: overduePayments, error: fetchError } = await supabase
-      .from("payments")
-      .select(
-        "id, payment_number, due_date, status, quotations!inner(quotation_number)",
-      )
-      .eq("status", "pendiente")
-      .eq("quotations.company_id", companyId)
-      .lt("due_date", today);
-
-    if (fetchError) {
-      console.error("Error fetching overdue payments:", fetchError);
-      return { success: false, error: fetchError, updatedCount: 0 };
-    }
-
-    if (!overduePayments || overduePayments.length === 0) {
-      console.log("✅ No overdue payments found");
-      return { success: true, error: null, updatedCount: 0 };
-    }
-
-    console.log(
-      `🔄 Found ${overduePayments.length} overdue payments to update`,
-    );
-
-    // Update all overdue payments to 'vencido' status
-    const { error: updateError } = await supabase
-      .from("payments")
-      .update({ status: "vencido" })
-      .eq("status", "pendiente")
-      .eq("quotations.company_id", companyId)
-      .lt("due_date", today);
-
-    if (updateError) {
-      console.error("Error updating overdue payments:", updateError);
-      return { success: false, error: updateError, updatedCount: 0 };
-    }
-
-    console.log(
-      `✅ Successfully updated ${overduePayments.length} payments to 'vencido' status`,
-    );
-
-    return {
-      success: true,
-      error: null,
-      updatedCount: overduePayments.length,
-      updatedPayments: overduePayments,
-    };
-  } catch (error) {
-    console.error("Error in checkAndUpdateOverduePayments:", error);
-    return { success: false, error, updatedCount: 0 };
-  }
-};
-
 export const createPaymentPlan = async (
   quotationId: Quotation["id"],
   payments: CreatePayment[],

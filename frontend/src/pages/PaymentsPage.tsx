@@ -14,11 +14,9 @@ import {
   FileEdit,
   Trash2,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import PaymentPlanEditor from "../components/PaymentPlanEditor";
 import PaymentTransactionModal from "../components/PaymentTransactionModal";
 import QuotationForm from "../components/QuotationForm";
 import {
@@ -26,11 +24,12 @@ import {
   getPaymentsWithTransactions,
   deletePaymentTransaction,
 } from "../services/paymentTransactions.service";
-import {
-  checkAndUpdateOverduePayments,
-  deletePayment,
-} from "../services/payments.service";
+import { deletePayment } from "../services/payments.service";
 import { ROLE_GROUPS } from "../constants/permissions";
+import {
+  getQuotationById,
+  updateQuotation,
+} from "../services/quotations.service";
 
 export default function PaymentsPage() {
   const { userRole } = useAuth();
@@ -41,17 +40,6 @@ export default function PaymentsPage() {
   const [editForm, setEditForm] = useState({
     requires_invoice: false,
     has_contract: false,
-    notes: "",
-  });
-  // const [showPlanEditor, setShowPlanEditor] = useState(false);
-  // const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] =
-    useState<PaymentWithTransactions | null>(null);
-  const [paymentForm, setPaymentForm] = useState({
-    paid_date: "",
-    payment_method: "",
-    notes: "",
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -64,19 +52,11 @@ export default function PaymentsPage() {
   );
   const [showQuotationForm, setShowQuotationForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<any>(null);
-  const [updatingPayments, setUpdatingPayments] = useState(false);
   const [lastUpdateResult, setLastUpdateResult] = useState<{
     success: boolean;
     updatedCount: number;
     message: string;
   } | null>(null);
-
-  const paymentMethods = [
-    "Efectivo",
-    "Transferencia bancaria",
-    "Tarjeta de credito",
-    "Deposito",
-  ];
 
   useEffect(() => {
     loadPayments();
@@ -87,205 +67,30 @@ export default function PaymentsPage() {
       const { data: paymentsData } = await getPaymentsWithTransactions();
       setPayments(paymentsData);
     } catch (error) {
-      console.error("Error loading payments:", error);
       setPayments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleManualUpdateOverduePayments = async () => {
-    alert("Not implemented yet");
-    //   setUpdatingPayments(true);
-    //   setLastUpdateResult(null);
-
-    //   try {
-    //     const result = await checkAndUpdateOverduePayments(companyId);
-
-    //     if (result?.success) {
-    //       setLastUpdateResult({
-    //         success: true,
-    //         updatedCount: result.updatedCount || 0,
-    //         message:
-    //           result.updatedCount > 0
-    //             ? `✅ Se actualizaron ${result.updatedCount} pagos vencidos`
-    //             : "✅ No se encontraron pagos vencidos",
-    //       });
-
-    //       // Reload payments to show updated statuses
-    //       await loadPayments();
-    //     } else {
-    //       setLastUpdateResult({
-    //         success: false,
-    //         updatedCount: 0,
-    //         message: "❌ Error al actualizar pagos vencidos",
-    //       });
-    //     }
-    //   } catch (error) {
-    //     console.error("Error in manual update:", error);
-    //     setLastUpdateResult({
-    //       success: false,
-    //       updatedCount: 0,
-    //       message: "❌ Error inesperado al actualizar pagos",
-    //     });
-    //   } finally {
-    //     setUpdatingPayments(false);
-    //   }
-    // };
-
-    // const createCustomPaymentPlan = async (
-    //   quotationId: string,
-    //   totalAmount: number,
-    //   eventDate: string,
-    //   customPlan: any[],
-    // ) => {
-    //   try {
-    //     // Eliminar pagos existentes
-    //     await supabase.from("payments").delete().eq("quotation_id", quotationId);
-
-    //     const eventDateObj = new Date(eventDate);
-    //     const today = new Date();
-
-    //     const paymentsToCreate = customPlan.map((payment, index) => {
-    //       let dueDate;
-
-    //       if (
-    //         payment.payment_type === "Pago Único" ||
-    //         payment.payment_type === "Abono de Reserva"
-    //       ) {
-    //         dueDate = today;
-    //       } else {
-    //         dueDate = addDays(eventDateObj, -payment.days_before_event);
-    //       }
-
-    //       return {
-    //         quotation_id: quotationId,
-    //         payment_number: index + 1,
-    //         amount: Math.round((totalAmount * payment.percentage) / 100),
-    //         due_date: format(dueDate, "yyyy-MM-dd"),
-    //         status: "pendiente",
-    //         payment_type: payment.payment_type,
-    //         notes: payment.notes || "",
-    //       };
-    //     });
-
-    //     const { error } = await supabase
-    //       .from("payments")
-    //       .insert(paymentsToCreate);
-
-    //     if (error) throw error;
-
-    //     await loadPayments();
-    //     return { success: true };
-    //   } catch (error) {
-    //     console.error("Error creating custom payment plan:", error);
-    //     return { success: false, error };
-    //   }
-  };
-
-  // const handleStatusChange = (
-  //   payment: PaymentWithTransactions,
-  //   newStatus: string,
-  // ) => {
-  //   if (newStatus === "pagado") {
-  //     // Abrir modal para capturar fecha y medio de pago
-  //     setSelectedPayment(payment);
-  //     setPaymentForm({
-  //       paid_date: new Date().toISOString().split("T")[0],
-  //       payment_method: "",
-  //       notes: payment.notes || "",
-  //     });
-  //     setShowPaymentModal(true);
-  //   } else {
-  //     // Cambiar directamente a pendiente o vencido
-  //     updatePaymentStatus(payment.id, newStatus);
-  //   }
-  // };
-
-  const updatePaymentStatus = async (
-    paymentId: string,
-    newStatus: string,
-    paymentData?: any,
-  ) => {
-    try {
-      const updateData: any = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (newStatus === "pagado") {
-        updateData.paid_date =
-          paymentData?.paid_date || new Date().toISOString().split("T")[0];
-        updateData.payment_method = paymentData?.payment_method || "";
-        updateData.notes = paymentData?.notes || "";
-      } else if (newStatus === "pendiente") {
-        updateData.paid_date = null;
-        updateData.payment_method = null;
-      }
-
-      const { error } = await supabase
-        .from("payments")
-        .update(updateData)
-        .eq("id", paymentId);
-
-      if (error) throw error;
-
-      setPayments((prev) =>
-        prev.map((p) => (p.id === paymentId ? { ...p, ...updateData } : p)),
-      );
-
-      alert(`✅ Estado del pago actualizado a: ${newStatus}`);
-    } catch (error) {
-      console.error("Error updating payment:", error);
-      alert("Error al actualizar el pago");
-    }
-  };
-
   const updateQuotationDetails = async (quotationId: string) => {
     try {
-      const { error } = await supabase
-        .from("quotations")
-        .update({
+      const { error } = await updateQuotation(
+        {
           requires_invoice: editForm.requires_invoice,
           has_contract: editForm.has_contract,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", quotationId);
+        },
+        quotationId,
+      );
 
       if (error) throw error;
 
-      // Actualizar el estado local
-      setPayments((prev) =>
-        prev.map((p) =>
-          p.quotation_id === quotationId
-            ? {
-                ...p,
-                quotations: p.quotations
-                  ? {
-                      ...p.quotations,
-                      requires_invoice: editForm.requires_invoice,
-                      has_contract: editForm.has_contract,
-                    }
-                  : p.quotations,
-              }
-            : p,
-        ),
-      );
+      alert("✅ Detalles actualizados correctamente");
+      await loadPayments();
 
       setEditingPayment(null);
-      alert("✅ Detalles actualizados correctamente");
     } catch (error) {
-      console.error("Error updating quotation details:", error);
-      if (
-        (error as any).message?.includes("column") &&
-        (error as any).message?.includes("does not exist")
-      ) {
-        alert(
-          '⚠️ Las columnas de facturación/contrato no existen aún. Ve a /admin y ejecuta "Configurar Base de Datos"',
-        );
-      } else {
-        alert("❌ Error al actualizar los detalles: " + (error as any).message);
-      }
+      alert("❌ Error al actualizar los detalles: " + (error as any).message);
     }
   };
 
@@ -306,15 +111,16 @@ export default function PaymentsPage() {
     const matchesStatus =
       statusFilter === "all" || payment.status === statusFilter;
 
-    const matchesSearch =
-      !searchTerm ||
-      payment.quotations?.quotation_number?.toString() ===
-        searchTerm.toLowerCase() ||
-      payment.quotations?.client_name
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
+    // TODO: implement this search
+    // const matchesSearch =
+    //   !searchTerm ||
+    //   payment.quotations?.quotation_number?.toString() ===
+    //     searchTerm.toLowerCase() ||
+    //   payment.quotations?.client_name
+    //     ?.toLowerCase()
+    //     .includes(searchTerm.toLowerCase());
 
-    return matchesStatus && matchesSearch;
+    return matchesStatus;
   });
 
   const totalPendiente = payments
@@ -339,19 +145,6 @@ export default function PaymentsPage() {
 
   const getPaymentProgress = (payment: PaymentWithTransactions) => {
     return (payment.paid_amount / payment.amount) * 100;
-  };
-
-  const handleSavePayment = async () => {
-    if (!selectedPayment) return;
-
-    if (!paymentForm.payment_method) {
-      alert("Por favor selecciona un medio de pago");
-      return;
-    }
-
-    await updatePaymentStatus(selectedPayment.id, "pagado", paymentForm);
-    setShowPaymentModal(false);
-    setSelectedPayment(null);
   };
 
   const handleEditTransaction = (
@@ -433,20 +226,15 @@ export default function PaymentsPage() {
   ) => {
     try {
       // Fetch the quotation details
-      const { data: quotation, error } = await supabase
-        .from("quotations")
-        .select("*")
-        .eq("id", payment.quotation_id)
-        .eq("company_id", companyId)
-        .single();
-
+      const { data: quotation, error } = await getQuotationById(
+        payment.quotation_id,
+      );
       if (error) throw error;
       if (!quotation) throw new Error("Cotización no encontrada");
 
       setEditingQuotation(quotation);
       setShowQuotationForm(true);
     } catch (error) {
-      console.error("Error loading quotation for editing:", error);
       alert("Error al cargar la cotización para editar");
     }
   };
@@ -478,22 +266,6 @@ export default function PaymentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Gestión de Pagos</h1>
         <div className="flex items-center space-x-4">
-          {/* Manual Update Overdue Payments Button */}
-          <button
-            onClick={handleManualUpdateOverduePayments}
-            disabled={updatingPayments}
-            className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-              updatingPayments
-                ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                : "bg-orange-600 text-white hover:bg-orange-700"
-            }`}
-            title="Verificar y actualizar pagos vencidos"
-          >
-            <Clock size={16} />
-            <span>
-              {updatingPayments ? "Actualizando..." : "Verificar Vencidos"}
-            </span>
-          </button>
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -537,131 +309,6 @@ export default function PaymentsPage() {
             >
               <X size={16} />
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Editor de Plan de Pagos */}
-      {/* {showPlanEditor && selectedQuotation && (
-        <PaymentPlanEditor
-          quotation={selectedQuotation}
-          onSave={async (customPlan) => {
-            const result = await createCustomPaymentPlan(
-              selectedQuotation.id,
-              selectedQuotation.total_amount,
-              selectedQuotation.event_date ||
-                format(addDays(new Date(), 30), "yyyy-MM-dd"),
-              customPlan,
-            );
-            if (result.success) {
-              alert("✅ Plan de pagos personalizado creado exitosamente");
-              setShowPlanEditor(false);
-              setSelectedQuotation(null);
-            } else {
-              alert("❌ Error al crear el plan de pagos");
-            }
-          }}
-          onCancel={() => {
-            setShowPlanEditor(false);
-            setSelectedQuotation(null);
-          }}
-        />
-      )} */}
-
-      {/* Modal para capturar fecha y medio de pago */}
-      {showPaymentModal && selectedPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Registrar Pago
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {selectedPayment.quotations?.quotation_number} -{" "}
-                {selectedPayment.payment_type}
-              </p>
-              <p className="text-lg font-bold text-green-600">
-                ${selectedPayment.amount.toLocaleString()}
-              </p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fecha de Pago *
-                </label>
-                <input
-                  type="date"
-                  value={paymentForm.paid_date}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      paid_date: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Medio de Pago *
-                </label>
-                <select
-                  value={paymentForm.payment_method}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      payment_method: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar medio de pago</option>
-                  {paymentMethods.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas (opcional)
-                </label>
-                <textarea
-                  value={paymentForm.notes}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      notes: e.target.value,
-                    }))
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Información adicional sobre el pago..."
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setSelectedPayment(null);
-                }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSavePayment}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Registrar Pago
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -820,7 +467,9 @@ export default function PaymentsPage() {
 
                         {/* Cliente */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 truncate max-w-24">
-                          {payment.quotations?.client_name || "N/A"}
+                          {/* {payment.quotations?.client_name || "N/A"} */}
+                          {/* TODO: implement this */}
+                          CLIENT_NAME
                         </td>
 
                         {/* Número de Pago */}
@@ -1027,7 +676,6 @@ export default function PaymentsPage() {
                                       false,
                                     has_contract:
                                       payment.quotations?.has_contract || false,
-                                    notes: payment.notes || "",
                                   });
                                 }}
                                 className="text-gray-600 hover:text-gray-900"

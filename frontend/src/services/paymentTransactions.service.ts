@@ -1,5 +1,4 @@
 import { API_ROUTES } from "../constants/api.routes";
-import { supabase } from "../lib/supabase";
 import { CreatePaymentTransaction } from "../types/paymentsTransactions.types";
 import { apiRequest } from "./api";
 
