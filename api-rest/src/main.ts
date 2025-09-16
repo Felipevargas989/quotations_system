@@ -8,11 +8,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
-
+  const configService = app.get(ConfigService);
   // Enable CORS
   app.enableCors({
     origin: [
-      'http://localhost:3000', // React dev server
+      configService.get('FRONTEND_URL'), // React dev server
       'http://localhost:5173', // Vite dev server
       'http://localhost:4173', // Vite preview
       'http://127.0.0.1:5173', // Alternative localhost
@@ -38,7 +38,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  const configService = app.get(ConfigService);
   await app.listen(configService.get('PORT') || 3000);
 }
 bootstrap();
