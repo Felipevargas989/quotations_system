@@ -4,35 +4,6 @@ import { supabase } from "../lib/supabase";
 import { Quotation } from "../types/quotations.types";
 import { apiRequest } from "./api";
 
-export const getPayments = async () => {
-  // Obtener TODOS los pagos con información de cotizaciones
-  const { data: paymentsData, error: paymentsError } = await supabase.from(
-    "payments",
-  ).select(`
-          *,
-          quotations!inner(
-            quotation_number,
-            event_date,
-            total_amount,
-            requires_invoice,
-            has_contract
-          )
-        `);
-
-  // Sort by quotation_number if data exists and no error
-  if (paymentsData && !paymentsError) {
-    paymentsData.sort((a: any, b: any): number => {
-      const aNumber = a.quotations?.quotation_number || 0;
-      const bNumber = b.quotations?.quotation_number || 0;
-
-      // Numeric sorting for quotation numbers
-      return aNumber - bNumber;
-    });
-  }
-
-  return { data: paymentsData, error: paymentsError };
-};
-
 // Get payments for a specific quotation
 export const getPaymentsByQuotationId = async (quotationId: string) => {
   const response = await apiRequest(
