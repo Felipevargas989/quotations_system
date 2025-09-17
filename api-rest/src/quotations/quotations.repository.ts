@@ -26,7 +26,14 @@ export class QuotationsRepository {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
     const query = this.supabase.client
       .from('quotations')
-      .select('*')
+      .select(
+        `*,
+        clients (
+          id,
+          name
+        )
+        `,
+      )
       .eq('company_id', company_id);
     if (request_type) {
       query.eq('request_type', request_type);
