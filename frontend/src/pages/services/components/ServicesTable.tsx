@@ -1,17 +1,15 @@
 import { Edit, Trash2, DollarSign, Tag } from "lucide-react";
-import { VariableService, FixedService } from "../../types/services.types";
+import { VariableService, FixedService } from "../../../types/services.types";
+import { ServiceType } from "../constants";
 
 interface ServicesTableProps {
   readonly variableServices: VariableService[];
   readonly fixedServices: FixedService[];
   readonly onEditService?: (
     service: VariableService | FixedService,
-    type: "variable" | "fixed",
+    type: ServiceType,
   ) => void;
-  readonly onDeleteService?: (
-    serviceId: number,
-    type: "variable" | "fixed",
-  ) => void;
+  readonly onDeleteService?: (serviceId: number, type: ServiceType) => void;
 }
 
 export default function ServicesTable({
@@ -105,7 +103,9 @@ export default function ServicesTable({
                       <div className="flex space-x-2">
                         {onEditService && (
                           <button
-                            onClick={() => onEditService(service, "variable")}
+                            onClick={() =>
+                              onEditService(service, ServiceType.VARIABLE)
+                            }
                             className="text-blue-600 hover:text-blue-900"
                             title="Editar servicio"
                           >
@@ -115,7 +115,7 @@ export default function ServicesTable({
                         {onDeleteService && (
                           <button
                             onClick={() =>
-                              onDeleteService(service.id, "variable")
+                              onDeleteService(service.id, ServiceType.VARIABLE)
                             }
                             className="text-red-600 hover:text-red-900"
                             title="Eliminar servicio"
@@ -239,7 +239,9 @@ export default function ServicesTable({
                       <div className="flex space-x-2">
                         {onEditService && (
                           <button
-                            onClick={() => onEditService(service, "fixed")}
+                            onClick={() =>
+                              onEditService(service, ServiceType.FIXED)
+                            }
                             className="text-blue-600 hover:text-blue-900"
                             title="Editar servicio"
                           >
@@ -248,7 +250,9 @@ export default function ServicesTable({
                         )}
                         {onDeleteService && (
                           <button
-                            onClick={() => onDeleteService(service.id, "fixed")}
+                            onClick={() =>
+                              onDeleteService(service.id, ServiceType.FIXED)
+                            }
                             className="text-red-600 hover:text-red-900"
                             title="Eliminar servicio"
                           >

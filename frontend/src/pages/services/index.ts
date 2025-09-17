@@ -1,2 +1,2 @@
 export { default as ServicesPage } from "./ServicesPage";
-export { default as ServicesTable } from "./ServicesTable";
+export { default as ServicesTable } from "./components/ServicesTable";

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { findAllServices } from "../services/services.service";
 import { VariableService, FixedService } from "../types/services.types";
+import { CalculationType } from "../constants/services";
 
 // Interface for compatibility with QuotationForm
 export interface Product {
@@ -15,7 +16,6 @@ export interface FixedServiceFormatted {
   codigo: string;
   nombre: string;
   precio: number;
-  categoria: string;
   tipo_calculo: string;
   min_precio: number;
   max_precio: number;
@@ -103,7 +103,6 @@ export function useServices() {
     codigo: service.code || service.id.toString(),
     nombre: service.name,
     precio: service.price,
-    categoria: "General", // FixedService doesn't have category, use default
     tipo_calculo: service.calculation_type,
     min_precio: service.min_price || 0,
     max_precio: service.max_price || 0,
@@ -117,13 +116,13 @@ export function useServices() {
   ): number => {
     switch (service.tipo_calculo) {
       // TODO: define all calculation types
-      case "fijo": {
+      case CalculationType.FIJO: {
         return service.precio;
       }
-      case "por_persona": {
+      case CalculationType.POR_PERSONA: {
         return service.precio_por_persona * peopleCount;
       }
-      case "variable_con_limites": {
+      case CalculationType.VARIABLE_CON_LIMITES: {
         const calculatedPrice = service.precio_por_persona * peopleCount;
         if (service.min_precio && calculatedPrice < service.min_precio)
           return service.min_precio;
@@ -131,7 +130,7 @@ export function useServices() {
           return service.max_precio;
         return calculatedPrice;
       }
-      case "variable_sin_limites": {
+      case CalculationType.VARIABLE_SIN_LIMITES: {
         return service.precio_por_persona * peopleCount;
       }
       default: {

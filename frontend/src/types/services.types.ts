@@ -36,3 +36,10 @@ export type CreateServicesBulkDto = {
   variable_services: CreateVariableService[];
   fixed_services: CreateFixedService[];
 };
+
+export type UpdateFixedServiceDto = Partial<
+  Omit<FixedService, "id" | "created_at" | "company_id">
+>;
+export type UpdateVariableServiceDto = Partial<
+  Omit<VariableService, "id" | "created_at" | "company_id">
+>;

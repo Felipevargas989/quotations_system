@@ -1,14 +1,29 @@
 import { useState } from "react";
-import { CreateServicesBulkDto } from "../../types/services.types";
+import {
+  CreateServicesBulkDto,
+  FixedService,
+  VariableService,
+} from "../../types/services.types";
 import { createServicesBulk } from "../../services/services.service";
 import ExcelUpload from "../../components/ExcelUpload";
-import ServicesTable from "./ServicesTable";
+import ServicesTable from "./components/ServicesTable";
+import ServiceForm from "./components/ServiceForm";
 import { useServices } from "../../hooks/useServices";
+import { ServiceType } from "./constants";
 
 export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+
+  // ServiceForm states
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingService, setEditingService] = useState<
+    VariableService | FixedService | null
+  >(null);
+  const [serviceType, setServiceType] = useState<ServiceType>(
+    ServiceType.VARIABLE,
+  );
 
   const {
     variableServices,
@@ -44,6 +59,32 @@ export default function ServicesPage() {
     setUploadSuccess(null);
   };
 
+  const handleCreateService = (type: ServiceType) => {
+    setServiceType(type);
+    setEditingService(null);
+    setShowServiceForm(true);
+  };
+
+  const handleEditService = (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => {
+    setServiceType(type);
+    setEditingService(service);
+    setShowServiceForm(true);
+  };
+
+  const handleServiceFormSuccess = async () => {
+    await loadServices();
+    setShowServiceForm(false);
+    setEditingService(null);
+  };
+
+  const handleCloseServiceForm = () => {
+    setShowServiceForm(false);
+    setEditingService(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -51,6 +92,20 @@ export default function ServicesPage() {
           Gestión de Servicios
         </h1>
         <div className="flex space-x-3">
+          <button
+            onClick={() => handleCreateService(ServiceType.VARIABLE)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <span>+</span>
+            <span>Servicio Variable</span>
+          </button>
+          <button
+            onClick={() => handleCreateService(ServiceType.FIXED)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+          >
+            <span>+</span>
+            <span>Servicio Fijo</span>
+          </button>
           <button
             onClick={() => setShowUpload(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
@@ -114,14 +169,22 @@ export default function ServicesPage() {
       <ServicesTable
         variableServices={variableServices}
         fixedServices={fixedServices}
-        onEditService={(service, type) => {
-          // TODO: Implement edit functionality
-          console.log("Edit service:", service, type);
-        }}
+        onEditService={handleEditService}
+        // onDeleteService={handleDeleteService}
         onDeleteService={(serviceId, type) => {
           // TODO: Implement delete functionality
           console.log("Delete service:", serviceId, type);
         }}
+      />
+
+      {/* Service Form Modal */}
+      <ServiceForm
+        isOpen={showServiceForm}
+        onClose={handleCloseServiceForm}
+        onSuccess={handleServiceFormSuccess}
+        service={editingService || undefined}
+        serviceType={serviceType}
+        isEditing={!!editingService}
       />
     </div>
   );
