@@ -1,42 +1,50 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
-import { CreateServiceDto } from './dto/create-service.dto';
-import { UpdateServiceDto } from './dto/update-service.dto';
+import { Body, Controller, Post } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import { CurrentUser } from 'src/auth';
+import type { User } from 'src/users/entities/user.entity';
+import { CreateServicesBulkDto } from './dto/create-services-bulk.dto';
 import { ServicesService } from './services.service';
 
 @Controller('services')
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
-
-  @Post()
-  create(@Body() createServiceDto: CreateServiceDto) {
-    return this.servicesService.create(createServiceDto);
+  constructor(
+    private readonly servicesService: ServicesService,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(ServicesController.name);
   }
 
-  @Get()
-  findAll() {
-    return this.servicesService.findAll();
+  @Post('bulk')
+  createServicesBulk(
+    @Body() createServicesBulkDto: CreateServicesBulkDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `createServicesBulk with createServicesBulkDto ${JSON.stringify(createServicesBulkDto)}`,
+    );
+    return this.servicesService.createServicesBulk(
+      createServicesBulkDto,
+      user.company_id,
+    );
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.servicesService.findOne(+id);
-  }
+  // @Get()
+  // findAll() {
+  //   return this.servicesService.findAll();
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateServiceDto: UpdateServiceDto) {
-    return this.servicesService.update(+id, updateServiceDto);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.servicesService.findOne(+id);
+  // }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.servicesService.remove(+id);
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string, @Body() updateServiceDto: UpdateServiceDto) {
+  //   return this.servicesService.update(+id, updateServiceDto);
+  // }
+
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.servicesService.remove(+id);
+  // }
 }
