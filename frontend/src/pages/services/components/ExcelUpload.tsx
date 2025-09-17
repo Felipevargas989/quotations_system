@@ -12,7 +12,7 @@ import {
   CreateServicesBulkDto,
   CreateVariableService,
   CreateFixedService,
-} from "../types/services.types";
+} from "../../../types/services.types";
 
 interface ExcelUploadProps {
   readonly onDataParsed: (data: CreateServicesBulkDto) => void;

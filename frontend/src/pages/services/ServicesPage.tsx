@@ -9,7 +9,7 @@ import {
   removeFixedService,
   removeVariableService,
 } from "../../services/services.service";
-import ExcelUpload from "../../components/ExcelUpload";
+import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
 import ServiceForm from "./components/ServiceForm";
 import { useServices } from "../../hooks/useServices";
