@@ -393,9 +393,10 @@ export default function PaymentsPage() {
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                   Cot.
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                {/* TODO: check if this is needed */}
+                {/* <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                   Cliente
-                </th>
+                </th> */}
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                   Pago #
                 </th>
@@ -466,11 +467,11 @@ export default function PaymentsPage() {
                         </td>
 
                         {/* Cliente */}
-                        <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 truncate max-w-24">
-                          {/* {payment.quotations?.client_name || "N/A"} */}
-                          {/* TODO: implement this */}
+                        {/* TODO: check if this is needed */}
+                        {/* <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 truncate max-w-24">
+                          {payment.quotations?.client_name || "N/A"}
                           CLIENT_NAME
-                        </td>
+                        </td> */}
 
                         {/* Número de Pago */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-center">

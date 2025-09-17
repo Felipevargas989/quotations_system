@@ -194,9 +194,10 @@ export default function RequestsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Número
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {/* TODO: uncomment but fix first */}
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente
-                </th>
+                </th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Evento
                 </th>
@@ -236,20 +237,19 @@ export default function RequestsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {request.quotation_number}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    {/* TODO: check if this is needed */}
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {/* {request.client_name} */}
-                          CLIENT_NAME
+                          {request.client_name}
                         </div>
-                        {/* TODO: check if this is needed */}
-                        {/* {request.clients && (
+                        {request.clients && (
                           <div className="text-xs text-gray-500">
                             {request.clients.client_type}
                           </div>
-                        )} */}
+                        )}
                       </div>
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {request.event_type || "No especificado"}
