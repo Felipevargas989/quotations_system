@@ -4,7 +4,11 @@ import {
   FixedService,
   VariableService,
 } from "../../types/services.types";
-import { createServicesBulk } from "../../services/services.service";
+import {
+  createServicesBulk,
+  removeFixedService,
+  removeVariableService,
+} from "../../services/services.service";
 import ExcelUpload from "../../components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
 import ServiceForm from "./components/ServiceForm";
@@ -83,6 +87,23 @@ export default function ServicesPage() {
   const handleCloseServiceForm = () => {
     setShowServiceForm(false);
     setEditingService(null);
+  };
+
+  const handleDeleteService = async (serviceId: number, type: ServiceType) => {
+    if (!confirm("¿Estás seguro de que quieres eliminar este servicio?"))
+      return;
+    try {
+      if (type === ServiceType.VARIABLE) {
+        await removeVariableService(serviceId);
+      } else {
+        await removeFixedService(serviceId);
+      }
+    } catch (error) {
+      console.error("Error al eliminar el servicio", error);
+      alert("Error al eliminar el servicio");
+    }
+    alert("Servicio eliminado correctamente");
+    await loadServices();
   };
 
   return (
@@ -170,11 +191,7 @@ export default function ServicesPage() {
         variableServices={variableServices}
         fixedServices={fixedServices}
         onEditService={handleEditService}
-        // onDeleteService={handleDeleteService}
-        onDeleteService={(serviceId, type) => {
-          // TODO: Implement delete functionality
-          console.log("Delete service:", serviceId, type);
-        }}
+        onDeleteService={handleDeleteService}
       />
 
       {/* Service Form Modal */}

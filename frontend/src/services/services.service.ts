@@ -73,3 +73,19 @@ export const createFixedService = async (
   );
   return response;
 };
+
+export const removeVariableService = async (id: VariableService["id"]) => {
+  const response = await apiRequest(
+    `${API_ROUTES.SERVICES_VARIABLE}/${id}`,
+    "DELETE",
+  );
+  return response;
+};
+
+export const removeFixedService = async (id: FixedService["id"]) => {
+  const response = await apiRequest(
+    `${API_ROUTES.SERVICES_FIXED}/${id}`,
+    "DELETE",
+  );
+  return response;
+};
