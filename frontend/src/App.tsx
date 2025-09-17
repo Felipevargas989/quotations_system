@@ -14,6 +14,7 @@ import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
 import SuperAdminPage from "./pages/superAdmin/Index.tsx";
+import { ServicesPage } from "./pages/services";
 
 function App() {
   // TODO: check if this is needed
@@ -89,6 +90,16 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.user_management}>
                   <UserManagementPage />
+                </PermissionGuard>
+              }
+            />
+
+            {/* Services - Admin */}
+            <Route
+              path="services"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                  <ServicesPage />
                 </PermissionGuard>
               }
             />

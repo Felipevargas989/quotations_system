@@ -5,4 +5,5 @@ export const API_ROUTES = {
   PAYMENTS: "/payments",
   PAYMENTS_PLAN: "/payments/plan",
   PAYMENTS_TRANSACTIONS: "/payments/transactions",
+  SERVICES_BULK: "/services/bulk",
 };
