@@ -9,6 +9,7 @@ import {
   findAllServices,
 } from "../../services/services.service";
 import ExcelUpload from "../../components/ExcelUpload";
+import ServicesTable from "./ServicesTable";
 
 export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
@@ -28,8 +29,6 @@ export default function ServicesPage() {
 
   const loadServices = async () => {
     const response = await findAllServices();
-    // TODO: render services
-    console.log(response);
     setServices(response);
   };
 
@@ -44,6 +43,9 @@ export default function ServicesPage() {
         `✅ Servicios creados exitosamente: ${data.variable_services.length} servicios variables y ${data.fixed_services.length} servicios fijos`,
       );
       setShowUpload(false);
+
+      // Reload services to show the newly created ones
+      await loadServices();
     } catch (error) {
       setUploadError(
         `Error al crear servicios: ${error instanceof Error ? error.message : "Error desconocido"}`,
@@ -110,14 +112,19 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Services List Placeholder */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Servicios</h3>
-        <p className="text-gray-500">
-          Los servicios cargados aparecerán aquí. Usa el botón "Cargar desde
-          Excel" para importar servicios desde un archivo Excel.
-        </p>
-      </div>
+      {/* Services Table */}
+      <ServicesTable
+        variableServices={services.variableServices}
+        fixedServices={services.fixedServices}
+        onEditService={(service, type) => {
+          // TODO: Implement edit functionality
+          console.log("Edit service:", service, type);
+        }}
+        onDeleteService={(serviceId, type) => {
+          // TODO: Implement delete functionality
+          console.log("Delete service:", serviceId, type);
+        }}
+      />
     </div>
   );
 }
