@@ -1,12 +1,37 @@
-import { useState } from "react";
-import { CreateServicesBulkDto } from "../../types/services.types";
-import { createServicesBulk } from "../../services/services.service";
+import { useEffect, useState } from "react";
+import {
+  CreateServicesBulkDto,
+  FixedService,
+  VariableService,
+} from "../../types/services.types";
+import {
+  createServicesBulk,
+  findAllServices,
+} from "../../services/services.service";
 import ExcelUpload from "../../components/ExcelUpload";
 
 export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [services, setServices] = useState<{
+    variableServices: VariableService[];
+    fixedServices: FixedService[];
+  }>({
+    variableServices: [],
+    fixedServices: [],
+  });
+
+  useEffect(() => {
+    loadServices();
+  }, []);
+
+  const loadServices = async () => {
+    const response = await findAllServices();
+    // TODO: render services
+    console.log(response);
+    setServices(response);
+  };
 
   const handleExcelDataParsed = async (data: CreateServicesBulkDto) => {
     try {

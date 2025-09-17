@@ -11,3 +11,8 @@ export const createServicesBulk = async (services: CreateServicesBulkDto) => {
   );
   return response;
 };
+
+export const findAllServices = async () => {
+  const response = await apiRequest(`${API_ROUTES.SERVICES}`, "GET");
+  return response;
+};
