@@ -94,4 +94,14 @@ export class ServicesRepository {
       .update(updateFixedServiceDto)
       .eq('id', id);
   }
+
+  removeVariableService(id: VariableService['id']) {
+    this.logger.info(`removeVariableService with id ${id}`);
+    return this.supabase.client.from('variable_services').delete().eq('id', id);
+  }
+
+  removeFixedService(id: FixedService['id']) {
+    this.logger.info(`removeFixedService with id ${id}`);
+    return this.supabase.client.from('fixed_services').delete().eq('id', id);
+  }
 }

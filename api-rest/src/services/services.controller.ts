@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
@@ -98,8 +106,16 @@ export class ServicesController {
       user.company_id,
     );
   }
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.servicesService.remove(+id);
-  // }
+
+  @Delete('variable/:id')
+  removeVariableService(@Param('id') id: VariableService['id']) {
+    this.logger.info(`removeVariableService with id ${id}`);
+    return this.servicesService.removeVariableService(+id);
+  }
+
+  @Delete('fixed/:id')
+  removeFixedService(@Param('id') id: FixedService['id']) {
+    this.logger.info(`removeFixedService with id ${id}`);
+    return this.servicesService.removeFixedService(+id);
+  }
 }

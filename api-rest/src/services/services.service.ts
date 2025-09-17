@@ -147,15 +147,14 @@ export class ServicesService {
       throw new Error(error);
     }
   }
-  // findOne(id: number) {
-  //   return `This action returns a #${id} service`;
-  // }
 
-  // update(id: number, updateServiceDto: UpdateServiceDto) {
-  //   return `This action updates a #${id} service`;
-  // }
+  async removeVariableService(id: VariableService['id']) {
+    this.logger.info(`removeVariableService with id ${id}`);
+    return await this.servicesRepository.removeVariableService(id);
+  }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} service`;
-  // }
+  async removeFixedService(id: FixedService['id']) {
+    this.logger.info(`removeFixedService with id ${id}`);
+    return await this.servicesRepository.removeFixedService(id);
+  }
 }
