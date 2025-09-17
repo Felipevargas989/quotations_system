@@ -5,6 +5,7 @@ import {
   AlertCircle,
   CheckCircle,
   X,
+  Download,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -75,8 +76,8 @@ export default function ExcelUpload({
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
 
-      const fixedSheetName = "Servicios fijos";
       const variableSheetName = "Servicios variables";
+      const fixedSheetName = "Servicios fijos";
       // Check if required sheets exist
       const sheetNames = workbook.SheetNames;
       const hasBasesPrecios = sheetNames.includes(variableSheetName);
@@ -186,12 +187,47 @@ export default function ExcelUpload({
     fileInputRef.current?.click();
   };
 
+  const downloadTemplate = () => {
+    const link = document.createElement("a");
+    link.href = "/templates/Template Services.xlsx";
+    link.download = "Template Services.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Cargar Servicios desde Excel
         </h3>
+
+        {/* Template Download Section */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <FileSpreadsheet className="h-5 w-5 text-blue-600 mt-0.5" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-blue-900 mb-1">
+                ¿Primera vez? Descarga la plantilla
+              </h4>
+              <p className="text-sm text-blue-700 mb-3">
+                Descarga el archivo de plantilla, complétalo con tus servicios y
+                luego súbelo aquí.
+              </p>
+              <button
+                type="button"
+                onClick={downloadTemplate}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Descargar Plantilla
+              </button>
+            </div>
+          </div>
+        </div>
 
         <section
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -262,10 +298,14 @@ export default function ExcelUpload({
               <Upload className="h-12 w-12 text-gray-400 mx-auto" />
               <div>
                 <p className="text-lg font-medium text-gray-900">
-                  Arrastra tu archivo Excel aquí
+                  Arrastra tu archivo Excel completado aquí
                 </p>
                 <p className="text-sm text-gray-500">
-                  o haz clic para seleccionar un archivo
+                  o haz clic para seleccionar el archivo que completaste
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  (Asegúrate de haber descargado y completado la plantilla
+                  primero)
                 </p>
               </div>
               <button
@@ -273,29 +313,52 @@ export default function ExcelUpload({
                 onClick={openFileDialog}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Seleccionar Archivo
+                Seleccionar Archivo Completado
               </button>
             </div>
           )}
         </section>
 
         <div className="mt-4 text-sm text-gray-600">
-          <p className="font-medium mb-2">
-            Formato requerido del archivo Excel:
-          </p>
+          <p className="font-medium mb-2">Instrucciones:</p>
           <div className="space-y-2">
-            <div>
-              <p className="font-medium">Hoja "Servicios variables":</p>
-              <p className="text-xs">
-                Columnas: Codigo, Nombre, Precio, Categorias
+            <div className="flex items-start space-x-2">
+              <span className="text-blue-600 font-bold">1.</span>
+              <p>Descarga la plantilla usando el botón de arriba</p>
+            </div>
+            <div className="flex items-start space-x-2">
+              <span className="text-blue-600 font-bold">2.</span>
+              <p>
+                Completa la plantilla con tus servicios siguiendo el formato
+                indicado
               </p>
             </div>
-            <div>
-              <p className="font-medium">Hoja "Servicios fijos":</p>
-              <p className="text-xs">
-                Columnas: Codigo, Item, Precio, Tipo servicios, Tipo_Calculo,
-                Min_Precio, Max_Precio, Precio_Por_Persona
-              </p>
+            <div className="flex items-start space-x-2">
+              <span className="text-blue-600 font-bold">3.</span>
+              <p>Sube el archivo completado usando el área de arriba</p>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="font-medium mb-2 text-gray-800">
+              Formato de la plantilla:
+            </p>
+            <div className="space-y-2">
+              <div>
+                <p className="font-medium text-sm">
+                  Hoja "Servicios variables":
+                </p>
+                <p className="text-xs text-gray-600">
+                  Columnas: Codigo, Nombre, Precio, Categorias
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-sm">Hoja "Servicios fijos":</p>
+                <p className="text-xs text-gray-600">
+                  Columnas: Codigo, Item, Precio, Tipo servicios, Tipo_Calculo,
+                  Min_Precio, Max_Precio, Precio_Por_Persona
+                </p>
+              </div>
             </div>
           </div>
         </div>
