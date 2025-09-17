@@ -49,9 +49,26 @@ export class ServicesService {
     }
   }
 
-  // findAll() {
-  //   return `This action returns all services`;
-  // }
+  async findAll(companyId: Company['id']) {
+    this.logger.info(`findAll services with companyId ${companyId}`);
+
+    try {
+      // find all variable services
+      const variableServices =
+        await this.servicesRepository.findAllVariableServices(companyId);
+      // find all fixed services
+      const fixedServices =
+        await this.servicesRepository.findAllFixedServices(companyId);
+
+      return {
+        variableServices: variableServices.data,
+        fixedServices: fixedServices.data,
+      };
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
 
   // findOne(id: number) {
   //   return `This action returns a #${id} service`;
