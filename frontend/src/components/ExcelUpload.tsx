@@ -75,25 +75,27 @@ export default function ExcelUpload({
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
 
+      const fixedSheetName = "Servicios fijos";
+      const variableSheetName = "Servicios variables";
       // Check if required sheets exist
       const sheetNames = workbook.SheetNames;
-      const hasBasesPrecios = sheetNames.includes("Bases de precios");
-      const hasServiciosFijos = sheetNames.includes("Servicios Fijos");
+      const hasBasesPrecios = sheetNames.includes(variableSheetName);
+      const hasServiciosFijos = sheetNames.includes(fixedSheetName);
 
       if (!hasBasesPrecios || !hasServiciosFijos) {
         throw new Error(
-          "El archivo Excel debe contener las hojas 'Bases de precios' y 'Servicios Fijos'",
+          `El archivo Excel debe contener las hojas '${variableSheetName}' y '${fixedSheetName}'`,
         );
       }
 
       // Parse "Bases de precios" sheet
-      const basesPreciosSheet = workbook.Sheets["Bases de precios"];
+      const basesPreciosSheet = workbook.Sheets[variableSheetName];
       const basesPreciosData = XLSX.utils.sheet_to_json(basesPreciosSheet, {
         header: 1,
       });
 
       // Parse "Servicios Fijos" sheet
-      const serviciosFijosSheet = workbook.Sheets["Servicios Fijos"];
+      const serviciosFijosSheet = workbook.Sheets[fixedSheetName];
       const serviciosFijosData = XLSX.utils.sheet_to_json(serviciosFijosSheet, {
         header: 1,
       });
@@ -139,21 +141,23 @@ export default function ExcelUpload({
       const row = data[i];
       if (
         row &&
-        row.length >= 8 &&
+        row.length >= 7 &&
         row[0] &&
         row[1] &&
         row[2] &&
         row[3] &&
-        row[4]
+        row[4] &&
+        row[5] &&
+        row[6]
       ) {
         services.push({
           code: String(row[0]).trim(),
           name: String(row[1]).trim(),
           price: Number(row[2]),
-          calculation_type: String(row[4]).trim(),
-          min_price: row[5] ? Number(row[5]) : undefined,
-          max_price: row[6] ? Number(row[6]) : undefined,
-          price_per_person: row[7] ? Number(row[7]) : undefined,
+          calculation_type: String(row[3]).trim(),
+          min_price: row[4] ? Number(row[4]) : undefined,
+          max_price: row[5] ? Number(row[5]) : undefined,
+          price_per_person: row[6] ? Number(row[6]) : undefined,
         });
       }
     }
@@ -281,13 +285,13 @@ export default function ExcelUpload({
           </p>
           <div className="space-y-2">
             <div>
-              <p className="font-medium">Hoja "Bases de precios":</p>
+              <p className="font-medium">Hoja "Servicios variables":</p>
               <p className="text-xs">
                 Columnas: Codigo, Nombre, Precio, Categorias
               </p>
             </div>
             <div>
-              <p className="font-medium">Hoja "Servicios Fijos":</p>
+              <p className="font-medium">Hoja "Servicios fijos":</p>
               <p className="text-xs">
                 Columnas: Codigo, Item, Precio, Tipo servicios, Tipo_Calculo,
                 Min_Precio, Max_Precio, Precio_Por_Persona
