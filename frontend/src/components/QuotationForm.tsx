@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save, RotateCcw, ArrowLeft, Plus, Trash2, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import {
-  useGoogleSheets,
-  useGoogleSheetsFixed,
-} from "../hooks/useGoogleSheets";
+import { useServices } from "../hooks/useServices";
 import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import {
@@ -64,8 +61,12 @@ export default function QuotationForm({
   isFromRequirement = false,
 }: QuotationFormProps) {
   const { user, userRole } = useAuth();
-  const { products, loading: productsLoading } = useGoogleSheets();
-  const { fixedServices, calculatePrice } = useGoogleSheetsFixed();
+  const {
+    products,
+    fixedServices,
+    loading: servicesLoading,
+    calculatePrice,
+  } = useServices();
 
   // TODO: add type
   const [formData, setFormData] = useState<QuotationFormData>({
@@ -828,7 +829,7 @@ export default function QuotationForm({
     });
   };
 
-  if (productsLoading) {
+  if (servicesLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

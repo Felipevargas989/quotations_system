@@ -1,36 +1,22 @@
-import { useEffect, useState } from "react";
-import {
-  CreateServicesBulkDto,
-  FixedService,
-  VariableService,
-} from "../../types/services.types";
-import {
-  createServicesBulk,
-  findAllServices,
-} from "../../services/services.service";
+import { useState } from "react";
+import { CreateServicesBulkDto } from "../../types/services.types";
+import { createServicesBulk } from "../../services/services.service";
 import ExcelUpload from "../../components/ExcelUpload";
 import ServicesTable from "./ServicesTable";
+import { useServices } from "../../hooks/useServices";
 
 export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  const [services, setServices] = useState<{
-    variableServices: VariableService[];
-    fixedServices: FixedService[];
-  }>({
-    variableServices: [],
-    fixedServices: [],
-  });
 
-  useEffect(() => {
-    loadServices();
-  }, []);
-
-  const loadServices = async () => {
-    const response = await findAllServices();
-    setServices(response);
-  };
+  const {
+    variableServices,
+    rawFixedServices: fixedServices,
+    loading,
+    error,
+    reload: loadServices,
+  } = useServices();
 
   const handleExcelDataParsed = async (data: CreateServicesBulkDto) => {
     try {
@@ -87,6 +73,18 @@ export default function ServicesPage() {
         </div>
       )}
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Error loading services: {error}</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-800">Loading services...</p>
+        </div>
+      )}
+
       {/* Excel Upload Component */}
       {showUpload && (
         <div className="space-y-4">
@@ -114,8 +112,8 @@ export default function ServicesPage() {
 
       {/* Services Table */}
       <ServicesTable
-        variableServices={services.variableServices}
-        fixedServices={services.fixedServices}
+        variableServices={variableServices}
+        fixedServices={fixedServices}
         onEditService={(service, type) => {
           // TODO: Implement edit functionality
           console.log("Edit service:", service, type);
