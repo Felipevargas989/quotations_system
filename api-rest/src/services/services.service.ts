@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
 import { CreateServicesBulkDto } from './dto/create-services-bulk.dto';
+import { CreateVariableServiceDto } from './dto/create-variable-service.dto';
+import { UpdateFixedServiceDto } from './dto/update-fixed-service.dto';
+import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesRepository } from './services.repository';
 
@@ -70,6 +74,79 @@ export class ServicesService {
     }
   }
 
+  async updateVariableService(
+    id: VariableService['id'],
+    updateVariableServiceDto: UpdateVariableServiceDto,
+  ) {
+    this.logger.info(
+      `updateVariableService with id ${id} and updateVariableServiceDto ${JSON.stringify(updateVariableServiceDto)}`,
+    );
+    try {
+      return await this.servicesRepository.updateVariableService(
+        id,
+        updateVariableServiceDto,
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
+
+  async updateFixedService(
+    id: FixedService['id'],
+    updateFixedServiceDto: UpdateFixedServiceDto,
+  ) {
+    this.logger.info(
+      `updateFixedService with id ${id} and updateFixedServiceDto ${JSON.stringify(updateFixedServiceDto)}`,
+    );
+    try {
+      return await this.servicesRepository.updateFixedService(
+        id,
+        updateFixedServiceDto,
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
+
+  async createVariableService(
+    createVariableServiceDto: CreateVariableServiceDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(
+      `createVariableService with createVariableServiceDto ${JSON.stringify(createVariableServiceDto)}`,
+    );
+    try {
+      const serviceData = {
+        ...createVariableServiceDto,
+        company_id: companyId,
+      };
+      return await this.servicesRepository.createVariableService(serviceData);
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
+
+  async createFixedService(
+    createFixedServiceDto: CreateFixedServiceDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(
+      `createFixedService with createFixedServiceDto ${JSON.stringify(createFixedServiceDto)}`,
+    );
+    try {
+      const serviceData = {
+        ...createFixedServiceDto,
+        company_id: companyId,
+      };
+      return await this.servicesRepository.createFixedService(serviceData);
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
+  }
   // findOne(id: number) {
   //   return `This action returns a #${id} service`;
   // }
