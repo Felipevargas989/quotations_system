@@ -98,6 +98,7 @@ export default function ServicesPage() {
         <div className="flex space-x-3">
           <button
             onClick={() => handleCreateService(ServiceType.VARIABLE)}
+            // className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
             <span>+</span>
@@ -105,14 +106,14 @@ export default function ServicesPage() {
           </button>
           <button
             onClick={() => handleCreateService(ServiceType.FIXED)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
             <span>+</span>
             <span>Servicio Fijo</span>
           </button>
           <button
             onClick={() => setShowUpload(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
             <span>📁 Cargar desde Excel</span>
           </button>
