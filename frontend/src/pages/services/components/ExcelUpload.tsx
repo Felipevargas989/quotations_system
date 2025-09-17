@@ -91,31 +91,34 @@ export default function ExcelUpload({
       const fixedSheetName = "Servicios fijos";
       // Check if required sheets exist
       const sheetNames = workbook.SheetNames;
-      const hasBasesPrecios = sheetNames.includes(variableSheetName);
-      const hasServiciosFijos = sheetNames.includes(fixedSheetName);
+      const hasVariableServices = sheetNames.includes(variableSheetName);
+      const hasFixedServices = sheetNames.includes(fixedSheetName);
 
-      if (!hasBasesPrecios || !hasServiciosFijos) {
+      if (!hasVariableServices || !hasFixedServices) {
         throw new Error(
           `El archivo Excel debe contener las hojas '${variableSheetName}' y '${fixedSheetName}'`,
         );
       }
 
-      // Parse "Bases de precios" sheet
-      const basesPreciosSheet = workbook.Sheets[variableSheetName];
-      const basesPreciosData = XLSX.utils.sheet_to_json(basesPreciosSheet, {
-        header: 1,
-      });
+      // Parse "Servicios variables" sheet
+      const variableServicesSheet = workbook.Sheets[variableSheetName];
+      const variableServicesData = XLSX.utils.sheet_to_json(
+        variableServicesSheet,
+        {
+          header: 1,
+        },
+      );
 
-      // Parse "Servicios Fijos" sheet
-      const serviciosFijosSheet = workbook.Sheets[fixedSheetName];
-      const serviciosFijosData = XLSX.utils.sheet_to_json(serviciosFijosSheet, {
+      // Parse "Servicios fijos" sheet
+      const fixedServicesSheet = workbook.Sheets[fixedSheetName];
+      const fixedServicesData = XLSX.utils.sheet_to_json(fixedServicesSheet, {
         header: 1,
       });
 
       // Transform data to CreateServicesBulkDto format
       const servicesData = transformExcelData(
-        basesPreciosData,
-        serviciosFijosData,
+        variableServicesData,
+        fixedServicesData,
       );
 
       setParsedData(servicesData);
@@ -134,7 +137,7 @@ export default function ExcelUpload({
     const services: CreateVariableService[] = [];
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (row && row.length >= 4 && row[0] && row[1] && row[2] && row[3]) {
+      if (row && row[1] && row[2] && row[3]) {
         services.push({
           code: String(row[0]).trim(),
           name: String(row[1]).trim(),
@@ -150,17 +153,7 @@ export default function ExcelUpload({
     const services: CreateFixedService[] = [];
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (
-        row &&
-        row.length >= 7 &&
-        row[0] &&
-        row[1] &&
-        row[2] &&
-        row[3] &&
-        row[4] &&
-        row[5] &&
-        row[6]
-      ) {
+      if (row && row[1] && row[2] && row[3]) {
         services.push({
           code: String(row[0]).trim(),
           name: String(row[1]).trim(),
@@ -176,12 +169,12 @@ export default function ExcelUpload({
   };
 
   const transformExcelData = (
-    basesPreciosData: any[],
-    serviciosFijosData: any[],
+    variableServicesData: any[],
+    fixedServicesData: any[],
   ): CreateServicesBulkDto => {
     return {
-      variable_services: processVariableServices(basesPreciosData),
-      fixed_services: processFixedServices(serviciosFijosData),
+      variable_services: processVariableServices(variableServicesData),
+      fixed_services: processFixedServices(fixedServicesData),
     };
   };
 
