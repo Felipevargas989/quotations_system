@@ -11,8 +11,8 @@ import {
   ArrowDown,
   Minus,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   format,
   startOfMonth,
@@ -21,13 +21,15 @@ import {
   parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { getQuotations } from "../services/quotations.service";
+import { getQuotations } from "../../services/quotations.service";
 import {
   Quotation,
   QuotationRequestType,
   QuotationStatus,
-} from "../types/quotations.types";
-import { getClients } from "../services/clients.service";
+} from "../../types/quotations.types";
+import { getClients } from "../../services/clients.service";
+import NewAccount from "./components/NewAccount";
+import { UserRole } from "../../constants/users";
 
 interface DashboardData {
   totalRequests: number;
@@ -42,7 +44,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const { user, companyId } = useAuth();
+  const { user, companyId, userRole } = useAuth();
   const [data, setData] = useState<DashboardData>({
     totalRequests: 0,
     totalClients: 0,
@@ -303,6 +305,9 @@ export default function DashboardPage() {
           <span>Actualizar</span>
         </button>
       </div>
+
+      {/* New Account Setup Component */}
+      {userRole === UserRole.ADMINISTRADOR && <NewAccount />}
 
       {/* Métricas principales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -7,7 +7,7 @@ import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage.tsx";
 import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
-import DashboardPage from "./pages/DashboardPage";
+import DashboardPage from "./pages/dashboard/DashboardPage.tsx";
 import RequestsPage from "./pages/RequestsPage";
 import QuotationsPage from "./pages/QuotationsPage";
 import ClientsPage from "./pages/ClientsPage";
