@@ -1,11 +1,6 @@
 import { useState } from "react";
+import { FixedService, VariableService } from "../../types/services.types";
 import {
-  CreateServicesBulkDto,
-  FixedService,
-  VariableService,
-} from "../../types/services.types";
-import {
-  createServicesBulk,
   removeFixedService,
   removeVariableService,
 } from "../../services/services.service";
@@ -37,29 +32,17 @@ export default function ServicesPage() {
     reload: loadServices,
   } = useServices();
 
-  const handleExcelDataParsed = async (data: CreateServicesBulkDto) => {
-    try {
-      setUploadError(null);
-      setUploadSuccess(null);
-
-      await createServicesBulk(data);
-
-      setUploadSuccess(
-        `✅ Servicios creados exitosamente: ${data.variable_services.length} servicios variables y ${data.fixed_services.length} servicios fijos`,
-      );
-      setShowUpload(false);
-
-      // Reload services to show the newly created ones
-      await loadServices();
-    } catch (error) {
-      setUploadError(
-        `Error al crear servicios: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      );
-    }
+  const handleUploadSuccess = async () => {
+    setUploadError(null);
+    setUploadSuccess("✅ Servicios creados exitosamente");
+    setShowUpload(false);
+    // Reload services to show the newly created ones
+    await loadServices();
   };
 
-  const handleUploadError = (error: string) => {
-    setUploadError(error);
+  const handleUploadClose = () => {
+    setShowUpload(false);
+    setUploadError(null);
     setUploadSuccess(null);
   };
 
@@ -161,30 +144,12 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Excel Upload Component */}
-      {showUpload && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900">
-              Cargar Servicios desde Excel
-            </h2>
-            <button
-              onClick={() => {
-                setShowUpload(false);
-                setUploadError(null);
-                setUploadSuccess(null);
-              }}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          </div>
-          <ExcelUpload
-            onDataParsed={handleExcelDataParsed}
-            onError={handleUploadError}
-          />
-        </div>
-      )}
+      {/* Excel Upload Dialog */}
+      <ExcelUpload
+        isOpen={showUpload}
+        onClose={handleUploadClose}
+        onSuccess={handleUploadSuccess}
+      />
 
       {/* Services Table */}
       <ServicesTable
