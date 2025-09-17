@@ -4,6 +4,7 @@ import {
   QuotationFormData,
   QuotationFormDataUpdate,
   QuotationRequestType,
+  QuotationWithClient,
 } from "../types/quotations.types";
 import { apiRequest } from "./api";
 
@@ -12,7 +13,7 @@ export const getQuotations = async (requirementType: QuotationRequestType) => {
     `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}`,
     "GET",
   );
-  return { data: response };
+  return { data: response as QuotationWithClient[] };
 };
 
 export const deleteQuotation = async (quotationId: string) => {

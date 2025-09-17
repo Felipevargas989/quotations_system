@@ -1,3 +1,5 @@
+import { Client } from "./clients.types";
+
 export enum QuotationRequestType {
   REQUERIMIENTO = "requerimiento",
   COTIZACION = "cotizacion",
@@ -102,3 +104,7 @@ export interface QuotationFormData
 }
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
+
+export interface QuotationWithClient extends Quotation {
+  clients: Client;
+}

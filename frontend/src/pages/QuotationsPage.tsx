@@ -10,6 +10,7 @@ import {
   QuotationFormData,
   QuotationRequestType,
   QuotationStatus,
+  QuotationWithClient,
 } from "../types/quotations.types";
 import {
   deleteQuotation,
@@ -25,8 +26,8 @@ import { CreatePayment } from "../types/payments.types";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [requirements, setRequirements] = useState<Quotation[]>([]);
+  const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
+  const [requirements, setRequirements] = useState<QuotationWithClient[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(
     null,
@@ -438,10 +439,9 @@ export default function QuotationsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Número
               </th>
-              {/* TODO: uncomment but fix first */}
-              {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Cliente
-              </th> */}
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Tipo
               </th>
@@ -478,10 +478,9 @@ export default function QuotationsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {quotation.quotation_number}
                   </td>
-                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quotation.client_name}
-                    CLIENT_NAME_HERE
-                  </td> */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {quotation.clients.name}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                       📋 Cotización
@@ -593,9 +592,9 @@ function RequirementsForQuotations({
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Número
             </th>
-            {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Cliente
-            </th> */}
+            </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Tipo
             </th>
@@ -623,11 +622,9 @@ function RequirementsForQuotations({
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {requirement.quotation_number}
                 </td>
-                {/* TODO: check if this is needed */}
-                {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {requirement.client_name}
-                  CLIENT_NAME_HERE
-                </td> */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {requirement.clients.name}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {requirement.event_type || "No especificado"}
                 </td>

@@ -1,10 +1,10 @@
 import { X, Download, FileText, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Quotation } from "../types/quotations.types";
+import { QuotationWithClient } from "../types/quotations.types";
 
 interface QuotationViewerProps {
-  quotation: Quotation;
+  quotation: QuotationWithClient;
   onClose: () => void;
 }
 
@@ -392,7 +392,7 @@ export default function QuotationViewer({
             <div class="info-grid">
               <div class="info-item">
                 <span class="info-label">Cliente</span>
-                <span class="info-value">CLIENT_NAME_HERE</span>
+                <span class="info-value">${quotation.clients.name}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Fecha Cotización</span>
@@ -592,8 +592,7 @@ export default function QuotationViewer({
                   Cotización #{quotation.quotation_number}
                 </h2>
                 <p className="text-blue-100 text-sm">
-                  {/* {quotation.client_name} •{" "} */}
-                  CLIENT_NAME_HERE •{" "}
+                  {quotation.clients.name} •{" "}
                   {format(new Date(quotation.created_at), "dd/MM/yyyy", {
                     locale: es,
                   })}
@@ -640,8 +639,7 @@ export default function QuotationViewer({
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <p className="text-sm text-gray-600 mb-1">Cliente</p>
                   <p className="font-medium text-gray-900">
-                    {/* {quotation.client_name} */}
-                    CLIENT_NAME_HERE
+                    {quotation.clients.name}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
