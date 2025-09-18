@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserAuth } from './entities/user.entity';
 import { CreateUser } from './types';
@@ -83,5 +84,28 @@ export class UsersService {
     }
 
     return { message: 'User removed successfully' };
+  }
+
+  async updatePassword(userId: string, updatePasswordDto: UpdatePasswordDto) {
+    this.logger.info(`updatePassword for user ${userId}`);
+
+    try {
+      const { data, error } = await this.usersRepository.updatePassword(
+        userId,
+        updatePasswordDto.newPassword,
+      );
+
+      if (error) {
+        throw new Error(`Failed to update password: ${error.message}`);
+      }
+
+      return {
+        message: 'Password updated successfully',
+        data: data,
+      };
+    } catch (error) {
+      this.logger.error('Error in updatePassword service:', error);
+      throw error;
+    }
   }
 }

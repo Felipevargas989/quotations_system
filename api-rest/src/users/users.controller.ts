@@ -11,6 +11,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
@@ -36,6 +37,15 @@ export class UsersController {
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /users with user ${user.id}`);
     return this.usersService.findAll(user.company_id);
+  }
+
+  @Patch('password')
+  updatePassword(
+    @Body() updatePasswordDto: UpdatePasswordDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /users/password with user ${user.id}`);
+    return this.usersService.updatePassword(user.id, updatePasswordDto);
   }
 
   @Get(':id')

@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { User, UserAuth } from 'src/users/entities/user.entity';
+import { UserAuth } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { AuthService } from './auth.service';
 
@@ -29,7 +29,7 @@ export class AuthGuard implements CanActivate {
         await this.authService.validateToken(token);
 
       // Fetch the full user data including company_id from the database
-      const fullUser: User = await this.usersRepository.findOne(user.id);
+      const { data: fullUser } = await this.usersRepository.findOne(user.id);
 
       // Attach the full user with company_id to request object
       (
@@ -38,7 +38,7 @@ export class AuthGuard implements CanActivate {
         }
       ).user = {
         id: user.id,
-        company_id: fullUser.company_id,
+        company_id: fullUser!.company_id,
       };
 
       return true;

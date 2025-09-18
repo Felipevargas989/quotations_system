@@ -26,7 +26,7 @@ export class UsersRepository {
       .from('user_profiles')
       .select(
         `*,
-        companies (;
+        companies (
           id,
           name
         )
@@ -96,5 +96,12 @@ export class UsersRepository {
     );
     // TODO: check because it's not working.
     return await this.supabase.client.auth.admin.deleteUser(id);
+  }
+
+  async updatePassword(userId: string, newPassword: string) {
+    this.logger.info(`updatePassword for user ${userId}`);
+    return await this.supabase.client.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
   }
 }
