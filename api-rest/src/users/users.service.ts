@@ -4,7 +4,7 @@ import { Company } from 'src/companies/entities/company.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User, UserAuth } from './entities/user.entity';
+import { User } from './entities/user.entity';
 import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
 
@@ -25,17 +25,19 @@ export class UsersService {
       // 1. Create user in auth.users table
       const { data, error } =
         await this.usersRepository.createAuthUser(createUserDto);
-      const userAuth = data as UserAuth;
+      const userAuth = data.user;
 
       if (error) throw error;
+      if (!userAuth?.id) throw new Error('User ID is required');
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...rest } = createUserDto;
       const newUser: CreateUser = {
         ...rest,
-        user_id: userAuth.id,
+        user_id: userAuth?.id,
         company_id: companyId,
       };
+
       // 2. Create user in public.user_profiles table
       return this.usersRepository.createUser(newUser);
     } catch (error) {

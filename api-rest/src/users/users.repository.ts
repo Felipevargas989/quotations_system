@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PostgrestError } from '@supabase/supabase-js';
+import { AuthResponse, PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
@@ -46,7 +46,7 @@ export class UsersRepository {
     return data as User[];
   }
 
-  async createAuthUser(createUserDto: CreateUserDto): Promise<any> {
+  async createAuthUser(createUserDto: CreateUserDto): Promise<AuthResponse> {
     this.logger.info(
       `createAuthUser with createUserDto ${JSON.stringify(createUserDto)}`,
     );
@@ -56,7 +56,9 @@ export class UsersRepository {
     });
   }
 
-  async createUser(createUser: CreateUser): Promise<any> {
+  async createUser(
+    createUser: CreateUser,
+  ): Promise<{ data: User | null; error: PostgrestError | null }> {
     this.logger.info(
       `createUser with createUser ${JSON.stringify(createUser)}`,
     );
