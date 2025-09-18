@@ -12,6 +12,7 @@ import {
   User,
   ChevronDown,
   RefreshCw,
+  Cog,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
@@ -38,6 +39,7 @@ export default function Layout() {
       await signOut();
       navigate("/login");
     } catch (error) {
+      console.error("Error during sign out:", error);
       navigate("/login");
     }
   };
@@ -53,6 +55,7 @@ export default function Layout() {
         alert("✅ Sesión refrescada correctamente");
       }
     } catch (error) {
+      console.error("Error refreshing session:", error);
       alert("Error al refrescar sesión. Por favor, inicia sesión nuevamente.");
     } finally {
       setIsRefreshing(false);
@@ -178,6 +181,16 @@ export default function Layout() {
                       >
                         <User size={16} />
                         <span>Gestión de Usuarios</span>
+                      </Link>
+                    )}
+                    {canAccess("configuration") && (
+                      <Link
+                        to="/configuration"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <Cog size={16} />
+                        <span>Configuración</span>
                       </Link>
                     )}
                     <button

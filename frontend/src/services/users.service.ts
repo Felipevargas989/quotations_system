@@ -7,11 +7,8 @@ export const getUser = async (
   userId: string,
 ): Promise<{ data: UserWithCompany | null; error: Error | null }> => {
   try {
-    const response: UserWithCompany = await apiRequest(
-      `${API_ROUTES.USERS}/${userId}`,
-      "GET",
-    );
-    return { data: response, error: null };
+    const response = await apiRequest(`${API_ROUTES.USERS}/${userId}`, "GET");
+    return { data: response.data, error: response.error };
   } catch (error) {
     return { data: null, error: error as Error };
   }
@@ -48,6 +45,19 @@ export const deleteUser = async (id: string) => {
   try {
     const data = await apiRequest(`${API_ROUTES.USERS}/${id}`, "DELETE");
     return { data };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+export const updatePassword = async (passwordData: { newPassword: string }) => {
+  try {
+    const { data, error } = await apiRequest(
+      `${API_ROUTES.USERS_PASSWORD}`,
+      "PATCH",
+      passwordData,
+    );
+    return { data, error };
   } catch (error) {
     return { data: null, error };
   }

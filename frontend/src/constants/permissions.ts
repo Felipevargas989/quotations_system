@@ -17,9 +17,15 @@ export type Section =
 
 // Define which roles can access which sections
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
-  recepcion: ["requests", "clients"],
-  vendedor: ["requests", "clients", "quotations"],
-  operaciones: ["requests", "clients", "quotations", "payments"],
+  recepcion: ["requests", "clients", "configuration"],
+  vendedor: ["requests", "clients", "quotations", "configuration"],
+  operaciones: [
+    "requests",
+    "clients",
+    "quotations",
+    "payments",
+    "configuration",
+  ],
   administrador: [
     "dashboard",
     "requests",
@@ -66,6 +72,6 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   payments: ROLE_GROUPS.OPERATIONS_AND_UP,
   admin: ROLE_GROUPS.ADMIN_ONLY,
   user_management: ROLE_GROUPS.ADMIN_ONLY,
-  configuration: ROLE_GROUPS.ADMIN_ONLY,
+  configuration: ROLE_GROUPS.ALL_ROLES,
   services: ROLE_GROUPS.ADMIN_ONLY,
 };

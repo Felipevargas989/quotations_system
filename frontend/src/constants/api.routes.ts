@@ -1,5 +1,6 @@
 export const API_ROUTES = {
   USERS: "/users",
+  USERS_PASSWORD: "/users/password",
   QUOTATIONS: "/quotations",
   CLIENTS: "/clients",
   PAYMENTS: "/payments",
