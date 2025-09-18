@@ -1,14 +1,19 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
-import { CreateUser, UpdateUser } from "../types/users.types";
+import { CreateUser, UpdateUser, UserWithCompany } from "../types/users.types";
 
 // TODO: mange the error better
-export const getUser = async (userId: string) => {
+export const getUser = async (
+  userId: string,
+): Promise<{ data: UserWithCompany | null; error: Error | null }> => {
   try {
-    const data = await apiRequest(`${API_ROUTES.USERS}/${userId}`, "GET");
-    return { data };
+    const response: UserWithCompany = await apiRequest(
+      `${API_ROUTES.USERS}/${userId}`,
+      "GET",
+    );
+    return { data: response, error: null };
   } catch (error) {
-    return { data: null, error };
+    return { data: null, error: error as Error };
   }
 };
 

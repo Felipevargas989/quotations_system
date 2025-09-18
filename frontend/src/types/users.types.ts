@@ -1,4 +1,5 @@
 import { UserRole } from "../constants/permissions";
+import { Company } from "./companies.types";
 
 export type User = {
   id: string;
@@ -9,7 +10,7 @@ export type User = {
   password: string;
   created_at: string;
   updated_at: string;
-  company_id: string;
+  company_id: Company["id"];
 };
 
 export type CreateUser = Omit<
@@ -18,3 +19,10 @@ export type CreateUser = Omit<
 >;
 
 export type UpdateUser = Omit<CreateUser, "password" | "email">;
+
+export type UserWithCompany = User & {
+  companies: {
+    id: Company["id"];
+    name: Company["name"];
+  };
+};

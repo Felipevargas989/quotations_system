@@ -3,16 +3,18 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.ts";
 import { UserRole } from "../constants/permissions";
 import { getUser } from "../services/users.service.ts";
+import { Company } from "../types/companies.types.ts";
 
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
-  companyId: string | null;
+  companyId: Company["id"] | null;
+  companyName: Company["name"] | null;
   loading: boolean;
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{ error?: any; userRole?: string; companyId?: string }>;
+  ) => Promise<{ error?: any; userRole?: string; companyId?: Company["id"] }>;
   signUp: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<any>;
@@ -24,13 +26,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<Company["id"] | null>(null);
+  const [companyName, setCompanyName] = useState<Company["name"] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserProfile = async () => {
     if (!user) {
       setUserRole(null);
       setCompanyId(null);
+      setCompanyName(null);
       return;
     }
 
@@ -39,8 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
       } else if (data) {
-        setUserRole(data.role as UserRole);
+        setUserRole(data.role);
         setCompanyId(data.company_id);
+        setCompanyName(data.companies.name);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -119,8 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           return {
             ...result,
-            userRole: profileData.role,
-            companyId: profileData.company_id,
+            userRole: profileData?.role,
+            companyId: profileData?.company_id,
           };
         } catch (profileError) {
           return result;
@@ -199,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession,
     userRole,
     companyId,
+    companyName,
     loadUserProfile,
   };
 

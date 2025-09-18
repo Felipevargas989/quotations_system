@@ -2,6 +2,7 @@ import { X, Download, FileText, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { QuotationWithClient } from "../types/quotations.types";
+import { useAuth } from "../contexts/AuthContext";
 
 interface QuotationViewerProps {
   quotation: QuotationWithClient;
@@ -12,6 +13,7 @@ export default function QuotationViewer({
   quotation,
   onClose,
 }: QuotationViewerProps) {
+  const { companyName } = useAuth();
   const getStatusColor = (status: string) => {
     switch (status) {
       case "solicitada":
@@ -60,7 +62,7 @@ export default function QuotationViewer({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Cotización ${quotation.quotation_number}</title>
+          <title>Cotización ${quotation.quotation_number} - ${companyName || "Empresa"}</title>
           <style>
             * {
               margin: 0;
@@ -374,15 +376,11 @@ export default function QuotationViewer({
           <!-- Header -->
           <div class="header">
             <div class="logo-section">
-              <div class="company-name">Valle del Sol Quillón</div>
-              <div class="company-subtitle">Servicios de Eventos y Gastronomía</div>
+              <div class="company-name">${companyName || "Empresa"}</div>
             </div>
             <div class="header-center">
               <div class="quotation-title">COTIZACIÓN DE SERVICIOS</div>
               <div class="quotation-number">N° ${quotation.quotation_number}</div>
-            </div>
-            <div class="header-logo">
-              <img src="/images/logoValleDelSol.png" alt="Valle del Sol" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" />
             </div>
           </div>
 
@@ -560,7 +558,7 @@ export default function QuotationViewer({
                 <p>Documento válido por 30 días desde la fecha de emisión</p>
               </div>
               <div class="footer-right">
-                <p>Valle del Sol Quillón</p>
+                <p>${companyName || "Empresa"}</p>
               </div>
             </div>
           </div>
@@ -870,15 +868,8 @@ export default function QuotationViewer({
             {/* Footer */}
             <div className="bg-gray-100 rounded-xl p-6 text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">
-                <img
-                  src="/images/logoValleDelSol.png"
-                  width={40}
-                  height={40}
-                  alt="Valle del Sol"
-                  className="rounded-lg"
-                />
                 <span className="font-semibold text-gray-900">
-                  Valle del Sol Quillón
+                  {companyName || "Empresa"}
                 </span>
               </div>
               <p className="text-sm text-gray-600">
