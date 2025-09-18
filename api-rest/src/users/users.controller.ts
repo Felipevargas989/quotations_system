@@ -40,6 +40,7 @@ export class UsersController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
+    this.logger.info(`GET /users/${id}`);
     return this.usersService.findOne(id);
   }
 

@@ -49,6 +49,7 @@ export class UsersService {
   }
 
   findOne(id: User['id']) {
+    this.logger.info(`findOne user with id ${id}`);
     return this.usersRepository.findOne(id);
   }
 
