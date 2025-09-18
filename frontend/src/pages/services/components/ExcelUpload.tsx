@@ -15,6 +15,7 @@ import {
   CreateFixedService,
 } from "../../../types/services.types";
 import { createServicesBulk } from "../../../services/services.service";
+import { CalculationType } from "../../../constants/services";
 
 interface ExcelUploadProps {
   readonly isOpen: boolean;
@@ -268,6 +269,24 @@ export default function ExcelUpload({
                   Descarga el archivo de plantilla, complétalo con tus servicios
                   y luego súbelo aquí.
                 </p>
+                <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                  <p className="text-yellow-800 font-medium mb-1">
+                    ⚠️ Importante para "Servicios fijos":
+                  </p>
+                  <p className="text-yellow-700">
+                    En la columna "Tipo_Calculo" usa exactamente:{" "}
+                    {Object.values(CalculationType).map((value, index) => (
+                      <span key={value}>
+                        <strong>{value}</strong>
+                        {index < Object.values(CalculationType).length - 1 &&
+                          ", "}
+                      </span>
+                    ))}
+                  </p>
+                  <p className="text-red-600 font-medium mt-1">
+                    Nombres incorrectos causarán error en la carga
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={downloadTemplate}
@@ -436,6 +455,23 @@ export default function ExcelUpload({
                     Columnas: Codigo, Item, Precio, Tipo servicios,
                     Tipo_Calculo, Min_Precio, Max_Precio, Precio_Por_Persona
                   </p>
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <p className="text-xs font-medium text-yellow-800 mb-1">
+                      ⚠️ Valores válidos para "Tipo_Calculo":
+                    </p>
+                    <p className="text-xs text-yellow-700">
+                      {Object.values(CalculationType).map((value, index) => (
+                        <span key={value}>
+                          <strong>{value}</strong>
+                          {index < Object.values(CalculationType).length - 1 &&
+                            ", "}
+                        </span>
+                      ))}
+                    </p>
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      Si el nombre es incorrecto, la carga fallará
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
