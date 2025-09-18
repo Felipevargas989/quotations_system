@@ -11,16 +11,14 @@ import {
   Settings,
   User,
   ChevronDown,
-  RefreshCw,
   Cog,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
 export default function Layout() {
-  const { user, userRole, signOut, loading, refreshSession } = useAuth();
+  const { user, userRole, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,24 +39,6 @@ export default function Layout() {
     } catch (error) {
       console.error("Error during sign out:", error);
       navigate("/login");
-    }
-  };
-
-  const handleRefreshSession = async () => {
-    setIsRefreshing(true);
-    try {
-      const result = await refreshSession();
-      if (result.error) {
-        await signOut();
-        navigate("/login");
-      } else {
-        alert("✅ Sesión refrescada correctamente");
-      }
-    } catch (error) {
-      console.error("Error refreshing session:", error);
-      alert("Error al refrescar sesión. Por favor, inicia sesión nuevamente.");
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
@@ -195,22 +175,6 @@ export default function Layout() {
                         <span>Configuración</span>
                       </Link>
                     )}
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        handleRefreshSession();
-                      }}
-                      disabled={isRefreshing}
-                      className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      <RefreshCw
-                        size={16}
-                        className={isRefreshing ? "animate-spin" : ""}
-                      />
-                      <span>
-                        {isRefreshing ? "Refrescando..." : "Refrescar Sesión"}
-                      </span>
-                    </button>
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
