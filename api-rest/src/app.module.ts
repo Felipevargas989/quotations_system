@@ -10,6 +10,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ServicesModule } from './services/services.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     QuotationsModule,
     PaymentsModule,
     ServicesModule,
+    SuperAdminModule,
   ],
   controllers: [],
   providers: [
