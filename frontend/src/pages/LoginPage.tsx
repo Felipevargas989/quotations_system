@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { LogIn, Eye, EyeOff } from "lucide-react";
+import { UserRole } from "../constants/users";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -23,13 +24,10 @@ export default function LoginPage() {
         setError(error.message);
       } else {
         // Basic role-based navigation
-        console.log(`User role: ${userRole}`);
-        if (userRole === "administrador") {
-          console.log("Navigating to dashboard (/dashboard)");
+        if (userRole && userRole === UserRole.ADMINISTRADOR) {
           navigate("/dashboard");
         } else {
-          console.log("Navigating to requests (/dashboard/requests)");
-          navigate("/dashboard/requests");
+          navigate("/requests");
         }
       }
     } catch (err) {

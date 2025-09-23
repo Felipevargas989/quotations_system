@@ -99,7 +99,7 @@ function App() {
             <Route
               path="services"
               element={
-                <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                <PermissionGuard allowedRoles={SECTION_ROLES.services}>
                   <ServicesPage />
                 </PermissionGuard>
               }
