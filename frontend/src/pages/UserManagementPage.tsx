@@ -300,6 +300,7 @@ export default function UserManagementPage() {
               <li>• Dashboard</li>
               <li>• Configuración</li>
               <li>• Gestión usuarios</li>
+              <li>• Gestión servicios</li>
             </ul>
           </div>
         </div>
