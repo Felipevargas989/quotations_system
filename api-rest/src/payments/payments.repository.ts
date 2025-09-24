@@ -71,7 +71,10 @@ export class PaymentsRepository {
         quotation_number,
         total_amount,
         requires_invoice,
-        has_contract
+        has_contract,
+        clients!inner (
+          name
+        )
       ),
       payment_transactions (
         id,

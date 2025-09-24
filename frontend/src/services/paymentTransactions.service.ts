@@ -1,4 +1,5 @@
 import { API_ROUTES } from "../constants/api.routes";
+import { Client } from "../types/clients.types";
 import { CreatePaymentTransaction } from "../types/paymentsTransactions.types";
 import { apiRequest } from "./api";
 
@@ -41,6 +42,7 @@ export interface PaymentWithTransactions {
     total_amount: number;
     requires_invoice: boolean;
     has_contract: boolean;
+    clients: Pick<Client, "name">;
   };
 }
 

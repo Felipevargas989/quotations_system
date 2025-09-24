@@ -112,15 +112,15 @@ export default function PaymentsPage() {
       statusFilter === "all" || payment.status === statusFilter;
 
     // TODO: implement this search
-    // const matchesSearch =
-    //   !searchTerm ||
-    //   payment.quotations?.quotation_number?.toString() ===
-    //     searchTerm.toLowerCase() ||
-    //   payment.quotations?.client_name
-    //     ?.toLowerCase()
-    //     .includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      !searchTerm ||
+      payment.quotations?.quotation_number?.toString() ===
+        searchTerm.toLowerCase() ||
+      payment.quotations?.clients?.name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-    return matchesStatus;
+    return matchesStatus && matchesSearch;
   });
 
   const totalPendiente = payments
@@ -393,10 +393,9 @@ export default function PaymentsPage() {
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                   Cot.
                 </th>
-                {/* TODO: check if this is needed */}
-                {/* <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                   Cliente
-                </th> */}
+                </th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                   Pago #
                 </th>
@@ -467,11 +466,9 @@ export default function PaymentsPage() {
                         </td>
 
                         {/* Cliente */}
-                        {/* TODO: check if this is needed */}
-                        {/* <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 truncate max-w-24">
-                          {payment.quotations?.client_name || "N/A"}
-                          CLIENT_NAME
-                        </td> */}
+                        <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 truncate max-w-24">
+                          {payment.quotations?.clients?.name || "N/A"}
+                        </td>
 
                         {/* Número de Pago */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-center">
