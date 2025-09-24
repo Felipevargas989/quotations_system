@@ -7,7 +7,6 @@ import { ROLE_GROUPS } from "../constants/permissions";
 import PaymentPlanEditor from "../components/PaymentPlanEditor";
 import {
   Quotation,
-  QuotationFormData,
   QuotationRequestType,
   QuotationStatus,
   QuotationWithClient,
@@ -36,9 +35,8 @@ export default function QuotationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showViewer, setShowViewer] = useState(false);
-  const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(
-    null,
-  );
+  const [viewingQuotation, setViewingQuotation] =
+    useState<QuotationWithClient | null>(null);
   const [creatingFromRequirement, setCreatingFromRequirement] = useState<
     string | null
   >(null);
@@ -321,7 +319,7 @@ export default function QuotationsPage() {
     setQuotationForPaymentPlan(null);
   };
 
-  const handleViewQuotation = async (quotation: Quotation) => {
+  const handleViewQuotation = async (quotation: QuotationWithClient) => {
     try {
       // Items are now stored in the JSON field, no need to fetch from quotation_items
       const quotationWithItems = { ...quotation, items: quotation.items || [] };
@@ -333,7 +331,7 @@ export default function QuotationsPage() {
     }
   };
 
-  const handleEditQuotation = (quotation: Quotation) => {
+  const handleEditQuotation = (quotation: QuotationWithClient) => {
     if (!canEditQuotation(quotation)) {
       alert("No tienes permiso para editar esta cotización.");
       return;
@@ -347,20 +345,18 @@ export default function QuotationsPage() {
     loadQuotationForEditing(quotation);
   };
 
-  const loadQuotationForEditing = async (quotation: Quotation) => {
+  const loadQuotationForEditing = async (quotation: QuotationWithClient) => {
     try {
       // Items are now stored in the JSON field, no need to fetch from quotation_items
-      const quotationWithItems = {
+      const quotationWithItems: QuotationWithClient = {
         ...quotation,
         items: quotation.items || [],
+        clients: quotation.clients,
       };
-
-      console.log("Cotización cargada con items:", quotationWithItems);
       setEditingQuotation(quotationWithItems);
       setCreatingFromRequirement(null); // Asegurar que no esté en modo "desde requerimiento"
       setShowForm(true);
     } catch (error) {
-      console.error("Error loading quotation for editing:", error);
       alert("Error al cargar la cotización para editar");
     }
   };
@@ -600,7 +596,7 @@ function RequirementsForQuotations({
   requirements,
 }: {
   onCreateQuotation: (id: string) => void;
-  requirements: Quotation[];
+  requirements: QuotationWithClient[];
 }) {
   return (
     <div className="overflow-x-auto">
