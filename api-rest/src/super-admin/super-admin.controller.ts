@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from 'src/auth';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
@@ -18,6 +18,13 @@ export class SuperAdminController {
       `POST /super-admin/suscription with createSuscriptionDto ${JSON.stringify(createSuscriptionDto)}`,
     );
     return this.superAdminService.createSuscription(createSuscriptionDto);
+  }
+
+  @Public()
+  @Get('stats/last-month')
+  getStatsLastMonth() {
+    this.logger.info(`GET /super-admin/stats/last-month`);
+    return this.superAdminService.getStatsLastMonth();
   }
   // @Post()
   // create(@Body() createSuperAdminDto: CreateSuperAdminDto) {

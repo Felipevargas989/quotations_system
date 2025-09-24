@@ -6,6 +6,8 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
+import { QuotationStatsResponse } from './dto/quotation-stats.dto';
+import { SuperAdminRepository } from './super-admin.repository';
 
 @Injectable()
 export class SuperAdminService {
@@ -13,6 +15,7 @@ export class SuperAdminService {
     private readonly logger: PinoLogger,
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
+    private readonly superAdminRepository: SuperAdminRepository,
   ) {}
 
   async createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
@@ -59,6 +62,52 @@ export class SuperAdminService {
       // return this.superAdminRepository.createSuscription(createSuscriptionDto);
     } catch (error) {
       this.logger.error(error);
+      throw error;
+    }
+  }
+
+  async getStatsLastMonth(): Promise<QuotationStatsResponse> {
+    this.logger.info(`getStatsLastMonth for all companies`);
+
+    try {
+      const { data, error } =
+        await this.superAdminRepository.getStatsLastMonth();
+
+      if (error) {
+        this.logger.error(`Error getting stats: ${error.message}`);
+        throw new Error(`Failed to get quotation stats: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from repository');
+      }
+
+      // Calculate total quotations for all companies
+      const total_quotations_all_companies = data.reduce(
+        (sum, company) => sum + company.total_quotations,
+        0,
+      );
+
+      // Get the period string (e.g., "2024-01")
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const period = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      const response: QuotationStatsResponse = {
+        period,
+        companies: data,
+        total_quotations_all_companies,
+      };
+
+      this.logger.info(
+        `Successfully retrieved stats for all companies: ${total_quotations_all_companies} quotations in ${period}`,
+      );
+
+      return response;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error in getStatsLastMonth service: ${errorMessage}`);
       throw error;
     }
   }
