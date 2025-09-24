@@ -105,7 +105,7 @@ export default function NewUserRegisterForm() {
         </p>
 
         <a
-          href="https://calendly.com/felipe-valledelsolquillon/30min"
+          href="https://calendly.com/hola-eventi-app/30min"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
