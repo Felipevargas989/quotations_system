@@ -378,6 +378,14 @@ export default function QuotationsPage() {
     );
   }
 
+  const filteredQuotations = quotations.filter((quotation) => {
+    const matchesSearch =
+      !searchTerm ||
+      quotation.quotation_number?.toString() === searchTerm.toLowerCase() ||
+      quotation.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -425,7 +433,7 @@ export default function QuotationsPage() {
             />
             <input
               type="text"
-              placeholder="Buscar cotizaciones..."
+              placeholder="Buscar cotizaciones por número de cotización o cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -481,14 +489,14 @@ export default function QuotationsPage() {
                   Cargando...
                 </td>
               </tr>
-            ) : quotations.length === 0 ? (
+            ) : filteredQuotations.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                   No se encontraron cotizaciones
                 </td>
               </tr>
             ) : (
-              quotations.map((quotation) => (
+              filteredQuotations.map((quotation) => (
                 <tr key={quotation.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {quotation.quotation_number}

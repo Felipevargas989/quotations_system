@@ -79,17 +79,11 @@ export default function RequestsPage() {
   };
 
   const filteredRequests = requests.filter((request) => {
-    // TODO: implememnt filter
-    // const matchesSearch =
-    //   request.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //   request.quotation_number?.toString() === searchTerm.toLowerCase() ||
-    //   request.event_type?.toLowerCase().includes(searchTerm.toLowerCase());
-    // Solo mostrar requerimientos en estado "solicitada"
-    // const isRequiredStatus = request.quotation_status === "solicitada";
-    // const isRequiredType =
-    //   request.request_type === "requerimiento" || !request.request_type;
-    // return matchesSearch && isRequiredStatus && isRequiredType;
-    return true;
+    const matchesSearch =
+      !searchTerm ||
+      request.quotation_number?.toString() === searchTerm.toLowerCase() ||
+      request.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   });
 
   const getStatusColor = (status: string) => {
