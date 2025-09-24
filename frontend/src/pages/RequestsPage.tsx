@@ -280,7 +280,7 @@ export default function RequestsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>

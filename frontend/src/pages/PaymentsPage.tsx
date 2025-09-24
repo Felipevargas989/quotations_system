@@ -383,7 +383,7 @@ export default function PaymentsPage() {
 
       {/* Tabla de pagos */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

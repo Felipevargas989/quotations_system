@@ -447,7 +447,7 @@ export default function QuotationsPage() {
       </div>
 
       {/* Lista de cotizaciones */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow rounded-lg overflow-hidden max-h-96 overflow-y-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -600,7 +600,7 @@ function RequirementsForQuotations({
   requirements: QuotationWithClient[];
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto max-h-96 overflow-y-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
