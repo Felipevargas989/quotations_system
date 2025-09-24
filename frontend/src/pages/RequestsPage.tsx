@@ -9,10 +9,15 @@ import {
   Calendar,
   Users,
 } from "lucide-react";
+import { DateTime } from "luxon";
 import { useAuth } from "../contexts/AuthContext";
 import RequestForm from "../components/RequestForm.tsx";
 import { ROLE_GROUPS } from "../constants/permissions";
-import { Quotation, QuotationRequestType } from "../types/quotations.types.ts";
+import {
+  QuotationWithClient,
+  QuotationRequestType,
+  QuotationStatus,
+} from "../types/quotations.types.ts";
 import {
   deleteQuotation,
   getQuotations,
@@ -20,9 +25,10 @@ import {
 
 export default function RequestsPage() {
   const { user, userRole } = useAuth();
-  const [requests, setRequests] = useState<Quotation[]>([]);
+  const [requests, setRequests] = useState<QuotationWithClient[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingRequest, setEditingRequest] = useState<Quotation | null>(null);
+  const [editingRequest, setEditingRequest] =
+    useState<QuotationWithClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -34,12 +40,13 @@ export default function RequestsPage() {
     if (!user) return;
 
     try {
-      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO);
+      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO, [
+        QuotationStatus.SOLICITADA,
+      ]);
 
       // if (error) throw error;
       setRequests(data);
     } catch (error) {
-      console.error("Error fetching requests:", error);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -116,6 +123,107 @@ export default function RequestsPage() {
       default:
         return status;
     }
+  };
+
+  // TODO: move to utils
+  const formatEventDate = (eventDate: string | Date) => {
+    try {
+      let dateTime: DateTime;
+      if (typeof eventDate === "string") {
+        dateTime = DateTime.fromISO(eventDate, { zone: "utc" });
+      } else {
+        dateTime = DateTime.fromJSDate(eventDate, { zone: "utc" });
+      }
+      return dateTime.toFormat("dd/MM/yyyy");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return eventDate.toString();
+    }
+  };
+
+  const renderTableBody = () => {
+    if (loading) {
+      return (
+        <tr>
+          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+            Cargando...
+          </td>
+        </tr>
+      );
+    }
+
+    if (filteredRequests.length === 0) {
+      return (
+        <tr>
+          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+            No hay requerimientos pendientes
+          </td>
+        </tr>
+      );
+    }
+
+    return filteredRequests.map((request) => (
+      <tr key={request.id} className="hover:bg-gray-50">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {request.quotation_number}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              {request.clients.name}
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="text-sm text-gray-900">
+            {request.event_type || "No especificado"}
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="space-y-1">
+            {request.event_date && (
+              <div className="flex items-center text-sm text-gray-900">
+                <Calendar className="h-4 w-4 text-gray-400 mr-1" />
+                {formatEventDate(request.event_date)}
+              </div>
+            )}
+            <div className="flex items-center text-sm text-gray-900">
+              <Users className="h-4 w-4 text-gray-400 mr-1" />
+              {request.people_count} personas
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span
+            className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.quotation_status)}`}
+          >
+            {getStatusText(request.quotation_status)}
+          </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => {
+                setEditingRequest(request);
+                setShowForm(true);
+              }}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <Edit size={16} />
+            </button>
+            {ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) && (
+              <button
+                onClick={() => handleDelete(request.id)}
+                className="text-red-600 hover:text-red-900"
+                title="Solo administradores pueden eliminar requerimientos"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    ));
   };
 
   if (showForm) {
@@ -212,88 +320,7 @@ export default function RequestsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    Cargando...
-                  </td>
-                </tr>
-              ) : filteredRequests.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    No hay requerimientos pendientes
-                  </td>
-                </tr>
-              ) : (
-                filteredRequests.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {request.quotation_number}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {request.clients.name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {request.event_type || "No especificado"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-1">
-                        {request.event_date && (
-                          <div className="flex items-center text-sm text-gray-900">
-                            <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                            {new Date(request.event_date).toLocaleDateString()}
-                          </div>
-                        )}
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Users className="h-4 w-4 text-gray-400 mr-1" />
-                          {request.people_count} personas
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.quotation_status)}`}
-                      >
-                        {getStatusText(request.quotation_status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            setEditingRequest(request);
-                            setShowForm(true);
-                          }}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        {ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) && (
-                          <button
-                            onClick={() => handleDelete(request.id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Solo administradores pueden eliminar requerimientos"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              {renderTableBody()}
             </tbody>
           </table>
         </div>
@@ -358,13 +385,29 @@ export default function RequestsPage() {
                 {
                   filteredRequests.filter((r) => {
                     if (!r.event_date) return false;
-                    const eventDate = new Date(r.event_date);
-                    const today = new Date();
-                    const diffDays = Math.ceil(
-                      (eventDate.getTime() - today.getTime()) /
-                        (1000 * 60 * 60 * 24),
-                    );
-                    return diffDays <= 7 && diffDays >= 0;
+                    try {
+                      let eventDate: DateTime;
+                      if (typeof r.event_date === "string") {
+                        eventDate = DateTime.fromISO(r.event_date, {
+                          zone: "utc",
+                        });
+                      } else {
+                        eventDate = DateTime.fromJSDate(r.event_date, {
+                          zone: "utc",
+                        });
+                      }
+                      const today = DateTime.utc();
+                      const diffDays = Math.ceil(
+                        eventDate.diff(today, "days").days,
+                      );
+                      return diffDays <= 7 && diffDays >= 0;
+                    } catch (error) {
+                      console.error(
+                        "Error calculating date difference:",
+                        error,
+                      );
+                      return false;
+                    }
                   }).length
                 }
               </p>
