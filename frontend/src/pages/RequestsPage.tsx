@@ -22,6 +22,7 @@ import {
   deleteQuotation,
   getQuotations,
 } from "../services/quotations.service.ts";
+import { formatISOUTCDateToString } from "../utils/dates.ts";
 
 export default function RequestsPage() {
   const { user, userRole } = useAuth();
@@ -125,22 +126,6 @@ export default function RequestsPage() {
     }
   };
 
-  // TODO: move to utils
-  const formatEventDate = (eventDate: string | Date) => {
-    try {
-      let dateTime: DateTime;
-      if (typeof eventDate === "string") {
-        dateTime = DateTime.fromISO(eventDate, { zone: "utc" });
-      } else {
-        dateTime = DateTime.fromJSDate(eventDate, { zone: "utc" });
-      }
-      return dateTime.toFormat("dd/MM/yyyy");
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return eventDate.toString();
-    }
-  };
-
   const renderTableBody = () => {
     if (loading) {
       return (
@@ -184,7 +169,7 @@ export default function RequestsPage() {
             {request.event_date && (
               <div className="flex items-center text-sm text-gray-900">
                 <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                {formatEventDate(request.event_date)}
+                {formatISOUTCDateToString(request.event_date)}
               </div>
             )}
             <div className="flex items-center text-sm text-gray-900">

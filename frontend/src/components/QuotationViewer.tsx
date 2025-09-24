@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { QuotationWithClient } from "../types/quotations.types";
 import { useAuth } from "../contexts/AuthContext";
+import { formatISOUTCDateToString } from "../utils/dates";
 
 interface QuotationViewerProps {
   quotation: QuotationWithClient;
@@ -401,7 +402,7 @@ export default function QuotationViewer({
                   ? `
               <div class="info-item">
                 <span class="info-label">Fecha Evento</span>
-                <span class="info-value">${format(new Date(quotation.event_date), "dd/MM/yyyy", { locale: es })}</span>
+                <span class="info-value">${formatISOUTCDateToString(quotation.event_date)}</span>
               </div>
               `
                   : ""
@@ -652,9 +653,7 @@ export default function QuotationViewer({
                   <div className="bg-white p-4 rounded-lg border border-gray-200">
                     <p className="text-sm text-gray-600 mb-1">Fecha Evento</p>
                     <p className="font-medium text-gray-900">
-                      {format(new Date(quotation.event_date), "dd/MM/yyyy", {
-                        locale: es,
-                      })}
+                      {formatISOUTCDateToString(quotation.event_date)}
                     </p>
                   </div>
                 )}

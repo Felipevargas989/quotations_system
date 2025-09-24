@@ -22,6 +22,7 @@ import {
   getPaymentsByQuotationId,
 } from "../services/payments.service";
 import { CreatePayment } from "../types/payments.types";
+import { formatISOUTCDateToString } from "../utils/dates";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
@@ -519,7 +520,7 @@ export default function QuotationsPage() {
                     </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(quotation.event_date).toLocaleDateString()}
+                    {formatISOUTCDateToString(quotation.event_date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
