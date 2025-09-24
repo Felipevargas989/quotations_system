@@ -14,7 +14,7 @@ export const getQuotations = async (
   statuses: QuotationStatus[],
 ) => {
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}&statuses=${statuses.join(",")}`,
+    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}${statuses ? `&statuses=${statuses.join(",")}` : ""}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };
