@@ -10,6 +10,7 @@ import {
 import {
   getAllCompanies,
   createCompany,
+  getStatsLastMonth,
 } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
 import { format } from "date-fns";
@@ -38,8 +39,18 @@ export default function SuperAdminPage() {
     setLoading(false);
   };
 
+  const fetchStatsLastMonth = async () => {
+    setLoading(true);
+    setError(null);
+
+    const response = await getStatsLastMonth();
+    // TODO: do something with the stats
+    console.log(response);
+  };
+
   useEffect(() => {
     fetchCompanies();
+    fetchStatsLastMonth();
   }, []);
 
   const handleRefresh = () => {

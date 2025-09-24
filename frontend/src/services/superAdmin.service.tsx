@@ -1,5 +1,8 @@
+import { API_ROUTES } from "../constants/api.routes";
 import { supabase } from "../lib/supabase";
 import { CompaniesResponse } from "../types/companies.types";
+import { QuotationStatsResponse } from "../types/superAdmin.types";
+import { apiRequest } from "./api";
 
 /**
  * Get all companies from the database
@@ -139,3 +142,18 @@ export const updateCompany = async (
     };
   }
 };
+
+export const getStatsLastMonth =
+  async (): Promise<QuotationStatsResponse | null> => {
+    try {
+      const response = await apiRequest(
+        `${API_ROUTES.SUPER_ADMIN_STATS_LAST_MONTH}`,
+        "GET",
+      );
+      return response || null;
+    } catch (error) {
+      console.error(error);
+      return null;
+      // return { data: null, error: error.message };
+    }
+  };
