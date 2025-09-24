@@ -28,7 +28,7 @@ export class CreateQuotationDto {
 
   @IsDateString()
   @IsNotEmpty()
-  event_date: Date;
+  event_date: string; // <- keep as string
 
   @IsNumber()
   @IsNotEmpty()

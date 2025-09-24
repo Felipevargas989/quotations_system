@@ -49,12 +49,17 @@ export class QuotationsService {
       fixed_services: [],
       variable_services: [],
     };
+
+    // This is to keep the event_date as ISO (UTC) string in the database
+    // ISO 8601 with UTC offset (+00:00 = UTC), equivalent to 2025-09-24T00:00:00.000Z
+    const eventDateUtc = new Date(createQuotationDto.event_date + 'T00:00:00Z');
+
     const newQuotation: CreateQuotation = {
       client_id: createQuotationDto.client_id,
       event_type: createQuotationDto.event_type,
       people_count: createQuotationDto.people_count,
       observations: createQuotationDto.observations,
-      event_date: new Date(createQuotationDto.event_date),
+      event_date: eventDateUtc,
       company_id: companyId,
       total_amount: createQuotationDto.total_amount || 0,
       quotation_status: createQuotationDto.quotation_status,
