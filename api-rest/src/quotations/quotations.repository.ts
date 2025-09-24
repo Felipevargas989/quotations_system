@@ -3,7 +3,7 @@ import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { RequestType } from './constants/constants';
+import { QuotationStatus, RequestType } from './constants/constants';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { Quotation } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
@@ -20,6 +20,7 @@ export class QuotationsRepository {
   async findAll(
     company_id: Company['id'],
     request_type?: RequestType,
+    statuses?: QuotationStatus[],
     sort_by?: string,
     sort_order?: 'asc' | 'desc',
   ): Promise<Quotation[]> {
@@ -41,6 +42,10 @@ export class QuotationsRepository {
 
     if (sort_by) {
       query.order(sort_by, { ascending: sort_order === 'asc' });
+    }
+
+    if (statuses) {
+      query.in('quotation_status', statuses);
     }
 
     const { data, error } = await query;

@@ -37,6 +37,7 @@ export class QuotationsService {
     const quotations = await this.quotationsRepository.findAll(
       companyId,
       undefined,
+      undefined,
       'quotation_number',
       'asc',
     );
@@ -72,9 +73,13 @@ export class QuotationsService {
     return this.quotationsRepository.create(newQuotation);
   }
 
-  async findAll(companyId: number, request_type?: RequestType) {
+  async findAll(
+    companyId: number,
+    request_type?: RequestType,
+    statuses?: QuotationStatus[],
+  ) {
     this.logger.info(`findAll quotations with params ${companyId}`);
-    return this.quotationsRepository.findAll(companyId, request_type);
+    return this.quotationsRepository.findAll(companyId, request_type, statuses);
   }
 
   findOne(id: string) {
