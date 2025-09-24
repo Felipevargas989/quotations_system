@@ -47,9 +47,16 @@ export default function QuotationsPage() {
     useState<Quotation | null>(null);
 
   useEffect(() => {
-    fetchQuotations();
+    fetchQuotations(statusFilter);
     fetchRequirements();
   }, [user]);
+
+  // Refetch quotations when status filter changes
+  useEffect(() => {
+    if (user) {
+      fetchQuotations(statusFilter);
+    }
+  }, [statusFilter]);
 
   // Check if user can edit a quotation based on status and role
   const canEditQuotation = (quotation: Quotation): boolean => {
@@ -64,13 +71,32 @@ export default function QuotationsPage() {
     return true;
   };
 
-  const fetchQuotations = async () => {
+  const fetchQuotations = async (statusFilter?: string) => {
     if (!user) return;
 
     try {
-      const { data } = await getQuotations(QuotationRequestType.COTIZACION);
+      // Determine which statuses to fetch based on the filter
+      let statusesToFetch: QuotationStatus[];
 
-      // Filtrar solo cotizaciones (no requerimientos)
+      if (statusFilter === "all" || !statusFilter) {
+        // Fetch all quotation statuses
+        statusesToFetch = [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+          QuotationStatus.ACEPTADA,
+        ];
+      } else {
+        // Fetch only the selected status
+        statusesToFetch = [statusFilter as QuotationStatus];
+      }
+
+      const { data } = await getQuotations(
+        QuotationRequestType.COTIZACION,
+        statusesToFetch,
+      );
+
+      // Set quotations data
       setQuotations(data);
     } catch (error) {
       console.error("Error fetching quotations:", error);
@@ -80,7 +106,7 @@ export default function QuotationsPage() {
   };
 
   const refreshData = async () => {
-    await fetchQuotations();
+    await fetchQuotations(statusFilter);
     await fetchRequirements();
   };
 
@@ -88,7 +114,10 @@ export default function QuotationsPage() {
     if (!user) return;
 
     try {
-      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO);
+      // Requirements don't need status filtering, they are always "solicitada"
+      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO, [
+        QuotationStatus.SOLICITADA,
+      ]);
       setRequirements(data);
     } catch (error) {
       console.error("Error fetching requirements:", error);
@@ -118,7 +147,7 @@ export default function QuotationsPage() {
       await deleteQuotation(quotationId);
 
       alert("✅ Cotización eliminada exitosamente");
-      await fetchQuotations();
+      await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {
       console.error("Error deleting quotation:", error);
@@ -151,17 +180,6 @@ export default function QuotationsPage() {
       alert("Error al crear cotización desde requerimiento");
     }
   };
-
-  const filteredQuotations = quotations.filter((quotation) => {
-    // TODO: add filter by client_name
-    // const matchesSearch =
-    //   quotation.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //   quotation.quotation_number.toString() === searchTerm.toLowerCase();
-    const matchesStatus =
-      statusFilter === "all" || quotation.quotation_status === statusFilter;
-    // return matchesSearch && matchesStatus;
-    return matchesStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -206,7 +224,7 @@ export default function QuotationsPage() {
             alert(
               "✅ Cotización aceptada exitosamente (plan de pagos ya existía)",
             );
-            await fetchQuotations();
+            await fetchQuotations(statusFilter);
             await fetchRequirements();
             return;
           }
@@ -229,13 +247,13 @@ export default function QuotationsPage() {
       }
 
       alert(`✅ Estado actualizado correctamente a: ${newStatus}`);
-      await fetchQuotations();
+      await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {
       alert(
         `Error al actualizar el estado: ${error instanceof Error ? error.message : "Error desconocido"}`,
       );
-      await fetchQuotations();
+      await fetchQuotations(statusFilter);
     }
   };
 
@@ -288,7 +306,7 @@ export default function QuotationsPage() {
       alert("✅ Plan de pagos creado y cotización aceptada exitosamente");
       setShowPaymentPlanEditor(false);
       setQuotationForPaymentPlan(null);
-      await fetchQuotations();
+      await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {
       alert(
@@ -466,14 +484,14 @@ export default function QuotationsPage() {
                   Cargando...
                 </td>
               </tr>
-            ) : filteredQuotations.length === 0 ? (
+            ) : quotations.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                   No se encontraron cotizaciones
                 </td>
               </tr>
             ) : (
-              filteredQuotations.map((quotation) => (
+              quotations.map((quotation) => (
                 <tr key={quotation.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {quotation.quotation_number}

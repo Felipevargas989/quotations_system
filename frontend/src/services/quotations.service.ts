@@ -4,13 +4,17 @@ import {
   QuotationFormData,
   QuotationFormDataUpdate,
   QuotationRequestType,
+  QuotationStatus,
   QuotationWithClient,
 } from "../types/quotations.types";
 import { apiRequest } from "./api";
 
-export const getQuotations = async (requirementType: QuotationRequestType) => {
+export const getQuotations = async (
+  requirementType: QuotationRequestType,
+  statuses: QuotationStatus[],
+) => {
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}`,
+    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}&statuses=${statuses.join(",")}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };
