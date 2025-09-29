@@ -1,4 +1,5 @@
 import { Company } from 'src/companies/entities/company.entity';
+import { CalculationType } from '../constants';
 
 export class VariableService {
   id: number;
@@ -15,7 +16,7 @@ export class FixedService {
   code: string;
   name: string;
   price: number;
-  calculation_type: string;
+  calculation_type: CalculationType;
   min_price: number;
   max_price: number;
   price_per_person: number;

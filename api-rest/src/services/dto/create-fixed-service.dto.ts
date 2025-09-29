@@ -18,7 +18,7 @@ export class CreateFixedServiceDto {
   name: FixedService['name'];
 
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   price: FixedService['price'];
 
   @IsEnum(CalculationType)

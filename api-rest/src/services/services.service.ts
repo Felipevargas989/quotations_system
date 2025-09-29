@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
@@ -8,7 +8,7 @@ import { UpdateFixedServiceDto } from './dto/update-fixed-service.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesRepository } from './services.repository';
-
+import { validateFixedServices } from './utils';
 @Injectable()
 export class ServicesService {
   constructor(
@@ -37,6 +37,9 @@ export class ServicesService {
           ...service,
           company_id: companyId,
         }));
+
+      // validate fixed services before creating them
+      validateFixedServices(fixedServices);
 
       // create variable services in DB
       await this.servicesRepository.createVariableServices(variableServices);
@@ -82,6 +85,11 @@ export class ServicesService {
       `updateVariableService with id ${id} and updateVariableServiceDto ${JSON.stringify(updateVariableServiceDto)}`,
     );
     try {
+      // validate fixed service before updating it
+      validateFixedServices([
+        updateVariableServiceDto as CreateFixedServiceDto,
+      ]);
+
       return await this.servicesRepository.updateVariableService(
         id,
         updateVariableServiceDto,
@@ -100,6 +108,9 @@ export class ServicesService {
       `updateFixedService with id ${id} and updateFixedServiceDto ${JSON.stringify(updateFixedServiceDto)}`,
     );
     try {
+      // validate fixed service before updating it
+      validateFixedServices([updateFixedServiceDto as CreateFixedServiceDto]);
+
       return await this.servicesRepository.updateFixedService(
         id,
         updateFixedServiceDto,
@@ -141,10 +152,16 @@ export class ServicesService {
         ...createFixedServiceDto,
         company_id: companyId,
       };
+      // validate fixed service before creating it
+      validateFixedServices([serviceData]);
+
       return await this.servicesRepository.createFixedService(serviceData);
     } catch (error) {
       this.logger.error(error);
-      throw new Error(error);
+      throw new HttpException(
+        (error as Error).message || 'Error al crear el servicio fijo',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
