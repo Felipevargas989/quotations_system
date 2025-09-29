@@ -18,6 +18,7 @@ import {
   QuotationRequestType,
   QuotationStatus,
 } from "../types/quotations.types";
+import { NumberInput } from "./inputs";
 
 interface QuotationFormProps {
   quotation?: any;
@@ -1330,18 +1331,18 @@ export default function QuotationForm({
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Número de Personas *
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
+                <NumberInput
+                  id="people_count"
+                  name="people_count"
                   value={formData.people_count}
-                  onChange={(e) =>
+                  onChange={(value) => {
+                    // @ts-ignore
                     setFormData((prev) => ({
                       ...prev,
-                      people_count: parseInt(e.target.value),
-                    }))
-                  }
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      people_count: value ? Number(value) : undefined,
+                    }));
+                  }}
+                  min={1}
                 />
               </div>
             </div>
@@ -1575,41 +1576,21 @@ export default function QuotationForm({
                     Porcentaje de Descuento
                   </label>
                   <div className="relative">
-                    <input
-                      type="number"
+                    <NumberInput
+                      id="discount_percentage"
+                      name="discount_percentage"
+                      value={formData.discount_percentage}
+                      onChange={(value) => {
+                        // @ts-ignore
+                        setFormData((prev) => ({
+                          ...prev,
+                          discount_percentage: value
+                            ? Number(value)
+                            : undefined,
+                        }));
+                      }}
                       min={0}
                       max={getMaxDiscountForRole()}
-                      step={1}
-                      value={formData.discount_percentage || ""}
-                      onChange={(e) => {
-                        const inputValue = e.target.value;
-                        const maxDiscount = getMaxDiscountForRole();
-
-                        // Handle empty input
-                        if (inputValue === "") {
-                          setFormData((prev) => ({
-                            ...prev,
-                            discount_percentage: 0,
-                          }));
-                          return;
-                        }
-
-                        const value = parseInt(inputValue);
-
-                        // Handle invalid numbers
-                        if (isNaN(value)) {
-                          return;
-                        }
-
-                        if (value <= maxDiscount) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            discount_percentage: value,
-                          }));
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
-                      placeholder="0"
                     />
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
                       %

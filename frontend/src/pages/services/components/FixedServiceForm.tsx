@@ -13,6 +13,7 @@ import {
   CALCULATION_TYPES_NAMES,
   CalculationType,
 } from "../../../constants/services";
+import { NumberInput } from "../../../components/inputs";
 
 interface FixedServiceFormProps {
   readonly isOpen: boolean;
@@ -236,15 +237,18 @@ export default function FixedServiceForm({
                   >
                     Precio Mínimo
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     id="min_price"
                     name="min_price"
-                    value={formData.min_price || ""}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.min_price}
+                    onChange={(value) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        min_price: value ? Number(value) : undefined,
+                      }));
+                    }}
+                    min={0}
+                    formatThousands={true}
                     placeholder="0.00"
                   />
                 </div>
@@ -256,15 +260,18 @@ export default function FixedServiceForm({
                   >
                     Precio Máximo
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     id="max_price"
                     name="max_price"
-                    value={formData.max_price || ""}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.max_price}
+                    onChange={(value) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        max_price: value ? Number(value) : undefined,
+                      }));
+                    }}
+                    min={0}
+                    formatThousands={true}
                     placeholder="0.00"
                   />
                 </div>
@@ -281,15 +288,18 @@ export default function FixedServiceForm({
                 >
                   Precio por Persona
                 </label>
-                <input
-                  type="number"
+                <NumberInput
                   id="price_per_person"
                   name="price_per_person"
-                  value={formData.price_per_person || ""}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={formData.price_per_person}
+                  onChange={(value) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      price_per_person: value ? Number(value) : undefined,
+                    }));
+                  }}
+                  min={0}
+                  formatThousands={true}
                   placeholder="0.00"
                 />
               </div>
@@ -307,15 +317,18 @@ export default function FixedServiceForm({
                   >
                     Precio
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     id="price"
                     name="price"
                     value={formData.price}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(value) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        price: value ? Number(value) : undefined,
+                      }));
+                    }}
+                    min={0}
+                    formatThousands={true}
                     placeholder="0.00"
                   />
                 </div>

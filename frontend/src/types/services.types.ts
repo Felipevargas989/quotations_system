@@ -23,9 +23,8 @@ export interface FixedService {
   company_id: Company["id"];
 }
 
-export type CreateVariableService = Omit<
-  VariableService,
-  "id" | "created_at" | "company_id"
+export type CreateVariableService = Partial<
+  Omit<VariableService, "id" | "created_at" | "company_id">
 >;
 
 export type CreateFixedService = Omit<

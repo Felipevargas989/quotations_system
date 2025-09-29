@@ -16,6 +16,7 @@ import {
   QuotationRequestType,
   QuotationStatus,
 } from "../types/quotations.types";
+import { NumberInput } from "./inputs";
 
 interface RequestFormProps {
   request?: any;
@@ -559,18 +560,18 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Número de Personas *
             </label>
-            <input
-              type="number"
-              min="1"
-              required
+
+            <NumberInput
               value={formData.people_count}
-              onChange={(e) =>
+              onChange={(value) => {
+                const peopleCount = value ?? 1; // Default to 1 if undefined
                 setFormData((prev) => ({
                   ...prev,
-                  people_count: parseInt(e.target.value),
-                }))
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  people_count: peopleCount,
+                }));
+              }}
+              required
+              min={1}
             />
           </div>
         </div>

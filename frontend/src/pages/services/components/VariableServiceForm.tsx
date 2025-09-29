@@ -8,6 +8,7 @@ import {
   createVariableService,
   updateVariableService,
 } from "../../../services/services.service";
+import { NumberInput } from "../../../components/inputs";
 
 interface VariableServiceFormProps {
   readonly isOpen: boolean;
@@ -25,10 +26,10 @@ export default function VariableServiceForm({
   isEditing = false,
 }: VariableServiceFormProps) {
   const defaultFormData = {
-    code: "",
-    name: "",
-    price: 0,
-    category: "",
+    code: undefined,
+    name: undefined,
+    price: undefined,
+    category: undefined,
   };
   const [formData, setFormData] =
     useState<CreateVariableService>(defaultFormData);
@@ -171,15 +172,16 @@ export default function VariableServiceForm({
               >
                 Precio
               </label>
-              <input
-                type="number"
-                id="price"
-                name="price"
-                value={formData.price || ""}
-                onChange={handleInputChange}
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <NumberInput
+                value={formData.price}
+                onChange={(value) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    price: value ? Number(value) : undefined,
+                  }));
+                }}
+                min={0}
+                formatThousands={true}
                 placeholder="0.00"
               />
             </div>

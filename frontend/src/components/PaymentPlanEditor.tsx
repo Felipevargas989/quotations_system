@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
+import { NumberInput } from "./inputs";
 
 interface PaymentPlanEditorProps {
   quotation: {
@@ -354,19 +355,19 @@ export default function PaymentPlanEditor({
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Porcentaje (%)
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
+                        <NumberInput
+                          id="percentage"
+                          name="percentage"
                           value={payment.percentage}
-                          onChange={(e) =>
+                          onChange={(value) => {
                             updateCustomPayment(
                               index,
                               "percentage",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              value ? Number(value) : undefined,
+                            );
+                          }}
+                          min={0}
+                          max={100}
                         />
                       </div>
 
@@ -374,18 +375,18 @@ export default function PaymentPlanEditor({
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Días antes del evento
                         </label>
-                        <input
-                          type="number"
-                          min="0"
+                        <NumberInput
+                          id="days_before_event"
+                          name="days_before_event"
                           value={payment.days_before_event}
-                          onChange={(e) =>
+                          onChange={(value) => {
                             updateCustomPayment(
                               index,
                               "days_before_event",
-                              parseInt(e.target.value) || 0,
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              value ? Number(value) : undefined,
+                            );
+                          }}
+                          min={0}
                         />
                       </div>
 
