@@ -78,12 +78,37 @@ export default function FixedServiceForm({
     setError(null);
 
     try {
+      // validate and format service data
+      const payload = {
+        name: formData.name,
+        code: formData.code,
+        price:
+          formData.calculation_type === CalculationType.FIJO ||
+          formData.calculation_type === CalculationType.FIJO_VARIABLE
+            ? formData.price
+            : undefined,
+        calculation_type: formData.calculation_type,
+        min_price:
+          formData.calculation_type === CalculationType.VARIABLE_CON_LIMITES
+            ? formData.min_price
+            : undefined,
+        max_price:
+          formData.calculation_type === CalculationType.VARIABLE_CON_LIMITES
+            ? formData.max_price
+            : undefined,
+        price_per_person:
+          formData.calculation_type === CalculationType.VARIABLE_CON_LIMITES ||
+          formData.calculation_type === CalculationType.FIJO_VARIABLE
+            ? formData.price_per_person
+            : undefined,
+      };
+
       if (isEditing && service) {
         // Update existing fixed service
-        await updateFixedService(service.id, formData);
+        await updateFixedService(service.id, payload);
       } else {
         // Create new fixed service
-        await createFixedService(formData);
+        await createFixedService(payload);
       }
 
       onSuccess();
