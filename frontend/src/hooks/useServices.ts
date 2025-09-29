@@ -115,13 +115,6 @@ export function useServices() {
     peopleCount: number,
   ): number => {
     switch (service.tipo_calculo) {
-      // TODO: define all calculation types
-      case CalculationType.FIJO: {
-        return service.precio;
-      }
-      case CalculationType.POR_PERSONA: {
-        return service.precio_por_persona * peopleCount;
-      }
       case CalculationType.VARIABLE_CON_LIMITES: {
         const calculatedPrice = service.precio_por_persona * peopleCount;
         if (service.min_precio && calculatedPrice < service.min_precio)
@@ -130,9 +123,10 @@ export function useServices() {
           return service.max_precio;
         return calculatedPrice;
       }
-      case CalculationType.VARIABLE_SIN_LIMITES: {
-        return service.precio_por_persona * peopleCount;
+      case CalculationType.FIJO_VARIABLE: {
+        return service.precio + service.precio_por_persona * peopleCount;
       }
+      case CalculationType.FIJO:
       default: {
         return service.precio;
       }

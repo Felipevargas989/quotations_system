@@ -1,3 +1,4 @@
+import { CalculationType } from "../constants/services";
 import { Company } from "./companies.types";
 
 export interface VariableService {
@@ -14,8 +15,8 @@ export interface FixedService {
   created_at: Date;
   code?: string;
   name: string;
-  price: number;
-  calculation_type: string;
+  price?: number;
+  calculation_type: CalculationType;
   min_price?: number;
   max_price?: number;
   price_per_person?: number;

@@ -2,51 +2,44 @@ import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 import {
   CreateFixedService,
-  CreateVariableService,
   FixedService,
-  VariableService,
 } from "../../../types/services.types";
 import {
   createFixedService,
-  createVariableService,
   updateFixedService,
-  updateVariableService,
 } from "../../../services/services.service";
-import { CalculationType } from "../../../constants/services";
-import { ServiceType } from "../constants";
+import {
+  CALCULATION_TYPES_EXPLANATIONS,
+  CALCULATION_TYPES_NAMES,
+  CalculationType,
+} from "../../../constants/services";
 
-interface ServiceFormProps {
+interface FixedServiceFormProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onSuccess: () => void;
-  readonly service?: VariableService | FixedService;
-  readonly serviceType?: "variable" | "fixed";
+  readonly service?: FixedService;
   readonly isEditing?: boolean;
 }
 
-export default function ServiceForm({
+export default function FixedServiceForm({
   isOpen,
   onClose,
   onSuccess,
   service,
-  serviceType = ServiceType.VARIABLE,
   isEditing = false,
-}: ServiceFormProps) {
-  const [formData, setFormData] = useState<
-    CreateVariableService | CreateFixedService
-  >(
-    serviceType === ServiceType.VARIABLE
-      ? { code: "", name: "", price: 0, category: "" }
-      : {
-          code: "",
-          name: "",
-          price: 0,
-          calculation_type: "",
-          min_price: undefined,
-          max_price: undefined,
-          price_per_person: undefined,
-        },
-  );
+}: FixedServiceFormProps) {
+  const defaultFormData: CreateFixedService = {
+    code: "",
+    name: "",
+    price: undefined,
+    calculation_type: "" as CalculationType,
+    min_price: undefined,
+    max_price: undefined,
+    price_per_person: undefined,
+  };
+
+  const [formData, setFormData] = useState<CreateFixedService>(defaultFormData);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,43 +47,20 @@ export default function ServiceForm({
   // Initialize form data when editing
   useEffect(() => {
     if (isEditing && service) {
-      if (serviceType === ServiceType.VARIABLE) {
-        const variableService = service as VariableService;
-        setFormData({
-          code: variableService.code || "",
-          name: variableService.name,
-          price: variableService.price,
-          category: variableService.category,
-        });
-      } else {
-        const fixedService = service as FixedService;
-        setFormData({
-          code: fixedService.code || "",
-          name: fixedService.name,
-          price: fixedService.price,
-          calculation_type: fixedService.calculation_type,
-          min_price: fixedService.min_price,
-          max_price: fixedService.max_price,
-          price_per_person: fixedService.price_per_person,
-        });
-      }
+      setFormData({
+        code: service.code || "",
+        name: service.name,
+        price: service.price,
+        calculation_type: service.calculation_type,
+        min_price: service.min_price,
+        max_price: service.max_price,
+        price_per_person: service.price_per_person,
+      });
     } else {
       // Reset form for new service
-      setFormData(
-        serviceType === ServiceType.VARIABLE
-          ? { code: "", name: "", price: 0, category: "" }
-          : {
-              code: "",
-              name: "",
-              price: 0,
-              calculation_type: "",
-              min_price: undefined,
-              max_price: undefined,
-              price_per_person: undefined,
-            },
-      );
+      resetForm();
     }
-  }, [isEditing, service, serviceType]);
+  }, [isEditing, service]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -109,22 +79,11 @@ export default function ServiceForm({
 
     try {
       if (isEditing && service) {
-        // Update existing service
-        if (serviceType === ServiceType.VARIABLE) {
-          await updateVariableService(
-            service.id,
-            formData as CreateVariableService,
-          );
-        } else {
-          await updateFixedService(service.id, formData as CreateFixedService);
-        }
+        // Update existing fixed service
+        await updateFixedService(service.id, formData);
       } else {
-        // Create new service
-        if (serviceType === ServiceType.VARIABLE) {
-          await createVariableService(formData as CreateVariableService);
-        } else {
-          await createFixedService(formData as CreateFixedService);
-        }
+        // Create new fixed service
+        await createFixedService(formData);
       }
 
       onSuccess();
@@ -141,19 +100,7 @@ export default function ServiceForm({
   };
 
   const resetForm = () => {
-    setFormData(
-      serviceType === ServiceType.VARIABLE
-        ? { code: "", name: "", price: 0, category: "" }
-        : {
-            code: "",
-            name: "",
-            price: 0,
-            calculation_type: "",
-            min_price: undefined,
-            max_price: undefined,
-            price_per_person: undefined,
-          },
-    );
+    setFormData(defaultFormData);
     setError(null);
   };
 
@@ -169,10 +116,7 @@ export default function ServiceForm({
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-900">
-            {isEditing ? "Editar Servicio" : "Crear Nuevo Servicio"}
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              ({serviceType === ServiceType.VARIABLE ? "Variable" : "Fijo"})
-            </span>
+            {isEditing ? "Editar Servicio Fijo" : "Crear Nuevo Servicio Fijo"}
           </h2>
           <button
             onClick={handleClose}
@@ -228,79 +172,38 @@ export default function ServiceForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="price"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Precio *
-              </label>
-              <input
-                type="number"
-                id="price"
-                name="price"
-                value={formData.price}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
+          <div>
+            <label
+              htmlFor="calculation_type"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Tipo de Cálculo *
+            </label>
+            <select
+              id="calculation_type"
+              name="calculation_type"
+              value={formData.calculation_type || ""}
+              onChange={handleInputChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar tipo</option>
+              {Object.keys(CALCULATION_TYPES_NAMES).map((type) => (
+                <option key={type} value={type}>
+                  {CALCULATION_TYPES_NAMES[type as CalculationType]}
+                </option>
+              ))}
+            </select>
+            <div className="text-sm text-gray-500">
+              {formData.calculation_type !== CalculationType.FIJO &&
+                CALCULATION_TYPES_EXPLANATIONS[formData.calculation_type]}
             </div>
-
-            {serviceType === ServiceType.VARIABLE && (
-              <div>
-                <label
-                  htmlFor="category"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Categoría *
-                </label>
-                <input
-                  type="text"
-                  id="category"
-                  name="category"
-                  value={(formData as CreateVariableService).category || ""}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Categoría del servicio"
-                />
-              </div>
-            )}
           </div>
 
-          {serviceType === ServiceType.FIXED && (
-            <>
-              <div>
-                <label
-                  htmlFor="calculation_type"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Tipo de Cálculo *
-                </label>
-                <select
-                  id="calculation_type"
-                  name="calculation_type"
-                  value={
-                    (formData as CreateFixedService).calculation_type || ""
-                  }
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar tipo</option>
-                  {Object.values(CalculationType).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {formData.calculation_type ===
+              CalculationType.VARIABLE_CON_LIMITES && (
+              <>
                 <div>
                   <label
                     htmlFor="min_price"
@@ -312,7 +215,7 @@ export default function ServiceForm({
                     type="number"
                     id="min_price"
                     name="min_price"
-                    value={(formData as CreateFixedService).min_price || ""}
+                    value={formData.min_price || ""}
                     onChange={handleInputChange}
                     min="0"
                     step="0.01"
@@ -332,7 +235,7 @@ export default function ServiceForm({
                     type="number"
                     id="max_price"
                     name="max_price"
-                    value={(formData as CreateFixedService).max_price || ""}
+                    value={formData.max_price || ""}
                     onChange={handleInputChange}
                     min="0"
                     step="0.01"
@@ -340,21 +243,50 @@ export default function ServiceForm({
                     placeholder="0.00"
                   />
                 </div>
+              </>
+            )}
 
+            {(formData.calculation_type === CalculationType.FIJO_VARIABLE ||
+              formData.calculation_type ===
+                CalculationType.VARIABLE_CON_LIMITES) && (
+              <div>
+                <label
+                  htmlFor="price_per_person"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Precio por Persona
+                </label>
+                <input
+                  type="number"
+                  id="price_per_person"
+                  name="price_per_person"
+                  value={formData.price_per_person || ""}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {formData.calculation_type !==
+              CalculationType.VARIABLE_CON_LIMITES &&
+              formData.calculation_type !== ("" as CalculationType) && (
                 <div>
                   <label
-                    htmlFor="price_per_person"
+                    htmlFor="price"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Precio por Persona
+                    Precio
                   </label>
                   <input
                     type="number"
-                    id="price_per_person"
-                    name="price_per_person"
-                    value={
-                      (formData as CreateFixedService).price_per_person || ""
-                    }
+                    id="price"
+                    name="price"
+                    value={formData.price}
                     onChange={handleInputChange}
                     min="0"
                     step="0.01"
@@ -362,9 +294,8 @@ export default function ServiceForm({
                     placeholder="0.00"
                   />
                 </div>
-              </div>
-            </>
-          )}
+              )}
+          </div>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <button

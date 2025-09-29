@@ -6,9 +6,10 @@ import {
 } from "../../services/services.service";
 import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
-import ServiceForm from "./components/ServiceForm";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
+import VariableServiceForm from "./components/VariableServiceForm";
+import FixedServiceForm from "./components/FixedServiceForm";
 
 export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
@@ -16,7 +17,8 @@ export default function ServicesPage() {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
   // ServiceForm states
-  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [showFixedServiceForm, setShowFixedServiceForm] = useState(false);
+  const [showVariableServiceForm, setShowVariableServiceForm] = useState(false);
   const [editingService, setEditingService] = useState<
     VariableService | FixedService | null
   >(null);
@@ -48,27 +50,43 @@ export default function ServicesPage() {
 
   const handleCreateService = (type: ServiceType) => {
     setServiceType(type);
+    if (type === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(true);
+    } else {
+      setShowFixedServiceForm(true);
+    }
     setEditingService(null);
-    setShowServiceForm(true);
   };
 
   const handleEditService = (
     service: VariableService | FixedService,
     type: ServiceType,
   ) => {
+    if (type === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(true);
+    } else {
+      setShowFixedServiceForm(true);
+    }
     setServiceType(type);
     setEditingService(service);
-    setShowServiceForm(true);
   };
 
   const handleServiceFormSuccess = async () => {
     await loadServices();
-    setShowServiceForm(false);
+    if (serviceType === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(false);
+    } else {
+      setShowFixedServiceForm(false);
+    }
     setEditingService(null);
   };
 
   const handleCloseServiceForm = () => {
-    setShowServiceForm(false);
+    if (serviceType === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(false);
+    } else {
+      setShowFixedServiceForm(false);
+    }
     setEditingService(null);
   };
 
@@ -160,13 +178,19 @@ export default function ServicesPage() {
         onDeleteService={handleDeleteService}
       />
 
-      {/* Service Form Modal */}
-      <ServiceForm
-        isOpen={showServiceForm}
+      <FixedServiceForm
+        isOpen={showFixedServiceForm}
         onClose={handleCloseServiceForm}
         onSuccess={handleServiceFormSuccess}
-        service={editingService || undefined}
-        serviceType={serviceType}
+        service={editingService as FixedService | undefined}
+        isEditing={!!editingService}
+      />
+
+      <VariableServiceForm
+        isOpen={showVariableServiceForm}
+        onClose={handleCloseServiceForm}
+        onSuccess={handleServiceFormSuccess}
+        service={editingService as VariableService | undefined}
         isEditing={!!editingService}
       />
     </div>
