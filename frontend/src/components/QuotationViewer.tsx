@@ -14,7 +14,7 @@ export default function QuotationViewer({
   quotation,
   onClose,
 }: QuotationViewerProps) {
-  const { companyName } = useAuth();
+  const { companyName, companyLogoUrl } = useAuth();
   const getStatusColor = (status: string) => {
     switch (status) {
       case "solicitada":
@@ -103,12 +103,18 @@ export default function QuotationViewer({
               position: relative;
               z-index: 1;
               flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
             }
             .header-logo {
               position: relative;
               z-index: 1;
-              width: 120px;
-              height: 100px;
+              max-width: 120px;
+              max-height: 100px;
+              width: auto;
+              height: auto;
+              object-fit: contain;
             }
             .header-center {
               flex: 1;
@@ -377,11 +383,15 @@ export default function QuotationViewer({
           <!-- Header -->
           <div class="header">
             <div class="logo-section">
-              <div class="company-name">${companyName || "Empresa"}</div>
+              ${!companyLogoUrl ? `<div class="company-name">${companyName || "Empresa"}</div>` : ""}
             </div>
             <div class="header-center">
+              ${companyLogoUrl ? `<div class="company-name">${companyName || "Empresa"}</div>` : ""}
               <div class="quotation-title">COTIZACIÓN DE SERVICIOS</div>
               <div class="quotation-number">N° ${quotation.quotation_number}</div>
+            </div>
+            <div class="logo-section" style="justify-content: flex-end;">
+              ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="Logo" class="header-logo" />` : ""}
             </div>
           </div>
 
