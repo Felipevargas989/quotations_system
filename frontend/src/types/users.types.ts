@@ -21,8 +21,5 @@ export type CreateUser = Omit<
 export type UpdateUser = Omit<CreateUser, "password" | "email">;
 
 export type UserWithCompany = User & {
-  companies: {
-    id: Company["id"];
-    name: Company["name"];
-  };
+  companies: Omit<Company, "created_at">;
 };

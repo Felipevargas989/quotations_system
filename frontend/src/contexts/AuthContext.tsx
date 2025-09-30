@@ -10,6 +10,7 @@ interface AuthContextType {
   userRole: UserRole | null;
   companyId: Company["id"] | null;
   companyName: Company["name"] | null;
+  companyLogoUrl: Company["logo_url"] | null;
   loading: boolean;
   signIn: (
     email: string,
@@ -28,6 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [companyId, setCompanyId] = useState<Company["id"] | null>(null);
   const [companyName, setCompanyName] = useState<Company["name"] | null>(null);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<
+    Company["logo_url"] | null
+  >(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserProfile = async () => {
@@ -46,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserRole(data.role);
         setCompanyId(data.company_id);
         setCompanyName(data.companies.name);
+        setCompanyLogoUrl(data.companies.logo_url);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -205,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userRole,
     companyId,
     companyName,
+    companyLogoUrl,
     loadUserProfile,
   };
 
