@@ -16,6 +16,7 @@ import UserManagementPage from "./pages/UserManagementPage.tsx";
 import SuperAdminPage from "./pages/superAdmin/Index.tsx";
 import { ServicesPage } from "./pages/services";
 import ConfigurationPage from "./pages/configuration/ConfigurationPage";
+import CompanyConfiguration from "./pages/configuration/companyConfiguration/CompanyConfiguration.tsx";
 
 function App() {
   // TODO: check if this is needed
@@ -111,6 +112,16 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.configuration}>
                   <ConfigurationPage />
+                </PermissionGuard>
+              }
+            />
+            <Route
+              path="company-configuration"
+              element={
+                <PermissionGuard
+                  allowedRoles={SECTION_ROLES.company_configuration}
+                >
+                  <CompanyConfiguration />
                 </PermissionGuard>
               }
             />

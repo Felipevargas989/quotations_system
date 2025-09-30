@@ -134,3 +134,27 @@ export const validateImageFile = (
 
   return { valid: true };
 };
+
+export const uploadCompanyLogo = async (
+  companyId: string,
+  file: File,
+): Promise<UploadResult> => {
+  try {
+    const filename = `${companyId}_logo.${file.name.split(".").pop()}`;
+
+    const { data, error } = await supabase.storage
+      .from("company-logos")
+      .upload(filename, file);
+
+    if (error) {
+      throw new Error(`Error al subir el archivo: ${error.message}`);
+    }
+
+    return { success: true, url: data.fullPath };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Error al subir el archivo",
+    };
+  }
+};

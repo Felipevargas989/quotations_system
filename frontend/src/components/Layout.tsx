@@ -12,6 +12,7 @@ import {
   User,
   ChevronDown,
   Cog,
+  Building,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
@@ -173,6 +174,16 @@ export default function Layout() {
                       >
                         <Cog size={16} />
                         <span>Configuración</span>
+                      </Link>
+                    )}
+                    {canAccess("company_configuration") && (
+                      <Link
+                        to="/company-configuration"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <Building size={16} />
+                        <span>Configuración de la Compañía</span>
                       </Link>
                     )}
                     <button
