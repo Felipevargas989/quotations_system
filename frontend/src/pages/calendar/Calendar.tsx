@@ -1,9 +1,20 @@
 import { useState, useEffect } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { format, isSameDay } from "date-fns";
+import {
+  format,
+  isSameDay,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+} from "date-fns";
 import { es } from "date-fns/locale";
-import { Filter, X, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Filter,
+  X,
+  Calendar as CalendarIcon,
+  CalendarDays,
+} from "lucide-react";
 import { getQuotations } from "../../services/quotations.service";
 import {
   QuotationRequestType,
@@ -23,6 +34,7 @@ export default function CalendarPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<QuotationStatus[]>([
     QuotationStatus.ACEPTADA,
   ]);
+  const [currentMonthEventsCount, setCurrentMonthEventsCount] = useState(0);
 
   const statusOptions = [
     {
@@ -55,6 +67,19 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchQuotations();
   }, [selectedStatuses]);
+
+  useEffect(() => {
+    const currentMonth = value instanceof Date ? value : new Date();
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+
+    const count = quotations.filter((q) => {
+      const eventDate = new Date(q.event_date);
+      return isWithinInterval(eventDate, { start: monthStart, end: monthEnd });
+    }).length;
+
+    setCurrentMonthEventsCount(count);
+  }, [value, quotations]);
 
   const fetchQuotations = async () => {
     try {
@@ -125,6 +150,16 @@ export default function CalendarPage() {
     }
   };
 
+  const handleActiveStartDateChange = ({
+    activeStartDate,
+  }: {
+    activeStartDate: Date | null;
+  }) => {
+    if (activeStartDate) {
+      setValue(activeStartDate);
+    }
+  };
+
   const handleStatusToggle = (status: QuotationStatus) => {
     setSelectedStatuses((prev) =>
       prev.includes(status)
@@ -133,27 +168,58 @@ export default function CalendarPage() {
     );
   };
 
+  const handleGoToToday = () => {
+    const today = new Date();
+    setValue(today);
+    setSelectedDate(today);
+  };
+
   const eventsForSelectedDate = selectedDate
     ? getQuotationsForDate(selectedDate)
     : [];
+
+  const currentMonthName =
+    value instanceof Date
+      ? format(value, "MMMM yyyy", { locale: es })
+      : format(new Date(), "MMMM yyyy", { locale: es });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">
-              Calendario de Eventos
-            </h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <CalendarIcon className="h-8 w-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">
+                Calendario de Eventos
+              </h1>
+            </div>
+            <div className="ml-11 mt-2 flex items-center gap-2">
+              <span className="text-sm text-gray-600 capitalize">
+                {currentMonthName}:
+              </span>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                {currentMonthEventsCount}{" "}
+                {currentMonthEventsCount === 1 ? "evento" : "eventos"}
+              </span>
+            </div>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Filter className="h-4 w-4" />
-            Filtros
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleGoToToday}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Hoy
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+            </button>
+          </div>
         </div>
 
         {showFilters && (
@@ -203,7 +269,9 @@ export default function CalendarPage() {
             ) : (
               <Calendar
                 onChange={handleDateClick}
+                onActiveStartDateChange={handleActiveStartDateChange}
                 value={value}
+                activeStartDate={value instanceof Date ? value : new Date()}
                 locale="es-ES"
                 tileContent={tileContent}
                 className="w-full border-none custom-calendar"
@@ -214,11 +282,19 @@ export default function CalendarPage() {
 
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {selectedDate
-                ? format(selectedDate, "d 'de' MMMM, yyyy", { locale: es })
-                : "Selecciona una fecha"}
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                {selectedDate
+                  ? format(selectedDate, "d 'de' MMMM, yyyy", { locale: es })
+                  : "Selecciona una fecha"}
+              </h2>
+              {selectedDate && eventsForSelectedDate.length > 0 && (
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+                  {eventsForSelectedDate.length}{" "}
+                  {eventsForSelectedDate.length === 1 ? "evento" : "eventos"}
+                </span>
+              )}
+            </div>
 
             {!selectedDate && (
               <p className="text-gray-500 text-center py-8">
@@ -233,7 +309,7 @@ export default function CalendarPage() {
             )}
 
             {selectedDate && eventsForSelectedDate.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {eventsForSelectedDate.map((quotation) => (
                   <div
                     key={quotation.id}
