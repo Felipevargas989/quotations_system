@@ -11,7 +11,10 @@ import {
 import { findAllServices } from "../../../services/services.service";
 import { getClients } from "../../../services/clients.service";
 import { getQuotations } from "../../../services/quotations.service";
-import { QuotationRequestType } from "../../../types/quotations.types";
+import {
+  QuotationRequestType,
+  QuotationStatus,
+} from "../../../types/quotations.types";
 import { useAuth } from "../../../contexts/AuthContext";
 
 interface EmptyState {
@@ -52,16 +55,14 @@ export default function NewAccount() {
       // Check quotations (both requests and quotations)
       const requestsResponse = await getQuotations(
         QuotationRequestType.REQUERIMIENTO,
-        [],
+        [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+          QuotationStatus.ACEPTADA,
+        ],
       );
-      const quotationsResponse = await getQuotations(
-        QuotationRequestType.COTIZACION,
-        [],
-      );
-      const hasQuotations =
-        requestsResponse.data?.length > 0 ||
-        quotationsResponse.data?.length > 0;
-
+      const hasQuotations = requestsResponse.data?.length > 0;
       setEmptyStates({
         hasServices: !hasServices,
         hasClients: !hasClients,
