@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Cog,
   Building,
+  Calendar,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
@@ -131,6 +132,15 @@ export default function Layout() {
                     <span>Servicios</span>
                   </Link>
                 )}
+                {canAccess("calendar") && (
+                  <Link
+                    to="/calendar"
+                    className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    <Calendar size={16} />
+                    <span>Calendario</span>
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -141,7 +151,7 @@ export default function Layout() {
                 >
                   <User size={16} />
                   <span className="hidden sm:block" title={user.email}>
-                    {user.email?.substring(0, 20)}
+                    {user.email?.substring(0, 5)}
                   </span>
                   <ChevronDown size={14} />
                 </button>
