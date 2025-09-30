@@ -348,23 +348,25 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Leyenda
-            </h3>
-            <div className="space-y-2">
-              {statusOptions
-                .filter((option) => selectedStatuses.includes(option.value))
-                .map((option) => (
-                  <div key={option.value} className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${option.color}`} />
-                    <span className="text-sm text-gray-700">
-                      {option.label}
-                    </span>
-                  </div>
-                ))}
+          {selectedStatuses.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-wrap gap-2">
+                {statusOptions
+                  .filter((option) => selectedStatuses.includes(option.value))
+                  .map((option) => (
+                    <div
+                      key={option.value}
+                      className="flex items-center gap-1.5"
+                    >
+                      <div className={`w-2 h-2 rounded-full ${option.color}`} />
+                      <span className="text-xs text-gray-600">
+                        {option.label}
+                      </span>
+                    </div>
+                  ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
