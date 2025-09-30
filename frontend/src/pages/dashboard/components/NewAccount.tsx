@@ -1,28 +1,39 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Package, Users, FileText, Plus, ArrowRight } from "lucide-react";
+import {
+  Package,
+  Users,
+  FileText,
+  Plus,
+  ArrowRight,
+  Building2,
+} from "lucide-react";
 import { findAllServices } from "../../../services/services.service";
 import { getClients } from "../../../services/clients.service";
 import { getQuotations } from "../../../services/quotations.service";
 import { QuotationRequestType } from "../../../types/quotations.types";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface EmptyState {
   hasServices: boolean;
   hasClients: boolean;
   hasQuotations: boolean;
+  hasCompanyLogo: boolean;
 }
 
 export default function NewAccount() {
+  const { companyLogoUrl } = useAuth();
   const [emptyStates, setEmptyStates] = useState<EmptyState>({
     hasServices: true,
     hasClients: true,
     hasQuotations: true,
+    hasCompanyLogo: true,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkEmptyStates();
-  }, []);
+  }, [companyLogoUrl]);
 
   const checkEmptyStates = async () => {
     try {
@@ -41,9 +52,11 @@ export default function NewAccount() {
       // Check quotations (both requests and quotations)
       const requestsResponse = await getQuotations(
         QuotationRequestType.REQUERIMIENTO,
+        [],
       );
       const quotationsResponse = await getQuotations(
         QuotationRequestType.COTIZACION,
+        [],
       );
       const hasQuotations =
         requestsResponse.data?.length > 0 ||
@@ -53,6 +66,7 @@ export default function NewAccount() {
         hasServices: !hasServices,
         hasClients: !hasClients,
         hasQuotations: !hasQuotations,
+        hasCompanyLogo: !companyLogoUrl,
       });
     } catch (error) {
       console.error("Error checking empty states:", error);
@@ -73,12 +87,23 @@ export default function NewAccount() {
   if (
     !emptyStates.hasServices &&
     !emptyStates.hasClients &&
-    !emptyStates.hasQuotations
+    !emptyStates.hasQuotations &&
+    !emptyStates.hasCompanyLogo
   ) {
     return null;
   }
 
   const emptyStateItems = [
+    {
+      id: "logo",
+      title: "Configura el logo de tu empresa",
+      description:
+        "Agrega el logo de tu empresa para personalizar tus cotizaciones",
+      icon: Building2,
+      link: "/company-configuration",
+      linkText: "Agregar Logo",
+      show: emptyStates.hasCompanyLogo,
+    },
     {
       id: "services",
       title: "Aún no hay servicios agregados",
