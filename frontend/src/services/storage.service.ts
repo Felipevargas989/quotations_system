@@ -49,7 +49,7 @@ export const uploadPaymentReceipt = async (
     const filePath = `payment-receipts/${quotationId}/${paymentId}/${filename}`;
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from("payment-receipts")
       .upload(filePath, file, {
         cacheControl: "3600",
@@ -142,19 +142,31 @@ export const uploadCompanyLogo = async (
   try {
     const filename = `${companyId}_logo.${file.name.split(".").pop()}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from("company-logos")
-      .upload(filename, file);
+      .upload(filename, file, {
+        cacheControl: "3600",
+        upsert: true, // Allow overwriting existing logo
+      });
 
     if (error) {
       throw new Error(`Error al subir el archivo: ${error.message}`);
     }
 
-    return { success: true, url: data.fullPath };
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("company-logos")
+      .getPublicUrl(filename);
+
+    return {
+      success: true,
+      url: urlData.publicUrl,
+    };
   } catch (error) {
     return {
       success: false,
-      error: "Error al subir el archivo",
+      error:
+        error instanceof Error ? error.message : "Error al subir el archivo",
     };
   }
 };
