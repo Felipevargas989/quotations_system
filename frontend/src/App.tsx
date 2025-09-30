@@ -17,6 +17,7 @@ import SuperAdminPage from "./pages/superAdmin/Index.tsx";
 import { ServicesPage } from "./pages/services";
 import ConfigurationPage from "./pages/configuration/ConfigurationPage";
 import CompanyConfiguration from "./pages/configuration/companyConfiguration/CompanyConfiguration.tsx";
+import Calendar from "./pages/calendar/Calendar.tsx";
 
 function App() {
   // TODO: check if this is needed
@@ -122,6 +123,14 @@ function App() {
                   allowedRoles={SECTION_ROLES.company_configuration}
                 >
                   <CompanyConfiguration />
+                </PermissionGuard>
+              }
+            />
+            <Route
+              path="calendar"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.calendar}>
+                  <Calendar />
                 </PermissionGuard>
               }
             />
