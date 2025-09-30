@@ -28,7 +28,8 @@ export class UsersRepository {
         `*,
         companies (
           id,
-          name
+          name,
+          logo_url
         )
         `,
       )

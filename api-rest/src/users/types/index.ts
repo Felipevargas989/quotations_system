@@ -7,5 +7,6 @@ export type UserWithCompany = User & {
   companies: {
     id: Company['id'];
     name: Company['name'];
+    logo_url: Company['logo_url'];
   };
 };
