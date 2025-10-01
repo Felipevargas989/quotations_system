@@ -19,16 +19,22 @@ export class ServicesRepository {
 
   createVariableServices(services: Omit<VariableService, 'id'>[]) {
     this.logger.info(
-      `createVariableServices with services ${JSON.stringify(services)}`,
+      `createVariableServices with total services ${services.length}`,
     );
-    return this.supabase.client.from('variable_services').insert(services);
+    return this.supabase.client.from('variable_services').upsert(services, {
+      ignoreDuplicates: true,
+      onConflict: 'company_id,category,name',
+    });
   }
 
   createFixedServices(services: Omit<FixedService, 'id'>[]) {
     this.logger.info(
       `createFixedServices with services ${JSON.stringify(services)}`,
     );
-    return this.supabase.client.from('fixed_services').insert(services);
+    return this.supabase.client.from('fixed_services').upsert(services, {
+      ignoreDuplicates: true,
+      onConflict: 'company_id,name',
+    });
   }
 
   createVariableService(service: CreateVariableServiceDto) {
