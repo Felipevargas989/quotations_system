@@ -10,8 +10,8 @@ import { ClientFormData } from "../types/clients.types";
 import {
   createQuotation,
   updateQuotation,
-  checkConflictsWithExistingQuotations,
 } from "../services/quotations.service";
+import { useDateAvailability } from "../hooks/useDateAvailability";
 import {
   QuotationFormData,
   QuotationRequestType,
@@ -60,8 +60,10 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     phone: false,
     contact_person: false,
   });
-  const [hasDateConflicts, setHasDateConflicts] = useState(false);
-  const [checkingConflicts, setCheckingConflicts] = useState(false);
+
+  // Use custom hook for date availability checking
+  const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
+    useDateAvailability(formData.event_date);
 
   const eventTypes = [
     "Almuerzo o Cena",
@@ -101,30 +103,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     setClientErrors(validation.errors);
     setIsFormValid(validation.isValid);
   }, [clientFormData]);
-
-  // Check for conflicts when event_date changes
-  useEffect(() => {
-    const checkConflicts = async () => {
-      if (formData.event_date) {
-        setCheckingConflicts(true);
-        try {
-          const { data } = await checkConflictsWithExistingQuotations(
-            formData.event_date,
-          );
-          setHasDateConflicts(data?.has_conflicts || false);
-        } catch (error) {
-          setHasDateConflicts(false);
-        } finally {
-          setCheckingConflicts(false);
-        }
-      } else {
-        setHasDateConflicts(false);
-        setCheckingConflicts(false);
-      }
-    };
-
-    checkConflicts();
-  }, [formData.event_date]);
 
   // Helper function to check if a field should show error
   const shouldShowError = (fieldName: keyof typeof touchedFields) => {

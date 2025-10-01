@@ -1,7 +1,16 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, ArrowLeft, Plus, Trash2, X } from "lucide-react";
+import {
+  Save,
+  RotateCcw,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  X,
+  CheckCircle,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useServices } from "../hooks/useServices";
+import { useDateAvailability } from "../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import {
@@ -143,6 +152,10 @@ export default function QuotationForm({
   >([]);
   const [originalTotalPrice, setOriginalTotalPrice] = useState<number>(0);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Use custom hook for date availability checking
+  const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
+    useDateAvailability(formData.event_date);
 
   // Check if we're editing an accepted quotation
   const isRestrictedEditing = quotation?.quotation_status === "aceptada";
@@ -1325,6 +1338,50 @@ export default function QuotationForm({
                   }
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                 />
+                {checkingConflicts && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                      <p className="text-xs text-blue-800">
+                        Verificando disponibilidad...
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!checkingConflicts && hasDateConflicts && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <span className="text-yellow-600 font-semibold text-xs">
+                        ⚠️
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs text-yellow-800">
+                          Hay más eventos programados para este mismo día.{" "}
+                          <a
+                            href={`/calendar?date=${formData.event_date.toISOString().split("T")[0]}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline hover:text-yellow-900"
+                          >
+                            Ver en calendario
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!checkingConflicts &&
+                  !hasDateConflicts &&
+                  formData.event_date && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-3 w-3 text-green-600" />
+                        <p className="text-xs text-green-800">
+                          Fecha disponible - No hay otros eventos programados
+                        </p>
+                      </div>
+                    </div>
+                  )}
               </div>
 
               <div>

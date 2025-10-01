@@ -59,7 +59,7 @@ export const getQuotationById = async (quotationId: string) => {
 };
 
 export const checkConflictsWithExistingQuotations = async (
-  eventDate: Quotation["event_date"],
+  eventDate: string,
 ) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS_CHECK_CONFLICTS}`,
