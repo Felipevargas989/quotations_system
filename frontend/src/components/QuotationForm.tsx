@@ -28,6 +28,7 @@ import {
   QuotationStatus,
 } from "../types/quotations.types";
 import { NumberInput } from "./inputs";
+import QuantitySelector from "./QuantitySelector";
 import SelectWithSearch from "./selects/SelectWithSearch";
 
 interface QuotationFormProps {
@@ -1565,46 +1566,26 @@ export default function QuotationForm({
                                 <span className="text-sm font-medium">
                                   ${service.precio.toLocaleString()}
                                 </span>
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() =>
-                                      updateServiceQuantity(
-                                        service.codigo,
-                                        service.quantity - 1,
-                                        box.id,
-                                      )
-                                    }
-                                    className={`w-6 h-6 rounded text-xs ${
-                                      isRestrictedEditing &&
-                                      isOriginalService &&
-                                      service.quantity <= 1
-                                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                        : "bg-gray-200 hover:bg-gray-300"
-                                    }`}
-                                    disabled={
-                                      isRestrictedEditing &&
-                                      isOriginalService &&
-                                      service.quantity <= 1
-                                    }
-                                  >
-                                    -
-                                  </button>
-                                  <span className="w-8 text-center text-sm">
-                                    {service.quantity}
-                                  </span>
-                                  <button
-                                    onClick={() =>
-                                      updateServiceQuantity(
-                                        service.codigo,
-                                        service.quantity + 1,
-                                        box.id,
-                                      )
-                                    }
-                                    className="w-6 h-6 bg-gray-200 rounded text-xs hover:bg-gray-300"
-                                  >
-                                    +
-                                  </button>
-                                </div>
+                                <QuantitySelector
+                                  value={service.quantity}
+                                  onChange={(newQuantity) =>
+                                    updateServiceQuantity(
+                                      service.codigo,
+                                      newQuantity,
+                                      box.id,
+                                    )
+                                  }
+                                  min={
+                                    isRestrictedEditing && isOriginalService
+                                      ? 1
+                                      : 0
+                                  }
+                                  disabled={
+                                    isRestrictedEditing &&
+                                    isOriginalService &&
+                                    service.quantity <= 1
+                                  }
+                                />
                               </div>
                             </div>
                           );
