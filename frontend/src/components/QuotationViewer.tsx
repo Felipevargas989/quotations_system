@@ -573,6 +573,16 @@ export default function QuotationViewer({
               </div>
             </div>
           </div>
+
+          <!-- Promotional Footer -->
+          <div style="margin-top: 12px; padding: 8px; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-top: 2px solid #667eea; border-radius: 4px;">
+            <p style="font-size: 10px; color: #64748b; margin: 2px 0;">
+              Cotización creada con <strong style="color: #667eea;">Eventia</strong>
+            </p>
+            <p style="font-size: 9px; color: #94a3b8; margin: 2px 0;">
+              Sistema de gestión de cotizaciones • <a href="https://www.eventi-app.com/" style="color: #667eea; text-decoration: none; font-weight: 600;">www.eventi-app.com</a>
+            </p>
+          </div>
         </body>
       </html>
     `);
