@@ -577,7 +577,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                     <p className="text-sm text-yellow-800">
                       Hay más eventos programados para este mismo día.{" "}
                       <a
-                        href={`/calendar?date=${formData.event_date}`}
+                        href={`/calendar?date=${formData.event_date}&filter=all`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold underline hover:text-yellow-900"

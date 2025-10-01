@@ -1358,7 +1358,7 @@ export default function QuotationForm({
                         <p className="text-xs text-yellow-800">
                           Hay más eventos programados para este mismo día.{" "}
                           <a
-                            href={`/calendar?date=${formData.event_date.toISOString().split("T")[0]}`}
+                            href={`/calendar?date=${formData.event_date.toISOString().split("T")[0]}&filter=all`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-semibold underline hover:text-yellow-900"

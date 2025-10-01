@@ -49,6 +49,22 @@ export default function CalendarPage() {
 
   const initialDate = getInitialDate();
 
+  // Get initial statuses based on filter query parameter
+  const getInitialStatuses = (): QuotationStatus[] => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam === "all") {
+      // Return all statuses except RECHAZADA
+      return [
+        QuotationStatus.SOLICITADA,
+        QuotationStatus.ENVIADA,
+        QuotationStatus.EN_NEGOCIACION,
+        QuotationStatus.ACEPTADA,
+      ];
+    }
+    // Default to only ACEPTADA
+    return [QuotationStatus.ACEPTADA];
+  };
+
   const [value, setValue] = useState<Value>(initialDate);
   const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,9 +72,8 @@ export default function CalendarPage() {
     searchParams.get("date") ? initialDate : null,
   );
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedStatuses, setSelectedStatuses] = useState<QuotationStatus[]>([
-    QuotationStatus.ACEPTADA,
-  ]);
+  const [selectedStatuses, setSelectedStatuses] =
+    useState<QuotationStatus[]>(getInitialStatuses());
   const [currentMonthEventsCount, setCurrentMonthEventsCount] = useState(0);
 
   const statusOptions = [
