@@ -18,6 +18,7 @@ import {
   QuotationStatus,
 } from "../types/quotations.types";
 import { NumberInput } from "./inputs";
+import SelectWithSearch from "./selects/SelectWithSearch";
 
 interface RequestFormProps {
   request?: any;
@@ -457,18 +458,14 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
             Cliente Existente
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
-            <select
+            <SelectWithSearch
+              options={clients.map((client) => ({
+                value: client.id,
+                label: `${client.name} (${client.client_type})`,
+              }))}
               value={formData.client_id || ""}
-              onChange={(e) => handleClientSelect(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
-            >
-              <option value="">Seleccionar cliente existente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} ({client.client_type})
-                </option>
-              ))}
-            </select>
+              onChange={(value) => handleClientSelect(value)}
+            />
             <button
               type="button"
               onClick={() => setShowClientModal(true)}
