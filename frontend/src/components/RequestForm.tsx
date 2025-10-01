@@ -10,6 +10,7 @@ import { ClientFormData } from "../types/clients.types";
 import {
   createQuotation,
   updateQuotation,
+  checkConflictsWithExistingQuotations,
 } from "../services/quotations.service";
 import {
   QuotationFormData,
@@ -59,6 +60,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     phone: false,
     contact_person: false,
   });
+  const [hasDateConflicts, setHasDateConflicts] = useState(false);
 
   const eventTypes = [
     "Almuerzo o Cena",
@@ -98,6 +100,26 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     setClientErrors(validation.errors);
     setIsFormValid(validation.isValid);
   }, [clientFormData]);
+
+  // Check for conflicts when event_date changes
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (formData.event_date) {
+        try {
+          const { data } = await checkConflictsWithExistingQuotations(
+            formData.event_date,
+          );
+          setHasDateConflicts(data?.has_conflicts || false);
+        } catch (error) {
+          setHasDateConflicts(false);
+        }
+      } else {
+        setHasDateConflicts(false);
+      }
+    };
+
+    checkConflicts();
+  }, [formData.event_date]);
 
   // Helper function to check if a field should show error
   const shouldShowError = (fieldName: keyof typeof touchedFields) => {
@@ -554,6 +576,14 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            {hasDateConflicts && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-2">
+                <span className="text-yellow-600 font-semibold">⚠️</span>
+                <p className="text-sm text-yellow-800">
+                  Hay más eventos programados para este mismo día
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

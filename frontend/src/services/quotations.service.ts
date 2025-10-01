@@ -57,3 +57,18 @@ export const getQuotationById = async (quotationId: string) => {
   );
   return { data: response.data as Quotation, error: response.error };
 };
+
+export const checkConflictsWithExistingQuotations = async (
+  eventDate: Quotation["event_date"],
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS_CHECK_CONFLICTS}`,
+    "GET",
+    undefined,
+    { event_date: eventDate },
+  );
+  return {
+    data: response as { has_conflicts: boolean },
+    error: response.error,
+  };
+};

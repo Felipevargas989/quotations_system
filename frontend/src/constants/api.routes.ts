@@ -3,6 +3,7 @@ export const API_ROUTES = {
   USERS: "/users",
   USERS_PASSWORD: "/users/password",
   QUOTATIONS: "/quotations",
+  QUOTATIONS_CHECK_CONFLICTS: "/quotations/check-conflicts",
   CLIENTS: "/clients",
   PAYMENTS: "/payments",
   PAYMENTS_PLAN: "/payments/plan",
