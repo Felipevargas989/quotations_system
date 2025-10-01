@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import {
@@ -7,6 +8,8 @@ import {
   startOfMonth,
   endOfMonth,
   isWithinInterval,
+  isValid,
+  parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -26,10 +29,32 @@ type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
 
 export default function CalendarPage() {
-  const [value, setValue] = useState<Value>(new Date());
+  const [searchParams] = useSearchParams();
+
+  // Parse date from query parameter
+  const getInitialDate = (): Date => {
+    const dateParam = searchParams.get("date");
+    if (dateParam) {
+      try {
+        const parsedDate = parseISO(dateParam);
+        if (isValid(parsedDate)) {
+          return parsedDate;
+        }
+      } catch (error) {
+        console.error("Invalid date parameter:", error);
+      }
+    }
+    return new Date();
+  };
+
+  const initialDate = getInitialDate();
+
+  const [value, setValue] = useState<Value>(initialDate);
   const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    searchParams.get("date") ? initialDate : null,
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<QuotationStatus[]>([
     QuotationStatus.ACEPTADA,

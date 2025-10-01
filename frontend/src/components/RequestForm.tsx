@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Plus, X } from "lucide-react";
+import { Save, RotateCcw, Plus, X, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
@@ -61,6 +61,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     contact_person: false,
   });
   const [hasDateConflicts, setHasDateConflicts] = useState(false);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   const eventTypes = [
     "Almuerzo o Cena",
@@ -105,6 +106,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   useEffect(() => {
     const checkConflicts = async () => {
       if (formData.event_date) {
+        setCheckingConflicts(true);
         try {
           const { data } = await checkConflictsWithExistingQuotations(
             formData.event_date,
@@ -112,9 +114,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
           setHasDateConflicts(data?.has_conflicts || false);
         } catch (error) {
           setHasDateConflicts(false);
+        } finally {
+          setCheckingConflicts(false);
         }
       } else {
         setHasDateConflicts(false);
+        setCheckingConflicts(false);
       }
     };
 
@@ -576,12 +581,44 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            {hasDateConflicts && (
-              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-2">
-                <span className="text-yellow-600 font-semibold">⚠️</span>
-                <p className="text-sm text-yellow-800">
-                  Hay más eventos programados para este mismo día
-                </p>
+            {checkingConflicts && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-blue-800">
+                    Verificando disponibilidad...
+                  </p>
+                </div>
+              </div>
+            )}
+            {!checkingConflicts && hasDateConflicts && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <span className="text-yellow-600 font-semibold">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-yellow-800">
+                      Hay más eventos programados para este mismo día.{" "}
+                      <a
+                        href={`/calendar?date=${formData.event_date}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline hover:text-yellow-900"
+                      >
+                        Ver en calendario
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!checkingConflicts && !hasDateConflicts && formData.event_date && (
+              <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <p className="text-sm text-green-800">
+                    Fecha disponible - No hay otros eventos programados
+                  </p>
+                </div>
               </div>
             )}
           </div>
