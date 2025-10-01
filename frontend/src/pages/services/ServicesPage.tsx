@@ -8,7 +8,7 @@ import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
-import VariableServiceForm from "./components/VariableServiceForm";
+import VariableServiceForm from "./components/variableServices/VariableServiceForm";
 import FixedServiceForm from "./components/FixedServiceForm";
 
 export default function ServicesPage() {

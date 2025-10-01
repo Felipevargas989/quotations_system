@@ -3,12 +3,14 @@ import { X, Save } from "lucide-react";
 import {
   CreateVariableService,
   VariableService,
-} from "../../../types/services.types";
+} from "../../../../types/services.types";
 import {
   createVariableService,
   updateVariableService,
-} from "../../../services/services.service";
-import { NumberInput } from "../../../components/inputs";
+  findAllServices,
+} from "../../../../services/services.service";
+import { NumberInput } from "../../../../components/inputs";
+import CategorySelector from "./CategorySelector";
 
 interface VariableServiceFormProps {
   readonly isOpen: boolean;
@@ -36,6 +38,26 @@ export default function VariableServiceForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [existingCategories, setExistingCategories] = useState<string[]>([]);
+
+  // Load existing categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await findAllServices();
+        if (data?.variableServices) {
+          const categories = [
+            ...new Set(
+              data.variableServices.map((s) => s.category).filter(Boolean),
+            ),
+          ];
+          setExistingCategories(categories);
+        }
+      } catch (error) {}
+    };
+
+    loadCategories();
+  }, []);
 
   // Initialize form data when editing
   useEffect(() => {
@@ -193,15 +215,17 @@ export default function VariableServiceForm({
               >
                 Categoría *
               </label>
-              <input
-                type="text"
-                id="category"
-                name="category"
+              <CategorySelector
                 value={formData.category || ""}
-                onChange={handleInputChange}
+                onChange={(category) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    category,
+                  }));
+                }}
+                existingCategories={existingCategories}
+                placeholder="Seleccionar o crear categoría"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Categoría del servicio"
               />
             </div>
           </div>
