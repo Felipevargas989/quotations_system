@@ -23,6 +23,7 @@ import {
 } from "../services/payments.service";
 import { CreatePayment } from "../types/payments.types";
 import { formatISOUTCDateToString } from "../utils/dates";
+import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
@@ -34,7 +35,13 @@ export default function QuotationsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const initialStatusFilter = [
+    QuotationStatus.SOLICITADA,
+    QuotationStatus.ENVIADA,
+    QuotationStatus.EN_NEGOCIACION,
+  ];
+  const [statusFilter, setStatusFilter] =
+    useState<string[]>(initialStatusFilter);
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
@@ -44,6 +51,15 @@ export default function QuotationsPage() {
   const [showPaymentPlanEditor, setShowPaymentPlanEditor] = useState(false);
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
+
+  // Status options for multiselect
+  const statusOptions: MultiSelectOption[] = [
+    { value: QuotationStatus.SOLICITADA, label: "📋 Solicitada" },
+    { value: QuotationStatus.ENVIADA, label: "📤 Enviada" },
+    { value: QuotationStatus.EN_NEGOCIACION, label: "💬 En Negociación" },
+    { value: QuotationStatus.ACEPTADA, label: "✅ Aceptada" },
+    { value: QuotationStatus.RECHAZADA, label: "❌ Rechazada" },
+  ];
 
   useEffect(() => {
     fetchQuotations(statusFilter);
@@ -70,24 +86,25 @@ export default function QuotationsPage() {
     return true;
   };
 
-  const fetchQuotations = async (statusFilter?: string) => {
+  const fetchQuotations = async (statusFilter?: string[]) => {
     if (!user) return;
 
     try {
       // Determine which statuses to fetch based on the filter
       let statusesToFetch: QuotationStatus[];
 
-      if (statusFilter === "all" || !statusFilter) {
+      if (!statusFilter || statusFilter.length === 0) {
         // Fetch all quotation statuses
         statusesToFetch = [
           QuotationStatus.SOLICITADA,
           QuotationStatus.ENVIADA,
           QuotationStatus.EN_NEGOCIACION,
           QuotationStatus.ACEPTADA,
+          QuotationStatus.RECHAZADA,
         ];
       } else {
-        // Fetch only the selected status
-        statusesToFetch = [statusFilter as QuotationStatus];
+        // Fetch only the selected statuses
+        statusesToFetch = statusFilter as QuotationStatus[];
       }
 
       const { data } = await getQuotations(
@@ -439,18 +456,13 @@ export default function QuotationsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <select
+          <MultiSelect
+            options={statusOptions}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="solicitada">📋 Solicitada</option>
-            <option value="enviada">📤 Enviada</option>
-            <option value="en_negociacion">💬 En Negociación</option>
-            <option value="aceptada">✅ Aceptada</option>
-            <option value="rechazada">❌ Rechazada</option>
-          </select>
+            onChange={setStatusFilter}
+            placeholder="Filtrar por estado"
+            className="min-w-[200px]"
+          />
         </div>
       </div>
 
