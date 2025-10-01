@@ -114,7 +114,12 @@ export default function CalendarPage() {
     const monthEnd = endOfMonth(currentMonth);
 
     const count = quotations.filter((q) => {
-      const eventDate = new Date(q.event_date);
+      // Parse only the date part (YYYY-MM-DD) to avoid timezone conversion
+      const eventDateStr = String(q.event_date);
+      const dateStr = eventDateStr.includes("T")
+        ? eventDateStr.split("T")[0]
+        : eventDateStr;
+      const eventDate = parseISO(dateStr);
       return isWithinInterval(eventDate, { start: monthStart, end: monthEnd });
     }).length;
 
@@ -143,7 +148,12 @@ export default function CalendarPage() {
 
   const getQuotationsForDate = (date: Date): QuotationWithClient[] => {
     return quotations.filter((q) => {
-      const eventDate = new Date(q.event_date);
+      // Parse only the date part (YYYY-MM-DD) to avoid timezone conversion
+      const eventDateStr = String(q.event_date);
+      const dateStr = eventDateStr.includes("T")
+        ? eventDateStr.split("T")[0]
+        : eventDateStr;
+      const eventDate = parseISO(dateStr);
       return isSameDay(eventDate, date);
     });
   };
