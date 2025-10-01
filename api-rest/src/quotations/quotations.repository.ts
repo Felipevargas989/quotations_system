@@ -17,13 +17,21 @@ export class QuotationsRepository {
     this.logger.setContext(QuotationsRepository.name);
   }
 
-  async findAll(
-    company_id: Company['id'],
-    request_type?: RequestType,
-    statuses?: QuotationStatus[],
-    sort_by?: string,
-    sort_order?: 'asc' | 'desc',
-  ): Promise<Quotation[]> {
+  async findAll({
+    company_id,
+    request_type,
+    statuses,
+    sort_by,
+    sort_order,
+    event_date,
+  }: {
+    company_id: Company['id'];
+    request_type?: RequestType;
+    statuses?: QuotationStatus[];
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+    event_date?: Quotation['event_date'];
+  }): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
     const query = this.supabase.client
       .from('quotations')
@@ -46,6 +54,10 @@ export class QuotationsRepository {
 
     if (statuses) {
       query.in('quotation_status', statuses);
+    }
+
+    if (event_date) {
+      query.eq('event_date', event_date.toISOString());
     }
 
     const { data, error } = await query;

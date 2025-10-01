@@ -11,6 +11,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
+import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
@@ -52,6 +53,21 @@ export class QuotationsController {
       user.company_id,
       getQuotationsDto.request_type,
       getQuotationsDto.statuses,
+    );
+  }
+
+  @Get('check-conflicts')
+  checkConflictsWithExistingQuotations(
+    @Query()
+    params: CheckConflictsWithExistingQuotationsDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `GET /quotations/check-conflicts with params ${JSON.stringify(params)}`,
+    );
+    return this.quotationsService.checkConflictsWithExistingQuotations(
+      params,
+      user.company_id,
     );
   }
 

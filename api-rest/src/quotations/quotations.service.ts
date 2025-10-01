@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { Company } from 'src/companies/entities/company.entity';
 import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentsService } from 'src/payments/payments.service';
@@ -8,11 +9,13 @@ import {
   QuotationStatus,
   RequestType,
 } from './constants/constants';
+import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
 import { QuotationsRepository } from './quotations.repository';
+import { getEventDateUtc } from './utils';
 
 @Injectable()
 export class QuotationsService {
@@ -34,13 +37,11 @@ export class QuotationsService {
     );
     // set quotation number as the last quotation number + 1
     // get all quotations from the same company
-    const quotations = await this.quotationsRepository.findAll(
-      companyId,
-      undefined,
-      undefined,
-      'quotation_number',
-      'asc',
-    );
+    const quotations = await this.quotationsRepository.findAll({
+      company_id: companyId,
+      sort_by: 'quotation_number',
+      sort_order: 'asc',
+    });
     let quotationNumber = 1;
     if (quotations.length > 0) {
       quotationNumber = quotations[quotations.length - 1].quotation_number + 1;
@@ -52,7 +53,7 @@ export class QuotationsService {
 
     // This is to keep the event_date as ISO (UTC) string in the database
     // ISO 8601 with UTC offset (+00:00 = UTC), equivalent to 2025-09-24T00:00:00.000Z
-    const eventDateUtc = new Date(createQuotationDto.event_date + 'T00:00:00Z');
+    const eventDateUtc = getEventDateUtc(createQuotationDto.event_date);
 
     const newQuotation: CreateQuotation = {
       client_id: createQuotationDto.client_id,
@@ -84,7 +85,11 @@ export class QuotationsService {
     statuses?: QuotationStatus[],
   ) {
     this.logger.info(`findAll quotations with params ${companyId}`);
-    return this.quotationsRepository.findAll(companyId, request_type, statuses);
+    return this.quotationsRepository.findAll({
+      company_id: companyId,
+      request_type: request_type,
+      statuses: statuses,
+    });
   }
 
   findOne(id: string) {
@@ -176,5 +181,44 @@ export class QuotationsService {
 
   remove(id: string, companyId: number) {
     return this.quotationsRepository.remove(id, companyId);
+  }
+
+  async checkConflictsWithExistingQuotations(
+    params: CheckConflictsWithExistingQuotationsDto,
+    companyId: Company['id'],
+  ): Promise<{ has_conflicts: boolean }> {
+    this.logger.info(
+      `checkConflictsWithExistingQuotations with params ${JSON.stringify(params)}`,
+    );
+    try {
+      // 1. Get all quotations with the same event_date
+      const data = await this.quotationsRepository.findAll({
+        company_id: companyId,
+        event_date: getEventDateUtc(params.event_date),
+        statuses: [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+          QuotationStatus.ACEPTADA,
+        ],
+      });
+
+      // 2. If there are any quotations, return there is conflicts
+      if (data.length > 0) {
+        return {
+          has_conflicts: true,
+        };
+      }
+
+      // 3. If there are no quotations, return there is no conflicts
+      return {
+        has_conflicts: false,
+      };
+
+      // 2. If there are any quotations, return there is conflicts
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 }
