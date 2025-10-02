@@ -25,7 +25,7 @@ interface EmptyState {
 }
 
 export default function NewAccount() {
-  const { companyLogoUrl } = useAuth();
+  const { company } = useAuth();
   const [emptyStates, setEmptyStates] = useState<EmptyState>({
     hasServices: true,
     hasClients: true,
@@ -36,7 +36,7 @@ export default function NewAccount() {
 
   useEffect(() => {
     checkEmptyStates();
-  }, [companyLogoUrl]);
+  }, [company?.logo_url]);
 
   const checkEmptyStates = async () => {
     try {
@@ -67,7 +67,7 @@ export default function NewAccount() {
         hasServices: !hasServices,
         hasClients: !hasClients,
         hasQuotations: !hasQuotations,
-        hasCompanyLogo: !companyLogoUrl,
+        hasCompanyLogo: !company?.logo_url,
       });
     } catch (error) {
       console.error("Error checking empty states:", error);

@@ -44,7 +44,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const { user, companyId, userRole } = useAuth();
+  const { user, company, userRole } = useAuth();
   const [data, setData] = useState<DashboardData>({
     totalRequests: 0,
     totalClients: 0,
@@ -59,13 +59,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user && companyId) {
+    if (user && company?.id) {
       loadDashboardData();
     }
-  }, [user, companyId]);
+  }, [user, company?.id]);
 
   const loadDashboardData = async () => {
-    if (!user || !companyId) return;
+    if (!user || !company?.id) return;
 
     try {
       setLoading(true);
@@ -73,6 +73,7 @@ export default function DashboardPage() {
       // 1. Total de requerimientos (TODOS)
       const { data: requestsData } = await getQuotations(
         QuotationRequestType.REQUERIMIENTO,
+        [],
       );
 
       // 2. Total de clientes (TODOS)
@@ -81,6 +82,7 @@ export default function DashboardPage() {
       // 3. Cotizaciones por estado (TODAS)
       const { data: quotationsData } = await getQuotations(
         QuotationRequestType.COTIZACION,
+        [],
       );
 
       // 4. Próximos pagos (TODOS para admin/operaciones)
@@ -89,7 +91,7 @@ export default function DashboardPage() {
         .from("payments")
         .select("id, amount, due_date, status, quotations!inner(company_id)")
         .eq("status", "pendiente")
-        .eq("quotations.company_id", companyId.toString())
+        .eq("quotations.company_id", company?.id.toString())
         .gte("due_date", new Date().toISOString().split("T")[0])
         .order("due_date");
 

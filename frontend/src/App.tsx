@@ -3,7 +3,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
 import PermissionGuard from "./components/PermissionGuard";
 import { SECTION_ROLES } from "./constants/permissions";
-import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage.tsx";
 import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
@@ -33,7 +32,6 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/setup" element={<SetupPage />} />
           {/* TODO: add authentication */}
           <Route path="/superAdminqweasdzxc" element={<SuperAdminPage />} />
           <Route path="/" element={<Layout />}>
