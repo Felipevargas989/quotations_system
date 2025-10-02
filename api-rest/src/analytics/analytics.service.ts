@@ -85,8 +85,9 @@ export class AnalyticsService {
       const totalQuotationsByMonth: DashboardStatsResponse['totalQuotationsByMonth'] =
         quotations.reduce(
           (acc, quotation) => {
-            const month = new Date(quotation.created_at).getMonth();
-            acc[month] = (acc[month] || 0) + 1;
+            const date = new Date(quotation.created_at);
+            const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
+            acc[monthYear] = (acc[monthYear] || 0) + 1;
             return acc;
           },
           {} as DashboardStatsResponse['totalQuotationsByMonth'],
@@ -96,8 +97,9 @@ export class AnalyticsService {
       const totalQuotationsByEventDate: DashboardStatsResponse['totalQuotationsByEventDate'] =
         quotations.reduce(
           (acc, quotation) => {
-            const eventDate = new Date(quotation.event_date).getMonth();
-            acc[eventDate] = (acc[eventDate] || 0) + 1;
+            const date = new Date(quotation.event_date);
+            const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
+            acc[monthYear] = (acc[monthYear] || 0) + 1;
             return acc;
           },
           {} as DashboardStatsResponse['totalQuotationsByEventDate'],

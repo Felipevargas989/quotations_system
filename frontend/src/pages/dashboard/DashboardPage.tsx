@@ -154,12 +154,18 @@ export default function DashboardPage() {
         analyticsData.totalQuotationsByStatus?.aceptada?.amount || 0;
 
       // Convert totalQuotationsByMonth to requestsByMonth format
-      const requestsByMonth = Object.keys(
-        analyticsData.totalQuotationsByMonth,
-      ).map((month: string) => ({
-        month: MONTHS[month as keyof typeof MONTHS],
-        count: analyticsData.totalQuotationsByMonth[month],
-      }));
+      const requestsByMonth = Object.keys(analyticsData.totalQuotationsByMonth)
+        .sort((a, b) => {
+          // Sort by year first, then by month
+          const [yearA, monthA] = a.split("-").map(Number);
+          const [yearB, monthB] = b.split("-").map(Number);
+          if (yearA !== yearB) return yearA - yearB;
+          return monthA - monthB;
+        })
+        .map((monthYearKey: string) => ({
+          month: formatMonthYear(monthYearKey),
+          count: analyticsData.totalQuotationsByMonth[monthYearKey],
+        }));
 
       // Convert quotations by status to the expected format
       const quotationsByStatus = Object.entries(
@@ -173,10 +179,18 @@ export default function DashboardPage() {
       // Convert totalQuotationsByEventDate to eventsByMonth format
       const eventsByMonth = Object.keys(
         analyticsData.totalQuotationsByEventDate,
-      ).map((month: string) => ({
-        month: MONTHS[month as keyof typeof MONTHS],
-        count: analyticsData.totalQuotationsByEventDate[month],
-      }));
+      )
+        .sort((a, b) => {
+          // Sort by year first, then by month
+          const [yearA, monthA] = a.split("-").map(Number);
+          const [yearB, monthB] = b.split("-").map(Number);
+          if (yearA !== yearB) return yearA - yearB;
+          return monthA - monthB;
+        })
+        .map((monthYearKey: string) => ({
+          month: formatMonthYear(monthYearKey),
+          count: analyticsData.totalQuotationsByEventDate[monthYearKey],
+        }));
 
       // Pipeline de ventas (excluye rechazadas)
       const salesPipeline = quotationsByStatus.filter(
@@ -231,6 +245,13 @@ export default function DashboardPage() {
 
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
+  };
+
+  // Helper function to format month-year keys (e.g., "2024-0" -> "Enero 2024")
+  const formatMonthYear = (monthYearKey: string): string => {
+    const [year, monthIndex] = monthYearKey.split("-");
+    const monthName = MONTHS[parseInt(monthIndex)];
+    return `${monthName} ${year}`;
   };
 
   if (loading) {
