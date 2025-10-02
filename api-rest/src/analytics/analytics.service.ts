@@ -93,13 +93,16 @@ export class AnalyticsService {
           {} as DashboardStatsResponse['totalQuotationsByMonth'],
         );
 
-      // get quotations by event_date
+      // get quotations by event_date (only accepted quotations)
       const totalQuotationsByEventDate: DashboardStatsResponse['totalQuotationsByEventDate'] =
         quotations.reduce(
           (acc, quotation) => {
-            const date = new Date(quotation.event_date);
-            const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
-            acc[monthYear] = (acc[monthYear] || 0) + 1;
+            // Only count accepted quotations for events
+            if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+              const date = new Date(quotation.event_date);
+              const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
+              acc[monthYear] = (acc[monthYear] || 0) + 1;
+            }
             return acc;
           },
           {} as DashboardStatsResponse['totalQuotationsByEventDate'],

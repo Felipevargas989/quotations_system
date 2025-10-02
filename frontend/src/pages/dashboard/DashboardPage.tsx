@@ -353,8 +353,9 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-2 mb-4">
             <BarChart3 className="h-5 w-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900">
-              Requerimientos por Mes
+              Cotizaciones por Mes
             </h2>
+            <span className="text-sm text-gray-500">(Todos los estados)</span>
           </div>
           <div className="space-y-3">
             {data.requestsByMonth.map((item, index) => (
@@ -418,6 +419,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             Eventos por Mes
           </h2>
+          <span className="text-sm text-gray-500">(Solo aceptados)</span>
         </div>
         <div className="space-y-3">
           {data.eventsByMonth.map((item, index) => (
