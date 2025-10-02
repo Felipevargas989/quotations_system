@@ -26,7 +26,6 @@ interface ColorPalette {
 interface QuotationViewerProps {
   quotation: QuotationWithClient;
   onClose: () => void;
-  userColors?: UserColorConfig;
 }
 
 // Default user colors
