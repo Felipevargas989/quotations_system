@@ -4,12 +4,18 @@ import { updateCompany } from "../../../services/companies.service";
 import { uploadCompanyLogo } from "../../../services/storage.service";
 
 export default function CompanyConfiguration() {
-  const { companyName, companyLogoUrl, companyId, loadUserProfile } = useAuth();
+  const { company, loadUserProfile } = useAuth();
 
-  const [name, setName] = useState(companyName || "");
+  const [name, setName] = useState(company?.name || "");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(
-    companyLogoUrl || null,
+    company?.logo_url || null,
+  );
+  const [primaryColor, setPrimaryColor] = useState(
+    company?.colors?.primary || "#667eea",
+  );
+  const [secondaryColor, setSecondaryColor] = useState(
+    company?.colors?.secondary || "#059669",
   );
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -17,9 +23,11 @@ export default function CompanyConfiguration() {
 
   // Update local state when auth context changes
   useEffect(() => {
-    setName(companyName || "");
-    setLogoPreview(companyLogoUrl || null);
-  }, [companyName, companyLogoUrl]);
+    setName(company?.name || "");
+    setLogoPreview(company?.logo_url || null);
+    setPrimaryColor(company?.colors?.primary || "#667eea");
+    setSecondaryColor(company?.colors?.secondary || "#059669");
+  }, [company]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,13 +65,20 @@ export default function CompanyConfiguration() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    // Validate colors
+    if (!primaryColor || !secondaryColor) {
+      setErrorMessage("Ambos colores (primario y secundario) son requeridos");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      let logoUrl = companyLogoUrl;
+      let logoUrl = company?.logo_url;
 
       // Upload logo if a new file is selected
-      if (logoFile && companyId) {
+      if (logoFile && company?.id) {
         const uploadResult = await uploadCompanyLogo(
-          companyId.toString(),
+          company?.id.toString(),
           logoFile,
         );
         if (uploadResult.success && uploadResult.url) {
@@ -73,8 +88,14 @@ export default function CompanyConfiguration() {
         }
       }
 
-      // Update company name and logo URL
-      await updateCompany(name, logoUrl || undefined);
+      // Prepare colors object
+      const colors = {
+        primary: primaryColor,
+        secondary: secondaryColor,
+      };
+
+      // Update company name, logo URL, and colors
+      await updateCompany(name, logoUrl || undefined, colors);
 
       // Refresh user profile to get updated data
       await loadUserProfile();
@@ -143,6 +164,82 @@ export default function CompanyConfiguration() {
           />
           <p className="mt-1 text-sm text-gray-500">
             Formatos permitidos: JPG, PNG, WebP. Tamaño máximo: 5MB
+          </p>
+        </div>
+
+        {/* Brand Colors */}
+        <div>
+          <div className="block text-sm font-medium text-gray-700 mb-3">
+            Colores de Marca
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Primary Color */}
+            <div>
+              <label
+                htmlFor="primaryColor"
+                className="block text-sm font-medium text-gray-600 mb-2"
+              >
+                Color Primario
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="primaryColor"
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-12 w-20 border border-gray-300 rounded-md cursor-pointer"
+                  required
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="#667eea"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  required
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Usado en encabezados y elementos principales
+              </p>
+            </div>
+
+            {/* Secondary Color */}
+            <div>
+              <label
+                htmlFor="secondaryColor"
+                className="block text-sm font-medium text-gray-600 mb-2"
+              >
+                Color Secundario
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="secondaryColor"
+                  type="color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  className="h-12 w-20 border border-gray-300 rounded-md cursor-pointer"
+                  required
+                />
+                <input
+                  type="text"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="#059669"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  required
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Usado en secciones de servicios y detalles
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-gray-500">
+            Estos colores se aplicarán automáticamente en las cotizaciones
+            generadas en PDF
           </p>
         </div>
 
