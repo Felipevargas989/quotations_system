@@ -79,5 +79,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   configuration: ROLE_GROUPS.ALL_ROLES,
   services: ROLE_GROUPS.ADMIN_ONLY,
   company_configuration: ROLE_GROUPS.ADMIN_ONLY,
-  calendar: ROLE_GROUPS.ADMIN_ONLY,
+  calendar: ROLE_GROUPS.SALES_AND_UP,
 };
