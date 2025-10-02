@@ -14,6 +14,8 @@ import { getDashboardStats } from "../../services/analytics.service";
 import NewAccount from "./components/NewAccount";
 import { UserRole } from "../../constants/users";
 import { subMonths, subYears } from "date-fns";
+import { MONTHS } from "../../constants/dates";
+import { QuotationStatus } from "../../types/quotations.types";
 
 interface DashboardData {
   totalRequests: number;
@@ -142,27 +144,22 @@ export default function DashboardPage() {
         return;
       }
 
-      // TODO: Get total requests count from analytics service
-      // Currently using quotations count as proxy
+      // Get total requests count from analytics service
       const totalRequests = analyticsData.totalQuotations;
 
       const totalClients = analyticsData.totalClients;
 
-      // TODO: Calculate total sales from analytics service
-      // Currently using accepted quotations amount from status data
+      // Calculate total sales from analytics service
       const totalSales =
         analyticsData.totalQuotationsByStatus?.aceptada?.amount || 0;
 
-      // TODO: Convert totalQuotationsByMonth to requestsByMonth format
-      // Currently mocking the data structure
-      const requestsByMonth = [
-        { month: "Ene 2024", count: 5 },
-        { month: "Feb 2024", count: 8 },
-        { month: "Mar 2024", count: 12 },
-        { month: "Abr 2024", count: 15 },
-        { month: "May 2024", count: 10 },
-        { month: "Jun 2024", count: analyticsData.totalQuotations },
-      ];
+      // Convert totalQuotationsByMonth to requestsByMonth format
+      const requestsByMonth = Object.keys(
+        analyticsData.totalQuotationsByMonth,
+      ).map((month: string) => ({
+        month: MONTHS[month as keyof typeof MONTHS],
+        count: analyticsData.totalQuotationsByMonth[month],
+      }));
 
       // Convert quotations by status to the expected format
       const quotationsByStatus = Object.entries(
@@ -173,29 +170,26 @@ export default function DashboardPage() {
         amount: data.amount,
       }));
 
-      // TODO: Convert totalQuotationsByEventDate to eventsByMonth format
-      // Currently mocking the data structure
-      const eventsByMonth = [
-        { month: "Ene 2024", count: 3 },
-        { month: "Feb 2024", count: 6 },
-        { month: "Mar 2024", count: 9 },
-        { month: "Abr 2024", count: 12 },
-        { month: "May 2024", count: 8 },
-        { month: "Jun 2024", count: 11 },
-      ];
+      // Convert totalQuotationsByEventDate to eventsByMonth format
+      const eventsByMonth = Object.keys(
+        analyticsData.totalQuotationsByEventDate,
+      ).map((month: string) => ({
+        month: MONTHS[month as keyof typeof MONTHS],
+        count: analyticsData.totalQuotationsByEventDate[month],
+      }));
 
       // Pipeline de ventas (excluye rechazadas)
       const salesPipeline = quotationsByStatus.filter(
-        (item) => item.status !== "rechazada",
+        (item) => item.status !== QuotationStatus.RECHAZADA,
       );
 
       setData({
         totalRequests,
         totalClients,
         totalSales,
-        requestsByMonth,
+        requestsByMonth: requestsByMonth as { month: string; count: number }[],
         quotationsByStatus,
-        eventsByMonth,
+        eventsByMonth: eventsByMonth as { month: string; count: number }[],
         salesPipeline,
       });
     } catch (error) {
