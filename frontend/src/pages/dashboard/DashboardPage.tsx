@@ -6,9 +6,30 @@ import {
   Building,
   Calendar,
   BarChart3,
-  PieChart,
   Clock,
 } from "lucide-react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+);
+
 import { useAuth } from "../../contexts/AuthContext";
 import { getDashboardStats } from "../../services/analytics.service";
 import NewAccount from "./components/NewAccount";
@@ -254,6 +275,104 @@ export default function DashboardPage() {
     return `${monthName} ${year}`;
   };
 
+  // Chart configuration for the line chart
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: false,
+        },
+      },
+      y: {
+        display: true,
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+      },
+    },
+    maintainAspectRatio: false,
+  };
+
+  // Prepare chart data for quotations
+  const chartData = {
+    labels: data.requestsByMonth.map((item) => item.month),
+    datasets: [
+      {
+        label: "Cotizaciones",
+        data: data.requestsByMonth.map((item) => item.count),
+        borderColor: "rgb(59, 130, 246)",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        borderWidth: 2,
+        pointBackgroundColor: "rgb(59, 130, 246)",
+        pointBorderColor: "rgb(59, 130, 246)",
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  // Chart configuration for the events line chart
+  const eventsChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: false,
+        },
+      },
+      y: {
+        display: true,
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+      },
+    },
+    maintainAspectRatio: false,
+  };
+
+  // Prepare chart data for events
+  const eventsChartData = {
+    labels: data.eventsByMonth.map((item) => item.month),
+    datasets: [
+      {
+        label: "Eventos",
+        data: data.eventsByMonth.map((item) => item.count),
+        borderColor: "rgb(147, 51, 234)", // Purple color
+        backgroundColor: "rgba(147, 51, 234, 0.1)",
+        borderWidth: 2,
+        pointBackgroundColor: "rgb(147, 51, 234)",
+        pointBorderColor: "rgb(147, 51, 234)",
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -348,7 +467,7 @@ export default function DashboardPage() {
 
       {/* Gráficos principales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Requerimientos por mes */}
+        {/* Cotizaciones por mes */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center space-x-2 mb-4">
             <BarChart3 className="h-5 w-5 text-blue-600" />
@@ -357,25 +476,8 @@ export default function DashboardPage() {
             </h2>
             <span className="text-sm text-gray-500">(Todos los estados)</span>
           </div>
-          <div className="space-y-3">
-            {data.requestsByMonth.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 w-20">{item.month}</span>
-                <div className="flex-1 mx-4">
-                  <div className="bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-blue-500 h-4 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${Math.max((item.count / Math.max(...data.requestsByMonth.map((r) => r.count), 1)) * 100, 5)}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                  {item.count}
-                </span>
-              </div>
-            ))}
+          <div className="h-64">
+            <Line data={chartData} options={chartOptions} />
           </div>
         </div>
 
@@ -388,31 +490,14 @@ export default function DashboardPage() {
             </h2>
             <span className="text-sm text-gray-500">(Solo aceptados)</span>
           </div>
-          <div className="space-y-3">
-            {data.eventsByMonth.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 w-20">{item.month}</span>
-                <div className="flex-1 mx-4">
-                  <div className="bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-purple-500 h-4 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${Math.max((item.count / Math.max(...data.eventsByMonth.map((e) => e.count), 1)) * 100, 5)}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                  {item.count}
-                </span>
-              </div>
-            ))}
+          <div className="h-64">
+            <Line data={eventsChartData} options={eventsChartOptions} />
           </div>
         </div>
       </div>
 
       {/* Cotizaciones por estado */}
-      <div className="bg-white p-6 rounded-lg shadow">
+      {/* <div className="bg-white p-6 rounded-lg shadow">
         <div className="flex items-center space-x-2 mb-4">
           <PieChart className="h-5 w-5 text-green-600" />
           <h2 className="text-lg font-semibold text-gray-900">
@@ -441,7 +526,7 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Pipeline de ventas */}
       <div className="bg-white p-6 rounded-lg shadow">
@@ -450,7 +535,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             Pipeline de Negocio
           </h2>
-          <span className="text-sm text-gray-500">(Excluye rechazadas)</span>
+          {/* <span className="text-sm text-gray-500">(Excluye rechazadas)</span> */}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
