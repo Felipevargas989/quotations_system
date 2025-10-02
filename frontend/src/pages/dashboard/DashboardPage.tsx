@@ -7,11 +7,13 @@ import {
   Calendar,
   BarChart3,
   PieChart,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getDashboardStats } from "../../services/analytics.service";
 import NewAccount from "./components/NewAccount";
 import { UserRole } from "../../constants/users";
+import { subMonths, subYears } from "date-fns";
 
 interface DashboardData {
   totalRequests: number;
@@ -24,8 +26,82 @@ interface DashboardData {
   salesPipeline: { status: string; amount: number; count: number }[];
 }
 
+type TimeRangeOption = {
+  label: string;
+  value: string;
+  getDateRange: () => { start_date: string; end_date: string };
+};
+
 export default function DashboardPage() {
   const { user, company, userRole } = useAuth();
+
+  // Time range options
+  const timeRangeOptions: TimeRangeOption[] = [
+    {
+      label: "Último mes",
+      value: "1_month",
+      getDateRange: () => {
+        const endDate = new Date();
+        const startDate = subMonths(endDate, 1);
+        return {
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+        };
+      },
+    },
+    {
+      label: "Últimos 3 meses",
+      value: "3_months",
+      getDateRange: () => {
+        const endDate = new Date();
+        const startDate = subMonths(endDate, 3);
+        return {
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+        };
+      },
+    },
+    {
+      label: "Últimos 6 meses",
+      value: "6_months",
+      getDateRange: () => {
+        const endDate = new Date();
+        const startDate = subMonths(endDate, 6);
+        return {
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+        };
+      },
+    },
+    {
+      label: "Último año",
+      value: "1_year",
+      getDateRange: () => {
+        const endDate = new Date();
+        const startDate = subYears(endDate, 1);
+        return {
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+        };
+      },
+    },
+    {
+      label: "Últimos 5 años",
+      value: "5_years",
+      getDateRange: () => {
+        const endDate = new Date();
+        const startDate = subYears(endDate, 5);
+        return {
+          start_date: startDate.toISOString().split("T")[0],
+          end_date: endDate.toISOString().split("T")[0],
+        };
+      },
+    },
+  ];
+
+  // Selected time range (default to 1 year)
+  const [selectedTimeRange, setSelectedTimeRange] = useState("1_year");
+
   const [data, setData] = useState<DashboardData>({
     totalRequests: 0,
     totalClients: 0,
@@ -42,7 +118,7 @@ export default function DashboardPage() {
     if (user && company?.id) {
       loadDashboardData();
     }
-  }, [user, company?.id]);
+  }, [user, company?.id, selectedTimeRange]);
 
   const loadDashboardData = async () => {
     if (!user || !company?.id) return;
@@ -50,8 +126,18 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
+      // Get selected time range and its date range
+      const selectedOption = timeRangeOptions.find(
+        (option) => option.value === selectedTimeRange,
+      );
+      const dateRange =
+        selectedOption?.getDateRange() || timeRangeOptions[2].getDateRange(); // fallback to 1 year
+
       // Get dashboard stats from analytics service
-      const analyticsData = await getDashboardStats();
+      const analyticsData = await getDashboardStats(
+        dateRange.start_date,
+        dateRange.end_date,
+      );
 
       if (!analyticsData) {
         console.error("No analytics data received");
@@ -160,6 +246,10 @@ export default function DashboardPage() {
     }).format(amount);
   };
 
+  const handleTimeRangeChange = (value: string) => {
+    setSelectedTimeRange(value);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -179,6 +269,31 @@ export default function DashboardPage() {
           <TrendingUp size={16} />
           <span>Actualizar</span>
         </button>
+      </div>
+
+      {/* Time Range Selector */}
+      <div className="bg-white p-4 rounded-lg shadow">
+        <div className="flex items-center space-x-2 mb-3">
+          <Clock className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900">
+            Período de Análisis
+          </h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {timeRangeOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => handleTimeRangeChange(option.value)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                selectedTimeRange === option.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* New Account Setup Component */}
