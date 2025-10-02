@@ -29,7 +29,8 @@ export class UsersRepository {
         companies (
           id,
           name,
-          logo_url
+          logo_url,
+          colors
         )
         `,
       )
