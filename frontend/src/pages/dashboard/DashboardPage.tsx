@@ -7,9 +7,6 @@ import {
   Calendar,
   BarChart3,
   PieChart,
-  ArrowUp,
-  ArrowDown,
-  Minus,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getDashboardStats } from "../../services/analytics.service";
@@ -20,7 +17,6 @@ interface DashboardData {
   totalRequests: number;
   totalClients: number;
   totalSales: number;
-  growth: number;
   requestsByMonth: { month: string; count: number }[];
   quotationsByStatus: { status: string; count: number; amount: number }[];
   upcomingPayments: { month: string; amount: number }[];
@@ -34,7 +30,6 @@ export default function DashboardPage() {
     totalRequests: 0,
     totalClients: 0,
     totalSales: 0,
-    growth: 0,
     requestsByMonth: [],
     quotationsByStatus: [],
     upcomingPayments: [],
@@ -73,10 +68,6 @@ export default function DashboardPage() {
       // Currently using accepted quotations amount from status data
       const totalSales =
         analyticsData.totalQuotationsByStatus?.aceptada?.amount || 0;
-
-      // TODO: Calculate growth from analytics service
-      // Currently mocking growth calculation
-      const growth = 0; // Mock value - needs to be calculated from analytics service
 
       // TODO: Convert totalQuotationsByMonth to requestsByMonth format
       // Currently mocking the data structure
@@ -126,7 +117,6 @@ export default function DashboardPage() {
         totalRequests,
         totalClients,
         totalSales,
-        growth,
         requestsByMonth,
         quotationsByStatus,
         upcomingPayments,
@@ -170,18 +160,6 @@ export default function DashboardPage() {
     }).format(amount);
   };
 
-  const getGrowthIcon = () => {
-    if (data.growth > 0) return <ArrowUp className="h-4 w-4 text-green-600" />;
-    if (data.growth < 0) return <ArrowDown className="h-4 w-4 text-red-600" />;
-    return <Minus className="h-4 w-4 text-gray-600" />;
-  };
-
-  const getGrowthColor = () => {
-    if (data.growth > 0) return "text-green-600";
-    if (data.growth < 0) return "text-red-600";
-    return "text-gray-600";
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -207,7 +185,7 @@ export default function DashboardPage() {
       {userRole === UserRole.ADMINISTRADOR && <NewAccount />}
 
       {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -245,21 +223,6 @@ export default function DashboardPage() {
               </p>
             </div>
             <Building className="h-8 w-8 text-purple-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Crecimiento</p>
-              <div className="flex items-center space-x-1">
-                <p className={`text-2xl font-bold ${getGrowthColor()}`}>
-                  {data.growth.toFixed(1)}%
-                </p>
-                {getGrowthIcon()}
-              </div>
-            </div>
-            <TrendingUp className="h-8 w-8 text-orange-600" />
           </div>
         </div>
       </div>
