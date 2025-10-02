@@ -8,6 +8,7 @@ import {
 } from 'src/quotations/constants/constants';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { DashboardStatsResponse } from './types';
+import { generateMonthRange } from './utils';
 
 @Injectable()
 export class AnalyticsService {
@@ -81,16 +82,23 @@ export class AnalyticsService {
           {} as DashboardStatsResponse['totalQuotationsByStatus'],
         );
 
+      // Initialize with all months in the date range
+      const monthRange = generateMonthRange(start_date, end_date);
+
       // get quotations by month (by created_at)
       const totalQuotationsByMonth: DashboardStatsResponse['totalQuotationsByMonth'] =
         quotations.reduce(
           (acc, quotation) => {
             const date = new Date(quotation.created_at);
             const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
-            acc[monthYear] = (acc[monthYear] || 0) + 1;
+            if (monthYear in acc) {
+              acc[monthYear] = (acc[monthYear] || 0) + 1;
+            }
             return acc;
           },
-          {} as DashboardStatsResponse['totalQuotationsByMonth'],
+          {
+            ...monthRange,
+          } as DashboardStatsResponse['totalQuotationsByMonth'],
         );
 
       // get quotations by event_date (only accepted quotations)
@@ -101,11 +109,15 @@ export class AnalyticsService {
             if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
               const date = new Date(quotation.event_date);
               const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
-              acc[monthYear] = (acc[monthYear] || 0) + 1;
+              if (monthYear in acc) {
+                acc[monthYear] = (acc[monthYear] || 0) + 1;
+              }
             }
             return acc;
           },
-          {} as DashboardStatsResponse['totalQuotationsByEventDate'],
+          {
+            ...monthRange,
+          } as DashboardStatsResponse['totalQuotationsByEventDate'],
         );
 
       // 3. return stats
