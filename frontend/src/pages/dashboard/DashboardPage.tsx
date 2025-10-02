@@ -379,65 +379,65 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Cotizaciones por estado */}
+        {/* Eventos por mes */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center space-x-2 mb-4">
-            <PieChart className="h-5 w-5 text-green-600" />
+            <Calendar className="h-5 w-5 text-purple-600" />
             <h2 className="text-lg font-semibold text-gray-900">
-              Cotizaciones por Estado
+              Eventos por Mes
             </h2>
+            <span className="text-sm text-gray-500">(Solo aceptados)</span>
           </div>
           <div className="space-y-3">
-            {data.quotationsByStatus.map((item, index) => (
+            {data.eventsByMonth.map((item, index) => (
               <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${getStatusColor(item.status)}`}
-                  ></div>
-                  <span className="text-sm text-gray-600">
-                    {getStatusLabel(item.status)}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-gray-900">
-                    {item.count}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {formatCurrency(item.amount)}
+                <span className="text-sm text-gray-600 w-20">{item.month}</span>
+                <div className="flex-1 mx-4">
+                  <div className="bg-gray-200 rounded-full h-4">
+                    <div
+                      className="bg-purple-500 h-4 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.max((item.count / Math.max(...data.eventsByMonth.map((e) => e.count), 1)) * 100, 5)}%`,
+                      }}
+                    ></div>
                   </div>
                 </div>
+                <span className="text-sm font-semibold text-gray-900 w-8 text-right">
+                  {item.count}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Eventos por mes */}
+      {/* Cotizaciones por estado */}
       <div className="bg-white p-6 rounded-lg shadow">
         <div className="flex items-center space-x-2 mb-4">
-          <Calendar className="h-5 w-5 text-purple-600" />
+          <PieChart className="h-5 w-5 text-green-600" />
           <h2 className="text-lg font-semibold text-gray-900">
-            Eventos por Mes
+            Cotizaciones por Estado
           </h2>
-          <span className="text-sm text-gray-500">(Solo aceptados)</span>
         </div>
         <div className="space-y-3">
-          {data.eventsByMonth.map((item, index) => (
+          {data.quotationsByStatus.map((item, index) => (
             <div key={index} className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 w-20">{item.month}</span>
-              <div className="flex-1 mx-4">
-                <div className="bg-gray-200 rounded-full h-4">
-                  <div
-                    className="bg-purple-500 h-4 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${Math.max((item.count / Math.max(...data.eventsByMonth.map((e) => e.count), 1)) * 100, 5)}%`,
-                    }}
-                  ></div>
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${getStatusColor(item.status)}`}
+                ></div>
+                <span className="text-sm text-gray-600">
+                  {getStatusLabel(item.status)}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-gray-900">
+                  {item.count}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {formatCurrency(item.amount)}
                 </div>
               </div>
-              <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                {item.count}
-              </span>
             </div>
           ))}
         </div>
