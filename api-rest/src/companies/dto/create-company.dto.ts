@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
 import { Company } from '../entities/company.entity';
 
 export class CreateCompanyDto {
@@ -9,4 +9,8 @@ export class CreateCompanyDto {
   @IsString()
   @IsOptional()
   logo_url: Company['logo_url'];
+
+  @IsObject()
+  @IsOptional()
+  colors: Company['colors'];
 }
