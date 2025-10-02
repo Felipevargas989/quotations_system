@@ -16,4 +16,7 @@ export const API_ROUTES = {
   // super admin
   SUPER_ADMIN: "/super-admin",
   SUPER_ADMIN_STATS_LAST_MONTH: "/super-admin/stats/last-month",
+
+  // analytics
+  ANALYTICS_DASHBOARD: "/analytics/dashboard",
 };
