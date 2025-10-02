@@ -83,12 +83,16 @@ export class QuotationsService {
     companyId: number,
     request_type?: RequestType,
     statuses?: QuotationStatus[],
+    dateRange?: { start_date: Date; end_date: Date },
   ) {
-    this.logger.info(`findAll quotations with params ${companyId}`);
+    this.logger.info(
+      `findAll quotations with params ${companyId}, ${request_type}, ${JSON.stringify(statuses)}, ${JSON.stringify(dateRange)}`,
+    );
     return this.quotationsRepository.findAll({
       company_id: companyId,
       request_type: request_type,
       statuses: statuses,
+      dateRange: dateRange,
     });
   }
 

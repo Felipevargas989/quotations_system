@@ -13,5 +13,6 @@ import { QuotationsService } from './quotations.service';
     PaymentsService,
     PaymentsRepository,
   ],
+  exports: [QuotationsService],
 })
 export class QuotationsModule {}

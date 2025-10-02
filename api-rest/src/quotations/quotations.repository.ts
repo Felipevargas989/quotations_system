@@ -24,6 +24,7 @@ export class QuotationsRepository {
     sort_by,
     sort_order,
     event_date,
+    dateRange,
   }: {
     company_id: Company['id'];
     request_type?: RequestType;
@@ -31,6 +32,7 @@ export class QuotationsRepository {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
     event_date?: Quotation['event_date'];
+    dateRange?: { start_date: Date; end_date: Date };
   }): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
     const query = this.supabase.client
@@ -58,6 +60,11 @@ export class QuotationsRepository {
 
     if (event_date) {
       query.eq('event_date', event_date.toISOString());
+    }
+
+    if (dateRange) {
+      query.gte('created_at', dateRange.start_date.toISOString());
+      query.lte('created_at', dateRange.end_date.toISOString());
     }
 
     const { data, error } = await query;

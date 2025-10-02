@@ -1,4 +1,128 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import { ClientsService } from 'src/clients/clients.service';
+import { Company } from 'src/companies/entities/company.entity';
+import {
+  QuotationStatus,
+  RequestType,
+} from 'src/quotations/constants/constants';
+import { QuotationsService } from 'src/quotations/quotations.service';
+import { DashboardStatsResponse } from './types';
 
 @Injectable()
-export class AnalyticsService {}
+export class AnalyticsService {
+  constructor(
+    private readonly quotationsService: QuotationsService,
+    private readonly clientsService: ClientsService,
+    private readonly logger: PinoLogger,
+  ) {}
+
+  async getDashboardStats(
+    companyId: Company['id'],
+    dateRange: { start_date?: Date; end_date?: Date },
+  ): Promise<DashboardStatsResponse> {
+    this.logger.info(
+      `getDashboardStats with companyId ${companyId} and dateRange ${JSON.stringify(dateRange)}`,
+    );
+    try {
+      // define date range
+      const now = new Date();
+      // param value or 12 months ago
+      const start_date = dateRange.start_date
+        ? new Date(dateRange.start_date)
+        : new Date(now.getFullYear() - 1, now.getMonth(), 1);
+      const end_date = dateRange.end_date
+        ? new Date(dateRange.end_date)
+        : new Date();
+
+      // 1. get all quotations
+      // TODO: check if add requirmenents
+      const quotations = await this.quotationsService.findAll(
+        companyId,
+        RequestType.COTIZACION,
+        [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+          QuotationStatus.ACEPTADA,
+          QuotationStatus.RECHAZADA,
+        ],
+        {
+          start_date,
+          end_date,
+        },
+      );
+
+      // get all clients
+      const clients = await this.clientsService.findAll(companyId);
+
+      // 2. calculate stats
+
+      // get total clients
+      const totalClients = clients.length;
+
+      // get total quotations
+      const totalQuotations = quotations.length;
+
+      // get total quotations by status
+      const totalQuotationsByStatus: DashboardStatsResponse['totalQuotationsByStatus'] =
+        quotations.reduce(
+          (acc, quotation) => {
+            const status = quotation.quotation_status;
+            if (!acc[status]) {
+              acc[status] = { count: 0, amount: 0 };
+            }
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            acc[status].count += 1;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            acc[status].amount += quotation.total_amount;
+            return acc;
+          },
+          {} as DashboardStatsResponse['totalQuotationsByStatus'],
+        );
+
+      // get quotations by month (by created_at)
+      const totalQuotationsByMonth: DashboardStatsResponse['totalQuotationsByMonth'] =
+        quotations.reduce(
+          (acc, quotation) => {
+            const month = new Date(quotation.created_at).getMonth();
+            acc[month] = (acc[month] || 0) + 1;
+            return acc;
+          },
+          {} as DashboardStatsResponse['totalQuotationsByMonth'],
+        );
+
+      // get quotations by event_date
+      const totalQuotationsByEventDate: DashboardStatsResponse['totalQuotationsByEventDate'] =
+        quotations.reduce(
+          (acc, quotation) => {
+            const eventDate = new Date(quotation.event_date).getMonth();
+            acc[eventDate] = (acc[eventDate] || 0) + 1;
+            return acc;
+          },
+          {} as DashboardStatsResponse['totalQuotationsByEventDate'],
+        );
+
+      // 3. return stats
+      return {
+        totalQuotations,
+        totalClients,
+        totalQuotationsByMonth,
+        totalQuotationsByStatus,
+        totalQuotationsByEventDate,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting dashboard stats: ${error}`);
+      if (error instanceof Error) {
+        throw new HttpException(
+          error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      throw new HttpException(
+        'Error getting dashboard stats',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+}
