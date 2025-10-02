@@ -5,16 +5,83 @@ import { QuotationWithClient } from "../types/quotations.types";
 import { useAuth } from "../contexts/AuthContext";
 import { formatISOUTCDateToString } from "../utils/dates";
 
+// User-defined colors (only 2 required)
+export interface UserColorConfig {
+  primary: string;
+  secondary: string;
+}
+
+// Full color palette used internally
+interface ColorPalette {
+  primary: string;
+  primaryDark: string;
+  secondary: string;
+  secondaryDark: string;
+  accent: string;
+  accentDark: string;
+  success: string;
+  successDark: string;
+}
+
 interface QuotationViewerProps {
   quotation: QuotationWithClient;
   onClose: () => void;
+  userColors?: UserColorConfig;
 }
+
+// Default user colors
+export const defaultUserColors: UserColorConfig = {
+  primary: "#ED3F27",
+  secondary: "#134686",
+};
+
+// Utility function to darken a hex color
+const darkenColor = (hex: string, percent: number = 15): string => {
+  // Remove # if present
+  hex = hex.replace("#", "");
+
+  // Convert to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Darken
+  const darkenValue = (val: number) =>
+    Math.max(0, Math.floor(val * (1 - percent / 100)));
+
+  const newR = darkenValue(r);
+  const newG = darkenValue(g);
+  const newB = darkenValue(b);
+
+  // Convert back to hex
+  const toHex = (val: number) => val.toString(16).padStart(2, "0");
+
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+};
+
+// Generate full color palette from user colors
+const generateColorPalette = (userColors: UserColorConfig): ColorPalette => {
+  return {
+    primary: userColors.primary,
+    primaryDark: darkenColor(userColors.primary, 20),
+    secondary: userColors.secondary,
+    secondaryDark: darkenColor(userColors.secondary, 20),
+    accent: userColors.primary, // Use primary for accent
+    accentDark: darkenColor(userColors.primary, 25),
+    success: userColors.secondary, // Use secondary for success
+    successDark: darkenColor(userColors.secondary, 20),
+  };
+};
 
 export default function QuotationViewer({
   quotation,
   onClose,
+  userColors = defaultUserColors,
 }: QuotationViewerProps) {
   const { companyName, companyLogoUrl } = useAuth();
+
+  // Generate full color palette from user colors
+  const colorPalette = generateColorPalette(userColors);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "solicitada":
@@ -79,7 +146,7 @@ export default function QuotationViewer({
               background: #fff;
             }
             .header {
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              background: linear-gradient(135deg, ${colorPalette.primary} 0%, ${colorPalette.primaryDark} 100%);
               color: white;
               padding: 12px 15px;
               text-align: center;
@@ -159,7 +226,7 @@ export default function QuotationViewer({
               font-weight: 600;
               color: #1a202c;
               margin-bottom: 4px;
-              border-bottom: 1px solid #667eea;
+              border-bottom: 2px solid ${colorPalette.secondary};
               padding-bottom: 2px;
             }
             .info-grid {
@@ -172,7 +239,7 @@ export default function QuotationViewer({
               background: white;
               padding: 3px;
               border-radius: 2px;
-              border-left: 2px solid #667eea;
+              border-left: 3px solid ${colorPalette.secondary};
               box-shadow: 0 1px 1px rgba(0,0,0,0.1);
             }
             .info-label {
@@ -198,11 +265,11 @@ export default function QuotationViewer({
               text-transform: uppercase;
               letter-spacing: 0.5px;
             }
-            .status-aceptada { background: linear-gradient(135deg, #10b981, #059669); color: white; }
-            .status-enviada { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
-            .status-en_negociacion { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
-            .status-solicitada { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
-            .status-rechazada { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+            .status-aceptada { background: #e5e7eb; color: #1f2937; }
+            .status-enviada { background: #e5e7eb; color: #1f2937; }
+            .status-en_negociacion { background: #e5e7eb; color: #1f2937; }
+            .status-solicitada { background: #e5e7eb; color: #1f2937; }
+            .status-rechazada { background: #e5e7eb; color: #1f2937; }
 
             .pricing-summary {
               background: white;
@@ -212,7 +279,7 @@ export default function QuotationViewer({
               overflow: hidden;
             }
             .pricing-header {
-              background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
               color: white;
               padding: 8px;
               text-align: center;
@@ -256,15 +323,15 @@ export default function QuotationViewer({
             }
             .total-value {
               font-weight: 700;
-              color: #059669;
+              color: #1f2937;
               font-size: 14px;
             }
             .discount-row .pricing-value {
               color: #dc2626;
             }
             .observations {
-              background: #f0f9ff;
-              border: 1px solid #bae6fd;
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
               border-radius: 4px;
               padding: 6px;
               margin: 4px 3px;
@@ -272,12 +339,12 @@ export default function QuotationViewer({
             .observations h4 {
               font-size: 11px;
               font-weight: 600;
-              color: #0369a1;
+              color: #1f2937;
               margin-bottom: 3px;
             }
             .observations p {
               font-size: 10px;
-              color: #0c4a6e;
+              color: #374151;
               line-height: 1.3;
             }
             .footer {
@@ -305,7 +372,7 @@ export default function QuotationViewer({
               overflow: hidden;
             }
             .services-header {
-              background: linear-gradient(135deg, #059669 0%, #047857 100%);
+              background: linear-gradient(135deg, ${colorPalette.success} 0%, ${colorPalette.successDark} 100%);
               color: white;
               padding: 8px;
               text-align: center;
@@ -329,10 +396,10 @@ export default function QuotationViewer({
             .category-title {
               font-size: 11px;
               font-weight: 600;
-              color: #059669;
+              color: #1f2937;
               margin-bottom: 3px;
               padding-bottom: 1px;
-              border-bottom: 1px solid #059669;
+              border-bottom: 1px solid #d1d5db;
               text-transform: uppercase;
               letter-spacing: 0.5px;
             }
@@ -358,15 +425,15 @@ export default function QuotationViewer({
               margin-left: 4px;
             }
             .service-check {
-              color: #059669;
+              color: #1f2937;
               font-weight: bold;
               margin-left: 4px;
             }
             .fixed-services {
-              background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
             }
             .variable-services {
-              background: linear-gradient(135deg, #059669 0%, #047857 100%);
+              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
             }
             @media print {
               body { margin: 0; }
@@ -575,12 +642,12 @@ export default function QuotationViewer({
           </div>
 
           <!-- Promotional Footer -->
-          <div style="margin-top: 12px; padding: 8px; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-top: 2px solid #667eea; border-radius: 4px;">
-            <p style="font-size: 10px; color: #64748b; margin: 2px 0;">
-              Cotización creada con <strong style="color: #667eea;">Eventia</strong>
+          <div style="margin-top: 12px; padding: 8px; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-top: 2px solid ${colorPalette.primary}; border-radius: 4px;">
+            <p style="font-size: 10px; color: #4b5563; margin: 2px 0;">
+              Cotización creada con <strong style="color: #1f2937;">Eventia</strong>
             </p>
-            <p style="font-size: 9px; color: #94a3b8; margin: 2px 0;">
-              Sistema de gestión de cotizaciones • <a href="https://www.eventi-app.com/" style="color: #667eea; text-decoration: none; font-weight: 600;">www.eventi-app.com</a>
+            <p style="font-size: 9px; color: #6b7280; margin: 2px 0;">
+              Sistema de gestión de cotizaciones • <a href="https://www.eventi-app.com/" style="color: #1f2937; text-decoration: none; font-weight: 600;">www.eventi-app.com</a>
             </p>
           </div>
         </body>
