@@ -76,12 +76,14 @@ const generateColorPalette = (userColors: UserColorConfig): ColorPalette => {
 export default function QuotationViewer({
   quotation,
   onClose,
-  userColors = defaultUserColors,
 }: QuotationViewerProps) {
-  const { companyName, companyLogoUrl } = useAuth();
+  const { company } = useAuth();
+
+  // Use company colors if available, otherwise use provided colors or defaults
+  const finalColors = company?.colors || defaultUserColors;
 
   // Generate full color palette from user colors
-  const colorPalette = generateColorPalette(userColors);
+  const colorPalette = generateColorPalette(finalColors);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "solicitada":
@@ -130,7 +132,7 @@ export default function QuotationViewer({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Cotización ${quotation.quotation_number} - ${companyName || "Empresa"}</title>
+          <title>Cotización ${quotation.quotation_number} - ${company?.name || "Empresa"}</title>
           <style>
             * {
               margin: 0;
@@ -450,15 +452,15 @@ export default function QuotationViewer({
           <!-- Header -->
           <div class="header">
             <div class="logo-section">
-              ${!companyLogoUrl ? `<div class="company-name">${companyName || "Empresa"}</div>` : ""}
+              ${!company?.logo_url ? `<div class="company-name">${company?.name || "Empresa"}</div>` : ""}
             </div>
             <div class="header-center">
-              ${companyLogoUrl ? `<div class="company-name">${companyName || "Empresa"}</div>` : ""}
+              ${company?.logo_url ? `<div class="company-name">${company?.name || "Empresa"}</div>` : ""}
               <div class="quotation-title">COTIZACIÓN DE SERVICIOS</div>
               <div class="quotation-number">N° ${quotation.quotation_number}</div>
             </div>
             <div class="logo-section" style="justify-content: flex-end;">
-              ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="Logo" class="header-logo" />` : ""}
+              ${company?.logo_url ? `<img src="${company?.logo_url}" alt="Logo" class="header-logo" />` : ""}
             </div>
           </div>
 
@@ -636,7 +638,7 @@ export default function QuotationViewer({
                 <p>Documento válido por 30 días desde la fecha de emisión</p>
               </div>
               <div class="footer-right">
-                <p>${companyName || "Empresa"}</p>
+                <p>${company?.name || "Empresa"}</p>
               </div>
             </div>
           </div>
@@ -955,7 +957,7 @@ export default function QuotationViewer({
             <div className="bg-gray-100 rounded-xl p-6 text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <span className="font-semibold text-gray-900">
-                  {companyName || "Empresa"}
+                  {company?.name || "Empresa"}
                 </span>
               </div>
               <p className="text-sm text-gray-600">

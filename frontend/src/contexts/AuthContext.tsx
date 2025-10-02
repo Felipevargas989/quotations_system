@@ -8,9 +8,7 @@ import { Company } from "../types/companies.types.ts";
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
-  companyId: Company["id"] | null;
-  companyName: Company["name"] | null;
-  companyLogoUrl: Company["logo_url"] | null;
+  company: Omit<Company, "created_at"> | null;
   loading: boolean;
   signIn: (
     email: string,
@@ -27,18 +25,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [companyId, setCompanyId] = useState<Company["id"] | null>(null);
-  const [companyName, setCompanyName] = useState<Company["name"] | null>(null);
-  const [companyLogoUrl, setCompanyLogoUrl] = useState<
-    Company["logo_url"] | null
-  >(null);
+  const [company, setCompany] = useState<Omit<Company, "created_at"> | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   const loadUserProfile = async () => {
     if (!user) {
       setUserRole(null);
-      setCompanyId(null);
-      setCompanyName(null);
+      setCompany(null);
       return;
     }
 
@@ -48,9 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
       } else if (data) {
         setUserRole(data.role);
-        setCompanyId(data.company_id);
-        setCompanyName(data.companies.name);
-        setCompanyLogoUrl(data.companies.logo_url);
+        setCompany(data.companies);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -208,9 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession,
     userRole,
-    companyId,
-    companyName,
-    companyLogoUrl,
+    company,
     loadUserProfile,
   };
 

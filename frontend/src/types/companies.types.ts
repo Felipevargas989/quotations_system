@@ -3,6 +3,10 @@ export interface Company {
   name: string;
   created_at: string;
   logo_url?: string;
+  colors?: {
+    primary: string;
+    secondary: string;
+  };
 }
 
 export interface CompaniesResponse {
