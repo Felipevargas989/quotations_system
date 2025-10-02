@@ -21,7 +21,6 @@ interface DashboardData {
   totalSales: number;
   requestsByMonth: { month: string; count: number }[];
   quotationsByStatus: { status: string; count: number; amount: number }[];
-  upcomingPayments: { month: string; amount: number }[];
   eventsByMonth: { month: string; count: number }[];
   salesPipeline: { status: string; amount: number; count: number }[];
 }
@@ -108,7 +107,6 @@ export default function DashboardPage() {
     totalSales: 0,
     requestsByMonth: [],
     quotationsByStatus: [],
-    upcomingPayments: [],
     eventsByMonth: [],
     salesPipeline: [],
   });
@@ -175,14 +173,6 @@ export default function DashboardPage() {
         amount: data.amount,
       }));
 
-      // TODO: Get upcoming payments from analytics service
-      // Currently mocking the data
-      const upcomingPayments = [
-        { month: "Jul 2024", amount: 1500000 },
-        { month: "Ago 2024", amount: 2300000 },
-        { month: "Sep 2024", amount: 1800000 },
-      ];
-
       // TODO: Convert totalQuotationsByEventDate to eventsByMonth format
       // Currently mocking the data structure
       const eventsByMonth = [
@@ -205,7 +195,6 @@ export default function DashboardPage() {
         totalSales,
         requestsByMonth,
         quotationsByStatus,
-        upcomingPayments,
         eventsByMonth,
         salesPipeline,
       });
@@ -407,74 +396,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Gráficos secundarios */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Próximos pagos */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <DollarSign className="h-5 w-5 text-green-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Próximos Pagos/Cobros
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {data.upcomingPayments.length > 0 ? (
-              data.upcomingPayments.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 w-20">
-                    {item.month}
-                  </span>
-                  <div className="flex-1 mx-4">
-                    <div className="bg-gray-200 rounded-full h-4">
-                      <div
-                        className="bg-green-500 h-4 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${Math.max((item.amount / Math.max(...data.upcomingPayments.map((p) => p.amount), 1)) * 100, 5)}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900 text-right">
-                    {formatCurrency(item.amount)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-4">
-                No hay pagos pendientes
-              </p>
-            )}
-          </div>
+      {/* Eventos por mes */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center space-x-2 mb-4">
+          <Calendar className="h-5 w-5 text-purple-600" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            Eventos por Mes
+          </h2>
         </div>
-
-        {/* Eventos por mes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <Calendar className="h-5 w-5 text-purple-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Eventos por Mes
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {data.eventsByMonth.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 w-20">{item.month}</span>
-                <div className="flex-1 mx-4">
-                  <div className="bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-purple-500 h-4 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${Math.max((item.count / Math.max(...data.eventsByMonth.map((e) => e.count), 1)) * 100, 5)}%`,
-                      }}
-                    ></div>
-                  </div>
+        <div className="space-y-3">
+          {data.eventsByMonth.map((item, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 w-20">{item.month}</span>
+              <div className="flex-1 mx-4">
+                <div className="bg-gray-200 rounded-full h-4">
+                  <div
+                    className="bg-purple-500 h-4 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.max((item.count / Math.max(...data.eventsByMonth.map((e) => e.count), 1)) * 100, 5)}%`,
+                    }}
+                  ></div>
                 </div>
-                <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                  {item.count}
-                </span>
               </div>
-            ))}
-          </div>
+              <span className="text-sm font-semibold text-gray-900 w-8 text-right">
+                {item.count}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
