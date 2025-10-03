@@ -139,6 +139,21 @@ export class AnalyticsService {
         );
 
       // get total payments by month
+      // Find the maximum due_date from all payments to include future payments
+      const maxPaymentDueDate =
+        payments && payments.length > 0
+          ? payments.reduce((max, payment) => {
+              const dueDate = new Date(payment.due_date);
+              return dueDate > max ? dueDate : max;
+            }, new Date(end_date))
+          : end_date;
+
+      // Generate extended month range from start_date to max(end_date, maxPaymentDueDate)
+      const extendedMonthRange = generateMonthRange(
+        start_date,
+        maxPaymentDueDate,
+      );
+
       const totalPaymentsByMonth: DashboardStatsResponse['totalPaymentsByMonth'] =
         payments?.reduce(
           (acc, payment) => {
@@ -150,7 +165,7 @@ export class AnalyticsService {
             return acc;
           },
           {
-            ...monthRange,
+            ...extendedMonthRange,
           } as DashboardStatsResponse['totalPaymentsByMonth'],
         ) || {};
 
