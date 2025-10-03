@@ -197,7 +197,7 @@ export default function SuperAdminPage() {
       },
       title: {
         display: true,
-        text: "Cotizaciones por Empresa - Último Mes",
+        text: "Cotizaciones por Empresa - Últimos 30 Días",
         font: {
           size: 16,
           weight: "bold",
@@ -264,7 +264,7 @@ export default function SuperAdminPage() {
                 Estadísticas de Cotizaciones
               </h3>
               <p className="text-sm text-gray-500">
-                Total de cotizaciones del mes:{" "}
+                Total de cotizaciones (últimos 30 días):{" "}
                 <span className="font-semibold">
                   {statsData.total_quotations_all_companies}
                 </span>

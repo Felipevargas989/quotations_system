@@ -34,18 +34,14 @@ export class SuperAdminRepository {
     this.logger.info(`getStatsLastMonth for all companies`);
 
     try {
-      // Get the date range for last month
+      // Get the date range for last 30 days
       const now = new Date();
-      const firstDayLastMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() - 1,
-        1,
-      );
-      const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      const endDate = now.toISOString().split('T')[0]; // Today
 
-      // Format dates for PostgreSQL
-      const startDate = firstDayLastMonth.toISOString().split('T')[0];
-      const endDate = lastDayLastMonth.toISOString().split('T')[0];
+      // Calculate 30 days ago
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
 
       this.logger.info(`Querying quotations from ${startDate} to ${endDate}`);
 
@@ -102,9 +98,9 @@ export class SuperAdminRepository {
 
         // Convert to array format and fill missing days with 0
         const stats: QuotationDayStats[] = [];
-        const currentDate = new Date(firstDayLastMonth);
+        const currentDate = new Date(thirtyDaysAgo);
 
-        while (currentDate <= lastDayLastMonth) {
+        while (currentDate <= now) {
           const dateStr = currentDate.toISOString().split('T')[0];
           stats.push({
             date: dateStr,

@@ -88,10 +88,11 @@ export class SuperAdminService {
         0,
       );
 
-      // Get the period string (e.g., "2024-01")
+      // Get the period string for last 30 days
       const now = new Date();
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const period = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const period = `${thirtyDaysAgo.toISOString().split('T')[0]} to ${now.toISOString().split('T')[0]}`;
 
       // Aggregate total quotations across all companies by day
       const totalQuotationsByDay = new Map<string, number>();
@@ -116,7 +117,7 @@ export class SuperAdminService {
       };
 
       this.logger.info(
-        `Successfully retrieved stats for all companies: ${total_quotations_all_companies} quotations in ${period}`,
+        `Successfully retrieved stats for all companies: ${total_quotations_all_companies} quotations in period ${period}`,
       );
 
       return response;
