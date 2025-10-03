@@ -23,12 +23,12 @@ export class PaymentsRepository {
     this.logger.setContext(PaymentsRepository.name);
   }
   async findAllPaymentsFromQuotation(
-    quotationId: Quotation['id'],
+    quotationIds: Quotation['id'][],
     companyId: Company['id'],
     filterStatus?: PaymentStatus[],
   ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
     this.logger.info(
-      `findAllPaymentsFromQuotation with quotationId ${quotationId} and companyId ${companyId}`,
+      `findAllPaymentsFromQuotation with quotationId ${JSON.stringify(quotationIds)} and companyId ${companyId}`,
     );
     // crate query object
     const query = this.supabase.client.from('payments').select(
@@ -45,7 +45,7 @@ export class PaymentsRepository {
     }
     query
       .eq('quotations.company_id', companyId)
-      .eq('quotation_id', quotationId)
+      .in('quotation_id', quotationIds)
       // be careful when changing this, it will affect the payment number in update payment plan
       .order('payment_number', { ascending: true });
 

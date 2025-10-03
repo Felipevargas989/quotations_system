@@ -60,9 +60,15 @@ export class AnalyticsService {
       const clients = await this.clientsService.findAll(companyId);
 
       // get all payments
-      // TODO: add filter by quotation_id in the payments service
-      const payments =
-        await this.paymentsService.findAllPaymentsWithTransactions(companyId);
+      // get all quotations_ids
+      const quotations_ids = quotations.map((quotation) => quotation.id);
+
+      // add filter by quotation_id in the payments service
+      const { data: payments } =
+        await this.paymentsService.findAllPaymentsFromQuotation(
+          quotations_ids,
+          companyId,
+        );
 
       // 2. calculate stats
 
@@ -134,19 +140,19 @@ export class AnalyticsService {
 
       // get total payments by month
       const totalPaymentsByMonth: DashboardStatsResponse['totalPaymentsByMonth'] =
-        payments.reduce(
+        payments?.reduce(
           (acc, payment) => {
             const date = new Date(payment.due_date);
             const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
             if (monthYear in acc) {
-              acc[monthYear] += payment.paid_amount;
+              acc[monthYear] += payment.amount;
             }
             return acc;
           },
           {
             ...monthRange,
           } as DashboardStatsResponse['totalPaymentsByMonth'],
-        );
+        ) || {};
 
       // 3. return stats
       return {

@@ -43,7 +43,7 @@ export class PaymentsController {
     @CurrentUser() user: User,
   ) {
     return this.paymentsService.findAllPaymentsFromQuotation(
-      quotationId,
+      [quotationId],
       user.company_id,
     );
   }

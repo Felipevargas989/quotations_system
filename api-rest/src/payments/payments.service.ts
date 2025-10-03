@@ -66,7 +66,7 @@ export class PaymentsService {
       // 1. Get the next payment number for this payment
       const { data: payments, error: paymentsError } =
         await this.paymentsRepository.findAllPaymentsFromQuotation(
-          createPaymentDto.quotation_id,
+          [createPaymentDto.quotation_id],
           companyId,
         );
       if (paymentsError) {
@@ -114,12 +114,12 @@ export class PaymentsService {
   }
 
   findAllPaymentsFromQuotation(
-    quotationId: Quotation['id'],
+    quotationIds: Quotation['id'][],
     companyId: Company['id'],
     filterStatus?: PaymentStatus[],
   ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
     return this.paymentsRepository.findAllPaymentsFromQuotation(
-      quotationId,
+      quotationIds,
       companyId,
       filterStatus,
     );

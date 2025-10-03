@@ -139,7 +139,7 @@ export class QuotationsService {
           // Get all payments PENDIENTE or VENCIDO
           const { data: payments, error: paymentsError } =
             await this.paymentsService.findAllPaymentsFromQuotation(
-              id,
+              [id],
               companyId,
               [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
             );
