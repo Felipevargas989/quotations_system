@@ -42,11 +42,16 @@ interface DashboardData {
   totalRequests: number;
   totalClients: number;
   totalSales: number;
-  requestsByMonth: { month: string; count: number }[];
+  requestsByMonth: { month: string; count: number; monthKey: string }[];
   quotationsByStatus: { status: string; count: number; amount: number }[];
-  eventsByMonth: { month: string; count: number; amount: number }[];
+  eventsByMonth: {
+    month: string;
+    count: number;
+    amount: number;
+    monthKey: string;
+  }[];
   salesPipeline: { status: string; amount: number; count: number }[];
-  paymentsByMonth: { month: string; amount: number }[];
+  paymentsByMonth: { month: string; amount: number; monthKey: string }[];
 }
 
 type TimeRangeOption = {
@@ -188,6 +193,7 @@ export default function DashboardPage() {
         .map((monthYearKey: string) => ({
           month: formatMonthYear(monthYearKey),
           count: analyticsData.totalQuotationsByMonth[monthYearKey],
+          monthKey: monthYearKey,
         }));
 
       // Convert quotations by status to the expected format
@@ -214,6 +220,7 @@ export default function DashboardPage() {
           month: formatMonthYear(monthYearKey),
           count: analyticsData.totalQuotationsByEventDate[monthYearKey].count,
           amount: analyticsData.totalQuotationsByEventDate[monthYearKey].amount,
+          monthKey: monthYearKey,
         }));
 
       // Pipeline de ventas (excluye rechazadas)
@@ -235,23 +242,30 @@ export default function DashboardPage() {
         .map((monthYearKey: string) => ({
           month: formatMonthYear(monthYearKey),
           amount: analyticsData.totalPaymentsByMonth[monthYearKey],
+          monthKey: monthYearKey,
         }));
 
       setData({
         totalRequests,
         totalClients,
         totalSales,
-        requestsByMonth: requestsByMonth as { month: string; count: number }[],
+        requestsByMonth: requestsByMonth as {
+          month: string;
+          count: number;
+          monthKey: string;
+        }[],
         quotationsByStatus,
         eventsByMonth: eventsByMonth as {
           month: string;
           count: number;
           amount: number;
+          monthKey: string;
         }[],
         salesPipeline,
         paymentsByMonth: paymentsByMonth as {
           month: string;
           amount: number;
+          monthKey: string;
         }[],
       });
     } catch (error) {
@@ -300,6 +314,18 @@ export default function DashboardPage() {
     const [year, monthIndex] = monthYearKey.split("-");
     const monthName = MONTHS[parseInt(monthIndex)];
     return `${monthName} ${year}`;
+  };
+
+  // Helper function to determine if a month is in the future
+  const isMonthInFuture = (monthYearKey: string): boolean => {
+    const [year, monthIndex] = monthYearKey.split("-").map(Number);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    if (year > currentYear) return true;
+    if (year === currentYear && monthIndex > currentMonth) return true;
+    return false;
   };
 
   // Chart configuration for the line chart
@@ -396,6 +422,23 @@ export default function DashboardPage() {
         pointHoverRadius: 6,
         tension: 0.4,
         fill: true,
+        segment: {
+          borderColor: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.eventsByMonth.length)
+              return "rgb(147, 51, 234)";
+            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
+              ? "rgba(147, 51, 234, 0.3)"
+              : "rgb(147, 51, 234)";
+          },
+          borderDash: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.eventsByMonth.length) return undefined;
+            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
+              ? [5, 5]
+              : undefined;
+          },
+        },
       },
     ],
   };
@@ -454,6 +497,23 @@ export default function DashboardPage() {
         pointHoverRadius: 6,
         tension: 0.4,
         fill: true,
+        segment: {
+          borderColor: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.eventsByMonth.length)
+              return "rgb(16, 185, 129)";
+            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
+              ? "rgba(16, 185, 129, 0.3)"
+              : "rgb(16, 185, 129)";
+          },
+          borderDash: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.eventsByMonth.length) return undefined;
+            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
+              ? [5, 5]
+              : undefined;
+          },
+        },
       },
     ],
   };
@@ -512,6 +572,23 @@ export default function DashboardPage() {
         pointHoverRadius: 6,
         tension: 0.4,
         fill: true,
+        segment: {
+          borderColor: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.paymentsByMonth.length)
+              return "rgb(234, 88, 12)";
+            return isMonthInFuture(data.paymentsByMonth[nextIndex].monthKey)
+              ? "rgba(234, 88, 12, 0.3)"
+              : "rgb(234, 88, 12)";
+          },
+          borderDash: (ctx: any) => {
+            const nextIndex = ctx.p1DataIndex;
+            if (nextIndex >= data.paymentsByMonth.length) return undefined;
+            return isMonthInFuture(data.paymentsByMonth[nextIndex].monthKey)
+              ? [5, 5]
+              : undefined;
+          },
+        },
       },
     ],
   };
