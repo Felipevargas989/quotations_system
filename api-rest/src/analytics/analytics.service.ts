@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
+import { PaymentsService } from 'src/payments/payments.service';
 import {
   QuotationStatus,
   RequestType,
@@ -15,6 +16,7 @@ export class AnalyticsService {
   constructor(
     private readonly quotationsService: QuotationsService,
     private readonly clientsService: ClientsService,
+    private readonly paymentsService: PaymentsService,
     private readonly logger: PinoLogger,
   ) {}
 
@@ -56,6 +58,11 @@ export class AnalyticsService {
 
       // get all clients
       const clients = await this.clientsService.findAll(companyId);
+
+      // get all payments
+      // TODO: add filter by quotation_id in the payments service
+      const payments =
+        await this.paymentsService.findAllPaymentsWithTransactions(companyId);
 
       // 2. calculate stats
 
@@ -109,15 +116,36 @@ export class AnalyticsService {
             if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
               const date = new Date(quotation.event_date);
               const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
-              if (monthYear in acc) {
-                acc[monthYear] = (acc[monthYear] || 0) + 1;
+              if (!(monthYear in acc)) {
+                acc[monthYear] = { count: 0, amount: 0 };
               }
+              acc[monthYear].count += 1;
+              acc[monthYear].amount += quotation.total_amount;
+            }
+            return acc;
+          },
+          Object.fromEntries(
+            Object.keys(monthRange).map((month) => [
+              month,
+              { count: 0, amount: 0 },
+            ]),
+          ) as DashboardStatsResponse['totalQuotationsByEventDate'],
+        );
+
+      // get total payments by month
+      const totalPaymentsByMonth: DashboardStatsResponse['totalPaymentsByMonth'] =
+        payments.reduce(
+          (acc, payment) => {
+            const date = new Date(payment.due_date);
+            const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
+            if (monthYear in acc) {
+              acc[monthYear] += payment.paid_amount;
             }
             return acc;
           },
           {
             ...monthRange,
-          } as DashboardStatsResponse['totalQuotationsByEventDate'],
+          } as DashboardStatsResponse['totalPaymentsByMonth'],
         );
 
       // 3. return stats
@@ -127,6 +155,7 @@ export class AnalyticsService {
         totalQuotationsByMonth,
         totalQuotationsByStatus,
         totalQuotationsByEventDate,
+        totalPaymentsByMonth,
       };
     } catch (error) {
       this.logger.error(`Error getting dashboard stats: ${error}`);
