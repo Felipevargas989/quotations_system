@@ -46,6 +46,7 @@ interface DashboardData {
   quotationsByStatus: { status: string; count: number; amount: number }[];
   eventsByMonth: { month: string; count: number; amount: number }[];
   salesPipeline: { status: string; amount: number; count: number }[];
+  paymentsByMonth: { month: string; amount: number }[];
 }
 
 type TimeRangeOption = {
@@ -132,6 +133,7 @@ export default function DashboardPage() {
     quotationsByStatus: [],
     eventsByMonth: [],
     salesPipeline: [],
+    paymentsByMonth: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -219,6 +221,22 @@ export default function DashboardPage() {
         (item) => item.status !== QuotationStatus.RECHAZADA,
       );
 
+      // Convert totalPaymentsByMonth to paymentsByMonth format
+      const paymentsByMonth = Object.keys(
+        analyticsData.totalPaymentsByMonth || {},
+      )
+        .sort((a, b) => {
+          // Sort by year first, then by month
+          const [yearA, monthA] = a.split("-").map(Number);
+          const [yearB, monthB] = b.split("-").map(Number);
+          if (yearA !== yearB) return yearA - yearB;
+          return monthA - monthB;
+        })
+        .map((monthYearKey: string) => ({
+          month: formatMonthYear(monthYearKey),
+          amount: analyticsData.totalPaymentsByMonth[monthYearKey],
+        }));
+
       setData({
         totalRequests,
         totalClients,
@@ -231,6 +249,10 @@ export default function DashboardPage() {
           amount: number;
         }[],
         salesPipeline,
+        paymentsByMonth: paymentsByMonth as {
+          month: string;
+          amount: number;
+        }[],
       });
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -436,6 +458,64 @@ export default function DashboardPage() {
     ],
   };
 
+  // Chart configuration for the cash flow line chart
+  const cashFlowChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            return `Pagos: ${formatCurrency(context.parsed.y)}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: false,
+        },
+      },
+      y: {
+        display: true,
+        beginAtZero: true,
+        ticks: {
+          callback: function (value: any) {
+            return formatCurrency(value);
+          },
+        },
+      },
+    },
+    maintainAspectRatio: false,
+  };
+
+  // Prepare chart data for cash flow
+  const cashFlowChartData = {
+    labels: data.paymentsByMonth.map((item) => item.month),
+    datasets: [
+      {
+        label: "Flujo de Caja",
+        data: data.paymentsByMonth.map((item) => item.amount),
+        borderColor: "rgb(234, 88, 12)", // Orange color
+        backgroundColor: "rgba(234, 88, 12, 0.1)",
+        borderWidth: 2,
+        pointBackgroundColor: "rgb(234, 88, 12)",
+        pointBorderColor: "rgb(234, 88, 12)",
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -559,7 +639,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Ventas por mes */}
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
+        <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center space-x-2 mb-4">
             <DollarSign className="h-5 w-5 text-green-600" />
             <h2 className="text-lg font-semibold text-gray-900">
@@ -571,6 +651,20 @@ export default function DashboardPage() {
           </div>
           <div className="h-64">
             <Line data={salesChartData} options={salesChartOptions} />
+          </div>
+        </div>
+
+        {/* Flujo de Caja por mes */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center space-x-2 mb-4">
+            <TrendingUp className="h-5 w-5 text-orange-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              Flujo de Caja por Mes
+            </h2>
+            <span className="text-sm text-gray-500">(Pagos recibidos)</span>
+          </div>
+          <div className="h-64">
+            <Line data={cashFlowChartData} options={cashFlowChartOptions} />
           </div>
         </div>
       </div>
