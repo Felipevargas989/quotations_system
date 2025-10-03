@@ -44,7 +44,7 @@ interface DashboardData {
   totalSales: number;
   requestsByMonth: { month: string; count: number }[];
   quotationsByStatus: { status: string; count: number; amount: number }[];
-  eventsByMonth: { month: string; count: number }[];
+  eventsByMonth: { month: string; count: number; amount: number }[];
   salesPipeline: { status: string; amount: number; count: number }[];
 }
 
@@ -210,7 +210,8 @@ export default function DashboardPage() {
         })
         .map((monthYearKey: string) => ({
           month: formatMonthYear(monthYearKey),
-          count: analyticsData.totalQuotationsByEventDate[monthYearKey],
+          count: analyticsData.totalQuotationsByEventDate[monthYearKey].count,
+          amount: analyticsData.totalQuotationsByEventDate[monthYearKey].amount,
         }));
 
       // Pipeline de ventas (excluye rechazadas)
@@ -224,7 +225,11 @@ export default function DashboardPage() {
         totalSales,
         requestsByMonth: requestsByMonth as { month: string; count: number }[],
         quotationsByStatus,
-        eventsByMonth: eventsByMonth as { month: string; count: number }[],
+        eventsByMonth: eventsByMonth as {
+          month: string;
+          count: number;
+          amount: number;
+        }[],
         salesPipeline,
       });
     } catch (error) {
@@ -373,6 +378,64 @@ export default function DashboardPage() {
     ],
   };
 
+  // Chart configuration for the sales line chart
+  const salesChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            return `Ventas: ${formatCurrency(context.parsed.y)}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: false,
+        },
+      },
+      y: {
+        display: true,
+        beginAtZero: true,
+        ticks: {
+          callback: function (value: any) {
+            return formatCurrency(value);
+          },
+        },
+      },
+    },
+    maintainAspectRatio: false,
+  };
+
+  // Prepare chart data for sales
+  const salesChartData = {
+    labels: data.eventsByMonth.map((item) => item.month),
+    datasets: [
+      {
+        label: "Ventas",
+        data: data.eventsByMonth.map((item) => item.amount),
+        borderColor: "rgb(16, 185, 129)", // Green color
+        backgroundColor: "rgba(16, 185, 129, 0.1)",
+        borderWidth: 2,
+        pointBackgroundColor: "rgb(16, 185, 129)",
+        pointBorderColor: "rgb(16, 185, 129)",
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -492,6 +555,22 @@ export default function DashboardPage() {
           </div>
           <div className="h-64">
             <Line data={eventsChartData} options={eventsChartOptions} />
+          </div>
+        </div>
+
+        {/* Ventas por mes */}
+        <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
+          <div className="flex items-center space-x-2 mb-4">
+            <DollarSign className="h-5 w-5 text-green-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              Ventas por Mes
+            </h2>
+            <span className="text-sm text-gray-500">
+              (Monto de eventos aceptados)
+            </span>
+          </div>
+          <div className="h-64">
+            <Line data={salesChartData} options={salesChartOptions} />
           </div>
         </div>
       </div>

@@ -3,5 +3,6 @@ export type DashboardStatsResponse = {
   totalClients: number;
   totalQuotationsByMonth: Record<string, number>;
   totalQuotationsByStatus: Record<string, { count: number; amount: number }>;
-  totalQuotationsByEventDate: Record<string, number>;
+  totalQuotationsByEventDate: Record<string, { count: number; amount: number }>;
+  totalPaymentsByMonth: Record<string, number>;
 };
