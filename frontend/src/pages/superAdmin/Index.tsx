@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Plus,
   X,
+  TrendingUp,
 } from "lucide-react";
 import {
   getAllCompanies,
@@ -13,8 +14,32 @@ import {
   getStatsLastMonth,
 } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
+import { QuotationStatsResponse } from "../../types/superAdmin.types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ChartOptions,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+);
 
 export default function SuperAdminPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -23,6 +48,10 @@ export default function SuperAdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [statsData, setStatsData] = useState<QuotationStatsResponse | null>(
+    null,
+  );
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const fetchCompanies = async () => {
     setLoading(true);
@@ -40,12 +69,14 @@ export default function SuperAdminPage() {
   };
 
   const fetchStatsLastMonth = async () => {
-    setLoading(true);
-    setError(null);
+    setStatsLoading(true);
 
     const response = await getStatsLastMonth();
-    // TODO: do something with the stats
-    console.log(response);
+    if (response) {
+      setStatsData(response);
+    }
+
+    setStatsLoading(false);
   };
 
   useEffect(() => {
@@ -80,6 +111,190 @@ export default function SuperAdminPage() {
   const handleCancelCreate = () => {
     setNewCompanyName("");
     setShowCreateForm(false);
+  };
+
+  // Prepare chart data
+  const getChartData = () => {
+    if (!statsData?.companies?.length) {
+      return null;
+    }
+
+    // Generate color palette for companies
+    const colors = [
+      { border: "rgb(59, 130, 246)", bg: "rgba(59, 130, 246, 0.1)" }, // blue
+      { border: "rgb(16, 185, 129)", bg: "rgba(16, 185, 129, 0.1)" }, // green
+      { border: "rgb(245, 158, 11)", bg: "rgba(245, 158, 11, 0.1)" }, // amber
+      { border: "rgb(239, 68, 68)", bg: "rgba(239, 68, 68, 0.1)" }, // red
+      { border: "rgb(168, 85, 247)", bg: "rgba(168, 85, 247, 0.1)" }, // purple
+      { border: "rgb(236, 72, 153)", bg: "rgba(236, 72, 153, 0.1)" }, // pink
+      { border: "rgb(20, 184, 166)", bg: "rgba(20, 184, 166, 0.1)" }, // teal
+      { border: "rgb(251, 146, 60)", bg: "rgba(251, 146, 60, 0.1)" }, // orange
+    ];
+
+    // Get all unique dates and sort them
+    const allDates = new Set<string>();
+    statsData.companies.forEach((company) => {
+      company.stats.forEach((stat) => {
+        allDates.add(stat.date);
+      });
+    });
+    const sortedDates = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+
+    // Create datasets for each company
+    const datasets = statsData.companies.map((company, index) => {
+      const color = colors[index % colors.length];
+
+      // Create a map of date to count for this company
+      const dataMap = new Map(
+        company.stats.map((stat) => [stat.date, stat.count]),
+      );
+
+      // Fill in data for all dates (0 if no data for that date)
+      const data = sortedDates.map((date) => dataMap.get(date) || 0);
+
+      return {
+        label: company.company_name,
+        data,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: true,
+      };
+    });
+
+    return {
+      labels: sortedDates.map((date) =>
+        format(new Date(date), "dd/MM", { locale: es }),
+      ),
+      datasets,
+    };
+  };
+
+  const chartOptions: ChartOptions<"line"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top" as const,
+      },
+      title: {
+        display: true,
+        text: "Cotizaciones por Empresa - Último Mes",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+      },
+      tooltip: {
+        mode: "index" as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+        title: {
+          display: true,
+          text: "Número de Cotizaciones",
+        },
+      },
+      x: {
+        title: {
+          display: true,
+          text: "Fecha",
+        },
+      },
+    },
+    interaction: {
+      mode: "nearest" as const,
+      axis: "x" as const,
+      intersect: false,
+    },
+  };
+
+  const chartData = getChartData();
+
+  // Render stats chart section
+  const renderStatsChart = () => {
+    if (statsLoading) {
+      return (
+        <div className="bg-white shadow rounded-lg mb-8 p-8">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Cargando estadísticas...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!chartData || !statsData) {
+      return null;
+    }
+
+    return (
+      <div className="bg-white shadow rounded-lg mb-8 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-100 p-2 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Estadísticas de Cotizaciones
+              </h3>
+              <p className="text-sm text-gray-500">
+                Total de cotizaciones del mes:{" "}
+                <span className="font-semibold">
+                  {statsData.total_quotations_all_companies}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="h-[400px]">
+          <Line data={chartData} options={chartOptions} />
+        </div>
+
+        {/* Company Totals Summary */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">
+            Totales por Empresa
+          </h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {statsData.companies.map((company, index) => {
+              const colors = [
+                "bg-blue-100 text-blue-700",
+                "bg-green-100 text-green-700",
+                "bg-amber-100 text-amber-700",
+                "bg-red-100 text-red-700",
+                "bg-purple-100 text-purple-700",
+                "bg-pink-100 text-pink-700",
+                "bg-teal-100 text-teal-700",
+                "bg-orange-100 text-orange-700",
+              ];
+              const colorClass = colors[index % colors.length];
+
+              return (
+                <div
+                  key={company.company_id}
+                  className={`${colorClass} px-4 py-3 rounded-lg`}
+                >
+                  <p className="text-xs font-medium opacity-80">
+                    {company.company_name}
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {company.total_quotations}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -134,13 +349,13 @@ export default function SuperAdminPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
+              {/* <button
                 onClick={() => setShowCreateForm(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
                 <Plus className="h-4 w-4" />
                 <span>Crear nueva empresa</span>
-              </button>
+              </button> */}
               <button
                 onClick={handleRefresh}
                 className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
@@ -151,6 +366,9 @@ export default function SuperAdminPage() {
             </div>
           </div>
         </div>
+
+        {/* Stats Chart */}
+        {renderStatsChart()}
 
         {/* Create Company Form */}
         {showCreateForm && (

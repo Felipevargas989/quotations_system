@@ -1,4 +1,4 @@
-interface QuotationDayStats {
+export interface QuotationDayStats {
   date: string;
   count: number;
 }
