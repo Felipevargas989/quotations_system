@@ -11,5 +11,6 @@ export interface QuotationStatsResponse {
     stats: QuotationDayStats[];
     total_quotations: number;
   }[];
+  total_quotations: QuotationDayStats[];
   total_quotations_all_companies: number;
 }

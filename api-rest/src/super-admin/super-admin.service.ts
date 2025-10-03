@@ -93,9 +93,25 @@ export class SuperAdminService {
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const period = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
 
+      // Aggregate total quotations across all companies by day
+      const totalQuotationsByDay = new Map<string, number>();
+
+      data.forEach((company) => {
+        company.stats.forEach((stat) => {
+          const currentCount = totalQuotationsByDay.get(stat.date) || 0;
+          totalQuotationsByDay.set(stat.date, currentCount + stat.count);
+        });
+      });
+
+      // Convert to array and sort by date
+      const total_quotations = Array.from(totalQuotationsByDay.entries())
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
       const response: QuotationStatsResponse = {
         period,
         companies: data,
+        total_quotations,
         total_quotations_all_companies,
       };
 

@@ -162,6 +162,24 @@ export default function SuperAdminPage() {
       };
     });
 
+    // Add total quotations line (aggregated across all companies)
+    if (statsData.total_quotations?.length > 0) {
+      const totalDataMap = new Map(
+        statsData.total_quotations.map((stat) => [stat.date, stat.count]),
+      );
+
+      const totalData = sortedDates.map((date) => totalDataMap.get(date) || 0);
+
+      datasets.push({
+        label: "Total (Todas las empresas)",
+        data: totalData,
+        borderColor: "rgb(0, 0, 0)",
+        backgroundColor: "rgba(0, 0, 0, 0.05)",
+        tension: 0.3,
+        fill: false,
+      } as any);
+    }
+
     return {
       labels: sortedDates.map((date) =>
         format(new Date(date), "dd/MM", { locale: es }),
