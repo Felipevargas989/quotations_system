@@ -17,8 +17,18 @@ import { ServicesPage } from "./pages/services";
 import ConfigurationPage from "./pages/configuration/ConfigurationPage";
 import CompanyConfiguration from "./pages/configuration/companyConfiguration/CompanyConfiguration.tsx";
 import Calendar from "./pages/calendar/Calendar.tsx";
+import { useEffect } from "react";
+import { initGA } from "./lib/analytics.ts";
+import { usePageViews } from "./hooks/usePageViews.ts";
 
 function App() {
+  // Initialize Google Analytics
+  useEffect(() => {
+    initGA();
+  }, []);
+
+  // usePageViews();
+
   // TODO: check if this is needed
   // useEffect(() => {
   //   // Check for overdue payments on app startup
