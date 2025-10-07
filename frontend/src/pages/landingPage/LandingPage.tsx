@@ -30,7 +30,7 @@ export default function LandingPage() {
       icon: <FileText className="h-8 w-8" />,
       title: "Comparte cotizaciones con tus clientes",
       description:
-        "Comparte cotizaciones profesionales con tus clientes de forma sencilla",
+        "Envia a tus clientes cotizaciones en PDF con tu logo y colores corporativos",
       image: "/images/app-sections/quotation-pdf.png",
     },
     {
@@ -64,7 +64,8 @@ export default function LandingPage() {
     {
       icon: <Shield className="h-8 w-8" />,
       title: "Calendario",
-      description: "Visualiza todos tus eventos en un solo lugar",
+      description:
+        "Visualiza todos tus eventos en un solo lugar, y recibe alertas para prevenir agendar eventos en fechas no disponibles",
       image: "/images/app-sections/calendar.png",
     },
   ];
@@ -114,7 +115,7 @@ export default function LandingPage() {
             <div className="flex items-center space-x-4">
               <Link
                 to="/login"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                className="text-gray-700 hover:text-gray-900 px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center space-x-2"
               >
                 <span>Acceder</span>
                 <ArrowRight size={16} />
@@ -126,39 +127,24 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left">
-              <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-                Cotiza, gestiona y cobra,{" "}
-                <span className="text-blue-600">sin perder un detalle</span>
-              </h1>
-              <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto lg:mx-0">
-                La plataforma especializada para empresas que realicen eventos.
-                Crea cotizaciones, seguimiento de estados y gestiona pagos de
-                forma sencilla y profesional.
-              </p>
-              <div className="flex justify-center lg:justify-start">
-                <Link
-                  to="/register"
-                  className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold flex items-center justify-center space-x-2"
-                >
-                  <span>Agenda demo gratis</span>
-                  <ArrowRight size={20} />
-                </Link>
-              </div>
-            </div>
-
-            <div className="flex justify-center lg:justify-end">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl transform rotate-3"></div>
-                <img
-                  src="/images/app.png"
-                  alt="Eventia - Plataforma de Gestión de Eventos"
-                  className="relative rounded-2xl shadow-2xl border border-gray-200 max-w-full h-auto"
-                />
-              </div>
-            </div>
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            Cotiza, gestiona y cobra,{" "}
+            <span className="text-blue-600">sin perder un detalle</span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            La plataforma especializada para empresas que realicen eventos. Crea
+            cotizaciones, seguimiento de estados y gestiona pagos de forma
+            sencilla y profesional.
+          </p>
+          <div className="flex justify-center">
+            <Link
+              to="/register"
+              className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors text-lg font-semibold flex items-center justify-center space-x-2"
+            >
+              <span>Agenda demo gratis</span>
+              <ArrowRight size={20} />
+            </Link>
           </div>
         </div>
       </section>
@@ -166,16 +152,6 @@ export default function LandingPage() {
       {/* Features Carousel Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Todo lo que necesitas para tus eventos
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Eventia combina las herramientas esenciales para el éxito de tu
-              empresa que realiza eventos
-            </p>
-          </div>
-
           {/* Carousel Container */}
           <div className="relative max-w-5xl mx-auto">
             {/* Section Selector */}
@@ -187,8 +163,8 @@ export default function LandingPage() {
                     onClick={() => goToSlide(index)}
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
                       index === currentSlide
-                        ? "bg-blue-600 text-white shadow-lg scale-105"
-                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                        ? "bg-gray-800/70 text-white shadow-md"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"
                     }`}
                   >
                     {feature.title}
@@ -259,7 +235,7 @@ export default function LandingPage() {
                   onClick={() => goToSlide(index)}
                   className={`transition-all duration-300 rounded-full ${
                     index === currentSlide
-                      ? "bg-blue-600 w-8 h-3"
+                      ? "bg-gray-700 w-8 h-3"
                       : "bg-gray-300 hover:bg-gray-400 w-3 h-3"
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
