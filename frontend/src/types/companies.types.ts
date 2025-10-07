@@ -7,6 +7,7 @@ export interface Company {
     primary: string;
     secondary: string;
   };
+  is_premium: boolean;
 }
 
 export interface CompaniesResponse {

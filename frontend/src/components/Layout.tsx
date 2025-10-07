@@ -14,11 +14,12 @@ import {
   Cog,
   Building,
   Calendar,
+  AlertCircle,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
 export default function Layout() {
-  const { user, userRole, signOut, loading } = useAuth();
+  const { user, userRole, signOut, loading, company } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -42,6 +43,12 @@ export default function Layout() {
       console.error("Error during sign out:", error);
       navigate("/login");
     }
+  };
+
+  const handleUpgradeClick = () => {
+    window.open(
+      "https://api.whatsapp.com/send/?phone=%2B56940589151&text&type=phone_number&app_absent=0&message=Hola, quiero contratar el plan",
+    );
   };
 
   if (loading) {
@@ -213,6 +220,29 @@ export default function Layout() {
           </div>
         </div>
       </nav>
+
+      {/* Free Trial Banner */}
+      {company && !company.is_premium && (
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 border-b border-blue-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center py-3">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="h-5 w-5 text-white flex-shrink-0" />
+                <p className="text-white text-sm font-medium">
+                  Estás en el período de prueba gratuito de 7 días.{" "}
+                  <button
+                    onClick={handleUpgradeClick}
+                    className="underline hover:text-blue-100 font-semibold"
+                  >
+                    Haz clic aquí para contratar el plan y acceder a tu plan
+                    profesional de Eventia
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

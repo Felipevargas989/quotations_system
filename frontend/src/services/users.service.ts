@@ -1,6 +1,11 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
-import { CreateUser, UpdateUser, UserWithCompany } from "../types/users.types";
+import {
+  CreateUser,
+  SignupDto,
+  UpdateUser,
+  UserWithCompany,
+} from "../types/users.types";
 
 // TODO: mange the error better
 export const getUser = async (
@@ -58,6 +63,19 @@ export const updatePassword = async (passwordData: { newPassword: string }) => {
       passwordData,
     );
     return { data, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+export const signup = async (signupDto: SignupDto) => {
+  try {
+    const data = await apiRequest(
+      `${API_ROUTES.USERS_SIGNUP}`,
+      "POST",
+      signupDto,
+    );
+    return { data };
   } catch (error) {
     return { data: null, error };
   }

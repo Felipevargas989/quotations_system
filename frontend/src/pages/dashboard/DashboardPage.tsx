@@ -603,6 +603,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* New Account Setup Component */}
+      {userRole === UserRole.ADMINISTRADOR && <NewAccount />}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <button
@@ -638,9 +641,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-
-      {/* New Account Setup Component */}
-      {userRole === UserRole.ADMINISTRADOR && <NewAccount />}
 
       {/* Métricas principales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

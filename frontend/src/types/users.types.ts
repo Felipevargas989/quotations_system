@@ -23,3 +23,10 @@ export type UpdateUser = Omit<CreateUser, "password" | "email">;
 export type UserWithCompany = User & {
   companies: Omit<Company, "created_at">;
 };
+
+export type SignupDto = {
+  admin_email: User["email"];
+  admin_password: User["password"];
+  admin_full_name: User["full_name"];
+  company_name: Company["name"];
+};

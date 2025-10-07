@@ -1,7 +1,5 @@
 export const API_ROUTES = {
   COMPANIES: "/companies",
-  USERS: "/users",
-  USERS_PASSWORD: "/users/password",
   QUOTATIONS: "/quotations",
   QUOTATIONS_CHECK_CONFLICTS: "/quotations/check-conflicts",
   CLIENTS: "/clients",
@@ -19,4 +17,9 @@ export const API_ROUTES = {
 
   // analytics
   ANALYTICS_DASHBOARD: "/analytics/dashboard",
+
+  // users
+  USERS: "/users",
+  USERS_PASSWORD: "/users/password",
+  USERS_SIGNUP: "/users/signup",
 };
