@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   Building,
   FileText,
@@ -10,45 +11,61 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function LandingPage() {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
   const features = [
     {
       icon: <FileText className="h-8 w-8" />,
       title: "Cotizaciones Sencillas",
       description:
         "Crea cotizaciones profesionales para eventos de forma rápida y fácil",
+      image: "/images/app-sections/quotations.png",
+    },
+    {
+      icon: <FileText className="h-8 w-8" />,
+      title: "Comparte cotizaciones con tus clientes",
+      description:
+        "Comparte cotizaciones profesionales con tus clientes de forma sencilla",
+      image: "/images/app-sections/quotation-pdf.png",
     },
     {
       icon: <ClipboardList className="h-8 w-8" />,
       title: "Seguimiento de Estado",
       description:
         "Trackea el estado de cada cotización desde la solicitud hasta la confirmación",
+      image: "/images/app-sections/quotations-status.png",
     },
     {
       icon: <DollarSign className="h-8 w-8" />,
       title: "Control de Pagos",
       description:
         "Mantén registro y seguimiento del estado de todos los pagos de tus eventos",
+      image: "/images/app-sections/payments.png",
     },
     {
       icon: <Users className="h-8 w-8" />,
       title: "Gestión de Clientes",
       description:
         "Organiza la información de tus clientes y su historial de eventos",
+      image: "/images/app-sections/customers.png",
     },
     {
       icon: <TrendingUp className="h-8 w-8" />,
       title: "Reportes de Negocio",
       description:
         "Visualiza el rendimiento de tu empresa de eventos con métricas claras",
+      image: "/images/app-sections/dashboard.png",
     },
     {
       icon: <Shield className="h-8 w-8" />,
-      title: "Acceso Seguro",
-      description:
-        "Sistema de permisos para que tu equipo acceda solo a lo que necesita",
+      title: "Calendario",
+      description: "Visualiza todos tus eventos en un solo lugar",
+      image: "/images/app-sections/calendar.png",
     },
   ];
 
@@ -60,6 +77,26 @@ export default function LandingPage() {
     "Reduce errores y duplicación de trabajo",
     "Accede a tu información desde cualquier lugar",
   ];
+
+  // Auto-advance carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % features.length);
+    }, 10000); // Change slide every 10 seconds
+    return () => clearInterval(timer);
+  }, [features.length]);
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % features.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + features.length) % features.length);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -126,7 +163,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Carousel Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -139,19 +176,96 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow"
-              >
-                <div className="text-blue-600 mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">{feature.description}</p>
+          {/* Carousel Container */}
+          <div className="relative max-w-5xl mx-auto">
+            {/* Section Selector */}
+            <div className="mb-8 overflow-x-auto overflow-y-hidden">
+              <div className="flex gap-2 justify-center flex-wrap px-4">
+                {features.map((feature, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToSlide(index)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
+                      index === currentSlide
+                        ? "bg-blue-600 text-white shadow-lg scale-105"
+                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                    }`}
+                  >
+                    {feature.title}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Main Carousel */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl">
+              <div className="relative h-[500px] md:h-[600px]">
+                {features.map((feature, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                      index === currentSlide
+                        ? "opacity-100 translate-x-0"
+                        : index < currentSlide
+                          ? "opacity-0 -translate-x-full"
+                          : "opacity-0 translate-x-full"
+                    }`}
+                  >
+                    <div className="h-full flex flex-col items-center justify-center p-8 md:p-12">
+                      {/* Image */}
+                      <div className="w-full max-w-4xl mb-8 rounded-xl overflow-hidden shadow-lg">
+                        <img
+                          src={feature.image}
+                          alt={feature.title}
+                          className="w-full h-auto object-cover"
+                        />
+                      </div>
+                      {/* Title and Description */}
+                      <div className="text-center max-w-2xl">
+                        <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                          {feature.title}
+                        </h3>
+                        <p className="text-lg text-gray-600">
+                          {feature.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Navigation Buttons */}
+              <button
+                onClick={prevSlide}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                aria-label="Previous slide"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                aria-label="Next slide"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+
+            {/* Indicators */}
+            <div className="flex justify-center gap-2 mt-8">
+              {features.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`transition-all duration-300 rounded-full ${
+                    index === currentSlide
+                      ? "bg-blue-600 w-8 h-3"
+                      : "bg-gray-300 hover:bg-gray-400 w-3 h-3"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="text-center mt-12">
