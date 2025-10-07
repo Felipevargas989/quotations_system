@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
@@ -13,6 +13,7 @@ import { SuperAdminRepository } from './super-admin.repository';
 export class SuperAdminService {
   constructor(
     private readonly logger: PinoLogger,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
     private readonly superAdminRepository: SuperAdminRepository,

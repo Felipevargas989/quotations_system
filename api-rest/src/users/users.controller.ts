@@ -8,9 +8,10 @@ import {
   Post,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { CurrentUser } from 'src/auth';
+import { CurrentUser, Public } from 'src/auth';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { CreateUserDto } from './dto/create-user.dto';
+import { SignupDto } from './dto/signup.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
@@ -66,5 +67,14 @@ export class UsersController {
   remove(@Param('id') id: User['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /users/${id} with user ${user.id}`);
     return this.usersService.remove(id, user.company_id);
+  }
+
+  @Public()
+  @Post('signup')
+  signup(@Body() signupDto: SignupDto) {
+    this.logger.info(
+      `POST /users/signup with signupDto ${JSON.stringify(signupDto)}`,
+    );
+    return this.usersService.signup(signupDto);
   }
 }

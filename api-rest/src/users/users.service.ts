@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { SuperAdminService } from 'src/super-admin/super-admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { SignupDto } from './dto/signup.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -13,6 +15,8 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly logger: PinoLogger,
+    @Inject(forwardRef(() => SuperAdminService))
+    private readonly superAdminService: SuperAdminService,
   ) {
     this.logger.setContext(UsersService.name);
   }
@@ -109,5 +113,11 @@ export class UsersService {
       this.logger.error('Error in updatePassword service:', error);
       throw error;
     }
+  }
+
+  async signup(signupDto: SignupDto) {
+    this.logger.info(`signup with signupDto ${JSON.stringify(signupDto)}`);
+
+    return this.superAdminService.createSuscription(signupDto);
   }
 }
