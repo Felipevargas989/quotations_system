@@ -15,6 +15,7 @@ import {
   Building,
   Calendar,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
@@ -225,19 +226,49 @@ export default function Layout() {
       {company && !company.is_premium && (
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 border-b border-blue-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-center py-3">
-              <div className="flex items-center space-x-3">
+            <div className="flex flex-col items-center justify-center py-3 gap-2">
+              {/* First Row - Free Trial Text */}
+              <div className="flex items-center space-x-2">
                 <AlertCircle className="h-5 w-5 text-white flex-shrink-0" />
                 <p className="text-white text-sm font-medium">
-                  Estás en el período de prueba gratuito de 7 días.{" "}
-                  <button
-                    onClick={handleUpgradeClick}
-                    className="underline hover:text-blue-100 font-semibold"
-                  >
-                    Haz clic aquí para contratar el plan y acceder a tu plan
-                    profesional de Eventia
-                  </button>
+                  Estás en el período de prueba gratuito de 7 días.
                 </p>
+              </div>
+
+              {/* Second Row - Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                <button
+                  onClick={handleUpgradeClick}
+                  className="flex flex-col items-center gap-2 text-white hover:scale-105 transition-transform duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={18} className="flex-shrink-0" />
+                    <span className="text-sm font-semibold underline">
+                      Contrata el plan profesional de Eventia
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-100 text-center max-w-md">
+                    Accede a todas las funcionalidades sin límites
+                  </p>
+                </button>
+                <span className="hidden sm:inline text-white text-sm">|</span>
+                <a
+                  href="https://calendly.com/hola-eventi-app/30min"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 text-white hover:scale-105 transition-transform duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calendar size={18} className="flex-shrink-0" />
+                    <span className="text-sm font-semibold underline">
+                      ¿Quieres una demo gratuita? Agéndala aquí
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-100 text-center max-w-md">
+                    Te enseñamos cómo funciona Eventia y te resolvemos cualquier
+                    posible duda
+                  </p>
+                </a>
               </div>
             </div>
           </div>
