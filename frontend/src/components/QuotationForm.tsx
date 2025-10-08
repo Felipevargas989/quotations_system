@@ -784,6 +784,7 @@ export default function QuotationForm({
           items: quotationData.items,
           quotation_status: quotationData.quotation_status,
           people_count: quotationData.people_count,
+          discount_percentage: quotationData.discount_percentage,
         };
         const { error } = await updateQuotation(updatedQuotation, targetId);
 
