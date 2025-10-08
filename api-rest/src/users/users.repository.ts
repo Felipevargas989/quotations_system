@@ -30,7 +30,8 @@ export class UsersRepository {
           id,
           name,
           logo_url,
-          colors
+          colors,
+          is_premium
         )
         `,
       )
