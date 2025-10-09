@@ -224,4 +224,16 @@ export class PaymentsRepository {
       .delete()
       .eq('payment_id', paymentId);
   }
+
+  async updateOverduePayments() {
+    this.logger.info(
+      `updateOverduePayments with due_date ${new Date().toISOString()}`,
+    );
+    return await this.supabase.client
+      .from('payments')
+      .update({ status: PaymentStatus.VENCIDO })
+      .eq('status', PaymentStatus.PENDIENTE)
+      .lte('due_date', new Date().toISOString())
+      .select();
+  }
 }

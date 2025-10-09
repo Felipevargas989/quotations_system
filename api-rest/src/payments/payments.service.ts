@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
@@ -352,5 +353,35 @@ export class PaymentsService {
 
     // 2. remove the payment by payment_id
     return this.paymentsRepository.removePayment(id);
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  async updateOverduePayments() {
+    this.logger.info('CRON job to update overdue payments');
+    try {
+      // Update status of overdue payments to PENDIENTE
+      const { data, error, status } =
+        await this.paymentsRepository.updateOverduePayments();
+
+      if (error) {
+        this.logger.error(error);
+        throw error;
+      }
+
+      // get payments ids who have been updated
+      const paymentsIds = data.map((payment: Payment) => payment.id);
+
+      const paymentsIdsMessage =
+        paymentsIds.length > 0
+          ? ` Payments ids: ${paymentsIds.join(', ')}`
+          : '';
+
+      this.logger.info(
+        `Updated ${data.length} overdue payments with status ${status}.${paymentsIdsMessage}`,
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 }
