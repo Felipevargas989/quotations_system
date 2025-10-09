@@ -8,7 +8,7 @@ import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
 import DashboardPage from "./pages/dashboard/DashboardPage.tsx";
 import RequestsPage from "./pages/RequestsPage";
-import QuotationsPage from "./pages/QuotationsPage";
+import QuotationsPage from "./pages/quotations/QuotationsPage";
 import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";

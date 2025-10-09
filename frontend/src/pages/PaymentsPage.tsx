@@ -18,7 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import PaymentTransactionModal from "../components/PaymentTransactionModal";
-import QuotationForm from "../components/QuotationForm";
+import QuotationForm from "./quotations/QuotationForm";
 import {
   PaymentWithTransactions,
   getPaymentsWithTransactions,

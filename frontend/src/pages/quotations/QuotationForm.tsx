@@ -8,28 +8,28 @@ import {
   X,
   CheckCircle,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-import { useServices } from "../hooks/useServices";
-import { useDateAvailability } from "../hooks/useDateAvailability";
-import { validateCompleteClientForm } from "../utils/validation";
-import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
+import { useAuth } from "../../contexts/AuthContext";
+import { useServices } from "../../hooks/useServices";
+import { useDateAvailability } from "../../hooks/useDateAvailability";
+import { validateCompleteClientForm } from "../../utils/validation";
+import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import {
   createQuotation,
   getQuotationById,
   updateQuotation,
-} from "../services/quotations.service";
-import { createClient, getClients } from "../services/clients.service";
-import { ClientFormData } from "../types/clients.types";
+} from "../../services/quotations.service";
+import { createClient, getClients } from "../../services/clients.service";
+import { ClientFormData } from "../../types/clients.types";
 import {
   EventType,
   QuotationFormData,
   QuotationFormDataUpdate,
   QuotationRequestType,
   QuotationStatus,
-} from "../types/quotations.types";
-import { NumberInput } from "./inputs";
-import QuantitySelector from "./QuantitySelector";
-import SelectWithSearch from "./selects/SelectWithSearch";
+} from "../../types/quotations.types";
+import { NumberInput } from "../../components/inputs";
+import QuantitySelector from "../../components/QuantitySelector";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
 interface QuotationFormProps {
   quotation?: any;

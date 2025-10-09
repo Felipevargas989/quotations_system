@@ -1,29 +1,29 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-import QuotationForm from "../components/QuotationForm";
-import QuotationViewer from "../components/QuotationViewer";
-import { ROLE_GROUPS } from "../constants/permissions";
-import PaymentPlanEditor from "../components/PaymentPlanEditor";
+import { useAuth } from "../../contexts/AuthContext";
+import QuotationForm from "./QuotationForm";
+import QuotationViewer from "../../components/QuotationViewer";
+import { ROLE_GROUPS } from "../../constants/permissions";
+import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import {
   Quotation,
   QuotationRequestType,
   QuotationStatus,
   QuotationWithClient,
-} from "../types/quotations.types";
+} from "../../types/quotations.types";
 import {
   deleteQuotation,
   getQuotationById,
   getQuotations,
   updateQuotation,
-} from "../services/quotations.service";
+} from "../../services/quotations.service";
 import {
   createPaymentPlan,
   getPaymentsByQuotationId,
-} from "../services/payments.service";
-import { CreatePayment } from "../types/payments.types";
-import { formatISOUTCDateToString } from "../utils/dates";
-import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
+} from "../../services/payments.service";
+import { CreatePayment } from "../../types/payments.types";
+import { formatISOUTCDateToString } from "../../utils/dates";
+import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
