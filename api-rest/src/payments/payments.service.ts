@@ -20,6 +20,10 @@ import {
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
 
+/**
+ * Service responsible for managing payment operations including
+ * payment plans, transactions, and automated overdue payment updates.
+ */
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -27,6 +31,14 @@ export class PaymentsService {
     private readonly quotationsRepository: QuotationsRepository,
     private readonly logger: PinoLogger,
   ) {}
+  /**
+   * Creates a payment plan for a quotation.
+   * Deletes existing payments, creates new ones, and updates quotation status to 'aceptada'.
+   *
+   * @param createPaymentPlanDto - The payment plan details
+   * @param companyId - The company ID
+   * @returns {Promise<void>}
+   */
   async createPaymentPlan(
     createPaymentPlanDto: CreatePaymentPlanDto,
     companyId: Company['id'],
@@ -165,6 +177,14 @@ export class PaymentsService {
     return paymentsWithTransactions;
   }
 
+  /**
+   * Creates a new payment transaction for a payment.
+   *
+   * @param createPaymentTransactionDto - The transaction details
+   * @param companyId - The company ID
+   * @returns {Promise<PaymentTransaction>} The created transaction
+   * @throws {Error} If validation fails or transaction amount exceeds payment amount
+   */
   async createPaymentTransaction(
     createPaymentTransactionDto: CreatePaymentTransactionDto,
     companyId: Company['id'],
@@ -355,6 +375,13 @@ export class PaymentsService {
     return this.paymentsRepository.removePayment(id);
   }
 
+  /**
+   * Scheduled task that runs daily at 1 AM to update overdue payments.
+   * Changes payment status from PENDIENTE to VENCIDO for payments past their due date.
+   *
+   * @throws {Error} If the update operation fails
+   * @returns {Promise<void>}
+   */
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async updateOverduePayments() {
     this.logger.info('CRON job to update overdue payments');
