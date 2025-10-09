@@ -27,6 +27,7 @@ export class SuperAdminRepository {
           company_name: string;
           stats: QuotationDayStats[];
           total_quotations: number;
+          total_amount: number;
         }[]
       | null;
     error: PostgrestError | null;
@@ -68,7 +69,7 @@ export class SuperAdminRepository {
       const { data: quotationsData, error: quotationsError } =
         await this.supabase.client
           .from('quotations')
-          .select('created_at, company_id')
+          .select('created_at, company_id, total_amount')
           .gte('created_at', `${startDate}T00:00:00.000Z`)
           .lte('created_at', `${endDate}T23:59:59.999Z`)
           .order('created_at', { ascending: true });
@@ -86,14 +87,21 @@ export class SuperAdminRepository {
         const companyQuotations =
           quotationsData?.filter((q) => q.company_id === company.id) || [];
 
-        // Group by day and count for this company
-        const dayStats = new Map<string, number>();
+        // Group by day and count/sum amounts for this company
+        const dayStats = new Map<
+          string,
+          { count: number; total_amount: number }
+        >();
 
         companyQuotations.forEach((quotation) => {
           const date = new Date(quotation.created_at)
             .toISOString()
             .split('T')[0];
-          dayStats.set(date, (dayStats.get(date) || 0) + 1);
+          const current = dayStats.get(date) || { count: 0, total_amount: 0 };
+          dayStats.set(date, {
+            count: current.count + 1,
+            total_amount: current.total_amount + (quotation.total_amount || 0),
+          });
         });
 
         // Convert to array format and fill missing days with 0
@@ -102,21 +110,31 @@ export class SuperAdminRepository {
 
         while (currentDate <= now) {
           const dateStr = currentDate.toISOString().split('T')[0];
+          const dayStat = dayStats.get(dateStr) || {
+            count: 0,
+            total_amount: 0,
+          };
           stats.push({
             date: dateStr,
-            count: dayStats.get(dateStr) || 0,
+            count: dayStat.count,
+            total_amount: dayStat.total_amount,
           });
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Calculate total quotations for this company
+        // Calculate total quotations and total amount for this company
         const total_quotations = companyQuotations.length;
+        const total_amount = companyQuotations.reduce(
+          (sum, q) => sum + ((q.total_amount as number) || 0),
+          0,
+        );
 
         return {
           company_id: company.id,
           company_name: company.name,
           stats,
           total_quotations,
+          total_amount,
         };
       });
 

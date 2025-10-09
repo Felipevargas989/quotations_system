@@ -269,6 +269,16 @@ export default function SuperAdminPage() {
                   {statsData.total_quotations_all_companies}
                 </span>
               </p>
+              <p className="text-sm text-gray-500">
+                Monto total (últimos 30 días):{" "}
+                <span className="font-semibold text-green-600">
+                  $
+                  {statsData.total_amount_all_companies.toLocaleString(
+                    "es-MX",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </span>
+              </p>
             </div>
           </div>
         </div>
@@ -305,6 +315,13 @@ export default function SuperAdminPage() {
                   </p>
                   <p className="text-2xl font-bold">
                     {company.total_quotations}
+                  </p>
+                  <p className="text-xs font-medium mt-1">
+                    $
+                    {company.total_amount.toLocaleString("es-MX", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
               );

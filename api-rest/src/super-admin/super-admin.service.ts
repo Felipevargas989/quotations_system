@@ -83,9 +83,13 @@ export class SuperAdminService {
         throw new Error('No data returned from repository');
       }
 
-      // Calculate total quotations for all companies
+      // Calculate total quotations and total amount for all companies
       const total_quotations_all_companies = data.reduce(
         (sum, company) => sum + company.total_quotations,
+        0,
+      );
+      const total_amount_all_companies = data.reduce(
+        (sum, company) => sum + company.total_amount,
         0,
       );
 
@@ -95,19 +99,32 @@ export class SuperAdminService {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const period = `${thirtyDaysAgo.toISOString().split('T')[0]} to ${now.toISOString().split('T')[0]}`;
 
-      // Aggregate total quotations across all companies by day
-      const totalQuotationsByDay = new Map<string, number>();
+      // Aggregate total quotations and amounts across all companies by day
+      const totalQuotationsByDay = new Map<
+        string,
+        { count: number; total_amount: number }
+      >();
 
       data.forEach((company) => {
         company.stats.forEach((stat) => {
-          const currentCount = totalQuotationsByDay.get(stat.date) || 0;
-          totalQuotationsByDay.set(stat.date, currentCount + stat.count);
+          const current = totalQuotationsByDay.get(stat.date) || {
+            count: 0,
+            total_amount: 0,
+          };
+          totalQuotationsByDay.set(stat.date, {
+            count: current.count + stat.count,
+            total_amount: current.total_amount + stat.total_amount,
+          });
         });
       });
 
       // Convert to array and sort by date
       const total_quotations = Array.from(totalQuotationsByDay.entries())
-        .map(([date, count]) => ({ date, count }))
+        .map(([date, data]) => ({
+          date,
+          count: data.count,
+          total_amount: data.total_amount,
+        }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       const response: QuotationStatsResponse = {
@@ -115,6 +132,7 @@ export class SuperAdminService {
         companies: data,
         total_quotations,
         total_quotations_all_companies,
+        total_amount_all_companies,
       };
 
       this.logger.info(
