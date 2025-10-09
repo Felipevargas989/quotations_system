@@ -9,6 +9,7 @@ import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
 import DashboardPage from "./pages/dashboard/DashboardPage.tsx";
 import RequestsPage from "./pages/RequestsPage";
 import QuotationsPage from "./pages/quotations/QuotationsPage";
+import QuotationForm from "./pages/quotations/QuotationForm";
 import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
@@ -19,7 +20,6 @@ import CompanyConfiguration from "./pages/configuration/companyConfiguration/Com
 import Calendar from "./pages/calendar/Calendar.tsx";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics.ts";
-import { usePageViews } from "./hooks/usePageViews.ts";
 
 function App() {
   // Initialize Google Analytics
@@ -71,6 +71,26 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
                   <QuotationsPage />
+                </PermissionGuard>
+              }
+            />
+
+            {/* New Quotation Form (no ID) */}
+            <Route
+              path="quotation-form"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <QuotationForm />
+                </PermissionGuard>
+              }
+            />
+
+            {/* Edit Quotation Form (with ID) */}
+            <Route
+              path="quotation-form/:id"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <QuotationForm />
                 </PermissionGuard>
               }
             />

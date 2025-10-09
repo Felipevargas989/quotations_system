@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Save,
   RotateCcw,
@@ -31,12 +32,6 @@ import { NumberInput } from "../../components/inputs";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
-interface QuotationFormProps {
-  quotation?: any;
-  onSave?: () => void;
-  isFromRequirement?: boolean;
-}
-
 // TODO: use already defined types
 interface SelectedService {
   codigo: string;
@@ -67,11 +62,9 @@ interface SelectedFixedService {
   precio_por_persona?: number;
 }
 
-export default function QuotationForm({
-  quotation,
-  onSave,
-  isFromRequirement = false,
-}: QuotationFormProps) {
+export default function QuotationForm() {
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const { user, userRole } = useAuth();
   const {
     products,
@@ -79,6 +72,9 @@ export default function QuotationForm({
     loading: servicesLoading,
     calculatePrice,
   } = useServices();
+
+  const [quotation, setQuotation] = useState<any>(null);
+  const [isFromRequirement, setIsFromRequirement] = useState(false);
 
   // TODO: add type
   const [formData, setFormData] = useState<QuotationFormData>({
@@ -211,6 +207,35 @@ export default function QuotationForm({
 
     return basicValidation;
   };
+
+  // Fetch quotation data if ID exists in URL
+  useEffect(() => {
+    const fetchQuotationData = async () => {
+      if (id) {
+        try {
+          const { data, error } = await getQuotationById(id);
+          if (error) {
+            alert("Error al cargar la cotización");
+            navigate("/quotations");
+            return;
+          }
+          if (data) {
+            setQuotation(data);
+            // Check if it's a requirement being converted to quotation
+            if (data.request_type === QuotationRequestType.REQUERIMIENTO) {
+              setIsFromRequirement(true);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching quotation:", error);
+          alert("Error al cargar la cotización");
+          navigate("/quotations");
+        }
+      }
+    };
+
+    fetchQuotationData();
+  }, [id, navigate]);
 
   useEffect(() => {
     loadClients();
@@ -803,7 +828,7 @@ export default function QuotationForm({
           ? "Cotización actualizada exitosamente"
           : "Cotización guardada exitosamente",
       );
-      if (onSave) onSave();
+      navigate("/quotations");
     } catch (error) {
       alert(
         `Error al guardar la cotización: ${error instanceof Error ? error.message : "Error desconocido"}`,
@@ -1053,7 +1078,7 @@ export default function QuotationForm({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 px-2">
           <button
-            onClick={() => onSave && onSave()}
+            onClick={() => navigate("/quotations")}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft size={20} />

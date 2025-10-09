@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import QuotationForm from "./QuotationForm";
 import QuotationViewer from "../../components/QuotationViewer";
 import { ROLE_GROUPS } from "../../constants/permissions";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
@@ -13,7 +13,6 @@ import {
 } from "../../types/quotations.types";
 import {
   deleteQuotation,
-  getQuotationById,
   getQuotations,
   updateQuotation,
 } from "../../services/quotations.service";
@@ -27,12 +26,9 @@ import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
+  const navigate = useNavigate();
   const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
   const [requirements, setRequirements] = useState<QuotationWithClient[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(
-    null,
-  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const initialStatusFilter = [
@@ -45,9 +41,6 @@ export default function QuotationsPage() {
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
-  const [creatingFromRequirement, setCreatingFromRequirement] = useState<
-    string | null
-  >(null);
   const [showPaymentPlanEditor, setShowPaymentPlanEditor] = useState(false);
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
@@ -182,16 +175,8 @@ export default function QuotationsPage() {
         return;
       }
 
-      // // Obtener los datos del requerimiento
-      const { data: requirement, error } =
-        await getQuotationById(requirementId);
-
-      if (error) throw error;
-      if (!requirement) throw new Error("Requerimiento no encontrado");
-
-      setEditingQuotation(requirement);
-      setCreatingFromRequirement(requirementId);
-      setShowForm(true);
+      // Navigate to quotation form with requirement ID
+      navigate(`/quotation-form/${requirementId}`);
     } catch (error) {
       alert("Error al crear cotización desde requerimiento");
     }
@@ -354,46 +339,9 @@ export default function QuotationsPage() {
       alert("No tienes permiso para editar esta cotización.");
       return;
     }
-    console.log(
-      "Editando cotización:",
-      quotation.quotation_number,
-      "ID:",
-      quotation.id,
-    );
-    loadQuotationForEditing(quotation);
+    // Navigate to quotation form with quotation ID
+    navigate(`/quotation-form/${quotation.id}`);
   };
-
-  const loadQuotationForEditing = async (quotation: QuotationWithClient) => {
-    try {
-      // Items are now stored in the JSON field, no need to fetch from quotation_items
-      const quotationWithItems: QuotationWithClient = {
-        ...quotation,
-        items: quotation.items || [],
-        clients: quotation.clients,
-      };
-      setEditingQuotation(quotationWithItems);
-      setCreatingFromRequirement(null); // Asegurar que no esté en modo "desde requerimiento"
-      setShowForm(true);
-    } catch (error) {
-      alert("Error al cargar la cotización para editar");
-    }
-  };
-
-  // Si está mostrando el formulario, renderizar solo el formulario
-  if (showForm) {
-    return (
-      <QuotationForm
-        quotation={editingQuotation}
-        isFromRequirement={!!creatingFromRequirement}
-        onSave={() => {
-          setShowForm(false);
-          setEditingQuotation(null);
-          setCreatingFromRequirement(null);
-          refreshData();
-        }}
-      />
-    );
-  }
 
   const filteredQuotations = quotations.filter((quotation) => {
     const matchesSearch =
@@ -408,7 +356,7 @@ export default function QuotationsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Cotizaciones</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => navigate("/quotation-form")}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
         >
           <Plus size={20} />
