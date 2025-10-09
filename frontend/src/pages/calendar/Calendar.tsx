@@ -17,6 +17,7 @@ import {
   X,
   Calendar as CalendarIcon,
   CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 import { getQuotations } from "../../services/quotations.service";
 import {
@@ -224,6 +225,10 @@ export default function CalendarPage() {
     setSelectedDate(today);
   };
 
+  const handleNavigateToQuotation = (quotationId: string) => {
+    window.open(`/quotation-form/${quotationId}`, "_blank");
+  };
+
   const eventsForSelectedDate = selectedDate
     ? getQuotationsForDate(selectedDate)
     : [];
@@ -361,14 +366,18 @@ export default function CalendarPage() {
             {selectedDate && eventsForSelectedDate.length > 0 && (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {eventsForSelectedDate.map((quotation) => (
-                  <div
+                  <button
                     key={quotation.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                    onClick={() => handleNavigateToQuotation(quotation.id)}
+                    className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900">
-                        {quotation.clients.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
+                          {quotation.clients.name}
+                        </h3>
+                        <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                       <span
                         className={`px-2 py-1 text-xs rounded-full text-white ${getStatusColor(quotation.quotation_status)}`}
                       >
@@ -392,7 +401,7 @@ export default function CalendarPage() {
                         {quotation.observations}
                       </p>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
