@@ -18,6 +18,7 @@ import {
   Calendar as CalendarIcon,
   CalendarDays,
   ExternalLink,
+  Ban,
 } from "lucide-react";
 import { getQuotations } from "../../services/quotations.service";
 import {
@@ -25,6 +26,7 @@ import {
   QuotationStatus,
   QuotationWithClient,
 } from "../../types/quotations.types";
+import BlockedDayForm from "./components/BlockedDayForm";
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -76,6 +78,7 @@ export default function CalendarPage() {
   const [selectedStatuses, setSelectedStatuses] =
     useState<QuotationStatus[]>(getInitialStatuses());
   const [currentMonthEventsCount, setCurrentMonthEventsCount] = useState(0);
+  const [showBlockedDayForm, setShowBlockedDayForm] = useState(false);
 
   const statusOptions = [
     {
@@ -229,6 +232,11 @@ export default function CalendarPage() {
     window.open(`/quotation-form/${quotationId}`, "_blank");
   };
 
+  const handleBlockedDaySuccess = () => {
+    // TODO: refetch blcked days
+    alert("Dia bloqueado correctamente");
+  };
+
   const eventsForSelectedDate = selectedDate
     ? getQuotationsForDate(selectedDate)
     : [];
@@ -266,6 +274,13 @@ export default function CalendarPage() {
             >
               <CalendarDays className="h-4 w-4" />
               Hoy
+            </button>
+            <button
+              onClick={() => setShowBlockedDayForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <Ban className="h-4 w-4" />
+              Bloquear Día
             </button>
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -468,6 +483,14 @@ export default function CalendarPage() {
           border-radius: 8px;
         }
       `}</style>
+
+      {/* Blocked Day Form Modal */}
+      <BlockedDayForm
+        isOpen={showBlockedDayForm}
+        onClose={() => setShowBlockedDayForm(false)}
+        onSuccess={handleBlockedDaySuccess}
+        initialDate={selectedDate || undefined}
+      />
     </div>
   );
 }

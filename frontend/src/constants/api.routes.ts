@@ -22,4 +22,7 @@ export const API_ROUTES = {
   USERS: "/users",
   USERS_PASSWORD: "/users/password",
   USERS_SIGNUP: "/users/signup",
+
+  // calendar
+  CALENDAR_BLOCKED_DAYS: "/calendar/blocked-days",
 };
