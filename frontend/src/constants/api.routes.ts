@@ -25,4 +25,5 @@ export const API_ROUTES = {
 
   // calendar
   CALENDAR_BLOCKED_DAYS: "/calendar/blocked-days",
+  CALENDAR_EVENTS: "/calendar/events",
 };

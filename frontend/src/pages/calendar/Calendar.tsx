@@ -20,13 +20,12 @@ import {
   ExternalLink,
   Ban,
 } from "lucide-react";
-import { getQuotations } from "../../services/quotations.service";
 import {
-  QuotationRequestType,
   QuotationStatus,
   QuotationWithClient,
 } from "../../types/quotations.types";
 import BlockedDayForm from "./components/BlockedDayForm";
+// import { findAllEvents } from "../../services/calendar.service";
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
