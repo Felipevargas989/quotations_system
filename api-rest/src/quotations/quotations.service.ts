@@ -4,6 +4,7 @@ import { Company } from 'src/companies/entities/company.entity';
 import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentsService } from 'src/payments/payments.service';
+import { getEventDateUtc } from '../utils/dates';
 import {
   PaymentPlanType,
   QuotationStatus,
@@ -15,7 +16,6 @@ import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
 import { QuotationsRepository } from './quotations.repository';
-import { getEventDateUtc } from './utils';
 
 @Injectable()
 export class QuotationsService {
