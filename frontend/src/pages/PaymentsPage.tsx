@@ -26,12 +26,11 @@ import {
 } from "../services/paymentTransactions.service";
 import { deletePayment } from "../services/payments.service";
 import { ROLE_GROUPS } from "../constants/permissions";
-import {
-  getQuotationById,
-  updateQuotation,
-} from "../services/quotations.service";
+import { updateQuotation } from "../services/quotations.service";
+import { useNavigate } from "react-router-dom";
 
 export default function PaymentsPage() {
+  const navigate = useNavigate();
   const { userRole } = useAuth();
   const [payments, setPayments] = useState<PaymentWithTransactions[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,15 +224,7 @@ export default function PaymentsPage() {
     payment: PaymentWithTransactions,
   ) => {
     try {
-      // Fetch the quotation details
-      const { data: quotation, error } = await getQuotationById(
-        payment.quotation_id,
-      );
-      if (error) throw error;
-      if (!quotation) throw new Error("Cotización no encontrada");
-
-      setEditingQuotation(quotation);
-      setShowQuotationForm(true);
+      navigate(`/quotation-form/${payment.quotation_id}`);
     } catch (error) {
       alert("Error al cargar la cotización para editar");
     }
