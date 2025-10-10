@@ -24,6 +24,5 @@ export const API_ROUTES = {
   USERS_SIGNUP: "/users/signup",
 
   // calendar
-  CALENDAR_BLOCKED_DAYS: "/calendar/blocked-days",
   CALENDAR_EVENTS: "/calendar/events",
 };
