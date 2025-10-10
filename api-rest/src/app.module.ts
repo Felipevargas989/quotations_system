@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     ServicesModule,
     SuperAdminModule,
     AnalyticsModule,
+    CalendarModule,
   ],
   controllers: [],
   providers: [
