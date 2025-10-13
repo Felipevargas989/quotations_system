@@ -60,7 +60,7 @@ export class QuotationsService {
       event_type: createQuotationDto.event_type,
       people_count: createQuotationDto.people_count,
       observations: createQuotationDto.observations,
-      event_date: eventDateUtc,
+      event_date: eventDateUtc.toISOString(),
       company_id: companyId,
       total_amount: createQuotationDto.total_amount || 0,
       quotation_status: createQuotationDto.quotation_status,
