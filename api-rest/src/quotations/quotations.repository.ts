@@ -31,7 +31,7 @@ export class QuotationsRepository {
     statuses?: QuotationStatus[];
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
-    event_date?: Quotation['event_date'];
+    event_date?: string;
     dateRange?: { start_date: Date; end_date: Date };
   }): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
@@ -59,7 +59,7 @@ export class QuotationsRepository {
     }
 
     if (event_date) {
-      query.eq('event_date', event_date.toISOString());
+      query.eq('event_date', event_date);
     }
 
     if (dateRange) {
