@@ -15,7 +15,8 @@ export type Section =
   | "configuration"
   | "services"
   | "company_configuration"
-  | "calendar";
+  | "calendar"
+  | "plans";
 
 // Define which roles can access which sections
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
@@ -40,6 +41,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "services",
     "company_configuration",
     "calendar",
+    "plans",
   ],
 };
 
@@ -80,4 +82,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   services: ROLE_GROUPS.ADMIN_ONLY,
   company_configuration: ROLE_GROUPS.ADMIN_ONLY,
   calendar: ROLE_GROUPS.SALES_AND_UP,
+  plans: ROLE_GROUPS.ALL_ROLES,
 };

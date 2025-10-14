@@ -20,6 +20,8 @@ import CompanyConfiguration from "./pages/configuration/companyConfiguration/Com
 import Calendar from "./pages/calendar/Calendar.tsx";
 import { useEffect } from "react";
 import { initGA } from "./lib/analytics.ts";
+import Plans from "./pages/plans/Plans.tsx";
+import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -159,6 +161,26 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.calendar}>
                   <Calendar />
+                </PermissionGuard>
+              }
+            />
+
+            {/* plans */}
+            <Route
+              path="plans"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.plans}>
+                  <Plans />
+                </PermissionGuard>
+              }
+            />
+
+            {/* confirm plan */}
+            <Route
+              path="plans/confirmation"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.plans}>
+                  <ConfirmationPage />
                 </PermissionGuard>
               }
             />

@@ -25,4 +25,7 @@ export const API_ROUTES = {
 
   // calendar
   CALENDAR_EVENTS: "/calendar/events",
+
+  // plans
+  PLAN_CONFIRMATION: "/plans/confirmation",
 };

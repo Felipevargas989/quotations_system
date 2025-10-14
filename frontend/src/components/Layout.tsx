@@ -48,9 +48,7 @@ export default function Layout() {
   };
 
   const handleUpgradeClick = () => {
-    window.open(
-      "https://api.whatsapp.com/send/?phone=%2B56940589151&text&type=phone_number&app_absent=0&message=Hola, quiero contratar el plan",
-    );
+    navigate("/plans");
   };
 
   const handleSalesClick = () => {
