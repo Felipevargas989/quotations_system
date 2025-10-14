@@ -10,6 +10,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ServicesModule } from './services/services.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module';
     SuperAdminModule,
     AnalyticsModule,
     CalendarModule,
+    PlansModule,
   ],
   controllers: [],
   providers: [
