@@ -1260,14 +1260,14 @@ export default function QuotationForm() {
           {/* Información del cliente */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-              Información del Cliente
+              Información del evento
             </h3>
 
             {/* Creado por - New Row */}
             <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Creado por
+                  Cotización creada por
                 </label>
                 <div className="w-fit px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50 text-gray-600">
                   {creatorUser ? (
