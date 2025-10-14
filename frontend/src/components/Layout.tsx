@@ -16,6 +16,7 @@ import {
   Calendar,
   AlertCircle,
   Sparkles,
+  MessageCircle,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 
@@ -49,6 +50,12 @@ export default function Layout() {
   const handleUpgradeClick = () => {
     window.open(
       "https://api.whatsapp.com/send/?phone=%2B56940589151&text&type=phone_number&app_absent=0&message=Hola, quiero contratar el plan",
+    );
+  };
+
+  const handleSalesClick = () => {
+    window.open(
+      "https://api.whatsapp.com/send/?phone=%2B56940589151&text&type=phone_number&app_absent=0&message=Hola, quiero hablar con ventas",
     );
   };
 
@@ -269,6 +276,21 @@ export default function Layout() {
                     posible duda
                   </p>
                 </a>
+                <span className="hidden sm:inline text-white text-sm">|</span>
+                <button
+                  onClick={handleSalesClick}
+                  className="flex flex-col items-center gap-2 text-white hover:scale-105 transition-transform duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageCircle size={18} className="flex-shrink-0" />
+                    <span className="text-sm font-semibold underline">
+                      Hablar con ventas
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-100 text-center max-w-md">
+                    Contacta directamente con nuestro equipo de ventas
+                  </p>
+                </button>
               </div>
             </div>
           </div>
