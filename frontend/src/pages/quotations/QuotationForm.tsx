@@ -20,6 +20,7 @@ import {
   updateQuotation,
 } from "../../services/quotations.service";
 import { createClient, getClients } from "../../services/clients.service";
+import { getUser } from "../../services/users.service";
 import { ClientFormData } from "../../types/clients.types";
 import {
   EventType,
@@ -75,6 +76,7 @@ export default function QuotationForm() {
 
   const [quotation, setQuotation] = useState<any>(null);
   const [isFromRequirement, setIsFromRequirement] = useState(false);
+  const [creatorUser, setCreatorUser] = useState<any>(null);
 
   // TODO: add type
   const [formData, setFormData] = useState<QuotationFormData>({
@@ -265,8 +267,24 @@ export default function QuotationForm() {
       if (quotation.id) {
         loadItemsFromDatabase(quotation.id);
       }
+
+      // Fetch user information if quotation has user_id
+      if (quotation.user_id) {
+        fetchCreatorUser(quotation.user_id);
+      }
     }
   }, [quotation]);
+
+  const fetchCreatorUser = async (userId: string) => {
+    try {
+      const { data, error } = await getUser(userId);
+      if (!error && data) {
+        setCreatorUser(data);
+      }
+    } catch (error) {
+      console.error("Error fetching creator user:", error);
+    }
+  };
 
   // Ensure client_id is properly set when editing and clients are loaded
   useEffect(() => {
@@ -1245,6 +1263,29 @@ export default function QuotationForm() {
               Información del Cliente
             </h3>
 
+            {/* Creado por - New Row */}
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Creado por
+                </label>
+                <div className="w-fit px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50 text-gray-600">
+                  {creatorUser ? (
+                    <span title={creatorUser.email}>
+                      {creatorUser.full_name || creatorUser.email}
+                    </span>
+                  ) : quotation?.user_id ? (
+                    <span className="text-gray-400">Cargando...</span>
+                  ) : (
+                    <span className="text-gray-400">
+                      {user?.email || "Usuario actual"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Número de Cotización and Cliente - Second Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
