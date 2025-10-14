@@ -28,6 +28,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "quotations",
     "payments",
     "configuration",
+    "calendar",
   ],
   administrador: [
     "dashboard",
