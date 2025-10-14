@@ -32,7 +32,7 @@ export default function Plans() {
                   <Sparkles className="h-8 w-8 text-blue-600 mr-3" />
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">
-                      Eventia Professional
+                      Eventia Profesional
                     </h2>
                     <p className="text-gray-600 text-sm">
                       Plan mensual con todas las funcionalidades
