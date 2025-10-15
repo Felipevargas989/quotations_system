@@ -81,7 +81,7 @@ export default function QuotationForm() {
   // TODO: add type
   const [formData, setFormData] = useState<QuotationFormData>({
     event_type: EventType.ALMUERZO_O_CENA,
-    event_date: new Date(),
+    event_date: undefined,
     people_count: 1,
     subtotal_amount: 0,
     discount_percentage: 0,
@@ -195,7 +195,7 @@ export default function QuotationForm() {
     const basicValidation =
       formData.client_id.trim() !== "" &&
       formData.event_type.trim() !== "" &&
-      formData.event_date.toString().trim() !== "";
+      formData.event_date?.toString().trim() !== "";
 
     // For restricted editing, also check that original services are present and price is sufficient
     if (isRestrictedEditing) {
@@ -259,7 +259,7 @@ export default function QuotationForm() {
     if (quotation) {
       setFormData({
         ...quotation,
-        event_date: new Date(quotation.event_date),
+        event_date: quotation.event_date.split("T")[0],
       });
       setIsEditingExisting(!!quotation.id);
 
@@ -791,7 +791,7 @@ export default function QuotationForm() {
       const quotationData = {
         ...formData,
         event_type: formData.event_type,
-        event_date: new Date(formData.event_date),
+        event_date: formData.event_date,
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
@@ -818,7 +818,7 @@ export default function QuotationForm() {
         const updatedQuotation: QuotationFormDataUpdate = {
           client_id: quotationData.client_id,
           event_type: quotationData.event_type,
-          event_date: new Date(quotationData.event_date),
+          event_date: quotationData.event_date,
           request_type: quotationData.request_type,
           value_per_person: Math.round(quotationData.value_per_person),
           fixed_value: Math.round(quotationData.fixed_value),
@@ -871,7 +871,7 @@ export default function QuotationForm() {
     setIsEditingExisting(false);
     setFormData({
       event_type: EventType.ALMUERZO_O_CENA,
-      event_date: new Date(),
+      event_date: undefined,
       people_count: 1,
       subtotal_amount: 0,
       discount_percentage: 0,
@@ -1394,13 +1394,13 @@ export default function QuotationForm() {
                 </label>
                 <input
                   type="date"
-                  value={formData.event_date.toISOString().split("T")[0]}
-                  onChange={(e) =>
+                  value={formData.event_date}
+                  onChange={(e) => {
                     setFormData((prev) => ({
                       ...prev,
-                      event_date: new Date(e.target.value),
-                    }))
-                  }
+                      event_date: e.target.value,
+                    }));
+                  }}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                 />
                 {checkingConflicts && (
@@ -1413,28 +1413,30 @@ export default function QuotationForm() {
                     </div>
                   </div>
                 )}
-                {!checkingConflicts && hasDateConflicts && (
-                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-start space-x-2">
-                      <span className="text-yellow-600 font-semibold text-xs">
-                        ⚠️
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-xs text-yellow-800">
-                          Hay más eventos programados para este mismo día.{" "}
-                          <a
-                            href={`/calendar?date=${formData.event_date.toISOString().split("T")[0]}&filter=all`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-semibold underline hover:text-yellow-900"
-                          >
-                            Ver en calendario
-                          </a>
-                        </p>
+                {!checkingConflicts &&
+                  hasDateConflicts &&
+                  formData.event_date && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-yellow-600 font-semibold text-xs">
+                          ⚠️
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs text-yellow-800">
+                            Hay más eventos programados para este mismo día.{" "}
+                            <a
+                              href={`/calendar?date=${formData.event_date}&filter=all`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold underline hover:text-yellow-900"
+                            >
+                              Ver en calendario
+                            </a>
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
                 {!checkingConflicts &&
                   !hasDateConflicts &&
                   formData.event_date && (

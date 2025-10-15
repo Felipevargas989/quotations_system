@@ -87,7 +87,6 @@ export interface QuotationFormData
     Quotation,
     | "client_id"
     | "event_type"
-    | "event_date"
     | "people_count"
     | "observations"
     | "request_type"
@@ -101,6 +100,7 @@ export interface QuotationFormData
   > {
   has_contract?: Quotation["has_contract"];
   requires_invoice?: Quotation["requires_invoice"];
+  event_date: Quotation["event_date"] | undefined;
 }
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
