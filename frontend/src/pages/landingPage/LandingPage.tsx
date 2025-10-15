@@ -10,10 +10,10 @@ import {
   Shield,
   ArrowRight,
   CheckCircle,
-  Star,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import FloatingWhatsAppButton from "../../components/FloatingWhatsAppButton";
 
 export default function LandingPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -477,6 +477,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Floating WhatsApp Button */}
+      <FloatingWhatsAppButton />
     </div>
   );
 }

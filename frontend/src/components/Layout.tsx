@@ -19,6 +19,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
+import FloatingWhatsAppButton from "./FloatingWhatsAppButton";
 
 export default function Layout() {
   const { user, userRole, signOut, loading, company } = useAuth();
@@ -301,6 +302,9 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Floating WhatsApp Button */}
+      <FloatingWhatsAppButton />
     </div>
   );
 }
