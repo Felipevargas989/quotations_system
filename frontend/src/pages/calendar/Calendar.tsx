@@ -160,24 +160,55 @@ export default function CalendarPage() {
     });
   };
 
+  const tileClassName = ({ date, view }: { date: Date; view: string }) => {
+    if (view === "month") {
+      const dayQuotations = getQuotationsForDate(date);
+      if (dayQuotations.length > 0) {
+        return "has-events";
+      }
+    }
+    return "";
+  };
+
   const tileContent = ({ date, view }: { date: Date; view: string }) => {
     if (view === "month") {
       const dayQuotations = getQuotationsForDate(date);
       if (dayQuotations.length > 0) {
+        // Get the dominant status color (most frequent status)
+        const statusCounts = dayQuotations.reduce(
+          (acc, q) => {
+            acc[q.quotation_status] = (acc[q.quotation_status] || 0) + 1;
+            return acc;
+          },
+          {} as Record<QuotationStatus, number>,
+        );
+        const dominantStatus = Object.entries(statusCounts).sort(
+          ([, a], [, b]) => b - a,
+        )[0][0] as QuotationStatus;
+
         return (
-          <div className="flex justify-center gap-1 mt-1">
-            {dayQuotations.slice(0, 3).map((q) => (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="flex flex-col items-center gap-1">
+              {/* Event count badge */}
               <div
-                key={q.id}
-                className={`w-2 h-2 rounded-full ${getStatusColor(q.quotation_status)}`}
-                title={q.clients.name}
-              />
-            ))}
-            {dayQuotations.length > 3 && (
-              <div className="text-xs text-gray-600">
-                +{dayQuotations.length - 3}
+                className={`${getStatusColor(dominantStatus)} text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm shadow-md`}
+              >
+                {dayQuotations.length}
               </div>
-            )}
+              {/* Multiple status indicators */}
+              {dayQuotations.length > 1 && (
+                <div className="flex gap-0.5">
+                  {[...new Set(dayQuotations.map((q) => q.quotation_status))]
+                    .slice(0, 4)
+                    .map((status) => (
+                      <div
+                        key={status}
+                        className={`w-1.5 h-1.5 rounded-full ${getStatusColor(status)}`}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
         );
       }
@@ -329,6 +360,7 @@ export default function CalendarPage() {
                 value={value}
                 activeStartDate={value instanceof Date ? value : new Date()}
                 locale="es-ES"
+                tileClassName={tileClassName}
                 tileContent={tileContent}
                 className="w-full border-none custom-calendar"
               />
@@ -437,13 +469,31 @@ export default function CalendarPage() {
         }
 
         .custom-calendar .react-calendar__tile {
-          padding: 1.5em 0.5em;
+          padding: 0.5em;
           position: relative;
-          height: 100px;
+          height: 110px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .custom-calendar .react-calendar__tile abbr {
+          position: relative;
+          z-index: 10;
+          margin-top: 0.3em;
+          font-weight: 500;
         }
 
         .custom-calendar .react-calendar__tile--active {
           background: #2563eb !important;
+          color: white;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .custom-calendar .react-calendar__tile--active abbr {
           color: white;
         }
 
@@ -453,6 +503,7 @@ export default function CalendarPage() {
 
         .custom-calendar .react-calendar__tile:enabled:hover {
           background: #f3f4f6;
+          transform: scale(1.02);
         }
 
         .custom-calendar .react-calendar__navigation button {
@@ -467,6 +518,28 @@ export default function CalendarPage() {
         .custom-calendar .react-calendar__tile--now {
           background: #dbeafe;
           border-radius: 8px;
+          border: 2px solid #3b82f6;
+        }
+
+        .custom-calendar .react-calendar__tile--now abbr {
+          color: #1d4ed8;
+          font-weight: 600;
+        }
+
+        /* Add subtle background to days with events */
+        .custom-calendar .react-calendar__tile.has-events {
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+          border: 1px solid #bfdbfe;
+        }
+
+        .custom-calendar .react-calendar__tile.has-events:enabled:hover {
+          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+          transform: scale(1.05);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .custom-calendar .react-calendar__tile--active.has-events {
+          background: #2563eb !important;
         }
       `}</style>
     </div>
