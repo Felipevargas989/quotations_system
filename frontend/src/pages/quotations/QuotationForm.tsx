@@ -32,6 +32,7 @@ import {
 import { NumberInput } from "../../components/inputs";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import { UserRole } from "../../constants/users";
 
 // TODO: use already defined types
 interface SelectedService {
@@ -143,72 +144,11 @@ export default function QuotationForm() {
     contact_person: false,
   });
 
-  // State for original services (for restricted editing)
-  const [originalVariableServices, setOriginalVariableServices] = useState<
-    SelectedService[]
-  >([]);
-  const [originalFixedServices, setOriginalFixedServices] = useState<
-    SelectedFixedService[]
-  >([]);
-  const [originalTotalPrice, setOriginalTotalPrice] = useState<number>(0);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
     useDateAvailability(formData.event_date);
-
-  // Check if we're editing an accepted quotation
-  const isRestrictedEditing = quotation?.quotation_status === "aceptada";
-
-  // Check if all original fixed services are present (for restricted editing)
-  const areOriginalFixedServicesPresent = () => {
-    if (!isRestrictedEditing) return true;
-
-    return originalFixedServices.every((originalService) =>
-      selectedFixedServices.some(
-        (currentService) => currentService.codigo === originalService.codigo,
-      ),
-    );
-  };
-
-  // Check if all original variable services are present (for restricted editing)
-  const areOriginalVariableServicesPresent = () => {
-    if (!isRestrictedEditing) return true;
-
-    const allCurrentServices = serviceBoxes.flatMap((box) => box.services);
-    return originalVariableServices.every((originalService) =>
-      allCurrentServices.some(
-        (currentService) => currentService.codigo === originalService.codigo,
-      ),
-    );
-  };
-
-  // Check if current price is sufficient (for restricted editing)
-  const isPriceSufficient = () => {
-    if (!isRestrictedEditing) return true;
-
-    return Math.round(formData.total_amount) >= Math.round(originalTotalPrice);
-  };
-
-  // Validation for quotation form
-  const isQuotationFormValid = () => {
-    const basicValidation =
-      formData.client_id.trim() !== "" &&
-      formData.event_type.trim() !== "" &&
-      formData.event_date?.toString().trim() !== "";
-
-    // For restricted editing, also check that original services are present and price is sufficient
-    if (isRestrictedEditing) {
-      return (
-        basicValidation &&
-        areOriginalFixedServicesPresent() &&
-        areOriginalVariableServicesPresent() &&
-        isPriceSufficient()
-      );
-    }
-
-    return basicValidation;
-  };
 
   // Fetch quotation data if ID exists in URL
   useEffect(() => {
@@ -397,12 +337,6 @@ export default function QuotationForm() {
     }));
 
     setSelectedFixedServices(fixedServicesLoaded);
-
-    // Save original services for restricted editing mode
-    const allVariableServices = serviceBoxesData.flatMap((box) => box.services);
-    setOriginalVariableServices([...allVariableServices]);
-    setOriginalFixedServices([...fixedServicesLoaded]);
-    setOriginalTotalPrice(quotation.total_amount); // Save original total amount from quotation
 
     // Set service boxes from loaded data
     if (serviceBoxesData.length > 0) {
@@ -650,19 +584,6 @@ export default function QuotationForm() {
       prev.map((box) => {
         if (box.id === boxId) {
           if (newQuantity <= 0) {
-            // In restricted mode, don't allow removing original services completely
-            if (isRestrictedEditing) {
-              const isOriginalService = originalVariableServices.some(
-                (original) => original.codigo === codigo,
-              );
-              if (isOriginalService) {
-                alert(
-                  "No se pueden eliminar servicios originales en modo de edición restringida",
-                );
-                return box;
-              }
-            }
-
             // Remove service from this box
             return {
               ...box,
@@ -889,6 +810,18 @@ export default function QuotationForm() {
     });
   };
 
+  const isQuotationFormValid = () => {
+    return (
+      formData.client_id.trim() !== "" &&
+      formData.event_type.trim() !== "" &&
+      formData.event_date?.toString().trim() !== ""
+    );
+  };
+
+  const isRestrictedEditing =
+    quotation?.quotation_status === QuotationStatus.ACEPTADA &&
+    !(userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES);
+
   if (servicesLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -1113,52 +1046,10 @@ export default function QuotationForm() {
             </div>
           )}
           {isRestrictedEditing && (
-            <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-              🔒 Editando una cotización aceptada
+            <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+              🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas
             </div>
           )}
-          {isRestrictedEditing &&
-            formData.total_amount > originalTotalPrice && (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 shadow-sm">
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-green-800 mb-1">
-                      Aumento de Precio Detectado
-                    </h4>
-                    <p className="text-sm text-green-700">
-                      Diferencia:{" "}
-                      <span className="font-semibold">
-                        $
-                        {(
-                          formData.total_amount - originalTotalPrice
-                        ).toLocaleString()}
-                      </span>
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      Este monto se agregará automáticamente a un pago existente
-                      o se creará uno nuevo.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
         </div>
         <div className="flex items-center space-x-3">
           {!isRestrictedEditing && (
@@ -1193,66 +1084,32 @@ export default function QuotationForm() {
         </div>
       </div>
 
-      <div>
-        {/* Error message for missing original services */}
-        {isRestrictedEditing &&
-          (!areOriginalFixedServicesPresent() ||
-            !areOriginalVariableServicesPresent()) && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="h-5 w-5 text-red-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">
-                    <strong>Error:</strong> No se pueden eliminar servicios
-                    originales. Todos los servicios originales (variables y
-                    fijos) deben estar presentes.
-                  </p>
-                </div>
-              </div>
+      {isRestrictedEditing && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
             </div>
-          )}
-
-        {/* Error message for insufficient price */}
-        {isRestrictedEditing && !isPriceSufficient() && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">
-                  <strong>Error:</strong> El precio total no puede ser menor al
-                  original. Precio actual: $
-                  {Math.round(formData.total_amount).toLocaleString()} | Precio
-                  original: ${Math.round(originalTotalPrice).toLocaleString()}
-                </p>
-              </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">
+                <strong>Acceso Denegado:</strong> No tienes permisos para editar
+                cotizaciones aceptadas. Solo usuarios con rol "Administrador" o
+                "Operaciones" pueden editar cotizaciones aceptadas.
+              </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna principal - Formulario */}
@@ -1377,7 +1234,8 @@ export default function QuotationForm() {
                       event_type: e.target.value as EventType,
                     }))
                   }
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isRestrictedEditing}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Seleccionar tipo</option>
                   {Object.values(EventType).map((type) => (
@@ -1401,7 +1259,8 @@ export default function QuotationForm() {
                       event_date: e.target.value,
                     }));
                   }}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isRestrictedEditing}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 {checkingConflicts && (
                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1467,6 +1326,7 @@ export default function QuotationForm() {
                     }));
                   }}
                   min={1}
+                  disabled={isRestrictedEditing}
                 />
               </div>
             </div>
@@ -1480,7 +1340,12 @@ export default function QuotationForm() {
               </h3>
               <button
                 onClick={addServiceBox}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                disabled={isRestrictedEditing}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  isRestrictedEditing
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
                 <Plus size={16} />
                 <span>Agregar Servicio</span>
@@ -1497,7 +1362,7 @@ export default function QuotationForm() {
                     <h4 className="font-medium text-gray-900">
                       Servicio {index + 1}
                     </h4>
-                    {serviceBoxes.length > 1 && (
+                    {serviceBoxes.length > 1 && !isRestrictedEditing && (
                       <button
                         onClick={() => removeServiceBox(box.id)}
                         className="text-red-600 hover:text-red-800"
@@ -1521,8 +1386,10 @@ export default function QuotationForm() {
                             e.target.value,
                           )
                         }
-                        disabled={box.selectedCategory !== ""}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={
+                          box.selectedCategory !== "" || isRestrictedEditing
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">Seleccionar categoría</option>
                         {serviceCategories.map((category) => (
@@ -1545,8 +1412,10 @@ export default function QuotationForm() {
                               openDropdown === box.id ? null : box.id,
                             )
                           }
-                          disabled={!box.selectedCategory}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 text-left flex justify-between items-center"
+                          disabled={
+                            !box.selectedCategory || isRestrictedEditing
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
                         >
                           <span
                             className={
@@ -1610,55 +1479,33 @@ export default function QuotationForm() {
                         Items seleccionados:
                       </h5>
                       <div className="space-y-2">
-                        {getSelectedItemsForBox(box.id).map((service) => {
-                          const isOriginalService =
-                            originalVariableServices.some(
-                              (original) => original.codigo === service.codigo,
-                            );
-
-                          return (
-                            <div
-                              key={service.codigo}
-                              className="flex items-center justify-between bg-gray-50 p-2 rounded"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm">
-                                  {service.nombre}
-                                </span>
-                                {isOriginalService && isRestrictedEditing && (
-                                  <span className="text-xs text-purple-600 bg-purple-100 px-1 py-0.5 rounded">
-                                    🔒 Original
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium">
-                                  ${service.precio.toLocaleString()}
-                                </span>
-                                <QuantitySelector
-                                  value={service.quantity}
-                                  onChange={(newQuantity) =>
-                                    updateServiceQuantity(
-                                      service.codigo,
-                                      newQuantity,
-                                      box.id,
-                                    )
-                                  }
-                                  min={
-                                    isRestrictedEditing && isOriginalService
-                                      ? 1
-                                      : 0
-                                  }
-                                  disabled={
-                                    isRestrictedEditing &&
-                                    isOriginalService &&
-                                    service.quantity <= 1
-                                  }
-                                />
-                              </div>
+                        {getSelectedItemsForBox(box.id).map((service) => (
+                          <div
+                            key={service.codigo}
+                            className="flex items-center justify-between bg-gray-50 p-2 rounded"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm">{service.nombre}</span>
                             </div>
-                          );
-                        })}
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium">
+                                ${service.precio.toLocaleString()}
+                              </span>
+                              <QuantitySelector
+                                value={service.quantity}
+                                onChange={(newQuantity) =>
+                                  updateServiceQuantity(
+                                    service.codigo,
+                                    newQuantity,
+                                    box.id,
+                                  )
+                                }
+                                min={0}
+                                disabled={isRestrictedEditing}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1695,6 +1542,7 @@ export default function QuotationForm() {
                       }}
                       min={0}
                       max={getMaxDiscountForRole()}
+                      disabled={isRestrictedEditing}
                     />
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
                       %
@@ -1764,7 +1612,8 @@ export default function QuotationForm() {
                 }))
               }
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              disabled={isRestrictedEditing}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="Detalles adicionales, requerimientos especiales, etc."
             />
           </div>
@@ -1874,66 +1723,61 @@ export default function QuotationForm() {
             </div>
 
             <div className="p-4 space-y-3">
-              {selectedFixedServices.map((service, index) => {
-                const isOriginalService = originalFixedServices.some(
-                  (original) => original.codigo === service.codigo,
-                );
-
-                return (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
-                  >
-                    <div className="flex-1">
-                      <select
-                        value={service?.codigo || ""}
-                        onChange={(e) =>
-                          handleFixedServiceSelect(e.target.value, index)
-                        }
-                        className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">Seleccionar servicio fijo</option>
-                        {fixedServices.map((fixedService) => (
-                          <option
-                            key={fixedService.codigo}
-                            value={fixedService.codigo}
-                          >
-                            {fixedService.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900 w-20 text-right">
-                        $
-                        {service
-                          ? (
-                              service.precio_calculado * service.quantity
-                            ).toLocaleString()
-                          : "0"}
-                      </span>
-                      {isOriginalService && isRestrictedEditing && (
-                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                          🔒 Original
-                        </span>
-                      )}
-                      {(!isOriginalService || !isRestrictedEditing) && (
-                        <button
-                          onClick={() => removeFixedService(index)}
-                          className="text-red-600 hover:text-red-800"
+              {selectedFixedServices.map((service, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
+                >
+                  <div className="flex-1">
+                    <select
+                      value={service?.codigo || ""}
+                      onChange={(e) =>
+                        handleFixedServiceSelect(e.target.value, index)
+                      }
+                      disabled={isRestrictedEditing}
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Seleccionar servicio fijo</option>
+                      {fixedServices.map((fixedService) => (
+                        <option
+                          key={fixedService.codigo}
+                          value={fixedService.codigo}
                         >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
+                          {fixedService.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                );
-              })}
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-gray-900 w-20 text-right">
+                      $
+                      {service
+                        ? (
+                            service.precio_calculado * service.quantity
+                          ).toLocaleString()
+                        : "0"}
+                    </span>
+                    {!isRestrictedEditing && (
+                      <button
+                        onClick={() => removeFixedService(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
 
               {/* Add more services button */}
               <button
                 onClick={addNewFixedServiceSlot}
-                className="w-full py-2 px-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center space-x-2"
+                disabled={isRestrictedEditing}
+                className={`w-full py-2 px-3 border-2 border-dashed rounded-lg transition-colors flex items-center justify-center space-x-2 ${
+                  isRestrictedEditing
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600"
+                }`}
               >
                 <span className="text-sm">+ Agregar más servicios</span>
               </button>
