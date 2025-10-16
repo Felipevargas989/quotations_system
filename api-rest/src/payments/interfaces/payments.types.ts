@@ -1,9 +1,12 @@
 import { Quotation } from 'src/quotations/entities/quotation.entity';
+import { Refund } from 'src/refunds/entities/refund.entity';
 import { UpdatePaymentTransactionDto } from '../dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from '../entities/payment.entity';
 
 export type PaymentWithTransactionsAndQuotation = Payment & {
-  quotations: Quotation[];
+  quotations: Quotation & {
+    refunds: Refund[];
+  };
   payment_transactions: PaymentTransaction[];
 };
 

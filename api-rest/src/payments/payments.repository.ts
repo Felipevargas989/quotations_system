@@ -79,28 +79,34 @@ export class PaymentsRepository {
       .from('payments')
       .select(
         `
-      *,
-      quotations!inner (
-        id,
-        company_id,
-        quotation_number,
-        total_amount,
-        requires_invoice,
-        has_contract,
-        clients!inner (
-          name
-        )
+    *,
+    quotations!inner (
+      id,
+      company_id,
+      quotation_number,
+      total_amount,
+      requires_invoice,
+      has_contract,
+      clients!inner (
+        name
       ),
-      payment_transactions (
+      refunds (
         id,
         amount,
-        transaction_date,
-        notes,
-        payment_method,
-        receipt_photo_url,
+        is_paid,
         created_at
       )
-    `,
+    ),
+    payment_transactions (
+      id,
+      amount,
+      transaction_date,
+      notes,
+      payment_method,
+      receipt_photo_url,
+      created_at
+    )
+  `,
       )
       .eq('quotations.company_id', companyId)
       .order('created_at', { ascending: false });
@@ -109,7 +115,10 @@ export class PaymentsRepository {
       this.logger.error(error);
       return { data: [], error };
     }
-    return { data: data as PaymentWithTransactionsAndQuotation[], error };
+    return {
+      data: data as unknown as PaymentWithTransactionsAndQuotation[],
+      error,
+    };
   }
 
   async createPaymentPlan(payments: Payment[]) {
