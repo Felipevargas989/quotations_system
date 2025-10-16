@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FileEdit,
   Trash2,
+  ArrowLeftCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { format } from "date-fns";
@@ -28,6 +29,7 @@ import { deletePayment } from "../services/payments.service";
 import { ROLE_GROUPS } from "../constants/permissions";
 import { updateQuotation } from "../services/quotations.service";
 import { useNavigate } from "react-router-dom";
+import { getRefunds } from "../services/refunds.service";
 
 export default function PaymentsPage() {
   const navigate = useNavigate();
@@ -64,7 +66,26 @@ export default function PaymentsPage() {
   const loadPayments = async () => {
     try {
       const { data: paymentsData } = await getPaymentsWithTransactions();
-      setPayments(paymentsData);
+      const { data: refundsData } = await getRefunds();
+
+      // Transform refunds to match payment structure
+      const transformedRefunds =
+        refundsData?.map((refund: any) => ({
+          id: refund.id,
+          amount: refund.amount,
+          paid_amount: 0,
+          status: "",
+          payment_number: 0,
+          payment_type: "Reembolso comprometido",
+          due_date: new Date().toISOString(),
+          quotation_id: refund.quotation_id,
+          quotations: refund.quotations,
+          transactions: [],
+          payment_count: 0,
+          isRefund: true, // Marker to identify refunds
+        })) || [];
+      // Merge payments and refunds
+      setPayments([...paymentsData, ...transformedRefunds]);
     } catch (error) {
       setPayments([]);
     } finally {
@@ -433,22 +454,30 @@ export default function PaymentsPage() {
                   const paymentStatus = payment.status;
                   const progress = getPaymentProgress(payment);
                   const remainingAmount = payment.amount - payment.paid_amount;
+                  const isRefund = (payment as any).isRefund;
 
                   return (
                     <>
                       <tr key={payment.id} className="hover:bg-gray-50">
                         {/* Expand/Collapse */}
                         <td className="px-2 py-2 whitespace-nowrap">
-                          <button
-                            onClick={() => toggleExpandedPayment(payment.id)}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown size={14} />
-                            ) : (
-                              <ChevronRight size={14} />
-                            )}
-                          </button>
+                          {isRefund ? (
+                            <ArrowLeftCircle
+                              size={16}
+                              className="text-orange-500"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => toggleExpandedPayment(payment.id)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown size={14} />
+                              ) : (
+                                <ChevronRight size={14} />
+                              )}
+                            </button>
+                          )}
                         </td>
 
                         {/* Cotización */}
@@ -463,14 +492,22 @@ export default function PaymentsPage() {
 
                         {/* Número de Pago */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-center">
-                          <span className="font-medium ">
-                            {payment.payment_number}
-                          </span>
+                          {!isRefund && (
+                            <span className="font-medium ">
+                              {payment.payment_number}
+                            </span>
+                          )}
                         </td>
 
                         {/* Tipo de Pago */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
-                          <span className="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs">
+                          <span
+                            className={`px-1 py-0.5 rounded text-xs ${
+                              isRefund
+                                ? "bg-orange-100 text-orange-800 font-semibold"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
                             {payment.payment_type ||
                               `Cuota ${payment.payment_number}`}
                           </span>
@@ -478,9 +515,10 @@ export default function PaymentsPage() {
 
                         {/* Fecha Vencimiento */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
-                          {format(new Date(payment.due_date), "dd/MM/yy", {
-                            locale: es,
-                          })}
+                          {!isRefund &&
+                            format(new Date(payment.due_date), "dd/MM/yy", {
+                              locale: es,
+                            })}
                         </td>
 
                         {/* Monto */}
@@ -489,52 +527,60 @@ export default function PaymentsPage() {
                             <div className="font-medium">
                               ${payment.amount.toLocaleString()}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              ${payment.paid_amount.toLocaleString()}
-                            </div>
+                            {!isRefund && (
+                              <div className="text-xs text-gray-500">
+                                ${payment.paid_amount.toLocaleString()}
+                              </div>
+                            )}
                           </div>
                         </td>
 
                         {/* Progreso */}
                         <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="w-12">
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
-                              <div
-                                className={`h-1.5 rounded-full transition-all ${
-                                  progress === 100
-                                    ? "bg-green-500"
-                                    : progress > 0
-                                      ? "bg-yellow-500"
-                                      : "bg-gray-300"
-                                }`}
-                                style={{ width: `${progress}%` }}
-                              />
+                          {!isRefund && (
+                            <div className="w-12">
+                              <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    progress === 100
+                                      ? "bg-green-500"
+                                      : progress > 0
+                                        ? "bg-yellow-500"
+                                        : "bg-gray-300"
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <div className="text-xs text-gray-600 text-center">
+                                {progress.toFixed(0)}%
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-600 text-center">
-                              {progress.toFixed(0)}%
-                            </div>
-                          </div>
+                          )}
                         </td>
 
                         {/* Estado */}
                         <td className="px-2 py-2 whitespace-nowrap">
-                          <span
-                            className={`px-1 py-0.5 text-xs font-semibold rounded ${getStatusColor(paymentStatus)}`}
-                          >
-                            {paymentStatus.charAt(0).toUpperCase() +
-                              paymentStatus.slice(1)}
-                          </span>
-                          {payment.payment_count > 0 && (
-                            <div className="text-xs text-gray-600">
-                              {payment.payment_count} pago
-                              {payment.payment_count > 1 ? "s" : ""}
-                            </div>
+                          {!isRefund && (
+                            <>
+                              <span
+                                className={`px-1 py-0.5 text-xs font-semibold rounded ${getStatusColor(paymentStatus)}`}
+                              >
+                                {paymentStatus.charAt(0).toUpperCase() +
+                                  paymentStatus.slice(1)}
+                              </span>
+                              {payment.payment_count > 0 && (
+                                <div className="text-xs text-gray-600">
+                                  {payment.payment_count} pago
+                                  {payment.payment_count > 1 ? "s" : ""}
+                                </div>
+                              )}
+                            </>
                           )}
                         </td>
 
                         {/* Facturación/Contrato */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
-                          {editingPayment === payment.id ? (
+                          {!isRefund && editingPayment === payment.id ? (
                             <div className="space-y-1">
                               <label className="flex items-center space-x-1">
                                 <input
@@ -569,7 +615,7 @@ export default function PaymentsPage() {
                                 </span>
                               </label>
                             </div>
-                          ) : (
+                          ) : !isRefund ? (
                             <div className="space-y-1">
                               <div className="flex items-center space-x-1">
                                 {payment.quotations?.requires_invoice ? (
@@ -592,93 +638,98 @@ export default function PaymentsPage() {
                                 </span>
                               </div>
                             </div>
-                          )}
+                          ) : null}
                         </td>
 
                         {/* Acciones */}
                         <td className="px-2 py-2 whitespace-nowrap text-xs font-medium">
-                          <div className="flex space-x-1">
-                            {/* Add Payment Transaction Button */}
-                            {remainingAmount > 0 && (
-                              <button
-                                onClick={() => {
-                                  setSelectedPaymentForTransaction(payment);
-                                  setShowTransactionModal(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Agregar pago"
-                              >
-                                <Plus size={14} />
-                              </button>
-                            )}
-
-                            {/* Edit Quotation Button */}
-                            <button
-                              onClick={() =>
-                                handleEditQuotationFromPayment(payment)
-                              }
-                              className="text-purple-600 hover:text-purple-900"
-                              title="Editar cotización"
-                            >
-                              <FileEdit size={14} />
-                            </button>
-
-                            {/* Delete Payment Button */}
-                            {userRole &&
-                              ROLE_GROUPS.ADMIN_ONLY.includes(userRole) && (
+                          {!isRefund && (
+                            <div className="flex space-x-1">
+                              {/* Add Payment Transaction Button */}
+                              {remainingAmount > 0 && (
                                 <button
-                                  onClick={() => handleDeletePayment(payment)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Eliminar pago"
+                                  onClick={() => {
+                                    setSelectedPaymentForTransaction(payment);
+                                    setShowTransactionModal(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="Agregar pago"
                                 >
-                                  <Trash2 size={14} />
+                                  <Plus size={14} />
                                 </button>
                               )}
 
-                            {/* Edit Button */}
-                            {editingPayment === payment.id ? (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    updateQuotationDetails(payment.quotation_id)
-                                  }
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Guardar cambios"
-                                >
-                                  <Save size={14} />
-                                </button>
-                                <button
-                                  onClick={() => setEditingPayment(null)}
-                                  className="text-gray-600 hover:text-gray-900"
-                                  title="Cancelar"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </>
-                            ) : (
+                              {/* Edit Quotation Button */}
                               <button
-                                onClick={() => {
-                                  setEditingPayment(payment.id);
-                                  setEditForm({
-                                    requires_invoice:
-                                      payment.quotations?.requires_invoice ||
-                                      false,
-                                    has_contract:
-                                      payment.quotations?.has_contract || false,
-                                  });
-                                }}
-                                className="text-gray-600 hover:text-gray-900"
-                                title="Editar facturación y contrato"
+                                onClick={() =>
+                                  handleEditQuotationFromPayment(payment)
+                                }
+                                className="text-purple-600 hover:text-purple-900"
+                                title="Editar cotización"
                               >
-                                <Edit2 size={14} />
+                                <FileEdit size={14} />
                               </button>
-                            )}
-                          </div>
+
+                              {/* Delete Payment Button */}
+                              {userRole &&
+                                ROLE_GROUPS.ADMIN_ONLY.includes(userRole) && (
+                                  <button
+                                    onClick={() => handleDeletePayment(payment)}
+                                    className="text-red-600 hover:text-red-900"
+                                    title="Eliminar pago"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+
+                              {/* Edit Button */}
+                              {editingPayment === payment.id ? (
+                                <>
+                                  <button
+                                    onClick={() =>
+                                      updateQuotationDetails(
+                                        payment.quotation_id,
+                                      )
+                                    }
+                                    className="text-green-600 hover:text-green-900"
+                                    title="Guardar cambios"
+                                  >
+                                    <Save size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingPayment(null)}
+                                    className="text-gray-600 hover:text-gray-900"
+                                    title="Cancelar"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingPayment(payment.id);
+                                    setEditForm({
+                                      requires_invoice:
+                                        payment.quotations?.requires_invoice ||
+                                        false,
+                                      has_contract:
+                                        payment.quotations?.has_contract ||
+                                        false,
+                                    });
+                                  }}
+                                  className="text-gray-600 hover:text-gray-900"
+                                  title="Editar facturación y contrato"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
 
                       {/* Expanded Transactions Row */}
-                      {isExpanded && (
+                      {isExpanded && !isRefund && (
                         <tr
                           key={`${payment.id}-transactions`}
                           className="bg-gray-50"

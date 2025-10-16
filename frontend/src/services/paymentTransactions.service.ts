@@ -1,6 +1,7 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { Client } from "../types/clients.types";
 import { CreatePaymentTransaction } from "../types/paymentsTransactions.types";
+import { Refund } from "../types/refunds.types";
 import { apiRequest } from "./api";
 
 // TODO: Move this to the types folder
@@ -44,6 +45,7 @@ export interface PaymentWithTransactions {
     has_contract: boolean;
     clients: Pick<Client, "name">;
   };
+  refunds: Refund[];
 }
 
 export const createPaymentTransaction = async (

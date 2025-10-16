@@ -28,4 +28,7 @@ export const API_ROUTES = {
 
   // plans
   PLAN_CONFIRMATION: "/plans/confirmation",
+
+  // refunds
+  REFUNDS: "/refunds",
 };
