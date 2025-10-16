@@ -5,6 +5,7 @@ import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
+import { RefundsService } from 'src/refunds/refunds.service';
 import { getEventDateUtc } from '../utils/dates';
 import {
   PaymentPlanType,
@@ -22,6 +23,7 @@ import { QuotationsRepository } from './quotations.repository';
 export class QuotationsService {
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
+    private readonly refundsService: RefundsService,
     // private readonly paymentsRepository: PaymentsRepository,
     private readonly paymentsService: PaymentsService,
     private readonly logger: PinoLogger,
@@ -144,9 +146,10 @@ export class QuotationsService {
 
           // if not payments, then create a refund with the difference
           if (!payments || payments.length === 0) {
-            throw new Error(
-              'No hay pagos para disminuir el total_amount. Se debe crear un refund',
-            );
+            await this.refundsService.create({
+              amount: amountToReduce,
+              quotation_id: id,
+            });
           }
           // if there is at least one pending payment
           else {
@@ -189,9 +192,10 @@ export class QuotationsService {
 
             // check if amountToReduce is 0. If amountToReduce is not 0, then create a refund with the differencei
             if (amountToReduce > 0) {
-              this.logger.warn(
-                'amountToReduce is greater than 0, so we need to create a refund with the difference',
-              );
+              await this.refundsService.create({
+                amount: amountToReduce,
+                quotation_id: id,
+              });
             }
           }
         }
