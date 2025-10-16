@@ -178,13 +178,12 @@ export class QuotationsService {
               }
               // if pendingAmountToBePaid is smaller than amountToReduce, then reduce the amount of the payment, update the payment and then continue with the next payment
               else {
-                throw new Error(
-                  'El pago actual es menor que el monto a disminuir. Se debe descontar el monto actual del pago y seguir con el siguiente pago',
-                );
-
                 // update payment with the new amount (discount the min between pendingAmountToBePaid and amountToReduce)
-
+                await this.paymentsService.update(payment.id, {
+                  amount: payment.amount - pendingAmountToBePaid,
+                });
                 // update amountToReduce with the difference
+                amountToReduce = amountToReduce - pendingAmountToBePaid;
               }
             }
 
