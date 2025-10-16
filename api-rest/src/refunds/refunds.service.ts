@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { Company } from 'src/companies/entities/company.entity';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { RefundsRepository } from './refunds.repository';
 import { CreateRefundPayload } from './types';
@@ -27,9 +28,15 @@ export class RefundsService {
     }
   }
 
-  // findAll() {
-  //   return `This action returns all refunds`;
-  // }
+  async findAll(companyId: Company['id']) {
+    this.logger.info(`findAll refunds with companyId ${companyId}`);
+    try {
+      return await this.refundsRepository.findAll(companyId);
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
 
   // findOne(id: number) {
   //   return `This action returns a #${id} refund`;
