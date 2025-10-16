@@ -89,12 +89,6 @@ export class PaymentsRepository {
       has_contract,
       clients!inner (
         name
-      ),
-      refunds (
-        id,
-        amount,
-        is_paid,
-        created_at
       )
     ),
     payment_transactions (
@@ -116,7 +110,7 @@ export class PaymentsRepository {
       return { data: [], error };
     }
     return {
-      data: data as unknown as PaymentWithTransactionsAndQuotation[],
+      data: data as PaymentWithTransactionsAndQuotation[],
       error,
     };
   }

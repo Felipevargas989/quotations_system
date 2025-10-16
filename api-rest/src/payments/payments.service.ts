@@ -175,7 +175,6 @@ export class PaymentsService {
         paid_amount,
         payment_count,
         last_payment_date,
-        refunds: payment.quotations.refunds,
       };
     });
 
