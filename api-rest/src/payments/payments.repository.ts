@@ -26,7 +26,10 @@ export class PaymentsRepository {
     quotationIds: Quotation['id'][],
     companyId: Company['id'],
     filterStatus?: PaymentStatus[],
-  ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
+  ): Promise<{
+    data: PaymentWithTransactionsAndQuotation[] | null;
+    error: PostgrestError | null;
+  }> {
     this.logger.info(
       `findAllPaymentsFromQuotation with quotationId ${JSON.stringify(quotationIds)} and companyId ${companyId}`,
     );
@@ -36,6 +39,10 @@ export class PaymentsRepository {
         *,
         quotations (
           company_id
+        ),
+        payment_transactions (
+          id,
+          amount,
         )
       `,
     );
@@ -50,7 +57,10 @@ export class PaymentsRepository {
       .order('payment_number', { ascending: true });
 
     const { data, error } = await query;
-    return { data, error };
+    return {
+      data: data as unknown as PaymentWithTransactionsAndQuotation[],
+      error,
+    };
   }
 
   async findAllPaymentsWithTransactions(companyId: Company['id']): Promise<{

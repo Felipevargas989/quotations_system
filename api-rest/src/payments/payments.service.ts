@@ -16,6 +16,7 @@ import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
   CreatePayment,
   CreatePaymentTransaction,
+  PaymentWithTransactionsAndQuotation,
   UpdatePaymentTransaction,
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
@@ -130,7 +131,10 @@ export class PaymentsService {
     quotationIds: Quotation['id'][],
     companyId: Company['id'],
     filterStatus?: PaymentStatus[],
-  ): Promise<{ data: Payment[] | null; error: PostgrestError | null }> {
+  ): Promise<{
+    data: PaymentWithTransactionsAndQuotation[] | null;
+    error: PostgrestError | null;
+  }> {
     return this.paymentsRepository.findAllPaymentsFromQuotation(
       quotationIds,
       companyId,

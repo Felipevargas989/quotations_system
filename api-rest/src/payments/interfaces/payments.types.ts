@@ -4,7 +4,10 @@ import { Payment, PaymentTransaction } from '../entities/payment.entity';
 
 export type PaymentWithTransactionsAndQuotation = Payment & {
   quotations: Quotation[];
-  payment_transactions: PaymentTransaction[];
+  payment_transactions: Pick<
+    PaymentTransaction,
+    'id' | 'amount' | 'transaction_date'
+  >[];
 };
 
 export type CreatePaymentTransaction = Omit<

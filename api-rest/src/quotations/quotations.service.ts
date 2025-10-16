@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
+import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
 import { getEventDateUtc } from '../utils/dates';
 import {
@@ -121,14 +122,79 @@ export class QuotationsService {
       // 1. Check quotation status
       // If quotation_states is accepted, handle update payment plan (payments)
       if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
-        // 2.1 If new total_amount is less than previous one, throw error and not update quotation
+        // Get all payments PENDIENTE or VENCIDO
+        const { data: payments, error: paymentsError } =
+          await this.paymentsService.findAllPaymentsFromQuotation(
+            [id],
+            companyId,
+            [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
+          );
+        if (paymentsError) {
+          throw paymentsError;
+        }
+
+        // 2.1 If new total_amount is less than previous one, check if discount if possible or create a refund
         if (
           updateQuotationDto.total_amount &&
           updateQuotationDto.total_amount < quotation.total_amount
         ) {
-          throw new Error(
-            'No se puede disminuir el total_amount de una cotización aceptada',
-          );
+          // get amount to reduce from the quotation
+          let amountToReduce =
+            quotation.total_amount - updateQuotationDto.total_amount;
+
+          // if not payments, then create a refund with the difference
+          if (!payments || payments.length === 0) {
+            throw new Error(
+              'No hay pagos para disminuir el total_amount. Se debe crear un refund',
+            );
+          }
+          // if there is at least one pending payment
+          else {
+            // iterate over each payment and reduce the amountToReduce from each payment until the amountToReduce is 0
+            for (const payment of payments) {
+              // if amountToReduce is 0, then stop the iteration because all the decrements are applied
+              if (amountToReduce === 0) {
+                break;
+              }
+              // get already paid amount of this payment
+              const alreadyPaidAmount = payment.payment_transactions.reduce(
+                (sum: number, transaction: PaymentTransaction) =>
+                  sum + transaction.amount,
+                0,
+              );
+
+              // get pending amount to be paid of this payment
+              const pendingAmountToBePaid = payment.amount - alreadyPaidAmount;
+
+              // if pendingAmountToBePaid is greater than amountToReduce, then reduce the amountToReduce from payment
+              if (pendingAmountToBePaid > amountToReduce) {
+                // update payment with thew new amount
+                await this.paymentsService.update(payment.id, {
+                  amount: payment.amount - amountToReduce,
+                });
+
+                // update amountToReduce to 0
+                amountToReduce = 0;
+              }
+              // if pendingAmountToBePaid is smaller than amountToReduce, then reduce the amount of the payment, update the payment and then continue with the next payment
+              else {
+                throw new Error(
+                  'El pago actual es menor que el monto a disminuir. Se debe descontar el monto actual del pago y seguir con el siguiente pago',
+                );
+
+                // update payment with the new amount (discount the min between pendingAmountToBePaid and amountToReduce)
+
+                // update amountToReduce with the difference
+              }
+            }
+
+            // check if amountToReduce is 0. If amountToReduce is not 0, then create a refund with the differencei
+            if (amountToReduce > 0) {
+              this.logger.warn(
+                'amountToReduce is greater than 0, so we need to create a refund with the difference',
+              );
+            }
+          }
         }
 
         // 2.2 If new total_amount is greater thant previous one, update payments
@@ -136,16 +202,6 @@ export class QuotationsService {
           updateQuotationDto.total_amount &&
           updateQuotationDto.total_amount > quotation.total_amount
         ) {
-          // Get all payments PENDIENTE or VENCIDO
-          const { data: payments, error: paymentsError } =
-            await this.paymentsService.findAllPaymentsFromQuotation(
-              [id],
-              companyId,
-              [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
-            );
-          if (paymentsError) {
-            throw paymentsError;
-          }
           // If payments, then get the last one and increase the amount by the difference between the new total_amount and the previous total_amount
           if (payments && payments.length > 0) {
             // Get the last payment and increase the amount by the difference between the new total_amount and the previous total_amount
