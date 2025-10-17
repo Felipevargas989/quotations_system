@@ -33,9 +33,25 @@ export class ClientsService {
     return this.clientsRepository.findAll(companyId);
   }
 
-  // findOne(id: number) {
-  //   return `This action returns a #${id} client`;
-  // }
+  async findOne(
+    company_id: number,
+    id?: number,
+    email?: string,
+    phone?: string,
+  ) {
+    this.logger.info(
+      `findOne client with company_id ${company_id} and id ${id} and email ${email} and phone ${phone}`,
+    );
+    try {
+      return await this.clientsRepository.findOne(company_id, id, email, phone);
+    } catch (error) {
+      this.logger.error(
+        `error finding client with id ${id} and email ${email} and phone ${phone}`,
+        error,
+      );
+      throw error;
+    }
+  }
 
   update(id: string, updateClientDto: UpdateClientDto, companyId: number) {
     this.logger.info(

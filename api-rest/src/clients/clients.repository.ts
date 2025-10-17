@@ -67,4 +67,23 @@ export class ClientsRepository {
     }
     return data as unknown as Client;
   }
+
+  findOne(company_id: number, id?: number, email?: string, phone?: string) {
+    this.logger.info(
+      `findOne client with company_id ${company_id} and id ${id} and email ${email} and phone ${phone}`,
+    );
+    // Start with base query
+    let query = this.supabase.client
+      .from('clients')
+      .select('*')
+      .eq('company_id', company_id);
+
+    // Add filters only if provided
+    if (id !== undefined) query = query.eq('id', id);
+    if (email !== undefined) query = query.eq('email', email);
+    if (phone !== undefined) query = query.eq('phone', phone);
+
+    // Execute
+    return query.single();
+  }
 }
