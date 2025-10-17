@@ -2,6 +2,8 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
+import { EmailService } from 'src/email/email.service';
+import { EmailStructure } from 'src/email/types/index';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
@@ -17,6 +19,7 @@ export class SuperAdminService {
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
     private readonly superAdminRepository: SuperAdminRepository,
+    private readonly emailService: EmailService,
   ) {}
 
   async createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
@@ -55,12 +58,15 @@ export class SuperAdminService {
         throw userError;
       }
 
+      // send email to the admin
+      void this.emailService.sendEmail(
+        createSuscriptionDto.admin_email,
+        EmailStructure.NEW_ACCOUNT,
+      );
       return {
         userData,
         companyData,
       };
-
-      // return this.superAdminRepository.createSuscription(createSuscriptionDto);
     } catch (error) {
       this.logger.error(error);
       throw error;

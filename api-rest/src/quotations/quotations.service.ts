@@ -3,6 +3,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Client } from 'src/clients/entities/client.entity';
 import { Company } from 'src/companies/entities/company.entity';
+import { EmailService } from 'src/email/email.service';
+import { EmailStructure } from 'src/email/types/index';
 import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
@@ -29,6 +31,7 @@ export class QuotationsService {
     private readonly refundsService: RefundsService,
     private readonly paymentsService: PaymentsService,
     private readonly clientsService: ClientsService,
+    private readonly emailService: EmailService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
@@ -131,7 +134,24 @@ export class QuotationsService {
     };
 
     // create new quotation
-    return this.create(newQuotation, company_id, undefined);
+    const newQuotationCreated = await this.create(
+      newQuotation,
+      company_id,
+      undefined,
+    );
+
+    if (newQuotationCreated) {
+      // send email to the client who created the quotation
+      await this.emailService.sendEmail(
+        createQuotationPublicDto.email,
+        EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+      );
+
+      // TODO: add this email
+      // // get company admin email
+      // // send email to the company admin
+      // await this.emailService.sendEmail
+    }
   }
   async findAll(
     companyId: number,
