@@ -84,7 +84,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         request_type: request.request_type,
         quotation_status: request.quotation_status,
         event_type: request.event_type,
-        event_date: request.event_date,
+        event_date: request.event_date.split("T")[0],
         people_count: request.people_count,
         observations: request.observations,
         client_id: request.client_id,
