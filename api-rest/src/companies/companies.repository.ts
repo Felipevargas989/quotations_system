@@ -28,6 +28,18 @@ export class CompaniesRepository {
       .single();
   }
 
+  async findOne(id: Company['id']): Promise<{
+    data: Company | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(`findOne company with id ${id}`);
+    return await this.supabase.client
+      .from('companies')
+      .select('*')
+      .eq('id', id)
+      .single();
+  }
+
   async update(
     id: Company['id'],
     updateCompanyDto: UpdateCompanyDto,

@@ -18,9 +18,16 @@ export class CompaniesService {
   // findAll() {
   //   return `This action returns all companies`;
   // }
-  // findOne(id: number) {
-  //   return `This action returns a #${id} company`;
-  // }
+  async findOne(id: Company['id']) {
+    this.logger.info(`findOne company with id ${id}`);
+    try {
+      return await this.companiesRepository.findOne(id);
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
+  }
+
   async update(id: Company['id'], updateCompanyDto: UpdateCompanyDto) {
     this.logger.info(
       `update company with id ${id} and updateCompanyDto ${JSON.stringify(updateCompanyDto)}`,
