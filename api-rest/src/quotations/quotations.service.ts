@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { ClientsService } from 'src/clients/clients.service';
+import { Client } from 'src/clients/entities/client.entity';
 import { Company } from 'src/companies/entities/company.entity';
 import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
@@ -13,6 +15,7 @@ import {
   RequestType,
 } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
+import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
@@ -24,8 +27,8 @@ export class QuotationsService {
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
     private readonly refundsService: RefundsService,
-    // private readonly paymentsRepository: PaymentsRepository,
     private readonly paymentsService: PaymentsService,
+    private readonly clientsService: ClientsService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
@@ -33,7 +36,7 @@ export class QuotationsService {
   async create(
     createQuotationDto: CreateQuotationDto,
     companyId: number,
-    userId: string,
+    userId: string | undefined,
   ) {
     this.logger.info(
       `create quotation with createQuotationDto ${JSON.stringify(createQuotationDto)}`,
@@ -82,6 +85,54 @@ export class QuotationsService {
     return this.quotationsRepository.create(newQuotation);
   }
 
+  async createPublic(
+    createQuotationPublicDto: CreateQuotationPublicDto,
+    company_id: Company['id'],
+  ) {
+    this.logger.info(
+      `createPublic quotation with createQuotationPublicDto ${JSON.stringify(createQuotationPublicDto)}`,
+    );
+    // check if client exists (try to get a client with the same email or phone)
+    const { data: existingClient } = await this.clientsService.findOne(
+      company_id,
+      undefined,
+      createQuotationPublicDto.email,
+      createQuotationPublicDto.phone,
+    );
+
+    // if not client, create a new one
+    let clientId: string;
+    if (existingClient) {
+      // throw new Error('Client already exists');
+      clientId = (existingClient as Client).id;
+    } else {
+      // throw new Error('Client does not exists');
+      const newClient = await this.clientsService.create(
+        {
+          client_type: createQuotationPublicDto.client_type,
+          email: createQuotationPublicDto.email,
+          name: createQuotationPublicDto.name,
+          phone: createQuotationPublicDto.phone,
+        },
+        company_id,
+      );
+      clientId = newClient.id;
+    }
+
+    // create a new quotation
+    const newQuotation: CreateQuotationDto = {
+      client_id: clientId,
+      event_type: createQuotationPublicDto.event_type,
+      people_count: createQuotationPublicDto.people_count,
+      observations: `[Desde formulario publico] --- ${createQuotationPublicDto.observations}`,
+      event_date: createQuotationPublicDto.event_date,
+      quotation_status: QuotationStatus.SOLICITADA,
+      request_type: RequestType.REQUERIMIENTO,
+    };
+
+    // create new quotation
+    return this.create(newQuotation, company_id, undefined);
+  }
   async findAll(
     companyId: number,
     request_type?: RequestType,

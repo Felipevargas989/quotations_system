@@ -9,9 +9,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { CurrentUser } from 'src/auth';
+import { CurrentUser, Public } from 'src/auth';
+import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
+import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
@@ -38,6 +40,21 @@ export class QuotationsController {
       createQuotationDto,
       user.company_id,
       user.id,
+    );
+  }
+
+  @Public()
+  @Post('public/:company_id')
+  createPublic(
+    @Body() createQuotationPublicDto: CreateQuotationPublicDto,
+    @Param('company_id') company_id: Company['id'],
+  ) {
+    this.logger.info(
+      `POST /quotations with createQuotationDto ${JSON.stringify(createQuotationPublicDto)}`,
+    );
+    return this.quotationsService.createPublic(
+      createQuotationPublicDto,
+      company_id,
     );
   }
 

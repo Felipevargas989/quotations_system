@@ -6,9 +6,10 @@ import { Quotation } from '../entities/quotation.entity';
 
 export type CreateQuotation = Omit<
   Quotation,
-  'id' | 'created_at' | 'updated_at' | 'event_date'
+  'id' | 'created_at' | 'updated_at' | 'event_date' | 'user_id'
 > & {
   event_date: string;
+  user_id: string | undefined;
 };
 
 export type PaymentWithTransactionsAndQuotation = Payment & {
