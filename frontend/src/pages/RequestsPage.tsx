@@ -8,6 +8,11 @@ import {
   Eye,
   Calendar,
   Users,
+  Share2,
+  Copy,
+  Check,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { DateTime } from "luxon";
 import { useAuth } from "../contexts/AuthContext";
@@ -25,13 +30,15 @@ import {
 import { formatISOUTCDateToString } from "../utils/dates.ts";
 
 export default function RequestsPage() {
-  const { user, userRole } = useAuth();
+  const { user, userRole, company } = useAuth();
   const [requests, setRequests] = useState<QuotationWithClient[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] =
     useState<QuotationWithClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showPublicLinkModal, setShowPublicLinkModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -75,6 +82,23 @@ export default function RequestsPage() {
       alert("Requerimiento eliminado exitosamente");
     } catch (error) {
       alert("Error al eliminar el requerimiento");
+    }
+  };
+
+  const getPublicQuotationLink = () => {
+    if (!company?.id) return "";
+    return `${window.location.origin}/public-quotation/${company.id}`;
+  };
+
+  const handleCopyLink = async () => {
+    const link = getPublicQuotationLink();
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+      alert("Error al copiar el enlace");
     }
   };
 
@@ -236,17 +260,169 @@ export default function RequestsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Public Link Modal */}
+      {showPublicLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Share2 className="h-6 w-6 text-blue-600" />
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Enlace Público de Cotización
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowPublicLinkModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Explanation */}
+              <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <p className="text-sm text-blue-900 mb-2">
+                  <strong>📢 Comparte este enlace con tus clientes</strong>
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1 ml-4 list-disc">
+                  <li>
+                    Los clientes pueden enviar solicitudes de cotización
+                    directamente
+                  </li>
+                  <li>
+                    Puedes compartirlo por WhatsApp, redes sociales o tu sitio
+                    web
+                  </li>
+                  <li>
+                    Cada solicitud se creará automáticamente como un nuevo
+                    requerimiento aquí
+                  </li>
+                  <li>Recibirás notificación de cada nueva solicitud</li>
+                </ul>
+              </div>
+
+              {/* Link Display */}
+              <div className="mb-4">
+                <label
+                  htmlFor="public-link"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Tu enlace público:
+                </label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-100 px-4 py-3 rounded-lg border border-gray-300">
+                    <code
+                      id="public-link"
+                      className="text-sm text-gray-800 break-all"
+                    >
+                      {getPublicQuotationLink()}
+                    </code>
+                  </div>
+                  <button
+                    onClick={handleCopyLink}
+                    className={`px-4 py-3 rounded-lg flex items-center space-x-2 transition-all ${
+                      copied
+                        ? "bg-green-600 text-white"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={20} />
+                        <span>Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={20} />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview Button */}
+              <div className="mb-6">
+                <a
+                  href={getPublicQuotationLink()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  <ExternalLink size={16} />
+                  <span>Abrir enlace en nueva pestaña (Vista previa)</span>
+                </a>
+              </div>
+
+              {/* Examples */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">
+                  💡 Formas de compartir:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-xs font-semibold text-green-800 mb-1">
+                      WhatsApp
+                    </p>
+                    <p className="text-xs text-green-700">
+                      Comparte el enlace en chats o estados
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-xs font-semibold text-blue-800 mb-1">
+                      Redes Sociales
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      Publica en Facebook, Instagram, etc.
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-xs font-semibold text-purple-800 mb-1">
+                      Sitio Web
+                    </p>
+                    <p className="text-xs text-purple-700">
+                      Agrégalo como botón en tu página
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowPublicLinkModal(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
           Requerimientos Pendientes
         </h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Nuevo Requerimiento</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowPublicLinkModal(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+          >
+            <Share2 size={20} />
+            <span>Enlace Público</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Nuevo Requerimiento</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow">
