@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
+import { EmailModule } from './email/email.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -48,6 +49,7 @@ import { UsersModule } from './users/users.module';
     CalendarModule,
     PlansModule,
     RefundsModule,
+    EmailModule,
   ],
   controllers: [],
   providers: [
