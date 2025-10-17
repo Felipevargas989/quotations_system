@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Save, CheckCircle } from "lucide-react";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
+import { getCompany } from "../../services/companies.service";
 import {
   EventType,
   QuotationPublicFormData,
 } from "../../types/quotations.types";
+import { Company } from "../../types/companies.types";
 import { NumberInput } from "../../components/inputs";
 
 export default function CreateQuotationPublic() {
@@ -27,6 +29,8 @@ export default function CreateQuotationPublic() {
 
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -62,6 +66,29 @@ export default function CreateQuotationPublic() {
       return "Teléfono debe ser formato chileno: +569XXXXXXXX";
     return "";
   };
+
+  // Fetch company data on mount
+  useEffect(() => {
+    const fetchCompany = async () => {
+      if (!company_id) return;
+
+      setCompanyLoading(true);
+      try {
+        const { data, error } = await getCompany(company_id);
+        if (error) {
+          console.error("Error fetching company:", error);
+        } else if (data) {
+          setCompany(data);
+        }
+      } catch (error) {
+        console.error("Error fetching company:", error);
+      } finally {
+        setCompanyLoading(false);
+      }
+    };
+
+    fetchCompany();
+  }, [company_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +140,19 @@ export default function CreateQuotationPublic() {
     }
   };
 
+  // Get company colors or use defaults
+  const primaryColor = company?.colors?.primary || "#2563eb";
+  const secondaryColor = company?.colors?.secondary || "#4f46e5";
+
+  // Loading state
+  if (companyLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -141,7 +181,8 @@ export default function CreateQuotationPublic() {
                 observations: "",
               });
             }}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            style={{ backgroundColor: primaryColor }}
+            className="px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all"
           >
             Crear Nueva Solicitud
           </button>
@@ -155,11 +196,34 @@ export default function CreateQuotationPublic() {
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-lg shadow-xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white">
-            <h1 className="text-3xl font-bold mb-2">Solicitud de Cotización</h1>
-            <p className="text-blue-100">
-              Complete el formulario y nos pondremos en contacto con usted
-            </p>
+          <div
+            className="px-6 py-8 text-white"
+            style={{
+              background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold mb-2">
+                  Solicitud de Cotización
+                </h1>
+                <p className="text-white text-opacity-90">
+                  Complete el formulario y nos pondremos en contacto con usted
+                </p>
+              </div>
+              {company?.logo_url && (
+                <img
+                  src={company.logo_url}
+                  alt={company.name}
+                  className="h-16 w-auto object-contain bg-white rounded-lg p-2 ml-4"
+                />
+              )}
+            </div>
+            {company?.name && (
+              <p className="text-sm text-white text-opacity-80">
+                {company.name}
+              </p>
+            )}
           </div>
 
           {/* Form */}
@@ -424,10 +488,13 @@ export default function CreateQuotationPublic() {
               <button
                 type="submit"
                 disabled={loading}
+                style={{
+                  backgroundColor: loading ? undefined : primaryColor,
+                }}
                 className={`px-8 py-3 rounded-lg flex items-center space-x-2 text-white font-medium transition-all ${
                   loading
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg"
+                    : "hover:opacity-90 hover:shadow-lg"
                 }`}
               >
                 <Save size={20} />
