@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
+import { newAccountTemplate } from './templates/newAccount';
 import { EmailStructure } from './types';
 
 @Injectable()
@@ -14,11 +15,7 @@ export class EmailService {
   emailStructure = {
     [EmailStructure.NEW_ACCOUNT]: {
       subject: 'Bienvenido a Eventia',
-      html: `
-        <h1>Bienvenido a Eventia</h1>
-        <p>Hola, bienvenido a Eventia. Te damos la bienvenida a nuestra plataforma de cotizaciones.</p>
-        <p>Visita nuestro sitio web para más información: <a href="https://www.eventi-app.com/">Visitar Eventia</a></p>
-      `,
+      html: newAccountTemplate,
     },
     [EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT]: {
       subject: 'Solicitud de cotización recibida',
