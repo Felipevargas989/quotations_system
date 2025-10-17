@@ -22,6 +22,7 @@ import { useEffect } from "react";
 import { initGA } from "./lib/analytics.ts";
 import Plans from "./pages/plans/Plans.tsx";
 import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
+import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -46,6 +47,10 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           {/* TODO: add authentication */}
           <Route path="/superAdminqweasdzxc" element={<SuperAdminPage />} />
+          <Route
+            path="/public-quotation/:company_id"
+            element={<CreateQuotationPublic />}
+          />
           <Route path="/" element={<Layout />}>
             {/* Dashboard - Admin only */}
             <Route

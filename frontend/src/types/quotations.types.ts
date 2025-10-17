@@ -103,6 +103,15 @@ export interface QuotationFormData
   event_date: Quotation["event_date"] | undefined;
 }
 
+export type QuotationPublicFormData = Pick<
+  Client,
+  "name" | "email" | "phone" | "client_type"
+> &
+  Pick<
+    Quotation,
+    "event_type" | "people_count" | "observations" | "event_date"
+  >;
+
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
 
 export interface QuotationWithClient extends Quotation {

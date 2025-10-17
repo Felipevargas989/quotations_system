@@ -1,8 +1,8 @@
 import { API_ROUTES } from "../constants/api.routes";
 import {
   Quotation,
-  QuotationFormData,
   QuotationFormDataUpdate,
+  QuotationPublicFormData,
   QuotationRequestType,
   QuotationStatus,
   QuotationWithClient,
@@ -13,8 +13,9 @@ export const getQuotations = async (
   requirementType: QuotationRequestType,
   statuses: QuotationStatus[],
 ) => {
+  const statusesParam = statuses ? `&statuses=${statuses.join(",")}` : "";
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}${statuses ? `&statuses=${statuses.join(",")}` : ""}`,
+    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}${statusesParam}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };
@@ -29,9 +30,24 @@ export const deleteQuotation = async (quotationId: string) => {
   return { error: response.error };
 };
 
-export const createQuotation = async (quotation: QuotationFormData) => {
+export const createQuotation = async (
+  company_id: string,
+  quotation: QuotationPublicFormData,
+) => {
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}`,
+    `${API_ROUTES.QUOTATIONS}/${company_id}`,
+    "POST",
+    quotation,
+  );
+  return { data: response as Quotation, error: response.error };
+};
+
+export const createQuotationPublic = async (
+  companyId: string,
+  quotation: QuotationPublicFormData,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/public/${companyId}`,
     "POST",
     quotation,
   );

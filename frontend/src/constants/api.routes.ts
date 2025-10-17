@@ -1,11 +1,20 @@
 export const API_ROUTES = {
   COMPANIES: "/companies",
+
+  // quotations
   QUOTATIONS: "/quotations",
   QUOTATIONS_CHECK_CONFLICTS: "/quotations/check-conflicts",
+  QUOTATIONS_PUBLIC: "/quotations/public",
+
+  // clients
   CLIENTS: "/clients",
+
+  // payments
   PAYMENTS: "/payments",
   PAYMENTS_PLAN: "/payments/plan",
   PAYMENTS_TRANSACTIONS: "/payments/transactions",
+
+  // services
   SERVICES: "/services",
   SERVICES_BULK: "/services/bulk",
   SERVICES_VARIABLE: "/services/variable",
