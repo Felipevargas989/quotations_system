@@ -30,12 +30,9 @@ export const deleteQuotation = async (quotationId: string) => {
   return { error: response.error };
 };
 
-export const createQuotation = async (
-  company_id: string,
-  quotation: QuotationPublicFormData,
-) => {
+export const createQuotation = async (quotation: QuotationPublicFormData) => {
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}/${company_id}`,
+    `${API_ROUTES.QUOTATIONS}`,
     "POST",
     quotation,
   );
