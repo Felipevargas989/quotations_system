@@ -2,8 +2,8 @@ import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { baseLayoutTemplate } from './baseLayout';
 
 /**
- * Email template for upcoming events notification
- * @param events - Array of quotation events
+ * Email template for events happening in exactly 3 days
+ * @param events - Array of quotation events (all happening in 3 days)
  * @returns HTML string for the email
  */
 export const soonEventsTemplate = (
@@ -20,52 +20,54 @@ export const soonEventsTemplate = (
     });
   };
 
-  // Helper function to calculate days until event
-  const getDaysUntil = (date: Date | string): number => {
-    const eventDate = new Date(date);
-    const today = new Date();
-    const diffTime = eventDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  // Helper function to get countdown text
-  const getCountdownText = (daysUntil: number): string => {
-    if (daysUntil === 0) {
-      return '⚠️ ¡HOY!';
-    }
-    if (daysUntil === 1) {
-      return '⚠️ Mañana';
-    }
-    if (daysUntil < 0) {
-      const absDays = Math.abs(daysUntil);
-      return `Hace ${absDays} día${absDays > 1 ? 's' : ''}`;
-    }
-    return `En ${daysUntil} día${daysUntil > 1 ? 's' : ''}`;
-  };
-
-  // Helper function to get subtitle text
-  const getSubtitleText = (eventCount: number): string => {
-    if (eventCount === 0) {
-      return 'No tienes eventos próximos en este momento.';
-    }
-    const eventWord = eventCount > 1 ? 'eventos' : 'evento';
-    const proximoWord = eventCount > 1 ? 'próximos' : 'próximo';
-    return `Tienes ${eventCount} ${eventWord} ${proximoWord}.`;
-  };
+  // Get the target date (3 days from now)
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + 3);
 
   // Build the email content
   const emailContent = `
     <style>
+      .alert-banner {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-left: 4px solid #f59e0b;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+      .alert-icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+      }
+      .alert-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #92400e;
+        margin: 0;
+      }
       .title {
         font-size: 24px;
         font-weight: 600;
         color: #111827;
         margin: 0 0 10px 0;
+        text-align: center;
       }
       .subtitle {
         font-size: 16px;
         color: #6b7280;
         margin: 0 0 30px 0;
+        text-align: center;
+      }
+      .date-highlight {
+        background-color: #dbeafe;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+      }
+      .date-highlight strong {
+        color: #1e40af;
+        font-size: 18px;
       }
       .event-card {
         background-color: #f9fafb;
@@ -81,57 +83,81 @@ export const soonEventsTemplate = (
         font-size: 18px;
         font-weight: 600;
         color: #111827;
-        margin: 0 0 8px 0;
+        margin: 0 0 12px 0;
       }
-      .event-date {
+      .event-detail {
         font-size: 14px;
         color: #4b5563;
-        margin: 0 0 5px 0;
+        margin: 8px 0;
       }
-      .event-countdown {
-        font-size: 13px;
-        color: #134686;
+      .event-detail strong {
+        color: #374151;
+      }
+      .events-count {
+        background-color: #134686;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
         font-weight: 600;
-        margin: 5px 0 0 0;
+        display: inline-block;
+        margin-bottom: 20px;
       }
-      .urgent {
-        border-left-color: #dc2626;
+      .reminder-box {
+        background-color: #f0fdf4;
+        border-left: 4px solid #10b981;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 30px;
       }
-      .urgent .event-countdown {
-        color: #dc2626;
-      }
-      .no-events {
-        text-align: center;
-        padding: 40px 20px;
-        color: #6b7280;
+      .reminder-box p {
+        margin: 0;
+        color: #065f46;
+        font-size: 14px;
+        line-height: 1.6;
       }
     </style>
 
-    <h2 class="title">📅 Eventos Próximos</h2>
+    <div class="alert-banner">
+      <div class="alert-icon">⏰</div>
+      <p class="alert-text">¡Recordatorio! Eventos en 3 días</p>
+    </div>
+
+    <h2 class="title">📅 Eventos Programados</h2>
     <p class="subtitle">
-      ${getSubtitleText(events.length)}
+      ${events.length === 1 ? 'Tienes 1 evento programado' : `Tienes ${events.length} eventos programados`} para el <strong>${formatDate(targetDate)}</strong>
     </p>
 
-    ${
-      events.length > 0
-        ? events
-            .map((event) => {
-              const daysUntil = getDaysUntil(event.event_date);
-              const isUrgent = daysUntil <= 3;
+    <div class="date-highlight">
+      <strong>📆 ${formatDate(targetDate)}</strong>
+    </div>
 
-              return `
-            <div class="event-card ${isUrgent ? 'urgent' : ''}">
-              <h3 class="event-type">${event.event_type || 'Evento'}</h3>
-              <p class="event-date">📍 ${formatDate(event.event_date)}</p>
-              <p class="event-countdown">
-                ${getCountdownText(daysUntil)}
-              </p>
-            </div>
-          `;
-            })
-            .join('')
-        : '<div class="no-events">✨ No hay eventos programados próximamente</div>'
-    }
+    <div style="text-align: center; margin-bottom: 20px;">
+      <span class="events-count">${events.length} ${events.length === 1 ? 'evento' : 'eventos'}</span>
+    </div>
+
+    ${events
+      .map((event) => {
+        return `
+      <div class="event-card">
+        <h3 class="event-type">${event.event_type || 'Evento'}</h3>
+        <p class="event-detail">
+          <strong>📍 Fecha:</strong> ${formatDate(event.event_date)}
+        </p>
+        <p class="event-detail">
+          <strong>🆔 ID:</strong> ${event.id}
+        </p>
+      </div>
+    `;
+      })
+      .join('')}
+
+    <div class="reminder-box">
+      <p>
+        ✅ <strong>Recuerda:</strong> Estos eventos se realizarán en 3 días.
+        Asegúrate de tener todo preparado y confirmar los detalles finales con tus clientes.
+      </p>
+    </div>
   `;
 
   // Use the base layout

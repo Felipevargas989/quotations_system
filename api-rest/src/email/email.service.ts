@@ -65,7 +65,7 @@ export class EmailService {
         break;
 
       case EmailStructure.SOON_EVENTS:
-        subject = 'Eventos próximos';
+        subject = 'Tienes los siguientes eventos en 3 días más';
         sendTo = to as string[];
         if (!params?.events) {
           throw new Error(

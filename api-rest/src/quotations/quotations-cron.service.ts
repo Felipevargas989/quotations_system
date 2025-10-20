@@ -23,7 +23,7 @@ export class QuotationsCronService {
   ) {
     this.logger.setContext(QuotationsCronService.name);
   }
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkSoonEvents() {
     this.logger.info('CRON job: Checking for soon events');
 
@@ -37,8 +37,7 @@ export class QuotationsCronService {
         company_id: undefined,
         statuses: [QuotationStatus.ACEPTADA],
         request_type: RequestType.COTIZACION,
-        // TODO: add event date filter
-        // event_date: eventDate.toISOString(),
+        event_date: eventDate.toISOString(),
       });
 
       // 2. Group by company_id
@@ -51,13 +50,8 @@ export class QuotationsCronService {
         {} as Record<number, Quotation[]>,
       );
 
-      // (optional filter)
-      const filteredCompanies = Object.entries(soonEventsByCompany).filter(
-        ([companyId]) => Number.parseInt(companyId) === 3,
-      );
-
       // 3. Loop properly with await
-      for (const [companyId, events] of filteredCompanies) {
+      for (const [companyId, events] of Object.entries(soonEventsByCompany)) {
         const admins = await this.usersService.findAll(
           Number.parseInt(companyId),
           UserRole.ADMINISTRADOR,
