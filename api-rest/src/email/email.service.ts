@@ -4,6 +4,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { newAccountTemplate } from './templates/newAccount';
+import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { soonEventsTemplate } from './templates/soonEvents';
 import { EmailStructure } from './types';
 
@@ -54,16 +55,13 @@ export class EmailService {
       case EmailStructure.NEW_ACCOUNT:
         subject = 'Bienvenido a Eventia';
         sendTo = [to as string];
-        html = newAccountTemplate;
+        html = newAccountTemplate();
         break;
 
       case EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT:
         subject = 'Solicitud de cotización recibida';
         sendTo = [to as string];
-        html = `
-          <h1>Solicitud de cotización recibida</h1>
-          <p>Hola, tu solicitud de cotización ha sido creada exitosamente.</p>
-        `;
+        html = newPublicQuotationTemplate();
         break;
 
       case EmailStructure.SOON_EVENTS:
