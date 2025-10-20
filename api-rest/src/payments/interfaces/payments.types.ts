@@ -1,9 +1,13 @@
+import { Client } from 'src/clients/entities/client.entity';
+import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { UpdatePaymentTransactionDto } from '../dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from '../entities/payment.entity';
 
 export type PaymentWithTransactionsAndQuotation = Payment & {
-  quotations: Quotation;
+  quotations: Quotation & { clients: Pick<Client, 'name' | 'email'> } & {
+    companies: Pick<Company, 'name'>;
+  };
   payment_transactions: PaymentTransaction[];
 };
 

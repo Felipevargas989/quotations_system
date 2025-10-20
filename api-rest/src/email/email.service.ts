@@ -5,6 +5,8 @@ import { Resend } from 'resend';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { newAccountTemplate } from './templates/newAccount';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
+import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
+import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { soonEventsTemplate } from './templates/soonEvents';
 import { EmailStructure } from './types';
 
@@ -26,7 +28,7 @@ export class EmailService {
   ): Promise<void>;
 
   /**
-   * Sends an email with parameters (dynamic templates)
+   * Sends an email with events (to multiple recipients)
    */
   async sendEmail(
     to: string[],
@@ -35,12 +37,21 @@ export class EmailService {
   ): Promise<void>;
 
   /**
+   * Sends payment reminder (to single recipient)
+   */
+  async sendEmail(
+    to: string,
+    emailStructure: EmailStructure.PAYMENT_REMINDER,
+    params: PaymentReminderParams,
+  ): Promise<void>;
+
+  /**
    * Implementation
    */
   async sendEmail(
     to: string | string[],
     emailStructure: EmailStructure,
-    params?: { events?: Pick<Quotation, 'id' | 'event_date' | 'event_type'>[] },
+    params?: any,
   ): Promise<void> {
     const resend = new Resend(
       this.configService.get<string>('RESEND_API_KEY') as string,
@@ -53,6 +64,7 @@ export class EmailService {
     // Build email content based on template type
     switch (emailStructure) {
       case EmailStructure.NEW_ACCOUNT:
+        // TODO: move subject to a constants with key the emailStructure
         subject = 'Bienvenido a Eventia';
         sendTo = [to as string];
         html = newAccountTemplate();
@@ -65,14 +77,25 @@ export class EmailService {
         break;
 
       case EmailStructure.SOON_EVENTS:
-        subject = 'Tienes los siguientes eventos en 3 días más';
+        subject = 'Tienes estos eventos en 3 días';
         sendTo = to as string[];
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (!params?.events) {
           throw new Error(
             'Events parameter is required for SOON_EVENTS template',
           );
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
         html = soonEventsTemplate(params.events);
+        break;
+
+      case EmailStructure.PAYMENT_REMINDER:
+        subject = 'Recordatorio de Pago Pendiente';
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error('Params are required for PAYMENT_REMINDER template');
+        }
+        html = paymentReminderTemplate(params as PaymentReminderParams);
         break;
 
       default:
@@ -84,6 +107,7 @@ export class EmailService {
     );
 
     await resend.emails.send({
+      // TODO: move to a constants
       from: 'Eventia <hola@eventi-app.com>',
       to: sendTo,
       subject,

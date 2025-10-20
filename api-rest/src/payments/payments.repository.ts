@@ -68,17 +68,20 @@ export class PaymentsRepository {
     };
   }
 
-  async findAllPaymentsWithTransactions(companyId: Company['id']): Promise<{
+  async findAllPaymentsWithTransactions(
+    companyId: Company['id'] | undefined,
+    status?: PaymentStatus[],
+    dueDate?: Date,
+  ): Promise<{
     data: PaymentWithTransactionsAndQuotation[];
     error: PostgrestError | null;
   }> {
     this.logger.info(
       `findAllPaymentsWithTransactions with companyId ${companyId}`,
     );
-    const { data, error } = await this.supabase.client
-      .from('payments')
-      .select(
-        `
+
+    const query = this.supabase.client.from('payments').select(
+      `
     *,
     quotations!inner (
       id,
@@ -88,6 +91,10 @@ export class PaymentsRepository {
       requires_invoice,
       has_contract,
       clients!inner (
+        name,
+        email
+      ),
+      companies!inner (
         name
       )
     ),
@@ -101,9 +108,22 @@ export class PaymentsRepository {
       created_at
     )
   `,
-      )
-      .eq('quotations.company_id', companyId)
-      .order('created_at', { ascending: false });
+    );
+
+    if (companyId) {
+      query.eq('quotations.company_id', companyId);
+    }
+    if (status) {
+      query.in('status', status);
+    }
+
+    if (dueDate) {
+      query.eq('due_date', dueDate.toISOString());
+    }
+    // order
+    query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       this.logger.error(error);
