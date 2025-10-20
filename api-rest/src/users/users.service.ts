@@ -6,7 +6,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
 
@@ -50,9 +50,9 @@ export class UsersService {
     }
   }
 
-  findAll(companyId: Company['id']) {
+  findAll(companyId: Company['id'], userRole?: UserRole) {
     this.logger.info(`findAll users with companyId ${companyId}`);
-    return this.usersRepository.findAll(companyId);
+    return this.usersRepository.findAll(companyId, userRole);
   }
 
   findOne(id: User['id']) {

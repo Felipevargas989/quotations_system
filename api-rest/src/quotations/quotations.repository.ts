@@ -26,7 +26,7 @@ export class QuotationsRepository {
     event_date,
     dateRange,
   }: {
-    company_id: Company['id'];
+    company_id: Company['id'] | undefined;
     request_type?: RequestType;
     statuses?: QuotationStatus[];
     sort_by?: string;
@@ -35,17 +35,17 @@ export class QuotationsRepository {
     dateRange?: { start_date: Date; end_date: Date };
   }): Promise<Quotation[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
-    const query = this.supabase.client
-      .from('quotations')
-      .select(
-        `*,
+    const query = this.supabase.client.from('quotations').select(
+      `*,
         clients (
           id,
           name
         )
         `,
-      )
-      .eq('company_id', company_id);
+    );
+    if (company_id) {
+      query.eq('company_id', company_id);
+    }
     if (request_type) {
       query.eq('request_type', request_type);
     }

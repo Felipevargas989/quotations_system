@@ -5,7 +5,7 @@ import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import { CreateUser, UserWithCompany } from './types';
 
 @Injectable()
@@ -39,12 +39,16 @@ export class UsersRepository {
       .single();
   }
 
-  async findAll(companyId: Company['id']) {
+  async findAll(companyId: Company['id'], role?: UserRole) {
     this.logger.info(`findAll users with companyId ${companyId}`);
-    const { data, error } = await this.supabase.client
+    const query = this.supabase.client
       .from('user_profiles')
       .select('*')
       .eq('company_id', companyId);
+    if (role) {
+      query.eq('role', role);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data as User[];
   }

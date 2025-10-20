@@ -4,6 +4,7 @@ import { EmailModule } from 'src/email/email.module';
 import { PaymentsRepository } from 'src/payments/payments.repository';
 import { PaymentsService } from 'src/payments/payments.service';
 import { RefundsModule } from 'src/refunds/refunds.module';
+import { QuotationsCronService } from './quotations-cron.service';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
 import { QuotationsService } from './quotations.service';
@@ -14,6 +15,7 @@ import { QuotationsService } from './quotations.service';
   providers: [
     QuotationsService,
     QuotationsRepository,
+    QuotationsCronService,
     PaymentsService,
     PaymentsRepository,
   ],
