@@ -30,7 +30,7 @@ export class EmailService {
   async sendEmail(
     to: string[],
     emailStructure: EmailStructure.SOON_EVENTS,
-    params: { events: Pick<Quotation, 'id' | 'event_date'>[] },
+    params: { events: Pick<Quotation, 'id' | 'event_date' | 'event_type'>[] },
   ): Promise<void>;
 
   /**
@@ -39,7 +39,7 @@ export class EmailService {
   async sendEmail(
     to: string | string[],
     emailStructure: EmailStructure,
-    params?: { events?: Pick<Quotation, 'id' | 'event_date'>[] },
+    params?: { events?: Pick<Quotation, 'id' | 'event_date' | 'event_type'>[] },
   ): Promise<void> {
     const resend = new Resend(
       this.configService.get<string>('RESEND_API_KEY') as string,

@@ -75,6 +75,7 @@ export class QuotationsCronService {
             events: events.map((event) => ({
               id: event.id,
               event_date: event.event_date,
+              event_type: event.event_type,
             })),
           },
         );
