@@ -1,14 +1,14 @@
 import { baseLayoutTemplate } from '../baseLayout';
+import { PaymentReminderParams } from '../paymentReminder/types';
 import { formatCurrency, formatDate } from '../utils';
-import { PaymentReminderParams } from './types';
 
 /**
- * Email template for payment reminder
- * Sent to clients with a pending payment
- * @param params - Payment reminder details
+ * Email template for payment overdue
+ * Sent to clients with a overdue payment
+ * @param params - Payment overdue details
  * @returns HTML string for the email
  */
-export const paymentReminderTemplate = (
+export const paymentOverdueTemplate = (
   params: PaymentReminderParams,
 ): string => {
   // Build the email content
@@ -37,7 +37,7 @@ export const paymentReminderTemplate = (
     <p class="greeting">Hola ${params.clientName},</p>
 
     <p class="intro-text">
-      Te contactamos desde ${params.companyName} para recordarte que tienes un pago pendiente de tu cotización
+      Te contactamos desde ${params.companyName} para recordarte que tienes un pago vencido de tu cotización
       <strong>#${params.quotationId}</strong>.
     </p>
 

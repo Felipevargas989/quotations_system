@@ -5,6 +5,7 @@ import { Resend } from 'resend';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { newAccountTemplate } from './templates/newAccount';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
+import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { soonEventsTemplate } from './templates/soonEvents';
@@ -41,7 +42,9 @@ export class EmailService {
    */
   async sendEmail(
     to: string,
-    emailStructure: EmailStructure.PAYMENT_REMINDER,
+    emailStructure:
+      | EmailStructure.PAYMENT_REMINDER
+      | EmailStructure.PAYMENT_OVERDUE,
     params: PaymentReminderParams,
   ): Promise<void>;
 
@@ -96,6 +99,15 @@ export class EmailService {
           throw new Error('Params are required for PAYMENT_REMINDER template');
         }
         html = paymentReminderTemplate(params as PaymentReminderParams);
+        break;
+
+      case EmailStructure.PAYMENT_OVERDUE:
+        subject = 'Recordatorio de Pago Vencido';
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error('Params are required for PAYMENT_OVERDUE template');
+        }
+        html = paymentOverdueTemplate(params as PaymentReminderParams);
         break;
 
       default:
