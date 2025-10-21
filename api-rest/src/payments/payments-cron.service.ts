@@ -4,7 +4,11 @@ import { PinoLogger } from 'nestjs-pino';
 import { EmailService } from 'src/email/email.service';
 import { PaymentReminderParams } from 'src/email/templates/paymentReminder/types';
 import { EmailStructure } from 'src/email/types';
-import { PaymentStatus } from './constants';
+import {
+  OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
+  PaymentStatus,
+  UPCOMING_OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
+} from './constants';
 import { PaymentsRepository } from './payments.repository';
 
 @Injectable()
@@ -70,8 +74,7 @@ export class PaymentsCronService {
 
     await this.checkUpcomingOrOverduePayments(
       PaymentStatus.PENDIENTE,
-      // TODO: set as constant to be consisten with email template
-      4,
+      UPCOMING_OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
       EmailStructure.PAYMENT_REMINDER,
     );
   }
@@ -82,8 +85,7 @@ export class PaymentsCronService {
 
     await this.checkUpcomingOrOverduePayments(
       PaymentStatus.VENCIDO,
-      // TODO: set as constant to be consisten with email template
-      -4,
+      OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
       EmailStructure.PAYMENT_OVERDUE,
     );
   }
