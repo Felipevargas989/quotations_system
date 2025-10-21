@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Client } from 'src/clients/entities/client.entity';
@@ -29,6 +29,7 @@ export class QuotationsService {
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
     private readonly refundsService: RefundsService,
+    @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
     private readonly clientsService: ClientsService,
     private readonly emailService: EmailService,

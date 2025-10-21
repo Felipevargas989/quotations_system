@@ -8,6 +8,8 @@ import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
+import { quotationAcceptedTemplate } from './templates/quotationAccepted/quotationAccepted';
+import { QuotationAcceptedParams } from './templates/quotationAccepted/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { soonEventsTemplate } from './templates/soonEvents';
@@ -57,6 +59,15 @@ export class EmailService {
     to: string,
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
+  ): Promise<void>;
+
+  /**
+   * Sends quotation accepted (to single recipient)
+   */
+  async sendEmail(
+    to: string,
+    emailStructure: EmailStructure.QUOTATION_ACCEPTED,
+    params: QuotationAcceptedParams,
   ): Promise<void>;
   /**
    * Implementation
@@ -127,6 +138,17 @@ export class EmailService {
           throw new Error('Params are required for QUOTATION_IS_SENT template');
         }
         html = quotationIsSentTemplate(params as QuotationIsSentParams);
+        break;
+
+      case EmailStructure.QUOTATION_ACCEPTED:
+        subject = 'Cotización aceptada para su evento';
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error(
+            'Params are required for QUOTATION_ACCEPTED template',
+          );
+        }
+        html = quotationAcceptedTemplate(params as QuotationAcceptedParams);
         break;
       default:
         throw new Error(`Unknown email structure: ${emailStructure}`);

@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { EmailService } from 'src/email/email.service';
+import { EmailStructure } from 'src/email/types';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
+import { QuotationsService } from 'src/quotations/quotations.service';
 import { PaymentStatus } from './constants';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
@@ -30,6 +33,9 @@ export class PaymentsService {
   constructor(
     private readonly paymentsRepository: PaymentsRepository,
     private readonly quotationsRepository: QuotationsRepository,
+    @Inject(forwardRef(() => QuotationsService))
+    private readonly quotationsService: QuotationsService,
+    private readonly emailService: EmailService,
     private readonly logger: PinoLogger,
   ) {}
   /**
@@ -57,6 +63,24 @@ export class PaymentsService {
     await this.paymentsRepository.createPaymentPlan(
       createPaymentPlanDto.payments,
     );
+
+    // get quotation
+    const { data: quotation } = await this.quotationsService.findOne(
+      createPaymentPlanDto.quotation_id,
+    );
+
+    // if quotation is not aceptada, send email to the client
+    if (quotation && quotation.quotation_status !== QuotationStatus.ACEPTADA) {
+      void this.emailService.sendEmail(
+        quotation.clients.email as string,
+        EmailStructure.QUOTATION_ACCEPTED,
+        {
+          clientName: quotation.clients.name,
+          companyName: quotation.companies.name,
+          quotationNumber: quotation.quotation_number,
+        },
+      );
+    }
 
     // 3. Update the quotation status to 'aceptada'
     await this.quotationsRepository.update(

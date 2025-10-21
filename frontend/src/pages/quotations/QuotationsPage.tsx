@@ -306,7 +306,9 @@ export default function QuotationsPage() {
       // call API reques to create paymet plan
       await createPaymentPlan(quotationForPaymentPlan.id, paymentsToCreate);
 
-      alert("✅ Plan de pagos creado y cotización aceptada exitosamente");
+      alert(
+        "✅ Plan de pagos creado y cotización aceptada exitosamente, y se ha enviado el correo de confirmación al cliente.",
+      );
       setShowPaymentPlanEditor(false);
       setQuotationForPaymentPlan(null);
       await fetchQuotations(statusFilter);

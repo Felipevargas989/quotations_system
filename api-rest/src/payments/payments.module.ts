@@ -1,20 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { EmailModule } from 'src/email/email.module';
-import { QuotationsRepository } from 'src/quotations/quotations.repository';
+import { QuotationsModule } from 'src/quotations/quotations.module';
 import { PaymentsCronService } from './payments-cron.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentsService } from './payments.service';
 
 @Module({
-  imports: [EmailModule],
+  imports: [EmailModule, forwardRef(() => QuotationsModule)],
   controllers: [PaymentsController],
-  providers: [
-    PaymentsService,
-    PaymentsRepository,
-    QuotationsRepository,
-    PaymentsCronService,
-  ],
+  providers: [PaymentsService, PaymentsRepository, PaymentsCronService],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}
