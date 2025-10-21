@@ -300,6 +300,22 @@ export class QuotationsService {
         }
       }
 
+      // if quotation is not enviada, and new status is enviada, send email to the client
+      if (
+        quotation.quotation_status !== QuotationStatus.ENVIADA &&
+        updateQuotationDto.quotation_status === QuotationStatus.ENVIADA
+      ) {
+        void this.emailService.sendEmail(
+          quotation.clients.email as string,
+          EmailStructure.QUOTATION_IS_SENT,
+          {
+            clientName: quotation.clients.name,
+            companyName: quotation.companies.name,
+            quotationNumber: quotation.quotation_number,
+          },
+        );
+      }
+
       // update quotation
       return this.quotationsRepository.update(
         id,

@@ -5,4 +5,5 @@ export enum EmailStructure {
   SOON_EVENTS = 'soonEvents',
   PAYMENT_REMINDER = 'paymentReminder',
   PAYMENT_OVERDUE = 'paymentOverdue',
+  QUOTATION_IS_SENT = 'quotationIsSent',
 }

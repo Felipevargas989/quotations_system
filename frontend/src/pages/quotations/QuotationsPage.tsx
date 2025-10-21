@@ -247,7 +247,9 @@ export default function QuotationsPage() {
         throw new Error(`Error actualizando cotización: ${error.message}`);
       }
 
-      alert(`✅ Estado actualizado correctamente a: ${newStatus}`);
+      alert(
+        `✅ Estado actualizado correctamente a: ${newStatus} ${newStatus === QuotationStatus.ENVIADA ? ", y se ha enviado el correo de confirmación al cliente." : ""}`,
+      );
       await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {

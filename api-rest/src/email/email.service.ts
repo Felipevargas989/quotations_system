@@ -8,6 +8,8 @@ import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
+import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
+import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { soonEventsTemplate } from './templates/soonEvents';
 import { EmailStructure } from './types';
 
@@ -48,6 +50,14 @@ export class EmailService {
     params: PaymentReminderParams,
   ): Promise<void>;
 
+  /**
+   * Sends quotation is sent (to single recipient)
+   */
+  async sendEmail(
+    to: string,
+    emailStructure: EmailStructure.QUOTATION_IS_SENT,
+    params: QuotationIsSentParams,
+  ): Promise<void>;
   /**
    * Implementation
    */
@@ -110,6 +120,14 @@ export class EmailService {
         html = paymentOverdueTemplate(params as PaymentReminderParams);
         break;
 
+      case EmailStructure.QUOTATION_IS_SENT:
+        subject = 'Cotización enviada para su evento';
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error('Params are required for QUOTATION_IS_SENT template');
+        }
+        html = quotationIsSentTemplate(params as QuotationIsSentParams);
+        break;
       default:
         throw new Error(`Unknown email structure: ${emailStructure}`);
     }
