@@ -24,7 +24,10 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({
       isGlobal: true, // makes ConfigService available everywhere without importing
     }),
-    ScheduleModule.forRoot(),
+    ScheduleModule.forRoot({
+      // allow cron jobs to run only in production
+      cronJobs: process.env.NODE_ENV === 'production',
+    }),
     LoggerModule.forRoot({
       pinoHttp: {
         transport: {
