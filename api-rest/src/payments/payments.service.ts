@@ -64,25 +64,30 @@ export class PaymentsService {
       createPaymentPlanDto.payments,
     );
 
-    // get quotation
+    // 3. Get quotation details
     const { data: quotation } = await this.quotationsService.findOne(
       createPaymentPlanDto.quotation_id,
     );
 
-    // if quotation is not aceptada, send email to the client
+    // 4. Send email to client with payment plan details
     if (quotation && quotation.quotation_status !== QuotationStatus.ACEPTADA) {
       void this.emailService.sendEmail(
         quotation.clients.email as string,
-        EmailStructure.QUOTATION_ACCEPTED,
+        EmailStructure.PAYMENT_PLAN_CREATED,
         {
           clientName: quotation.clients.name,
           companyName: quotation.companies.name,
           quotationNumber: quotation.quotation_number,
+          payments: createPaymentPlanDto.payments.map((payment) => ({
+            payment_number: payment.payment_number,
+            amount: payment.amount,
+            due_date: payment.due_date,
+          })),
         },
       );
     }
 
-    // 3. Update the quotation status to 'aceptada'
+    // 5. Update the quotation status to 'aceptada'
     await this.quotationsRepository.update(
       createPaymentPlanDto.quotation_id,
       { quotation_status: QuotationStatus.ACEPTADA },

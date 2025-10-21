@@ -11,9 +11,5 @@ export const formatCurrency = (amount: number): string => {
 // Helper function to format date
 export const formatDate = (date: Date | string): string => {
   const dateObj = new Date(date);
-  return dateObj.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
+  return dateObj.toISOString().split('T')[0];
 };

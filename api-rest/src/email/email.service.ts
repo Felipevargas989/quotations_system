@@ -6,10 +6,10 @@ import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { newAccountTemplate } from './templates/newAccount';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
+import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
+import { PaymentPlanCreatedParams } from './templates/paymentPlanCreated/types';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
-import { quotationAcceptedTemplate } from './templates/quotationAccepted/quotationAccepted';
-import { QuotationAcceptedParams } from './templates/quotationAccepted/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { soonEventsTemplate } from './templates/soonEvents';
@@ -62,12 +62,12 @@ export class EmailService {
   ): Promise<void>;
 
   /**
-   * Sends quotation accepted (to single recipient)
+   * Sends payment plan created (to single recipient)
    */
   async sendEmail(
     to: string,
-    emailStructure: EmailStructure.QUOTATION_ACCEPTED,
-    params: QuotationAcceptedParams,
+    emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
+    params: PaymentPlanCreatedParams,
   ): Promise<void>;
   /**
    * Implementation
@@ -140,15 +140,15 @@ export class EmailService {
         html = quotationIsSentTemplate(params as QuotationIsSentParams);
         break;
 
-      case EmailStructure.QUOTATION_ACCEPTED:
-        subject = 'Cotización aceptada para su evento';
+      case EmailStructure.PAYMENT_PLAN_CREATED:
+        subject = 'Cotización aceptada - Plan de pagos';
         sendTo = [to as string];
         if (!params) {
           throw new Error(
-            'Params are required for QUOTATION_ACCEPTED template',
+            'Params are required for PAYMENT_PLAN_CREATED template',
           );
         }
-        html = quotationAcceptedTemplate(params as QuotationAcceptedParams);
+        html = paymentPlanCreatedTemplate(params as PaymentPlanCreatedParams);
         break;
       default:
         throw new Error(`Unknown email structure: ${emailStructure}`);
