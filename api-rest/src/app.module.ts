@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
+import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey/customer_satisfaction_survey.module';
 import { EmailModule } from './email/email.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     PlansModule,
     RefundsModule,
     EmailModule,
+    CustomerSatisfactionSurveyModule,
   ],
   controllers: [],
   providers: [
