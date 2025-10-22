@@ -142,17 +142,23 @@ export class QuotationsService {
     );
 
     if (newQuotationCreated) {
-      // send email to the client who created the quotation
-      await this.emailService.sendEmail(
-        createQuotationPublicDto.email,
-        EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
-      );
+      try {
+        // send email to the client who created the quotation
+        await this.emailService.sendEmail(
+          createQuotationPublicDto.email,
+          EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+        );
 
-      // TODO: add this email
-      // // get company admin email
-      // // send email to the company admin
-      // await this.emailService.sendEmail
+        // TODO: add this email
+        // // get company admin email
+        // // send email to the company admin
+        // await this.emailService.sendEmail
+      } catch (error) {
+        this.logger.error(error);
+      }
     }
+
+    return newQuotationCreated;
   }
   async findAll(
     companyId: number,
@@ -301,20 +307,25 @@ export class QuotationsService {
         }
       }
 
-      // if quotation is not enviada, and new status is enviada, send email to the client
-      if (
-        quotation.quotation_status !== QuotationStatus.ENVIADA &&
-        updateQuotationDto.quotation_status === QuotationStatus.ENVIADA
-      ) {
-        void this.emailService.sendEmail(
-          quotation.clients.email as string,
-          EmailStructure.QUOTATION_IS_SENT,
-          {
-            clientName: quotation.clients.name,
-            companyName: quotation.companies.name,
-            quotationNumber: quotation.quotation_number,
-          },
-        );
+      try {
+        // if quotation is not enviada, and new status is enviada, send email to the client
+        if (
+          quotation.quotation_status !== QuotationStatus.ENVIADA &&
+          updateQuotationDto.quotation_status === QuotationStatus.ENVIADA
+        ) {
+          void this.emailService.sendEmail(
+            quotation.clients.email,
+            EmailStructure.QUOTATION_IS_SENT,
+            {
+              clientName: quotation.clients.name,
+              companyName: quotation.companies.name,
+              quotationNumber: quotation.quotation_number,
+            },
+          );
+        }
+      } catch (error) {
+        // Do not throw error, just log it
+        this.logger.error(error);
       }
 
       // update quotation

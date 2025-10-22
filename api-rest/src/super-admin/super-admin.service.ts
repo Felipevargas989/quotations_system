@@ -59,10 +59,15 @@ export class SuperAdminService {
       }
 
       // send email to the admin
-      void this.emailService.sendEmail(
-        createSuscriptionDto.admin_email,
-        EmailStructure.NEW_ACCOUNT,
-      );
+      try {
+        void this.emailService.sendEmail(
+          createSuscriptionDto.admin_email,
+          EmailStructure.NEW_ACCOUNT,
+        );
+      } catch (error) {
+        // Do not throw error, just log it
+        this.logger.error(error);
+      }
       return {
         userData,
         companyData,

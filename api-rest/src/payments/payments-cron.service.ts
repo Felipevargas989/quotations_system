@@ -54,7 +54,7 @@ export class PaymentsCronService {
         };
 
         await this.emailService.sendEmail(
-          payment.quotations.clients.email!,
+          payment.quotations.clients.email,
           emailTemplate,
           params,
         );

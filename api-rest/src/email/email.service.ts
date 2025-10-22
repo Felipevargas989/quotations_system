@@ -28,7 +28,7 @@ export class EmailService {
    * Sends an email without parameters (static templates)
    */
   async sendEmail(
-    to: string,
+    to: string | undefined | null,
     emailStructure:
       | EmailStructure.NEW_ACCOUNT
       | EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
@@ -38,7 +38,7 @@ export class EmailService {
    * Sends an email with events (to multiple recipients)
    */
   async sendEmail(
-    to: string[],
+    to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.SOON_EVENTS,
     params: { events: Pick<Quotation, 'id' | 'event_date' | 'event_type'>[] },
   ): Promise<void>;
@@ -47,7 +47,7 @@ export class EmailService {
    * Sends payment reminder (to single recipient)
    */
   async sendEmail(
-    to: string,
+    to: string | undefined | null,
     emailStructure:
       | EmailStructure.PAYMENT_REMINDER
       | EmailStructure.PAYMENT_OVERDUE,
@@ -58,7 +58,7 @@ export class EmailService {
    * Sends quotation is sent (to single recipient)
    */
   async sendEmail(
-    to: string,
+    to: string | undefined | null,
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
   ): Promise<void>;
@@ -67,7 +67,7 @@ export class EmailService {
    * Sends payment plan created (to single recipient)
    */
   async sendEmail(
-    to: string,
+    to: string | undefined | null,
     emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
     params: PaymentPlanCreatedParams,
   ): Promise<void>;
@@ -76,7 +76,7 @@ export class EmailService {
    * Sends payment received confirmation (to single recipient)
    */
   async sendEmail(
-    to: string,
+    to: string | undefined | null,
     emailStructure: EmailStructure.PAYMENT_RECEIVED,
     params: PaymentReceivedParams,
   ): Promise<void>;
@@ -84,7 +84,7 @@ export class EmailService {
    * Implementation
    */
   async sendEmail(
-    to: string | string[],
+    to: string | undefined | null | (string | undefined | null)[],
     emailStructure: EmailStructure,
     params?: any,
   ): Promise<void> {
@@ -177,6 +177,11 @@ export class EmailService {
     this.logger.info(
       `Sending email to ${JSON.stringify(sendTo)} with subject ${subject}`,
     );
+
+    if (!to) {
+      this.logger.warn('No email provided');
+      return;
+    }
 
     await resend.emails.send({
       // TODO: move to a constants

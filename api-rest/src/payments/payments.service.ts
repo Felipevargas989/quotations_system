@@ -70,21 +70,29 @@ export class PaymentsService {
     );
 
     // 4. Send email to client with payment plan details
-    if (quotation && quotation.quotation_status !== QuotationStatus.ACEPTADA) {
-      void this.emailService.sendEmail(
-        quotation.clients.email as string,
-        EmailStructure.PAYMENT_PLAN_CREATED,
-        {
-          clientName: quotation.clients.name,
-          companyName: quotation.companies.name,
-          quotationNumber: quotation.quotation_number,
-          payments: createPaymentPlanDto.payments.map((payment) => ({
-            payment_number: payment.payment_number,
-            amount: payment.amount,
-            due_date: payment.due_date,
-          })),
-        },
-      );
+    try {
+      if (
+        quotation &&
+        quotation.quotation_status !== QuotationStatus.ACEPTADA
+      ) {
+        void this.emailService.sendEmail(
+          quotation.clients.email,
+          EmailStructure.PAYMENT_PLAN_CREATED,
+          {
+            clientName: quotation.clients.name,
+            companyName: quotation.companies.name,
+            quotationNumber: quotation.quotation_number,
+            payments: createPaymentPlanDto.payments.map((payment) => ({
+              payment_number: payment.payment_number,
+              amount: payment.amount,
+              due_date: payment.due_date,
+            })),
+          },
+        );
+      }
+    } catch (error) {
+      // Do not throw error, just log it
+      this.logger.error(error);
     }
 
     // 5. Update the quotation status to 'aceptada'
