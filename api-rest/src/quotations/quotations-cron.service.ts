@@ -84,7 +84,7 @@ export class QuotationsCronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_5_SECONDS)
+  @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkEventsForSurvey() {
     this.logger.info('CRON job: Checking for quotations for survey');
 
