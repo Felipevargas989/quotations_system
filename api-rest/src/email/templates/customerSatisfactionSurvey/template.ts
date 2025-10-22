@@ -72,7 +72,7 @@ export const customerSatisfactionSurveyTemplate = (
     content: emailContent,
     cta: {
       text: 'Completar Encuesta de Satisfacción',
-      link: `https://www.eventi-app.com/customer-satisfaction-survey?quotationId=${params.quotationId}&companyId=${params.companyId}`,
+      link: `https://www.eventi-app.com/customer-satisfaction-survey/${params.companyId}/${params.quotationId}`,
     },
   });
 };
