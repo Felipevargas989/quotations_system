@@ -3,27 +3,33 @@ import { Question } from '../entities/customer_satisfaction_survey_template.enti
 export const CUSTOMER_SATISFACTION_SURVEY_QUESTIONS: Question[] = [
   {
     id: 1,
-    question: 'How would you rate your overall satisfaction with our service?',
-    type: 'text',
+    question:
+      '¿Qué tan satisfecho/a estás con la organización general del evento?',
+    type: 'number',
+    options: [1, 2, 3, 4, 5],
   },
   {
     id: 2,
-    question: 'How likely are you to recommend our service to others?',
-    type: 'text',
+    question: '¿Cómo evaluarías la atención del personal durante el evento?',
+    type: 'number',
+    options: [1, 2, 3, 4, 5],
   },
   {
     id: 3,
-    question: 'What aspects of our service did you find most valuable?',
-    type: 'text',
+    question:
+      '¿Qué te pareció la calidad de la comida / servicio principal? (Si es que aplica)',
+    type: 'number',
+    options: [1, 2, 3, 4, 5],
   },
   {
     id: 4,
-    question: 'Is there anything we could improve about our service?',
-    type: 'text',
+    question: '¿Recomendarías nuestros servicios a otras personas o empresas?',
+    type: 'boolean',
   },
   {
     id: 5,
-    question: 'How would you describe your experience working with our team?',
+    question:
+      '¿Hay algo que te gustaría felicitarnos, sugerir o que crees que podríamos mejorar?',
     type: 'text',
   },
 ];

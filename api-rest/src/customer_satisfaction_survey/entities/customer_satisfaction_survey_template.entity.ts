@@ -3,8 +3,8 @@ import { Company } from 'src/companies/entities/company.entity';
 export type Question = {
   id: number;
   question: string;
-  type: 'text';
-  options?: string[];
+  type: 'text' | 'number' | 'boolean';
+  options?: number[] | string[];
 };
 export class CustomerSatisfactionSurveyTemplate {
   id: number;
