@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { CUSTOMER_SATISFACTION_SURVEY_QUESTIONS } from './constants/questions';
+import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyRepository } from './repository';
 
 @Injectable()
@@ -34,6 +35,32 @@ export class CustomerSatisfactionSurveyService {
       return result.data;
     } catch (error) {
       this.logger.error(`Error in createTemplate: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  async createAnswer(createAnswerDto: CreateAnswerDto) {
+    this.logger.info(
+      `createAnswer with createAnswerDto ${JSON.stringify(createAnswerDto)}`,
+    );
+
+    try {
+      const result =
+        await this.customerSatisfactionSurveyRepository.createAnswer(
+          createAnswerDto,
+        );
+
+      if (result.error) {
+        this.logger.error(`Error creating answer: ${result.error.message}`);
+        throw new Error(`Failed to create answer: ${result.error.message}`);
+      }
+
+      this.logger.info(
+        `Answer created successfully for quotation ${createAnswerDto.quotationId}`,
+      );
+      return result.data;
+    } catch (error) {
+      this.logger.error(`Error in createAnswer: ${(error as Error).message}`);
       throw error;
     }
   }

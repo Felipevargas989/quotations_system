@@ -1,6 +1,7 @@
-import { Controller, Post, Query } from '@nestjs/common';
+import { Body, Controller, Post, Query } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from 'src/auth';
+import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyService } from './service';
 
 @Controller('customer-satisfaction-survey')
@@ -21,6 +22,14 @@ export class CustomerSatisfactionSurveyController {
     return this.customerSatisfactionSurveyService.createTemplate(companyId);
   }
 
+  @Public()
+  @Post('answer')
+  createAnswer(@Body() createAnswerDto: CreateAnswerDto) {
+    this.logger.info(
+      `POST /customer-satisfaction-survey/answer with createAnswerDto ${JSON.stringify(createAnswerDto)}`,
+    );
+    return this.customerSatisfactionSurveyService.createAnswer(createAnswerDto);
+  }
   // @Get()
   // findAll() {
   //   return this.customerSatisfactionSurveyService.findAll();
