@@ -1,8 +1,8 @@
 export interface Question {
   id: number;
   question: string;
-  type: "text";
-  options?: string[];
+  type: "text" | "number" | "boolean";
+  options?: (string | number)[];
 }
 
 export interface SurveyTemplate {
