@@ -10,6 +10,8 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.QUOTATION_IS_SENT]: 'Cotización enviada para su evento',
   [EmailStructure.PAYMENT_PLAN_CREATED]: 'Cotización aceptada - Plan de pagos',
   [EmailStructure.PAYMENT_RECEIVED]: 'Confirmación de pago recibido',
+  [EmailStructure.CUSTOMER_SATISFACTION_SURVEY]:
+    'Encuesta de satisfacción evento',
 };
 
 export const EMAIL_FROM = 'Eventia <hola@eventi-app.com>';

@@ -4,6 +4,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { EmailService } from 'src/email/email.service';
 import { PaymentReminderParams } from 'src/email/templates/paymentReminder/types';
 import { EmailStructure } from 'src/email/types';
+import { normalizeDateToUtc } from 'src/utils/dates';
 import {
   OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
   PaymentStatus,
@@ -33,12 +34,15 @@ export class PaymentsCronService {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + days);
 
+      // Normalize date
+      const normalizedDueDate = normalizeDateToUtc(dueDate);
+
       //  get all payments with status PENDIENTE and due_date in the next X days
       const { data: payments } =
         await this.paymentsRepository.findAllPaymentsWithTransactions(
           undefined,
           [status],
-          dueDate,
+          normalizedDueDate,
         );
       // for each payment, send an email to the client with the payments details
       for (const payment of payments) {

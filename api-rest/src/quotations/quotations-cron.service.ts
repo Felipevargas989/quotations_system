@@ -5,6 +5,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { normalizeDateToUtc } from 'src/utils/dates';
 import { QuotationStatus, RequestType } from './constants/constants';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationsRepository } from './quotations.repository';
@@ -32,12 +33,15 @@ export class QuotationsCronService {
       const eventDate = new Date();
       eventDate.setDate(eventDate.getDate() + 3);
 
+      // Normalize date
+      const normalizedEventDate = normalizeDateToUtc(eventDate);
+
       // 1. Get all quotations events
       const soonEvents = await this.quotationsRepository.findAll({
         company_id: undefined,
         statuses: [QuotationStatus.ACEPTADA],
         request_type: RequestType.COTIZACION,
-        event_date: eventDate,
+        event_date: normalizedEventDate,
       });
 
       // 2. Group by company_id
@@ -80,20 +84,22 @@ export class QuotationsCronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_10AM)
+  @Cron(CronExpression.EVERY_5_SECONDS)
   async checkEventsForSurvey() {
     this.logger.info('CRON job: Checking for quotations for survey');
 
     try {
       // get event date 3 days ago
       const eventDate = new Date();
-      eventDate.setDate(eventDate.getDate() - 3);
+      eventDate.setUTCDate(eventDate.getUTCDate() - 3);
+      // Normalize date
+      const normalizedEventDate = normalizeDateToUtc(eventDate);
 
       const doneEvents = await this.quotationsRepository.findAll({
         company_id: undefined,
         statuses: [QuotationStatus.ACEPTADA],
         request_type: RequestType.COTIZACION,
-        event_date: eventDate,
+        event_date: normalizedEventDate,
       });
 
       // 3. Loop properly with await
@@ -105,8 +111,8 @@ export class QuotationsCronService {
           {
             clientName: event.clients.name,
             companyName: event.companies.name,
-            companyId: event.company_id.toString(),
-            quotationId: event.quotation_number.toString(),
+            companyId: event.company_id,
+            quotationId: event.id,
           },
         );
       }
