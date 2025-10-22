@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
+import { CustomerSatisfactionSurveyModule } from 'src/customer_satisfaction_survey/module';
 import { EmailModule } from 'src/email/email.module';
 import { UsersModule } from 'src/users/users.module';
 import { UsersRepository } from 'src/users/users.repository';
@@ -9,7 +10,12 @@ import { SuperAdminRepository } from './super-admin.repository';
 import { SuperAdminService } from './super-admin.service';
 
 @Module({
-  imports: [forwardRef(() => UsersModule), LoggerModule, EmailModule],
+  imports: [
+    forwardRef(() => UsersModule),
+    LoggerModule,
+    EmailModule,
+    CustomerSatisfactionSurveyModule,
+  ],
   controllers: [SuperAdminController],
   providers: [
     SuperAdminService,

@@ -1,31 +1,60 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCustomerSatisfactionSurveyDto } from './dto/create-customer_satisfaction_survey.dto';
-import { UpdateCustomerSatisfactionSurveyDto } from './dto/update-customer_satisfaction_survey.dto';
+import { PinoLogger } from 'nestjs-pino';
+import { Company } from 'src/companies/entities/company.entity';
+import { CUSTOMER_SATISFACTION_SURVEY_QUESTIONS } from './constants/questions';
+import { CustomerSatisfactionSurveyRepository } from './repository';
 
 @Injectable()
 export class CustomerSatisfactionSurveyService {
-  create(
-    createCustomerSatisfactionSurveyDto: CreateCustomerSatisfactionSurveyDto,
+  constructor(
+    private readonly customerSatisfactionSurveyRepository: CustomerSatisfactionSurveyRepository,
+    private readonly logger: PinoLogger,
   ) {
-    return 'This action adds a new customerSatisfactionSurvey';
+    this.logger.setContext(CustomerSatisfactionSurveyService.name);
   }
 
-  findAll() {
-    return `This action returns all customerSatisfactionSurvey`;
+  async createTemplate(companyId: Company['id']) {
+    this.logger.info(`createTemplate with companyId ${companyId}`);
+
+    try {
+      const result =
+        await this.customerSatisfactionSurveyRepository.createTemplate(
+          companyId,
+          CUSTOMER_SATISFACTION_SURVEY_QUESTIONS,
+        );
+
+      if (result.error) {
+        this.logger.error(`Error creating template: ${result.error.message}`);
+        throw new Error(`Failed to create template: ${result.error.message}`);
+      }
+
+      this.logger.info(
+        `Template created successfully for company ${companyId}`,
+      );
+      return result.data;
+    } catch (error) {
+      this.logger.error(`Error in createTemplate: ${(error as Error).message}`);
+      throw error;
+    }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} customerSatisfactionSurvey`;
-  }
+  // create() {
+  //   return 'This action adds a new customerSatisfactionSurvey';
+  // }
 
-  update(
-    id: number,
-    updateCustomerSatisfactionSurveyDto: UpdateCustomerSatisfactionSurveyDto,
-  ) {
-    return `This action updates a #${id} customerSatisfactionSurvey`;
-  }
+  // findAll() {
+  //   return `This action returns all customerSatisfactionSurvey`;
+  // }
 
-  remove(id: number) {
-    return `This action removes a #${id} customerSatisfactionSurvey`;
-  }
+  // findOne(id: number) {
+  //   return `This action returns a #${id} customerSatisfactionSurvey`;
+  // }
+
+  // update(id: number) {
+  //   return `This action updates a #${id} customerSatisfactionSurvey`;
+  // }
+
+  // remove(id: number) {
+  //   return `This action removes a #${id} customerSatisfactionSurvey`;
+  // }
 }

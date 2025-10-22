@@ -2,6 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
+import { CustomerSatisfactionSurveyService } from 'src/customer_satisfaction_survey/service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types/index';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
@@ -19,6 +20,7 @@ export class SuperAdminService {
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
     private readonly superAdminRepository: SuperAdminRepository,
+    private readonly customerSatisfactionSurveyService: CustomerSatisfactionSurveyService,
     private readonly emailService: EmailService,
   ) {}
 
@@ -57,6 +59,11 @@ export class SuperAdminService {
       if (userError) {
         throw userError;
       }
+
+      // create customer satisfaction survey template
+      await this.customerSatisfactionSurveyService.createTemplate(
+        companyData.id,
+      );
 
       // send email to the admin
       try {

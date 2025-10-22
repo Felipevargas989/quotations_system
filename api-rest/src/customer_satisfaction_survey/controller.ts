@@ -1,56 +1,43 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
-import { CreateCustomerSatisfactionSurveyDto } from './dto/create-customer_satisfaction_survey.dto';
-import { UpdateCustomerSatisfactionSurveyDto } from './dto/update-customer_satisfaction_survey.dto';
+import { Controller, Post, Query } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import { Public } from 'src/auth';
 import { CustomerSatisfactionSurveyService } from './service';
 
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
   constructor(
     private readonly customerSatisfactionSurveyService: CustomerSatisfactionSurveyService,
-  ) {}
-
-  @Post()
-  create(
-    @Body()
-    createCustomerSatisfactionSurveyDto: CreateCustomerSatisfactionSurveyDto,
+    private readonly logger: PinoLogger,
   ) {
-    return this.customerSatisfactionSurveyService.create(
-      createCustomerSatisfactionSurveyDto,
+    this.logger.setContext(CustomerSatisfactionSurveyController.name);
+  }
+
+  @Public()
+  @Post('template')
+  createTemplate(@Query('companyId') companyId: number) {
+    this.logger.info(
+      `POST /customer-satisfaction-survey/template with companyId ${companyId}`,
     );
+    return this.customerSatisfactionSurveyService.createTemplate(companyId);
   }
 
-  @Get()
-  findAll() {
-    return this.customerSatisfactionSurveyService.findAll();
-  }
+  // @Get()
+  // findAll() {
+  //   return this.customerSatisfactionSurveyService.findAll();
+  // }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customerSatisfactionSurveyService.findOne(+id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.customerSatisfactionSurveyService.findOne(+id);
+  // }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body()
-    updateCustomerSatisfactionSurveyDto: UpdateCustomerSatisfactionSurveyDto,
-  ) {
-    return this.customerSatisfactionSurveyService.update(
-      +id,
-      updateCustomerSatisfactionSurveyDto,
-    );
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string) {
+  //   return this.customerSatisfactionSurveyService.update(+id);
+  // }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.customerSatisfactionSurveyService.remove(+id);
-  }
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.customerSatisfactionSurveyService.remove(+id);
+  // }
 }
