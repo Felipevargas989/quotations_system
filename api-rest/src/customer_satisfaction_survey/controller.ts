@@ -7,9 +7,9 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { CustomerSatisfactionSurveyService } from './customer_satisfaction_survey.service';
 import { CreateCustomerSatisfactionSurveyDto } from './dto/create-customer_satisfaction_survey.dto';
 import { UpdateCustomerSatisfactionSurveyDto } from './dto/update-customer_satisfaction_survey.dto';
+import { CustomerSatisfactionSurveyService } from './service';
 
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
