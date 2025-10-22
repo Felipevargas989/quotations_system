@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { EmailService } from 'src/email/email.service';
+import { EmailStructure } from 'src/email/types';
+import { QuotationsService } from 'src/quotations/quotations.service';
+import { UserRole } from 'src/users/entities/user.entity';
+import { UsersService } from 'src/users/users.service';
 import { CUSTOMER_SATISFACTION_SURVEY_QUESTIONS } from './constants/questions';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyRepository } from './repository';
@@ -9,6 +14,9 @@ import { CustomerSatisfactionSurveyRepository } from './repository';
 export class CustomerSatisfactionSurveyService {
   constructor(
     private readonly customerSatisfactionSurveyRepository: CustomerSatisfactionSurveyRepository,
+    private readonly quotationsService: QuotationsService,
+    private readonly usersService: UsersService,
+    private readonly emailService: EmailService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(CustomerSatisfactionSurveyService.name);
@@ -45,9 +53,39 @@ export class CustomerSatisfactionSurveyService {
     );
 
     try {
+      // get quotation to get the company id
+      const { data: quotationResult, error: quotationError } =
+        await this.quotationsService.findOne(createAnswerDto.quotationId);
+
+      if (quotationError) {
+        this.logger.error(`Error getting quotation: ${quotationError.message}`);
+        throw new Error(`Failed to get quotation: ${quotationError.message}`);
+      }
+
+      if (!quotationResult) {
+        throw new Error(`Quotation not found`);
+      }
+
+      const companyId = quotationResult.company_id;
+
+      // get template for the company
+      const { data: templateResult, error: templateError } =
+        await this.customerSatisfactionSurveyRepository.getTemplate(companyId);
+
+      if (templateError) {
+        this.logger.error(`Error getting template: ${templateError.message}`);
+        throw new Error(`Failed to get template: ${templateError.message}`);
+      }
+
+      if (!templateResult) {
+        throw new Error(`Template not found`);
+      }
+
       const result =
         await this.customerSatisfactionSurveyRepository.createAnswer(
-          createAnswerDto,
+          quotationResult.id,
+          templateResult.id,
+          createAnswerDto.answers,
         );
 
       if (result.error) {
@@ -58,6 +96,30 @@ export class CustomerSatisfactionSurveyService {
       this.logger.info(
         `Answer created successfully for quotation ${createAnswerDto.quotationId}`,
       );
+
+      // send email to the company admins
+      try {
+        // get company admins
+        const companyAdmins = await this.usersService.findAll(
+          companyId,
+          UserRole.ADMINISTRADOR,
+        );
+
+        await this.emailService.sendEmail(
+          companyAdmins,
+          EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY,
+          {
+            templateId: templateResult.id,
+            answers: createAnswerDto.answers,
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error getting company admins: ${(error as Error).message}`,
+        );
+        // throw new Error(`Failed to get company admins: ${(error as Error).message}`);
+      }
+
       return result.data;
     } catch (error) {
       this.logger.error(`Error in createAnswer: ${(error as Error).message}`);
@@ -86,24 +148,4 @@ export class CustomerSatisfactionSurveyService {
       throw error;
     }
   }
-
-  // create() {
-  //   return 'This action adds a new customerSatisfactionSurvey';
-  // }
-
-  // findAll() {
-  //   return `This action returns all customerSatisfactionSurvey`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} customerSatisfactionSurvey`;
-  // }
-
-  // update(id: number) {
-  //   return `This action updates a #${id} customerSatisfactionSurvey`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} customerSatisfactionSurvey`;
-  // }
 }
