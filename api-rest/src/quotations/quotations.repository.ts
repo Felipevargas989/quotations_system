@@ -7,7 +7,10 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import { QuotationStatus, RequestType } from './constants/constants';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { Quotation } from './entities/quotation.entity';
-import { CreateQuotation } from './interfaces/quotations.interface';
+import {
+  CreateQuotation,
+  QuotationWithClientAndCompany,
+} from './interfaces/quotations.interface';
 
 @Injectable()
 export class QuotationsRepository {
@@ -32,14 +35,17 @@ export class QuotationsRepository {
     statuses?: QuotationStatus[];
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
-    event_date?: string;
+    event_date?: Date;
     dateRange?: { start_date: Date; end_date: Date };
-  }): Promise<Quotation[]> {
+  }): Promise<QuotationWithClientAndCompany[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
     const query = this.supabase.client.from('quotations').select(
       `*,
         clients (
-          id,
+          name,
+          email
+        ),
+        companies (
           name
         )
         `,
@@ -60,7 +66,7 @@ export class QuotationsRepository {
     }
 
     if (event_date) {
-      query.eq('event_date', event_date);
+      query.eq('event_date', event_date.toISOString());
     }
 
     if (dateRange) {
@@ -70,7 +76,7 @@ export class QuotationsRepository {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data as Quotation[];
+    return data as QuotationWithClientAndCompany[];
   }
 
   async findOne(id: string): Promise<{

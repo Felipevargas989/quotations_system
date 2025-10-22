@@ -356,7 +356,7 @@ export class QuotationsService {
       // 1. Get all quotations with the same event_date
       const data = await this.quotationsRepository.findAll({
         company_id: companyId,
-        event_date: getEventDateUtc(params.event_date),
+        event_date: new Date(getEventDateUtc(params.event_date)),
         statuses: [
           QuotationStatus.SOLICITADA,
           QuotationStatus.ENVIADA,

@@ -1,3 +1,5 @@
+import { Client } from 'src/clients/entities/client.entity';
+import { Company } from 'src/companies/entities/company.entity';
 import {
   Payment,
   PaymentTransaction,
@@ -15,4 +17,9 @@ export type CreateQuotation = Omit<
 export type PaymentWithTransactionsAndQuotation = Payment & {
   quotations: Quotation[];
   payment_transactions: PaymentTransaction[];
+};
+
+export type QuotationWithClientAndCompany = Quotation & {
+  clients: Pick<Client, 'name' | 'email'>;
+  companies: Pick<Company, 'name'>;
 };

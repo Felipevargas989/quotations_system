@@ -4,6 +4,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { EMAIL_FROM, EMAIL_SUBJECTS } from './constants';
+import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
+import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { newAccountTemplate } from './templates/newAccount';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
@@ -44,6 +46,14 @@ export class EmailService {
     params: { events: Pick<Quotation, 'id' | 'event_date' | 'event_type'>[] },
   ): Promise<void>;
 
+  /**
+   * Sends customer satisfaction survey (to single recipient)
+   */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
+    params: CustomerSatisfactionSurveyParams,
+  ): Promise<void>;
   /**
    * Sends payment reminder (to single recipient)
    */
@@ -170,6 +180,20 @@ export class EmailService {
         }
         html = paymentReceivedTemplate(params as PaymentReceivedParams);
         break;
+
+      case EmailStructure.CUSTOMER_SATISFACTION_SURVEY:
+        subject = EMAIL_SUBJECTS[EmailStructure.CUSTOMER_SATISFACTION_SURVEY];
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error(
+            'Params are required for CUSTOMER_SATISFACTION_SURVEY template',
+          );
+        }
+        html = customerSatisfactionSurveyTemplate(
+          params as CustomerSatisfactionSurveyParams,
+        );
+        break;
+
       default:
         throw new Error(`Unknown email structure: ${emailStructure}`);
     }

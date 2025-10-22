@@ -37,7 +37,7 @@ export class QuotationsCronService {
         company_id: undefined,
         statuses: [QuotationStatus.ACEPTADA],
         request_type: RequestType.COTIZACION,
-        event_date: eventDate.toISOString(),
+        event_date: eventDate,
       });
 
       // 2. Group by company_id
@@ -76,6 +76,42 @@ export class QuotationsCronService {
       }
     } catch (error) {
       this.logger.error('Error checking soon events:', error);
+      throw error;
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_10AM)
+  async checkEventsForSurvey() {
+    this.logger.info('CRON job: Checking for quotations for survey');
+
+    try {
+      // get event date 3 days ago
+      const eventDate = new Date();
+      eventDate.setDate(eventDate.getDate() - 3);
+
+      const doneEvents = await this.quotationsRepository.findAll({
+        company_id: undefined,
+        statuses: [QuotationStatus.ACEPTADA],
+        request_type: RequestType.COTIZACION,
+        event_date: eventDate,
+      });
+
+      // 3. Loop properly with await
+      for (const event of doneEvents) {
+        // Send the email
+        await this.emailService.sendEmail(
+          event.clients.email,
+          EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
+          {
+            clientName: event.clients.name,
+            companyName: event.companies.name,
+            companyId: event.company_id.toString(),
+            quotationId: event.quotation_number.toString(),
+          },
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error checking quotations for survey:', error);
       throw error;
     }
   }
