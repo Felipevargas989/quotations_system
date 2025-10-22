@@ -199,7 +199,9 @@ export default function PaymentTransactionModal({
           receipt_photo_url: photoUrl || undefined,
         });
 
-        alert("✅ Transacción de pago creada exitosamente");
+        alert(
+          "✅ Transacción de pago creada exitosamente. Se ha enviado un correo de confirmación de pago al cliente.",
+        );
       }
 
       onSave();

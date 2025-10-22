@@ -8,6 +8,8 @@ import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
 import { PaymentPlanCreatedParams } from './templates/paymentPlanCreated/types';
+import { paymentReceivedTemplate } from './templates/paymentReceived/paymentReceived';
+import { PaymentReceivedParams } from './templates/paymentReceived/types';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
@@ -68,6 +70,15 @@ export class EmailService {
     to: string,
     emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
     params: PaymentPlanCreatedParams,
+  ): Promise<void>;
+
+  /**
+   * Sends payment received confirmation (to single recipient)
+   */
+  async sendEmail(
+    to: string,
+    emailStructure: EmailStructure.PAYMENT_RECEIVED,
+    params: PaymentReceivedParams,
   ): Promise<void>;
   /**
    * Implementation
@@ -149,6 +160,15 @@ export class EmailService {
           );
         }
         html = paymentPlanCreatedTemplate(params as PaymentPlanCreatedParams);
+        break;
+
+      case EmailStructure.PAYMENT_RECEIVED:
+        subject = 'Confirmación de pago recibido';
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error('Params are required for PAYMENT_RECEIVED template');
+        }
+        html = paymentReceivedTemplate(params as PaymentReceivedParams);
         break;
       default:
         throw new Error(`Unknown email structure: ${emailStructure}`);

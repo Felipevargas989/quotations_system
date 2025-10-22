@@ -331,6 +331,32 @@ export class PaymentsService {
         }
 
         transaction = newTransaction;
+
+        // Send email to client with payment transaction details
+        try {
+          const { data: quotation } = await this.quotationsService.findOne(
+            (payload as CreatePaymentTransaction).quotation_id,
+          );
+
+          if (quotation && quotation.clients.email) {
+            void this.emailService.sendEmail(
+              quotation.clients.email,
+              EmailStructure.PAYMENT_RECEIVED,
+              {
+                clientName: quotation.clients.name,
+                companyName: quotation.companies.name,
+                amount: payload.amount || 0,
+                paymentMethod: payload.payment_method || '',
+                transactionDate: payload.transaction_date || new Date(),
+              },
+            );
+          }
+        } catch (emailError) {
+          // Log email error but don't throw - payment was already created
+          this.logger.error(
+            `Failed to send payment received email: ${emailError}`,
+          );
+        }
       }
 
       // 4.2 Update transaction
