@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
+import { EMAIL_FROM, EMAIL_SUBJECTS } from './constants';
 import { newAccountTemplate } from './templates/newAccount';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
@@ -99,20 +100,19 @@ export class EmailService {
     // Build email content based on template type
     switch (emailStructure) {
       case EmailStructure.NEW_ACCOUNT:
-        // TODO: move subject to a constants with key the emailStructure
-        subject = 'Bienvenido a Eventia';
+        subject = EMAIL_SUBJECTS[EmailStructure.NEW_ACCOUNT];
         sendTo = [to as string];
         html = newAccountTemplate();
         break;
 
       case EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT:
-        subject = 'Solicitud de cotización recibida';
+        subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT];
         sendTo = [to as string];
         html = newPublicQuotationTemplate();
         break;
 
       case EmailStructure.SOON_EVENTS:
-        subject = 'Tienes estos eventos en 3 días';
+        subject = EMAIL_SUBJECTS[EmailStructure.SOON_EVENTS];
         sendTo = to as string[];
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (!params?.events) {
@@ -125,7 +125,7 @@ export class EmailService {
         break;
 
       case EmailStructure.PAYMENT_REMINDER:
-        subject = 'Recordatorio de Pago Pendiente';
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_REMINDER];
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for PAYMENT_REMINDER template');
@@ -134,7 +134,7 @@ export class EmailService {
         break;
 
       case EmailStructure.PAYMENT_OVERDUE:
-        subject = 'Recordatorio de Pago Vencido';
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_OVERDUE];
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for PAYMENT_OVERDUE template');
@@ -143,7 +143,7 @@ export class EmailService {
         break;
 
       case EmailStructure.QUOTATION_IS_SENT:
-        subject = 'Cotización enviada para su evento';
+        subject = EMAIL_SUBJECTS[EmailStructure.QUOTATION_IS_SENT];
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for QUOTATION_IS_SENT template');
@@ -152,7 +152,7 @@ export class EmailService {
         break;
 
       case EmailStructure.PAYMENT_PLAN_CREATED:
-        subject = 'Cotización aceptada - Plan de pagos';
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_PLAN_CREATED];
         sendTo = [to as string];
         if (!params) {
           throw new Error(
@@ -163,7 +163,7 @@ export class EmailService {
         break;
 
       case EmailStructure.PAYMENT_RECEIVED:
-        subject = 'Confirmación de pago recibido';
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_RECEIVED];
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for PAYMENT_RECEIVED template');
@@ -184,8 +184,7 @@ export class EmailService {
     }
 
     await resend.emails.send({
-      // TODO: move to a constants
-      from: 'Eventia <hola@eventi-app.com>',
+      from: EMAIL_FROM,
       to: sendTo,
       subject,
       html,
