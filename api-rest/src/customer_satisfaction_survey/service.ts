@@ -65,6 +65,28 @@ export class CustomerSatisfactionSurveyService {
     }
   }
 
+  async getTemplate(companyId: Company['id']) {
+    this.logger.info(`getTemplate with companyId ${companyId}`);
+
+    try {
+      const result =
+        await this.customerSatisfactionSurveyRepository.getTemplate(companyId);
+
+      if (result.error) {
+        this.logger.error(`Error getting template: ${result.error.message}`);
+        throw new Error(`Failed to get template: ${result.error.message}`);
+      }
+
+      this.logger.info(
+        `Template retrieved successfully for company ${companyId}`,
+      );
+      return result.data;
+    } catch (error) {
+      this.logger.error(`Error in getTemplate: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
   // create() {
   //   return 'This action adds a new customerSatisfactionSurvey';
   // }

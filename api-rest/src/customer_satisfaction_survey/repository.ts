@@ -96,4 +96,17 @@ export class CustomerSatisfactionSurveyRepository {
       .select()
       .single();
   }
+
+  async getTemplate(companyId: Company['id']): Promise<{
+    data: CustomerSatisfactionSurveyTemplate | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(`getTemplate with companyId ${companyId}`);
+
+    return await this.supabase.client
+      .from('customer_satisfaction_survey_templates')
+      .select('*')
+      .eq('company_id', companyId)
+      .single();
+  }
 }
