@@ -86,9 +86,9 @@ export class AnalyticsService {
             if (!acc[status]) {
               acc[status] = { count: 0, amount: 0 };
             }
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
             acc[status].count += 1;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
             acc[status].amount += quotation.total_amount;
             return acc;
           },

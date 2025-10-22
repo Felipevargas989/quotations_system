@@ -120,7 +120,7 @@ export class EmailService {
             'Events parameter is required for SOON_EVENTS template',
           );
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         html = soonEventsTemplate(params.events);
         break;
 
