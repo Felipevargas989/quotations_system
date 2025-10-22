@@ -23,6 +23,7 @@ import { initGA } from "./lib/analytics.ts";
 import Plans from "./pages/plans/Plans.tsx";
 import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
 import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx";
+import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -51,6 +52,13 @@ function App() {
             path="/public-quotation/:company_id"
             element={<CreateQuotationPublic />}
           />
+
+          {/* Customer Satisfaction Survey */}
+          <Route
+            path="/customer-satisfaction-survey/:companyId/:quotationId"
+            element={<CustomerSatisfactionSurveysPage />}
+          />
+
           <Route path="/" element={<Layout />}>
             {/* Dashboard - Admin only */}
             <Route
