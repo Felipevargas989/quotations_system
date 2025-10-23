@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Save, Lock, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
 import { useAuth } from "../../contexts/AuthContext";
+import { emailCategories } from "./constants";
 
 export default function ConfigurationPage() {
   const { user } = useAuth();
@@ -254,14 +255,50 @@ export default function ConfigurationPage() {
                 {user?.email}
               </p>
             </div>
-            <div>
-              <div className="block text-sm font-medium text-gray-700 mb-1">
-                ID de Usuario
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Notificaciones por Email
+          </h2>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {emailCategories.map((category) => (
+              <div key={category.id}>
+                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <span
+                    className={`${category.badgeColor} text-xs px-2 py-1 rounded mr-2`}
+                  >
+                    {category.badge}
+                  </span>
+                  {category.name}
+                </h3>
+                <div className="space-y-2">
+                  {category.emails.map((email) => (
+                    <div key={email.id} className="text-sm">
+                      <span className="font-medium">
+                        {email.icon} {email.name}
+                      </span>
+                      <p className="text-gray-600 text-xs">
+                        {email.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-lg font-mono text-sm">
-                {user?.id}
-              </p>
-            </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-500">
+              <strong>Enviados desde:</strong> Eventia
+              &lt;hola@eventi-app.com&gt; •<strong>Recordatorios:</strong>{" "}
+              Diarios entre las 9:00 AM y las 12:00 PM
+            </p>
           </div>
         </div>
       </div>
