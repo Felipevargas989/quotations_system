@@ -174,6 +174,8 @@ export class QuotationsService {
       request_type: request_type,
       statuses: statuses,
       dateRange: dateRange,
+      sort_by: 'quotation_number',
+      sort_order: 'asc',
     });
   }
 
