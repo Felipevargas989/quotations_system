@@ -4,6 +4,7 @@ import { getCompleteStats } from "../../services/analytics.service";
 import { BarChart3, TrendingUp, Calendar } from "lucide-react";
 import QuotationStatusStatsComponent from "./components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "./components/EventTypeConversionStats";
+import EventTypeRevenueStatsComponent from "./components/EventTypeRevenueStats";
 
 export default function Analytics() {
   const [stats, setStats] = useState<CompleteStatsResponse | null>(null);
@@ -133,6 +134,12 @@ export default function Analytics() {
         <QuotationStatusStatsComponent stats={stats.quotation_status_stats} />
         <EventTypeConversionStatsComponent
           stats={stats.event_type_conversion_stats}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <EventTypeRevenueStatsComponent
+          stats={stats.event_type_revenue_stats}
         />
       </div>
 
