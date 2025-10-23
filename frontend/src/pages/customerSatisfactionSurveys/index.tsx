@@ -10,45 +10,66 @@ import {
   getTemplate,
   createAnswer,
 } from "../../services/customerSatisfactionSurveys.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { getQuotationById } from "../../services/quotations.service";
+import { Quotation } from "../../types/quotations.types";
 
 export default function CustomerSatisfactionSurveysPage() {
   const [template, setTemplate] = useState<SurveyTemplate | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { companyId, quotationId } = useParams();
+  const { company } = useAuth();
 
   useEffect(() => {
-    const fetchTemplate = async () => {
+    const fetchData = async () => {
       if (!companyId) {
         setError("Se requiere el ID de la empresa");
         setLoading(false);
         return;
       }
 
-      try {
-        const templateData = await getTemplate(parseInt(companyId!));
-        setTemplate(templateData);
+      if (!quotationId) {
+        setError("Se requiere el ID de la cotización");
+        setLoading(false);
+        return;
+      }
 
-        // Initialize answers array
-        const initialAnswers = templateData.questions.map((question) => ({
-          id: question.id,
-          answer: "",
-        }));
-        setAnswers(initialAnswers);
+      try {
+        // Fetch template and quotation data in parallel
+        const [templateData, quotationData] = await Promise.all([
+          getTemplate(Number.parseInt(companyId)),
+          getQuotationById(quotationId),
+        ]);
+
+        if (templateData) {
+          setTemplate(templateData);
+          // Initialize answers array
+          const initialAnswers = templateData.questions.map((question) => ({
+            id: question.id,
+            answer: "",
+          }));
+          setAnswers(initialAnswers);
+        }
+
+        if (quotationData.data) {
+          setQuotation(quotationData.data);
+        }
       } catch (err) {
-        setError("Error al cargar la plantilla de la encuesta");
-        console.error("Error fetching template:", err);
+        setError("Error al cargar los datos de la encuesta");
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTemplate();
-  }, [companyId]);
+    fetchData();
+  }, [companyId, quotationId]);
 
   const handleAnswerChange = (questionId: number, answer: string) => {
     setAnswers((prev) =>
@@ -89,7 +110,7 @@ export default function CustomerSatisfactionSurveysPage() {
 
     try {
       const createAnswerDto: CreateAnswerDto = {
-        quotationId: quotationId!,
+        quotationId,
         answers: answers.filter((answer) => answer.answer.trim() !== ""),
       };
 
@@ -150,14 +171,70 @@ export default function CustomerSatisfactionSurveysPage() {
     );
   }
 
+  // Get company colors or use defaults
+  const primaryColor = company?.colors?.primary || "#3b82f6";
+  const secondaryColor = company?.colors?.secondary || "#1e40af";
+  const companyName = company?.name || "Nuestra Empresa";
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-2xl mx-auto px-4">
         <div className="bg-white rounded-lg shadow-md p-8">
+          {/* Company Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Encuesta de Satisfacción del Cliente
+            {/* Company Logo */}
+            {company?.logo_url && (
+              <div className="mb-6">
+                <img
+                  src={company.logo_url}
+                  alt={`${companyName} logo`}
+                  className="h-16 w-auto mx-auto object-contain"
+                />
+              </div>
+            )}
+
+            {/* Company Name */}
+            <h1
+              className="text-3xl font-bold mb-2"
+              style={{ color: primaryColor }}
+            >
+              {companyName}
             </h1>
+
+            {/* Survey Title */}
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Encuesta de Satisfacción del Cliente
+            </h2>
+
+            {/* Event Information */}
+            {quotation && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">
+                      Tipo de Evento:
+                    </span>
+                    <p className="text-gray-900">{quotation.event_type}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">
+                      Fecha del Evento:
+                    </span>
+                    <p className="text-gray-900">
+                      {new Date(quotation.event_date).toLocaleDateString(
+                        "es-ES",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        },
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <p className="text-gray-600">
               ¡Valoramos tu opinión! Por favor, tómate unos minutos para
               compartir tu experiencia.
@@ -222,9 +299,23 @@ export default function CustomerSatisfactionSurveysPage() {
                                 className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors ${
                                   answers.find((ans) => ans.id === question.id)
                                     ?.answer === String(option)
-                                    ? "bg-blue-600 border-blue-600 text-white"
-                                    : "border-gray-300 hover:border-blue-400"
+                                    ? "text-white"
+                                    : "border-gray-300 hover:border-gray-400"
                                 }`}
+                                style={{
+                                  backgroundColor:
+                                    answers.find(
+                                      (ans) => ans.id === question.id,
+                                    )?.answer === String(option)
+                                      ? primaryColor
+                                      : "transparent",
+                                  borderColor:
+                                    answers.find(
+                                      (ans) => ans.id === question.id,
+                                    )?.answer === String(option)
+                                      ? primaryColor
+                                      : undefined,
+                                }}
                               >
                                 {option}
                               </div>
@@ -263,9 +354,21 @@ export default function CustomerSatisfactionSurveysPage() {
                           className={`px-4 py-2 rounded-md border-2 transition-colors ${
                             answers.find((ans) => ans.id === question.id)
                               ?.answer === "true"
-                              ? "bg-green-600 border-green-600 text-white"
-                              : "border-gray-300 hover:border-green-400"
+                              ? "text-white"
+                              : "border-gray-300 hover:border-gray-400"
                           }`}
+                          style={{
+                            backgroundColor:
+                              answers.find((ans) => ans.id === question.id)
+                                ?.answer === "true"
+                                ? primaryColor
+                                : "transparent",
+                            borderColor:
+                              answers.find((ans) => ans.id === question.id)
+                                ?.answer === "true"
+                                ? primaryColor
+                                : undefined,
+                          }}
                         >
                           Sí
                         </div>
@@ -288,9 +391,21 @@ export default function CustomerSatisfactionSurveysPage() {
                           className={`px-4 py-2 rounded-md border-2 transition-colors ${
                             answers.find((ans) => ans.id === question.id)
                               ?.answer === "false"
-                              ? "bg-red-600 border-red-600 text-white"
-                              : "border-gray-300 hover:border-red-400"
+                              ? "text-white"
+                              : "border-gray-300 hover:border-gray-400"
                           }`}
+                          style={{
+                            backgroundColor:
+                              answers.find((ans) => ans.id === question.id)
+                                ?.answer === "false"
+                                ? secondaryColor
+                                : "transparent",
+                            borderColor:
+                              answers.find((ans) => ans.id === question.id)
+                                ?.answer === "false"
+                                ? secondaryColor
+                                : undefined,
+                          }}
                         >
                           No
                         </div>
@@ -305,7 +420,19 @@ export default function CustomerSatisfactionSurveysPage() {
               <button
                 type="submit"
                 disabled={submitting || !isFormValid()}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full text-white py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                style={
+                  {
+                    backgroundColor: primaryColor,
+                    "--hover-color": secondaryColor,
+                  } as React.CSSProperties
+                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = secondaryColor;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = primaryColor;
+                }}
               >
                 {submitting ? "Enviando..." : "Enviar Encuesta"}
               </button>
