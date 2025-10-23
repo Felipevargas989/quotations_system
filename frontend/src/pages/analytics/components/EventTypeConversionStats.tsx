@@ -44,75 +44,58 @@ export default function EventTypeConversionStatsComponent({
 }: EventTypeConversionStatsProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="p-6 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">
+      <div className="p-3 border-b border-gray-200">
+        <h3 className="text-base font-semibold text-gray-900">
           Conversión por Tipo de Evento
         </h3>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-xs text-gray-600">
           Tasa de conversión de cotizaciones por tipo de evento
         </p>
       </div>
-      <div className="p-6">
-        <div className="space-y-6">
+      <div className="p-3">
+        <div className="space-y-3">
           {stats.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No hay datos disponibles</p>
+            <div className="text-center py-2">
+              <p className="text-gray-500 text-sm">No hay datos disponibles</p>
             </div>
           ) : (
             stats.map((stat, index) => (
-              <div key={index} className="space-y-4">
+              <div key={index} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg font-medium">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-base font-medium">
                       {getEventTypeLabel(stat.event_type)}
                     </span>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-gray-600">
-                      {stat.total_quotations} cotizaciones totales
+                    <div className="text-xs text-gray-600">
+                      {stat.total_quotations} totales
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs text-gray-600">
                       {stat.accepted_quotations} aceptadas
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
-                      Tasa de Conversión
+                    <span className="text-xs font-medium text-gray-700">
+                      Conversión
                     </span>
                     <span
-                      className={`px-3 py-1 text-sm font-semibold rounded-full ${getConversionRateBgColor(stat.conversion_rate_percentage)} ${getConversionRateColor(stat.conversion_rate_percentage)}`}
+                      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getConversionRateBgColor(stat.conversion_rate_percentage)} ${getConversionRateColor(stat.conversion_rate_percentage)}`}
                     >
                       {stat.conversion_rate_percentage.toFixed(1)}%
                     </span>
                   </div>
 
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
                     <div
-                      className={`h-3 rounded-full transition-all duration-500 ${getConversionRateBgColor(stat.conversion_rate_percentage)}`}
+                      className={`h-1.5 rounded-full transition-all duration-500 ${getConversionRateBgColor(stat.conversion_rate_percentage)}`}
                       style={{
                         width: `${Math.min(stat.conversion_rate_percentage, 100)}%`,
                       }}
                     ></div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stat.total_quotations}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      Total Cotizaciones
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {stat.accepted_quotations}
-                    </div>
-                    <div className="text-sm text-gray-600">Aceptadas</div>
                   </div>
                 </div>
 
