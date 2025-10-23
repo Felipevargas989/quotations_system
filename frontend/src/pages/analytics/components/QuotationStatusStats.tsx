@@ -1,38 +1,42 @@
 import { QuotationStatusStats } from "../../../types/analytics.types";
+import { Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface QuotationStatusStatsProps {
-  stats: QuotationStatusStats[];
+  readonly stats: QuotationStatusStats[];
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case "solicitada":
-      return "bg-yellow-100 text-yellow-800";
+      return "#F59E0B"; // yellow-500
     case "enviada":
-      return "bg-blue-100 text-blue-800";
+      return "#3B82F6"; // blue-500
     case "en_negociacion":
-      return "bg-purple-100 text-purple-800";
+      return "#8B5CF6"; // purple-500
     case "aceptada":
-      return "bg-green-100 text-green-800";
+      return "#10B981"; // green-500
     case "rechazada":
-      return "bg-red-100 text-red-800";
+      return "#EF4444"; // red-500
     default:
-      return "bg-gray-100 text-gray-800";
+      return "#6B7280"; // gray-500
   }
 };
 
 const getStatusLabel = (status: string) => {
   switch (status) {
     case "solicitada":
-      return "📋 Solicitada";
+      return "Solicitada";
     case "enviada":
-      return "📤 Enviada";
+      return "Enviada";
     case "en_negociacion":
-      return "💬 En Negociación";
+      return "En Negociación";
     case "aceptada":
-      return "✅ Aceptada";
+      return "Aceptada";
     case "rechazada":
-      return "❌ Rechazada";
+      return "Rechazada";
     default:
       return status;
   }
@@ -41,6 +45,67 @@ const getStatusLabel = (status: string) => {
 export default function QuotationStatusStatsComponent({
   stats,
 }: QuotationStatusStatsProps) {
+  const chartData = {
+    labels: stats.map((stat) => getStatusLabel(stat.quotation_status)),
+    datasets: [
+      {
+        data: stats.map((stat) => stat.total),
+        backgroundColor: stats.map((stat) =>
+          getStatusColor(stat.quotation_status),
+        ),
+        borderColor: stats.map((stat) => getStatusColor(stat.quotation_status)),
+        borderWidth: 2,
+        hoverOffset: 4,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: 12,
+          },
+          generateLabels: function (chart: any) {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              return data.labels.map((label: string, index: number) => {
+                const value = data.datasets[0].data[index];
+                const percentage = stats[index]?.percentage || 0;
+                return {
+                  text: `${label}: ${value} cotizaciones (${percentage.toFixed(1)}%)`,
+                  fillStyle: data.datasets[0].backgroundColor[index],
+                  strokeStyle: data.datasets[0].borderColor[index],
+                  lineWidth: data.datasets[0].borderWidth,
+                  pointStyle: "circle",
+                  hidden: false,
+                  index: index,
+                };
+              });
+            }
+            return [];
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            const label = context.label || "";
+            const value = context.parsed;
+            const percentage = stats[context.dataIndex]?.percentage || 0;
+            return `${label}: ${value} cotizaciones (${percentage.toFixed(1)}%)`;
+          },
+        },
+      },
+    },
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200">
@@ -52,37 +117,13 @@ export default function QuotationStatusStatsComponent({
         </p>
       </div>
       <div className="p-6">
-        <div className="space-y-4">
-          {stats.map((stat, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <span
-                  className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(stat.quotation_status)}`}
-                >
-                  {getStatusLabel(stat.quotation_status)}
-                </span>
-                <span className="text-sm text-gray-600">
-                  {stat.total} cotizaciones
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-32 bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${stat.percentage}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                  {stat.percentage.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {stats.length === 0 && (
+        {stats.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">No hay datos disponibles</p>
+          </div>
+        ) : (
+          <div className="h-80">
+            <Doughnut data={chartData} options={chartOptions} />
           </div>
         )}
       </div>
