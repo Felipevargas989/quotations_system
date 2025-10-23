@@ -8,6 +8,7 @@ import {
   RequestType,
 } from 'src/quotations/constants/constants';
 import { QuotationsService } from 'src/quotations/quotations.service';
+import { SupabaseService } from 'src/supabase/supabase.service';
 import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
 import { CompleteStatsResponse, DashboardStatsResponse } from './types';
 import { generateMonthRange } from './utils';
@@ -18,6 +19,7 @@ export class AnalyticsService {
     private readonly quotationsService: QuotationsService,
     private readonly clientsService: ClientsService,
     private readonly paymentsService: PaymentsService,
+    private readonly supabase: SupabaseService,
     private readonly logger: PinoLogger,
   ) {}
 
@@ -198,8 +200,70 @@ export class AnalyticsService {
       `getCompleteStats with companyId ${companyId} and getCompleteStatsDto ${JSON.stringify(getCompleteStatsDto)}`,
     );
 
-    return new Promise((resolve) => {
-      resolve({});
-    });
+    try {
+      // 1 year ago by default
+      const start_date = getCompleteStatsDto.start_date
+        ? new Date(getCompleteStatsDto.start_date)
+        : new Date(new Date().getFullYear() - 1, 0, 1);
+      const end_date = getCompleteStatsDto.end_date
+        ? new Date(getCompleteStatsDto.end_date)
+        : new Date();
+
+      // get quotation status stats
+      const {
+        data: quotation_status_stats,
+        error: quotation_status_stats_error,
+      } = await this.supabase.client.rpc('get_quotation_status_stats', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (quotation_status_stats_error) {
+        this.logger.error(
+          `Error getting quotation status stats: ${quotation_status_stats_error.message}`,
+        );
+        throw new HttpException(
+          quotation_status_stats_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      // get quotation by event_type stats
+      const {
+        data: event_type_conversion_stats,
+        error: event_type_conversion_stats_error,
+      } = await this.supabase.client.rpc('get_event_type_conversion_stats', {
+        p_company_id: 1,
+        p_from_date: '2025-01-01',
+        p_to_date: '2025-12-31',
+      });
+
+      if (event_type_conversion_stats_error) {
+        this.logger.error(
+          `Error getting event type conversion stats: ${event_type_conversion_stats_error.message}`,
+        );
+        throw new HttpException(
+          event_type_conversion_stats_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      return {
+        quotation_status_stats: quotation_status_stats,
+        event_type_conversion_stats: event_type_conversion_stats,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting complete stats: ${error}`);
+      if (error instanceof Error) {
+        throw new HttpException(
+          error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      throw new HttpException(
+        'Error getting complete stats',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

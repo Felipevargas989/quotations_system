@@ -1,3 +1,5 @@
+import { EventType, QuotationStatus } from 'src/quotations/constants/constants';
+
 export type DashboardStatsResponse = {
   totalQuotations: number;
   totalClients: number;
@@ -7,4 +9,19 @@ export type DashboardStatsResponse = {
   totalPaymentsByMonth: Record<string, number>;
 };
 
-export type CompleteStatsResponse = {};
+type QuotationStatusStats = {
+  quotation_status: QuotationStatus;
+  total: number;
+  percentage: number;
+};
+
+type EventTypeConversionStats = {
+  event_type: EventType;
+  total_quotations: number;
+  accepted_quotations: number;
+  conversion_rate_percentage: number;
+};
+export type CompleteStatsResponse = {
+  quotation_status_stats: QuotationStatusStats[];
+  event_type_conversion_stats: EventTypeConversionStats;
+};
