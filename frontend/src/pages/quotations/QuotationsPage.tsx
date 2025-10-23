@@ -45,6 +45,12 @@ export default function QuotationsPage() {
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
 
+  // Sorting state
+  const [sortBy, setSortBy] = useState<"quotation_number" | "event_date">(
+    "quotation_number",
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
   // Status options for multiselect
   const statusOptions: MultiSelectOption[] = [
     { value: QuotationStatus.SOLICITADA, label: "📋 Solicitada" },
@@ -65,6 +71,25 @@ export default function QuotationsPage() {
       fetchQuotations(statusFilter);
     }
   }, [statusFilter]);
+
+  // Refetch quotations when sorting changes
+  useEffect(() => {
+    if (user) {
+      fetchQuotations(statusFilter);
+    }
+  }, [sortBy, sortOrder]);
+
+  // Handle column sorting
+  const handleSort = (column: "quotation_number" | "event_date") => {
+    if (sortBy === column) {
+      // If clicking the same column, toggle the order
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // If clicking a different column, set it as the new sort column with default desc order
+      setSortBy(column);
+      setSortOrder("desc");
+    }
+  };
 
   // Check if user can edit a quotation based on status and role
   const canEditQuotation = (quotation: Quotation): boolean => {
@@ -103,6 +128,8 @@ export default function QuotationsPage() {
       const { data } = await getQuotations(
         QuotationRequestType.COTIZACION,
         statusesToFetch,
+        sortBy,
+        sortOrder,
       );
 
       // Set quotations data
@@ -408,13 +435,15 @@ export default function QuotationsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <MultiSelect
-            options={statusOptions}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            placeholder="Filtrar por estado"
-            className="min-w-[200px]"
-          />
+          <div className="min-w-[200px]">
+            <MultiSelect
+              options={statusOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              placeholder="Filtrar por estado"
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
 
@@ -423,8 +452,24 @@ export default function QuotationsPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Número
+              <th
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                onClick={() => handleSort("quotation_number")}
+              >
+                <div className="flex items-center space-x-2">
+                  <span>Número</span>
+                  <div className="flex flex-col">
+                    {sortBy === "quotation_number" ? (
+                      <span className="text-blue-600 font-bold text-lg">
+                        {sortOrder === "asc" ? "▲" : "▼"}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 font-semibold text-sm bg-gray-100 px-1 rounded">
+                        ▲▼
+                      </span>
+                    )}
+                  </div>
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Cliente
@@ -438,8 +483,24 @@ export default function QuotationsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha
+              <th
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                onClick={() => handleSort("event_date")}
+              >
+                <div className="flex items-center space-x-2">
+                  <span>Fecha</span>
+                  <div className="flex flex-col">
+                    {sortBy === "event_date" ? (
+                      <span className="text-blue-600 font-bold text-lg">
+                        {sortOrder === "asc" ? "▲" : "▼"}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 font-semibold text-sm bg-gray-100 px-1 rounded">
+                        ▲▼
+                      </span>
+                    )}
+                  </div>
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
@@ -466,7 +527,8 @@ export default function QuotationsPage() {
                     {quotation.quotation_number}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quotation.clients.name}
+                    {quotation.clients.name.slice(0, 15) +
+                      (quotation.clients.name.length > 15 ? "..." : "")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
