@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CompleteStatsResponse } from "../../types/analytics.types";
 import { getCompleteStats } from "../../services/analytics.service";
 import { BarChart3, TrendingUp, Calendar, Filter, Search } from "lucide-react";
@@ -8,12 +9,25 @@ import EventTypeRevenueStatsComponent from "./components/EventTypeRevenueStats";
 import RevenueByClientTypeStatsComponent from "./components/RevenueByClientTypeStats";
 
 export default function Analytics() {
+  const [searchParams] = useSearchParams();
   const [stats, setStats] = useState<CompleteStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Set default date range to one year from now
+  // Get default date range from URL params or use one year from now
   const getDefaultDates = () => {
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+
+    // If URL has both from and to params, use them
+    if (fromParam && toParam) {
+      return {
+        startDate: fromParam,
+        endDate: toParam,
+      };
+    }
+
+    // Otherwise, use default one year range
     const today = new Date();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(today.getFullYear() - 1);
@@ -27,8 +41,13 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState(getDefaultDates());
 
   useEffect(() => {
+    // Update date range when URL params change
+    setDateRange(getDefaultDates());
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchStats();
-  }, []);
+  }, [dateRange]);
 
   const fetchStats = async () => {
     try {
