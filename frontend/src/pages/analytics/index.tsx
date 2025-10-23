@@ -5,6 +5,7 @@ import { BarChart3, TrendingUp, Calendar, Filter, Search } from "lucide-react";
 import QuotationStatusStatsComponent from "./components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "./components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "./components/EventTypeRevenueStats";
+import RevenueByClientTypeStatsComponent from "./components/RevenueByClientTypeStats";
 
 export default function Analytics() {
   const [stats, setStats] = useState<CompleteStatsResponse | null>(null);
@@ -197,9 +198,12 @@ export default function Analytics() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <EventTypeRevenueStatsComponent
           stats={stats.event_type_revenue_stats}
+        />
+        <RevenueByClientTypeStatsComponent
+          stats={stats.revenue_by_client_type}
         />
       </div>
 
