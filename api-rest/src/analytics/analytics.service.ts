@@ -248,9 +248,32 @@ export class AnalyticsService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+
+      // get event type revenue stats
+      const {
+        data: event_type_revenue_stats,
+        error: event_type_revenue_stats_error,
+      } = await this.supabase.client.rpc('get_event_type_revenue_stats', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (event_type_revenue_stats_error) {
+        this.logger.error(
+          `Error getting event type revenue stats: ${event_type_revenue_stats_error.message}`,
+        );
+        throw new HttpException(
+          event_type_revenue_stats_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
         event_type_conversion_stats: event_type_conversion_stats,
+        event_type_revenue_stats: event_type_revenue_stats,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
