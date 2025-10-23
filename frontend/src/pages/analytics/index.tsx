@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CompleteStatsResponse } from "../../types/analytics.types";
 import { getCompleteStats } from "../../services/analytics.service";
-import { BarChart3, TrendingUp, Calendar } from "lucide-react";
+import { BarChart3, TrendingUp, Calendar, Filter, Search } from "lucide-react";
 import QuotationStatusStatsComponent from "./components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "./components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "./components/EventTypeRevenueStats";
@@ -11,6 +11,20 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Set default date range to one year from now
+  const getDefaultDates = () => {
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    return {
+      startDate: oneYearAgo.toISOString().split("T")[0],
+      endDate: today.toISOString().split("T")[0],
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDates());
+
   useEffect(() => {
     fetchStats();
   }, []);
@@ -19,7 +33,10 @@ export default function Analytics() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getCompleteStats();
+      const data = await getCompleteStats(
+        dateRange.startDate,
+        dateRange.endDate,
+      );
       setStats(data);
     } catch (err) {
       setError("Error al cargar las estadísticas");
@@ -27,6 +44,17 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+    setDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleApplyFilter = () => {
+    fetchStats();
   };
 
   if (loading) {
@@ -120,13 +148,45 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-3">
-        <div className="bg-blue-100 p-2 rounded-lg">
-          <BarChart3 className="h-6 w-6 text-blue-600" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="bg-blue-100 p-2 rounded-lg">
+            <BarChart3 className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+            <p className="text-gray-600">Estadísticas y métricas del sistema</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600">Estadísticas y métricas del sistema</p>
+
+        {/* Date Range Selector */}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Período:</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => handleDateChange("startDate", e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <span className="text-sm text-gray-500">hasta</span>
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => handleDateChange("endDate", e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={handleApplyFilter}
+              className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            >
+              <Search className="h-4 w-4" />
+              <span>Filtrar</span>
+            </button>
+          </div>
         </div>
       </div>
 
