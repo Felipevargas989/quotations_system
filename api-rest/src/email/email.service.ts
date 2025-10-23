@@ -7,6 +7,8 @@ import { EMAIL_FROM, EMAIL_SUBJECTS } from './constants';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { newAccountTemplate } from './templates/newAccount';
+import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
+import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
 import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
@@ -53,6 +55,15 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
     params: CustomerSatisfactionSurveyParams,
+  ): Promise<void>;
+
+  /**
+   * Sends new answer customer satisfaction survey notification (to multiple recipients)
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY,
+    params: NewAnswerCustomerSatisfactionSurveyParams,
   ): Promise<void>;
   /**
    * Sends payment reminder (to single recipient)
@@ -191,6 +202,22 @@ export class EmailService {
         }
         html = customerSatisfactionSurveyTemplate(
           params as CustomerSatisfactionSurveyParams,
+        );
+        break;
+
+      case EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY:
+        subject =
+          EMAIL_SUBJECTS[
+            EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY
+          ];
+        sendTo = to as string[];
+        if (!params) {
+          throw new Error(
+            'Params are required for NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY template',
+          );
+        }
+        html = newAnswerCustomerSatisfactionSurveyTemplate(
+          params as NewAnswerCustomerSatisfactionSurveyParams,
         );
         break;
 

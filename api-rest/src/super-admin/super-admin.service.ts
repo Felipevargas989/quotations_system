@@ -20,6 +20,7 @@ export class SuperAdminService {
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
     private readonly superAdminRepository: SuperAdminRepository,
+    @Inject(forwardRef(() => CustomerSatisfactionSurveyService))
     private readonly customerSatisfactionSurveyService: CustomerSatisfactionSurveyService,
     private readonly emailService: EmailService,
   ) {}

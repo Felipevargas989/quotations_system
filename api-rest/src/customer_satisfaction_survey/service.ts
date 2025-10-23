@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { EmailService } from 'src/email/email.service';
@@ -15,6 +15,7 @@ export class CustomerSatisfactionSurveyService {
   constructor(
     private readonly customerSatisfactionSurveyRepository: CustomerSatisfactionSurveyRepository,
     private readonly quotationsService: QuotationsService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly logger: PinoLogger,
@@ -106,7 +107,7 @@ export class CustomerSatisfactionSurveyService {
         );
 
         await this.emailService.sendEmail(
-          companyAdmins,
+          companyAdmins.map((admin) => admin.email),
           EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY,
           {
             templateId: templateResult.id,

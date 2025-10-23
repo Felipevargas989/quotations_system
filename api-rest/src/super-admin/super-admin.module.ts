@@ -14,7 +14,7 @@ import { SuperAdminService } from './super-admin.service';
     forwardRef(() => UsersModule),
     LoggerModule,
     EmailModule,
-    CustomerSatisfactionSurveyModule,
+    forwardRef(() => CustomerSatisfactionSurveyModule),
   ],
   controllers: [SuperAdminController],
   providers: [

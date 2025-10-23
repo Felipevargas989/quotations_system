@@ -12,6 +12,8 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.PAYMENT_RECEIVED]: 'Confirmación de pago recibido',
   [EmailStructure.CUSTOMER_SATISFACTION_SURVEY]:
     'Encuesta de satisfacción evento',
+  [EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY]:
+    'Nueva respuesta de encuesta de satisfacción',
 };
 
 export const EMAIL_FROM = 'Eventia <hola@eventi-app.com>';
