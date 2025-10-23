@@ -6,3 +6,5 @@ export type DashboardStatsResponse = {
   totalQuotationsByEventDate: Record<string, { count: number; amount: number }>;
   totalPaymentsByMonth: Record<string, number>;
 };
+
+export type CompleteStatsResponse = {};

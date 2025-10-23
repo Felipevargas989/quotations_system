@@ -8,7 +8,8 @@ import {
   RequestType,
 } from 'src/quotations/constants/constants';
 import { QuotationsService } from 'src/quotations/quotations.service';
-import { DashboardStatsResponse } from './types';
+import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
+import { CompleteStatsResponse, DashboardStatsResponse } from './types';
 import { generateMonthRange } from './utils';
 
 @Injectable()
@@ -187,5 +188,18 @@ export class AnalyticsService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async getCompleteStats(
+    companyId: Company['id'],
+    getCompleteStatsDto: GetCompleteStatsDto,
+  ): Promise<CompleteStatsResponse> {
+    this.logger.info(
+      `getCompleteStats with companyId ${companyId} and getCompleteStatsDto ${JSON.stringify(getCompleteStatsDto)}`,
+    );
+
+    return new Promise((resolve) => {
+      resolve({});
+    });
   }
 }
