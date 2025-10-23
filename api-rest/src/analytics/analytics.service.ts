@@ -269,11 +269,33 @@ export class AnalyticsService {
         );
       }
 
+      // get revenue by client type stats
+      const {
+        data: revenue_by_client_type_stats,
+        error: revenue_by_client_type_stats_error,
+      } = await this.supabase.client.rpc('get_revenue_by_client_type', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (revenue_by_client_type_stats_error) {
+        this.logger.error(
+          `Error getting revenue by client type stats: ${revenue_by_client_type_stats_error.message}`,
+        );
+        throw new HttpException(
+          revenue_by_client_type_stats_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      // calculate total revenue by client type
       // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
         event_type_conversion_stats: event_type_conversion_stats,
         event_type_revenue_stats: event_type_revenue_stats,
+        revenue_by_client_type: revenue_by_client_type_stats,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);

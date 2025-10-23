@@ -29,8 +29,16 @@ type EventTypeRevenueStats = {
   revenue_percentage: number;
 };
 
+type RevenueByClientType = {
+  client_type: ClientTypes;
+  total_quotations: number;
+  total_revenue: number;
+  revenue_percentage: number;
+};
+
 export type CompleteStatsResponse = {
   quotation_status_stats: QuotationStatusStats[];
   event_type_conversion_stats: EventTypeConversionStats;
   event_type_revenue_stats: EventTypeRevenueStats[];
+  revenue_by_client_type: RevenueByClientType[];
 };
