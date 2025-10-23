@@ -160,12 +160,21 @@ export class QuotationsService {
 
     return newQuotationCreated;
   }
-  async findAll(
-    companyId: number,
-    request_type?: RequestType,
-    statuses?: QuotationStatus[],
-    dateRange?: { start_date: Date; end_date: Date },
-  ) {
+  async findAll({
+    companyId,
+    request_type,
+    statuses,
+    dateRange,
+    sort_by,
+    sort_order,
+  }: {
+    companyId: number;
+    request_type?: RequestType;
+    statuses?: QuotationStatus[];
+    dateRange?: { start_date: Date; end_date: Date };
+    sort_by?: 'quotation_number' | 'event_date' | 'status';
+    sort_order?: 'asc' | 'desc';
+  }) {
     this.logger.info(
       `findAll quotations with params ${companyId}, ${request_type}, ${JSON.stringify(statuses)}, ${JSON.stringify(dateRange)}`,
     );
@@ -174,8 +183,8 @@ export class QuotationsService {
       request_type: request_type,
       statuses: statuses,
       dateRange: dateRange,
-      sort_by: 'quotation_number',
-      sort_order: 'asc',
+      sort_by: sort_by || 'quotation_number',
+      sort_order: sort_order || 'asc',
     });
   }
 

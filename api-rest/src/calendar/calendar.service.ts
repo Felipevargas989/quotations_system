@@ -19,7 +19,7 @@ export class CalendarService {
     this.logger.info(`findAll events with companyId ${companyId}`);
 
     // 1. Find all quotations by dates and companyId
-    const quotations = await this.quotationsService.findAll(companyId);
+    const quotations = await this.quotationsService.findAll({ companyId });
 
     // TODO: change name to model bcs logic has changed
     // 2. Find all blocked days by dates and companyId

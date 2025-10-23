@@ -66,11 +66,13 @@ export class QuotationsController {
     this.logger.info(
       `GET /quotations with user ${user.id} with params ${JSON.stringify(getQuotationsDto)}`,
     );
-    return this.quotationsService.findAll(
-      user.company_id,
-      getQuotationsDto.request_type,
-      getQuotationsDto.statuses,
-    );
+    return this.quotationsService.findAll({
+      companyId: user.company_id,
+      request_type: getQuotationsDto.request_type,
+      statuses: getQuotationsDto.statuses,
+      sort_by: getQuotationsDto.sort_by,
+      sort_order: getQuotationsDto.sort_order,
+    });
   }
 
   @Get('check-conflicts')

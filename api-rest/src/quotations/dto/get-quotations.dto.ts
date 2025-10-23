@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsArray, IsEnum, IsIn, IsOptional } from 'class-validator';
+import { IsArray, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { QuotationStatus, RequestType } from '../constants/constants';
 
 export class GetQuotationsDto {
@@ -16,4 +16,12 @@ export class GetQuotationsDto {
   @IsArray()
   @IsIn(Object.values(QuotationStatus), { each: true })
   statuses?: QuotationStatus[];
+
+  @IsOptional()
+  @IsString()
+  sort_by?: 'quotation_number' | 'event_date' | 'status';
+
+  @IsOptional()
+  @IsString()
+  sort_order?: 'asc' | 'desc';
 }

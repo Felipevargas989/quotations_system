@@ -40,21 +40,17 @@ export class AnalyticsService {
 
       // 1. get all quotations
       // TODO: check if add requirmenents
-      const quotations = await this.quotationsService.findAll(
+      const quotations = await this.quotationsService.findAll({
         companyId,
-        RequestType.COTIZACION,
-        [
+        request_type: RequestType.COTIZACION,
+        statuses: [
           QuotationStatus.SOLICITADA,
           QuotationStatus.ENVIADA,
           QuotationStatus.EN_NEGOCIACION,
           QuotationStatus.ACEPTADA,
           QuotationStatus.RECHAZADA,
         ],
-        {
-          start_date,
-          end_date,
-        },
-      );
+      });
 
       // get all clients
       const clients = await this.clientsService.findAll(companyId);
