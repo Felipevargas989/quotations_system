@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Sparkles,
   MessageCircle,
+  BarChart,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import FloatingWhatsAppButton from "./FloatingWhatsAppButton";
@@ -153,6 +154,15 @@ export default function Layout() {
                   >
                     <Calendar size={16} />
                     <span>Calendario</span>
+                  </Link>
+                )}
+                {canAccess("analytics") && (
+                  <Link
+                    to="/analytics"
+                    className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    <BarChart size={16} />
+                    <span>Analytics</span>
                   </Link>
                 )}
               </div>
