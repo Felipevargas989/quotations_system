@@ -26,6 +26,7 @@ export const API_ROUTES = {
 
   // analytics
   ANALYTICS_DASHBOARD: "/analytics/dashboard",
+  ANALYTICS_COMPLETE_STATS: "/analytics/complete",
 
   // users
   USERS: "/users",

@@ -1,6 +1,9 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
-import { DashboardStatsResponse } from "../types/analytics.types";
+import {
+  DashboardStatsResponse,
+  CompleteStatsResponse,
+} from "../types/analytics.types";
 
 export const getDashboardStats = async (
   start_date?: string,
@@ -19,3 +22,12 @@ export const getDashboardStats = async (
   );
   return response || null;
 };
+
+export const getCompleteStats =
+  async (): Promise<CompleteStatsResponse | null> => {
+    const response = await apiRequest(
+      `${API_ROUTES.ANALYTICS_COMPLETE_STATS}`,
+      "GET",
+    );
+    return response || null;
+  };
