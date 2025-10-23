@@ -10,4 +10,5 @@ export enum EmailStructure {
   PAYMENT_RECEIVED = 'paymentReceived',
   CUSTOMER_SATISFACTION_SURVEY = 'customerSatisfactionSurvey',
   NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY = 'newAnswerCustomerSatisfactionSurvey',
+  WEEKLY_ANALYTICS = 'weeklyAnalytics',
 }

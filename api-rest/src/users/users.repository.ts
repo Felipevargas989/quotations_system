@@ -39,12 +39,12 @@ export class UsersRepository {
       .single();
   }
 
-  async findAll(companyId: Company['id'], role?: UserRole) {
+  async findAll(companyId: Company['id'] | undefined, role?: UserRole) {
     this.logger.info(`findAll users with companyId ${companyId}`);
-    const query = this.supabase.client
-      .from('user_profiles')
-      .select('*')
-      .eq('company_id', companyId);
+    const query = this.supabase.client.from('user_profiles').select('*');
+    if (companyId) {
+      query.eq('company_id', companyId);
+    }
     if (role) {
       query.eq('role', role);
     }

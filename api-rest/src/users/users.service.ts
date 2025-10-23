@@ -50,7 +50,7 @@ export class UsersService {
     }
   }
 
-  findAll(companyId: Company['id'], userRole?: UserRole) {
+  findAll(companyId: Company['id'] | undefined, userRole?: UserRole) {
     this.logger.info(`findAll users with companyId ${companyId}`);
     return this.usersRepository.findAll(companyId, userRole);
   }

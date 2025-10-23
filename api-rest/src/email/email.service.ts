@@ -20,6 +20,8 @@ import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { soonEventsTemplate } from './templates/soonEvents';
+import { WeeklyAnalyticsParams } from './templates/weekly_analytics/types';
+import { weeklyAnalyticsTemplate } from './templates/weekly_analytics/weekly_analytics';
 import { EmailStructure } from './types';
 
 @Injectable()
@@ -101,6 +103,15 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.PAYMENT_RECEIVED,
     params: PaymentReceivedParams,
+  ): Promise<void>;
+
+  /**
+   * Sends weekly analytics (to multiple recipients)
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.WEEKLY_ANALYTICS,
+    params: WeeklyAnalyticsParams,
   ): Promise<void>;
   /**
    * Implementation
@@ -219,6 +230,15 @@ export class EmailService {
         html = newAnswerCustomerSatisfactionSurveyTemplate(
           params as NewAnswerCustomerSatisfactionSurveyParams,
         );
+        break;
+
+      case EmailStructure.WEEKLY_ANALYTICS:
+        subject = EMAIL_SUBJECTS[EmailStructure.WEEKLY_ANALYTICS];
+        sendTo = to as string[];
+        if (!params) {
+          throw new Error('Params are required for WEEKLY_ANALYTICS template');
+        }
+        html = weeklyAnalyticsTemplate(params as WeeklyAnalyticsParams);
         break;
 
       default:

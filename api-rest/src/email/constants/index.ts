@@ -14,6 +14,7 @@ export const EMAIL_SUBJECTS = {
     'Encuesta de satisfacción evento',
   [EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY]:
     'Nueva respuesta de encuesta de satisfacción',
+  [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
 };
 
 export const EMAIL_FROM = 'Eventia <hola@eventi-app.com>';
