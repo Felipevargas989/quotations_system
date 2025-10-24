@@ -1,3 +1,5 @@
+import { EmailStructure } from "./notifications";
+
 export interface Company {
   id: number;
   name: string;
@@ -8,6 +10,11 @@ export interface Company {
     secondary: string;
   };
   is_premium: boolean;
+  notifications?: {
+    emails?: {
+      [key in EmailStructure]?: boolean;
+    };
+  };
 }
 
 export interface CompaniesResponse {

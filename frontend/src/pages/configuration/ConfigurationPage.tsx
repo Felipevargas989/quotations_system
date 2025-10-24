@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Save, Lock, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { emailCategories } from "./constants";
+import { getCompany, updateCompany } from "../../services/companies.service";
+import { Company } from "../../types/companies.types";
+import { EmailStructure } from "../../types/notifications";
 
 export default function ConfigurationPage() {
-  const { user } = useAuth();
+  const { user, company: userCompany } = useAuth();
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -17,6 +20,43 @@ export default function ConfigurationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Company and notifications state
+  const [company, setCompany] = useState<Company | null>(null);
+  const [emailNotifications, setEmailNotifications] = useState<{
+    [key in EmailStructure]?: boolean;
+  }>({});
+  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+
+  // Load company data on component mount
+  useEffect(() => {
+    const loadCompanyData = async () => {
+      if (!userCompany?.id) return;
+
+      try {
+        setIsLoadingCompany(true);
+        const { data, error } = await getCompany(userCompany.id.toString());
+
+        if (error) {
+          console.error("Error loading company:", error);
+          return;
+        }
+
+        if (data) {
+          setCompany(data);
+          // Initialize email notifications with current company settings
+          setEmailNotifications(data.notifications?.emails || {});
+        }
+      } catch (error) {
+        console.error("Error loading company:", error);
+      } finally {
+        setIsLoadingCompany(false);
+      }
+    };
+
+    loadCompanyData();
+  }, [userCompany?.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -90,6 +130,34 @@ export default function ConfigurationPage() {
       setError("Error inesperado al actualizar la contraseña");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEmailNotificationChange = (
+    emailType: EmailStructure,
+    checked: boolean,
+  ) => {
+    setEmailNotifications((prev) => ({
+      ...prev,
+      [emailType]: checked,
+    }));
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!company) return;
+
+    try {
+      setIsSavingNotifications(true);
+      await updateCompany(company.name, company.logo_url, company.colors, {
+        emails: emailNotifications,
+      });
+
+      alert("Notificaciones guardadas exitosamente");
+    } catch (error) {
+      console.error("Error saving notifications:", error);
+      setError("Error inesperado al guardar las notificaciones");
+    } finally {
+      setIsSavingNotifications(false);
     }
   };
 
@@ -264,42 +332,106 @@ export default function ConfigurationPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             Notificaciones por Email
           </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Configura qué notificaciones por email quieres recibir
+          </p>
         </div>
         <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {emailCategories.map((category) => (
-              <div key={category.id}>
-                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                  <span
-                    className={`${category.badgeColor} text-xs px-2 py-1 rounded mr-2`}
-                  >
-                    {category.badge}
-                  </span>
-                  {category.name}
-                </h3>
-                <div className="space-y-2">
-                  {category.emails.map((email) => (
-                    <div key={email.id} className="text-sm">
-                      <span className="font-medium">
-                        {email.icon} {email.name}
+          {isLoadingCompany ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">
+                Cargando configuración...
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {emailCategories.map((category) => (
+                  <div key={category.id}>
+                    <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <span
+                        className={`${category.badgeColor} text-xs px-2 py-1 rounded mr-2`}
+                      >
+                        {category.badge}
                       </span>
-                      <p className="text-gray-600 text-xs">
-                        {email.description}
-                      </p>
+                      {category.name}
+                    </h3>
+                    <div className="space-y-3">
+                      {category.emails.map((email) => (
+                        <div
+                          key={email.id}
+                          className="flex items-start space-x-3"
+                        >
+                          <div className="flex items-center h-5">
+                            <input
+                              id={`email-${email.id}`}
+                              name={`email-${email.id}`}
+                              type="checkbox"
+                              checked={
+                                emailNotifications[
+                                  email.id as EmailStructure
+                                ] === true
+                              }
+                              onChange={(e) =>
+                                handleEmailNotificationChange(
+                                  email.id as EmailStructure,
+                                  e.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={`email-${email.id}`}
+                              className="text-sm font-medium text-gray-900 cursor-pointer"
+                            >
+                              {email.icon} {email.name}
+                            </label>
+                            <p className="text-gray-600 text-xs mt-1">
+                              {email.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div className="text-xs text-gray-500">
+                    <p>
+                      <strong>Enviados desde:</strong> Eventia
+                      &lt;hola@eventi-app.com&gt;
+                    </p>
+                    <p>
+                      <strong>Recordatorios:</strong> Diarios entre las 9:00 AM
+                      y las 12:00 PM
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSaveNotifications}
+                    disabled={isSavingNotifications}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    {isSavingNotifications ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    <span>
+                      {isSavingNotifications
+                        ? "Guardando..."
+                        : "Guardar Configuración de Notificaciones"}
+                    </span>
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <p className="text-xs text-gray-500">
-              <strong>Enviados desde:</strong> Eventia
-              &lt;hola@eventi-app.com&gt; •<strong>Recordatorios:</strong>{" "}
-              Diarios entre las 9:00 AM y las 12:00 PM
-            </p>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

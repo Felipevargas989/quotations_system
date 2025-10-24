@@ -14,11 +14,13 @@ export const updateCompany = async (
   name: Company["name"],
   logo_url?: Company["logo_url"],
   colors?: Company["colors"],
+  notifications?: Company["notifications"],
 ) => {
   const response = await apiRequest(`${API_ROUTES.COMPANIES}`, "PATCH", {
     name,
     logo_url,
     colors,
+    notifications,
   });
   return { data: response };
 };

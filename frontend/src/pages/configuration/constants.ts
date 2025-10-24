@@ -1,3 +1,4 @@
+import { EmailStructure } from "../../types/notifications";
 import { EmailCategory } from "./types";
 
 export const emailCategories: EmailCategory[] = [
@@ -8,19 +9,19 @@ export const emailCategories: EmailCategory[] = [
     badgeColor: "bg-blue-100 text-blue-800",
     emails: [
       {
-        id: "new-quotation",
+        id: EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
         name: "Nueva Solicitud",
         description: "Solicitud de cotización recibida por link público",
         icon: "📧",
       },
       {
-        id: "soon-events",
+        id: EmailStructure.SOON_EVENTS,
         name: "Eventos Próximos",
         description: "Recordatorio de eventos dias antes del evento",
         icon: "⏰",
       },
       {
-        id: "survey-response",
+        id: EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY,
         name: "Respuesta Encuesta",
         description: "Nueva respuesta de encuesta de satisfacción",
         icon: "📊",
@@ -34,37 +35,37 @@ export const emailCategories: EmailCategory[] = [
     badgeColor: "bg-green-100 text-green-800",
     emails: [
       {
-        id: "quotation-sent",
+        id: EmailStructure.QUOTATION_IS_SENT,
         name: "Cotización Enviada",
         description: "Cotización enviada para su evento",
         icon: "📋",
       },
       {
-        id: "payment-plan",
+        id: EmailStructure.PAYMENT_PLAN_CREATED,
         name: "Plan de Pagos",
         description: "Cotización aceptada - Plan de pagos",
         icon: "✅",
       },
       {
-        id: "payment-received",
+        id: EmailStructure.PAYMENT_RECEIVED,
         name: "Pago Recibido",
         description: "Confirmación de pago recibido",
         icon: "💰",
       },
       {
-        id: "payment-reminder",
+        id: EmailStructure.PAYMENT_REMINDER,
         name: "Recordatorio",
         description: "Recordatorio de Pago Pendiente",
         icon: "⏰",
       },
       {
-        id: "payment-overdue",
+        id: EmailStructure.PAYMENT_OVERDUE,
         name: "Pago Vencido",
         description: "Recordatorio de Pago Vencido",
         icon: "⚠️",
       },
       {
-        id: "satisfaction-survey",
+        id: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
         name: "Encuesta",
         description: "Encuesta de satisfacción evento",
         icon: "📝",
