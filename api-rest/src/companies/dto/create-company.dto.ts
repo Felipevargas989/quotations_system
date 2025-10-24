@@ -13,4 +13,8 @@ export class CreateCompanyDto {
   @IsObject()
   @IsOptional()
   colors: Company['colors'];
+
+  @IsObject()
+  @IsOptional()
+  notifications: Company['notifications'];
 }

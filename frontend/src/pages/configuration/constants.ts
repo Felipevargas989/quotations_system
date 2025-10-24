@@ -34,12 +34,6 @@ export const emailCategories: EmailCategory[] = [
     badgeColor: "bg-green-100 text-green-800",
     emails: [
       {
-        id: "welcome",
-        name: "Bienvenida",
-        description: "Bienvenido a Eventia",
-        icon: "👋",
-      },
-      {
         id: "quotation-sent",
         name: "Cotización Enviada",
         description: "Cotización enviada para su evento",

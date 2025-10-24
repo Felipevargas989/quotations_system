@@ -34,6 +34,16 @@ export class SuperAdminService {
       // 1. Create company in public.companies table
       const newCompany: Omit<Company, 'id'> = {
         name: createSuscriptionDto.company_name,
+        // all notifications are enabled by default
+        notifications: {
+          emails: Object.values(EmailStructure).reduce(
+            (acc, email) => {
+              acc[email] = true;
+              return acc;
+            },
+            {} as Record<EmailStructure, boolean>,
+          ),
+        },
       };
       const { data: companyData, error: companyError } =
         await this.companiesRepository.create(newCompany);

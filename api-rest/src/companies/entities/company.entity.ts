@@ -1,3 +1,5 @@
+import { EmailStructure } from 'src/email/types';
+
 export class Company {
   id: number;
   name: string;
@@ -5,5 +7,10 @@ export class Company {
   colors?: {
     primary: string;
     secondary: string;
+  };
+  notifications?: {
+    emails: {
+      [key in EmailStructure]: boolean;
+    };
   };
 }
