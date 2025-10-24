@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
-import { EMAIL_FROM, EMAIL_SUBJECTS } from './constants';
+import { EMAIL_FROM, EMAIL_SUBJECTS, EMAILS_SEND_TO_CLIENT } from './constants';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { newAccountTemplate } from './templates/newAccount';
@@ -86,11 +86,17 @@ export class EmailService {
    */
   async sendEmail(
     to: string | undefined | null,
-    emailStructure:
-      | EmailStructure.NEW_ACCOUNT
-      | EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+    emailStructure: EmailStructure.NEW_ACCOUNT,
   ): Promise<void>;
 
+  /**
+   * Sends a new public quotation client email
+   */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+    companyId: Company['id'],
+  ): Promise<void>;
   /**
    * Sends an email with events (to multiple recipients)
    */
@@ -108,7 +114,6 @@ export class EmailService {
     emailStructure: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
     params: CustomerSatisfactionSurveyParams,
     companyId: Company['id'],
-    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -129,7 +134,6 @@ export class EmailService {
       | EmailStructure.PAYMENT_OVERDUE,
     params: PaymentReminderParams,
     companyId: Company['id'],
-    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -140,7 +144,6 @@ export class EmailService {
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
     companyId: Company['id'],
-    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -151,7 +154,6 @@ export class EmailService {
     emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
     params: PaymentPlanCreatedParams,
     companyId: Company['id'],
-    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -162,7 +164,6 @@ export class EmailService {
     emailStructure: EmailStructure.PAYMENT_RECEIVED,
     params: PaymentReceivedParams,
     companyId: Company['id'],
-    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -181,11 +182,10 @@ export class EmailService {
     emailStructure: EmailStructure,
     params?: any,
     companyId?: Company['id'],
-    sendToClient?: boolean,
   ): Promise<void> {
     // Check if email should be sent based on company configuration
-    // Only check for client-facing emails (when sendToClient is true)
-    if (sendToClient && companyId) {
+    // Only check for client-facing emails
+    if (EMAILS_SEND_TO_CLIENT.includes(emailStructure) && companyId) {
       const shouldSend = await this.shouldSendEmail(emailStructure, companyId);
       if (!shouldSend) {
         return;

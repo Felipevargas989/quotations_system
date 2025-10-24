@@ -17,4 +17,14 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
 };
 
+export const EMAILS_SEND_TO_CLIENT = [
+  EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+  EmailStructure.PAYMENT_REMINDER,
+  EmailStructure.PAYMENT_OVERDUE,
+  EmailStructure.QUOTATION_IS_SENT,
+  EmailStructure.PAYMENT_PLAN_CREATED,
+  EmailStructure.PAYMENT_RECEIVED,
+  EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
+];
+
 export const EMAIL_FROM = 'Eventia <hola@eventi-app.com>';

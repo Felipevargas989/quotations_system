@@ -114,6 +114,7 @@ export class QuotationsCronService {
             companyId: event.company_id,
             quotationId: event.id,
           },
+          event.company_id,
         );
       }
     } catch (error) {

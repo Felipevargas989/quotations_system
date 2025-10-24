@@ -147,6 +147,7 @@ export class QuotationsService {
         await this.emailService.sendEmail(
           createQuotationPublicDto.email,
           EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+          company_id,
         );
 
         // TODO: add this email
@@ -332,6 +333,7 @@ export class QuotationsService {
               companyName: quotation.companies.name,
               quotationNumber: quotation.quotation_number,
             },
+            companyId,
           );
         }
       } catch (error) {

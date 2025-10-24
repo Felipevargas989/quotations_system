@@ -88,6 +88,7 @@ export class PaymentsService {
               due_date: payment.due_date,
             })),
           },
+          companyId,
         );
       }
     } catch (error) {
@@ -356,6 +357,7 @@ export class PaymentsService {
                 paymentMethod: payload.payment_method || '',
                 transactionDate: payload.transaction_date || new Date(),
               },
+              companyId,
             );
           }
         } catch (emailError) {

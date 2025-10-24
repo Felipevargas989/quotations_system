@@ -61,6 +61,7 @@ export class PaymentsCronService {
           payment.quotations.clients.email,
           emailTemplate,
           params,
+          payment.quotations.company_id,
         );
       }
     } catch (error) {
