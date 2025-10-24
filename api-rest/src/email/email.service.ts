@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
+import { CompaniesRepository } from 'src/companies/companies.repository';
+import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { EMAIL_FROM, EMAIL_SUBJECTS } from './constants';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
@@ -28,8 +30,56 @@ import { EmailStructure } from './types';
 export class EmailService {
   constructor(
     private readonly configService: ConfigService,
+    private readonly companiesRepository: CompaniesRepository,
     private readonly logger: PinoLogger,
   ) {}
+
+  /**
+   * Checks if an email should be sent based on company notification settings
+   * @param emailStructure - The type of email being sent
+   * @param companyId - The company ID to check settings for
+   * @returns Promise<boolean> - true if email should be sent, false otherwise
+   */
+  private async shouldSendEmail(
+    emailStructure: EmailStructure,
+    companyId: Company['id'],
+  ): Promise<boolean> {
+    const { data: company, error: companyError } =
+      await this.companiesRepository.findOne(companyId);
+
+    if (companyError) {
+      this.logger.error(`Failed to get company: ${companyError.message}`);
+      return false;
+    }
+
+    if (!company) {
+      this.logger.warn(`Company with id ${companyId} not found`);
+      return false;
+    }
+
+    // If company has no notifications configuration, do not send email (default behavior)
+    if (!company.notifications?.emails) {
+      this.logger.info(
+        `Company ${companyId} has no email notifications configured, allowing email ${emailStructure}`,
+      );
+      return false;
+    }
+
+    const emailNotifications = company.notifications.emails;
+
+    // Check if this specific email type is disabled
+    if (emailNotifications[emailStructure] === false) {
+      this.logger.warn(
+        `Email ${emailStructure} is disabled for company ${companyId}`,
+      );
+      return false;
+    }
+
+    this.logger.info(
+      `Email ${emailStructure} is enabled for company ${companyId}`,
+    );
+    return true;
+  }
 
   /**
    * Sends an email without parameters (static templates)
@@ -57,6 +107,8 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
     params: CustomerSatisfactionSurveyParams,
+    companyId: Company['id'],
+    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -76,6 +128,8 @@ export class EmailService {
       | EmailStructure.PAYMENT_REMINDER
       | EmailStructure.PAYMENT_OVERDUE,
     params: PaymentReminderParams,
+    companyId: Company['id'],
+    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -85,6 +139,8 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
+    companyId: Company['id'],
+    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -94,6 +150,8 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
     params: PaymentPlanCreatedParams,
+    companyId: Company['id'],
+    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -103,6 +161,8 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.PAYMENT_RECEIVED,
     params: PaymentReceivedParams,
+    companyId: Company['id'],
+    sendToClient: boolean,
   ): Promise<void>;
 
   /**
@@ -120,7 +180,18 @@ export class EmailService {
     to: string | undefined | null | (string | undefined | null)[],
     emailStructure: EmailStructure,
     params?: any,
+    companyId?: Company['id'],
+    sendToClient?: boolean,
   ): Promise<void> {
+    // Check if email should be sent based on company configuration
+    // Only check for client-facing emails (when sendToClient is true)
+    if (sendToClient && companyId) {
+      const shouldSend = await this.shouldSendEmail(emailStructure, companyId);
+      if (!shouldSend) {
+        return;
+      }
+    }
+
     const resend = new Resend(
       this.configService.get<string>('RESEND_API_KEY') as string,
     );
