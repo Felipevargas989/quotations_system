@@ -88,7 +88,21 @@ export class CustomerSatisfactionSurveyRepository {
 
     return await this.supabase.client
       .from('customer_satisfaction_survey_responses')
-      .select('*')
-      .eq('company_id', companyId);
+      .select(
+        `
+        *,
+        quotations (
+          id,
+          quotation_number,
+          event_date,
+          event_type,
+          company_id,
+          clients (
+            name
+          )
+        )
+        `,
+      )
+      .eq('quotations.company_id', companyId);
   }
 }
