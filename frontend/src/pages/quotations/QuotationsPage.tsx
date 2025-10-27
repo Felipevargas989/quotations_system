@@ -453,7 +453,7 @@ export default function QuotationsPage() {
           <thead className="bg-gray-50">
             <tr>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors w-20"
                 onClick={() => handleSort("quotation_number")}
               >
                 <div className="flex items-center space-x-2">
@@ -474,17 +474,17 @@ export default function QuotationsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Cliente
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                 Tipo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                 Estado
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors w-28"
                 onClick={() => handleSort("event_date")}
               >
                 <div className="flex items-center space-x-2">
@@ -523,14 +523,14 @@ export default function QuotationsPage() {
             ) : (
               filteredQuotations.map((quotation) => (
                 <tr key={quotation.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {quotation.quotation_number}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quotation.clients.name.slice(0, 15) +
-                      (quotation.clients.name.length > 15 ? "..." : "")}
+                    {quotation.clients.name.slice(0, 40) +
+                      (quotation.clients.name.length > 40 ? "..." : "")}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                       📋 Cotización
                     </span>
@@ -538,7 +538,7 @@ export default function QuotationsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${quotation.total_amount.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-4 whitespace-nowrap">
                     <select
                       value={quotation.quotation_status}
                       onChange={(e) =>
@@ -553,7 +553,7 @@ export default function QuotationsPage() {
                       <option value="rechazada">❌ Rechazada</option>
                     </select>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatISOUTCDateToString(quotation.event_date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
