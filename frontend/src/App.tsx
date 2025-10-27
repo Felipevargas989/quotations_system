@@ -23,7 +23,7 @@ import { initGA } from "./lib/analytics.ts";
 import Plans from "./pages/plans/Plans.tsx";
 import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
 import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx";
-import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
+import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/PublicSurvey.tsx";
 import Analytics from "./pages/analytics/index.tsx";
 
 function App() {
