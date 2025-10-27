@@ -41,4 +41,10 @@ export const API_ROUTES = {
 
   // refunds
   REFUNDS: "/refunds",
+
+  // customer satisfaction survey
+  CUSTOMER_SATISFACTION_SURVEY_ANSWERS: "/customer-satisfaction-survey/answers",
+  CUSTOMER_SATISFACTION_SURVEY_TEMPLATE:
+    "/customer-satisfaction-survey/template",
+  CUSTOMER_SATISFACTION_SURVEY_ANSWER: "/customer-satisfaction-survey/answer",
 };
