@@ -26,6 +26,8 @@ import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx"
 import Analytics from "./pages/analytics/index.tsx";
 import CustomerSatisfactionSurveyPublicPage from "./pages/customerSatisfactionSurveys/PublicSurvey.tsx";
 import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
+import TemplateView from "./pages/customerSatisfactionSurveys/components/TemplateView.tsx";
+import AnswersView from "./pages/customerSatisfactionSurveys/components/AnswersView.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -214,6 +216,14 @@ function App() {
             <Route
               path="customer-satisfaction-survey"
               element={<CustomerSatisfactionSurveysPage />}
+            />
+            <Route
+              path="customer-satisfaction-survey/template"
+              element={<TemplateView />}
+            />
+            <Route
+              path="customer-satisfaction-survey/answers"
+              element={<AnswersView />}
             />
           </Route>
         </Routes>
