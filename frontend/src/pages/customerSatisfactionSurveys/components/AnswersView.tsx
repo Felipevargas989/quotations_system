@@ -8,7 +8,16 @@ import {
   CustomerSatisfactionSurveyResponse,
   SurveyTemplate,
 } from "../../../types/customerSatisfactionSurveys.types";
-import { ChevronDown, FileText, Calendar, User, BarChart3 } from "lucide-react";
+import {
+  ChevronDown,
+  FileText,
+  Calendar,
+  User,
+  BarChart3,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { formatISOUTCDateToString } from "../../../utils/dates";
 import Navigation from "./navigatino";
 
@@ -27,6 +36,13 @@ export default function AnswersView() {
       fetchData();
     }
   }, [company?.id]);
+
+  // Auto-select first quotation when responses are loaded
+  useEffect(() => {
+    if (surveyResponses.length > 0 && !selectedQuotationId) {
+      setSelectedQuotationId(surveyResponses[0].quotation_id);
+    }
+  }, [surveyResponses, selectedQuotationId]);
 
   const fetchData = async () => {
     if (!company?.id) return;
@@ -70,6 +86,29 @@ export default function AnswersView() {
 
   const getQuestionById = (questionId: number) => {
     return template?.questions.find((q: any) => q.id === questionId);
+  };
+
+  const navigateToQuotation = (quotationId: string) => {
+    // change by opening a new tab
+    window.open(`/quotation-form/${quotationId}`, "_blank");
+  };
+
+  const goToPreviousQuotation = () => {
+    const currentIndex = uniqueQuotations.findIndex(
+      (q) => q.id === selectedQuotationId,
+    );
+    if (currentIndex > 0) {
+      setSelectedQuotationId(uniqueQuotations[currentIndex - 1].id);
+    }
+  };
+
+  const goToNextQuotation = () => {
+    const currentIndex = uniqueQuotations.findIndex(
+      (q) => q.id === selectedQuotationId,
+    );
+    if (currentIndex < uniqueQuotations.length - 1) {
+      setSelectedQuotationId(uniqueQuotations[currentIndex + 1].id);
+    }
   };
 
   const selectedResponses = getSelectedQuotationResponses();
@@ -165,7 +204,8 @@ export default function AnswersView() {
               <option value="">Selecciona una cotización</option>
               {uniqueQuotations.map((quotation: any) => (
                 <option key={quotation.id} value={quotation.id}>
-                  {quotation.quotation_number} - {quotation.client_name}
+                  {quotation.quotation_number} -{" "}
+                  {quotation.clients?.name || "Sin cliente"}
                   {quotation.event_date &&
                     ` (${formatISOUTCDateToString(quotation.event_date)})`}
                 </option>
@@ -174,6 +214,46 @@ export default function AnswersView() {
             <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
         </div>
+
+        {/* Quotation Navigation */}
+        {uniqueQuotations.length > 1 && selectedQuotationId && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <button
+                onClick={goToPreviousQuotation}
+                disabled={
+                  uniqueQuotations.findIndex(
+                    (q) => q.id === selectedQuotationId,
+                  ) === 0
+                }
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Cotización Anterior</span>
+              </button>
+              <span className="text-sm font-medium text-gray-700">
+                Respuesta{" "}
+                {uniqueQuotations.findIndex(
+                  (q) => q.id === selectedQuotationId,
+                ) + 1}{" "}
+                de {uniqueQuotations.length}
+              </span>
+              <button
+                onClick={goToNextQuotation}
+                disabled={
+                  uniqueQuotations.findIndex(
+                    (q) => q.id === selectedQuotationId,
+                  ) ===
+                  uniqueQuotations.length - 1
+                }
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span>Cotización Siguiente</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Selected Quotation Info */}
         {selectedQuotationId && (
@@ -189,14 +269,26 @@ export default function AnswersView() {
                       <FileText className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-blue-900">
-                        Cotización {selectedQuotation.quotation_number}
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-blue-900">
+                          Cotización {selectedQuotation.quotation_number}
+                        </h4>
+                        <button
+                          onClick={() =>
+                            navigateToQuotation(selectedQuotation.id)
+                          }
+                          className="flex items-center space-x-1 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
+                          title="Ver detalles de la cotización"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>Ver Cotización</span>
+                        </button>
+                      </div>
                       <div className="flex items-center space-x-4 text-sm text-blue-700">
-                        {selectedQuotation.client_name && (
+                        {selectedQuotation.clients?.name && (
                           <div className="flex items-center space-x-1">
                             <User className="h-4 w-4" />
-                            <span>{selectedQuotation.client_name}</span>
+                            <span>{selectedQuotation.clients.name}</span>
                           </div>
                         )}
                         {selectedQuotation.event_date && (
@@ -221,11 +313,6 @@ export default function AnswersView() {
         {/* Answers Display */}
         {selectedQuotationId && selectedResponses.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <FileText className="h-4 w-4" />
-              <span>{selectedResponses.length} respuesta(s) encontrada(s)</span>
-            </div>
-
             {selectedResponses.map((response, responseIndex) => (
               <div
                 key={response.id}
