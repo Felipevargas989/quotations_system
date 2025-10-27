@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import FloatingWhatsAppButton from "../../components/FloatingWhatsAppButton";
+import FloatingWhatsAppButton from "../../layout/FloatingWhatsAppButton";
 
 export default function LandingPage() {
   const [currentSlide, setCurrentSlide] = useState(0);

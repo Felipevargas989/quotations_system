@@ -15,7 +15,7 @@ import { Quotation } from "../../types/quotations.types";
 import { getCompanyById } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
 
-export default function CustomerSatisfactionSurveysPage() {
+export default function CustomerSatisfactionSurveyPublicPage() {
   const [template, setTemplate] = useState<SurveyTemplate | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [quotation, setQuotation] = useState<Quotation | null>(null);

@@ -9,6 +9,7 @@ import {
   Calendar,
   BarChart,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -74,6 +75,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/analytics",
       icon: BarChart,
       section: "analytics",
+    },
+    {
+      name: "Encuestas de Satisfacción",
+      href: "/customer-satisfaction-survey",
+      icon: MessageCircle,
+      section: "customer_satisfaction_survey",
     },
   ];
 

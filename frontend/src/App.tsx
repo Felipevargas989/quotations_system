@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import Layout from "./components/Layout";
+import Layout from "./layout/Layout.tsx";
 import PermissionGuard from "./components/PermissionGuard";
 import { SECTION_ROLES } from "./constants/permissions";
 import LoginPage from "./pages/LoginPage.tsx";
@@ -23,8 +23,9 @@ import { initGA } from "./lib/analytics.ts";
 import Plans from "./pages/plans/Plans.tsx";
 import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
 import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx";
-import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/PublicSurvey.tsx";
 import Analytics from "./pages/analytics/index.tsx";
+import CustomerSatisfactionSurveyPublicPage from "./pages/customerSatisfactionSurveys/PublicSurvey.tsx";
+import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -57,7 +58,7 @@ function App() {
           {/* Customer Satisfaction Survey */}
           <Route
             path="/customer-satisfaction-survey/:companyId/:quotationId"
-            element={<CustomerSatisfactionSurveysPage />}
+            element={<CustomerSatisfactionSurveyPublicPage />}
           />
 
           <Route path="/" element={<Layout />}>
@@ -207,6 +208,12 @@ function App() {
                   <Analytics />
                 </PermissionGuard>
               }
+            />
+
+            {/* customer satisfaction survey */}
+            <Route
+              path="customer-satisfaction-survey"
+              element={<CustomerSatisfactionSurveysPage />}
             />
           </Route>
         </Routes>
