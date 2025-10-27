@@ -98,5 +98,9 @@ export const newAnswerCustomerSatisfactionSurveyTemplate = (
   // Use the base layout without CTA button since this is just a notification
   return baseLayoutTemplate({
     content: emailContent,
+    cta: {
+      text: 'Ver respuestas',
+      link: `https://www.eventi-app.com/customer-satisfaction-survey/answers`,
+    },
   });
 };
