@@ -10,21 +10,22 @@ import {
   getTemplate,
   createAnswer,
 } from "../../services/customerSatisfactionSurveys.service";
-import { useAuth } from "../../contexts/AuthContext";
 import { getQuotationById } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
+import { getCompanyById } from "../../services/superAdmin.service";
+import { Company } from "../../types/companies.types";
 
 export default function CustomerSatisfactionSurveysPage() {
   const [template, setTemplate] = useState<SurveyTemplate | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { companyId, quotationId } = useParams();
-  const { company } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,9 +43,10 @@ export default function CustomerSatisfactionSurveysPage() {
 
       try {
         // Fetch template and quotation data in parallel
-        const [templateData, quotationData] = await Promise.all([
+        const [templateData, quotationData, companyData] = await Promise.all([
           getTemplate(Number.parseInt(companyId)),
           getQuotationById(quotationId),
+          getCompanyById(Number.parseInt(companyId)),
         ]);
 
         if (templateData) {
@@ -59,6 +61,9 @@ export default function CustomerSatisfactionSurveysPage() {
 
         if (quotationData.data) {
           setQuotation(quotationData.data);
+        }
+        if (companyData.data) {
+          setCompany(companyData.data[0]);
         }
       } catch (err) {
         setError("Error al cargar los datos de la encuesta");
