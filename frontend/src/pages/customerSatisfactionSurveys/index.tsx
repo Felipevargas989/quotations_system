@@ -3,6 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { FileText } from "lucide-react";
 import { SurveyTemplate } from "../../types/customerSatisfactionSurveys.types";
 import { getTemplate } from "../../services/customerSatisfactionSurveys.service";
+import AnswersByQuotation from "./components/AnswersByQuotation";
 
 export default function CustomerSatisfactionSurveysPage() {
   const { company } = useAuth();
@@ -158,7 +159,7 @@ export default function CustomerSatisfactionSurveysPage() {
                       <div className="flex flex-wrap gap-1">
                         {question.options.map((option, optionIndex) => (
                           <span
-                            key={optionIndex}
+                            key={`${question.id}-option-${optionIndex}`}
                             className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded"
                           >
                             {option}
@@ -171,6 +172,7 @@ export default function CustomerSatisfactionSurveysPage() {
               ))}
             </div>
           </div>
+          <AnswersByQuotation template={template} />
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
