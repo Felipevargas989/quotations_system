@@ -90,6 +90,9 @@ export class QuotationsController {
     );
   }
 
+  // This is public becaue it is used to display the quotation details in the public customer satisfaction survey
+  // TODO: maybe create public endpoint for this, instead of using the current one
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.quotationsService.findOne(id);
