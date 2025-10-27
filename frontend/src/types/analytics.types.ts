@@ -34,9 +34,17 @@ export type RevenueByClientType = {
   revenue_percentage: number;
 };
 
+export type TopClientsByRevenue = {
+  client_id: string;
+  client_name: string;
+  client_type: string;
+  total_revenue: number;
+};
+
 export type CompleteStatsResponse = {
   quotation_status_stats: QuotationStatusStats[];
   event_type_conversion_stats: EventTypeConversionStats[];
   event_type_revenue_stats: EventTypeRevenueStats[];
   revenue_by_client_type: RevenueByClientType[];
+  top_clients_by_revenue: TopClientsByRevenue[];
 };
