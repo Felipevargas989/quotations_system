@@ -95,6 +95,7 @@ export class QuotationsController {
   @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
+    this.logger.info(`GET /quotations/${id}`);
     return this.quotationsService.findOne(id);
   }
 

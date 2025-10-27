@@ -190,6 +190,7 @@ export class QuotationsService {
   }
 
   findOne(id: string) {
+    this.logger.info(`findOne quotation with id ${id}`);
     return this.quotationsRepository.findOne(id);
   }
 
