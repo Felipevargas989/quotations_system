@@ -289,13 +289,33 @@ export class AnalyticsService {
         );
       }
 
-      // calculate total revenue by client type
+      // get top 10 clients by revenue
+      const {
+        data: top_clients_by_revenue,
+        error: top_clients_by_revenue_error,
+      } = await this.supabase.client.rpc('get_top_clients_by_revenue', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (top_clients_by_revenue_error) {
+        this.logger.error(
+          `Error getting top clients by revenue: ${top_clients_by_revenue_error.message}`,
+        );
+        throw new HttpException(
+          top_clients_by_revenue_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
       // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
         event_type_conversion_stats: event_type_conversion_stats,
         event_type_revenue_stats: event_type_revenue_stats,
         revenue_by_client_type: revenue_by_client_type_stats,
+        top_clients_by_revenue: top_clients_by_revenue,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
