@@ -149,4 +149,26 @@ export class CustomerSatisfactionSurveyService {
       throw error;
     }
   }
+
+  async findAllAnswersFromCompany(companyId: Company['id']) {
+    this.logger.info(`findAllAnswersFromCompany with companyId ${companyId}`);
+
+    try {
+      const result =
+        await this.customerSatisfactionSurveyRepository.findAllAnswersFromCompany(
+          companyId,
+        );
+      if (result.error) {
+        this.logger.error(
+          `Error in findAllAnswersFromCompany: ${result.error.message}`,
+        );
+        throw new Error(`Failed to find all: ${result.error.message}`);
+      }
+
+      return result.data;
+    } catch (error) {
+      this.logger.error(`Error in findAll: ${(error as Error).message}`);
+      throw error;
+    }
+  }
 }

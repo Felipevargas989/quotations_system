@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { Public } from 'src/auth';
+import { CurrentUser, Public } from 'src/auth';
+import type { User } from 'src/users/entities/user.entity';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyService } from './service';
 
@@ -40,10 +41,13 @@ export class CustomerSatisfactionSurveyController {
     return this.customerSatisfactionSurveyService.createAnswer(createAnswerDto);
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.customerSatisfactionSurveyService.findAll();
-  // }
+  @Get('answers')
+  findAllAnswersFromCompany(@CurrentUser() user: User) {
+    this.logger.info(`GET /customer-satisfaction-survey with user ${user.id}`);
+    return this.customerSatisfactionSurveyService.findAllAnswersFromCompany(
+      user.company_id,
+    );
+  }
 
   // @Get(':id')
   // findOne(@Param('id') id: string) {

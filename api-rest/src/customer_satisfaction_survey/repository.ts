@@ -79,4 +79,16 @@ export class CustomerSatisfactionSurveyRepository {
       .eq('company_id', companyId)
       .single();
   }
+
+  async findAllAnswersFromCompany(companyId: Company['id']): Promise<{
+    data: CustomerSatisfactionSurveyResponse[] | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(`findAllAnswersFromCompany with companyId ${companyId}`);
+
+    return await this.supabase.client
+      .from('customer_satisfaction_survey_responses')
+      .select('*')
+      .eq('company_id', companyId);
+  }
 }
