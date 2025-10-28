@@ -309,6 +309,25 @@ export class AnalyticsService {
         );
       }
 
+      // get variable service stats get_variable_services_usage
+      const {
+        data: variable_services_usage,
+        error: variable_services_usage_error,
+      } = await this.supabase.client.rpc('get_variable_services_usage', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (variable_services_usage_error) {
+        this.logger.error(
+          `Error getting variable services usage: ${variable_services_usage_error.message}`,
+        );
+        throw new HttpException(
+          variable_services_usage_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
       // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
@@ -316,6 +335,7 @@ export class AnalyticsService {
         event_type_revenue_stats: event_type_revenue_stats,
         revenue_by_client_type: revenue_by_client_type_stats,
         top_clients_by_revenue: top_clients_by_revenue,
+        variable_services_usage: variable_services_usage,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
