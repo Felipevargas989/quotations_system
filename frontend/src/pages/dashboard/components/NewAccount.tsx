@@ -53,15 +53,12 @@ export default function NewAccount() {
       const hasClients = clientsResponse.data?.length > 0;
 
       // Check quotations (both requests and quotations)
-      const requestsResponse = await getQuotations(
-        QuotationRequestType.REQUERIMIENTO,
-        [
-          QuotationStatus.SOLICITADA,
-          QuotationStatus.ENVIADA,
-          QuotationStatus.EN_NEGOCIACION,
-          QuotationStatus.ACEPTADA,
-        ],
-      );
+      const requestsResponse = await getQuotations(undefined, [
+        QuotationStatus.SOLICITADA,
+        QuotationStatus.ENVIADA,
+        QuotationStatus.EN_NEGOCIACION,
+        QuotationStatus.ACEPTADA,
+      ]);
       const hasQuotations = requestsResponse.data?.length > 0;
       setEmptyStates({
         hasServices: !hasServices,

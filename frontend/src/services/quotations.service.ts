@@ -10,16 +10,20 @@ import {
 import { apiRequest } from "./api";
 
 export const getQuotations = async (
-  requirementType: QuotationRequestType,
+  requirementType?: QuotationRequestType,
   statuses?: QuotationStatus[],
   sort_by?: "quotation_number" | "event_date",
   sort_order?: "asc" | "desc",
 ) => {
+  let requestTypeParam = "";
+  if (requirementType !== undefined) {
+    requestTypeParam = `request_type=${requirementType}`;
+  }
   const statusesParam = statuses ? `&statuses=${statuses.join(",")}` : "";
   const sortByParam = sort_by ? `&sort_by=${sort_by}` : "";
   const sortOrderParam = sort_order ? `&sort_order=${sort_order}` : "";
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?request_type=${requirementType}${statusesParam}${sortByParam}${sortOrderParam}`,
+    `${API_ROUTES.QUOTATIONS}?${requestTypeParam}${statusesParam}${sortByParam}${sortOrderParam}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };
