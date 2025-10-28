@@ -328,6 +328,25 @@ export class AnalyticsService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
+
+      // get fixed services usage
+      const { data: fixed_services_usage, error: fixed_services_usage_error } =
+        await this.supabase.client.rpc('get_fixed_services_usage', {
+          p_company_id: companyId,
+          p_from_date: start_date,
+          p_to_date: end_date,
+        });
+
+      if (fixed_services_usage_error) {
+        this.logger.error(
+          `Error getting fixed services usage: ${fixed_services_usage_error.message}`,
+        );
+        throw new HttpException(
+          fixed_services_usage_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
       // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
@@ -336,6 +355,7 @@ export class AnalyticsService {
         revenue_by_client_type: revenue_by_client_type_stats,
         top_clients_by_revenue: top_clients_by_revenue,
         variable_services_usage: variable_services_usage,
+        fixed_services_usage: fixed_services_usage,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
