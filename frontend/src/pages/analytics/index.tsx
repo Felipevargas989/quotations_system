@@ -235,13 +235,10 @@ export default function Analytics() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <VariableServicesUsageStatsComponent
           stats={stats.variable_services_usage}
         />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <FixedServicesUsageStatsComponent stats={stats.fixed_services_usage} />
       </div>
 
