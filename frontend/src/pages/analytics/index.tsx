@@ -8,6 +8,7 @@ import EventTypeConversionStatsComponent from "./components/EventTypeConversionS
 import EventTypeRevenueStatsComponent from "./components/EventTypeRevenueStats";
 import RevenueByClientTypeStatsComponent from "./components/RevenueByClientTypeStats";
 import TopClientsByRevenueStatsComponent from "./components/TopClientsByRevenueStats";
+import VariableServicesUsageStatsComponent from "./components/VariableServicesUsageStats";
 
 export default function Analytics() {
   const [searchParams] = useSearchParams();
@@ -230,6 +231,12 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <TopClientsByRevenueStatsComponent
           stats={stats.top_clients_by_revenue}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <VariableServicesUsageStatsComponent
+          stats={stats.variable_services_usage}
         />
       </div>
 
