@@ -46,6 +46,11 @@ export type VariableServiceUsage = {
   usage_count: number;
 };
 
+export type FixedServiceUsage = {
+  service_name: string;
+  usage_count: number;
+};
+
 export type CompleteStatsResponse = {
   quotation_status_stats: QuotationStatusStats[];
   event_type_conversion_stats: EventTypeConversionStats[];
@@ -53,4 +58,5 @@ export type CompleteStatsResponse = {
   revenue_by_client_type: RevenueByClientType[];
   top_clients_by_revenue: TopClientsByRevenue[];
   variable_services_usage: VariableServiceUsage[];
+  fixed_services_usage: FixedServiceUsage[];
 };
