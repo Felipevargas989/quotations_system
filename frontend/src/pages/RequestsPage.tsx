@@ -202,6 +202,11 @@ export default function RequestsPage() {
           >
             {getStatusText(request.quotation_status)}
           </span>
+          {request.user_id === null && (
+            <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+              creada desde link publico
+            </span>
+          )}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
           <div className="flex space-x-2">
