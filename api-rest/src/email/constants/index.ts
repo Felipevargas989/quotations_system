@@ -4,6 +4,8 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.NEW_ACCOUNT]: 'Bienvenido a Eventia',
   [EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT]:
     'Solicitud de cotización recibida',
+  [EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN]:
+    'Solicitud de cotización recibida desde link público',
   [EmailStructure.SOON_EVENTS]: 'Tienes estos eventos en 3 días',
   [EmailStructure.PAYMENT_REMINDER]: 'Recordatorio de Pago Pendiente',
   [EmailStructure.PAYMENT_OVERDUE]: 'Recordatorio de Pago Vencido',

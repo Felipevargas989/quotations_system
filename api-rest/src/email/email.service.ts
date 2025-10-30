@@ -11,7 +11,8 @@ import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfacti
 import { newAccountTemplate } from './templates/newAccount';
 import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
 import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
-import { newPublicQuotationTemplate } from './templates/newPublicQuotation';
+import { newPublicQuotationAdminTemplate } from './templates/newPublicQuotationCreated/forAdmin';
+import { newPublicQuotationClientTemplate } from './templates/newPublicQuotationCreated/forClient';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
 import { PaymentPlanCreatedParams } from './templates/paymentPlanCreated/types';
@@ -93,8 +94,10 @@ export class EmailService {
    * Sends a new public quotation client email
    */
   async sendEmail(
-    to: string | undefined | null,
-    emailStructure: EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
+    to: string | string[] | undefined | null,
+    emailStructure:
+      | EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT
+      | EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
     companyId: Company['id'],
   ): Promise<void>;
   /**
@@ -211,7 +214,13 @@ export class EmailService {
       case EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT:
         subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT];
         sendTo = [to as string];
-        html = newPublicQuotationTemplate();
+        html = newPublicQuotationClientTemplate();
+        break;
+
+      case EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN:
+        subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN];
+        sendTo = to as string[];
+        html = newPublicQuotationAdminTemplate();
         break;
 
       case EmailStructure.SOON_EVENTS:
@@ -313,7 +322,7 @@ export class EmailService {
         break;
 
       default:
-        throw new Error(`Unknown email structure: ${emailStructure}`);
+        throw new Error(`Unknown email structure: ${emailStructure as string}`);
     }
 
     this.logger.info(

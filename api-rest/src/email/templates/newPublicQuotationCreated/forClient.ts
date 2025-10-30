@@ -1,11 +1,11 @@
-import { baseLayoutTemplate } from './baseLayout';
+import { baseLayoutTemplate } from '../baseLayout';
 
 /**
  * Email template for new public quotation submission
  * Sent to the client who submitted the quotation via public form
  * @returns HTML string for the email
  */
-export const newPublicQuotationTemplate = (): string => {
+export const newPublicQuotationClientTemplate = (): string => {
   const content = `
     <style>
       .success-icon {

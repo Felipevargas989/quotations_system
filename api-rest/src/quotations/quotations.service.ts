@@ -10,6 +10,8 @@ import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
 import { RefundsService } from 'src/refunds/refunds.service';
+import { UserRole } from 'src/users/entities/user.entity';
+import { UsersService } from 'src/users/users.service';
 import { getEventDateUtc } from '../utils/dates';
 import {
   PaymentPlanType,
@@ -33,6 +35,8 @@ export class QuotationsService {
     private readonly paymentsService: PaymentsService,
     private readonly clientsService: ClientsService,
     private readonly emailService: EmailService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
@@ -144,16 +148,26 @@ export class QuotationsService {
     if (newQuotationCreated) {
       try {
         // send email to the client who created the quotation
-        await this.emailService.sendEmail(
+        void this.emailService.sendEmail(
           createQuotationPublicDto.email,
           EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
           company_id,
         );
 
-        // TODO: add this email
-        // // get company admin email
-        // // send email to the company admin
-        // await this.emailService.sendEmail
+        // get company admin email
+        const companyAdmins = await this.usersService.findAll(
+          company_id,
+          UserRole.ADMINISTRADOR,
+        );
+
+        const adminEmails = companyAdmins.map((admin) => admin.email);
+
+        // send email to the company admin
+        void this.emailService.sendEmail(
+          adminEmails,
+          EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
+          company_id,
+        );
       } catch (error) {
         this.logger.error(error);
       }
