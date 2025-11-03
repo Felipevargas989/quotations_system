@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { format, addDays } from "date-fns";
-import { es } from "date-fns/locale";
 import { NumberInput } from "./inputs";
 
 interface PaymentPlanEditorProps {
@@ -24,28 +23,43 @@ export default function PaymentPlanEditor({
   const [planType, setPlanType] = useState<
     "default" | "contado" | "three_payments" | "custom"
   >("default");
-  const [customPayments, setCustomPayments] = useState([
-    {
-      payment_type: "Abono de Reserva",
-      percentage: 50,
-      days_before_event: 0,
-      notes: "Pago de reserva - 50% del total",
-    },
-    {
-      payment_type: "Pago Final",
-      percentage: 50,
-      days_before_event: 15,
-      notes: "Pago final - 50% del total, 15 días antes del evento",
-    },
-  ]);
-  const [customDueDates, setCustomDueDates] = useState<{
-    [key: number]: string;
-  }>({});
 
   const eventDate = quotation.event_date
     ? new Date(quotation.event_date)
     : addDays(new Date(), 30);
   const today = new Date();
+
+  // Initialize custom payments with due dates
+  const [customPayments, setCustomPayments] = useState([
+    {
+      payment_type: "Abono de Reserva",
+      percentage: 50,
+      due_date: format(today, "yyyy-MM-dd"),
+      notes: "Pago de reserva - 50% del total",
+    },
+    {
+      payment_type: "Pago Final",
+      percentage: 50,
+      due_date: format(addDays(eventDate, -15), "yyyy-MM-dd"),
+      notes: "Pago final - 50% del total, 15 días antes del evento",
+    },
+  ]);
+
+  // Store due dates for preset plans (index-based)
+  const [presetDueDates, setPresetDueDates] = useState<{
+    [planType: string]: { [index: number]: string };
+  }>({
+    default: {},
+    contado: {},
+    three_payments: {},
+  });
+
+  const getDefaultDueDate = (paymentType: string, daysBeforeEvent: number) => {
+    if (paymentType === "Pago Único" || paymentType === "Abono de Reserva") {
+      return format(today, "yyyy-MM-dd");
+    }
+    return format(addDays(eventDate, -daysBeforeEvent), "yyyy-MM-dd");
+  };
 
   const addCustomPayment = () => {
     setCustomPayments((prev) => [
@@ -53,7 +67,7 @@ export default function PaymentPlanEditor({
       {
         payment_type: "Pago Regular",
         percentage: 0,
-        days_before_event: 0,
+        due_date: format(addDays(today, 30), "yyyy-MM-dd"),
         notes: "",
       },
     ]);
@@ -71,15 +85,18 @@ export default function PaymentPlanEditor({
     );
   };
 
-  const updateDueDate = (index: number, dueDate: string) => {
-    setCustomDueDates((prev) => ({
+  const updatePresetDueDate = (
+    planTypeKey: string,
+    index: number,
+    dueDate: string,
+  ) => {
+    setPresetDueDates((prev) => ({
       ...prev,
-      [index]: dueDate,
+      [planTypeKey]: {
+        ...prev[planTypeKey],
+        [index]: dueDate,
+      },
     }));
-  };
-
-  const resetCustomDueDates = () => {
-    setCustomDueDates({});
   };
 
   const getPresetPlan = () => {
@@ -133,7 +150,13 @@ export default function PaymentPlanEditor({
         ];
 
       case "custom":
-        return customPayments;
+        return customPayments.map((p) => ({
+          payment_type: p.payment_type,
+          percentage: p.percentage,
+          days_before_event: 0, // Not used anymore, but kept for compatibility
+          notes: p.notes,
+          due_date: p.due_date,
+        }));
 
       default:
         return [];
@@ -157,44 +180,34 @@ export default function PaymentPlanEditor({
       return;
     }
 
-    // Add custom due dates to the plan
+    // Map plan with due dates
     const planWithDueDates = currentPlan.map((payment, index) => {
-      const defaultDueDate =
-        payment.payment_type === "Pago Único" ||
-        payment.payment_type === "Abono de Reserva"
-          ? today
-          : addDays(eventDate, -payment.days_before_event);
+      let dueDate: string;
 
-      const customDueDate = customDueDates[index];
-      let dueDate;
-
-      if (customDueDate) {
-        const parsedCustomDate = new Date(customDueDate);
-        if (!isNaN(parsedCustomDate.getTime())) {
-          dueDate = parsedCustomDate;
-        } else {
-          console.error(
-            `Invalid custom due date for payment ${index + 1}:`,
-            customDueDate,
-          );
-          dueDate = defaultDueDate;
-        }
+      if (planType === "custom") {
+        // Custom plans already have due_date in the payment object
+        dueDate =
+          (payment as any).due_date ||
+          getDefaultDueDate(payment.payment_type, payment.days_before_event);
       } else {
-        dueDate = defaultDueDate;
+        // For preset plans, use the stored due date or calculate default
+        const storedDate = presetDueDates[planType]?.[index];
+        if (storedDate) {
+          dueDate = storedDate;
+        } else {
+          dueDate = getDefaultDueDate(
+            payment.payment_type,
+            payment.days_before_event,
+          );
+        }
       }
 
-      const paymentWithDueDate = {
+      return {
         ...payment,
-        due_date: format(dueDate, "yyyy-MM-dd"),
+        due_date: dueDate,
       };
-
-      // Ensure the due_date is properly set
-      if (!paymentWithDueDate.due_date) {
-        console.error(`No due_date set for payment ${index + 1}`);
-      }
-
-      return paymentWithDueDate;
     });
+
     onSave(planWithDueDates);
   };
 
@@ -234,7 +247,6 @@ export default function PaymentPlanEditor({
               <button
                 onClick={() => {
                   setPlanType("contado");
-                  resetCustomDueDates();
                 }}
                 className={`p-3 border rounded-lg text-left ${
                   planType === "contado"
@@ -249,7 +261,6 @@ export default function PaymentPlanEditor({
               <button
                 onClick={() => {
                   setPlanType("default");
-                  resetCustomDueDates();
                 }}
                 className={`p-3 border rounded-lg text-left ${
                   planType === "default"
@@ -264,7 +275,6 @@ export default function PaymentPlanEditor({
               <button
                 onClick={() => {
                   setPlanType("three_payments");
-                  resetCustomDueDates();
                 }}
                 className={`p-3 border rounded-lg text-left ${
                   planType === "three_payments"
@@ -279,7 +289,6 @@ export default function PaymentPlanEditor({
               <button
                 onClick={() => {
                   setPlanType("custom");
-                  resetCustomDueDates();
                 }}
                 className={`p-3 border rounded-lg text-left ${
                   planType === "custom"
@@ -373,20 +382,20 @@ export default function PaymentPlanEditor({
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Días antes del evento
+                          Fecha de Vencimiento
                         </label>
-                        <NumberInput
-                          id="days_before_event"
-                          name="days_before_event"
-                          value={payment.days_before_event}
-                          onChange={(value) => {
+                        <input
+                          type="date"
+                          value={payment.due_date}
+                          onChange={(e) =>
                             updateCustomPayment(
                               index,
-                              "days_before_event",
-                              value ? Number(value) : undefined,
-                            );
-                          }}
-                          min={0}
+                              "due_date",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          min={format(today, "yyyy-MM-dd")}
                         />
                       </div>
 
@@ -432,12 +441,6 @@ export default function PaymentPlanEditor({
               <h3 className="text-lg font-medium text-gray-900">
                 Vista Previa del Plan
               </h3>
-              {planType !== "custom" && (
-                <p className="text-sm text-gray-600">
-                  💡 Puedes modificar las fechas de vencimiento haciendo clic en
-                  ellas
-                </p>
-              )}
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="overflow-x-auto">
@@ -460,16 +463,23 @@ export default function PaymentPlanEditor({
                   </thead>
                   <tbody>
                     {currentPlan.map((payment, index) => {
-                      const defaultDueDate =
-                        payment.payment_type === "Pago Único" ||
-                        payment.payment_type === "Abono de Reserva"
-                          ? today
-                          : addDays(eventDate, -payment.days_before_event);
+                      let dueDateValue: string;
 
-                      const customDueDate = customDueDates[index];
-                      const dueDate = customDueDate
-                        ? new Date(customDueDate)
-                        : defaultDueDate;
+                      if (planType === "custom") {
+                        dueDateValue =
+                          (payment as any).due_date ||
+                          format(today, "yyyy-MM-dd");
+                      } else {
+                        const storedDate = presetDueDates[planType]?.[index];
+                        if (storedDate) {
+                          dueDateValue = storedDate;
+                        } else {
+                          dueDateValue = getDefaultDueDate(
+                            payment.payment_type,
+                            payment.days_before_event,
+                          );
+                        }
+                      }
 
                       return (
                         <tr key={index} className="border-b border-gray-100">
@@ -485,38 +495,27 @@ export default function PaymentPlanEditor({
                             ).toLocaleString()}
                           </td>
                           <td className="py-2 px-3 text-right">
-                            {planType === "custom" ? (
-                              <span>
-                                {format(dueDate, "dd/MM/yyyy", { locale: es })}
-                              </span>
-                            ) : (
-                              <div className="flex items-center justify-end space-x-2">
-                                <input
-                                  type="date"
-                                  value={
-                                    customDueDate ||
-                                    format(defaultDueDate, "yyyy-MM-dd")
-                                  }
-                                  onChange={(e) =>
-                                    updateDueDate(index, e.target.value)
-                                  }
-                                  className={`px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
-                                    customDueDate
-                                      ? "border-blue-500 bg-blue-50"
-                                      : "border-gray-300"
-                                  }`}
-                                  min={format(today, "yyyy-MM-dd")}
-                                />
-                                {customDueDate && (
-                                  <span
-                                    className="text-xs text-blue-600"
-                                    title="Fecha modificada"
-                                  >
-                                    ✏️
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                            <input
+                              type="date"
+                              value={dueDateValue}
+                              onChange={(e) => {
+                                if (planType === "custom") {
+                                  updateCustomPayment(
+                                    index,
+                                    "due_date",
+                                    e.target.value,
+                                  );
+                                } else {
+                                  updatePresetDueDate(
+                                    planType,
+                                    index,
+                                    e.target.value,
+                                  );
+                                }
+                              }}
+                              className="px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                              min={format(today, "yyyy-MM-dd")}
+                            />
                           </td>
                         </tr>
                       );

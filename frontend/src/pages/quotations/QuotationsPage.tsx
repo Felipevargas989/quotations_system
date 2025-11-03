@@ -291,28 +291,12 @@ export default function QuotationsPage() {
     if (!quotationForPaymentPlan) return;
 
     try {
-      // Create payments
-      const eventDateObj = quotationForPaymentPlan.event_date
-        ? new Date(quotationForPaymentPlan.event_date)
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      const today = new Date();
-
-      // create payments array
+      // Create payments array
       const paymentsToCreate = customPlan.map((payment, index) => {
-        let dueDate;
-
-        // Use custom due_date if provided, otherwise calculate based on plan
-        if (payment.due_date) {
-          dueDate = new Date(payment.due_date);
-        } else if (
-          payment.payment_type === "Pago Único" ||
-          payment.payment_type === "Abono de Reserva"
-        ) {
-          dueDate = today;
-        } else {
-          dueDate = new Date(
-            eventDateObj.getTime() -
-              payment.days_before_event * 24 * 60 * 60 * 1000,
+        // Use the due_date directly from the payment object (set via date selector)
+        if (!payment.due_date) {
+          throw new Error(
+            `La fecha de vencimiento es requerida para el pago ${index + 1}`,
           );
         }
 
@@ -322,7 +306,7 @@ export default function QuotationsPage() {
           amount: Math.round(
             (quotationForPaymentPlan.total_amount * payment.percentage) / 100,
           ),
-          due_date: dueDate,
+          due_date: new Date(payment.due_date),
           status: "pendiente",
           payment_type: payment.payment_type,
           notes: payment.notes || "",
