@@ -17,4 +17,8 @@ export class SignupDto {
   @IsString()
   @IsNotEmpty()
   company_name: Company['name'];
+
+  @IsString()
+  @IsNotEmpty()
+  currency: Company['currency'];
 }
