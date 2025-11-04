@@ -44,6 +44,7 @@ export class SuperAdminService {
             {} as Record<EmailStructure, boolean>,
           ),
         },
+        currency: createSuscriptionDto.currency,
       };
       const { data: companyData, error: companyError } =
         await this.companiesRepository.create(newCompany);

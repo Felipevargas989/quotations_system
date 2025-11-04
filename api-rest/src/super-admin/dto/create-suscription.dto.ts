@@ -18,4 +18,8 @@ export class CreateSuscriptionDto {
   @IsString()
   @IsNotEmpty()
   company_name: Company['name'];
+
+  @IsString()
+  @IsNotEmpty()
+  currency: Company['currency'];
 }

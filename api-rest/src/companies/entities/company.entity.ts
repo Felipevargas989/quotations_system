@@ -13,4 +13,5 @@ export class Company {
       [key in EmailStructure]: boolean;
     };
   };
+  currency: string;
 }
