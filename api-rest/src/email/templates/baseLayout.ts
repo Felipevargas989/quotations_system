@@ -152,6 +152,9 @@ export const baseLayoutTemplate = (params: BaseLayoutParams): string => {
 
       <!-- Footer -->
       <div class="footer">
+        <p class="footer-text" style="font-style: italic; margin-bottom: 15px;">
+          Este es un mensaje automático. Por favor, no responda a este correo. Si tiene alguna pregunta, comuníquese con la empresa.
+        </p>
         <p class="footer-text">
           ${footerText}
         </p>
