@@ -37,6 +37,7 @@ import { UserRole } from "../../constants/users";
 import { subMonths, subYears } from "date-fns";
 import { MONTHS } from "../../constants/dates";
 import { QuotationStatus } from "../../types/quotations.types";
+import { formatCurrency } from "../../utils/currencies";
 
 interface DashboardData {
   totalRequests: number;
@@ -297,14 +298,6 @@ export default function DashboardPage() {
     return colors[status as keyof typeof colors] || "bg-gray-500";
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
   };
@@ -456,7 +449,7 @@ export default function DashboardPage() {
       tooltip: {
         callbacks: {
           label: function (context: any) {
-            return `Ventas: ${formatCurrency(context.parsed.y)}`;
+            return `Ventas: ${formatCurrency(context.parsed.y, company?.currency || "CLP")}`;
           },
         },
       },
@@ -473,7 +466,7 @@ export default function DashboardPage() {
         beginAtZero: true,
         ticks: {
           callback: function (value: any) {
-            return formatCurrency(value);
+            return formatCurrency(value, company?.currency || "CLP");
           },
         },
       },
@@ -531,7 +524,7 @@ export default function DashboardPage() {
       tooltip: {
         callbacks: {
           label: function (context: any) {
-            return `Pagos: ${formatCurrency(context.parsed.y)}`;
+            return `Pagos: ${formatCurrency(context.parsed.y, company?.currency || "CLP")}`;
           },
         },
       },
@@ -548,7 +541,7 @@ export default function DashboardPage() {
         beginAtZero: true,
         ticks: {
           callback: function (value: any) {
-            return formatCurrency(value);
+            return formatCurrency(value, company?.currency || "CLP");
           },
         },
       },
@@ -665,7 +658,7 @@ export default function DashboardPage() {
                 Ventas Totales
               </p>
               <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(data.totalSales)}
+                {formatCurrency(data.totalSales, company?.currency || "CLP")}
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-green-600" />
@@ -825,12 +818,15 @@ export default function DashboardPage() {
                     {item.count}
                   </td>
                   <td className="py-3 px-4 text-right font-semibold text-green-600">
-                    {formatCurrency(item.amount)}
+                    {formatCurrency(item.amount, company?.currency || "CLP")}
                   </td>
                   <td className="py-3 px-4 text-right text-gray-600">
                     {item.count > 0
-                      ? formatCurrency(item.amount / item.count)
-                      : formatCurrency(0)}
+                      ? formatCurrency(
+                          item.amount / item.count,
+                          company?.currency || "CLP",
+                        )
+                      : formatCurrency(0, company?.currency || "CLP")}
                   </td>
                 </tr>
               ))}
@@ -848,6 +844,7 @@ export default function DashboardPage() {
                       (sum, item) => sum + item.amount,
                       0,
                     ),
+                    company?.currency || "CLP",
                   )}
                 </td>
                 <td className="py-3 px-4 text-right text-gray-700">
@@ -864,8 +861,9 @@ export default function DashboardPage() {
                             (sum, item) => sum + item.count,
                             0,
                           ),
+                        company?.currency || "CLP",
                       )
-                    : formatCurrency(0)}
+                    : formatCurrency(0, company?.currency || "CLP")}
                 </td>
               </tr>
             </tbody>

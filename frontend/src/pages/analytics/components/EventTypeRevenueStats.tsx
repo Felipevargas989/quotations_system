@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Company } from "../../../types/companies.types";
 
 ChartJS.register(
   CategoryScale,
@@ -22,6 +23,7 @@ ChartJS.register(
 
 interface EventTypeRevenueStatsProps {
   readonly stats: EventTypeRevenueStats[];
+  readonly currency: Company["currency"];
 }
 
 const getEventTypeLabel = (eventType: string) => {
@@ -49,6 +51,7 @@ const getEventTypeLabel = (eventType: string) => {
 
 export default function EventTypeRevenueStatsComponent({
   stats,
+  currency,
 }: EventTypeRevenueStatsProps) {
   const chartData = {
     labels: stats.map((stat) => getEventTypeLabel(stat.event_type)),
@@ -79,7 +82,7 @@ export default function EventTypeRevenueStatsComponent({
             const stat = stats[index];
             return [
               `Tipo: ${getEventTypeLabel(stat.event_type)}`,
-              `Ingresos: ${formatCurrency(stat.total_revenue)}`,
+              `Ingresos: ${formatCurrency(stat.total_revenue, currency)}`,
               `Eventos: ${stat.total_events}`,
               `Porcentaje: ${stat.revenue_percentage.toFixed(1)}% del total`,
             ];
@@ -104,7 +107,7 @@ export default function EventTypeRevenueStatsComponent({
         beginAtZero: true,
         ticks: {
           callback: function (value: any) {
-            return formatCurrency(value);
+            return formatCurrency(value, currency);
           },
           font: {
             size: 11,

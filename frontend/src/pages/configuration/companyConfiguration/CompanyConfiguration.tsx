@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Coins } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { updateCompany } from "../../../services/companies.service";
 import { uploadCompanyLogo } from "../../../services/storage.service";
@@ -134,6 +135,20 @@ export default function CompanyConfiguration() {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
+        </div>
+
+        {/* Company Currency (Read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Coins className="inline w-4 h-4 mr-2" />
+            Moneda
+          </label>
+          <p className="text-gray-900 text-base">
+            {company?.currency || "N/A"}
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            La moneda se establece al crear la cuenta y no puede ser modificada
+          </p>
         </div>
 
         {/* Company Logo */}

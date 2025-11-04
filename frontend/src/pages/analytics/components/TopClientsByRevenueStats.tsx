@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Company } from "../../../types/companies.types";
 
 ChartJS.register(
   CategoryScale,
@@ -22,6 +23,7 @@ ChartJS.register(
 
 interface TopClientsByRevenueStatsProps {
   readonly stats: TopClientsByRevenue[];
+  readonly currency: Company["currency"];
 }
 
 const getClientTypeLabel = (clientType: string) => {
@@ -64,6 +66,7 @@ const getClientTypeColor = (clientType: string) => {
 
 export default function TopClientsByRevenueStatsComponent({
   stats,
+  currency,
 }: TopClientsByRevenueStatsProps) {
   // Limit to top 10 clients for better visualization
   const topClients = stats.slice(0, 10);
@@ -102,7 +105,7 @@ export default function TopClientsByRevenueStatsComponent({
             return [
               `Cliente: ${stat.client_name}`,
               `Tipo: ${getClientTypeLabel(stat.client_type)}`,
-              `Ingresos: ${formatCurrency(stat.total_revenue)}`,
+              `Ingresos: ${formatCurrency(stat.total_revenue, currency)}`,
             ];
           },
         },
@@ -125,7 +128,7 @@ export default function TopClientsByRevenueStatsComponent({
         beginAtZero: true,
         ticks: {
           callback: function (value: any) {
-            return formatCurrency(value);
+            return formatCurrency(value, currency);
           },
           font: {
             size: 11,
