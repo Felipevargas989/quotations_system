@@ -29,4 +29,5 @@ export type SignupDto = {
   admin_password: User["password"];
   admin_full_name: User["full_name"];
   company_name: Company["name"];
+  currency: Company["currency"];
 };

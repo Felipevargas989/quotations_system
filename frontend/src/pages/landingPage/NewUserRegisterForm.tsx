@@ -8,12 +8,14 @@ import {
   Users,
   DollarSign,
   ArrowRight,
+  Coins,
 } from "lucide-react";
 import { registerLead } from "../../services/registerLeads.service";
 import { LeadData } from "../../types/leads.types";
 import { signup } from "../../services/users.service";
 import { SignupDto } from "../../types/users.types";
 import { useAuth } from "../../contexts/AuthContext";
+import { CURRENCIES } from "../../constants/companies";
 
 interface FormData {
   nombreContacto: string;
@@ -23,6 +25,7 @@ interface FormData {
   personasEmpresa: string;
   ventasAnuales: string;
   passwordCuenta: string;
+  currency: string;
 }
 
 export default function NewUserRegisterForm() {
@@ -36,6 +39,7 @@ export default function NewUserRegisterForm() {
     personasEmpresa: "",
     ventasAnuales: "",
     passwordCuenta: "",
+    currency: "CLP",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +82,7 @@ export default function NewUserRegisterForm() {
         admin_password: formData.passwordCuenta,
         admin_full_name: formData.nombreContacto,
         company_name: formData.nombreEmpresa,
+        currency: formData.currency,
       };
       const signupResult = await signup(signupDto);
 
@@ -249,6 +254,34 @@ export default function NewUserRegisterForm() {
               <option value="500MM - 1B CLP">500MM - 1B CLP</option>
               <option value="Más de 1B CLP">Más de 1B CLP</option>
             </select>
+          </div>
+
+          {/* Currency Selector */}
+          <div>
+            <label
+              htmlFor="currency"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              <Coins className="inline w-4 h-4 mr-2" />
+              Moneda *
+            </label>
+            <select
+              id="currency"
+              name="currency"
+              value={formData.currency}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            >
+              {CURRENCIES.map((currency) => (
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              Selecciona la moneda para tus cotizaciones y pagos
+            </p>
           </div>
         </div>
 

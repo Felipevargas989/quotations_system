@@ -15,6 +15,7 @@ export interface Company {
       [key in EmailStructure]?: boolean;
     };
   };
+  currency: string;
 }
 
 export interface CompaniesResponse {
