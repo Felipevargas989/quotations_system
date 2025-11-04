@@ -31,7 +31,8 @@ export class UsersRepository {
           name,
           logo_url,
           colors,
-          is_premium
+          is_premium,
+          currency
         )
         `,
       )
