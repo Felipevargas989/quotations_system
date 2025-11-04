@@ -14,4 +14,5 @@ export class Company {
     };
   };
   currency: string;
+  is_active: boolean;
 }
