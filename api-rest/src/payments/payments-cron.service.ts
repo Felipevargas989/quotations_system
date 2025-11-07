@@ -4,6 +4,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { EmailService } from 'src/email/email.service';
 import { PaymentReminderParams } from 'src/email/templates/paymentReminder/types';
 import { EmailStructure } from 'src/email/types';
+import { UserRole } from 'src/users/entities/user.entity';
+import { UsersService } from 'src/users/users.service';
 import { normalizeDateToUtc } from 'src/utils/dates';
 import {
   OVERDUE_PAYMENTS_DAYS_NOTIFICATION,
@@ -17,6 +19,7 @@ export class PaymentsCronService {
   constructor(
     private readonly paymentsRepository: PaymentsRepository,
     private readonly emailService: EmailService,
+    private readonly usersService: UsersService,
     private readonly logger: PinoLogger,
   ) {}
 
@@ -60,6 +63,24 @@ export class PaymentsCronService {
         await this.emailService.sendEmail(
           payment.quotations.clients.email,
           emailTemplate,
+          params,
+          payment.quotations.company_id,
+        );
+
+        // find admins of the company
+        const admins = await this.usersService.findAll(
+          payment.quotations.company_id,
+          UserRole.ADMINISTRADOR,
+        );
+        const adminEmails = admins.map((admin) => admin.email);
+        if (adminEmails.length === 0) continue;
+
+        // send email to admin with the payment details
+        await this.emailService.sendEmail(
+          adminEmails,
+          emailTemplate === EmailStructure.PAYMENT_REMINDER
+            ? EmailStructure.PAYMENT_REMINDER_ADMIN
+            : EmailStructure.PAYMENT_OVERDUE_ADMIN,
           params,
           payment.quotations.company_id,
         );

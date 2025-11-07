@@ -14,11 +14,13 @@ import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswer
 import { newPublicQuotationAdminTemplate } from './templates/newPublicQuotationCreated/forAdmin';
 import { newPublicQuotationClientTemplate } from './templates/newPublicQuotationCreated/forClient';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
+import { paymentOverdueAdminTemplate } from './templates/paymentOverdue/paymentOverdueAdmin';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
 import { PaymentPlanCreatedParams } from './templates/paymentPlanCreated/types';
 import { paymentReceivedTemplate } from './templates/paymentReceived/paymentReceived';
 import { PaymentReceivedParams } from './templates/paymentReceived/types';
 import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
+import { paymentReminderAdminTemplate } from './templates/paymentReminder/paymentReminderAmin';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
@@ -131,10 +133,12 @@ export class EmailService {
    * Sends payment reminder (to single recipient)
    */
   async sendEmail(
-    to: string | undefined | null,
+    to: string | string[] | undefined | null,
     emailStructure:
       | EmailStructure.PAYMENT_REMINDER
-      | EmailStructure.PAYMENT_OVERDUE,
+      | EmailStructure.PAYMENT_OVERDUE
+      | EmailStructure.PAYMENT_REMINDER_ADMIN
+      | EmailStructure.PAYMENT_OVERDUE_ADMIN,
     params: PaymentReminderParams,
     companyId: Company['id'],
   ): Promise<void>;
@@ -245,6 +249,17 @@ export class EmailService {
         html = paymentReminderTemplate(params as PaymentReminderParams);
         break;
 
+      case EmailStructure.PAYMENT_REMINDER_ADMIN:
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_REMINDER_ADMIN];
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error(
+            'Params are required for PAYMENT_REMINDER_ADMIN template',
+          );
+        }
+        html = paymentReminderAdminTemplate(params as PaymentReminderParams);
+        break;
+
       case EmailStructure.PAYMENT_OVERDUE:
         subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_OVERDUE];
         sendTo = [to as string];
@@ -252,6 +267,17 @@ export class EmailService {
           throw new Error('Params are required for PAYMENT_OVERDUE template');
         }
         html = paymentOverdueTemplate(params as PaymentReminderParams);
+        break;
+
+      case EmailStructure.PAYMENT_OVERDUE_ADMIN:
+        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_OVERDUE_ADMIN];
+        sendTo = [to as string];
+        if (!params) {
+          throw new Error(
+            'Params are required for PAYMENT_OVERDUE_ADMIN template',
+          );
+        }
+        html = paymentOverdueAdminTemplate(params as PaymentReminderParams);
         break;
 
       case EmailStructure.QUOTATION_IS_SENT:
