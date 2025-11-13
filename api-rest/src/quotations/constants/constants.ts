@@ -31,3 +31,11 @@ export enum QuotationStatus {
   ACEPTADA = 'aceptada',
   RECHAZADA = 'rechazada',
 }
+
+export const STATUS_LABELS: Record<QuotationStatus, string> = {
+  [QuotationStatus.SOLICITADA]: 'Solicitada',
+  [QuotationStatus.ENVIADA]: 'Enviada',
+  [QuotationStatus.EN_NEGOCIACION]: 'En negociación',
+  [QuotationStatus.ACEPTADA]: 'Aceptada',
+  [QuotationStatus.RECHAZADA]: 'Rechazada',
+};

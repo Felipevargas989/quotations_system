@@ -122,4 +122,84 @@ export class QuotationsCronService {
       throw error;
     }
   }
+
+  @Cron(CronExpression.MONDAY_TO_FRIDAY_AT_09_30AM)
+  async checkQuotationStatuses() {
+    this.logger.info('CRON job: Checking quotation statuses');
+    try {
+      // get all quotations with status SOLICITADA
+      const quotations = await this.quotationsRepository.findAll({
+        company_id: undefined,
+        statuses: [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+        ],
+      });
+
+      // Build summary per company
+      const quotationsSummaryByCompany = quotations.reduce<
+        Record<
+          number,
+          {
+            companyName?: string;
+            statusCounts: Partial<Record<QuotationStatus, number>>;
+            total: number;
+          }
+        >
+      >((acc, quotation) => {
+        const {
+          company_id: companyId,
+          quotation_status,
+          companies,
+        } = quotation;
+
+        if (!acc[companyId]) {
+          acc[companyId] = {
+            companyName: companies?.name,
+            statusCounts: {},
+            total: 0,
+          };
+        }
+
+        const summary = acc[companyId];
+        summary.statusCounts[quotation_status] =
+          (summary.statusCounts[quotation_status] || 0) + 1;
+        summary.total += 1;
+
+        return acc;
+      }, {});
+
+      // loop through summary and send email to company admins
+      for (const [companyId, summary] of Object.entries(
+        quotationsSummaryByCompany,
+      )) {
+        if (!summary.total) continue;
+
+        if (Number.parseInt(companyId) !== 3) continue;
+
+        const admins = await this.usersService.findAll(
+          Number.parseInt(companyId),
+          UserRole.ADMINISTRADOR,
+        );
+        const adminEmails = admins.map((admin) => admin.email);
+        if (!adminEmails.length) continue;
+
+        // send email to company admins
+        await this.emailService.sendEmail(
+          adminEmails,
+          EmailStructure.QUOTATION_STATUS_CHECK,
+          {
+            companyId: Number.parseInt(companyId, 10),
+            companyName: summary.companyName,
+            statusCounts: summary.statusCounts,
+            totalQuotations: summary.total,
+          },
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error checking quotation statuses:', error);
+      throw error;
+    }
+  }
 }

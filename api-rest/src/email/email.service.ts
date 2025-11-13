@@ -24,6 +24,8 @@ import { paymentReminderAdminTemplate } from './templates/paymentReminder/paymen
 import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
+import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/template';
+import { QuotationStatusCheckParams } from './templates/quotationStatusCheck/types';
 import { soonEventsTemplate } from './templates/soonEvents';
 import { WeeklyAnalyticsParams } from './templates/weekly_analytics/types';
 import { weeklyAnalyticsTemplate } from './templates/weekly_analytics/weekly_analytics';
@@ -180,6 +182,15 @@ export class EmailService {
     to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.WEEKLY_ANALYTICS,
     params: WeeklyAnalyticsParams,
+  ): Promise<void>;
+
+  /**
+   * Sends quotation status check summary (to multiple recipients)
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.QUOTATION_STATUS_CHECK,
+    params: QuotationStatusCheckParams,
   ): Promise<void>;
   /**
    * Implementation
@@ -345,6 +356,19 @@ export class EmailService {
           throw new Error('Params are required for WEEKLY_ANALYTICS template');
         }
         html = weeklyAnalyticsTemplate(params as WeeklyAnalyticsParams);
+        break;
+
+      case EmailStructure.QUOTATION_STATUS_CHECK:
+        subject = EMAIL_SUBJECTS[EmailStructure.QUOTATION_STATUS_CHECK];
+        sendTo = to as string[];
+        if (!params) {
+          throw new Error(
+            'Params are required for QUOTATION_STATUS_CHECK template',
+          );
+        }
+        html = quotationStatusCheckTemplate(
+          params as QuotationStatusCheckParams,
+        );
         break;
 
       default:

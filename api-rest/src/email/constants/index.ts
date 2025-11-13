@@ -19,6 +19,7 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY]:
     'Nueva respuesta de encuesta de satisfacción',
   [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
+  [EmailStructure.QUOTATION_STATUS_CHECK]: 'Resumen diario de tus cotizaciones',
 };
 
 export const EMAILS_SEND_TO_CLIENT = [
