@@ -176,8 +176,6 @@ export class QuotationsCronService {
       )) {
         if (!summary.total) continue;
 
-        if (Number.parseInt(companyId) !== 3) continue;
-
         const admins = await this.usersService.findAll(
           Number.parseInt(companyId),
           UserRole.ADMINISTRADOR,
