@@ -10,8 +10,10 @@ import RevenueByClientTypeStatsComponent from "./components/RevenueByClientTypeS
 import TopClientsByRevenueStatsComponent from "./components/TopClientsByRevenueStats";
 import VariableServicesUsageStatsComponent from "./components/VariableServicesUsageStats";
 import FixedServicesUsageStatsComponent from "./components/FixedServicesUsageStats";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function Analytics() {
+  const { company } = useAuth();
   const [searchParams] = useSearchParams();
   const [stats, setStats] = useState<CompleteStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,20 +222,27 @@ export default function Analytics() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <EventTypeRevenueStatsComponent
-          stats={stats.event_type_revenue_stats}
-        />
-        <RevenueByClientTypeStatsComponent
-          stats={stats.revenue_by_client_type}
-        />
-      </div>
+      {company && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <EventTypeRevenueStatsComponent
+            stats={stats.event_type_revenue_stats}
+            currency={company.currency}
+          />
+          <RevenueByClientTypeStatsComponent
+            stats={stats.revenue_by_client_type}
+            currency={company.currency}
+          />
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-        <TopClientsByRevenueStatsComponent
-          stats={stats.top_clients_by_revenue}
-        />
-      </div>
+      {company && (
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          <TopClientsByRevenueStatsComponent
+            stats={stats.top_clients_by_revenue}
+            currency={company.currency}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <VariableServicesUsageStatsComponent
