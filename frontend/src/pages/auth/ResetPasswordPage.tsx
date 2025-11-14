@@ -14,9 +14,10 @@ export default function ResetPasswordPage() {
     searchParams.get("access_token") ?? hashParams.get("access_token") ?? "";
   const recoveryType =
     searchParams.get("type") ?? hashParams.get("type") ?? undefined;
+  const normalizedRecoveryType = recoveryType?.toLowerCase();
   const isTokenValid = useMemo(
-    () => Boolean(accessToken) && recoveryType === "recovery",
-    [accessToken, recoveryType],
+    () => Boolean(accessToken) && normalizedRecoveryType !== "error",
+    [accessToken, normalizedRecoveryType],
   );
 
   const [password, setPassword] = useState("");
