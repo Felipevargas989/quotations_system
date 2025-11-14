@@ -1,12 +1,19 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { KeyRound } from "lucide-react";
 import { resetPasswordWithToken } from "../../services/auth.service";
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
-  const accessToken = searchParams.get("access_token") ?? "";
-  const recoveryType = searchParams.get("type");
+  const location = useLocation();
+  const hashParams = useMemo(() => {
+    return new URLSearchParams(location.hash.replace(/^#/, ""));
+  }, [location.hash]);
+
+  const accessToken =
+    searchParams.get("access_token") ?? hashParams.get("access_token") ?? "";
+  const recoveryType =
+    searchParams.get("type") ?? hashParams.get("type") ?? undefined;
   const isTokenValid = useMemo(
     () => Boolean(accessToken) && recoveryType === "recovery",
     [accessToken, recoveryType],
