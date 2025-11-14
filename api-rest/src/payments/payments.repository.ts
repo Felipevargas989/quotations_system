@@ -71,7 +71,7 @@ export class PaymentsRepository {
   async findAllPaymentsWithTransactions(
     companyId: Company['id'] | undefined,
     status?: PaymentStatus[],
-    dueDate?: Date,
+    dueDate?: Date | Date[],
   ): Promise<{
     data: PaymentWithTransactionsAndQuotation[];
     error: PostgrestError | null;
@@ -118,7 +118,16 @@ export class PaymentsRepository {
     }
 
     if (dueDate) {
-      query.eq('due_date', dueDate.toISOString());
+      const dueDates = Array.isArray(dueDate) ? dueDate : [dueDate];
+
+      if (dueDates.length === 1) {
+        query.eq('due_date', dueDates[0]?.toISOString());
+      } else if (dueDates.length > 1) {
+        query.in(
+          'due_date',
+          dueDates.map((date) => date.toISOString()),
+        );
+      }
     }
     // order
     query.order('created_at', { ascending: false });

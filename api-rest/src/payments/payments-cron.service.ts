@@ -25,7 +25,7 @@ export class PaymentsCronService {
 
   async checkUpcomingOrOverduePayments(
     status: PaymentStatus,
-    days: number,
+    days: number | readonly number[],
     emailTemplate:
       | EmailStructure.PAYMENT_REMINDER
       | EmailStructure.PAYMENT_OVERDUE,
@@ -33,21 +33,29 @@ export class PaymentsCronService {
     this.logger.info('CRON job to check upcoming or overdue payments');
 
     try {
-      // set due date in 4 days from now
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + days);
+      const dayOffsets = Array.isArray(days) ? [...days] : [days];
+      const uniqueOffsets = [...new Set(dayOffsets)];
 
-      // Normalize date
-      const normalizedDueDate = normalizeDateToUtc(dueDate);
+      const normalizedDueDates = uniqueOffsets.map((dayOffset) => {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + dayOffset);
+        return normalizeDateToUtc(dueDate);
+      });
 
-      //  get all payments with status PENDIENTE and due_date in the next X days
       const { data: payments } =
         await this.paymentsRepository.findAllPaymentsWithTransactions(
           undefined,
           [status],
-          normalizedDueDate,
+          normalizedDueDates,
         );
-      // for each payment, send an email to the client with the payments details
+
+      if (!payments.length) {
+        this.logger.info(
+          `No payments found for status ${status} and offsets ${uniqueOffsets.join(', ')}`,
+        );
+        return;
+      }
+
       for (const payment of payments) {
         const params: PaymentReminderParams = {
           clientName: payment.quotations.clients.name,
@@ -67,15 +75,14 @@ export class PaymentsCronService {
           payment.quotations.company_id,
         );
 
-        // find admins of the company
         const admins = await this.usersService.findAll(
           payment.quotations.company_id,
           UserRole.ADMINISTRADOR,
         );
-        const adminEmails = admins.map((admin) => admin.email);
-        if (adminEmails.length === 0) continue;
 
-        // send email to admin with the payment details
+        const adminEmails = admins.map((admin) => admin.email);
+        if (!adminEmails.length) continue;
+
         await this.emailService.sendEmail(
           adminEmails,
           emailTemplate === EmailStructure.PAYMENT_REMINDER
@@ -91,8 +98,7 @@ export class PaymentsCronService {
     }
   }
   /**
-   * Check all payments with status PENDIENTE and due_date in the next 4 days
-   * and send an email to the client with the payments details
+   * Check all payments with status PENDIENTE and send reminders on configured days
    */
   @Cron(CronExpression.EVERY_DAY_AT_11AM)
   async checkUpcomingOverduePayments() {
