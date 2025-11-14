@@ -28,6 +28,8 @@ import CustomerSatisfactionSurveyPublicPage from "./pages/customerSatisfactionSu
 import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
 import TemplateView from "./pages/customerSatisfactionSurveys/components/TemplateView.tsx";
 import AnswersView from "./pages/customerSatisfactionSurveys/components/AnswersView.tsx";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.tsx";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage.tsx";
 
 function App() {
   // Initialize Google Analytics
@@ -49,6 +51,8 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
           {/* TODO: add authentication */}
           <Route path="/superAdminqweasdzxc" element={<SuperAdminPage />} />
