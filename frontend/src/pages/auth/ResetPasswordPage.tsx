@@ -1,24 +1,31 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { KeyRound } from "lucide-react";
 import { resetPasswordWithToken } from "../../services/auth.service";
 
 export default function ResetPasswordPage() {
-  const [searchParams] = useSearchParams();
   const location = useLocation();
-  const hashParams = useMemo(() => {
-    return new URLSearchParams(location.hash.replace(/^#/, ""));
-  }, [location.hash]);
+  const [searchParams] = useSearchParams();
+  const [accessToken, setAccessToken] = useState("");
+  const [recoveryType, setRecoveryType] = useState<string | undefined>();
 
-  const accessToken =
-    searchParams.get("access_token") ?? hashParams.get("access_token") ?? "";
-  const recoveryType =
-    searchParams.get("type") ?? hashParams.get("type") ?? undefined;
+  useEffect(() => {
+    const urlSearchParams = new URLSearchParams(location.search);
+    const urlHashParams = new URLSearchParams(location.hash.replace(/^#/, ""));
+
+    const tokenFromSearch = urlSearchParams.get("access_token");
+    const tokenFromHash = urlHashParams.get("access_token");
+    const typeFromSearch = urlSearchParams.get("type");
+    const typeFromHash = urlHashParams.get("type");
+
+    setAccessToken(tokenFromSearch ?? tokenFromHash ?? "");
+    setRecoveryType(typeFromSearch ?? typeFromHash ?? undefined);
+  }, [location.hash, location.search]);
+
   const normalizedRecoveryType = recoveryType?.toLowerCase();
-  const isTokenValid = useMemo(
-    () => Boolean(accessToken) && normalizedRecoveryType !== "error",
-    [accessToken, normalizedRecoveryType],
-  );
+  const isTokenValid = useMemo(() => {
+    return Boolean(accessToken) && normalizedRecoveryType !== "error";
+  }, [accessToken, normalizedRecoveryType]);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
