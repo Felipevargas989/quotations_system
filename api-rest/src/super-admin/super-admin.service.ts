@@ -102,6 +102,13 @@ export class SuperAdminService {
     this.logger.info(`getStatsLastMonth for all companies`);
 
     try {
+      const rangeEnd = new Date();
+      const rangeStart = new Date(rangeEnd);
+      rangeStart.setDate(rangeStart.getDate() - 30);
+      const periodStart = rangeStart.toISOString().split('T')[0];
+      const periodEnd = rangeEnd.toISOString().split('T')[0];
+      const period = `${periodStart} to ${periodEnd}`;
+
       const { data, error } =
         await this.superAdminRepository.getStatsLastMonth();
 
@@ -123,12 +130,6 @@ export class SuperAdminService {
         (sum, company) => sum + company.total_amount,
         0,
       );
-
-      // Get the period string for last 30 days
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const period = `${thirtyDaysAgo.toISOString().split('T')[0]} to ${now.toISOString().split('T')[0]}`;
 
       // Aggregate total quotations and amounts across all companies by day
       const totalQuotationsByDay = new Map<
@@ -158,12 +159,38 @@ export class SuperAdminService {
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
+      const {
+        data: usersLastSignIns,
+        error: usersLastSignInsError,
+        totals: userTotals,
+      } = await this.superAdminRepository.getUsersLastSignIns({
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      });
+
+      if (usersLastSignInsError) {
+        this.logger.error(
+          `Error getting auth user stats: ${usersLastSignInsError.message}`,
+        );
+        throw new Error(
+          `Failed to get user stats: ${usersLastSignInsError.message}`,
+        );
+      }
+
       const response: QuotationStatsResponse = {
         period,
         companies: data,
         total_quotations,
         total_quotations_all_companies,
         total_amount_all_companies,
+        user_sign_in_stats: {
+          period_start: periodStart,
+          period_end: periodEnd,
+          total_users: userTotals.total_users,
+          total_signed_in_in_period: userTotals.total_signed_in_in_period,
+          total_never_signed_in: userTotals.total_never_signed_in,
+          users: usersLastSignIns || [],
+        },
       };
 
       this.logger.info(

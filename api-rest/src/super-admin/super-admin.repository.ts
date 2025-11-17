@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PostgrestError } from '@supabase/supabase-js';
+import { AuthError, PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
-import { QuotationDayStats } from './dto/quotation-stats.dto';
+import {
+  QuotationDayStats,
+  UserLastSignInStats,
+} from './dto/quotation-stats.dto';
 
 @Injectable()
 export class SuperAdminRepository {
@@ -144,6 +147,106 @@ export class SuperAdminRepository {
         error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Error in getStatsLastMonth: ${errorMessage}`);
       return { data: null, error: error as PostgrestError };
+    }
+  }
+
+  async getUsersLastSignIns({
+    startDate,
+    endDate,
+  }: {
+    startDate: Date;
+    endDate: Date;
+  }): Promise<{
+    data: UserLastSignInStats[] | null;
+    totals: {
+      total_users: number;
+      total_signed_in_in_period: number;
+      total_never_signed_in: number;
+    };
+    error: AuthError | null;
+  }> {
+    try {
+      const rangeStart = new Date(startDate);
+      rangeStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date(endDate);
+      rangeEnd.setHours(23, 59, 59, 999);
+
+      const { data, error } = await this.supabase.client.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      if (error) {
+        this.logger.error(
+          `Error fetching auth users for sign-in stats: ${error.message}`,
+        );
+        return {
+          data: null,
+          totals: {
+            total_users: 0,
+            total_signed_in_in_period: 0,
+            total_never_signed_in: 0,
+          },
+          error,
+        };
+      }
+
+      const users = data?.users ?? [];
+
+      const filteredUsers: UserLastSignInStats[] = users
+        .filter((user) => !!user.last_sign_in_at)
+        .filter((user) => {
+          const lastSignIn = user.last_sign_in_at
+            ? new Date(user.last_sign_in_at)
+            : null;
+          if (!lastSignIn) {
+            return false;
+          }
+          return lastSignIn >= rangeStart && lastSignIn <= rangeEnd;
+        })
+        .sort((a, b) => {
+          const aDate = a.last_sign_in_at
+            ? new Date(a.last_sign_in_at).getTime()
+            : 0;
+          const bDate = b.last_sign_in_at
+            ? new Date(b.last_sign_in_at).getTime()
+            : 0;
+          return bDate - aDate;
+        })
+        .map((user) => ({
+          id: user.id,
+          email: user.email ?? null,
+          last_sign_in_at: user.last_sign_in_at ?? null,
+          created_at: user.created_at,
+          phone: user.phone ?? null,
+        }));
+
+      const totalNeverSignedIn = users.filter(
+        (user) => !user.last_sign_in_at,
+      ).length;
+
+      return {
+        data: filteredUsers,
+        totals: {
+          total_users: users.length,
+          total_signed_in_in_period: filteredUsers.length,
+          total_never_signed_in: totalNeverSignedIn,
+        },
+        error: null,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error in getUsersLastSignIns: ${errorMessage}`);
+      return {
+        data: null,
+        totals: {
+          total_users: 0,
+          total_signed_in_in_period: 0,
+          total_never_signed_in: 0,
+        },
+        error: error as AuthError,
+      };
     }
   }
 }

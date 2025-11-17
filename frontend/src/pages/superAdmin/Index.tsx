@@ -7,6 +7,7 @@ import {
   Plus,
   X,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import {
   getAllCompanies,
@@ -332,6 +333,121 @@ export default function SuperAdminPage() {
     );
   };
 
+  const renderUserSignInStats = () => {
+    if (!statsData?.user_sign_in_stats) {
+      return null;
+    }
+
+    const userStats = statsData.user_sign_in_stats;
+    const topUsers = userStats.users.slice(0, 10);
+    const periodLabel = `${format(
+      new Date(userStats.period_start),
+      "dd/MM/yyyy",
+      { locale: es },
+    )} - ${format(new Date(userStats.period_end), "dd/MM/yyyy", {
+      locale: es,
+    })}`;
+
+    return (
+      <div className="bg-white shadow rounded-lg mb-8 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-purple-100 p-2 rounded-lg">
+              <Users className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Actividad de Usuarios
+              </h3>
+              <p className="text-sm text-gray-500">
+                Inicios de sesión recientes ({periodLabel})
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-purple-50 rounded-lg p-4">
+            <p className="text-sm text-purple-700">Usuarios registrados</p>
+            <p className="text-3xl font-bold text-purple-900">
+              {userStats.total_users}
+            </p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <p className="text-sm text-green-700">Ingresaron en el período</p>
+            <p className="text-3xl font-bold text-green-900">
+              {userStats.total_signed_in_in_period}
+            </p>
+          </div>
+          <div className="bg-amber-50 rounded-lg p-4">
+            <p className="text-sm text-amber-700">Nunca han ingresado</p>
+            <p className="text-3xl font-bold text-amber-900">
+              {userStats.total_never_signed_in}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          {topUsers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Usuario
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Último ingreso
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Registrado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {topUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="font-medium">{user.email}</div>
+                        <div className="text-xs text-gray-500">
+                          {user.phone}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {user.last_sign_in_at
+                          ? format(
+                              new Date(user.last_sign_in_at),
+                              "dd/MM/yyyy HH:mm",
+                              { locale: es },
+                            )
+                          : "Sin registro"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {format(new Date(user.created_at), "dd/MM/yyyy", {
+                          locale: es,
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {userStats.users.length > topUsers.length && (
+                <p className="text-xs text-gray-500 px-6 py-3">
+                  Mostrando {topUsers.length} de {userStats.users.length}{" "}
+                  usuarios con actividad reciente.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-sm text-gray-500">
+              No se registraron inicios de sesión en el período seleccionado.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -404,6 +520,7 @@ export default function SuperAdminPage() {
 
         {/* Stats Chart */}
         {renderStatsChart()}
+        {renderUserSignInStats()}
 
         {/* Create Company Form */}
         {showCreateForm && (
