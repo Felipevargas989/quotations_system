@@ -41,6 +41,7 @@ describe('QuotationsService', () => {
     } as any;
 
     paymentsServiceMock = {
+      findAllPaymentsFromQuotation: jest.fn(),
       // create: jest.fn(),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
@@ -110,6 +111,10 @@ describe('QuotationsService', () => {
     service = module.get<QuotationsService>(QuotationsService);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -158,6 +163,24 @@ describe('QuotationsService', () => {
         params,
         company_id,
       );
+    });
+
+    describe('if quotation_status is ACEPTADA', () => {
+      it('whenn findAllPaymentsFromQuotation through error, it should throw error', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+          },
+          error: null,
+        });
+
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: null,
+          error: new Error(),
+        });
+
+        await expect(service.update('1', {}, 1)).rejects.toThrow();
+      });
     });
   });
 });
