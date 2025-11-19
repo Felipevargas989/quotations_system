@@ -34,7 +34,7 @@ describe('QuotationsService', () => {
     } as any;
 
     refundsServiceMock = {
-      // create: jest.fn(),
+      create: jest.fn(),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
@@ -206,6 +206,47 @@ describe('QuotationsService', () => {
         // await expect(service.update('1', params, 1)).rejects.toThrow();
         await service.update(quotation_id, params, 1);
 
+        expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
+          quotation_id,
+          params,
+          company_id,
+        );
+      });
+
+      it('when new quotation total_amount is smaller than the original and not payments are created, it should create a refund and update the quotation', async () => {
+        const quotation_id = '1';
+        const company_id = 1;
+
+        const originalAmount = 100;
+        const newTotalAmount = 90;
+
+        const params: UpdateQuotationDto = {
+          total_amount: newTotalAmount,
+        };
+
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: originalAmount,
+          },
+          error: null,
+        });
+
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: [],
+          error: null,
+        });
+
+        // act
+        await service.update(quotation_id, params, 1);
+
+        // assert refund creation was called
+        expect(refundsServiceMock.create).toHaveBeenCalledWith({
+          amount: originalAmount - newTotalAmount,
+          quotation_id: quotation_id,
+        });
+
+        // assert quotation update was called
         expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
           quotation_id,
           params,
