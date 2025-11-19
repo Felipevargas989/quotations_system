@@ -44,6 +44,7 @@ describe('QuotationsService', () => {
     paymentsServiceMock = {
       findAllPaymentsFromQuotation: jest.fn(),
       createPayment: jest.fn(),
+      update: jest.fn(),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
@@ -296,6 +297,68 @@ describe('QuotationsService', () => {
             notes: 'Pago creado por diferencia de total_amount',
           },
           company_id,
+        );
+
+        // assert quotation update was called
+        expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
+          quotation_id,
+          params,
+          company_id,
+        );
+      });
+
+      it('when new quotation total_amount is greather than the original and payments are already created, it should update the amoun of the last payment and update the quotation', async () => {
+        const quotation_id = '1';
+        const company_id = 1;
+
+        const originalAmount = 90;
+        const newTotalAmount = 100;
+
+        const params: UpdateQuotationDto = {
+          total_amount: newTotalAmount,
+        };
+
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: originalAmount,
+          },
+          error: null,
+        });
+
+        const payments = [
+          {
+            id: 1,
+            amount: 10,
+          },
+          {
+            id: 2,
+            amount: 20,
+          },
+        ];
+
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: payments,
+          error: null,
+        });
+
+        // act
+        await service.update(quotation_id, params, 1);
+
+        // assert refund creation was not called
+        expect(refundsServiceMock.create).toHaveBeenCalledTimes(0);
+
+        // assert new payment was not created
+        expect(paymentsServiceMock.createPayment).toHaveBeenCalledTimes(0);
+
+        // assert update payment was called
+        // get last payment
+        const lastPayment = payments[payments.length - 1];
+        expect(paymentsServiceMock.update).toHaveBeenCalledWith(
+          lastPayment.id,
+          {
+            amount: lastPayment.amount + (newTotalAmount - originalAmount),
+          },
         );
 
         // assert quotation update was called
