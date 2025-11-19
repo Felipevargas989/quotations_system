@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { EmailService } from 'src/email/email.service';
+import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentsService } from 'src/payments/payments.service';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import { UpdateQuotationDto } from 'src/quotations/dto/update-quotation.dto';
@@ -42,7 +43,7 @@ describe('QuotationsService', () => {
 
     paymentsServiceMock = {
       findAllPaymentsFromQuotation: jest.fn(),
-      // create: jest.fn(),
+      createPayment: jest.fn(),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
@@ -245,6 +246,57 @@ describe('QuotationsService', () => {
           amount: originalAmount - newTotalAmount,
           quotation_id: quotation_id,
         });
+
+        // assert quotation update was called
+        expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
+          quotation_id,
+          params,
+          company_id,
+        );
+      });
+
+      it('when new quotation total_amount is greather than the original and not payments are created, it should creates a new payment and update the quotation', async () => {
+        const quotation_id = '1';
+        const company_id = 1;
+
+        const originalAmount = 90;
+        const newTotalAmount = 100;
+
+        const params: UpdateQuotationDto = {
+          total_amount: newTotalAmount,
+        };
+
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: originalAmount,
+          },
+          error: null,
+        });
+
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: [],
+          error: null,
+        });
+
+        // act
+        await service.update(quotation_id, params, 1);
+
+        // assert refund creation was not called
+        expect(refundsServiceMock.create).toHaveBeenCalledTimes(0);
+
+        // assert new payment was created
+        const newPaymentPayload: Omit<CreatePaymentDto, 'notes'> = {
+          quotation_id: quotation_id,
+          amount: newTotalAmount - originalAmount,
+        };
+        expect(paymentsServiceMock.createPayment).toHaveBeenCalledWith(
+          {
+            ...newPaymentPayload,
+            notes: 'Pago creado por diferencia de total_amount',
+          },
+          company_id,
+        );
 
         // assert quotation update was called
         expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
