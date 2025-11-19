@@ -181,6 +181,37 @@ describe('QuotationsService', () => {
 
         await expect(service.update('1', {}, 1)).rejects.toThrow();
       });
+
+      it('when quotation total_amount is the same as original, it should update the quotation', async () => {
+        const quotation_id = '1';
+        const company_id = 1;
+
+        const params: UpdateQuotationDto = {
+          total_amount: 100,
+        };
+
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: 100,
+          },
+          error: null,
+        });
+
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: null,
+          error: null,
+        });
+
+        // await expect(service.update('1', params, 1)).rejects.toThrow();
+        await service.update(quotation_id, params, 1);
+
+        expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
+          quotation_id,
+          params,
+          company_id,
+        );
+      });
     });
   });
 });
