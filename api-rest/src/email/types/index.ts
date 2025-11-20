@@ -14,4 +14,5 @@ export enum EmailStructure {
   NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY = 'newAnswerCustomerSatisfactionSurvey',
   WEEKLY_ANALYTICS = 'weeklyAnalytics',
   QUOTATION_STATUS_CHECK = 'quotationStatusCheck',
+  SUPER_ADMIN_NOTIFICATION = 'superAdminNotification',
 }

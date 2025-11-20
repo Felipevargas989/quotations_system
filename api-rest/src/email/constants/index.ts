@@ -20,6 +20,8 @@ export const EMAIL_SUBJECTS = {
     'Nueva respuesta de encuesta de satisfacción',
   [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
   [EmailStructure.QUOTATION_STATUS_CHECK]: 'Resumen diario de tus cotizaciones',
+  [EmailStructure.SUPER_ADMIN_NOTIFICATION]:
+    'Notificación para Super Administradores',
 };
 
 export const EMAILS_SEND_TO_CLIENT = [

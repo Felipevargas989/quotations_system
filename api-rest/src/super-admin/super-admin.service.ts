@@ -1,4 +1,5 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
@@ -9,6 +10,7 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
+import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { SuperAdminRepository } from './super-admin.repository';
 
@@ -16,6 +18,7 @@ import { SuperAdminRepository } from './super-admin.repository';
 export class SuperAdminService {
   constructor(
     private readonly logger: PinoLogger,
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly companiesRepository: CompaniesRepository,
@@ -202,6 +205,46 @@ export class SuperAdminService {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Error in getStatsLastMonth service: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  async notifySuperAdmins({ content }: NotifySuperAdminDto) {
+    this.logger.info(`notifySuperAdmins with content: ${content}`);
+
+    const emailsEnv = this.configService.get<string>('SUPER_ADMIN_EMAILS');
+
+    if (!emailsEnv) {
+      const errorMessage = 'SUPER_ADMIN_EMAILS env variable is not configured';
+      this.logger.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    const recipients = emailsEnv
+      .split(',')
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0);
+
+    if (recipients.length === 0) {
+      const errorMessage =
+        'SUPER_ADMIN_EMAILS env variable has no valid emails';
+      this.logger.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    try {
+      await this.emailService.sendEmail(
+        recipients,
+        EmailStructure.SUPER_ADMIN_NOTIFICATION,
+        { content },
+      );
+      return {
+        success: true,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error notifying super admins: ${errorMessage}`);
       throw error;
     }
   }

@@ -27,6 +27,7 @@ import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/template';
 import { QuotationStatusCheckParams } from './templates/quotationStatusCheck/types';
 import { soonEventsTemplate } from './templates/soonEvents';
+import { superAdminNotificationTemplate } from './templates/superAdminNotification';
 import { WeeklyAnalyticsParams } from './templates/weekly_analytics/types';
 import { weeklyAnalyticsTemplate } from './templates/weekly_analytics/weekly_analytics';
 import { EmailStructure } from './types';
@@ -191,6 +192,14 @@ export class EmailService {
     to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.QUOTATION_STATUS_CHECK,
     params: QuotationStatusCheckParams,
+  ): Promise<void>;
+  /**
+   * Sends a notification to super admins
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.SUPER_ADMIN_NOTIFICATION,
+    params: { content: string },
   ): Promise<void>;
   /**
    * Implementation
@@ -369,6 +378,17 @@ export class EmailService {
         html = quotationStatusCheckTemplate(
           params as QuotationStatusCheckParams,
         );
+        break;
+
+      case EmailStructure.SUPER_ADMIN_NOTIFICATION:
+        subject = EMAIL_SUBJECTS[EmailStructure.SUPER_ADMIN_NOTIFICATION];
+        sendTo = to as string[];
+        if (!params?.content) {
+          throw new Error(
+            'Content is required for SUPER_ADMIN_NOTIFICATION template',
+          );
+        }
+        html = superAdminNotificationTemplate(params.content as string);
         break;
 
       default:

@@ -1,5 +1,7 @@
+import { API_ROUTES } from "../constants/api.routes";
 import { supabase } from "../lib/supabase";
 import { LeadData, RegisterLeadResponse } from "../types/leads.types";
+import { apiRequest } from "./api";
 
 export const registerLead = async (
   leadData: LeadData,
@@ -28,6 +30,18 @@ export const registerLead = async (
     }
 
     console.log("Lead registered successfully:", data);
+
+    try {
+      await apiRequest(`${API_ROUTES.SUPER_ADMIN_NEW_LEAD}`, "POST", {
+        content: "Nuevo lead desde el formulario de la pagina",
+      });
+    } catch (notifyError) {
+      console.error(
+        "Error notifying super-admins about the new lead:",
+        notifyError,
+      );
+    }
+
     return {
       success: true,
       data: data,

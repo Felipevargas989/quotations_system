@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from 'src/auth';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
+import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { SuperAdminService } from './super-admin.service';
 
 @Controller('super-admin')
@@ -25,6 +26,15 @@ export class SuperAdminController {
   getStatsLastMonth() {
     this.logger.info(`GET /super-admin/stats/last-month`);
     return this.superAdminService.getStatsLastMonth();
+  }
+
+  @Public()
+  @Post('new-lead')
+  notifySuperAdmins(@Body() notifySuperAdminDto: NotifySuperAdminDto) {
+    this.logger.info(
+      `POST /super-admin/new-lead with body ${JSON.stringify(notifySuperAdminDto)}`,
+    );
+    return this.superAdminService.notifySuperAdmins(notifySuperAdminDto);
   }
   // @Post()
   // create(@Body() createSuperAdminDto: CreateSuperAdminDto) {

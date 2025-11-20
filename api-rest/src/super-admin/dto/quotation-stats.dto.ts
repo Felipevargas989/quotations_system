@@ -6,14 +6,12 @@ export interface QuotationDayStats {
   total_amount: number;
 }
 
-export type UserLastSignInStats = Pick<
-  SupabaseUser,
-  'id' | 'email' | 'last_sign_in_at' | 'created_at' | 'phone'
-> & {
+export interface UserLastSignInStats
+  extends Pick<SupabaseUser, 'id' | 'created_at'> {
   email: string | null;
   last_sign_in_at: string | null;
   phone?: string | null;
-};
+}
 
 export interface UserSignInStats {
   period_start: string;
