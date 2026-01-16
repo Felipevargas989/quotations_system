@@ -149,9 +149,53 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Video Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Mira cómo funciona
+            </h2>
+            <p className="text-xl text-gray-600">
+              Descubre cómo Eventia puede transformar la gestión de tus eventos
+            </p>
+          </div>
+          <div
+            style={{
+              position: "relative",
+              paddingBottom: "48.75000000000001%",
+              height: 0,
+            }}
+          >
+            <iframe
+              src="https://www.loom.com/embed/685cbbee4bf94d568c0e31bf90335792"
+              allowFullScreen
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: "none",
+              }}
+              title="Eventia App Demo"
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
       {/* Features Carousel Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Características principales
+            </h2>
+            <p className="text-xl text-gray-600">
+              Descubre todas las funcionalidades que hacen de Eventia la mejor
+              opción para gestionar tus eventos
+            </p>
+          </div>
           {/* Carousel Container */}
           <div className="relative max-w-5xl mx-auto">
             {/* Section Selector */}
