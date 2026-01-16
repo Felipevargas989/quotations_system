@@ -168,7 +168,7 @@ export default function LandingPage() {
             }}
           >
             <iframe
-              src="https://www.loom.com/embed/685cbbee4bf94d568c0e31bf90335792"
+              src="https://www.loom.com/embed/e5ccaaaa2734468aaf3883fc40e2e100"
               allowFullScreen
               style={{
                 position: "absolute",
