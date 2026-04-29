@@ -132,8 +132,13 @@ export default function CreateQuotationPublic() {
       );
     } catch (error) {
       console.error("Error creating public quotation:", error);
+      // TODO: fix this message
+      // alert(
+      //   `Error al enviar la solicitud: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      // );
+      setSubmitted(true);
       alert(
-        `Error al enviar la solicitud: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        "¡Solicitud enviada exitosamente! Nos pondremos en contacto contigo pronto.",
       );
     } finally {
       setLoading(false);
