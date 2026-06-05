@@ -20,6 +20,9 @@ export const API_ROUTES = {
   SERVICES_VARIABLE: "/services/variable",
   SERVICES_FIXED: "/services/fixed",
 
+  // service groups
+  SERVICE_GROUPS: "/service-groups",
+
   // super admin
   SUPER_ADMIN: "/super-admin",
   SUPER_ADMIN_STATS_LAST_MONTH: "/super-admin/stats/last-month",

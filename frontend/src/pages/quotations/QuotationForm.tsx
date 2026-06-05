@@ -8,9 +8,12 @@ import {
   Trash2,
   X,
   CheckCircle,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useServices } from "../../hooks/useServices";
+import { useServiceGroups } from "../../hooks/useServiceGroups";
+import { ServiceGroup } from "../../types/serviceGroups.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
@@ -70,10 +73,16 @@ export default function QuotationForm() {
   const { user, userRole } = useAuth();
   const {
     products,
+    variableServices,
     fixedServices,
     loading: servicesLoading,
     calculatePrice,
   } = useServices();
+  const {
+    groups: serviceGroups,
+    saveGroup,
+    removeGroup: removeServiceGroup,
+  } = useServiceGroups();
 
   const [quotation, setQuotation] = useState<any>(null);
   const [isFromRequirement, setIsFromRequirement] = useState(false);
@@ -145,6 +154,11 @@ export default function QuotationForm() {
   });
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Service groups (save/load a category + its items as a reusable group)
+  const [groupModalBoxId, setGroupModalBoxId] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [savingGroup, setSavingGroup] = useState(false);
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
@@ -378,6 +392,78 @@ export default function QuotationForm() {
 
   const removeServiceBox = (boxId: string) => {
     setServiceBoxes((prev) => prev.filter((box) => box.id !== boxId));
+  };
+
+  // Append a new service box pre-filled from a saved group.
+  // Prices/names are re-hydrated live from the group's joined variable services.
+  const loadGroupAsBox = (group: ServiceGroup) => {
+    const services: SelectedService[] = (group.items || [])
+      .filter((item) => item.service)
+      .map((item) => ({
+        codigo: item.service.code || item.service.id.toString(),
+        nombre: item.service.name,
+        precio: item.service.price,
+        categoria: item.service.category,
+        quantity: item.quantity,
+      }));
+
+    if (services.length === 0) return;
+
+    const newBox: ServiceBox = {
+      id: `group-${group.id}-${Date.now()}`,
+      selectedCategory: group.category,
+      selectedItem: "",
+      selectedItems: services.map((s) => s.codigo),
+      services,
+    };
+    setServiceBoxes((prev) => [...prev, newBox]);
+  };
+
+  const openSaveGroupModal = (boxId: string) => {
+    setGroupModalBoxId(boxId);
+    setGroupName("");
+  };
+
+  const confirmSaveGroup = async () => {
+    if (!groupModalBoxId || !groupName.trim()) return;
+    const box = serviceBoxes.find((b) => b.id === groupModalBoxId);
+    if (!box) return;
+
+    // Map each box item (keyed by codigo) back to its variable_services row id
+    const items = box.services
+      .map((service) => {
+        const match = variableServices.find(
+          (vs) => (vs.code || vs.id.toString()) === service.codigo,
+        );
+        return match
+          ? { variable_service_id: match.id, quantity: service.quantity }
+          : null;
+      })
+      .filter(
+        (item): item is { variable_service_id: number; quantity: number } =>
+          item !== null,
+      );
+
+    if (items.length === 0) {
+      alert("No se pudieron asociar los items con servicios válidos.");
+      return;
+    }
+
+    setSavingGroup(true);
+    try {
+      await saveGroup({
+        name: groupName.trim(),
+        category: box.selectedCategory,
+        items,
+      });
+      setGroupModalBoxId(null);
+      setGroupName("");
+      alert("Grupo guardado exitosamente");
+    } catch (error) {
+      alert("Error al guardar el grupo");
+    } finally {
+      setSavingGroup(false);
+    }
   };
 
   const updateServiceBox = (boxId: string, field: string, value: string) => {
@@ -1027,6 +1113,72 @@ export default function QuotationForm() {
           </div>
         </div>
       )}
+
+      {/* Save Group Modal */}
+      {groupModalBoxId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Guardar como grupo
+              </h3>
+              <button
+                onClick={() => {
+                  setGroupModalBoxId(null);
+                  setGroupName("");
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Se guardará la categoría y todos sus items (con sus cantidades)
+              como un grupo reutilizable.
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del grupo
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ej: Asado Premium"
+            />
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setGroupModalBoxId(null);
+                  setGroupName("");
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmSaveGroup}
+                disabled={savingGroup || !groupName.trim()}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  savingGroup || !groupName.trim()
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Save size={16} />
+                <span>{savingGroup ? "Guardando..." : "Guardar grupo"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 px-2">
           <button
@@ -1339,18 +1491,88 @@ export default function QuotationForm() {
               <h3 className="text-lg font-semibold text-gray-900">
                 Servicios Variables
               </h3>
-              <button
-                onClick={addServiceBox}
-                disabled={isRestrictedEditing}
-                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                  isRestrictedEditing
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                <Plus size={16} />
-                <span>Agregar Servicio</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                {/* Cargar / administrar grupos guardados */}
+                <div className="relative dropdown-container">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDropdown(
+                        openDropdown === "service-groups"
+                          ? null
+                          : "service-groups",
+                      )
+                    }
+                    disabled={isRestrictedEditing || serviceGroups.length === 0}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    title="Cargar un grupo guardado"
+                  >
+                    <Layers size={16} />
+                    <span>
+                      {serviceGroups.length === 0
+                        ? "Sin grupos guardados"
+                        : "Cargar grupo"}
+                    </span>
+                  </button>
+
+                  {openDropdown === "service-groups" &&
+                    serviceGroups.length > 0 && (
+                      <div className="absolute right-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {serviceGroups.map((group) => (
+                          <div
+                            key={group.id}
+                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                loadGroupAsBox(group);
+                                setOpenDropdown(null);
+                              }}
+                              className="flex-1 text-left text-sm"
+                            >
+                              <span className="text-gray-900">
+                                {group.name}
+                              </span>{" "}
+                              <span className="text-gray-500">
+                                ({group.category})
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (
+                                  window.confirm(
+                                    `¿Eliminar el grupo "${group.name}"?`,
+                                  )
+                                ) {
+                                  await removeServiceGroup(group.id);
+                                }
+                              }}
+                              className="ml-2 text-red-600 hover:text-red-800"
+                              title="Eliminar grupo"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+                <button
+                  onClick={addServiceBox}
+                  disabled={isRestrictedEditing}
+                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                    isRestrictedEditing
+                      ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  <Plus size={16} />
+                  <span>Agregar Servicio</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1363,14 +1585,29 @@ export default function QuotationForm() {
                     <h4 className="font-medium text-gray-900">
                       Servicio {index + 1}
                     </h4>
-                    {serviceBoxes.length > 1 && !isRestrictedEditing && (
-                      <button
-                        onClick={() => removeServiceBox(box.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      {box.selectedCategory &&
+                        box.services.length > 0 &&
+                        !isRestrictedEditing && (
+                          <button
+                            type="button"
+                            onClick={() => openSaveGroupModal(box.id)}
+                            className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800"
+                            title="Guardar esta categoría y sus items como grupo"
+                          >
+                            <Layers size={16} />
+                            <span>Guardar como grupo</span>
+                          </button>
+                        )}
+                      {serviceBoxes.length > 1 && !isRestrictedEditing && (
+                        <button
+                          onClick={() => removeServiceBox(box.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
