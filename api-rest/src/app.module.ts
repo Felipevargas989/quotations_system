@@ -15,6 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { ServiceGroupsModule } from './service-groups/service-groups.module';
 import { ServicesModule } from './services/services.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     CalendarModule,
     PlansModule,
     RefundsModule,
+    ServiceGroupsModule,
     EmailModule,
     CustomerSatisfactionSurveyModule,
   ],
