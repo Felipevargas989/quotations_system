@@ -23,6 +23,9 @@ export const API_ROUTES = {
   // service groups
   SERVICE_GROUPS: "/service-groups",
 
+  // service group collections (paquetes)
+  SERVICE_GROUP_COLLECTIONS: "/service-group-collections",
+
   // super admin
   SUPER_ADMIN: "/super-admin",
   SUPER_ADMIN_STATS_LAST_MONTH: "/super-admin/stats/last-month",

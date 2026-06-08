@@ -9,11 +9,14 @@ import {
   X,
   CheckCircle,
   Layers,
+  Package,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useServices } from "../../hooks/useServices";
 import { useServiceGroups } from "../../hooks/useServiceGroups";
+import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollections";
 import { ServiceGroup } from "../../types/serviceGroups.types";
+import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
@@ -84,6 +87,11 @@ export default function QuotationForm() {
     saveGroup,
     removeGroup: removeServiceGroup,
   } = useServiceGroups();
+  const {
+    collections: serviceGroupCollections,
+    saveCollection,
+    removeCollection: removeServiceGroupCollection,
+  } = useServiceGroupCollections();
 
   const [quotation, setQuotation] = useState<any>(null);
   const [isFromRequirement, setIsFromRequirement] = useState(false);
@@ -160,6 +168,17 @@ export default function QuotationForm() {
   const [groupModalBoxId, setGroupModalBoxId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
+
+  // Service group collections / "paquetes" (a group of service groups)
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [collectionName, setCollectionName] = useState("");
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [savingCollection, setSavingCollection] = useState(false);
+  // Only one package can be active at a time; it overrides the current services.
+  const [selectedCollection, setSelectedCollection] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
@@ -395,9 +414,9 @@ export default function QuotationForm() {
     setServiceBoxes((prev) => prev.filter((box) => box.id !== boxId));
   };
 
-  // Append a new service box pre-filled from a saved group.
+  // Build a service box pre-filled from a saved group.
   // Prices/names are re-hydrated live from the group's joined variable services.
-  const loadGroupAsBox = (group: ServiceGroup) => {
+  const buildBoxFromGroup = (group: ServiceGroup): ServiceBox | null => {
     const services: SelectedService[] = (group.items || [])
       .filter((item) => item.service)
       .map((item) => ({
@@ -408,9 +427,9 @@ export default function QuotationForm() {
         quantity: item.quantity,
       }));
 
-    if (services.length === 0) return;
+    if (services.length === 0) return null;
 
-    const newBox: ServiceBox = {
+    return {
       id: `group-${group.id}-${Date.now()}`,
       selectedCategory: group.category,
       selectedItem: "",
@@ -418,7 +437,12 @@ export default function QuotationForm() {
       services,
       groupName: group.name,
     };
-    setServiceBoxes((prev) => [...prev, newBox]);
+  };
+
+  // Append a single group as a new box (does not affect the selected package).
+  const loadGroupAsBox = (group: ServiceGroup) => {
+    const newBox = buildBoxFromGroup(group);
+    if (newBox) setServiceBoxes((prev) => [...prev, newBox]);
   };
 
   const openSaveGroupModal = (boxId: string) => {
@@ -465,6 +489,66 @@ export default function QuotationForm() {
       alert("Error al guardar el grupo");
     } finally {
       setSavingGroup(false);
+    }
+  };
+
+  // Selecting a package OVERRIDES the current services with one box per group.
+  // Only one package can be active at a time.
+  const loadCollectionAsBoxes = (collection: ServiceGroupCollection) => {
+    const boxes = (collection.groups || [])
+      .map((item) => (item.group ? buildBoxFromGroup(item.group) : null))
+      .filter((box): box is ServiceBox => box !== null);
+
+    if (boxes.length === 0) return;
+
+    // Warn before discarding existing services
+    const hasExistingServices = serviceBoxes.some(
+      (box) => box.services.length > 0,
+    );
+    if (
+      hasExistingServices &&
+      !window.confirm(
+        `Esto reemplazará los servicios actuales con el paquete "${collection.name}". ¿Continuar?`,
+      )
+    ) {
+      return;
+    }
+
+    setServiceBoxes(boxes);
+    setSelectedCollection({ id: collection.id, name: collection.name });
+  };
+
+  const openCollectionModal = () => {
+    setSelectedGroupIds([]);
+    setCollectionName("");
+    setShowCollectionModal(true);
+  };
+
+  const toggleSelectedGroup = (groupId: number) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId],
+    );
+  };
+
+  const confirmCreateCollection = async () => {
+    if (!collectionName.trim() || selectedGroupIds.length === 0) return;
+
+    setSavingCollection(true);
+    try {
+      await saveCollection({
+        name: collectionName.trim(),
+        items: selectedGroupIds.map((id) => ({ service_group_id: id })),
+      });
+      setShowCollectionModal(false);
+      setCollectionName("");
+      setSelectedGroupIds([]);
+      alert("Paquete guardado exitosamente");
+    } catch (error) {
+      alert("Error al guardar el paquete");
+    } finally {
+      setSavingCollection(false);
     }
   };
 
@@ -877,6 +961,7 @@ export default function QuotationForm() {
       },
     ]);
     setSelectedFixedServices([]);
+    setSelectedCollection(null);
     setDiscountPercentage(0);
     setIsEditingExisting(false);
     setFormData({
@@ -1175,6 +1260,96 @@ export default function QuotationForm() {
               >
                 <Save size={16} />
                 <span>{savingGroup ? "Guardando..." : "Guardar grupo"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Collection (paquete) Modal */}
+      {showCollectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Crear paquete
+              </h3>
+              <button
+                onClick={() => setShowCollectionModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Un paquete agrupa varios grupos. Al seleccionarlo, el formulario
+              se llena automáticamente con todos sus grupos.
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del paquete
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={collectionName}
+              onChange={(e) => setCollectionName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              placeholder="Ej: Paquete Matrimonio Full"
+            />
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Grupos incluidos
+            </label>
+            <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
+              {serviceGroups.map((group) => (
+                <label
+                  key={group.id}
+                  className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedGroupIds.includes(group.id)}
+                    onChange={() => toggleSelectedGroup(group.id)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-900">{group.name}</span>
+                  <span className="text-sm text-gray-500">
+                    ({group.category})
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCollectionModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmCreateCollection}
+                disabled={
+                  savingCollection ||
+                  !collectionName.trim() ||
+                  selectedGroupIds.length === 0
+                }
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  savingCollection ||
+                  !collectionName.trim() ||
+                  selectedGroupIds.length === 0
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Save size={16} />
+                <span>
+                  {savingCollection ? "Guardando..." : "Guardar paquete"}
+                </span>
               </button>
             </div>
           </div>
@@ -1490,10 +1665,18 @@ export default function QuotationForm() {
           {/* Servicios Variables */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Servicios Variables
-              </h3>
               <div className="flex items-center space-x-2">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Servicios Variables
+                </h3>
+                {selectedCollection && (
+                  <span className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium">
+                    <Package size={14} />
+                    <span>{selectedCollection.name}</span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center flex-wrap gap-2">
                 {/* Cargar / administrar grupos guardados */}
                 <div className="relative dropdown-container">
                   <button
@@ -1562,6 +1745,98 @@ export default function QuotationForm() {
                       </div>
                     )}
                 </div>
+
+                {/* Cargar / administrar paquetes (grupos de grupos) */}
+                <div className="relative dropdown-container">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDropdown(
+                        openDropdown === "service-group-collections"
+                          ? null
+                          : "service-group-collections",
+                      )
+                    }
+                    disabled={
+                      isRestrictedEditing ||
+                      serviceGroupCollections.length === 0
+                    }
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    title="Cargar un paquete guardado"
+                  >
+                    <Package size={16} />
+                    <span>
+                      {serviceGroupCollections.length === 0
+                        ? "Sin paquetes guardados"
+                        : "Cargar paquete"}
+                    </span>
+                  </button>
+
+                  {openDropdown === "service-group-collections" &&
+                    serviceGroupCollections.length > 0 && (
+                      <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {serviceGroupCollections.map((collection) => (
+                          <div
+                            key={collection.id}
+                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                loadCollectionAsBoxes(collection);
+                                setOpenDropdown(null);
+                              }}
+                              className="flex-1 text-left text-sm"
+                            >
+                              <span className="text-gray-900">
+                                {collection.name}
+                              </span>{" "}
+                              <span className="text-gray-500">
+                                ({collection.groups?.length || 0} grupos)
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (
+                                  window.confirm(
+                                    `¿Eliminar el paquete "${collection.name}"?`,
+                                  )
+                                ) {
+                                  await removeServiceGroupCollection(
+                                    collection.id,
+                                  );
+                                  if (
+                                    selectedCollection?.id === collection.id
+                                  ) {
+                                    setSelectedCollection(null);
+                                  }
+                                }
+                              }}
+                              className="ml-2 text-red-600 hover:text-red-800"
+                              title="Eliminar paquete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+
+                {/* Crear paquete a partir de grupos guardados */}
+                <button
+                  type="button"
+                  onClick={openCollectionModal}
+                  disabled={isRestrictedEditing || serviceGroups.length === 0}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  title="Crear un paquete agrupando varios grupos"
+                >
+                  <Package size={16} />
+                  <span>Crear paquete</span>
+                </button>
+
                 <button
                   onClick={addServiceBox}
                   disabled={isRestrictedEditing}
