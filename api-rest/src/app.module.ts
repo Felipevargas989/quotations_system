@@ -15,6 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { ServiceGroupCollectionsModule } from './service-group-collections/service-group-collections.module';
 import { ServiceGroupsModule } from './service-groups/service-groups.module';
 import { ServicesModule } from './services/services.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -55,6 +56,7 @@ import { UsersModule } from './users/users.module';
     PlansModule,
     RefundsModule,
     ServiceGroupsModule,
+    ServiceGroupCollectionsModule,
     EmailModule,
     CustomerSatisfactionSurveyModule,
   ],
