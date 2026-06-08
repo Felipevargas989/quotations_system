@@ -52,6 +52,7 @@ interface ServiceBox {
   selectedItem: string;
   selectedItems: string[];
   services: SelectedService[]; // Each box has its own services
+  groupName?: string; // Set (in memory) when the box was loaded from a saved group
 }
 
 // TODO: use already defined types
@@ -415,6 +416,7 @@ export default function QuotationForm() {
       selectedItem: "",
       selectedItems: services.map((s) => s.codigo),
       services,
+      groupName: group.name,
     };
     setServiceBoxes((prev) => [...prev, newBox]);
   };
@@ -1582,11 +1584,22 @@ export default function QuotationForm() {
                   className="border border-gray-200 rounded-lg p-4"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-900">
-                      Servicio {index + 1}
-                    </h4>
+                    <div>
+                      <h4 className="font-medium text-gray-900">
+                        Servicio {index + 1}
+                      </h4>
+                      {box.groupName && (
+                        <p className="mt-0.5 flex items-center space-x-1 text-sm font-medium text-blue-600">
+                          <Layers size={14} />
+                          <span>
+                            {box.groupName} · {box.selectedCategory}
+                          </span>
+                        </p>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-3">
-                      {box.selectedCategory &&
+                      {!box.groupName &&
+                        box.selectedCategory &&
                         box.services.length > 0 &&
                         !isRestrictedEditing && (
                           <button
