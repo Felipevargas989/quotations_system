@@ -163,6 +163,8 @@ export default function QuotationForm() {
   });
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  // In-memory search term to filter items inside the open service box dropdown.
+  const [itemSearch, setItemSearch] = useState("");
 
   // Service groups (save/load a category + its items as a reusable group)
   const [groupModalBoxId, setGroupModalBoxId] = useState<string | null>(null);
@@ -1933,11 +1935,13 @@ export default function QuotationForm() {
                       <div className="relative dropdown-container">
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
                             setOpenDropdown(
                               openDropdown === box.id ? null : box.id,
-                            )
-                          }
+                            );
+                            // Reset the in-memory search each time the dropdown toggles
+                            setItemSearch("");
+                          }}
                           disabled={
                             !box.selectedCategory || isRestrictedEditing
                           }
@@ -1973,8 +1977,35 @@ export default function QuotationForm() {
 
                         {openDropdown === box.id && box.selectedCategory && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {getFilteredProducts(box.selectedCategory).map(
-                              (product) => (
+                            {/* In-memory search to filter items by name */}
+                            <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={itemSearch}
+                                onChange={(e) => setItemSearch(e.target.value)}
+                                placeholder="Buscar item por nombre..."
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            {(() => {
+                              const filteredProducts = getFilteredProducts(
+                                box.selectedCategory,
+                              ).filter((product) =>
+                                product.nombre
+                                  .toLowerCase()
+                                  .includes(itemSearch.trim().toLowerCase()),
+                              );
+
+                              if (filteredProducts.length === 0) {
+                                return (
+                                  <div className="px-3 py-2 text-sm text-gray-500">
+                                    No se encontraron items
+                                  </div>
+                                );
+                              }
+
+                              return filteredProducts.map((product) => (
                                 <button
                                   key={product.codigo}
                                   type="button"
@@ -1991,8 +2022,8 @@ export default function QuotationForm() {
                                   {product.nombre} - $
                                   {product.precio.toLocaleString()}
                                 </button>
-                              ),
-                            )}
+                              ));
+                            })()}
                           </div>
                         )}
                       </div>
