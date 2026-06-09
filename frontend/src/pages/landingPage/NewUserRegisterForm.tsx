@@ -335,13 +335,15 @@ export default function NewUserRegisterForm() {
             />
           </div>
 
+          {/* TEMP: registration disabled — password is not needed while we only
+              save the lead. Re-enable when self-service registration returns. */}
           {/* Password Cuenta */}
-          <div>
+          {/* <div>
             <label
               htmlFor="passwordCuenta"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              {/* <Lock className="inline w-4 h-4 mr-2" /> */}
+              <Lock className="inline w-4 h-4 mr-2" />
               Contraseña de la Cuenta *
             </label>
             <input
@@ -359,7 +361,7 @@ export default function NewUserRegisterForm() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               placeholder="••••••••"
             />
-          </div>
+          </div> */}
         </div>
 
         {/* Error Message */}
