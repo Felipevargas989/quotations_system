@@ -371,7 +371,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 bg-white">
+      {/* <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -395,14 +395,12 @@ export default function LandingPage() {
               </div>
 
               <div className="text-center mb-8">
-                {/* Promotional Badge */}
                 <div className="mb-4">
                   <span className="inline-block bg-green-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
                     🎉 Promoción de lanzamiento
                   </span>
                 </div>
 
-                {/* Price Display */}
                 <div className="mb-4">
                   <div className="flex items-center justify-center gap-3 mb-2">
                     <span className="text-3xl font-bold text-blue-600">
@@ -416,7 +414,6 @@ export default function LandingPage() {
                   <p className="text-gray-600 text-lg">por mes</p>
                 </div>
 
-                {/* Promotional Details */}
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-green-800 font-medium leading-relaxed">
                     <span className="font-bold">Solo $10.000 CLP</span> durante
@@ -470,7 +467,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="py-20 bg-gray-50">
@@ -517,7 +514,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 Eventia. Todos los derechos reservados.</p>
+            <p>&copy; 2026 Eventia. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>
