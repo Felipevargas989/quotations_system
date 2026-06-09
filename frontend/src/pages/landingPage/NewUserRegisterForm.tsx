@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// TEMP: registration disabled — useNavigate not used while only saving leads.
+// import { useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
@@ -12,9 +13,10 @@ import {
 } from "lucide-react";
 import { registerLead } from "../../services/registerLeads.service";
 import { LeadData } from "../../types/leads.types";
-import { signup } from "../../services/users.service";
-import { SignupDto } from "../../types/users.types";
-import { useAuth } from "../../contexts/AuthContext";
+// TEMP: registration disabled — keep imports for when it's re-enabled.
+// import { signup } from "../../services/users.service";
+// import { SignupDto } from "../../types/users.types";
+// import { useAuth } from "../../contexts/AuthContext";
 import { CURRENCIES } from "../../constants/companies";
 
 interface FormData {
@@ -29,8 +31,9 @@ interface FormData {
 }
 
 export default function NewUserRegisterForm() {
-  const navigate = useNavigate();
-  const { signIn } = useAuth();
+  // TEMP: registration disabled — navigation/sign-in not used while only saving leads.
+  // const navigate = useNavigate();
+  // const { signIn } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     nombreContacto: "",
     telefonoContacto: "",
@@ -43,6 +46,7 @@ export default function NewUserRegisterForm() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -76,39 +80,37 @@ export default function NewUserRegisterForm() {
       // Register lead in database
       const result = await registerLead(leadData);
 
-      // create user and company in DB
-      const signupDto: SignupDto = {
-        admin_email: formData.emailContacto,
-        admin_password: formData.passwordCuenta,
-        admin_full_name: formData.nombreContacto,
-        company_name: formData.nombreEmpresa,
-        currency: formData.currency,
-      };
-      const signupResult = await signup(signupDto);
+      // TEMP: Self-service registration is disabled. We only save the lead and
+      // show a "we will contact you" message. The user/company creation and the
+      // auto sign-in below are commented out so they can be re-enabled later.
+      // // create user and company in DB
+      // const signupDto: SignupDto = {
+      //   admin_email: formData.emailContacto,
+      //   admin_password: formData.passwordCuenta,
+      //   admin_full_name: formData.nombreContacto,
+      //   company_name: formData.nombreEmpresa,
+      //   currency: formData.currency,
+      // };
+      // const signupResult = await signup(signupDto);
 
-      if (result.success && signupResult.data) {
-        // Sign in the user
-        const signInResult = await signIn(
-          formData.emailContacto,
-          formData.passwordCuenta,
-        );
-
-        if (signInResult.error) {
-          setError(
-            "Cuenta creada, pero hubo un error al iniciar sesión. Por favor, inicia sesión manualmente.",
-          );
-        } else {
-          // Redirect to dashboard
-          navigate("/dashboard");
-        }
+      if (result.success) {
+        // // Sign in the user
+        // const signInResult = await signIn(
+        //   formData.emailContacto,
+        //   formData.passwordCuenta,
+        // );
+        //
+        // if (signInResult.error) {
+        //   setError(
+        //     "Cuenta creada, pero hubo un error al iniciar sesión. Por favor, inicia sesión manualmente.",
+        //   );
+        // } else {
+        //   // Redirect to dashboard
+        //   navigate("/dashboard");
+        // }
+        setSuccess(true);
       } else {
-        const errorMessage =
-          result.error ||
-          (signupResult.error &&
-          typeof signupResult.error === "object" &&
-          "message" in signupResult.error
-            ? (signupResult.error as { message: string }).message
-            : "Error al crear la cuenta");
+        const errorMessage = result.error || "Error al crear la cuenta";
         setError(errorMessage);
       }
     } catch (error) {
@@ -118,6 +120,24 @@ export default function NewUserRegisterForm() {
       setLoading(false);
     }
   };
+
+  // TEMP: registration disabled — after saving the lead we show a confirmation
+  // message instead of creating the account.
+  if (success) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            ¡Gracias por tu interés!
+          </h2>
+          <p className="text-gray-600">
+            Hemos recibido tus datos. Nuestro equipo se pondrá en contacto
+            contigo muy pronto.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">

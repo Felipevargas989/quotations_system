@@ -120,6 +120,8 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* TEMP: self-service registration disabled — re-enable to restore the
+            "Regístrate aquí" link.
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             ¿Aún no tienes cuenta?{" "}
@@ -131,6 +133,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
+        */}
       </div>
     </div>
   );
