@@ -14,6 +14,7 @@ import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
 import { CreateServicesBulkDto } from './dto/create-services-bulk.dto';
 import { CreateVariableServiceDto } from './dto/create-variable-service.dto';
 import { UpdateFixedServiceDto } from './dto/update-fixed-service.dto';
+import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesService } from './services.service';
@@ -51,6 +52,20 @@ export class ServicesController {
   // findOne(@Param('id') id: string) {
   //   return this.servicesService.findOne(+id);
   // }
+
+  @Patch('categories')
+  updateServiceCategory(
+    @Body() updateServiceCategoryDto: UpdateServiceCategoryDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `updateServiceCategory with updateServiceCategoryDto ${JSON.stringify(updateServiceCategoryDto)}`,
+    );
+    return this.servicesService.updateServiceCategory(
+      user.company_id,
+      updateServiceCategoryDto,
+    );
+  }
 
   @Patch('variable/:id')
   updateVariableService(

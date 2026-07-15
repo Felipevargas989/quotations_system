@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -37,4 +38,8 @@ export class CreateFixedServiceDto {
   @IsNumber()
   @IsOptional()
   price_per_person: FixedService['price_per_person'];
+
+  @IsBoolean()
+  @IsOptional()
+  is_active?: FixedService['is_active'];
 }

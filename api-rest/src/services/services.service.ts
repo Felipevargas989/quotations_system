@@ -5,6 +5,7 @@ import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
 import { CreateServicesBulkDto } from './dto/create-services-bulk.dto';
 import { CreateVariableServiceDto } from './dto/create-variable-service.dto';
 import { UpdateFixedServiceDto } from './dto/update-fixed-service.dto';
+import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesRepository } from './services.repository';
@@ -66,10 +67,14 @@ export class ServicesService {
       // find all fixed services
       const fixedServices =
         await this.servicesRepository.findAllFixedServices(companyId);
+      // find category activation settings
+      const categories =
+        await this.servicesRepository.findAllServiceCategories(companyId);
 
       return {
         variableServices: variableServices.data,
         fixedServices: fixedServices.data,
+        categories: categories.data,
       };
     } catch (error) {
       this.logger.error(error);
@@ -162,6 +167,25 @@ export class ServicesService {
         (error as Error).message || 'Error al crear el servicio fijo',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async updateServiceCategory(
+    companyId: Company['id'],
+    updateServiceCategoryDto: UpdateServiceCategoryDto,
+  ) {
+    this.logger.info(
+      `updateServiceCategory with companyId ${companyId} and dto ${JSON.stringify(updateServiceCategoryDto)}`,
+    );
+    try {
+      return await this.servicesRepository.upsertServiceCategory(
+        companyId,
+        updateServiceCategoryDto.name,
+        updateServiceCategoryDto.is_active,
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
     }
   }
 

@@ -110,4 +110,30 @@ export class ServicesRepository {
     this.logger.info(`removeFixedService with id ${id}`);
     return this.supabase.client.from('fixed_services').delete().eq('id', id);
   }
+
+  findAllServiceCategories(companyId: Company['id']) {
+    this.logger.info(`findAll service categories with companyId ${companyId}`);
+    return this.supabase.client
+      .from('service_categories')
+      .select('*')
+      .eq('company_id', companyId);
+  }
+
+  upsertServiceCategory(
+    companyId: Company['id'],
+    name: string,
+    isActive: boolean,
+  ) {
+    this.logger.info(
+      `upsertServiceCategory with companyId ${companyId}, name ${name}, isActive ${isActive}`,
+    );
+    return this.supabase.client
+      .from('service_categories')
+      .upsert(
+        { company_id: companyId, name, is_active: isActive },
+        { onConflict: 'company_id,name' },
+      )
+      .select()
+      .single();
+  }
 }

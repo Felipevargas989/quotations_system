@@ -19,6 +19,7 @@ export const API_ROUTES = {
   SERVICES_BULK: "/services/bulk",
   SERVICES_VARIABLE: "/services/variable",
   SERVICES_FIXED: "/services/fixed",
+  SERVICES_CATEGORIES: "/services/categories",
 
   // service groups
   SERVICE_GROUPS: "/service-groups",

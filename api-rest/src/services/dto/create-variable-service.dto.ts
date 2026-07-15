@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { VariableService } from '../entities/service.entity';
 
 export class CreateVariableServiceDto {
@@ -17,4 +23,8 @@ export class CreateVariableServiceDto {
   @IsString()
   @IsNotEmpty()
   category: VariableService['category'];
+
+  @IsBoolean()
+  @IsOptional()
+  is_active?: VariableService['is_active'];
 }
