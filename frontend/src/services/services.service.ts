@@ -4,6 +4,7 @@ import {
   CreateServicesBulkDto,
   CreateVariableService,
   FixedService,
+  ServiceCategorySetting,
   UpdateFixedServiceDto,
   UpdateVariableServiceDto,
   VariableService,
@@ -23,8 +24,22 @@ export const createServicesBulk = async (services: CreateServicesBulkDto) => {
 export const findAllServices = async (): Promise<{
   variableServices: VariableService[];
   fixedServices: FixedService[];
+  categories: ServiceCategorySetting[];
 }> => {
   const response = await apiRequest(`${API_ROUTES.SERVICES}`, "GET");
+  return response;
+};
+
+// Toggle a whole category's activation state (by name, scoped per company).
+export const updateServiceCategory = async (
+  name: string,
+  is_active: boolean,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.SERVICES_CATEGORIES}`,
+    "PATCH",
+    { name, is_active },
+  );
   return response;
 };
 

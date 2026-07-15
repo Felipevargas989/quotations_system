@@ -3,9 +3,13 @@ import { FixedService, VariableService } from "../../types/services.types";
 import {
   removeFixedService,
   removeVariableService,
+  updateFixedService,
+  updateServiceCategory,
+  updateVariableService,
 } from "../../services/services.service";
 import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
+import CategoriesManager from "./components/CategoriesManager";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
 import VariableServiceForm from "./components/variableServices/VariableServiceForm";
@@ -29,10 +33,16 @@ export default function ServicesPage() {
   const {
     variableServices,
     rawFixedServices: fixedServices,
+    inactiveCategories,
     loading,
     error,
     reload: loadServices,
   } = useServices();
+
+  // Distinct category names across variable services (categories are strings).
+  const categories = [
+    ...new Set(variableServices.map((s) => s.category).filter(Boolean)),
+  ];
 
   const handleUploadSuccess = async () => {
     setUploadError(null);
@@ -88,6 +98,34 @@ export default function ServicesPage() {
       setShowFixedServiceForm(false);
     }
     setEditingService(null);
+  };
+
+  const handleToggleActive = async (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => {
+    const nextActive = service.is_active === false;
+    try {
+      if (type === ServiceType.VARIABLE) {
+        await updateVariableService(service.id, { is_active: nextActive });
+      } else {
+        await updateFixedService(service.id, { is_active: nextActive });
+      }
+      await loadServices();
+    } catch (error) {
+      console.error("Error al actualizar el estado del servicio", error);
+      alert("Error al actualizar el estado del servicio");
+    }
+  };
+
+  const handleToggleCategory = async (name: string, nextActive: boolean) => {
+    try {
+      await updateServiceCategory(name, nextActive);
+      await loadServices();
+    } catch (error) {
+      console.error("Error al actualizar el estado de la categoría", error);
+      alert("Error al actualizar el estado de la categoría");
+    }
   };
 
   const handleDeleteService = async (serviceId: number, type: ServiceType) => {
@@ -170,12 +208,20 @@ export default function ServicesPage() {
         onSuccess={handleUploadSuccess}
       />
 
+      {/* Categories activation manager */}
+      <CategoriesManager
+        categories={categories}
+        inactiveCategories={inactiveCategories}
+        onToggleCategory={handleToggleCategory}
+      />
+
       {/* Services Table */}
       <ServicesTable
         variableServices={variableServices}
         fixedServices={fixedServices}
         onEditService={handleEditService}
         onDeleteService={handleDeleteService}
+        onToggleActive={handleToggleActive}
       />
 
       <FixedServiceForm

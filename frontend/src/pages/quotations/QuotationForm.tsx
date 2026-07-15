@@ -79,9 +79,11 @@ export default function QuotationForm() {
     products,
     variableServices,
     fixedServices,
+    inactiveCategories,
     loading: servicesLoading,
     calculatePrice,
   } = useServices();
+  const inactiveCategorySet = new Set(inactiveCategories);
   const {
     groups: serviceGroups,
     saveGroup,
@@ -1920,11 +1922,19 @@ export default function QuotationForm() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">Seleccionar categoría</option>
-                        {serviceCategories.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
+                        {serviceCategories
+                          .filter(
+                            (category) =>
+                              // Hide deactivated categories from the picker, but
+                              // keep the one already selected on an existing box.
+                              !inactiveCategorySet.has(category) ||
+                              category === box.selectedCategory,
+                          )
+                          .map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
@@ -1991,11 +2001,18 @@ export default function QuotationForm() {
                             {(() => {
                               const filteredProducts = getFilteredProducts(
                                 box.selectedCategory,
-                              ).filter((product) =>
-                                product.nombre
-                                  .toLowerCase()
-                                  .includes(itemSearch.trim().toLowerCase()),
-                              );
+                              )
+                                // Hide deactivated items from the picker.
+                                // Already-selected items still render via the
+                                // button label above (full product list).
+                                .filter(
+                                  (product) => product.is_active !== false,
+                                )
+                                .filter((product) =>
+                                  product.nombre
+                                    .toLowerCase()
+                                    .includes(itemSearch.trim().toLowerCase()),
+                                );
 
                               if (filteredProducts.length === 0) {
                                 return (

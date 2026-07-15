@@ -1,4 +1,4 @@
-import { Edit, Trash2, DollarSign, Tag } from "lucide-react";
+import { Edit, Trash2, DollarSign, Tag, Eye, EyeOff } from "lucide-react";
 import { VariableService, FixedService } from "../../../types/services.types";
 import { ServiceType } from "../constants";
 
@@ -10,13 +10,22 @@ interface ServicesTableProps {
     type: ServiceType,
   ) => void;
   readonly onDeleteService?: (serviceId: number, type: ServiceType) => void;
+  readonly onToggleActive?: (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => void;
 }
+
+// A service with no is_active field (legacy rows) is treated as active.
+const isServiceActive = (service: VariableService | FixedService) =>
+  service.is_active !== false;
 
 export default function ServicesTable({
   variableServices,
   fixedServices,
   onEditService,
   onDeleteService,
+  onToggleActive,
 }: ServicesTableProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CL", {
@@ -24,6 +33,28 @@ export default function ServicesTable({
       currency: "CLP",
       minimumFractionDigits: 0,
     }).format(price);
+  };
+
+  const renderActiveToggle = (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => {
+    if (!onToggleActive) return null;
+    const active = isServiceActive(service);
+    return (
+      <button
+        onClick={() => onToggleActive(service, type)}
+        className={`inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold rounded-full transition-colors ${
+          active
+            ? "bg-green-100 text-green-800 hover:bg-green-200"
+            : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+        }`}
+        title={active ? "Desactivar servicio" : "Activar servicio"}
+      >
+        {active ? <Eye size={12} /> : <EyeOff size={12} />}
+        <span>{active ? "Activo" : "Inactivo"}</span>
+      </button>
+    );
   };
 
   return (
@@ -59,6 +90,9 @@ export default function ServicesTable({
                   Precio
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -67,7 +101,7 @@ export default function ServicesTable({
               {variableServices.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     No hay servicios variables registrados
@@ -75,7 +109,12 @@ export default function ServicesTable({
                 </tr>
               ) : (
                 variableServices.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50">
+                  <tr
+                    key={service.id}
+                    className={`hover:bg-gray-50 ${
+                      isServiceActive(service) ? "" : "opacity-60"
+                    }`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {service.code || "N/A"}
@@ -98,6 +137,9 @@ export default function ServicesTable({
                       <div className="flex items-center text-sm text-gray-900">
                         {formatPrice(service.price)}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {renderActiveToggle(service, ServiceType.VARIABLE)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
@@ -170,6 +212,9 @@ export default function ServicesTable({
                   Precio por Persona
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -178,7 +223,7 @@ export default function ServicesTable({
               {fixedServices.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     No hay servicios fijos registrados
@@ -186,7 +231,12 @@ export default function ServicesTable({
                 </tr>
               ) : (
                 fixedServices.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50">
+                  <tr
+                    key={service.id}
+                    className={`hover:bg-gray-50 ${
+                      isServiceActive(service) ? "" : "opacity-60"
+                    }`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {service.code || "N/A"}
@@ -234,6 +284,9 @@ export default function ServicesTable({
                           <span className="text-gray-400">N/A</span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {renderActiveToggle(service, ServiceType.FIXED)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">

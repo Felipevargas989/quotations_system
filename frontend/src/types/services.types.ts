@@ -8,6 +8,7 @@ export interface VariableService {
   name: string;
   price: number;
   category: string;
+  is_active?: boolean;
   company_id: Company["id"];
 }
 export interface FixedService {
@@ -20,6 +21,17 @@ export interface FixedService {
   min_price?: number;
   max_price?: number;
   price_per_person?: number;
+  is_active?: boolean;
+  company_id: Company["id"];
+}
+
+// Activation state for a service category (categories are free-text strings on
+// variable_services.category; a category with no row here is active by default).
+export interface ServiceCategorySetting {
+  id: number;
+  created_at: Date;
+  name: string;
+  is_active: boolean;
   company_id: Company["id"];
 }
 

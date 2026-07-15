@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { findAllServices } from "../services/services.service";
-import { VariableService, FixedService } from "../types/services.types";
+import {
+  VariableService,
+  FixedService,
+  ServiceCategorySetting,
+} from "../types/services.types";
 import { CalculationType } from "../constants/services";
 
 // Interface for compatibility with QuotationForm
@@ -9,6 +13,7 @@ export interface Product {
   nombre: string;
   precio: number;
   categoria?: string;
+  is_active?: boolean;
 }
 
 // Interface for fixed services in QuotationForm format
@@ -27,6 +32,9 @@ export function useServices() {
     [],
   );
   const [fixedServices, setFixedServices] = useState<FixedService[]>([]);
+  const [categorySettings, setCategorySettings] = useState<
+    ServiceCategorySetting[]
+  >([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [formattedFixedServices, setFormattedFixedServices] = useState<
     FixedServiceFormatted[]
@@ -63,6 +71,9 @@ export function useServices() {
 
       setVariableServices(data.variableServices);
       setFixedServices(data.fixedServices);
+      setCategorySettings(
+        Array.isArray(data.categories) ? data.categories : [],
+      );
 
       // Transform variable services to products format for QuotationForm compatibility
       const transformedProducts = data.variableServices.map(
@@ -94,6 +105,7 @@ export function useServices() {
     nombre: service.name,
     precio: service.price,
     categoria: service.category,
+    is_active: service.is_active,
   });
 
   // Transform FixedService to QuotationForm format
@@ -133,11 +145,18 @@ export function useServices() {
     }
   };
 
+  // Names of categories explicitly marked inactive (default = active).
+  const inactiveCategories = categorySettings
+    .filter((c) => c.is_active === false)
+    .map((c) => c.name);
+
   return {
     // Raw data
     variableServices,
     fixedServices: formattedFixedServices,
     rawFixedServices: fixedServices,
+    categorySettings,
+    inactiveCategories,
 
     // Transformed data for QuotationForm compatibility
     products,
