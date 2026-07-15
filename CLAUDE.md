@@ -102,8 +102,32 @@ Frontend env (`frontend/.env`, see `.env.example`, all `VITE_` prefixed): `VITE_
 ## Database & migrations
 
 Supabase/Postgres is the single source of truth, shared by both apps. There is **no automated
-migration runner** — SQL is applied manually in Supabase. Track every schema change by adding a
-new numbered file under `docs/migrations/` (e.g. `4_<name>.sql`). `docs/migrations/0_initial_models.sql`
+migration runner** — SQL is applied manually in Supabase. `docs/migrations/0_initial_models.sql`
 and `frontend/databaseSchema/database_schema.sql` are context-only snapshots of the full schema
 (not meant to be executed). When you change tables, also update the relevant entities/interfaces
 in both apps.
+
+**Every DB change MUST be recorded as a migration.** Rules:
+
+- Add a new file under `docs/migrations/` following the existing numbered naming convention:
+  `<next-number>_<kebab-or-snake-descriptive-name>.sql` (e.g. `5_add-discount-column.sql`).
+  Look at the highest existing number and increment it.
+- If the migration needs existing rows to be populated/updated to remain consistent (new
+  non-null column, denormalized field, data reshape, etc.), also add a **backfill script**
+  alongside the migration whenever it is necessary. Keep it in the same `docs/migrations/`
+  folder (e.g. `5_add-discount-column.backfill.sql`) so the schema change and its data fix
+  travel together.
+- Migrations are **NOT run by this repo or by the app** — they must be executed manually in the
+  external DB provider (Supabase). After creating a migration, **explicitly tell the user (or
+  the AI running the task) that they must run the SQL command in the DB provider.** Never assume
+  a migration has been applied.
+
+## Git & PR workflow
+
+- **Never commit or merge directly to `main`.** All work happens on a feature branch following
+  common conventions: `feature/<short-descriptive-name>` (e.g. `feature/add-service-discounts`).
+- **Prefix every commit message with the area of the change** in square brackets:
+  `[database]`, `[backend]`, or `[frontend]` — e.g. `[database] add migration for service discounts`.
+  If a commit spans multiple areas, prefer splitting it; otherwise list the areas.
+- When a feature is ready, **open a PR from the feature branch targeting `main`** (follow common
+  PR conventions). Merging into `main` always goes through a PR — direct merges are not allowed.
