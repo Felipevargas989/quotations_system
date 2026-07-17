@@ -12,7 +12,6 @@ import {
 import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
 import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
-import CategoriesManager from "./components/CategoriesManager";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
 import VariableServiceForm from "./components/variableServices/VariableServiceForm";
@@ -240,16 +239,9 @@ export default function ServicesPage() {
         onSuccess={handleUploadSuccess}
       />
 
-      {/* Categories management: rename / activate / delete / reorder */}
-      <CategoriesManager
-        categories={orderedCategories}
-        onRename={handleRenameCategory}
-        onToggleActive={handleToggleCategoryActive}
-        onDelete={handleDeleteCategory}
-        onReorder={handleReorderCategories}
-      />
-
-      {/* Variable services grouped by category with drag & drop ordering */}
+      {/* Variable services grouped by category. Each category box header has
+          the drag handle (reorder categories) and the ⋮ menu (rename /
+          activate-deactivate / delete). Services inside drag to reorder. */}
       <div className="mb-2 text-sm font-medium text-gray-700">
         Servicios Variables
       </div>
@@ -261,6 +253,10 @@ export default function ServicesPage() {
         onDelete={(id) => handleDeleteService(id, ServiceType.VARIABLE)}
         onToggleActive={(s) => handleToggleActive(s, ServiceType.VARIABLE)}
         onReordered={loadServices}
+        onRenameCategory={handleRenameCategory}
+        onToggleCategoryActive={handleToggleCategoryActive}
+        onDeleteCategory={handleDeleteCategory}
+        onReorderCategories={handleReorderCategories}
       />
 
       {/* Fixed services table (unchanged) */}
