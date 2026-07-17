@@ -77,13 +77,11 @@ export default function PostVentaPage() {
     loadEvents();
   }, []);
 
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const [{ data: payments }, { data: clients }] = await Promise.all([
-        getPaymentsWithTransactions(),
-        getClients(),
-      ]);
+  const fetchEvents = async (): Promise<EventRow[]> => {
+    const [{ data: payments }, { data: clients }] = await Promise.all([
+      getPaymentsWithTransactions(),
+      getClients(),
+    ]);
 
       const clientByName = new Map<string, any>(
         (clients || []).map((c: any) => [c.name, c]),
@@ -132,12 +130,34 @@ export default function PostVentaPage() {
       });
 
       events.sort((a, b) => b.quotationNumber - a.quotationNumber);
-      setRows(events);
+    return events;
+  };
+
+  const loadEvents = async () => {
+    setLoading(true);
+    try {
+      setRows(await fetchEvents());
     } catch (error) {
       console.error("Error cargando eventos de post-venta", error);
       setRows([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Refresca tras guardar sin el spinner de pantalla completa, y actualiza el
+  // evento abierto en el modal (saldo, progreso, cuotas).
+  const refreshAfterSave = async () => {
+    try {
+      const events = await fetchEvents();
+      setRows(events);
+      setSelected((cur) =>
+        cur
+          ? events.find((e) => e.quotationId === cur.quotationId) || cur
+          : cur,
+      );
+    } catch (error) {
+      console.error("Error refrescando post-venta", error);
     }
   };
 
@@ -338,7 +358,7 @@ export default function PostVentaPage() {
           tab={tab}
           setTab={setTab}
           onClose={() => setSelected(null)}
-          onDataChanged={loadEvents}
+          onDataChanged={refreshAfterSave}
         />
       )}
     </div>
