@@ -143,6 +143,36 @@ export const getAllIngredientRecipeItems = async (
   return (data || []) as RecipeItem[];
 };
 
+// Mapa nombre → id de los servicios del catálogo (variables y fijos), para
+// resolver los items de cotizaciones antiguas cuyo `codigo` no es el id.
+export const getCatalogServiceNameIds = async (
+  companyId: number,
+): Promise<{
+  variable: Record<string, number>;
+  fixed: Record<string, number>;
+}> => {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const [v, f] = await Promise.all([
+    supabase
+      .from("variable_services")
+      .select("id, name")
+      .eq("company_id", companyId),
+    supabase
+      .from("fixed_services")
+      .select("id, name")
+      .eq("company_id", companyId),
+  ]);
+  const variable: Record<string, number> = {};
+  (v.data || []).forEach((s: { id: number; name: string }) => {
+    variable[norm(s.name)] = s.id;
+  });
+  const fixed: Record<string, number> = {};
+  (f.data || []).forEach((s: { id: number; name: string }) => {
+    fixed[norm(s.name)] = s.id;
+  });
+  return { variable, fixed };
+};
+
 // Todas las líneas de receta de la empresa (insumos + mobiliario), para la
 // consolidación logística del evento.
 export const getAllRecipeItems = async (

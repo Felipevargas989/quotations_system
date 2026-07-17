@@ -4,6 +4,7 @@ import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getAllRecipeItems,
+  getCatalogServiceNameIds,
   getFurnitureItems,
   getSupplies,
 } from "../../services/logistics.service";
@@ -43,6 +44,10 @@ export default function LogisticaTab({
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
+  const [nameIds, setNameIds] = useState<{
+    variable: Record<string, number>;
+    fixed: Record<string, number>;
+  }>({ variable: {}, fixed: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,11 +57,13 @@ export default function LogisticaTab({
       getAllRecipeItems(companyId),
       getSupplies(companyId),
       getFurnitureItems(companyId),
+      getCatalogServiceNameIds(companyId),
     ])
-      .then(([r, s, f]) => {
+      .then(([r, s, f, n]) => {
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
+        setNameIds(n);
       })
       .finally(() => setLoading(false));
   }, [companyId]);
@@ -86,10 +93,18 @@ export default function LogisticaTab({
       nombre: string,
       qty: number,
     ) => {
-      const serviceId = Number(codigo);
-      const lines = Number.isFinite(serviceId)
-        ? byService.get(`${serviceType}-${serviceId}`)
+      // 1) intento por id (cotizaciones nuevas: codigo === id del servicio)
+      const numericId = Number(codigo);
+      let lines = Number.isFinite(numericId)
+        ? byService.get(`${serviceType}-${numericId}`)
         : undefined;
+      // 2) fallback por nombre (cotizaciones antiguas con códigos tipo "P001")
+      if (!lines || lines.length === 0) {
+        const idByName = nameIds[serviceType][nombre.trim().toLowerCase()];
+        if (idByName !== undefined) {
+          lines = byService.get(`${serviceType}-${idByName}`);
+        }
+      }
       if (!lines || lines.length === 0) {
         noRecipe.push(nombre);
         return;
@@ -141,7 +156,7 @@ export default function LogisticaTab({
         .sort((a, b) => a.item.name.localeCompare(b.item.name)),
       sinReceta: [...new Set(noRecipe)],
     };
-  }, [recipes, supplies, furniture, quote, personas]);
+  }, [recipes, supplies, furniture, nameIds, quote, personas]);
 
   // Descarga CSV (se abre directo en Excel; separador ; y decimales con coma,
   // formato es-CL). BOM para que Excel respete los acentos.
