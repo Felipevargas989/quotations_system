@@ -11,6 +11,7 @@ import {
   X,
   MessageCircle,
   Receipt,
+  Package,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -70,6 +71,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/services",
       icon: Settings,
       section: "services",
+    },
+    {
+      name: "Logística",
+      href: "/logistica",
+      icon: Package,
+      section: "logistics",
     },
     {
       name: "Calendario",

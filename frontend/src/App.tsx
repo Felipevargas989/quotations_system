@@ -13,6 +13,7 @@ import QuotationForm from "./pages/quotations/QuotationForm";
 import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import PostVentaPage from "./pages/postventa/PostVentaPage";
+import LogisticaPage from "./pages/logistica/LogisticaPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
 import SuperAdminPage from "./pages/superAdmin/Index.tsx";
 import { ServicesPage } from "./pages/services";
@@ -165,6 +166,16 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.services}>
                   <ServicesPage />
+                </PermissionGuard>
+              }
+            />
+
+            {/* Logística - Operaciones, Admin */}
+            <Route
+              path="logistica"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
+                  <LogisticaPage />
                 </PermissionGuard>
               }
             />
