@@ -114,6 +114,34 @@ export const createFurnitureItem = async (fields: {
   return { data: data as FurnitureItem | null, error };
 };
 
+export const updateFurnitureItem = async (
+  id: number,
+  fields: Partial<Pick<FurnitureItem, "name" | "is_active">>,
+) => {
+  const { error } = await supabase
+    .from("furniture_items")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+// Todas las líneas de ingredientes de la empresa (para calcular el costo por
+// persona de cada servicio en la lista de Gestión de Servicios).
+export const getAllIngredientRecipeItems = async (
+  companyId: number,
+): Promise<RecipeItem[]> => {
+  const { data, error } = await supabase
+    .from("service_recipe_items")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("item_kind", "insumo");
+  if (error) {
+    console.error("Error cargando recetas", error);
+    return [];
+  }
+  return (data || []) as RecipeItem[];
+};
+
 // ---------- Recetas por servicio ----------
 export const getRecipeItems = async (
   companyId: number,

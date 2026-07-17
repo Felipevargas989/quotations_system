@@ -1,5 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FixedService, VariableService } from "../../types/services.types";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  getAllIngredientRecipeItems,
+  getSupplies,
+} from "../../services/logistics.service";
+import { toBaseQty } from "../../types/logistics.types";
 import {
   deleteCategoryById,
   removeFixedService,
@@ -44,6 +50,39 @@ export default function ServicesPage() {
     error,
     reload: loadServices,
   } = useServices();
+
+  // Costo de insumos por persona de cada servicio variable (desde recetas),
+  // para mostrar costo y margen junto al precio en la lista.
+  const { company } = useAuth();
+  const [recipeCosts, setRecipeCosts] = useState<Record<number, number>>({});
+
+  const loadRecipeCosts = async () => {
+    if (!company?.id) return;
+    try {
+      const companyId = Number(company.id);
+      const [items, supplies] = await Promise.all([
+        getAllIngredientRecipeItems(companyId),
+        getSupplies(companyId),
+      ]);
+      const priceById = new Map(supplies.map((s) => [s.id, s.price || 0]));
+      const costs: Record<number, number> = {};
+      items.forEach((it) => {
+        if (it.service_type !== "variable" || !it.supply_id) return;
+        const price = priceById.get(it.supply_id) || 0;
+        costs[it.service_id] =
+          (costs[it.service_id] || 0) +
+          toBaseQty(it.qty_per_person, it.unit) * price;
+      });
+      setRecipeCosts(costs);
+    } catch {
+      /* silencioso: la lista funciona igual sin costos */
+    }
+  };
+
+  useEffect(() => {
+    loadRecipeCosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.id]);
 
   const handleUploadSuccess = async () => {
     setUploadError(null);
@@ -100,6 +139,7 @@ export default function ServicesPage() {
 
   const handleServiceFormSuccess = async () => {
     await loadServices();
+    await loadRecipeCosts();
     if (serviceType === ServiceType.VARIABLE) {
       setShowVariableServiceForm(false);
     } else {
@@ -115,6 +155,9 @@ export default function ServicesPage() {
       setShowFixedServiceForm(false);
     }
     setEditingService(null);
+    // La receta se guarda por línea (sin pasar por onSuccess): refrescar
+    // costos al cerrar el modal para que la lista quede al día.
+    loadRecipeCosts();
   };
 
   const handleToggleActive = async (
@@ -270,6 +313,7 @@ export default function ServicesPage() {
         categoryLinks={categoryLinks}
         onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
         onEditRecipe={(s) => handleEditRecipe(s, ServiceType.VARIABLE)}
+        recipeCosts={recipeCosts}
         onDelete={(id) => handleDeleteService(id, ServiceType.VARIABLE)}
         onToggleActive={(s) => handleToggleActive(s, ServiceType.VARIABLE)}
         onReordered={loadServices}

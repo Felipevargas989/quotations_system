@@ -261,7 +261,7 @@ export default function RecipeTab({
                   .filter((s) => s.is_active)
                   .map((s) => ({
                     value: String(s.id),
-                    label: `${s.name} (${UNIT_FAMILY_INFO[s.unit_family].label.toLowerCase()})`,
+                    label: `${s.name} · ${UNIT_FAMILY_INFO[s.unit_family].units}`,
                   }))}
                 value={addSupplyId}
                 onChange={onPickSupply}

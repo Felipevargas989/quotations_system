@@ -26,6 +26,8 @@ interface Props {
   readonly onDelete: (id: number) => void;
   readonly onToggleActive: (service: VariableService) => void;
   readonly onEditRecipe?: (service: VariableService) => void;
+  // Costo de insumos por persona (desde la receta), por id de servicio.
+  readonly recipeCosts?: Record<number, number>;
   readonly onReordered: () => void;
   // Category-level management, handled by the parent (calls the API + reload).
   readonly onRenameCategory: (id: number, name: string) => Promise<void>;
@@ -48,6 +50,7 @@ export default function VariableServicesByCategory({
   onDelete,
   onToggleActive,
   onEditRecipe,
+  recipeCosts,
   onReordered,
   onRenameCategory,
   onToggleCategoryActive,
@@ -444,6 +447,30 @@ export default function VariableServicesByCategory({
                         <span className="text-sm text-gray-500 flex-shrink-0">
                           ${Number(service.price).toLocaleString("es-CL")}
                         </span>
+                        {(() => {
+                          const cost = recipeCosts?.[service.id];
+                          if (cost === undefined) return null;
+                          const price = Number(service.price) || 0;
+                          const marginPct =
+                            price > 0
+                              ? Math.round(((price - cost) / price) * 100)
+                              : 0;
+                          return (
+                            <span className="text-xs flex-shrink-0 text-gray-400">
+                              costo ${Math.round(cost).toLocaleString("es-CL")}{" "}
+                              ·{" "}
+                              <span
+                                className={`font-semibold ${
+                                  price - cost >= 0
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                                }`}
+                              >
+                                {marginPct}%
+                              </span>
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         <button

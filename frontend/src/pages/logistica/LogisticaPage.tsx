@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Package, ShoppingCart, Truck, Users } from "lucide-react";
+import { Armchair, Package, ShoppingCart, Truck, Users } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ProveedoresTab from "./components/ProveedoresTab";
 import InsumosTab from "./components/InsumosTab";
+import MobiliarioTab from "./components/MobiliarioTab";
 import RecursosTab from "./components/RecursosTab";
 
-type TabKey = "compras" | "insumos" | "proveedores" | "recursos";
+type TabKey = "compras" | "insumos" | "mobiliario" | "proveedores" | "recursos";
 
 const TABS: { key: TabKey; label: string; Icon: typeof ShoppingCart }[] = [
   { key: "compras", label: "Compras", Icon: ShoppingCart },
   { key: "insumos", label: "Insumos", Icon: Package },
+  { key: "mobiliario", label: "Mobiliario", Icon: Armchair },
   { key: "proveedores", label: "Proveedores", Icon: Truck },
   { key: "recursos", label: "Recursos de gestión", Icon: Users },
 ];
@@ -76,6 +78,7 @@ export default function LogisticaPage() {
               </div>
             )}
             {tab === "insumos" && <InsumosTab companyId={companyId} />}
+            {tab === "mobiliario" && <MobiliarioTab companyId={companyId} />}
             {tab === "proveedores" && <ProveedoresTab companyId={companyId} />}
             {tab === "recursos" && <RecursosTab companyId={companyId} />}
           </>
