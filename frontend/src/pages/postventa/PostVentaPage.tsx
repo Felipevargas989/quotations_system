@@ -564,7 +564,8 @@ function EventModal({
         {/* Panels */}
         <div className="p-6 flex-1 overflow-y-auto min-h-0">
           {tab === "pagos" && (
-            <div className="space-y-3">
+            <div className="space-y-6">
+              <div className="space-y-3">
               <h4 className="text-sm font-bold text-gray-800">
                 Calendario de pagos
               </h4>
@@ -599,6 +600,11 @@ function EventModal({
                   </div>
                 );
               })}
+              </div>
+              <ReembolsosManager
+                quotationId={event.quotationId}
+                onChanged={onDataChanged}
+              />
             </div>
           )}
 
@@ -606,7 +612,6 @@ function EventModal({
             <ComprobantesTab
               quotationId={event.quotationId}
               transactions={transactions}
-              onChanged={onDataChanged}
             />
           )}
 
@@ -1126,14 +1131,132 @@ function ServiciosTab({
   );
 }
 
-// ---- Comprobantes: pagos + reembolsos ----
+// ---- Comprobantes: ledger unificado (pagos + reembolsos registrados) ----
+interface LedgerEntry {
+  key: string;
+  kind: "pago" | "reembolso";
+  amount: number;
+  date: string | null;
+  method: string | null;
+  url: string | null;
+}
+
 function ComprobantesTab({
   quotationId,
   transactions,
-  onChanged,
 }: {
   readonly quotationId: string;
   readonly transactions: PaymentTransaction[];
+}) {
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getRefundsByQuotation(quotationId)
+      .then(setRefunds)
+      .finally(() => setLoading(false));
+  }, [quotationId]);
+
+  const entries: LedgerEntry[] = [
+    ...transactions.map((t) => ({
+      key: `p-${t.id}`,
+      kind: "pago" as const,
+      amount: t.amount,
+      date: t.transaction_date,
+      method: t.payment_method,
+      url: t.receipt_photo_url || null,
+    })),
+    // Solo reembolsos ya registrados (is_paid) entran al ledger de comprobantes.
+    ...refunds
+      .filter((r) => r.is_paid)
+      .map((r) => ({
+        key: `r-${r.id}`,
+        kind: "reembolso" as const,
+        amount: r.amount,
+        date: r.refund_date || null,
+        method: r.payment_method || null,
+        url: r.receipt_url || null,
+      })),
+  ].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        Comprobantes de pagos y reembolsos del evento. Los reembolsos se
+        registran desde la pestaña <span className="font-semibold">Pagos</span>.
+      </p>
+      {loading ? (
+        <div className="py-4 flex justify-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="text-sm text-gray-500">Aún no hay comprobantes.</p>
+      ) : (
+        entries.map((e) => {
+          const refund = e.kind === "reembolso";
+          return (
+            <div
+              key={e.key}
+              className={`flex items-center gap-4 p-3 border rounded-xl ${
+                refund ? "border-red-200 bg-red-50" : "border-gray-200"
+              }`}
+            >
+              <div
+                className={`w-12 h-12 rounded-lg flex items-center justify-center text-[10px] text-center leading-tight ${
+                  e.url
+                    ? refund
+                      ? "bg-red-100 text-red-600"
+                      : "bg-emerald-50 text-emerald-600"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {e.url ? "✓ IMG" : "sin archivo"}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  {refund && (
+                    <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 flex items-center gap-1">
+                      <Undo2 size={11} /> Reembolso
+                    </span>
+                  )}
+                  <span
+                    className={`font-semibold text-sm ${
+                      refund ? "text-red-700" : "text-gray-900"
+                    }`}
+                  >
+                    {refund ? "− " : ""}
+                    {clp(e.amount)} · {fmtDate(e.date)}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {e.method || "—"}
+                </div>
+              </div>
+              {e.url && (
+                <a
+                  href={e.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  Ver
+                </a>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ---- Reembolsos: gestión/registro (vive en la pestaña Pagos) ----
+function ReembolsosManager({
+  quotationId,
+  onChanged,
+}: {
+  readonly quotationId: string;
   readonly onChanged: () => void;
 }) {
   const [refunds, setRefunds] = useState<Refund[]>([]);
@@ -1149,87 +1272,37 @@ function ComprobantesTab({
     load();
   }, [quotationId]);
 
-  // Tras registrar un reembolso: recarga la lista local y refresca el evento
-  // (saldo / KPIs) en el modal.
+  // Tras registrar: recarga la lista y refresca el evento (saldo / KPIs).
   const afterRefund = () => {
     load();
     onChanged();
   };
 
   return (
-    <div className="space-y-6">
-      {/* Comprobantes de pago */}
-      <div className="space-y-3">
-        <h4 className="text-sm font-bold text-gray-800">
-          Comprobantes de pago
-        </h4>
-        {transactions.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Aún no hay pagos registrados.
-          </p>
-        ) : (
-          transactions.map((t) => (
-            <div
-              key={t.id}
-              className="flex items-center gap-4 p-3 border border-gray-200 rounded-xl"
-            >
-              <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center text-[10px] text-center leading-tight ${
-                  t.receipt_photo_url
-                    ? "bg-emerald-50 text-emerald-600"
-                    : "bg-gray-100 text-gray-400"
-                }`}
-              >
-                {t.receipt_photo_url ? "✓ IMG" : "sin archivo"}
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm text-gray-900">
-                  {clp(t.amount)} · {fmtDate(t.transaction_date)}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {t.payment_method || "—"}
-                </div>
-              </div>
-              {t.receipt_photo_url && (
-                <a
-                  href={t.receipt_photo_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                >
-                  Ver
-                </a>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Reembolsos */}
-      <div className="space-y-3">
-        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-          <Undo2 size={15} className="text-red-500" /> Reembolsos
-        </h4>
-        {loading ? (
-          <div className="py-4 flex justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500" />
-          </div>
-        ) : refunds.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Sin reembolsos. Se generan automáticamente si el total baja por
-            debajo de lo ya pagado.
-          </p>
-        ) : (
-          refunds.map((r) => (
-            <RefundRow
-              key={r.id}
-              refund={r}
-              quotationId={quotationId}
-              onDone={afterRefund}
-            />
-          ))
-        )}
-      </div>
+    <div className="space-y-3 border-t border-gray-200 pt-5">
+      <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+        <Undo2 size={15} className="text-red-500" /> Reembolsos
+      </h4>
+      {loading ? (
+        <div className="py-4 flex justify-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500" />
+        </div>
+      ) : refunds.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          Sin reembolsos. Se generan automáticamente si el total baja por debajo
+          de lo ya pagado; aquí los registras con fecha, medio de pago y
+          comprobante.
+        </p>
+      ) : (
+        refunds.map((r) => (
+          <RefundRow
+            key={r.id}
+            refund={r}
+            quotationId={quotationId}
+            onDone={afterRefund}
+          />
+        ))
+      )}
     </div>
   );
 }
