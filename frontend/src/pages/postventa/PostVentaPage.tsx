@@ -31,6 +31,7 @@ import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
   getRefundsByQuotation,
+  getPaidRefundsByQuotation,
   registerRefund,
 } from "../../services/refunds.service";
 import {
@@ -66,7 +67,8 @@ interface EventRow {
   requiresInvoice?: boolean;
   hasContract?: boolean;
   total: number;
-  paid: number;
+  paid: number; // bruto: suma de abonos del cliente
+  refunded: number; // reembolsos ya devueltos (is_paid = true)
   cuotas: number;
   status: "pagado" | "vencido" | "pendiente";
   payments: PaymentWithTransactions[];
@@ -111,10 +113,12 @@ export default function PostVentaPage() {
   }, []);
 
   const fetchEvents = async (): Promise<EventRow[]> => {
-    const [{ data: payments }, { data: clients }] = await Promise.all([
-      getPaymentsWithTransactions(),
-      getClients(),
-    ]);
+    const [{ data: payments }, { data: clients }, refundsPaid] =
+      await Promise.all([
+        getPaymentsWithTransactions(),
+        getClients(),
+        getPaidRefundsByQuotation(),
+      ]);
 
       const clientByName = new Map<string, any>(
         (clients || []).map((c: any) => [c.name, c]),
@@ -134,11 +138,13 @@ export default function PostVentaPage() {
         const total =
           q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
         const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
+        const refunded = refundsPaid[quotationId] || 0;
         const client = q?.clients?.name
           ? clientByName.get(q.clients.name)
           : undefined;
 
-        const saldo = total - paid;
+        // Saldo neto: lo pagado menos lo ya devuelto al cliente.
+        const saldo = total - (paid - refunded);
         let status: EventRow["status"] = "pendiente";
         if (saldo <= 0) status = "pagado";
         else if (ps.some((p) => p.status === "vencido")) status = "vencido";
@@ -154,6 +160,7 @@ export default function PostVentaPage() {
           hasContract: q?.has_contract,
           total,
           paid,
+          refunded,
           cuotas: ps.length,
           status,
           payments: ps
@@ -199,8 +206,9 @@ export default function PostVentaPage() {
     let venc = 0;
     let pag = 0;
     rows.forEach((r) => {
-      pag += r.paid;
-      const saldo = r.total - r.paid;
+      const net = r.paid - r.refunded;
+      pag += net;
+      const saldo = r.total - net;
       if (r.status === "vencido") venc += saldo;
       else if (r.status === "pendiente") pend += saldo;
     });
@@ -332,7 +340,8 @@ export default function PostVentaPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const p = pct(r.paid, r.total);
+                  const net = r.paid - r.refunded;
+                  const p = pct(net, r.total);
                   return (
                     <tr
                       key={r.quotationId}
@@ -369,7 +378,10 @@ export default function PostVentaPage() {
                           />
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {p}% pagado · {clp(r.paid)}
+                          {p}% pagado · {clp(net)}
+                          {r.refunded > 0
+                            ? ` · reemb. ${clp(r.refunded)}`
+                            : ""}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-300">
@@ -416,8 +428,9 @@ function EventModal({
   onClose,
   onDataChanged,
 }: EventModalProps) {
-  const saldo = event.total - event.paid;
-  const p = event.total ? Math.round((event.paid / event.total) * 100) : 0;
+  const netPaid = event.paid - event.refunded;
+  const saldo = event.total - netPaid;
+  const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
   const transactions = event.payments.flatMap((pay) => pay.transactions || []);
 
   // Load the full quotation (items, personas, discount, comments) for the
@@ -497,6 +510,14 @@ function EventModal({
               {clp(event.paid)}
             </p>
           </div>
+          {event.refunded > 0 && (
+            <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-xs uppercase text-gray-500">Reembolsado</p>
+              <p className="text-lg font-bold text-red-600">
+                − {clp(event.refunded)}
+              </p>
+            </div>
+          )}
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
             <p className="text-xs uppercase text-gray-500">Saldo</p>
             <p
@@ -585,6 +606,7 @@ function EventModal({
             <ComprobantesTab
               quotationId={event.quotationId}
               transactions={transactions}
+              onChanged={onDataChanged}
             />
           )}
 
@@ -1108,9 +1130,11 @@ function ServiciosTab({
 function ComprobantesTab({
   quotationId,
   transactions,
+  onChanged,
 }: {
   readonly quotationId: string;
   readonly transactions: PaymentTransaction[];
+  readonly onChanged: () => void;
 }) {
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1124,6 +1148,13 @@ function ComprobantesTab({
   useEffect(() => {
     load();
   }, [quotationId]);
+
+  // Tras registrar un reembolso: recarga la lista local y refresca el evento
+  // (saldo / KPIs) en el modal.
+  const afterRefund = () => {
+    load();
+    onChanged();
+  };
 
   return (
     <div className="space-y-6">
@@ -1194,7 +1225,7 @@ function ComprobantesTab({
               key={r.id}
               refund={r}
               quotationId={quotationId}
-              onDone={load}
+              onDone={afterRefund}
             />
           ))
         )}
