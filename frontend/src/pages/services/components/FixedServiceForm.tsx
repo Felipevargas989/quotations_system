@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, ChefHat } from "lucide-react";
+import { X, Save, Calculator } from "lucide-react";
 import {
   CreateFixedService,
   FixedService,
@@ -16,6 +16,7 @@ import {
 import { NumberInput } from "../../../components/inputs";
 import { useAuth } from "../../../contexts/AuthContext";
 import RecipeTab from "./RecipeTab";
+import FixedCostSection from "./FixedCostSection";
 
 interface FixedServiceFormProps {
   readonly isOpen: boolean;
@@ -159,7 +160,8 @@ export default function FixedServiceForm({
           </button>
         </div>
 
-        {/* Pestañas: Datos generales / Receta (solo mobiliario en fijos) */}
+        {/* Pestañas: Datos generales / Costo (tercerización + por persona,
+            no excluyentes, con mobiliario asociado abajo) */}
         <div className="flex gap-1 px-6 border-b mt-3">
           <button
             type="button"
@@ -177,7 +179,7 @@ export default function FixedServiceForm({
             onClick={() => isEditing && setTab("receta")}
             disabled={!isEditing}
             title={
-              isEditing ? undefined : "Guarda el servicio primero para definir su receta"
+              isEditing ? undefined : "Guarda el servicio primero para definir su costo"
             }
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
               tab === "receta"
@@ -185,17 +187,20 @@ export default function FixedServiceForm({
                 : "text-gray-500 border-transparent hover:text-gray-700"
             } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            <ChefHat size={15} /> Receta
+            <Calculator size={15} /> Costo
           </button>
         </div>
 
         {tab === "receta" && isEditing && service && company?.id ? (
-          <div className="p-6">
-            <RecipeTab
-              companyId={Number(company.id)}
-              serviceType="fixed"
-              serviceId={service.id}
-            />
+          <div className="p-6 space-y-6">
+            <FixedCostSection service={service} />
+            <div className="border-t border-gray-200 pt-5">
+              <RecipeTab
+                companyId={Number(company.id)}
+                serviceType="fixed"
+                serviceId={service.id}
+              />
+            </div>
           </div>
         ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">

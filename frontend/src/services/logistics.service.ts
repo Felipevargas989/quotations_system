@@ -195,6 +195,18 @@ export const deleteRecipeItem = async (id: number) => {
   return { error };
 };
 
+// ---------- Costo de servicios fijos (tercerización / por persona) ----------
+export const updateFixedServiceCosts = async (
+  id: number,
+  fields: { cost_fixed: number; cost_per_person: number },
+) => {
+  const { error } = await supabase
+    .from("fixed_services")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
 // ---------- Recursos de gestión ----------
 export const getManagementResources = async (
   companyId: number,

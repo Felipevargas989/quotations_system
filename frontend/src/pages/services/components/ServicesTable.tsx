@@ -5,7 +5,7 @@ import {
   Tag,
   Eye,
   EyeOff,
-  ChefHat,
+  Calculator,
 } from "lucide-react";
 import { VariableService, FixedService } from "../../../types/services.types";
 import { ServiceType } from "../constants";
@@ -318,9 +318,9 @@ export default function ServicesTable({
                               onEditRecipe(service, ServiceType.FIXED)
                             }
                             className="text-amber-600 hover:text-amber-800"
-                            title="Receta"
+                            title="Costo"
                           >
-                            <ChefHat size={16} />
+                            <Calculator size={16} />
                           </button>
                         )}
                         {onEditService && (

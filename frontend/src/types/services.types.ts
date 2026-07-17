@@ -23,6 +23,10 @@ export interface FixedService {
   price_per_person?: number;
   is_active?: boolean;
   company_id: Company["id"];
+  // Costo del servicio (no excluyentes): fijo por tercerización y/o variable
+  // por persona. Costo en un evento = cost_fixed + cost_per_person × personas.
+  cost_fixed?: number;
+  cost_per_person?: number;
 }
 
 // A service category is now a first-class entity.
