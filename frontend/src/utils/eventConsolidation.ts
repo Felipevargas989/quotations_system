@@ -112,9 +112,14 @@ export const consolidateEvent = (
   personas: number,
   ctx: ConsolidationContext,
   acc: ConsolidationAccumulator,
-): { costoInsumos: number; costoFijos: number } => {
+): {
+  costoInsumos: number;
+  costoFijos: number;
+  supplyUse: Map<number, number>; // supply_id → cantidad base usada por ESTE evento
+} => {
   let costoInsumos = 0;
   let costoFijos = 0;
+  const supplyUse = new Map<number, number>();
 
   const addRecipeLines = (
     serviceType: "variable" | "fixed",
@@ -138,6 +143,7 @@ export const consolidateEvent = (
         if (!supply) return;
         const base = toBaseQty(line.qty_per_person, line.unit) * factor;
         costoInsumos += base * (supply.price || 0);
+        supplyUse.set(supply.id, (supplyUse.get(supply.id) || 0) + base);
         const cur = acc.supplyTotals.get(supply.id);
         if (cur) {
           cur.totalBase += base;
@@ -176,5 +182,5 @@ export const consolidateEvent = (
     costoFijos += (fijo + porPersona * personas) * (it.quantity || 1);
   });
 
-  return { costoInsumos, costoFijos };
+  return { costoInsumos, costoFijos, supplyUse };
 };

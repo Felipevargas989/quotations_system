@@ -276,6 +276,75 @@ export const markQuotationsProvisioned = async (
   return { error: results.find((r) => r.error)?.error || null };
 };
 
+// Quita la marca de "evento completo" (desprovisionar / provisión parcial).
+export const clearQuotationsProvisioned = async (ids: string[]) => {
+  if (!ids.length) return { error: null };
+  const { error } = await supabase
+    .from("quotations")
+    .update({ provisioned_at: null, provisioned_cost: null })
+    .in("id", ids);
+  return { error };
+};
+
+// ---------- Provisión por insumo (evento × insumo) ----------
+export interface EventSupplyProvision {
+  id: number;
+  quotation_id: string;
+  supply_id: number;
+  qty_base: number;
+  cost: number;
+  provisioned_at: string;
+}
+
+export const getEventSupplyProvisions = async (
+  companyId: number,
+): Promise<EventSupplyProvision[]> => {
+  const { data, error } = await supabase
+    .from("event_supply_provisions")
+    .select("*")
+    .eq("company_id", companyId);
+  if (error) {
+    console.error("Error cargando provisiones por insumo", error);
+    return [];
+  }
+  return (data || []) as EventSupplyProvision[];
+};
+
+// Upsert: re-provisionar un insumo actualiza su foto (cantidad + costo).
+export const upsertEventSupplyProvisions = async (
+  rows: {
+    company_id: number;
+    quotation_id: string;
+    supply_id: number;
+    qty_base: number;
+    cost: number;
+  }[],
+) => {
+  if (!rows.length) return { error: null };
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("event_supply_provisions")
+    .upsert(
+      rows.map((r) => ({ ...r, provisioned_at: now })),
+      { onConflict: "quotation_id,supply_id" },
+    );
+  return { error };
+};
+
+export const deleteEventSupplyProvisions = async (
+  quotationIds: string[],
+  supplyIds?: number[], // sin supplyIds = borra todas las del evento
+) => {
+  if (!quotationIds.length) return { error: null };
+  let q = supabase
+    .from("event_supply_provisions")
+    .delete()
+    .in("quotation_id", quotationIds);
+  if (supplyIds && supplyIds.length) q = q.in("supply_id", supplyIds);
+  const { error } = await q;
+  return { error };
+};
+
 // Estado de provisión de una cotización (para el badge en Gestión).
 export const getQuotationProvisioning = async (
   quotationId: string,

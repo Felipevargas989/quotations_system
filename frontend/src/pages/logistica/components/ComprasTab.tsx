@@ -3,19 +3,25 @@ import {
   CheckCircle2,
   Download,
   PackageCheck,
+  RotateCcw,
   ShoppingCart,
   Truck,
 } from "lucide-react";
 import {
+  EventSupplyProvision,
   PurchasingEvent,
+  clearQuotationsProvisioned,
+  deleteEventSupplyProvisions,
   getAcceptedEvents,
   getAllRecipeItems,
   getCatalogServiceNameIds,
+  getEventSupplyProvisions,
   getFixedServiceCostsById,
   getFurnitureItems,
   getSupplies,
   getSuppliers,
   markQuotationsProvisioned,
+  upsertEventSupplyProvisions,
 } from "../../../services/logistics.service";
 import {
   FurnitureItem,
@@ -33,13 +39,19 @@ import {
 } from "../../../utils/eventConsolidation";
 
 // Compras multi-evento (Fase 3): selecciona eventos cerrados, consolida los
-// insumos de todas sus recetas agrupados por proveedor, exporta el Excel de
-// compras y marca los eventos como provisionados (foto del costo estimado).
+// insumos por proveedor y provisiona POR PARTES (hoy carnes, mañana verduras)
+// o de forma masiva. Cada provisión guarda la foto de cantidad y costo.
 
 interface SupplierGroup {
   supplier: Supplier | null; // null = sin proveedor asignado
   rows: ConsolidatedSupply[];
   subtotal: number;
+}
+
+interface EventAnalysis {
+  supplyUse: Map<number, number>; // supply_id → cantidad base
+  costoInsumos: number;
+  costoFijos: number;
 }
 
 const fmtQty = (n: number) =>
@@ -56,6 +68,7 @@ export default function ComprasTab({
   readonly companyId: number;
 }) {
   const [events, setEvents] = useState<PurchasingEvent[]>([]);
+  const [provisions, setProvisions] = useState<EventSupplyProvision[]>([]);
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
@@ -75,14 +88,20 @@ export default function ComprasTab({
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [confirming, setConfirming] = useState(false);
+  const [checkedSupplies, setCheckedSupplies] = useState<Set<number>>(
+    new Set(),
+  );
+  const [confirmAction, setConfirmAction] = useState<
+    "" | "todo" | "desprovisionar"
+  >("");
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState("");
 
-  const load = () => {
+  const loadAll = () => {
     setLoading(true);
     Promise.all([
       getAcceptedEvents(companyId),
+      getEventSupplyProvisions(companyId),
       getAllRecipeItems(companyId),
       getSupplies(companyId),
       getFurnitureItems(companyId),
@@ -90,8 +109,9 @@ export default function ComprasTab({
       getCatalogServiceNameIds(companyId),
       getFixedServiceCostsById(companyId),
     ])
-      .then(([ev, r, s, f, sup, n, fc]) => {
+      .then(([ev, pr, r, s, f, sup, n, fc]) => {
         setEvents(ev);
+        setProvisions(pr);
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
@@ -102,8 +122,28 @@ export default function ComprasTab({
       .finally(() => setLoading(false));
   };
 
+  const refresh = async () => {
+    const [ev, pr] = await Promise.all([
+      getAcceptedEvents(companyId),
+      getEventSupplyProvisions(companyId),
+    ]);
+    setEvents(ev);
+    setProvisions(pr);
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [companyId]);
+  useEffect(loadAll, [companyId]);
+
+  // provisiones indexadas por evento y por (evento, insumo)
+  const provByEvent = useMemo(() => {
+    const m = new Map<string, Set<number>>();
+    provisions.forEach((p) => {
+      const s = m.get(p.quotation_id) || new Set<number>();
+      s.add(p.supply_id);
+      m.set(p.quotation_id, s);
+    });
+    return m;
+  }, [provisions]);
 
   // Eventos visibles según el rango de fecha del evento.
   const filtered = useMemo(() => {
@@ -116,13 +156,57 @@ export default function ComprasTab({
     });
   }, [events, desde, hasta]);
 
+  // Análisis por evento (insumos que usa + costos), para estados y fotos.
+  const perEvent = useMemo(() => {
+    const ctx = buildConsolidationContext(
+      recipes,
+      supplies,
+      furniture,
+      nameIds,
+      fixedCosts,
+    );
+    const m = new Map<string, EventAnalysis>();
+    filtered.forEach((ev) => {
+      const acc = newAccumulator();
+      const r = consolidateEvent(
+        ev.items as EventItemsSnapshot,
+        ev.people_count || 0,
+        ctx,
+        acc,
+      );
+      m.set(ev.id, r);
+    });
+    return m;
+  }, [filtered, recipes, supplies, furniture, nameIds, fixedCosts]);
+
+  const eventStatus = (
+    ev: PurchasingEvent,
+  ): { label: string; kind: "full" | "partial" | "none" } => {
+    const use = perEvent.get(ev.id)?.supplyUse;
+    const used = use?.size || 0;
+    const provSet = provByEvent.get(ev.id);
+    const prov = use
+      ? [...use.keys()].filter((sid) => provSet?.has(sid)).length
+      : 0;
+    if (ev.provisioned_at || (used > 0 && prov === used)) {
+      return {
+        label: ev.provisioned_at
+          ? `Completo · ${fmtDate(ev.provisioned_at)}`
+          : "Completo",
+        kind: "full",
+      };
+    }
+    if (prov > 0) return { label: `Parcial ${prov}/${used}`, kind: "partial" };
+    return { label: "Pendiente", kind: "none" };
+  };
+
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
     [filtered, selected],
   );
 
   const toggle = (id: string) => {
-    setConfirming(false);
+    setConfirmAction("");
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -132,7 +216,7 @@ export default function ComprasTab({
   };
 
   const toggleAll = () => {
-    setConfirming(false);
+    setConfirmAction("");
     setSelected((prev) =>
       prev.size === filtered.length
         ? new Set()
@@ -140,7 +224,7 @@ export default function ComprasTab({
     );
   };
 
-  // Consolidación de los eventos seleccionados, agrupada por proveedor.
+  // Consolidación global de los seleccionados, agrupada por proveedor.
   const consolidation = useMemo(() => {
     const ctx = buildConsolidationContext(
       recipes,
@@ -150,7 +234,6 @@ export default function ComprasTab({
       fixedCosts,
     );
     const acc = newAccumulator();
-    const perEvent: { id: string; cost: number }[] = [];
     let costoTotal = 0;
     selectedEvents.forEach((ev) => {
       const r = consolidateEvent(
@@ -159,12 +242,9 @@ export default function ComprasTab({
         ctx,
         acc,
       );
-      const cost = r.costoInsumos + r.costoFijos;
-      perEvent.push({ id: ev.id, cost });
-      costoTotal += cost;
+      costoTotal += r.costoInsumos + r.costoFijos;
     });
 
-    // Agrupar insumos por proveedor.
     const supplierById = new Map(suppliers.map((s) => [s.id, s]));
     const groupMap = new Map<number | 0, SupplierGroup>();
     [...acc.supplyTotals.values()].forEach((row) => {
@@ -200,28 +280,176 @@ export default function ComprasTab({
         .map((m) => ({ ...m, total: Math.ceil(m.total) }))
         .sort((a, b) => a.item.name.localeCompare(b.item.name)),
       sinReceta: [...new Set(acc.noRecipe)],
-      perEvent,
       costoTotal,
     };
   }, [selectedEvents, recipes, supplies, furniture, suppliers, nameIds, fixedCosts]);
 
-  const provision = async () => {
-    if (!confirming) {
-      setConfirming(true);
+  // Estado de provisión de UN insumo entre los eventos seleccionados.
+  const supplyStatus = (supplyId: number) => {
+    let used = 0;
+    let prov = 0;
+    selectedEvents.forEach((ev) => {
+      if (perEvent.get(ev.id)?.supplyUse.has(supplyId)) {
+        used++;
+        if (provByEvent.get(ev.id)?.has(supplyId)) prov++;
+      }
+    });
+    return { used, prov };
+  };
+
+  const toggleSupply = (id: number) => {
+    setConfirmAction("");
+    setCheckedSupplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleGroup = (g: SupplierGroup) => {
+    setConfirmAction("");
+    setCheckedSupplies((prev) => {
+      const next = new Set(prev);
+      const ids = g.rows.map((r) => r.supply.id);
+      const allIn = ids.every((id) => next.has(id));
+      ids.forEach((id) => (allIn ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  const flashMsg = (msg: string) => {
+    setFlash(msg);
+    setTimeout(() => setFlash(""), 4000);
+  };
+
+  // Si un evento quedó con todos sus insumos provisionados → marcar completo.
+  const stampCompleted = async (
+    provMap: Map<string, Set<number>>,
+  ): Promise<number> => {
+    const complete: { id: string; cost: number }[] = [];
+    selectedEvents.forEach((ev) => {
+      const a = perEvent.get(ev.id);
+      if (!a || a.supplyUse.size === 0) return;
+      const set = provMap.get(ev.id);
+      const all = [...a.supplyUse.keys()].every((sid) => set?.has(sid));
+      if (all && !ev.provisioned_at) {
+        complete.push({ id: ev.id, cost: a.costoInsumos + a.costoFijos });
+      }
+    });
+    if (complete.length) await markQuotationsProvisioned(complete);
+    return complete.length;
+  };
+
+  const buildRows = (onlySupplies?: Set<number>) => {
+    const rows: {
+      company_id: number;
+      quotation_id: string;
+      supply_id: number;
+      qty_base: number;
+      cost: number;
+    }[] = [];
+    const supplyById = new Map(supplies.map((s) => [s.id, s]));
+    selectedEvents.forEach((ev) => {
+      const a = perEvent.get(ev.id);
+      if (!a) return;
+      a.supplyUse.forEach((base, sid) => {
+        if (onlySupplies && !onlySupplies.has(sid)) return;
+        rows.push({
+          company_id: companyId,
+          quotation_id: ev.id,
+          supply_id: sid,
+          qty_base: base,
+          cost: Math.round(base * (supplyById.get(sid)?.price || 0)),
+        });
+      });
+    });
+    return rows;
+  };
+
+  const provisionChecked = async () => {
+    setSaving(true);
+    const rows = buildRows(checkedSupplies);
+    const { error } = await upsertEventSupplyProvisions(rows);
+    if (!error) {
+      // recalcular cobertura con las filas recién insertadas
+      const provMap = new Map<string, Set<number>>();
+      provisions.forEach((p) => {
+        const s = provMap.get(p.quotation_id) || new Set<number>();
+        s.add(p.supply_id);
+        provMap.set(p.quotation_id, s);
+      });
+      rows.forEach((r) => {
+        const s = provMap.get(r.quotation_id) || new Set<number>();
+        s.add(r.supply_id);
+        provMap.set(r.quotation_id, s);
+      });
+      const completed = await stampCompleted(provMap);
+      flashMsg(
+        `✓ ${checkedSupplies.size} insumo(s) provisionado(s) en ${selectedEvents.length} evento(s)` +
+          (completed ? ` · ${completed} evento(s) completo(s)` : ""),
+      );
+      setCheckedSupplies(new Set());
+      await refresh();
+    } else {
+      flashMsg("Error al provisionar, intenta de nuevo");
+    }
+    setSaving(false);
+  };
+
+  const provisionAll = async () => {
+    if (confirmAction !== "todo") {
+      setConfirmAction("todo");
       return;
     }
     setSaving(true);
-    const { error } = await markQuotationsProvisioned(consolidation.perEvent);
+    const rows = buildRows();
+    const { error } = await upsertEventSupplyProvisions(rows);
+    if (!error) {
+      await markQuotationsProvisioned(
+        selectedEvents.map((ev) => {
+          const a = perEvent.get(ev.id);
+          return {
+            id: ev.id,
+            cost: (a?.costoInsumos || 0) + (a?.costoFijos || 0),
+          };
+        }),
+      );
+      flashMsg(`✓ ${selectedEvents.length} evento(s) provisionado(s) completos`);
+      setSelected(new Set());
+      setCheckedSupplies(new Set());
+      await refresh();
+    } else {
+      flashMsg("Error al provisionar, intenta de nuevo");
+    }
+    setConfirmAction("");
     setSaving(false);
-    setConfirming(false);
-    if (error) {
-      setFlash("Error al provisionar, intenta de nuevo");
+  };
+
+  const unprovision = async () => {
+    if (confirmAction !== "desprovisionar") {
+      setConfirmAction("desprovisionar");
       return;
     }
-    setFlash(`✓ ${consolidation.perEvent.length} evento(s) provisionado(s)`);
-    setSelected(new Set());
-    load();
-    setTimeout(() => setFlash(""), 4000);
+    setSaving(true);
+    const ids = selectedEvents.map((e) => e.id);
+    const supplyIds = checkedSupplies.size ? [...checkedSupplies] : undefined;
+    const { error } = await deleteEventSupplyProvisions(ids, supplyIds);
+    if (!error) {
+      // al quitar insumos, el evento deja de estar "completo"
+      await clearQuotationsProvisioned(ids);
+      flashMsg(
+        supplyIds
+          ? `↩ ${supplyIds.length} insumo(s) desprovisionado(s)`
+          : `↩ ${ids.length} evento(s) desprovisionado(s) por completo`,
+      );
+      setCheckedSupplies(new Set());
+      await refresh();
+    } else {
+      flashMsg("Error al desprovisionar, intenta de nuevo");
+    }
+    setConfirmAction("");
+    setSaving(false);
   };
 
   const downloadExcel = () => {
@@ -239,16 +467,23 @@ export default function ComprasTab({
           g.supplier?.phone ? `;${g.supplier.phone}` : ""
         }`,
       );
-      lines.push("Insumo;Cantidad;Unidad;Costo estimado");
+      lines.push("Insumo;Cantidad;Unidad;Costo estimado;Provisión");
       g.rows.forEach((c) => {
         const qty = fmtQty(c.totalBase).replace(".", "");
+        const st = supplyStatus(c.supply.id);
+        const estado =
+          st.prov === st.used && st.used > 0
+            ? "provisionado"
+            : st.prov > 0
+              ? `parcial ${st.prov}/${st.used}`
+              : "pendiente";
         lines.push(
           `${c.supply.name};${qty};${UNIT_FAMILY_INFO[c.supply.unit_family].base};${Math.round(
             c.totalBase * (c.supply.price || 0),
-          )}`,
+          )};${estado}`,
         );
       });
-      lines.push(`Subtotal;;;${Math.round(g.subtotal)}`);
+      lines.push(`Subtotal;;;${Math.round(g.subtotal)};`);
     });
     if (consolidation.mobiliario.length) {
       lines.push("");
@@ -295,8 +530,8 @@ export default function ComprasTab({
             Compras consolidadas por proveedor
           </h2>
           <p className="text-sm text-gray-500">
-            Selecciona los eventos que vas a provisionar: se suman los insumos
-            de todas sus recetas en una sola lista de compra.
+            Selecciona eventos, marca los insumos que vas a pedir hoy (por
+            insumo o por proveedor) y provisiona por partes o todo de una vez.
           </p>
         </div>
         <div className="flex items-end gap-2">
@@ -382,46 +617,58 @@ export default function ComprasTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((e) => (
-                <tr
-                  key={e.id}
-                  className={`cursor-pointer hover:bg-gray-50 ${
-                    selected.has(e.id) ? "bg-blue-50" : ""
-                  }`}
-                  onClick={() => toggle(e.id)}
-                >
-                  <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(e.id)}
-                      onChange={() => toggle(e.id)}
-                      onClick={(ev) => ev.stopPropagation()}
-                      className="rounded"
-                      aria-label={`Seleccionar cotización ${e.quotation_number}`}
-                    />
-                  </td>
-                  <td className="px-3 py-2 font-semibold text-gray-900">
-                    #{e.quotation_number}
-                  </td>
-                  <td className="px-3 py-2 text-gray-700">{e.client_name}</td>
-                  <td className="px-3 py-2 text-gray-700">
-                    {fmtDate(e.event_date)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-gray-700">
-                    {e.people_count}
-                  </td>
-                  <td className="px-3 py-2">
-                    {e.provisioned_at ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-100 text-green-700">
-                        <PackageCheck size={12} /> Provisionado ·{" "}
-                        {fmtDate(e.provisioned_at)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">Pendiente</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((e) => {
+                const st = eventStatus(e);
+                return (
+                  <tr
+                    key={e.id}
+                    className={`cursor-pointer hover:bg-gray-50 ${
+                      selected.has(e.id) ? "bg-blue-50" : ""
+                    }`}
+                    onClick={() => toggle(e.id)}
+                  >
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(e.id)}
+                        onChange={() => toggle(e.id)}
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="rounded"
+                        aria-label={`Seleccionar cotización ${e.quotation_number}`}
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-gray-900">
+                      #{e.quotation_number}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {e.client_name}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {fmtDate(e.event_date)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-gray-700">
+                      {e.people_count}
+                    </td>
+                    <td className="px-3 py-2">
+                      {st.kind === "full" && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-100 text-green-700">
+                          <PackageCheck size={12} /> {st.label}
+                        </span>
+                      )}
+                      {st.kind === "partial" && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-700">
+                          {st.label}
+                        </span>
+                      )}
+                      {st.kind === "none" && (
+                        <span className="text-xs text-gray-400">
+                          {st.label}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -445,7 +692,7 @@ export default function ComprasTab({
                 (según catálogo)
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={downloadExcel}
@@ -455,79 +702,150 @@ export default function ComprasTab({
               </button>
               <button
                 type="button"
-                onClick={provision}
-                disabled={saving}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 ${
-                  confirming
-                    ? "bg-orange-600 hover:bg-orange-700"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
+                onClick={provisionChecked}
+                disabled={saving || checkedSupplies.size === 0}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
               >
                 <CheckCircle2 size={15} />
-                {saving
-                  ? "Guardando..."
-                  : confirming
-                    ? `¿Confirmar ${selectedEvents.length} evento(s)?`
-                    : "Marcar provisionados"}
+                Provisionar seleccionados
+                {checkedSupplies.size > 0 && ` (${checkedSupplies.size})`}
+              </button>
+              <button
+                type="button"
+                onClick={provisionAll}
+                disabled={saving}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 ${
+                  confirmAction === "todo"
+                    ? "bg-orange-600 text-white hover:bg-orange-700"
+                    : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                }`}
+              >
+                <PackageCheck size={15} />
+                {confirmAction === "todo"
+                  ? `¿Confirmar todo (${selectedEvents.length})?`
+                  : "Provisionar todo"}
+              </button>
+              <button
+                type="button"
+                onClick={unprovision}
+                disabled={saving}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 ${
+                  confirmAction === "desprovisionar"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <RotateCcw size={15} />
+                {confirmAction === "desprovisionar"
+                  ? checkedSupplies.size
+                    ? `¿Quitar ${checkedSupplies.size} insumo(s)?`
+                    : "¿Desprovisionar eventos?"
+                  : "Desprovisionar"}
               </button>
             </div>
           </div>
 
-          {consolidation.groups.map((g) => (
-            <div key={g.supplier?.id || 0}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <Truck size={14} className="text-gray-400" />
-                <h5 className="text-xs font-bold uppercase text-gray-600">
-                  {g.supplier ? g.supplier.name : "Sin proveedor asignado"}
-                </h5>
-                {g.supplier?.phone && (
-                  <span className="text-[11px] text-gray-400">
-                    {g.supplier.phone}
-                  </span>
-                )}
-              </div>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full text-sm">
-                  <tbody className="divide-y divide-gray-100">
-                    {g.rows.map((c) => (
-                      <tr key={c.supply.id}>
-                        <td className="px-3 py-2">
-                          <span className="text-gray-900">
-                            {c.supply.name}
-                          </span>
-                          {c.services.length > 1 && (
-                            <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                              consolidado
-                            </span>
-                          )}
+          {consolidation.groups.map((g) => {
+            const groupIds = g.rows.map((r) => r.supply.id);
+            const allChecked = groupIds.every((id) =>
+              checkedSupplies.has(id),
+            );
+            return (
+              <div key={g.supplier?.id || 0}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={() => toggleGroup(g)}
+                    className="rounded"
+                    aria-label={`Seleccionar grupo ${
+                      g.supplier?.name || "sin proveedor"
+                    }`}
+                  />
+                  <Truck size={14} className="text-gray-400" />
+                  <h5 className="text-xs font-bold uppercase text-gray-600">
+                    {g.supplier ? g.supplier.name : "Sin proveedor asignado"}
+                  </h5>
+                  {g.supplier?.phone && (
+                    <span className="text-[11px] text-gray-400">
+                      {g.supplier.phone}
+                    </span>
+                  )}
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full text-sm">
+                    <tbody className="divide-y divide-gray-100">
+                      {g.rows.map((c) => {
+                        const st = supplyStatus(c.supply.id);
+                        const full = st.used > 0 && st.prov === st.used;
+                        return (
+                          <tr
+                            key={c.supply.id}
+                            className={
+                              checkedSupplies.has(c.supply.id)
+                                ? "bg-blue-50"
+                                : ""
+                            }
+                          >
+                            <td className="px-3 py-2 w-8">
+                              <input
+                                type="checkbox"
+                                checked={checkedSupplies.has(c.supply.id)}
+                                onChange={() => toggleSupply(c.supply.id)}
+                                className="rounded"
+                                aria-label={`Seleccionar ${c.supply.name}`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="text-gray-900">
+                                {c.supply.name}
+                              </span>
+                              {c.services.length > 1 && (
+                                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                                  consolidado
+                                </span>
+                              )}
+                              {full && (
+                                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+                                  ✓ provisionado
+                                </span>
+                              )}
+                              {!full && st.prov > 0 && (
+                                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">
+                                  parcial {st.prov}/{st.used}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                              {fmtQty(c.totalBase)}{" "}
+                              {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+                              {c.supply.price
+                                ? fmtMoney(c.totalBase * c.supply.price)
+                                : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td />
+                        <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase">
+                          Subtotal
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
-                          {fmtQty(c.totalBase)}{" "}
-                          {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                          {c.supply.price
-                            ? fmtMoney(c.totalBase * c.supply.price)
-                            : "—"}
+                        <td />
+                        <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
+                          {fmtMoney(g.subtotal)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase">
-                        Subtotal
-                      </td>
-                      <td />
-                      <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
-                        {fmtMoney(g.subtotal)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {consolidation.mobiliario.length > 0 && (
             <div>
