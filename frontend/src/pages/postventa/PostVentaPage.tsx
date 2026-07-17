@@ -21,6 +21,7 @@ import {
 } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
+import { findAllServices } from "../../services/services.service";
 
 // One row per closed event (quotation), aggregated from its payment plan.
 interface EventRow {
@@ -624,8 +625,9 @@ function EventModal({
   );
 }
 
-// ---- Servicios tab (editable: personas, descuento % / $, comentarios) ----
-const GRID = "1fr 70px 110px 120px";
+// ---- Servicios tab (editable: personas, servicios, descuento % / $, comentarios) ----
+const GRID = "1fr 62px 110px 118px 28px";
+const deep = (x: any) => JSON.parse(JSON.stringify(x || []));
 function ServiciosTab({
   quote,
   onSaved,
@@ -633,13 +635,12 @@ function ServiciosTab({
   readonly quote: Quotation;
   readonly onSaved: () => void;
 }) {
-  const items: any = quote.items || {
-    variable_services: [],
-    fixed_services: [],
-  };
-  const varGroups: any[] = items.variable_services || [];
-  const fixed: any[] = items.fixed_services || [];
-
+  const [varGroups, setVarGroups] = useState<any[]>(() =>
+    deep(quote.items?.variable_services),
+  );
+  const [fixed, setFixed] = useState<any[]>(() =>
+    deep(quote.items?.fixed_services),
+  );
   const [personas, setPersonas] = useState<number>(quote.people_count || 0);
   const initDiscAmount = quote.discount_amount || 0;
   const [discType, setDiscType] = useState<"%" | "$">(
@@ -652,11 +653,65 @@ function ServiciosTab({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // value_per_person = suma de precios variables (por persona); fixed_value =
-  // suma de fijos × cantidad. Igual que en la cotización.
+  // Catálogo del sistema para agregar (categoría -> servicios, y fijos).
+  const [catalog, setCatalog] = useState<{
+    byCat: Record<string, any[]>;
+    fixed: any[];
+    cats: string[];
+  }>({ byCat: {}, fixed: [], cats: [] });
+  const [addCat, setAddCat] = useState("");
+  const [addSvc, setAddSvc] = useState("");
+
+  useEffect(() => {
+    findAllServices()
+      .then((data: any) => {
+        const cats = (data.categories || []).filter(
+          (c: any) => c.is_active !== false,
+        );
+        const svcById = new Map(
+          (data.variableServices || []).map((s: any) => [s.id, s]),
+        );
+        const links = data.categoryLinks || [];
+        const byCat: Record<string, any[]> = {};
+        const push = (name: string, s: any) => {
+          if (!byCat[name]) byCat[name] = [];
+          byCat[name].push({
+            codigo: String(s.id),
+            nombre: s.name,
+            precio: s.price || 0,
+          });
+        };
+        if (links.length) {
+          links.forEach((l: any) => {
+            const cat = cats.find((c: any) => c.id === l.category_id);
+            const s = svcById.get(l.variable_service_id);
+            if (cat && s) push(cat.name, s);
+          });
+        } else {
+          (data.variableServices || []).forEach((s: any) =>
+            push(s.category || "Sin categoría", s),
+          );
+        }
+        const fixedCat = (data.fixedServices || []).map((f: any) => ({
+          codigo: String(f.id),
+          nombre: f.name,
+          precio: f.price || 0,
+          categoria: "General",
+          tipo_calculo: f.calculation_type || "fijo",
+          min_precio: f.min_price || 0,
+          max_precio: f.max_price || 0,
+          precio_por_persona: f.price_per_person || 0,
+        }));
+        setCatalog({ byCat, fixed: fixedCat, cats: Object.keys(byCat) });
+      })
+      .catch(() => {});
+  }, []);
+
+  // Precio por persona de un ítem variable = precio × cantidad (igual que la
+  // cotización). value_per_person = suma de esos; fixed_value = fijos × cant.
+  const ppp = (it: any) => (it.precio || 0) * (it.quantity || 1);
   const valuePerPerson = varGroups.reduce(
-    (t, g) =>
-      t + (g.items || []).reduce((tt: number, it: any) => tt + (it.precio || 0), 0),
+    (t, g) => t + (g.items || []).reduce((tt: number, it: any) => tt + ppp(it), 0),
     0,
   );
   const fixedValue = fixed.reduce(
@@ -670,18 +725,83 @@ function ServiciosTab({
       : Math.min(subtotal, discVal || 0);
   const total = subtotal - descAmount;
 
+  const removeVar = (gi: number, ii: number) => {
+    setVarGroups((prev) => {
+      const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
+      copy[gi].items.splice(ii, 1);
+      return copy.filter((g) => (g.items || []).length > 0);
+    });
+  };
+  const removeFixed = (i: number) =>
+    setFixed((prev) => prev.filter((_, idx) => idx !== i));
+
+  const onAdd = () => {
+    if (!addCat || addSvc === "") return;
+    if (addCat === "Servicios fijos") {
+      const s = catalog.fixed[+addSvc];
+      if (s) setFixed((prev) => [...prev, { ...s, quantity: 1 }]);
+    } else {
+      const s = catalog.byCat[addCat]?.[+addSvc];
+      if (s) {
+        const item = {
+          codigo: s.codigo,
+          nombre: s.nombre,
+          precio: s.precio,
+          categoria: addCat,
+          quantity: 1,
+        };
+        setVarGroups((prev) => {
+          const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
+          const grp = copy.find((g) => g.category === addCat);
+          if (grp) grp.items.push(item);
+          else copy.push({ category: addCat, items: [item] });
+          return copy;
+        });
+      }
+    }
+    setAddSvc("");
+  };
+
   const save = async () => {
     setSaving(true);
     setMsg(null);
     try {
+      const itemsPayload = {
+        variable_services: varGroups
+          .filter((g) => (g.items || []).length > 0)
+          .map((g) => ({
+            category: g.category,
+            items: (g.items || []).map((it: any) => ({
+              codigo: it.codigo,
+              nombre: it.nombre,
+              precio: it.precio,
+              categoria: it.categoria || g.category,
+              quantity: it.quantity || 1,
+            })),
+          })),
+        fixed_services: fixed.map((f) => ({
+          codigo: f.codigo,
+          nombre: f.nombre,
+          precio: f.precio,
+          categoria: f.categoria || "General",
+          quantity: f.quantity || 1,
+          tipo_calculo: f.tipo_calculo || "fijo",
+          min_precio: f.min_precio || 0,
+          max_precio: f.max_precio || 0,
+          precio_por_persona: f.precio_por_persona || 0,
+        })),
+      };
       const { error } = await updateQuotation(
         {
           people_count: personas,
           discount_percentage: discType === "%" ? discVal || 0 : 0,
           discount_amount: discType === "$" ? discVal || 0 : 0,
+          value_per_person: Math.round(valuePerPerson),
+          fixed_value: Math.round(fixedValue),
           subtotal_amount: Math.round(subtotal),
           total_amount: Math.round(total),
           observations: obs,
+          items: itemsPayload,
         } as any,
         quote.id,
       );
@@ -695,18 +815,39 @@ function ServiciosTab({
     }
   };
 
-  const row = (nombre: string, cant: number, precio: number, key: string) => (
+  const row = (
+    nombre: string,
+    cant: number,
+    precio: number,
+    key: string,
+    onRemove: () => void,
+  ) => (
     <div
       key={key}
-      style={{ display: "grid", gridTemplateColumns: GRID, gap: "12px" }}
+      style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
       className="items-center py-2 border-t border-gray-100 text-sm"
     >
       <div className="text-gray-900">{nombre}</div>
       <div className="text-right text-gray-500">{cant}</div>
       <div className="text-right text-gray-500">{clp(precio)}</div>
       <div className="text-right font-medium">{clp(precio * cant)}</div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-red-500 hover:text-red-700 text-right"
+        title="Quitar"
+      >
+        ✕
+      </button>
     </div>
   );
+
+  const svcOptions =
+    addCat === "Servicios fijos"
+      ? catalog.fixed
+      : addCat
+        ? catalog.byCat[addCat] || []
+        : [];
 
   return (
     <div>
@@ -731,13 +872,14 @@ function ServiciosTab({
       </div>
 
       <div
-        style={{ display: "grid", gridTemplateColumns: GRID, gap: "12px" }}
+        style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
         className="text-xs uppercase text-gray-500 px-1 pb-1"
       >
         <div>Servicio</div>
         <div className="text-right">Cant.</div>
         <div className="text-right">Precio unit.</div>
         <div className="text-right">Subtotal</div>
+        <div></div>
       </div>
 
       {varGroups.map((g, gi) => (
@@ -746,7 +888,9 @@ function ServiciosTab({
             {g.category}
           </div>
           {(g.items || []).map((it: any, i: number) =>
-            row(it.nombre, personas, it.precio || 0, `v-${gi}-${i}`),
+            row(it.nombre, personas, ppp(it), `v-${gi}-${i}`, () =>
+              removeVar(gi, i),
+            ),
           )}
         </div>
       ))}
@@ -757,10 +901,53 @@ function ServiciosTab({
             Servicios fijos
           </div>
           {fixed.map((f, i) =>
-            row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`),
+            row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`, () =>
+              removeFixed(i),
+            ),
           )}
         </div>
       )}
+
+      {/* Agregar servicio: categoría -> servicio del catálogo */}
+      <div className="flex gap-2 mt-4">
+        <select
+          value={addCat}
+          onChange={(e) => {
+            setAddCat(e.target.value);
+            setAddSvc("");
+          }}
+          className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+        >
+          <option value="">Categoría…</option>
+          {catalog.cats.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+          <option>Servicios fijos</option>
+        </select>
+        <select
+          value={addSvc}
+          onChange={(e) => setAddSvc(e.target.value)}
+          disabled={!addCat}
+          className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm disabled:bg-gray-50"
+        >
+          <option value="">
+            {addCat ? "Servicio…" : "Elige categoría primero…"}
+          </option>
+          {svcOptions.map((s, i) => (
+            <option key={s.codigo + i} value={i}>
+              {s.nombre} — {clp(s.precio)}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={!addCat || addSvc === ""}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+        >
+          Agregar
+        </button>
+      </div>
 
       {/* Totales + descuento editable */}
       <div className="mt-5 border-t-2 border-gray-900 pt-3 space-y-2 text-sm">
@@ -847,8 +1034,9 @@ function ServiciosTab({
       </div>
 
       <p className="text-xs text-gray-400 mt-3">
-        Editable: personas, descuento (% o $ — se guarda exacto) y comentarios.
-        Agregar/quitar servicios viene en el siguiente paso.
+        Editable: personas, servicios (agregar por categoría / quitar con ✕),
+        descuento (% o $) y comentarios. Al guardar, si cambia el total, el plan
+        de pagos se ajusta automáticamente.
       </p>
     </div>
   );
