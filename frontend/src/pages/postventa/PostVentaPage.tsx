@@ -22,6 +22,7 @@ import {
 import { Quotation } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
 // One row per closed event (quotation), aggregated from its payment plan.
 interface EventRow {
@@ -924,21 +925,20 @@ function ServiciosTab({
           ))}
           <option>Servicios fijos</option>
         </select>
-        <select
-          value={addSvc}
-          onChange={(e) => setAddSvc(e.target.value)}
-          disabled={!addCat}
-          className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm disabled:bg-gray-50"
-        >
-          <option value="">
-            {addCat ? "Servicio…" : "Elige categoría primero…"}
-          </option>
-          {svcOptions.map((s, i) => (
-            <option key={s.codigo + i} value={i}>
-              {s.nombre} — {clp(s.precio)}
-            </option>
-          ))}
-        </select>
+        <div className="flex-1">
+          <SelectWithSearch
+            options={svcOptions.map((s, i) => ({
+              value: String(i),
+              label: `${s.nombre} — ${clp(s.precio)}`,
+            }))}
+            value={addSvc}
+            onChange={setAddSvc}
+            disabled={!addCat}
+            placeholder={addCat ? "Servicio…" : "Elige categoría primero…"}
+            searchPlaceholder="Buscar servicio…"
+            noResultsText="Sin resultados"
+          />
+        </div>
         <button
           type="button"
           onClick={onAdd}
