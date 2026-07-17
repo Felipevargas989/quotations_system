@@ -20,6 +20,7 @@ import {
   updateQuotation,
 } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
+import { NumberInput } from "../../components/inputs";
 
 // One row per closed event (quotation), aggregated from its payment plan.
 interface EventRow {
@@ -697,12 +698,16 @@ function ServiciosTab({
             de la cotización
           </span>
         </span>
-        <input
-          type="number"
-          value={personas}
-          onChange={(e) => setPersonas(Number(e.target.value) || 0)}
-          className="w-24 text-right border border-blue-200 rounded-lg px-2 py-1"
-        />
+        <div className="w-28">
+          <NumberInput
+            value={personas || undefined}
+            onChange={(v) => setPersonas(v || 0)}
+            min={0}
+            formatThousands
+            placeholder="0"
+            className="text-right"
+          />
+        </div>
       </div>
 
       <div
@@ -776,12 +781,16 @@ function ServiciosTab({
                 </button>
               ))}
             </span>
-            <input
-              type="number"
-              value={discVal}
-              onChange={(e) => setDiscVal(Number(e.target.value) || 0)}
-              className="w-24 text-right border border-gray-300 rounded-lg px-2 py-1"
-            />
+            <div className="w-32">
+              <NumberInput
+                value={discVal || undefined}
+                onChange={(v) => setDiscVal(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+                className="text-right"
+              />
+            </div>
           </span>
           <span className="text-red-600">− {clp(descAmount)}</span>
         </div>
