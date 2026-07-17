@@ -1,5 +1,8 @@
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -10,7 +13,7 @@ import { VariableService } from '../entities/service.entity';
 export class CreateVariableServiceDto {
   @IsString()
   @IsOptional()
-  code: VariableService['code'];
+  code?: VariableService['code'];
 
   @IsString()
   @IsNotEmpty()
@@ -20,9 +23,18 @@ export class CreateVariableServiceDto {
   @IsNotEmpty()
   price: VariableService['price'];
 
+  // Legacy single-category field (kept for backward compatibility). New clients
+  // send category_ids instead.
   @IsString()
-  @IsNotEmpty()
-  category: VariableService['category'];
+  @IsOptional()
+  category?: VariableService['category'];
+
+  // Categories this service belongs to (multi-category). At least one required.
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsInt({ each: true })
+  @IsOptional()
+  category_ids?: number[];
 
   @IsBoolean()
   @IsOptional()

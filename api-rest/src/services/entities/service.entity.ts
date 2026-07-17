@@ -25,12 +25,23 @@ export class FixedService {
   company_id: Company['id'];
 }
 
-// Activation state for a service category (categories are free-text strings on
-// variable_services.category; a category with no row here is active by default).
+// A service category is now a first-class entity (multi-category feature).
 export class ServiceCategory {
   id: number;
   created_at: Date;
   name: string;
   is_active: boolean;
+  sort_order: number | null;
   company_id: Company['id'];
+}
+
+// Link between a variable service and a category, with the service's order
+// within that category. A service can be linked to many categories.
+export class VariableServiceCategory {
+  id: number;
+  created_at: Date;
+  company_id: Company['id'];
+  variable_service_id: VariableService['id'];
+  category_id: ServiceCategory['id'];
+  sort_order: number | null;
 }

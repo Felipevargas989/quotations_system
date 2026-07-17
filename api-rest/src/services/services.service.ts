@@ -70,11 +70,15 @@ export class ServicesService {
       // find category activation settings
       const categories =
         await this.servicesRepository.findAllServiceCategories(companyId);
+      // find service <-> category links (multi-category)
+      const categoryLinks =
+        await this.servicesRepository.findAllServiceCategoryLinks(companyId);
 
       return {
         variableServices: variableServices.data,
         fixedServices: fixedServices.data,
         categories: categories.data,
+        categoryLinks: categoryLinks.data,
       };
     } catch (error) {
       this.logger.error(error);
@@ -85,22 +89,37 @@ export class ServicesService {
   async updateVariableService(
     id: VariableService['id'],
     updateVariableServiceDto: UpdateVariableServiceDto,
+    companyId: Company['id'],
   ) {
     this.logger.info(
       `updateVariableService with id ${id} and updateVariableServiceDto ${JSON.stringify(updateVariableServiceDto)}`,
     );
     try {
-      // validate fixed service before updating it
-      validateFixedServices([
-        updateVariableServiceDto as CreateFixedServiceDto,
-      ]);
+      const { category_ids, ...rest } =
+        updateVariableServiceDto as UpdateVariableServiceDto & {
+          category_ids?: number[];
+        };
 
-      return await this.servicesRepository.updateVariableService(
+      // Update the service row itself (category_ids is not a column).
+      const result = await this.servicesRepository.updateVariableService(
         id,
-        updateVariableServiceDto,
+        rest,
       );
+
+      // If categories were provided, sync the links (enforces >= 1).
+      if (category_ids !== undefined) {
+        if (!category_ids || category_ids.length === 0) {
+          throw new HttpException(
+            'El servicio debe pertenecer al menos a una categoría',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        await this.linkServiceToCategories(companyId, id, category_ids);
+      }
+      return result;
     } catch (error) {
       this.logger.error(error);
+      if (error instanceof HttpException) throw error;
       throw new Error(error);
     }
   }
@@ -134,15 +153,199 @@ export class ServicesService {
       `createVariableService with createVariableServiceDto ${JSON.stringify(createVariableServiceDto)}`,
     );
     try {
-      const serviceData = {
-        ...createVariableServiceDto,
+      const { category_ids, category, ...rest } = createVariableServiceDto;
+
+      // Resolve the categories this service belongs to (multi-category).
+      const categoryIds = await this.resolveCategoryIds(
+        companyId,
+        category_ids,
+        category,
+      );
+      if (categoryIds.length === 0) {
+        throw new HttpException(
+          'El servicio debe pertenecer al menos a una categoría',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Keep the legacy single-category text column populated for compatibility.
+      const categories =
+        await this.servicesRepository.findAllServiceCategories(companyId);
+      const legacyName =
+        categories.data?.find((c) => c.id === categoryIds[0])?.name ??
+        category ??
+        '';
+
+      const created = await this.servicesRepository.createVariableService({
+        ...rest,
+        category: legacyName,
         company_id: companyId,
-      };
-      return await this.servicesRepository.createVariableService(serviceData);
+      } as CreateVariableServiceDto);
+
+      const serviceId = created.data?.id;
+      if (serviceId) {
+        await this.linkServiceToCategories(companyId, serviceId, categoryIds);
+      }
+      return created;
     } catch (error) {
       this.logger.error(error);
+      if (error instanceof HttpException) throw error;
       throw new Error(error);
     }
+  }
+
+  // Resolve incoming category_ids; if only a legacy category name is given,
+  // find-or-create that category and return its id.
+  private async resolveCategoryIds(
+    companyId: Company['id'],
+    categoryIds?: number[],
+    categoryName?: string,
+  ): Promise<number[]> {
+    if (categoryIds && categoryIds.length) return categoryIds;
+    if (categoryName && categoryName.trim()) {
+      const cat = await this.findOrCreateCategory(companyId, categoryName);
+      return cat ? [cat.id] : [];
+    }
+    return [];
+  }
+
+  // Find a category by name (case-insensitive) or create it. Prevents
+  // reintroducing duplicated categories through typos.
+  private async findOrCreateCategory(companyId: Company['id'], name: string) {
+    const trimmed = name.trim();
+    const { data: existing } =
+      await this.servicesRepository.findCategoryByName(companyId, trimmed);
+    if (existing && existing.length) return existing[0];
+    const nextOrder =
+      (await this.servicesRepository.getMaxCategorySortOrder(companyId)) + 1;
+    const { data } = await this.servicesRepository.createCategory(
+      companyId,
+      trimmed,
+      nextOrder,
+    );
+    return data;
+  }
+
+  // Replace a service's category links with the given set (append new at the
+  // end of each category, remove links no longer selected).
+  private async linkServiceToCategories(
+    companyId: Company['id'],
+    serviceId: VariableService['id'],
+    categoryIds: number[],
+  ) {
+    const { data: currentLinks } =
+      await this.servicesRepository.getLinksForService(serviceId);
+    const current = new Set((currentLinks ?? []).map((l) => l.category_id));
+    const target = new Set(categoryIds);
+
+    // remove links no longer wanted
+    for (const catId of current) {
+      if (!target.has(catId)) {
+        await this.servicesRepository.deleteServiceCategoryLink(
+          serviceId,
+          catId,
+        );
+      }
+    }
+    // add new links at the end of each category
+    for (const catId of categoryIds) {
+      if (!current.has(catId)) {
+        const nextOrder =
+          (await this.servicesRepository.getMaxServiceSortOrder(
+            companyId,
+            catId,
+          )) + 1;
+        await this.servicesRepository.insertServiceCategoryLink(
+          companyId,
+          serviceId,
+          catId,
+          nextOrder,
+        );
+      }
+    }
+  }
+
+  // Update the set of categories a service belongs to (enforces >= 1).
+  async setServiceCategories(
+    companyId: Company['id'],
+    serviceId: VariableService['id'],
+    categoryIds: number[],
+  ) {
+    if (!categoryIds || categoryIds.length === 0) {
+      throw new HttpException(
+        'El servicio debe pertenecer al menos a una categoría',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    await this.linkServiceToCategories(companyId, serviceId, categoryIds);
+    return { success: true };
+  }
+
+  // Reorder services within a single category.
+  async reorderServicesInCategory(
+    companyId: Company['id'],
+    categoryId: number,
+    serviceIds: number[],
+  ) {
+    for (let i = 0; i < serviceIds.length; i++) {
+      await this.servicesRepository.updateLinkSortOrder(
+        serviceIds[i],
+        categoryId,
+        i + 1,
+      );
+    }
+    return { success: true };
+  }
+
+  // ---- Category management ----
+
+  async createCategoryForCompany(companyId: Company['id'], name: string) {
+    const cat = await this.findOrCreateCategory(companyId, name);
+    return cat;
+  }
+
+  async renameOrUpdateCategory(
+    companyId: Company['id'],
+    id: number,
+    fields: { name?: string; is_active?: boolean; sort_order?: number },
+  ) {
+    const clean: Record<string, unknown> = {};
+    if (fields.name !== undefined) clean.name = fields.name.trim();
+    if (fields.is_active !== undefined) clean.is_active = fields.is_active;
+    if (fields.sort_order !== undefined) clean.sort_order = fields.sort_order;
+    const { data } = await this.servicesRepository.updateCategory(
+      companyId,
+      id,
+      clean,
+    );
+    return data;
+  }
+
+  // Delete a category, but block if any service depends solely on it.
+  async deleteCategoryForCompany(companyId: Company['id'], id: number) {
+    const orphans =
+      await this.servicesRepository.getServicesOnlyInCategory(companyId, id);
+    if (orphans.length > 0) {
+      throw new HttpException(
+        {
+          message:
+            'No se puede borrar la categoría: hay servicios que solo pertenecen a ella. Muévelos o elimínalos primero.',
+          service_ids: orphans,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+    await this.servicesRepository.deleteCategory(companyId, id);
+    return { success: true };
+  }
+
+  async reorderCategories(companyId: Company['id'], categoryIds: number[]) {
+    for (let i = 0; i < categoryIds.length; i++) {
+      await this.servicesRepository.updateCategory(companyId, categoryIds[i], {
+        sort_order: i + 1,
+      });
+    }
+    return { success: true };
   }
 
   async createFixedService(
