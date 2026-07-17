@@ -83,7 +83,7 @@ export default function ServicesTable({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Código
+                  ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Nombre
@@ -122,7 +122,7 @@ export default function ServicesTable({
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {service.code || "N/A"}
+                        {service.id}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -200,7 +200,7 @@ export default function ServicesTable({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Código
+                  ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Nombre
@@ -245,7 +245,7 @@ export default function ServicesTable({
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {service.code || "N/A"}
+                        {service.id}
                       </div>
                     </td>
                     <td className="px-6 py-4">

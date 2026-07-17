@@ -164,7 +164,8 @@ export function useServices() {
   const transformFixedServiceToFormatted = (
     service: FixedService,
   ): FixedServiceFormatted => ({
-    codigo: service.code || service.id.toString(),
+    // Use the database id as the unique selection identifier (see note above).
+    codigo: service.id.toString(),
     nombre: service.name,
     precio: service.price,
     tipo_calculo: service.calculation_type,
