@@ -143,6 +143,22 @@ export const getAllIngredientRecipeItems = async (
   return (data || []) as RecipeItem[];
 };
 
+// Todas las líneas de receta de la empresa (insumos + mobiliario), para la
+// consolidación logística del evento.
+export const getAllRecipeItems = async (
+  companyId: number,
+): Promise<RecipeItem[]> => {
+  const { data, error } = await supabase
+    .from("service_recipe_items")
+    .select("*")
+    .eq("company_id", companyId);
+  if (error) {
+    console.error("Error cargando recetas", error);
+    return [];
+  }
+  return (data || []) as RecipeItem[];
+};
+
 // ---------- Recetas por servicio ----------
 export const getRecipeItems = async (
   companyId: number,
