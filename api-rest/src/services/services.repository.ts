@@ -136,4 +136,148 @@ export class ServicesRepository {
       .select()
       .single();
   }
+
+  // ---- Multi-category: service <-> category links ----
+
+  findAllServiceCategoryLinks(companyId: Company['id']) {
+    this.logger.info(`findAllServiceCategoryLinks companyId ${companyId}`);
+    return this.supabase.client
+      .from('variable_service_categories')
+      .select('*')
+      .eq('company_id', companyId);
+  }
+
+  getLinksForService(serviceId: VariableService['id']) {
+    return this.supabase.client
+      .from('variable_service_categories')
+      .select('*')
+      .eq('variable_service_id', serviceId);
+  }
+
+  async getMaxServiceSortOrder(companyId: Company['id'], categoryId: number) {
+    const { data } = await this.supabase.client
+      .from('variable_service_categories')
+      .select('sort_order')
+      .eq('company_id', companyId)
+      .eq('category_id', categoryId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+    return data && data.length ? (data[0].sort_order ?? 0) : 0;
+  }
+
+  insertServiceCategoryLink(
+    companyId: Company['id'],
+    serviceId: VariableService['id'],
+    categoryId: number,
+    sortOrder: number,
+  ) {
+    return this.supabase.client.from('variable_service_categories').insert({
+      company_id: companyId,
+      variable_service_id: serviceId,
+      category_id: categoryId,
+      sort_order: sortOrder,
+    });
+  }
+
+  deleteServiceCategoryLink(
+    serviceId: VariableService['id'],
+    categoryId: number,
+  ) {
+    return this.supabase.client
+      .from('variable_service_categories')
+      .delete()
+      .eq('variable_service_id', serviceId)
+      .eq('category_id', categoryId);
+  }
+
+  updateLinkSortOrder(
+    serviceId: VariableService['id'],
+    categoryId: number,
+    sortOrder: number,
+  ) {
+    return this.supabase.client
+      .from('variable_service_categories')
+      .update({ sort_order: sortOrder })
+      .eq('variable_service_id', serviceId)
+      .eq('category_id', categoryId);
+  }
+
+  // ---- Category management ----
+
+  findCategoryByName(companyId: Company['id'], name: string) {
+    return this.supabase.client
+      .from('service_categories')
+      .select('*')
+      .eq('company_id', companyId)
+      .ilike('name', name)
+      .limit(1);
+  }
+
+  async getMaxCategorySortOrder(companyId: Company['id']) {
+    const { data } = await this.supabase.client
+      .from('service_categories')
+      .select('sort_order')
+      .eq('company_id', companyId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+    return data && data.length ? (data[0].sort_order ?? 0) : 0;
+  }
+
+  createCategory(companyId: Company['id'], name: string, sortOrder: number) {
+    return this.supabase.client
+      .from('service_categories')
+      .insert({
+        company_id: companyId,
+        name,
+        is_active: true,
+        sort_order: sortOrder,
+      })
+      .select()
+      .single();
+  }
+
+  updateCategory(
+    companyId: Company['id'],
+    id: number,
+    fields: Record<string, unknown>,
+  ) {
+    return this.supabase.client
+      .from('service_categories')
+      .update(fields)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select()
+      .single();
+  }
+
+  deleteCategory(companyId: Company['id'], id: number) {
+    return this.supabase.client
+      .from('service_categories')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('id', id);
+  }
+
+  // Services whose ONLY category is the given one (would be orphaned on delete).
+  async getServicesOnlyInCategory(companyId: Company['id'], categoryId: number) {
+    const { data: inCat } = await this.supabase.client
+      .from('variable_service_categories')
+      .select('variable_service_id')
+      .eq('company_id', companyId)
+      .eq('category_id', categoryId);
+    const ids = (inCat ?? []).map((r) => r.variable_service_id);
+    if (!ids.length) return [];
+    const { data: allLinks } = await this.supabase.client
+      .from('variable_service_categories')
+      .select('variable_service_id, category_id')
+      .in('variable_service_id', ids);
+    const countByService = new Map<number, number>();
+    (allLinks ?? []).forEach((l) => {
+      countByService.set(
+        l.variable_service_id,
+        (countByService.get(l.variable_service_id) ?? 0) + 1,
+      );
+    });
+    return ids.filter((id) => (countByService.get(id) ?? 0) <= 1);
+  }
 }

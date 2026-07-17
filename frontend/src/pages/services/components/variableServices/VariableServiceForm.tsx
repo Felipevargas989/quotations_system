@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { X, Save } from "lucide-react";
+import { X, Save, Plus } from "lucide-react";
 import {
   CreateVariableService,
+  ServiceCategorySetting,
   VariableService,
 } from "../../../../types/services.types";
 import {
   createVariableService,
   updateVariableService,
+  setServiceCategories,
+  createCategory,
   findAllServices,
 } from "../../../../services/services.service";
 import { NumberInput } from "../../../../components/inputs";
-import CategorySelector from "./CategorySelector";
 
 interface VariableServiceFormProps {
   readonly isOpen: boolean;
@@ -30,44 +32,55 @@ export default function VariableServiceForm({
   const defaultFormData = {
     name: undefined,
     price: undefined,
-    category: undefined,
   };
   const [formData, setFormData] =
     useState<CreateVariableService>(defaultFormData);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [existingCategories, setExistingCategories] = useState<string[]>([]);
 
-  // Load existing categories
+  // Category entities and the ones selected for this service.
+  const [categories, setCategories] = useState<ServiceCategorySetting[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  // Load categories + this service's current links.
   useEffect(() => {
-    const loadCategories = async () => {
+    const load = async () => {
       try {
         const data = await findAllServices();
-        if (data?.variableServices) {
-          const categories = [
-            ...new Set(
-              data.variableServices.map((s) => s.category).filter(Boolean),
-            ),
-          ];
-          setExistingCategories(categories);
-        }
-      } catch (error) {}
-    };
+        const cats = (data?.categories ?? []).slice().sort(
+          (a, b) =>
+            (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+            (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+        );
+        setCategories(cats);
 
-    loadCategories();
-  }, []);
+        if (isEditing && service) {
+          const links = (data?.categoryLinks ?? []).filter(
+            (l) => l.variable_service_id === service.id,
+          );
+          let ids = links.map((l) => l.category_id);
+          // Fallback: match by legacy category name if there are no links yet.
+          if (ids.length === 0 && service.category) {
+            const match = cats.find((c) => c.name === service.category);
+            if (match) ids = [match.id];
+          }
+          setSelectedCategoryIds(ids);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    load();
+  }, [isEditing, service]);
 
   // Initialize form data when editing
   useEffect(() => {
     if (isEditing && service) {
-      setFormData({
-        name: service.name,
-        price: service.price,
-        category: service.category,
-      });
+      setFormData({ name: service.name, price: service.price });
     } else {
-      // Reset form for new service
       resetForm();
     }
   }, [isEditing, service]);
@@ -82,18 +95,58 @@ export default function VariableServiceForm({
     }));
   };
 
+  const toggleCategory = (id: number) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setAddingCategory(true);
+    try {
+      const created = (await createCategory(name)) as ServiceCategorySetting;
+      if (created?.id) {
+        setCategories((prev) =>
+          prev.some((c) => c.id === created.id) ? prev : [...prev, created],
+        );
+        setSelectedCategoryIds((prev) =>
+          prev.includes(created.id) ? prev : [...prev, created.id],
+        );
+      }
+      setNewCategoryName("");
+    } catch {
+      setError("No se pudo crear la categoría");
+    } finally {
+      setAddingCategory(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
 
+    if (selectedCategoryIds.length === 0) {
+      setError("El servicio debe pertenecer al menos a una categoría");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       if (isEditing && service) {
-        // Update existing variable service
-        await updateVariableService(service.id, formData);
+        await updateVariableService(service.id, {
+          name: formData.name,
+          price: formData.price,
+        });
+        // Sync the exact set of categories this service belongs to (>= 1).
+        await setServiceCategories(service.id, selectedCategoryIds);
       } else {
-        // Create new variable service
-        await createVariableService(formData);
+        await createVariableService({
+          name: formData.name,
+          price: formData.price,
+          category_ids: selectedCategoryIds,
+        });
       }
 
       onSuccess();
@@ -111,6 +164,8 @@ export default function VariableServiceForm({
 
   const resetForm = () => {
     setFormData(defaultFormData);
+    setSelectedCategoryIds([]);
+    setNewCategoryName("");
     setError(null);
   };
 
@@ -145,26 +200,26 @@ export default function VariableServiceForm({
             </div>
           )}
 
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Nombre *
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nombre del servicio"
-            />
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Nombre *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name || ""}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Nombre del servicio"
+              />
+            </div>
+
             <div>
               <label
                 htmlFor="price"
@@ -185,27 +240,70 @@ export default function VariableServiceForm({
                 placeholder="0.00"
               />
             </div>
+          </div>
 
-            <div>
-              <label
-                htmlFor="category"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Categoría *
-              </label>
-              <CategorySelector
-                value={formData.category || ""}
-                onChange={(category) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    category,
-                  }));
-                }}
-                existingCategories={existingCategories}
-                placeholder="Seleccionar o crear categoría"
-                required
-              />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Categorías * (al menos una)
+            </label>
+            <div className="border border-gray-300 rounded-lg p-3 max-h-56 overflow-y-auto space-y-1">
+              {categories.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No hay categorías. Crea una abajo.
+                </p>
+              ) : (
+                categories.map((cat) => (
+                  <label
+                    key={cat.id}
+                    className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCategoryIds.includes(cat.id)}
+                      onChange={() => toggleCategory(cat.id)}
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <span className="text-sm text-gray-800">
+                      {cat.name}
+                      {cat.is_active === false && (
+                        <span className="ml-2 text-xs text-gray-400">
+                          (inactiva)
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))
+              )}
             </div>
+
+            {/* Inline create new category */}
+            <div className="flex items-center space-x-2 mt-2">
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCategory();
+                  }
+                }}
+                placeholder="Nueva categoría..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                disabled={addingCategory || !newCategoryName.trim()}
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-1 text-sm"
+              >
+                <Plus size={16} />
+                <span>Agregar</span>
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              El servicio aparecerá en cada categoría marcada, sin duplicarse.
+            </p>
           </div>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">

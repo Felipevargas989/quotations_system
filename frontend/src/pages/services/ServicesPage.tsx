@@ -9,6 +9,7 @@ import {
 } from "../../services/services.service";
 import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
+import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
 import CategoriesManager from "./components/CategoriesManager";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
@@ -33,6 +34,8 @@ export default function ServicesPage() {
   const {
     variableServices,
     rawFixedServices: fixedServices,
+    orderedCategories,
+    categoryLinks,
     inactiveCategories,
     loading,
     error,
@@ -215,14 +218,31 @@ export default function ServicesPage() {
         onToggleCategory={handleToggleCategory}
       />
 
-      {/* Services Table */}
-      <ServicesTable
+      {/* Variable services grouped by category with drag & drop ordering */}
+      <div className="mb-2 text-sm font-medium text-gray-700">
+        Servicios Variables
+      </div>
+      <VariableServicesByCategory
+        orderedCategories={orderedCategories}
         variableServices={variableServices}
-        fixedServices={fixedServices}
-        onEditService={handleEditService}
-        onDeleteService={handleDeleteService}
-        onToggleActive={handleToggleActive}
+        categoryLinks={categoryLinks}
+        onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
+        onDelete={(id) => handleDeleteService(id, ServiceType.VARIABLE)}
+        onToggleActive={(s) => handleToggleActive(s, ServiceType.VARIABLE)}
+        onReordered={loadServices}
       />
+
+      {/* Fixed services table (unchanged) */}
+      <div className="mt-6">
+        <ServicesTable
+          variableServices={[]}
+          fixedServices={fixedServices}
+          onEditService={handleEditService}
+          onDeleteService={handleDeleteService}
+          onToggleActive={handleToggleActive}
+          hideVariable
+        />
+      </div>
 
       <FixedServiceForm
         isOpen={showFixedServiceForm}
