@@ -25,19 +25,32 @@ export interface FixedService {
   company_id: Company["id"];
 }
 
-// Activation state for a service category (categories are free-text strings on
-// variable_services.category; a category with no row here is active by default).
+// A service category is now a first-class entity.
 export interface ServiceCategorySetting {
   id: number;
   created_at: Date;
   name: string;
   is_active: boolean;
+  sort_order?: number | null;
   company_id: Company["id"];
+}
+
+// Link between a variable service and a category, with per-category order.
+export interface VariableServiceCategoryLink {
+  id: number;
+  created_at: Date;
+  company_id: Company["id"];
+  variable_service_id: number;
+  category_id: number;
+  sort_order?: number | null;
 }
 
 export type CreateVariableService = Partial<
   Omit<VariableService, "id" | "created_at" | "company_id">
->;
+> & {
+  // Categories this service belongs to (multi-category).
+  category_ids?: number[];
+};
 
 export type CreateFixedService = Omit<
   FixedService,

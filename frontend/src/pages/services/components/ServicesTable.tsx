@@ -14,6 +14,9 @@ interface ServicesTableProps {
     service: VariableService | FixedService,
     type: ServiceType,
   ) => void;
+  // When true, hides the variable-services section (rendered elsewhere as a
+  // grouped-by-category view).
+  readonly hideVariable?: boolean;
 }
 
 // A service with no is_active field (legacy rows) is treated as active.
@@ -26,6 +29,7 @@ export default function ServicesTable({
   onEditService,
   onDeleteService,
   onToggleActive,
+  hideVariable = false,
 }: ServicesTableProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CL", {
@@ -60,6 +64,7 @@ export default function ServicesTable({
   return (
     <div className="space-y-8">
       {/* Variable Services Table */}
+      {!hideVariable && (
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -174,6 +179,7 @@ export default function ServicesTable({
           </table>
         </div>
       </div>
+      )}
 
       {/* Fixed Services Table */}
       <div className="bg-white rounded-lg shadow">
