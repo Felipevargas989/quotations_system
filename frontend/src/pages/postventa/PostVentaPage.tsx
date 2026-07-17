@@ -15,6 +15,9 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "../../contexts/AuthContext";
+import MultiSelect, {
+  MultiSelectOption,
+} from "../../components/MultiSelect";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
@@ -81,7 +84,14 @@ interface EventRow {
 // la selección sobrevive recargas/navegación en vez de volver a "todos".
 const STATUS_FILTER_KEY = (userId: string | number) =>
   `eventia_postventa_status_filter_${userId}`;
-const STATUS_FILTER_VALUES = ["all", "pendiente", "pagado", "vencido"];
+const STATUS_FILTER_VALUES = ["pendiente", "pagado", "vencido"];
+
+// Opciones del multi-select (se pueden marcar varias; vacío = todos).
+const STATUS_OPTIONS: MultiSelectOption[] = [
+  { value: "pendiente", label: "⏳ Pendientes" },
+  { value: "pagado", label: "✅ Pagados" },
+  { value: "vencido", label: "⚠️ Vencidos" },
+];
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const fmtDate = (d: string | null) => {
@@ -127,7 +137,7 @@ export default function PostVentaPage() {
   const [rows, setRows] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [filterRestored, setFilterRestored] = useState(false);
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [tab, setTab] = useState<
@@ -143,11 +153,16 @@ export default function PostVentaPage() {
     if (!user) return;
     try {
       const saved = localStorage.getItem(STATUS_FILTER_KEY(user.id));
-      if (saved && STATUS_FILTER_VALUES.includes(saved)) {
-        setStatusFilter(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setStatusFilter(
+            parsed.filter((v) => STATUS_FILTER_VALUES.includes(v)),
+          );
+        }
       }
     } catch {
-      /* storage deshabilitado: usar el default */
+      /* valor antiguo o storage deshabilitado: usar el default */
     }
     setFilterRestored(true);
   }, [user]);
@@ -156,7 +171,10 @@ export default function PostVentaPage() {
   useEffect(() => {
     if (!user || !filterRestored) return;
     try {
-      localStorage.setItem(STATUS_FILTER_KEY(user.id), statusFilter);
+      localStorage.setItem(
+        STATUS_FILTER_KEY(user.id),
+        JSON.stringify(statusFilter),
+      );
     } catch {
       /* ignorar cuota/storage deshabilitado */
     }
@@ -269,7 +287,8 @@ export default function PostVentaPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const matchStatus = statusFilter === "all" || r.status === statusFilter;
+      const matchStatus =
+        statusFilter.length === 0 || statusFilter.includes(r.status);
       const matchSearch =
         !q ||
         String(r.quotationNumber) === q ||
@@ -326,16 +345,15 @@ export default function PostVentaPage() {
               className="w-72 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="pendiente">⏳ Pendientes</option>
-            <option value="pagado">✅ Pagados</option>
-            <option value="vencido">⚠️ Vencidos</option>
-          </select>
+          <div className="min-w-[200px]">
+            <MultiSelect
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              placeholder="Filtrar por estado"
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
 
