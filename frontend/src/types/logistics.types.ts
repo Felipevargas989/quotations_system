@@ -72,18 +72,10 @@ export interface RecipeItem {
 
 export type ResourceType = "personal" | "arriendo" | "compra";
 
-// Modo de cobro del recurso: por evento (monto único) o por persona.
-export type ChargeMode = "por_evento" | "por_persona";
-
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
   personal: "Personal",
   arriendo: "Arriendo",
   compra: "Compra",
-};
-
-export const CHARGE_MODE_LABEL: Record<ChargeMode, string> = {
-  por_evento: "por evento",
-  por_persona: "por persona",
 };
 
 export interface ManagementResource {
@@ -94,12 +86,28 @@ export interface ManagementResource {
   last_price: number | null; // referencia: último precio usado en un evento
   is_active: boolean;
   created_at: string;
-  // Lista de precios de terceros (opcional): proveedor, precio de lista y
-  // modo de cobro. El staff puede ir sin precio (se asigna por evento).
+  // Lista de precios de terceros: DOS componentes no excluyentes, espejo del
+  // modelo de cobro (fijo / fijo + variable). Ej: silla = $100.000 transporte
+  // (fijo) + $1.500 por silla (por persona). El staff puede ir sin precios
+  // (se asigna por evento).
   supplier_id: number | null;
-  list_price: number | null;
-  charge_mode: ChargeMode;
+  list_price_fixed: number | null;
+  list_price_per_person: number | null;
 }
+
+// Etiqueta corta del precio de lista de un recurso.
+export const resourcePriceLabel = (r: {
+  list_price_fixed: number | null;
+  list_price_per_person: number | null;
+}): string => {
+  const clp = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
+  const fixed = r.list_price_fixed || 0;
+  const pp = r.list_price_per_person || 0;
+  if (fixed > 0 && pp > 0) return `${clp(fixed)} + ${clp(pp)}/persona`;
+  if (fixed > 0) return `${clp(fixed)} /evento`;
+  if (pp > 0) return `${clp(pp)} /persona`;
+  return "sin precio";
+};
 
 // Línea de costo de un servicio fijo: referencia a un recurso del catálogo.
 // El costo se calcula en vivo desde el precio de lista del recurso.

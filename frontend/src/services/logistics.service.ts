@@ -229,8 +229,8 @@ export const createManagementResource = async (fields: {
   name: string;
   type: ManagementResource["type"];
   supplier_id?: number | null;
-  list_price?: number | null;
-  charge_mode?: ManagementResource["charge_mode"];
+  list_price_fixed?: number | null;
+  list_price_per_person?: number | null;
 }) => {
   const { data, error } = await supabase
     .from("management_resources")
@@ -250,8 +250,8 @@ export const updateManagementResource = async (
       | "last_price"
       | "is_active"
       | "supplier_id"
-      | "list_price"
-      | "charge_mode"
+      | "list_price_fixed"
+      | "list_price_per_person"
     >
   >,
 ) => {

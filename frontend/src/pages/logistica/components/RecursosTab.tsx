@@ -7,12 +7,11 @@ import {
   updateManagementResource,
 } from "../../../services/logistics.service";
 import {
-  CHARGE_MODE_LABEL,
-  ChargeMode,
   ManagementResource,
   RESOURCE_TYPE_LABEL,
   ResourceType,
   Supplier,
+  resourcePriceLabel,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
@@ -38,8 +37,8 @@ export default function RecursosTab({
   const [editing, setEditing] = useState<ManagementResource | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<ResourceType>("personal");
-  const [chargeMode, setChargeMode] = useState<ChargeMode>("por_evento");
-  const [listPrice, setListPrice] = useState<number>(0);
+  const [priceFixed, setPriceFixed] = useState<number>(0);
+  const [pricePerPerson, setPricePerPerson] = useState<number>(0);
   const [supplierId, setSupplierId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -64,8 +63,8 @@ export default function RecursosTab({
     setEditing(r || null);
     setName(r?.name || "");
     setType(r?.type || "personal");
-    setChargeMode(r?.charge_mode || "por_evento");
-    setListPrice(r?.list_price || 0);
+    setPriceFixed(r?.list_price_fixed || 0);
+    setPricePerPerson(r?.list_price_per_person || 0);
     setSupplierId(r?.supplier_id ? String(r.supplier_id) : "");
     setErr(null);
     setShowModal(true);
@@ -78,8 +77,8 @@ export default function RecursosTab({
     const fields = {
       name: name.trim(),
       type,
-      charge_mode: chargeMode,
-      list_price: listPrice > 0 ? listPrice : null,
+      list_price_fixed: priceFixed > 0 ? priceFixed : null,
+      list_price_per_person: pricePerPerson > 0 ? pricePerPerson : null,
       supplier_id: supplierId ? Number(supplierId) : null,
     };
     const { error } = editing
@@ -182,13 +181,8 @@ export default function RecursosTab({
                   {supplierName(r.supplier_id)}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {r.list_price ? (
-                    <>
-                      {clp(r.list_price)}{" "}
-                      <span className="text-xs text-gray-400">
-                        {CHARGE_MODE_LABEL[r.charge_mode]}
-                      </span>
-                    </>
+                  {r.list_price_fixed || r.list_price_per_person ? (
+                    resourcePriceLabel(r)
                   ) : (
                     <span className="text-gray-400">se asigna por evento</span>
                   )}
@@ -273,39 +267,37 @@ export default function RecursosTab({
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">
-                  Modo de cobro *
+                  Precio de lista (opcional)
                 </label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  {(Object.keys(CHARGE_MODE_LABEL) as ChargeMode[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setChargeMode(m)}
-                      className={`px-2 py-2 rounded-lg border text-xs font-semibold capitalize ${
-                        chargeMode === m
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {CHARGE_MODE_LABEL[m]}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <NumberInput
+                      value={priceFixed || undefined}
+                      onChange={(v) => setPriceFixed(v || 0)}
+                      min={0}
+                      formatThousands
+                      placeholder="0"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      Fijo por evento (ej: transporte)
+                    </p>
+                  </div>
+                  <div>
+                    <NumberInput
+                      value={pricePerPerson || undefined}
+                      onChange={(v) => setPricePerPerson(v || 0)}
+                      min={0}
+                      formatThousands
+                      placeholder="0"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      Por persona (ej: c/silla)
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Precio de lista {CHARGE_MODE_LABEL[chargeMode]} (opcional)
-                </label>
-                <NumberInput
-                  value={listPrice || undefined}
-                  onChange={(v) => setListPrice(v || 0)}
-                  min={0}
-                  formatThousands
-                  placeholder="0"
-                />
                 <p className="mt-1 text-xs text-gray-400">
-                  Referencia de la lista del proveedor. Déjalo vacío si el
-                  precio se negocia en cada evento (ej: staff).
+                  Puedes llenar uno, ambos o ninguno. Vacíos = el precio se
+                  negocia en cada evento (ej: staff).
                 </p>
               </div>
               <div>

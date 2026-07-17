@@ -12,13 +12,12 @@ import {
   updateFixedServiceCosts,
 } from "../../../services/logistics.service";
 import {
-  CHARGE_MODE_LABEL,
-  ChargeMode,
   FixedServiceCostItem,
   ManagementResource,
   RESOURCE_TYPE_LABEL,
   ResourceType,
   Supplier,
+  resourcePriceLabel,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
@@ -49,8 +48,8 @@ export default function FixedCostSection({
   const [newOpen, setNewOpen] = useState(false);
   const [nName, setNName] = useState("");
   const [nType, setNType] = useState<ResourceType>("arriendo");
-  const [nMode, setNMode] = useState<ChargeMode>("por_evento");
-  const [nPrice, setNPrice] = useState<number>(0);
+  const [nPriceFixed, setNPriceFixed] = useState<number>(0);
+  const [nPricePerPerson, setNPricePerPerson] = useState<number>(0);
   const [nSupplier, setNSupplier] = useState("");
 
   const load = () => {
@@ -83,28 +82,33 @@ export default function FixedCostSection({
     setTimeout(() => setSaved(false), 1600);
   };
 
-  const lineAmount = (it: FixedServiceCostItem): number => {
+  // Cada línea aporta sus DOS componentes: fijo × cant. y por-persona × cant.
+  const lineFixed = (it: FixedServiceCostItem): number => {
     const r = resById.get(it.resource_id);
-    return (r?.list_price || 0) * (it.quantity || 1);
+    return (r?.list_price_fixed || 0) * (it.quantity || 1);
   };
-  const totalFixed = items
-    .filter((it) => resById.get(it.resource_id)?.charge_mode === "por_evento")
-    .reduce((t, it) => t + lineAmount(it), 0);
-  const totalPerPerson = items
-    .filter((it) => resById.get(it.resource_id)?.charge_mode === "por_persona")
-    .reduce((t, it) => t + lineAmount(it), 0);
+  const linePerPerson = (it: FixedServiceCostItem): number => {
+    const r = resById.get(it.resource_id);
+    return (r?.list_price_per_person || 0) * (it.quantity || 1);
+  };
+  const totalFixed = items.reduce((t, it) => t + lineFixed(it), 0);
+  const totalPerPerson = items.reduce((t, it) => t + linePerPerson(it), 0);
 
   // Mantener los totales cacheados en fixed_services al día.
   const syncTotals = async (
     current: FixedServiceCostItem[],
     res: Map<number, ManagementResource>,
   ) => {
-    const fixed = current
-      .filter((it) => res.get(it.resource_id)?.charge_mode === "por_evento")
-      .reduce((t, it) => t + (res.get(it.resource_id)?.list_price || 0) * it.quantity, 0);
-    const perPerson = current
-      .filter((it) => res.get(it.resource_id)?.charge_mode === "por_persona")
-      .reduce((t, it) => t + (res.get(it.resource_id)?.list_price || 0) * it.quantity, 0);
+    const fixed = current.reduce(
+      (t, it) =>
+        t + (res.get(it.resource_id)?.list_price_fixed || 0) * it.quantity,
+      0,
+    );
+    const perPerson = current.reduce(
+      (t, it) =>
+        t + (res.get(it.resource_id)?.list_price_per_person || 0) * it.quantity,
+      0,
+    );
     await updateFixedServiceCosts(service.id, {
       cost_fixed: Math.round(fixed),
       cost_per_person: Math.round(perPerson),
@@ -158,8 +162,8 @@ export default function FixedCostSection({
       company_id: companyId,
       name: nName.trim(),
       type: nType,
-      charge_mode: nMode,
-      list_price: nPrice > 0 ? nPrice : null,
+      list_price_fixed: nPriceFixed > 0 ? nPriceFixed : null,
+      list_price_per_person: nPricePerPerson > 0 ? nPricePerPerson : null,
       supplier_id: nSupplier ? Number(nSupplier) : null,
     });
     if (error || !data) {
@@ -169,7 +173,8 @@ export default function FixedCostSection({
     setResources((prev) => [...prev, data]);
     setNewOpen(false);
     setNName("");
-    setNPrice(0);
+    setNPriceFixed(0);
+    setNPricePerPerson(0);
     setNSupplier("");
     // Recién creado → directo al costo del servicio.
     await addFixedServiceCostItem({
@@ -197,13 +202,9 @@ export default function FixedCostSection({
     )
     .map((r) => ({
       value: String(r.id),
-      label: `${r.name}${
-        r.list_price
-          ? ` · ${clp(r.list_price)} ${
-              r.charge_mode === "por_persona" ? "/persona" : "/evento"
-            }`
-          : " · sin precio"
-      }${supName(r.supplier_id) ? ` · ${supName(r.supplier_id)}` : ""}`,
+      label: `${r.name} · ${resourcePriceLabel(r)}${
+        supName(r.supplier_id) ? ` · ${supName(r.supplier_id)}` : ""
+      }`,
     }));
 
   if (loading) {
@@ -249,23 +250,12 @@ export default function FixedCostSection({
         </button>
       ) : (
         <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
-          <div className="flex gap-2">
-            <input
-              value={nName}
-              onChange={(e) => setNName(e.target.value)}
-              placeholder="Nombre (ej: Silla arrendada)"
-              className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-            />
-            <div className="w-36">
-              <NumberInput
-                value={nPrice || undefined}
-                onChange={(v) => setNPrice(v || 0)}
-                min={0}
-                formatThousands
-                placeholder="Precio lista"
-              />
-            </div>
-          </div>
+          <input
+            value={nName}
+            onChange={(e) => setNName(e.target.value)}
+            placeholder="Nombre (ej: Silla arrendada)"
+            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+          />
           <div className="flex items-center gap-1.5 flex-wrap">
             {(Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[]).map((t) => (
               <button
@@ -281,21 +271,32 @@ export default function FixedCostSection({
                 {RESOURCE_TYPE_LABEL[t]}
               </button>
             ))}
-            <span className="text-gray-300">|</span>
-            {(Object.keys(CHARGE_MODE_LABEL) as ChargeMode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setNMode(m)}
-                className={`px-2 py-1 rounded-md border text-xs font-semibold ${
-                  nMode === m
-                    ? "border-blue-600 bg-white text-blue-700"
-                    : "border-gray-300 text-gray-500"
-                }`}
-              >
-                {CHARGE_MODE_LABEL[m]}
-              </button>
-            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <NumberInput
+                value={nPriceFixed || undefined}
+                onChange={(v) => setNPriceFixed(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+              />
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                Fijo por evento (ej: transporte)
+              </p>
+            </div>
+            <div>
+              <NumberInput
+                value={nPricePerPerson || undefined}
+                onChange={(v) => setNPricePerPerson(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+              />
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                Por persona (ej: c/silla)
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex-1">
@@ -342,10 +343,10 @@ export default function FixedCostSection({
                   Cant.
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                  Precio lista
+                  Fijo
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                  Subtotal
+                  Por persona
                 </th>
                 <th className="w-10"></th>
               </tr>
@@ -354,17 +355,23 @@ export default function FixedCostSection({
               {items.map((it) => {
                 const r = resById.get(it.resource_id);
                 if (!r) return null;
+                const noPrice =
+                  !r.list_price_fixed && !r.list_price_per_person;
                 return (
                   <tr key={it.id}>
                     <td className="px-3 py-2">
                       <span className="text-gray-900">{r.name}</span>
-                      <span className="text-xs text-gray-400">
-                        {" "}
-                        · {CHARGE_MODE_LABEL[r.charge_mode]}
-                        {supName(r.supplier_id)
-                          ? ` · ${supName(r.supplier_id)}`
-                          : ""}
-                      </span>
+                      {supName(r.supplier_id) && (
+                        <span className="text-xs text-gray-400">
+                          {" "}
+                          · {supName(r.supplier_id)}
+                        </span>
+                      )}
+                      {noPrice && (
+                        <span className="ml-1.5 text-amber-600 text-xs font-semibold">
+                          ⚠ sin precio
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <input
@@ -376,19 +383,17 @@ export default function FixedCostSection({
                         className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right text-gray-500">
-                      {r.list_price ? (
-                        clp(r.list_price)
-                      ) : (
-                        <span className="text-amber-600 text-xs font-semibold">
-                          ⚠ sin precio
-                        </span>
-                      )}
+                    <td className="px-3 py-2 text-right font-medium">
+                      {lineFixed(it) > 0 ? clp(lineFixed(it)) : "—"}
                     </td>
                     <td className="px-3 py-2 text-right font-medium">
-                      {clp(lineAmount(it))}
-                      {r.charge_mode === "por_persona" && (
-                        <span className="text-xs text-gray-400"> /persona</span>
+                      {linePerPerson(it) > 0 ? (
+                        <>
+                          {clp(linePerPerson(it))}
+                          <span className="text-xs text-gray-400">/p</span>
+                        </>
+                      ) : (
+                        "—"
                       )}
                     </td>
                     <td className="px-2 py-2 text-center">
