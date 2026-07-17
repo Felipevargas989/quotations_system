@@ -12,6 +12,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
+import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
@@ -64,6 +65,20 @@ export class PaymentsController {
     this.logger.info(`POST /payments/transactions with user ${user.id}`);
     return this.paymentsService.createPaymentTransaction(
       createPaymentTransactionDto,
+      user.company_id,
+    );
+  }
+
+  @Post('transactions/overflow')
+  createOverflowPaymentTransaction(
+    @Body() createOverflowTransactionDto: CreateOverflowTransactionDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /payments/transactions/overflow with user ${user.id}`,
+    );
+    return this.paymentsService.createOverflowPaymentTransaction(
+      createOverflowTransactionDto,
       user.company_id,
     );
   }
