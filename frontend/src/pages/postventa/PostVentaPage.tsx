@@ -15,6 +15,8 @@ import {
   PaymentWithTransactions,
 } from "../../services/paymentTransactions.service";
 import { getClients } from "../../services/clients.service";
+import { getQuotationById } from "../../services/quotations.service";
+import { Quotation } from "../../types/quotations.types";
 
 // One row per closed event (quotation), aggregated from its payment plan.
 interface EventRow {
@@ -353,6 +355,26 @@ function EventModal({ event, tab, setTab, onClose }: EventModalProps) {
   const p = event.total ? Math.round((event.paid / event.total) * 100) : 0;
   const transactions = event.payments.flatMap((pay) => pay.transactions || []);
 
+  // Load the full quotation (items, personas, discount, comments) for the
+  // Servicios tab.
+  const [quote, setQuote] = useState<Quotation | null>(null);
+  const [qLoading, setQLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    setQLoading(true);
+    getQuotationById(event.quotationId)
+      .then(({ data }) => {
+        if (alive) setQuote(data || null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setQLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [event.quotationId]);
+
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
@@ -552,16 +574,135 @@ function EventModal({ event, tab, setTab, onClose }: EventModalProps) {
             </div>
           )}
 
-          {tab === "servicios" && (
-            <div className="text-center py-10 text-gray-500">
-              <p className="font-medium">Servicios — próxima fase</p>
-              <p className="text-sm mt-1">
-                Servicios por categoría, personas, descuento y comentarios.
+          {tab === "servicios" &&
+            (qLoading ? (
+              <div className="py-10 flex justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+              </div>
+            ) : quote ? (
+              <ServiciosTab quote={quote} />
+            ) : (
+              <p className="text-sm text-gray-500 py-6 text-center">
+                No se pudieron cargar los servicios de la cotización.
               </p>
-            </div>
-          )}
+            ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---- Servicios tab (read-only view from the quotation) ----
+const GRID = "1fr 70px 110px 120px";
+function ServiciosTab({ quote }: { readonly quote: Quotation }) {
+  const personas = quote.people_count || 0;
+  const items: any = quote.items || {
+    variable_services: [],
+    fixed_services: [],
+  };
+  const varGroups: any[] = items.variable_services || [];
+  const fixed: any[] = items.fixed_services || [];
+
+  const subVar = varGroups.reduce(
+    (t, g) =>
+      t +
+      (g.items || []).reduce(
+        (tt: number, it: any) => tt + (it.precio || 0) * personas,
+        0,
+      ),
+    0,
+  );
+  const subFixed = fixed.reduce(
+    (t, f) => t + (f.precio || 0) * (f.quantity || 1),
+    0,
+  );
+  const subtotal = subVar + subFixed;
+  const descPct = quote.discount_percentage || 0;
+  const desc = Math.round((subtotal * descPct) / 100);
+  const total = subtotal - desc;
+
+  const row = (nombre: string, cant: number, precio: number, key: string) => (
+    <div
+      key={key}
+      style={{ display: "grid", gridTemplateColumns: GRID, gap: "12px" }}
+      className="items-center py-2 border-t border-gray-100 text-sm"
+    >
+      <div className="text-gray-900">{nombre}</div>
+      <div className="text-right text-gray-500">{cant}</div>
+      <div className="text-right text-gray-500">{clp(precio)}</div>
+      <div className="text-right font-medium">{clp(precio * cant)}</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm font-semibold text-blue-900">
+        <span>👥 Personas del evento</span>
+        <span>{personas}</span>
+      </div>
+
+      <div
+        style={{ display: "grid", gridTemplateColumns: GRID, gap: "12px" }}
+        className="text-xs uppercase text-gray-500 px-1 pb-1"
+      >
+        <div>Servicio</div>
+        <div className="text-right">Cant.</div>
+        <div className="text-right">Precio unit.</div>
+        <div className="text-right">Subtotal</div>
+      </div>
+
+      {varGroups.map((g, gi) => (
+        <div key={g.category || gi}>
+          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3">
+            {g.category}
+          </div>
+          {(g.items || []).map((it: any, i: number) =>
+            row(it.nombre, personas, it.precio || 0, `v-${gi}-${i}`),
+          )}
+        </div>
+      ))}
+
+      {fixed.length > 0 && (
+        <div>
+          <div className="text-xs font-bold uppercase text-green-700 bg-green-100 rounded px-2 py-1.5 mt-3">
+            Servicios fijos
+          </div>
+          {fixed.map((f, i) =>
+            row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`),
+          )}
+        </div>
+      )}
+
+      <div className="mt-5 border-t-2 border-gray-900 pt-3 space-y-1.5 text-sm">
+        <div className="flex justify-between">
+          <span>Total servicios</span>
+          <span className="font-medium">{clp(subtotal)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Descuento ({descPct}%)</span>
+          <span className="text-red-600">− {clp(desc)}</span>
+        </div>
+        <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
+          <span>Total a pagar</span>
+          <span>{clp(total)}</span>
+        </div>
+      </div>
+
+      {quote.observations ? (
+        <div className="mt-5">
+          <p className="text-xs font-semibold text-gray-700 mb-1">
+            Comentarios / observaciones
+          </p>
+          <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap">
+            {quote.observations}
+          </div>
+        </div>
+      ) : null}
+
+      <p className="text-xs text-gray-400 mt-4">
+        Vista de solo lectura. La edición (personas, agregar/quitar servicios,
+        descuento en $) viene en el siguiente paso.
+      </p>
     </div>
   );
 }
