@@ -15,7 +15,10 @@ import {
   PaymentWithTransactions,
 } from "../../services/paymentTransactions.service";
 import { getClients } from "../../services/clients.service";
-import { getQuotationById } from "../../services/quotations.service";
+import {
+  getQuotationById,
+  updateQuotation,
+} from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
 
 // One row per closed event (quotation), aggregated from its payment plan.
@@ -334,6 +337,7 @@ export default function PostVentaPage() {
           tab={tab}
           setTab={setTab}
           onClose={() => setSelected(null)}
+          onDataChanged={loadEvents}
         />
       )}
     </div>
@@ -348,9 +352,16 @@ interface EventModalProps {
     t: "pagos" | "comprobantes" | "documentos" | "servicios",
   ) => void;
   readonly onClose: () => void;
+  readonly onDataChanged: () => void;
 }
 
-function EventModal({ event, tab, setTab, onClose }: EventModalProps) {
+function EventModal({
+  event,
+  tab,
+  setTab,
+  onClose,
+  onDataChanged,
+}: EventModalProps) {
   const saldo = event.total - event.paid;
   const p = event.total ? Math.round((event.paid / event.total) * 100) : 0;
   const transactions = event.payments.flatMap((pay) => pay.transactions || []);
@@ -580,7 +591,7 @@ function EventModal({ event, tab, setTab, onClose }: EventModalProps) {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
               </div>
             ) : quote ? (
-              <ServiciosTab quote={quote} />
+              <ServiciosTab quote={quote} onSaved={onDataChanged} />
             ) : (
               <p className="text-sm text-gray-500 py-6 text-center">
                 No se pudieron cargar los servicios de la cotización.
@@ -592,10 +603,15 @@ function EventModal({ event, tab, setTab, onClose }: EventModalProps) {
   );
 }
 
-// ---- Servicios tab (read-only view from the quotation) ----
+// ---- Servicios tab (editable: personas, descuento % / $, comentarios) ----
 const GRID = "1fr 70px 110px 120px";
-function ServiciosTab({ quote }: { readonly quote: Quotation }) {
-  const personas = quote.people_count || 0;
+function ServiciosTab({
+  quote,
+  onSaved,
+}: {
+  readonly quote: Quotation;
+  readonly onSaved: () => void;
+}) {
   const items: any = quote.items || {
     variable_services: [],
     fixed_services: [],
@@ -603,23 +619,56 @@ function ServiciosTab({ quote }: { readonly quote: Quotation }) {
   const varGroups: any[] = items.variable_services || [];
   const fixed: any[] = items.fixed_services || [];
 
-  const subVar = varGroups.reduce(
+  const [personas, setPersonas] = useState<number>(quote.people_count || 0);
+  const [discType, setDiscType] = useState<"%" | "$">("%");
+  const [discVal, setDiscVal] = useState<number>(quote.discount_percentage || 0);
+  const [obs, setObs] = useState<string>(quote.observations || "");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  // value_per_person = suma de precios variables (por persona); fixed_value =
+  // suma de fijos × cantidad. Igual que en la cotización.
+  const valuePerPerson = varGroups.reduce(
     (t, g) =>
-      t +
-      (g.items || []).reduce(
-        (tt: number, it: any) => tt + (it.precio || 0) * personas,
-        0,
-      ),
+      t + (g.items || []).reduce((tt: number, it: any) => tt + (it.precio || 0), 0),
     0,
   );
-  const subFixed = fixed.reduce(
+  const fixedValue = fixed.reduce(
     (t, f) => t + (f.precio || 0) * (f.quantity || 1),
     0,
   );
-  const subtotal = subVar + subFixed;
-  const descPct = quote.discount_percentage || 0;
-  const desc = Math.round((subtotal * descPct) / 100);
-  const total = subtotal - desc;
+  const subtotal = valuePerPerson * personas + fixedValue;
+  const descAmount =
+    discType === "%"
+      ? Math.round((subtotal * (discVal || 0)) / 100)
+      : Math.min(subtotal, discVal || 0);
+  const total = subtotal - descAmount;
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const effectivePct =
+        subtotal > 0 ? Math.round((descAmount / subtotal) * 10000) / 100 : 0;
+      const { error } = await updateQuotation(
+        {
+          people_count: personas,
+          discount_percentage: effectivePct,
+          subtotal_amount: Math.round(subtotal),
+          total_amount: Math.round(total),
+          observations: obs,
+        } as any,
+        quote.id,
+      );
+      if (error) throw error;
+      setMsg("Cambios guardados ✓");
+      onSaved();
+    } catch {
+      setMsg("No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const row = (nombre: string, cant: number, precio: number, key: string) => (
     <div
@@ -636,9 +685,20 @@ function ServiciosTab({ quote }: { readonly quote: Quotation }) {
 
   return (
     <div>
+      {/* Personas (editable) */}
       <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm font-semibold text-blue-900">
-        <span>👥 Personas del evento</span>
-        <span>{personas}</span>
+        <span>
+          👥 Personas del evento{" "}
+          <span className="text-[10px] font-semibold uppercase text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded ml-1">
+            de la cotización
+          </span>
+        </span>
+        <input
+          type="number"
+          value={personas}
+          onChange={(e) => setPersonas(Number(e.target.value) || 0)}
+          className="w-24 text-right border border-blue-200 rounded-lg px-2 py-1"
+        />
       </div>
 
       <div
@@ -673,14 +733,39 @@ function ServiciosTab({ quote }: { readonly quote: Quotation }) {
         </div>
       )}
 
-      <div className="mt-5 border-t-2 border-gray-900 pt-3 space-y-1.5 text-sm">
+      {/* Totales + descuento editable */}
+      <div className="mt-5 border-t-2 border-gray-900 pt-3 space-y-2 text-sm">
         <div className="flex justify-between">
           <span>Total servicios</span>
           <span className="font-medium">{clp(subtotal)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Descuento ({descPct}%)</span>
-          <span className="text-red-600">− {clp(desc)}</span>
+        <div className="flex justify-between items-center">
+          <span className="flex items-center gap-2">
+            Descuento
+            <span className="inline-flex border border-gray-300 rounded-md overflow-hidden">
+              {(["%", "$"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setDiscType(t)}
+                  className={`px-2.5 py-1 text-xs font-bold ${
+                    discType === t
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-500"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </span>
+            <input
+              type="number"
+              value={discVal}
+              onChange={(e) => setDiscVal(Number(e.target.value) || 0)}
+              className="w-24 text-right border border-gray-300 rounded-lg px-2 py-1"
+            />
+          </span>
+          <span className="text-red-600">− {clp(descAmount)}</span>
         </div>
         <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
           <span>Total a pagar</span>
@@ -688,20 +773,35 @@ function ServiciosTab({ quote }: { readonly quote: Quotation }) {
         </div>
       </div>
 
-      {quote.observations ? (
-        <div className="mt-5">
-          <p className="text-xs font-semibold text-gray-700 mb-1">
-            Comentarios / observaciones
-          </p>
-          <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap">
-            {quote.observations}
-          </div>
-        </div>
-      ) : null}
+      {/* Comentarios editable */}
+      <div className="mt-5">
+        <p className="text-xs font-semibold text-gray-700 mb-1">
+          Comentarios / observaciones
+        </p>
+        <textarea
+          rows={3}
+          value={obs}
+          onChange={(e) => setObs(e.target.value)}
+          className="w-full text-sm border border-gray-300 rounded-lg p-3"
+        />
+      </div>
 
-      <p className="text-xs text-gray-400 mt-4">
-        Vista de solo lectura. La edición (personas, agregar/quitar servicios,
-        descuento en $) viene en el siguiente paso.
+      <div className="flex items-center justify-end gap-3 mt-4">
+        {msg && <span className="text-sm text-gray-500">{msg}</span>}
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Guardando…" : "Guardar cambios"}
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-400 mt-3">
+        Editable: personas, descuento (% o $) y comentarios. Agregar/quitar
+        servicios viene en el siguiente paso. Nota: el descuento en $ se guarda
+        como su % equivalente hasta habilitar la columna dedicada.
       </p>
     </div>
   );
