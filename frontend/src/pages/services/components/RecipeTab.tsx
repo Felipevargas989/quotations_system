@@ -51,9 +51,6 @@ export default function RecipeTab({
   const [addSupplyId, setAddSupplyId] = useState("");
   const [addQty, setAddQty] = useState("");
   const [addUnit, setAddUnit] = useState<RecipeUnit>("kg");
-  // Alta de mobiliario
-  const [addFurnId, setAddFurnId] = useState("");
-  const [addFurnQty, setAddFurnQty] = useState("1");
   // Mini-forms de creación al vuelo (inline, sin modal anidado)
   const [newSupplyOpen, setNewSupplyOpen] = useState(false);
   const [nsName, setNsName] = useState("");
@@ -140,17 +137,18 @@ export default function RecipeTab({
     load();
   };
 
-  const addFurniture = async () => {
-    const qty = parseFloat(addFurnQty);
-    if (!addFurnId || !qty || qty <= 0) return;
+  // Seleccionar en el buscador AGREGA el mobiliario al tiro (1 por persona,
+  // editable después en la fila).
+  const addFurniture = async (furnitureId: string) => {
+    if (!furnitureId) return;
     setErr(null);
     const { error } = await addRecipeItem({
       company_id: companyId,
       service_type: serviceType,
       service_id: serviceId,
       item_kind: "mobiliario",
-      furniture_id: Number(addFurnId),
-      qty_per_person: qty,
+      furniture_id: Number(furnitureId),
+      qty_per_person: 1,
       unit: "u",
     });
     if (error) {
@@ -161,8 +159,6 @@ export default function RecipeTab({
       );
       return;
     }
-    setAddFurnId("");
-    setAddFurnQty("1");
     flashSaved();
     load();
   };
@@ -212,9 +208,10 @@ export default function RecipeTab({
       return;
     }
     setFurniture((prev) => [...prev, data]);
-    setAddFurnId(String(data.id));
     setNewFurnOpen(false);
     setNfName("");
+    // Recién creado → directo a la receta.
+    addFurniture(String(data.id));
   };
 
   if (loading) {
@@ -431,37 +428,16 @@ export default function RecipeTab({
         <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">
           Mobiliario · cantidad por persona
         </h3>
-        <div className="flex gap-2 items-start">
-          <div className="flex-1">
-            <SelectWithSearch
-              options={furniture
-                .filter((f) => f.is_active)
-                .map((f) => ({ value: String(f.id), label: f.name }))}
-              value={addFurnId}
-              onChange={setAddFurnId}
-              placeholder="Buscar mobiliario…"
-              searchPlaceholder="Buscar mobiliario…"
-              noResultsText="Sin resultados"
-            />
-          </div>
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={addFurnQty}
-            onChange={(e) => setAddFurnQty(e.target.value)}
-            placeholder="Cant."
-            className={qtyInputCls + " py-2"}
-          />
-          <button
-            type="button"
-            onClick={addFurniture}
-            disabled={!addFurnId || !parseFloat(addFurnQty)}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <SelectWithSearch
+          options={furniture
+            .filter((f) => f.is_active)
+            .map((f) => ({ value: String(f.id), label: f.name }))}
+          value=""
+          onChange={addFurniture}
+          placeholder="Buscar y agregar mobiliario…"
+          searchPlaceholder="Buscar mobiliario…"
+          noResultsText="Sin resultados"
+        />
 
         {!newFurnOpen ? (
           <button

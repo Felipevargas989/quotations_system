@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { FixedService } from "../../../types/services.types";
 import {
   addFixedServiceCostItem,
@@ -44,8 +44,6 @@ export default function FixedCostSection({
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [addResId, setAddResId] = useState("");
-  const [addQty, setAddQty] = useState("1");
 
   // Mini-form de creación al vuelo (inline)
   const [newOpen, setNewOpen] = useState(false);
@@ -120,15 +118,16 @@ export default function FixedCostSection({
     flashSaved();
   };
 
-  const addLine = async () => {
-    const qty = parseFloat(addQty) || 1;
-    if (!addResId) return;
+  // Seleccionar en el buscador AGREGA la línea al tiro (cantidad 1, editable
+  // después en la fila). Sin estados intermedios ni botón +.
+  const addLine = async (resourceId: string) => {
+    if (!resourceId) return;
     setErr(null);
     const { error } = await addFixedServiceCostItem({
       company_id: companyId,
       fixed_service_id: service.id,
-      resource_id: Number(addResId),
-      quantity: qty,
+      resource_id: Number(resourceId),
+      quantity: 1,
     });
     if (error) {
       setErr(
@@ -138,8 +137,6 @@ export default function FixedCostSection({
       );
       return;
     }
-    setAddResId("");
-    setAddQty("1");
     reloadAndSync();
   };
 
@@ -170,14 +167,25 @@ export default function FixedCostSection({
       return;
     }
     setResources((prev) => [...prev, data]);
-    setAddResId(String(data.id));
     setNewOpen(false);
     setNName("");
     setNPrice(0);
     setNSupplier("");
+    // Recién creado → directo al costo del servicio.
+    await addFixedServiceCostItem({
+      company_id: companyId,
+      fixed_service_id: service.id,
+      resource_id: data.id,
+      quantity: 1,
+    });
+    const fresh = await getFixedServiceCostItems(companyId, service.id);
+    setItems(fresh);
+    await syncTotals(fresh, new Map([...resById, [data.id, data]]));
+    flashSaved();
   };
 
-  // Opciones ordenadas por tipo (Staff / Arriendo / Compra) y nombre.
+  // Opciones ordenadas por tipo (Arriendo / Compra / Personal) y nombre,
+  // con etiqueta corta: "Silla arrendada · $1.500 /persona · FL Eventos".
   const typeOrder: ResourceType[] = ["arriendo", "compra", "personal"];
   const options = resources
     .filter((r) => r.is_active)
@@ -189,15 +197,14 @@ export default function FixedCostSection({
     )
     .map((r) => ({
       value: String(r.id),
-      label: `[${RESOURCE_TYPE_LABEL[r.type]}] ${r.name}${
+      label: `${r.name}${
         r.list_price
-          ? ` — ${clp(r.list_price)} ${CHARGE_MODE_LABEL[r.charge_mode]}`
-          : " — sin precio de lista"
-      }${supName(r.supplier_id) ? ` (${supName(r.supplier_id)})` : ""}`,
+          ? ` · ${clp(r.list_price)} ${
+              r.charge_mode === "por_persona" ? "/persona" : "/evento"
+            }`
+          : " · sin precio"
+      }${supName(r.supplier_id) ? ` · ${supName(r.supplier_id)}` : ""}`,
     }));
-
-  const price = service.price || 0;
-  const margin = price - totalFixed;
 
   if (loading) {
     return (
@@ -222,36 +229,15 @@ export default function FixedCostSection({
         Costo del servicio · referencias al catálogo de recursos
       </h3>
 
-      {/* Alta de línea */}
-      <div className="flex gap-2 items-start">
-        <div className="flex-1">
-          <SelectWithSearch
-            options={options}
-            value={addResId}
-            onChange={setAddResId}
-            placeholder="Buscar recurso (silla, fiesta 8 hrs…)"
-            searchPlaceholder="Buscar recurso…"
-            noResultsText="Sin resultados"
-          />
-        </div>
-        <input
-          type="number"
-          step="any"
-          min="0"
-          value={addQty}
-          onChange={(e) => setAddQty(e.target.value)}
-          placeholder="Cant."
-          className="w-20 border border-gray-300 rounded-lg px-2 py-2 text-sm text-right"
-        />
-        <button
-          type="button"
-          onClick={addLine}
-          disabled={!addResId}
-          className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-        >
-          <Plus size={16} />
-        </button>
-      </div>
+      {/* Alta de línea: seleccionar = agregar (cantidad editable en la fila) */}
+      <SelectWithSearch
+        options={options}
+        value=""
+        onChange={addLine}
+        placeholder="Buscar y agregar recurso (silla, fiesta 8 hrs…)"
+        searchPlaceholder="Buscar recurso…"
+        noResultsText="Sin resultados"
+      />
 
       {!newOpen ? (
         <button
@@ -423,39 +409,43 @@ export default function FixedCostSection({
         </div>
       )}
 
-      {/* Resumen */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm space-y-1">
-        <div className="flex justify-between">
-          <span className="text-gray-600">Costo fijo (por evento)</span>
-          <span className="font-semibold">{clp(totalFixed)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Costo variable</span>
-          <span className="font-semibold">
-            {clp(totalPerPerson)}{" "}
-            <span className="text-xs text-gray-400">/persona</span>
-          </span>
-        </div>
-        {totalPerPerson === 0 && price > 0 && (
-          <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
-            <span className="text-gray-600">Margen (venta {clp(price)})</span>
-            <span
-              className={`font-bold ${margin >= 0 ? "text-green-600" : "text-red-600"}`}
-            >
-              {clp(margin)}
-              <span className="text-xs font-semibold">
-                {" "}
-                · {Math.round((margin / price) * 100)}%
+      {/* Resumen: sin margen (el margen real se calcula en cada evento, donde
+          se conocen las personas). Solo filas con valor. */}
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">
+          Agrega recursos para calcular el costo del servicio.
+        </p>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm space-y-1">
+          {totalFixed > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Costo fijo (por evento)</span>
+              <span className="font-semibold">{clp(totalFixed)}</span>
+            </div>
+          )}
+          {totalPerPerson > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Costo variable</span>
+              <span className="font-semibold">
+                {clp(totalPerPerson)}{" "}
+                <span className="text-xs text-gray-400">/persona</span>
               </span>
-            </span>
-          </div>
-        )}
-        {totalPerPerson > 0 && (
-          <p className="text-xs text-gray-400 border-t border-gray-200 pt-1 mt-1">
-            El margen exacto depende de las personas de cada evento.
-          </p>
-        )}
-      </div>
+            </div>
+          )}
+          {totalFixed === 0 && totalPerPerson === 0 && (
+            <p className="text-xs text-amber-600">
+              Los recursos agregados no tienen precio de lista — asigna precio
+              en el catálogo o al usarlos en cada evento.
+            </p>
+          )}
+          {totalPerPerson > 0 && (
+            <p className="text-xs text-gray-400 border-t border-gray-200 pt-1 mt-1">
+              El costo total (y el margen) se calculan en cada evento según sus
+              personas.
+            </p>
+          )}
+        </div>
+      )}
       <p className="text-xs text-gray-400">
         Los precios vienen del catálogo de Recursos (Logística): al actualizar
         la lista anual de un proveedor, este costo se actualiza solo. Las
