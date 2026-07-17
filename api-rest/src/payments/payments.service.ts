@@ -10,6 +10,7 @@ import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { PaymentStatus } from './constants';
+import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -234,6 +235,144 @@ export class PaymentsService {
       createPaymentTransactionDto,
       companyId,
     );
+  }
+
+  /**
+   * Registers a payment with "overflow" (derrame): the amount cascades across
+   * the pending/overdue installments starting from the EARLIEST one, creating
+   * one transaction per touched installment and marking as PAGADO each
+   * installment that gets fully covered. Sends a SINGLE email to the client
+   * with the total amount.
+   *
+   * @param dto - quotation_id, total amount, method, date, notes, receipt url
+   * @param companyId - The company ID
+   * @returns Distribution summary: one entry per touched installment
+   */
+  async createOverflowPaymentTransaction(
+    dto: CreateOverflowTransactionDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(
+      `createOverflowPaymentTransaction with dto ${JSON.stringify(dto)}`,
+    );
+    try {
+      // 1. Get pending/overdue payments (ordered by payment_number asc)
+      const { data: payments, error } =
+        await this.paymentsRepository.findAllPaymentsFromQuotation(
+          [dto.quotation_id],
+          companyId,
+          [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
+        );
+      if (error) {
+        this.logger.error(error);
+        throw error;
+      }
+      if (!payments || payments.length === 0) {
+        throw new Error('No hay cuotas pendientes para esta cotización');
+      }
+
+      // 2. Compute the remaining amount per installment
+      const withRemaining = payments
+        .map((payment) => {
+          const alreadyPaid = (payment.payment_transactions || []).reduce(
+            (sum: number, t: PaymentTransaction) => sum + t.amount,
+            0,
+          );
+          return { payment, remaining: payment.amount - alreadyPaid };
+        })
+        .filter((x) => x.remaining > 0);
+
+      const totalRemaining = withRemaining.reduce(
+        (sum, x) => sum + x.remaining,
+        0,
+      );
+      if (dto.amount > totalRemaining) {
+        throw new Error(
+          `El monto no puede exceder el saldo pendiente total (${totalRemaining})`,
+        );
+      }
+
+      // 3. Cascade (derrame): fill each installment in order until the
+      //    amount runs out.
+      let left = dto.amount;
+      const distribution: {
+        payment_id: Payment['id'];
+        payment_number: number;
+        amount: number;
+        fully_paid: boolean;
+      }[] = [];
+
+      for (const { payment, remaining } of withRemaining) {
+        if (left <= 0) break;
+        const portion = Math.min(remaining, left);
+
+        const { error: txError } =
+          await this.paymentsRepository.createPaymentTransaction({
+            payment_id: payment.id,
+            quotation_id: dto.quotation_id,
+            amount: portion,
+            payment_method: dto.payment_method,
+            transaction_date: dto.transaction_date,
+            notes: dto.notes,
+            receipt_photo_url: dto.receipt_photo_url,
+          } as CreatePaymentTransaction);
+        if (txError) {
+          this.logger.error(txError);
+          throw txError;
+        }
+
+        const fullyPaid = portion === remaining;
+        if (fullyPaid) {
+          const { error: updError } =
+            await this.paymentsRepository.updatePayment(payment.id, {
+              status: PaymentStatus.PAGADO,
+            });
+          if (updError) {
+            this.logger.error(updError);
+            throw updError;
+          }
+        }
+
+        distribution.push({
+          payment_id: payment.id,
+          payment_number: payment.payment_number,
+          amount: portion,
+          fully_paid: fullyPaid,
+        });
+        left -= portion;
+      }
+
+      // 4. Send ONE email to the client with the total amount
+      try {
+        const { data: quotation } = await this.quotationsService.findOne(
+          dto.quotation_id,
+        );
+        if (quotation && quotation.clients.email) {
+          void this.emailService.sendEmail(
+            quotation.clients.email,
+            EmailStructure.PAYMENT_RECEIVED,
+            {
+              clientName: quotation.clients.name,
+              companyName: quotation.companies.name,
+              amount: dto.amount,
+              paymentMethod: dto.payment_method || '',
+              transactionDate: dto.transaction_date || new Date(),
+            },
+            companyId,
+          );
+        }
+      } catch (emailError) {
+        // Log email error but don't throw - payments were already created
+        this.logger.error(
+          `Failed to send payment received email: ${emailError}`,
+        );
+      }
+
+      return { total: dto.amount, distribution };
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error(error);
+    }
   }
 
   async updatePaymentTransaction(

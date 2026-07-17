@@ -79,6 +79,39 @@ export const getPaymentsWithTransactions = async (): Promise<{
   }
 };
 
+// Registro de pago con "derrame": el backend reparte el monto en cascada por
+// las cuotas pendientes (de la más próxima hacia adelante) y envía UN correo.
+export interface OverflowPaymentResult {
+  total: number;
+  distribution: {
+    payment_id: string;
+    payment_number: number;
+    amount: number;
+    fully_paid: boolean;
+  }[];
+}
+
+export const createOverflowPayment = async (payload: {
+  quotation_id: string;
+  amount: number;
+  payment_method: string;
+  transaction_date: string;
+  notes?: string;
+  receipt_photo_url?: string;
+}): Promise<{ data: OverflowPaymentResult }> => {
+  try {
+    const response = await apiRequest(
+      `${API_ROUTES.PAYMENTS_TRANSACTIONS_OVERFLOW}`,
+      "POST",
+      payload,
+    );
+    return { data: response };
+  } catch (error) {
+    console.error("Error creating overflow payment:", error);
+    throw error;
+  }
+};
+
 export const deletePaymentTransaction = async (transactionId: number) => {
   try {
     const { error } = await apiRequest(

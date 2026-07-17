@@ -13,6 +13,7 @@ export const API_ROUTES = {
   PAYMENTS: "/payments",
   PAYMENTS_PLAN: "/payments/plan",
   PAYMENTS_TRANSACTIONS: "/payments/transactions",
+  PAYMENTS_TRANSACTIONS_OVERFLOW: "/payments/transactions/overflow",
 
   // services
   SERVICES: "/services",

@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   getPaymentsWithTransactions,
+  createOverflowPayment,
   PaymentWithTransactions,
   PaymentTransaction,
 } from "../../services/paymentTransactions.service";
@@ -43,6 +44,7 @@ import {
 } from "../../services/documents.service";
 import {
   uploadRefundReceipt,
+  uploadPaymentReceipt,
   uploadEventDocument,
   deleteStorageFileByUrl,
 } from "../../services/storage.service";
@@ -565,6 +567,7 @@ function EventModal({
         <div className="p-6 flex-1 overflow-y-auto min-h-0">
           {tab === "pagos" && (
             <div className="space-y-6">
+              <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
               <div className="space-y-3">
               <h4 className="text-sm font-bold text-gray-800">
                 Calendario de pagos
@@ -1127,6 +1130,257 @@ function ServiciosTab({
         descuento (% o $) y comentarios. Al guardar, si cambia el total, el plan
         de pagos se ajusta automáticamente.
       </p>
+    </div>
+  );
+}
+
+// ---- Registrar pago con derrame (vive en la pestaña Pagos) ----
+function RegistrarPagoPanel({
+  event,
+  onChanged,
+}: {
+  readonly event: EventRow;
+  readonly onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState<number>(0);
+  const [date, setDate] = useState(todayISO());
+  const [method, setMethod] = useState(PAYMENT_METHODS[0]);
+  const [notes, setNotes] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  // Cuotas con saldo, de la más próxima (menor número) hacia adelante.
+  const pending = event.payments
+    .map((p) => ({
+      id: p.id,
+      number: p.payment_number,
+      remaining: (p.amount || 0) - (p.paid_amount || 0),
+    }))
+    .filter((p) => p.remaining > 0);
+  const maxAmount = pending.reduce((s, p) => s + p.remaining, 0);
+
+  // Vista previa del derrame: cómo se repartirá el monto entre las cuotas.
+  const preview: { number: number; portion: number; fills: boolean }[] = [];
+  let left = Math.min(amount || 0, maxAmount);
+  for (const p of pending) {
+    if (left <= 0) break;
+    const portion = Math.min(p.remaining, left);
+    preview.push({
+      number: p.number,
+      portion,
+      fills: portion === p.remaining,
+    });
+    left -= portion;
+  }
+
+  if (maxAmount <= 0) return null;
+
+  const reset = () => {
+    setAmount(0);
+    setDate(todayISO());
+    setMethod(PAYMENT_METHODS[0]);
+    setNotes("");
+    setFile(null);
+    setErr(null);
+  };
+
+  const submit = async () => {
+    if (!amount || amount <= 0) return;
+    setSaving(true);
+    setErr(null);
+    setOk(null);
+    try {
+      let receipt_photo_url: string | undefined;
+      if (file) {
+        const up = await uploadPaymentReceipt(
+          file,
+          event.quotationId,
+          pending[0].id,
+        );
+        if (!up.success)
+          throw new Error(up.error || "No se pudo subir el comprobante");
+        receipt_photo_url = up.url;
+      }
+      await createOverflowPayment({
+        quotation_id: event.quotationId,
+        amount: Math.round(amount),
+        payment_method: method,
+        transaction_date: date,
+        notes: notes || undefined,
+        receipt_photo_url,
+      });
+      setOk(
+        `Pago de ${clp(amount)} registrado ✓${
+          preview.length > 1 ? ` (repartido en ${preview.length} cuotas)` : ""
+        }`,
+      );
+      reset();
+      setOpen(false);
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "No se pudo registrar el pago");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      {ok && !open && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between">
+          <p className="text-sm font-semibold text-green-800">{ok}</p>
+          <button
+            type="button"
+            onClick={() => setOk(null)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true);
+            setOk(null);
+          }}
+          className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
+        >
+          + Registrar pago
+        </button>
+      ) : (
+        <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-gray-800">Registrar pago</h4>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Monto
+              </label>
+              <NumberInput
+                value={amount || undefined}
+                onChange={(v) => setAmount(v || 0)}
+                min={0}
+                max={maxAmount}
+                formatThousands
+                placeholder="0"
+                className="text-right"
+              />
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Saldo pendiente: {clp(maxAmount)}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Fecha
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Medio de pago
+              </label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Comprobante
+              </label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="w-full text-xs mt-1.5"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">
+              Notas (opcional)
+            </label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              placeholder="Información adicional…"
+            />
+          </div>
+
+          {/* Vista previa del derrame */}
+          {amount > 0 && preview.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <p className="text-[11px] font-bold uppercase text-gray-500 mb-1.5">
+                Así se repartirá el pago
+              </p>
+              {preview.map((pv) => (
+                <div
+                  key={pv.number}
+                  className="flex justify-between text-xs py-0.5"
+                >
+                  <span className="text-gray-600">
+                    Cuota {pv.number}
+                    {pv.fills ? (
+                      <span className="ml-1.5 text-green-600 font-semibold">
+                        → queda pagada
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 text-gray-400">→ abono</span>
+                    )}
+                  </span>
+                  <span className="font-medium">{clp(pv.portion)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {err && <p className="text-xs text-red-600">{err}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="px-3 py-1.5 text-sm text-gray-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving || !amount || amount <= 0}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Guardando…" : "Registrar pago"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
