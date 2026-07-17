@@ -620,8 +620,13 @@ function ServiciosTab({
   const fixed: any[] = items.fixed_services || [];
 
   const [personas, setPersonas] = useState<number>(quote.people_count || 0);
-  const [discType, setDiscType] = useState<"%" | "$">("%");
-  const [discVal, setDiscVal] = useState<number>(quote.discount_percentage || 0);
+  const initDiscAmount = quote.discount_amount || 0;
+  const [discType, setDiscType] = useState<"%" | "$">(
+    initDiscAmount > 0 ? "$" : "%",
+  );
+  const [discVal, setDiscVal] = useState<number>(
+    initDiscAmount > 0 ? initDiscAmount : quote.discount_percentage || 0,
+  );
   const [obs, setObs] = useState<string>(quote.observations || "");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -648,12 +653,11 @@ function ServiciosTab({
     setSaving(true);
     setMsg(null);
     try {
-      const effectivePct =
-        subtotal > 0 ? Math.round((descAmount / subtotal) * 10000) / 100 : 0;
       const { error } = await updateQuotation(
         {
           people_count: personas,
-          discount_percentage: effectivePct,
+          discount_percentage: discType === "%" ? discVal || 0 : 0,
+          discount_amount: discType === "$" ? discVal || 0 : 0,
           subtotal_amount: Math.round(subtotal),
           total_amount: Math.round(total),
           observations: obs,
@@ -747,7 +751,21 @@ function ServiciosTab({
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setDiscType(t)}
+                  onClick={() => {
+                    if (t === discType) return;
+                    // Convertir el valor para que el descuento en $ se mantenga
+                    // al cambiar de modo (evita reinterpretar el número).
+                    if (t === "$") {
+                      setDiscVal(descAmount);
+                    } else {
+                      setDiscVal(
+                        subtotal > 0
+                          ? Math.round((descAmount / subtotal) * 10000) / 100
+                          : 0,
+                      );
+                    }
+                    setDiscType(t);
+                  }}
                   className={`px-2.5 py-1 text-xs font-bold ${
                     discType === t
                       ? "bg-blue-600 text-white"
@@ -799,9 +817,8 @@ function ServiciosTab({
       </div>
 
       <p className="text-xs text-gray-400 mt-3">
-        Editable: personas, descuento (% o $) y comentarios. Agregar/quitar
-        servicios viene en el siguiente paso. Nota: el descuento en $ se guarda
-        como su % equivalente hasta habilitar la columna dedicada.
+        Editable: personas, descuento (% o $ — se guarda exacto) y comentarios.
+        Agregar/quitar servicios viene en el siguiente paso.
       </p>
     </div>
   );

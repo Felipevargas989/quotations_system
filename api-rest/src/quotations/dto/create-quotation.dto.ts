@@ -81,6 +81,11 @@ export class CreateQuotationDto {
 
   @IsNumber()
   @IsOptional()
+  @Min(0, { message: 'Discount amount must be non-negative' })
+  discount_amount?: number;
+
+  @IsNumber()
+  @IsOptional()
   @Min(0, { message: 'Subtotal amount must be non-negative' })
   subtotal_amount?: number;
 
