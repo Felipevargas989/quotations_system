@@ -7,12 +7,17 @@ import {
   AlertTriangle,
   X,
   ChevronRight,
+  Upload,
+  Trash2,
+  FileText,
+  Undo2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   getPaymentsWithTransactions,
   PaymentWithTransactions,
+  PaymentTransaction,
 } from "../../services/paymentTransactions.service";
 import { getClients } from "../../services/clients.service";
 import {
@@ -20,9 +25,35 @@ import {
   updateQuotation,
 } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
+import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import {
+  getRefundsByQuotation,
+  registerRefund,
+} from "../../services/refunds.service";
+import {
+  EventDocument,
+  DOCUMENT_CATEGORIES,
+  getDocumentsByQuotation,
+  addDocument,
+  deleteDocument,
+} from "../../services/documents.service";
+import {
+  uploadRefundReceipt,
+  uploadEventDocument,
+  deleteStorageFileByUrl,
+} from "../../services/storage.service";
+
+const PAYMENT_METHODS = [
+  "Transferencia",
+  "Efectivo",
+  "Cheque",
+  "Tarjeta",
+  "Otro",
+];
+const todayISO = () => format(new Date(), "yyyy-MM-dd");
 
 // One row per closed event (quotation), aggregated from its payment plan.
 interface EventRow {
@@ -418,15 +449,15 @@ function EventModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-6 z-50 overflow-auto"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-3xl shadow-xl"
+        className="bg-white rounded-2xl w-full max-w-6xl h-[94vh] shadow-xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-gray-200">
+        <div className="shrink-0 flex items-start justify-between p-6 border-b border-gray-200">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-gray-900">
@@ -455,7 +486,7 @@ function EventModal({
         </div>
 
         {/* KPIs */}
-        <div className="flex gap-4 px-6 pt-5">
+        <div className="shrink-0 flex gap-4 px-6 pt-5">
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
             <p className="text-xs uppercase text-gray-500">Monto total</p>
             <p className="text-lg font-bold">{clp(event.total)}</p>
@@ -477,7 +508,7 @@ function EventModal({
         </div>
 
         {/* Progress */}
-        <div className="px-6 pt-2 pb-4">
+        <div className="shrink-0 px-6 pt-2 pb-4">
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
               className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
@@ -493,7 +524,7 @@ function EventModal({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-6 border-b border-gray-200">
+        <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -510,7 +541,7 @@ function EventModal({
         </div>
 
         {/* Panels */}
-        <div className="p-6">
+        <div className="p-6 flex-1 overflow-y-auto min-h-0">
           {tab === "pagos" && (
             <div className="space-y-3">
               <h4 className="text-sm font-bold text-gray-800">
@@ -551,61 +582,14 @@ function EventModal({
           )}
 
           {tab === "comprobantes" && (
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                Cada pago registrado con su comprobante bancario.
-              </p>
-              {transactions.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Aún no hay pagos registrados.
-                </p>
-              ) : (
-                transactions.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center gap-4 p-3 border border-gray-200 rounded-xl"
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-lg flex items-center justify-center text-xs ${
-                        t.receipt_photo_url
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-gray-100 text-gray-400"
-                      }`}
-                    >
-                      {t.receipt_photo_url ? "✓ IMG" : "sin\narchivo"}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold text-sm text-gray-900">
-                        {clp(t.amount)} · {fmtDate(t.transaction_date)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {t.payment_method || "—"}
-                      </div>
-                    </div>
-                    {t.receipt_photo_url && (
-                      <a
-                        href={t.receipt_photo_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                      >
-                        Ver
-                      </a>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+            <ComprobantesTab
+              quotationId={event.quotationId}
+              transactions={transactions}
+            />
           )}
 
           {tab === "documentos" && (
-            <div className="text-center py-10 text-gray-500">
-              <p className="font-medium">Documentos — próxima fase</p>
-              <p className="text-sm mt-1">
-                Contratos, órdenes de compra, facturas y otros (con Supabase
-                Storage).
-              </p>
-            </div>
+            <DocumentosTab quotationId={event.quotationId} />
           )}
 
           {tab === "servicios" &&
@@ -614,7 +598,11 @@ function EventModal({
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
               </div>
             ) : quote ? (
-              <ServiciosTab quote={quote} onSaved={onDataChanged} />
+              <ServiciosTab
+                quote={quote}
+                paidAmount={event.paid}
+                onSaved={onDataChanged}
+              />
             ) : (
               <p className="text-sm text-gray-500 py-6 text-center">
                 No se pudieron cargar los servicios de la cotización.
@@ -631,9 +619,11 @@ const GRID = "1fr 62px 110px 118px 28px";
 const deep = (x: any) => JSON.parse(JSON.stringify(x || []));
 function ServiciosTab({
   quote,
+  paidAmount,
   onSaved,
 }: {
   readonly quote: Quotation;
+  readonly paidAmount: number;
   readonly onSaved: () => void;
 }) {
   const [varGroups, setVarGroups] = useState<any[]>(() =>
@@ -653,6 +643,12 @@ function ServiciosTab({
   const [obs, setObs] = useState<string>(quote.observations || "");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Aviso transparente del reajuste del plan de pagos tras guardar.
+  const [notice, setNotice] = useState<{
+    tone: "up" | "down" | "refund";
+    title: string;
+    text: string;
+  } | null>(null);
 
   // Catálogo del sistema para agregar (categoría -> servicios, y fijos).
   const [catalog, setCatalog] = useState<{
@@ -766,6 +762,9 @@ function ServiciosTab({
   const save = async () => {
     setSaving(true);
     setMsg(null);
+    setNotice(null);
+    const prevTotal = quote.total_amount || 0;
+    const newTotal = Math.round(total);
     try {
       const itemsPayload = {
         variable_services: varGroups
@@ -808,6 +807,30 @@ function ServiciosTab({
       );
       if (error) throw error;
       setMsg("Cambios guardados ✓");
+      // Aviso: describe cómo se reajustó el plan de pagos.
+      const diff = newTotal - prevTotal;
+      if (diff > 0) {
+        setNotice({
+          tone: "up",
+          title: `El total subió ${clp(diff)}`,
+          text: "Se ajustó el plan de pagos automáticamente: la diferencia se sumó a la última cuota pendiente (o se creó una nueva cuota si no quedaban pendientes).",
+        });
+      } else if (diff < 0) {
+        const refund = Math.max(0, Math.round(paidAmount) - newTotal);
+        if (refund > 0) {
+          setNotice({
+            tone: "refund",
+            title: `Se generó un reembolso de ${clp(refund)}`,
+            text: `El total bajó ${clp(-diff)} y quedó por debajo de lo ya pagado (${clp(paidAmount)}). Regístralo en la pestaña Comprobantes con su fecha, medio de pago y comprobante.`,
+          });
+        } else {
+          setNotice({
+            tone: "down",
+            title: `El total bajó ${clp(-diff)}`,
+            text: "Se ajustó el plan de pagos automáticamente: la diferencia se descontó de las cuotas pendientes.",
+          });
+        }
+      }
       onSaved();
     } catch {
       setMsg("No se pudo guardar.");
@@ -852,6 +875,45 @@ function ServiciosTab({
 
   return (
     <div>
+      {/* Aviso de reajuste del plan de pagos */}
+      {notice && (
+        <div
+          className={`mb-4 rounded-lg border p-3 flex items-start gap-3 ${
+            notice.tone === "refund"
+              ? "bg-red-50 border-red-200"
+              : notice.tone === "down"
+                ? "bg-amber-50 border-amber-200"
+                : "bg-blue-50 border-blue-200"
+          }`}
+        >
+          <span className="text-lg leading-none mt-0.5">
+            {notice.tone === "refund" ? "↩️" : notice.tone === "down" ? "📉" : "📈"}
+          </span>
+          <div className="flex-1">
+            <p
+              className={`text-sm font-bold ${
+                notice.tone === "refund"
+                  ? "text-red-800"
+                  : notice.tone === "down"
+                    ? "text-amber-800"
+                    : "text-blue-800"
+              }`}
+            >
+              {notice.title}
+            </p>
+            <p className="text-xs text-gray-600 mt-0.5">{notice.text}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="text-gray-400 hover:text-gray-600"
+            title="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Personas (editable) */}
       <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm font-semibold text-blue-900">
         <span>
@@ -1037,6 +1099,418 @@ function ServiciosTab({
         Editable: personas, servicios (agregar por categoría / quitar con ✕),
         descuento (% o $) y comentarios. Al guardar, si cambia el total, el plan
         de pagos se ajusta automáticamente.
+      </p>
+    </div>
+  );
+}
+
+// ---- Comprobantes: pagos + reembolsos ----
+function ComprobantesTab({
+  quotationId,
+  transactions,
+}: {
+  readonly quotationId: string;
+  readonly transactions: PaymentTransaction[];
+}) {
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    getRefundsByQuotation(quotationId)
+      .then(setRefunds)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => {
+    load();
+  }, [quotationId]);
+
+  return (
+    <div className="space-y-6">
+      {/* Comprobantes de pago */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-bold text-gray-800">
+          Comprobantes de pago
+        </h4>
+        {transactions.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Aún no hay pagos registrados.
+          </p>
+        ) : (
+          transactions.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center gap-4 p-3 border border-gray-200 rounded-xl"
+            >
+              <div
+                className={`w-12 h-12 rounded-lg flex items-center justify-center text-[10px] text-center leading-tight ${
+                  t.receipt_photo_url
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {t.receipt_photo_url ? "✓ IMG" : "sin archivo"}
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-sm text-gray-900">
+                  {clp(t.amount)} · {fmtDate(t.transaction_date)}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {t.payment_method || "—"}
+                </div>
+              </div>
+              {t.receipt_photo_url && (
+                <a
+                  href={t.receipt_photo_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  Ver
+                </a>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Reembolsos */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <Undo2 size={15} className="text-red-500" /> Reembolsos
+        </h4>
+        {loading ? (
+          <div className="py-4 flex justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500" />
+          </div>
+        ) : refunds.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Sin reembolsos. Se generan automáticamente si el total baja por
+            debajo de lo ya pagado.
+          </p>
+        ) : (
+          refunds.map((r) => (
+            <RefundRow
+              key={r.id}
+              refund={r}
+              quotationId={quotationId}
+              onDone={load}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Fila de reembolso con formulario de registro ----
+function RefundRow({
+  refund,
+  quotationId,
+  onDone,
+}: {
+  readonly refund: Refund;
+  readonly quotationId: string;
+  readonly onDone: () => void;
+}) {
+  const registered = refund.is_paid;
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(refund.refund_date || todayISO());
+  const [method, setMethod] = useState(
+    refund.payment_method || PAYMENT_METHODS[0],
+  );
+  const [amount, setAmount] = useState<number>(refund.amount || 0);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setSaving(true);
+    setErr(null);
+    try {
+      let receipt_url = refund.receipt_url || null;
+      if (file) {
+        const up = await uploadRefundReceipt(file, quotationId, refund.id);
+        if (!up.success)
+          throw new Error(up.error || "No se pudo subir el comprobante");
+        receipt_url = up.url || null;
+      }
+      const { error } = await registerRefund(refund.id, {
+        amount: Math.round(amount || 0),
+        refund_date: date,
+        payment_method: method,
+        receipt_url,
+      });
+      if (error) throw error;
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      setErr(
+        e instanceof Error ? e.message : "No se pudo registrar el reembolso",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border border-red-200 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-4 p-3 bg-red-50">
+        <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700">
+          Reembolso
+        </span>
+        <div className="flex-1">
+          <div className="font-semibold text-sm text-gray-900">
+            {clp(refund.amount)}
+            {registered && refund.refund_date
+              ? ` · ${fmtDate(refund.refund_date)}`
+              : ""}
+          </div>
+          <div className="text-xs text-gray-500">
+            {registered
+              ? refund.payment_method || "—"
+              : "Pendiente de registrar"}
+          </div>
+        </div>
+        {registered && refund.receipt_url && (
+          <a
+            href={refund.receipt_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+          >
+            Ver
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+            registered
+              ? "text-red-600 hover:bg-red-100"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }`}
+        >
+          {registered ? "Editar" : "Registrar"}
+        </button>
+      </div>
+      {open && (
+        <div className="p-3 border-t border-red-200 bg-white space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Fecha
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Medio de pago
+              </label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Monto
+              </label>
+              <NumberInput
+                value={amount || undefined}
+                onChange={(v) => setAmount(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+                className="text-right"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Comprobante
+              </label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="w-full text-xs"
+              />
+            </div>
+          </div>
+          {err && <p className="text-xs text-red-600">{err}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="px-3 py-1.5 text-sm text-gray-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving}
+              className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+            >
+              {saving ? "Guardando…" : "Guardar reembolso"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Documentos del evento por categoría (con Supabase Storage) ----
+function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
+  const [docs, setDocs] = useState<EventDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyCat, setBusyCat] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    getDocumentsByQuotation(quotationId)
+      .then(setDocs)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => {
+    load();
+  }, [quotationId]);
+
+  const onUpload = async (category: string, file?: File) => {
+    if (!file) return;
+    setBusyCat(category);
+    setErr(null);
+    try {
+      const up = await uploadEventDocument(file, quotationId, category);
+      if (!up.success) throw new Error(up.error || "No se pudo subir");
+      const { error } = await addDocument({
+        quotation_id: quotationId,
+        category,
+        file_name: file.name,
+        file_url: up.url || "",
+      });
+      if (error) throw error;
+      load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error al subir el documento");
+    } finally {
+      setBusyCat(null);
+    }
+  };
+
+  const onDelete = async (doc: EventDocument) => {
+    await deleteStorageFileByUrl(doc.file_url);
+    await deleteDocument(doc.id);
+    load();
+  };
+
+  if (loading) {
+    return (
+      <div className="py-10 flex justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {err && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+          {err}
+        </p>
+      )}
+      {DOCUMENT_CATEGORIES.map((cat) => {
+        const list = docs.filter((d) => d.category === cat.key);
+        const busy = busyCat === cat.key;
+        return (
+          <div
+            key={cat.key}
+            className="border border-gray-200 rounded-xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+              <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <FileText size={15} className="text-gray-500" /> {cat.label}
+                <span className="text-xs font-normal text-gray-400">
+                  ({list.length})
+                </span>
+              </span>
+              <label
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${
+                  busy
+                    ? "bg-gray-200 text-gray-500"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Upload size={13} /> {busy ? "Subiendo…" : "Subir"}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  disabled={busy}
+                  onChange={(e) => {
+                    onUpload(cat.key, e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {list.length === 0 ? (
+              <p className="text-xs text-gray-400 px-4 py-3">Sin documentos.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {list.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-center gap-3 px-4 py-2.5"
+                  >
+                    <FileText size={16} className="text-gray-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-900 truncate">
+                        {d.file_name}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {fmtDate(d.uploaded_at)}
+                      </div>
+                    </div>
+                    <a
+                      href={d.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      Ver
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(d)}
+                      className="text-gray-300 hover:text-red-500"
+                      title="Eliminar"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p className="text-xs text-gray-400">
+        Formatos: imágenes (JPG, PNG, WebP) y PDF · máx. 5MB.
       </p>
     </div>
   );
