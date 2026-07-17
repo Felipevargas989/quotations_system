@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import {
+  FixedServiceCostItem,
   FurnitureItem,
   ManagementResource,
   RecipeItem,
@@ -227,20 +228,85 @@ export const createManagementResource = async (fields: {
   company_id: number;
   name: string;
   type: ManagementResource["type"];
+  supplier_id?: number | null;
+  list_price?: number | null;
+  charge_mode?: ManagementResource["charge_mode"];
 }) => {
-  const { error } = await supabase.from("management_resources").insert(fields);
-  return { error };
+  const { data, error } = await supabase
+    .from("management_resources")
+    .insert(fields)
+    .select()
+    .single();
+  return { data: data as ManagementResource | null, error };
 };
 
 export const updateManagementResource = async (
   id: number,
   fields: Partial<
-    Pick<ManagementResource, "name" | "type" | "last_price" | "is_active">
+    Pick<
+      ManagementResource,
+      | "name"
+      | "type"
+      | "last_price"
+      | "is_active"
+      | "supplier_id"
+      | "list_price"
+      | "charge_mode"
+    >
   >,
 ) => {
   const { error } = await supabase
     .from("management_resources")
     .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+// ---------- Líneas de costo de un servicio fijo (referencias a recursos) ----
+export const getFixedServiceCostItems = async (
+  companyId: number,
+  fixedServiceId: number,
+): Promise<FixedServiceCostItem[]> => {
+  const { data, error } = await supabase
+    .from("fixed_service_cost_items")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("fixed_service_id", fixedServiceId)
+    .order("created_at");
+  if (error) {
+    console.error("Error cargando costos del servicio", error);
+    return [];
+  }
+  return (data || []) as FixedServiceCostItem[];
+};
+
+export const addFixedServiceCostItem = async (fields: {
+  company_id: number;
+  fixed_service_id: number;
+  resource_id: number;
+  quantity: number;
+}) => {
+  const { error } = await supabase
+    .from("fixed_service_cost_items")
+    .insert(fields);
+  return { error };
+};
+
+export const updateFixedServiceCostItem = async (
+  id: number,
+  fields: Partial<Pick<FixedServiceCostItem, "quantity">>,
+) => {
+  const { error } = await supabase
+    .from("fixed_service_cost_items")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+export const deleteFixedServiceCostItem = async (id: number) => {
+  const { error } = await supabase
+    .from("fixed_service_cost_items")
+    .delete()
     .eq("id", id);
   return { error };
 };

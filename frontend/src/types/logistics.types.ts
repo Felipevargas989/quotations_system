@@ -72,6 +72,20 @@ export interface RecipeItem {
 
 export type ResourceType = "personal" | "arriendo" | "compra";
 
+// Modo de cobro del recurso: por evento (monto único) o por persona.
+export type ChargeMode = "por_evento" | "por_persona";
+
+export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
+  personal: "Personal",
+  arriendo: "Arriendo",
+  compra: "Compra",
+};
+
+export const CHARGE_MODE_LABEL: Record<ChargeMode, string> = {
+  por_evento: "por evento",
+  por_persona: "por persona",
+};
+
 export interface ManagementResource {
   id: number;
   company_id: number;
@@ -79,5 +93,21 @@ export interface ManagementResource {
   type: ResourceType;
   last_price: number | null; // referencia: último precio usado en un evento
   is_active: boolean;
+  created_at: string;
+  // Lista de precios de terceros (opcional): proveedor, precio de lista y
+  // modo de cobro. El staff puede ir sin precio (se asigna por evento).
+  supplier_id: number | null;
+  list_price: number | null;
+  charge_mode: ChargeMode;
+}
+
+// Línea de costo de un servicio fijo: referencia a un recurso del catálogo.
+// El costo se calcula en vivo desde el precio de lista del recurso.
+export interface FixedServiceCostItem {
+  id: number;
+  company_id: number;
+  fixed_service_id: number;
+  resource_id: number;
+  quantity: number;
   created_at: string;
 }

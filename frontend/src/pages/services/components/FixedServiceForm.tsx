@@ -193,7 +193,10 @@ export default function FixedServiceForm({
 
         {tab === "receta" && isEditing && service && company?.id ? (
           <div className="p-6 space-y-6">
-            <FixedCostSection service={service} />
+            <FixedCostSection
+              service={service}
+              companyId={Number(company.id)}
+            />
             <div className="border-t border-gray-200 pt-5">
               <RecipeTab
                 companyId={Number(company.id)}
