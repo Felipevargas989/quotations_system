@@ -50,6 +50,7 @@ export interface Quotation {
   has_contract: boolean;
   payment_plan_type: PaymentPlanType;
   discount_percentage: number;
+  discount_amount?: number;
   subtotal_amount: number;
   items: QuotationItem;
   company_id: number;
