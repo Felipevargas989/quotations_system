@@ -10,6 +10,7 @@ import {
   BarChart,
   X,
   MessageCircle,
+  Receipt,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -56,6 +57,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       name: "Pagos",
       href: "/payments",
       icon: DollarSign,
+      section: "payments",
+    },
+    {
+      name: "Post‑Venta",
+      href: "/post-venta",
+      icon: Receipt,
       section: "payments",
     },
     {

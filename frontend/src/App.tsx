@@ -12,6 +12,7 @@ import QuotationsPage from "./pages/quotations/QuotationsPage";
 import QuotationForm from "./pages/quotations/QuotationForm";
 import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
+import PostVentaPage from "./pages/postventa/PostVentaPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
 import SuperAdminPage from "./pages/superAdmin/Index.tsx";
 import { ServicesPage } from "./pages/services";
@@ -134,6 +135,16 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
                   <PaymentsPage />
+                </PermissionGuard>
+              }
+            />
+
+            {/* Post-Venta (nueva vista de pagos centrada en el evento) */}
+            <Route
+              path="post-venta"
+              element={
+                <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                  <PostVentaPage />
                 </PermissionGuard>
               }
             />
