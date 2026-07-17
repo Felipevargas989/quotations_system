@@ -173,6 +173,40 @@ export const getCatalogServiceNameIds = async (
   return { variable, fixed };
 };
 
+// Costos cacheados de los servicios fijos (componente fijo + por persona),
+// para el análisis de rentabilidad del evento.
+export const getFixedServiceCostsById = async (
+  companyId: number,
+): Promise<
+  Record<number, { cost_fixed: number | null; cost_per_person: number | null }>
+> => {
+  const { data, error } = await supabase
+    .from("fixed_services")
+    .select("id, cost_fixed, cost_per_person")
+    .eq("company_id", companyId);
+  if (error) {
+    console.error("Error cargando costos de servicios fijos", error);
+    return {};
+  }
+  const map: Record<
+    number,
+    { cost_fixed: number | null; cost_per_person: number | null }
+  > = {};
+  (data || []).forEach(
+    (r: {
+      id: number;
+      cost_fixed: number | null;
+      cost_per_person: number | null;
+    }) => {
+      map[r.id] = {
+        cost_fixed: r.cost_fixed,
+        cost_per_person: r.cost_per_person,
+      };
+    },
+  );
+  return map;
+};
+
 // Todas las líneas de receta de la empresa (insumos + mobiliario), para la
 // consolidación logística del evento.
 export const getAllRecipeItems = async (

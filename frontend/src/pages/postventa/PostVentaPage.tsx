@@ -34,7 +34,7 @@ import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import LogisticaTab from "./LogisticaTab";
+import GestionTab from "./GestionTab";
 import {
   getRefundsByQuotation,
   getPaidRefundsByQuotation,
@@ -142,7 +142,7 @@ export default function PostVentaPage() {
   const [filterRestored, setFilterRestored] = useState(false);
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [tab, setTab] = useState<
-    "pagos" | "comprobantes" | "documentos" | "servicios" | "logistica"
+    "pagos" | "comprobantes" | "documentos" | "servicios" | "gestion"
   >("pagos");
 
   useEffect(() => {
@@ -488,9 +488,9 @@ interface EventModalProps {
     | "comprobantes"
     | "documentos"
     | "servicios"
-    | "logistica";
+    | "gestion";
   readonly setTab: (
-    t: "pagos" | "comprobantes" | "documentos" | "servicios" | "logistica",
+    t: "pagos" | "comprobantes" | "documentos" | "servicios" | "gestion",
   ) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
@@ -533,7 +533,7 @@ function EventModal({
     { key: "documentos", label: "Documentos" },
     { key: "comprobantes", label: "Comprobantes" },
     { key: "servicios", label: "Servicios" },
-    { key: "logistica", label: "Logística" },
+    { key: "gestion", label: "Gestión" },
   ];
 
   return (
@@ -696,13 +696,13 @@ function EventModal({
             <DocumentosTab quotationId={event.quotationId} />
           )}
 
-          {tab === "logistica" &&
+          {tab === "gestion" &&
             (qLoading ? (
               <div className="py-10 flex justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
               </div>
             ) : quote ? (
-              <LogisticaTab quote={quote} />
+              <GestionTab quote={quote} />
             ) : (
               <p className="text-sm text-gray-500 py-6 text-center">
                 No se pudo cargar la cotización del evento.
