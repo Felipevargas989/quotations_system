@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, Plus } from "lucide-react";
+import { X, Save, Plus, ChefHat } from "lucide-react";
 import {
   CreateVariableService,
   ServiceCategorySetting,
@@ -13,6 +13,8 @@ import {
   findAllServices,
 } from "../../../../services/services.service";
 import { NumberInput } from "../../../../components/inputs";
+import { useAuth } from "../../../../contexts/AuthContext";
+import RecipeTab from "../RecipeTab";
 
 interface VariableServiceFormProps {
   readonly isOpen: boolean;
@@ -20,6 +22,7 @@ interface VariableServiceFormProps {
   readonly onSuccess: () => void;
   readonly service?: VariableService;
   readonly isEditing?: boolean;
+  readonly initialTab?: "datos" | "receta";
 }
 
 export default function VariableServiceForm({
@@ -28,7 +31,15 @@ export default function VariableServiceForm({
   onSuccess,
   service,
   isEditing = false,
+  initialTab = "datos",
 }: VariableServiceFormProps) {
+  const { company } = useAuth();
+  const [tab, setTab] = useState<"datos" | "receta">(initialTab);
+
+  // Reposicionar la pestaña cada vez que se abre el modal.
+  useEffect(() => {
+    if (isOpen) setTab(isEditing ? initialTab : "datos");
+  }, [isOpen, isEditing, initialTab]);
   const defaultFormData = {
     name: undefined,
     price: undefined,
@@ -179,7 +190,7 @@ export default function VariableServiceForm({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 pb-0 border-b-0">
           <h2 className="text-xl font-semibold text-gray-900">
             {isEditing
               ? "Editar Servicio Variable"
@@ -193,6 +204,46 @@ export default function VariableServiceForm({
           </button>
         </div>
 
+        {/* Pestañas: Datos generales / Receta */}
+        <div className="flex gap-1 px-6 border-b mt-3">
+          <button
+            type="button"
+            onClick={() => setTab("datos")}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 ${
+              tab === "datos"
+                ? "text-blue-600 border-blue-600"
+                : "text-gray-500 border-transparent hover:text-gray-700"
+            }`}
+          >
+            Datos generales
+          </button>
+          <button
+            type="button"
+            onClick={() => isEditing && setTab("receta")}
+            disabled={!isEditing}
+            title={
+              isEditing ? undefined : "Guarda el servicio primero para definir su receta"
+            }
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
+              tab === "receta"
+                ? "text-blue-600 border-blue-600"
+                : "text-gray-500 border-transparent hover:text-gray-700"
+            } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
+          >
+            <ChefHat size={15} /> Receta
+          </button>
+        </div>
+
+        {tab === "receta" && isEditing && service && company?.id ? (
+          <div className="p-6">
+            <RecipeTab
+              companyId={Number(company.id)}
+              serviceType="variable"
+              serviceId={service.id}
+              servicePrice={service.price}
+            />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -334,6 +385,7 @@ export default function VariableServiceForm({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

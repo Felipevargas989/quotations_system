@@ -1,4 +1,12 @@
-import { Edit, Trash2, DollarSign, Tag, Eye, EyeOff } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  DollarSign,
+  Tag,
+  Eye,
+  EyeOff,
+  ChefHat,
+} from "lucide-react";
 import { VariableService, FixedService } from "../../../types/services.types";
 import { ServiceType } from "../constants";
 
@@ -10,6 +18,10 @@ interface ServicesTableProps {
     type: ServiceType,
   ) => void;
   readonly onDeleteService?: (serviceId: number, type: ServiceType) => void;
+  readonly onEditRecipe?: (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => void;
   readonly onToggleActive?: (
     service: VariableService | FixedService,
     type: ServiceType,
@@ -28,6 +40,7 @@ export default function ServicesTable({
   fixedServices,
   onEditService,
   onDeleteService,
+  onEditRecipe,
   onToggleActive,
   hideVariable = false,
 }: ServicesTableProps) {
@@ -297,6 +310,17 @@ export default function ServicesTable({
                             ) : (
                               <EyeOff size={16} />
                             )}
+                          </button>
+                        )}
+                        {onEditRecipe && (
+                          <button
+                            onClick={() =>
+                              onEditRecipe(service, ServiceType.FIXED)
+                            }
+                            className="text-amber-600 hover:text-amber-800"
+                            title="Receta"
+                          >
+                            <ChefHat size={16} />
                           </button>
                         )}
                         {onEditService && (

@@ -34,6 +34,42 @@ export interface Supply {
   created_at: string;
 }
 
+// Unidades concretas permitidas en recetas, por familia del insumo.
+export type RecipeUnit = "kg" | "gr" | "L" | "ml" | "u";
+
+export const UNITS_BY_FAMILY: Record<UnitFamily, RecipeUnit[]> = {
+  masa: ["kg", "gr"],
+  volumen: ["L", "ml"],
+  unidad: ["u"],
+};
+
+// Convierte una cantidad de receta a la unidad base del insumo (kg/L/u).
+export const toBaseQty = (qty: number, unit: RecipeUnit): number =>
+  unit === "gr" || unit === "ml" ? qty / 1000 : qty;
+
+export interface FurnitureItem {
+  id: number;
+  company_id: number;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type RecipeServiceType = "variable" | "fixed";
+
+export interface RecipeItem {
+  id: number;
+  company_id: number;
+  service_type: RecipeServiceType;
+  service_id: number;
+  item_kind: "insumo" | "mobiliario";
+  supply_id: number | null;
+  furniture_id: number | null;
+  qty_per_person: number;
+  unit: RecipeUnit;
+  created_at: string;
+}
+
 export type ResourceType = "personal" | "arriendo" | "compra";
 
 export interface ManagementResource {

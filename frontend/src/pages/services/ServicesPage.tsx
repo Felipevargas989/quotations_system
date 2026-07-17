@@ -25,6 +25,9 @@ export default function ServicesPage() {
   // ServiceForm states
   const [showFixedServiceForm, setShowFixedServiceForm] = useState(false);
   const [showVariableServiceForm, setShowVariableServiceForm] = useState(false);
+  const [initialFormTab, setInitialFormTab] = useState<"datos" | "receta">(
+    "datos",
+  );
   const [editingService, setEditingService] = useState<
     VariableService | FixedService | null
   >(null);
@@ -70,6 +73,22 @@ export default function ServicesPage() {
     service: VariableService | FixedService,
     type: ServiceType,
   ) => {
+    setInitialFormTab("datos");
+    if (type === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(true);
+    } else {
+      setShowFixedServiceForm(true);
+    }
+    setServiceType(type);
+    setEditingService(service);
+  };
+
+  // Abre el mismo modal de edición pero directo en la pestaña Receta.
+  const handleEditRecipe = (
+    service: VariableService | FixedService,
+    type: ServiceType,
+  ) => {
+    setInitialFormTab("receta");
     if (type === ServiceType.VARIABLE) {
       setShowVariableServiceForm(true);
     } else {
@@ -250,6 +269,7 @@ export default function ServicesPage() {
         variableServices={variableServices}
         categoryLinks={categoryLinks}
         onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
+        onEditRecipe={(s) => handleEditRecipe(s, ServiceType.VARIABLE)}
         onDelete={(id) => handleDeleteService(id, ServiceType.VARIABLE)}
         onToggleActive={(s) => handleToggleActive(s, ServiceType.VARIABLE)}
         onReordered={loadServices}
@@ -265,6 +285,7 @@ export default function ServicesPage() {
           variableServices={[]}
           fixedServices={fixedServices}
           onEditService={handleEditService}
+          onEditRecipe={handleEditRecipe}
           onDeleteService={handleDeleteService}
           onToggleActive={handleToggleActive}
           hideVariable
@@ -277,6 +298,7 @@ export default function ServicesPage() {
         onSuccess={handleServiceFormSuccess}
         service={editingService as FixedService | undefined}
         isEditing={!!editingService}
+        initialTab={initialFormTab}
       />
 
       <VariableServiceForm
@@ -285,6 +307,7 @@ export default function ServicesPage() {
         onSuccess={handleServiceFormSuccess}
         service={editingService as VariableService | undefined}
         isEditing={!!editingService}
+        initialTab={initialFormTab}
       />
     </div>
   );

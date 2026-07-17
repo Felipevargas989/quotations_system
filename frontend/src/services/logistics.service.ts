@@ -1,6 +1,9 @@
 import { supabase } from "../lib/supabase";
 import {
+  FurnitureItem,
   ManagementResource,
+  RecipeItem,
+  RecipeServiceType,
   Supplier,
   Supply,
 } from "../types/logistics.types";
@@ -65,8 +68,12 @@ export const createSupply = async (fields: {
   price: number;
   supplier_id?: number | null;
 }) => {
-  const { error } = await supabase.from("supplies").insert(fields);
-  return { error };
+  const { data, error } = await supabase
+    .from("supplies")
+    .insert(fields)
+    .select()
+    .single();
+  return { data: data as Supply | null, error };
 };
 
 export const updateSupply = async (
@@ -76,6 +83,87 @@ export const updateSupply = async (
   >,
 ) => {
   const { error } = await supabase.from("supplies").update(fields).eq("id", id);
+  return { error };
+};
+
+// ---------- Mobiliario (mini-catálogo; la Fase 5 lo extiende) ----------
+export const getFurnitureItems = async (
+  companyId: number,
+): Promise<FurnitureItem[]> => {
+  const { data, error } = await supabase
+    .from("furniture_items")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("name");
+  if (error) {
+    console.error("Error cargando mobiliario", error);
+    return [];
+  }
+  return (data || []) as FurnitureItem[];
+};
+
+export const createFurnitureItem = async (fields: {
+  company_id: number;
+  name: string;
+}) => {
+  const { data, error } = await supabase
+    .from("furniture_items")
+    .insert(fields)
+    .select()
+    .single();
+  return { data: data as FurnitureItem | null, error };
+};
+
+// ---------- Recetas por servicio ----------
+export const getRecipeItems = async (
+  companyId: number,
+  serviceType: RecipeServiceType,
+  serviceId: number,
+): Promise<RecipeItem[]> => {
+  const { data, error } = await supabase
+    .from("service_recipe_items")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("service_type", serviceType)
+    .eq("service_id", serviceId)
+    .order("created_at");
+  if (error) {
+    console.error("Error cargando receta", error);
+    return [];
+  }
+  return (data || []) as RecipeItem[];
+};
+
+export const addRecipeItem = async (fields: {
+  company_id: number;
+  service_type: RecipeServiceType;
+  service_id: number;
+  item_kind: RecipeItem["item_kind"];
+  supply_id?: number | null;
+  furniture_id?: number | null;
+  qty_per_person: number;
+  unit: RecipeItem["unit"];
+}) => {
+  const { error } = await supabase.from("service_recipe_items").insert(fields);
+  return { error };
+};
+
+export const updateRecipeItem = async (
+  id: number,
+  fields: Partial<Pick<RecipeItem, "qty_per_person" | "unit">>,
+) => {
+  const { error } = await supabase
+    .from("service_recipe_items")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+export const deleteRecipeItem = async (id: number) => {
+  const { error } = await supabase
+    .from("service_recipe_items")
+    .delete()
+    .eq("id", id);
   return { error };
 };
 

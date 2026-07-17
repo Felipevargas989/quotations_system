@@ -8,6 +8,7 @@ import {
   MoreVertical,
   Pencil,
   Check,
+  ChefHat,
   X,
 } from "lucide-react";
 import {
@@ -24,6 +25,7 @@ interface Props {
   readonly onEdit: (service: VariableService) => void;
   readonly onDelete: (id: number) => void;
   readonly onToggleActive: (service: VariableService) => void;
+  readonly onEditRecipe?: (service: VariableService) => void;
   readonly onReordered: () => void;
   // Category-level management, handled by the parent (calls the API + reload).
   readonly onRenameCategory: (id: number, name: string) => Promise<void>;
@@ -45,6 +47,7 @@ export default function VariableServicesByCategory({
   onEdit,
   onDelete,
   onToggleActive,
+  onEditRecipe,
   onReordered,
   onRenameCategory,
   onToggleCategoryActive,
@@ -451,6 +454,16 @@ export default function VariableServicesByCategory({
                         >
                           {inactive ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
+                        {onEditRecipe && (
+                          <button
+                            type="button"
+                            title="Receta"
+                            onClick={() => onEditRecipe(service)}
+                            className="text-amber-600 hover:text-amber-800"
+                          >
+                            <ChefHat size={16} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           title="Editar"
