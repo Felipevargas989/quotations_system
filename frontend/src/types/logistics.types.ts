@@ -34,7 +34,7 @@ export interface Supply {
   created_at: string;
 }
 
-export type ResourceType = "personal" | "arriendo";
+export type ResourceType = "personal" | "arriendo" | "compra";
 
 export interface ManagementResource {
   id: number;

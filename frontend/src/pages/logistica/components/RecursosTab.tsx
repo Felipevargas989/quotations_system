@@ -15,6 +15,13 @@ const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const TYPE_LABEL: Record<ResourceType, string> = {
   personal: "Personal",
   arriendo: "Arriendo",
+  compra: "Compra",
+};
+
+const TYPE_CHIP: Record<ResourceType, string> = {
+  personal: "bg-blue-100 text-blue-700",
+  arriendo: "bg-purple-100 text-purple-700",
+  compra: "bg-emerald-100 text-emerald-700",
 };
 
 export default function RecursosTab({
@@ -137,11 +144,7 @@ export default function RecursosTab({
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <span
-                    className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                      r.type === "personal"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-purple-100 text-purple-700"
-                    }`}
+                    className={`px-2 py-0.5 text-xs font-semibold rounded-full ${TYPE_CHIP[r.type]}`}
                   >
                     {TYPE_LABEL[r.type]}
                   </span>
@@ -205,7 +208,7 @@ export default function RecursosTab({
                 <label className="text-xs font-semibold text-gray-600">
                   Tipo *
                 </label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="grid grid-cols-3 gap-2 mt-1">
                   {(Object.keys(TYPE_LABEL) as ResourceType[]).map((t) => (
                     <button
                       key={t}
