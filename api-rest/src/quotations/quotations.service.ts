@@ -258,8 +258,11 @@ export class QuotationsService {
           }
           // if there is at least one pending payment
           else {
-            // iterate over each payment and reduce the amountToReduce from each payment until the amountToReduce is 0
-            for (const payment of payments) {
+            // iterate over each payment (starting from the LAST one, i.e. the
+            // furthest due date) and reduce the amountToReduce from each
+            // payment until the amountToReduce is 0. The remaining balance
+            // stays concentrated in the earliest pending installments.
+            for (const payment of [...payments].reverse()) {
               // if amountToReduce is 0, then stop the iteration because all the decrements are applied
               if (amountToReduce === 0) {
                 break;
