@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
@@ -76,6 +77,12 @@ interface EventRow {
   payments: PaymentWithTransactions[];
 }
 
+// Persistir el filtro de estado por usuario (igual que en Cotizaciones):
+// la selección sobrevive recargas/navegación en vez de volver a "todos".
+const STATUS_FILTER_KEY = (userId: string | number) =>
+  `eventia_postventa_status_filter_${userId}`;
+const STATUS_FILTER_VALUES = ["all", "pendiente", "pagado", "vencido"];
+
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
@@ -85,6 +92,21 @@ const fmtDate = (d: string | null) => {
     return "—";
   }
 };
+// Estado EFECTIVO de una cuota. El status guardado en BD solo pasa a
+// "vencido" mediante un cron del backend (1 AM); si el backend no estaba
+// corriendo (típico en dev) una cuota atrasada seguiría diciendo "pendiente".
+// Por eso además comparamos la fecha de vencimiento con hoy (por fecha
+// calendario, sin horas): vence hoy = aún pendiente; desde mañana = vencida.
+const cuotaStatus = (p: PaymentWithTransactions): string => {
+  if (p.status === "pagado") return "pagado";
+  if (p.status === "vencido") return "vencido";
+  const saldo = (p.amount || 0) - (p.paid_amount || 0);
+  const due = (p.due_date || "").slice(0, 10);
+  if (saldo > 0 && due && due < format(new Date(), "yyyy-MM-dd"))
+    return "vencido";
+  return p.status;
+};
+
 const statusBadge = (st: string) => {
   const map: Record<string, string> = {
     pagado: "bg-green-100 text-green-800",
@@ -101,10 +123,12 @@ const statusBadge = (st: string) => {
 };
 
 export default function PostVentaPage() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [filterRestored, setFilterRestored] = useState(false);
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [tab, setTab] = useState<
     "pagos" | "comprobantes" | "documentos" | "servicios"
@@ -113,6 +137,30 @@ export default function PostVentaPage() {
   useEffect(() => {
     loadEvents();
   }, []);
+
+  // Restaurar el filtro persistido (por usuario) al entrar a la página.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(STATUS_FILTER_KEY(user.id));
+      if (saved && STATUS_FILTER_VALUES.includes(saved)) {
+        setStatusFilter(saved);
+      }
+    } catch {
+      /* storage deshabilitado: usar el default */
+    }
+    setFilterRestored(true);
+  }, [user]);
+
+  // Guardar el filtro cada vez que cambia (después de restaurar).
+  useEffect(() => {
+    if (!user || !filterRestored) return;
+    try {
+      localStorage.setItem(STATUS_FILTER_KEY(user.id), statusFilter);
+    } catch {
+      /* ignorar cuota/storage deshabilitado */
+    }
+  }, [user, filterRestored, statusFilter]);
 
   const fetchEvents = async (): Promise<EventRow[]> => {
     const [{ data: payments }, { data: clients }, refundsPaid] =
@@ -149,7 +197,8 @@ export default function PostVentaPage() {
         const saldo = total - (paid - refunded);
         let status: EventRow["status"] = "pendiente";
         if (saldo <= 0) status = "pagado";
-        else if (ps.some((p) => p.status === "vencido")) status = "vencido";
+        else if (ps.some((p) => cuotaStatus(p) === "vencido"))
+          status = "vencido";
 
         events.push({
           quotationId,
@@ -598,7 +647,7 @@ function EventModal({
                             : ""}
                         </div>
                       </div>
-                      {statusBadge(pay.status)}
+                      {statusBadge(cuotaStatus(pay))}
                     </div>
                   </div>
                 );
