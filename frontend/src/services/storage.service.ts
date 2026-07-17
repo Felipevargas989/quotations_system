@@ -82,6 +82,78 @@ export const uploadPaymentReceipt = async (
   }
 };
 
+const BUCKET = "payment-receipts";
+
+const sanitize = (name: string) =>
+  name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
+
+const uploadToBucket = async (
+  file: File,
+  filePath: string,
+): Promise<UploadResult> => {
+  try {
+    const check = validateImageFile(file);
+    if (!check.valid) throw new Error(check.error);
+
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, file, { cacheControl: "3600", upsert: false });
+    if (error) throw new Error(`Error al subir el archivo: ${error.message}`);
+
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+    return { success: true, url: data.publicUrl };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al subir",
+    };
+  }
+};
+
+// Comprobante de un reembolso (misma bucket, prefijo distinto).
+export const uploadRefundReceipt = async (
+  file: File,
+  quotationId: string,
+  refundId: string | number,
+): Promise<UploadResult> => {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const ext = file.name.split(".").pop();
+  const path = `refund-receipts/${quotationId}/${refundId}_${ts}.${ext}`;
+  return uploadToBucket(file, path);
+};
+
+// Documento del evento por categoría.
+export const uploadEventDocument = async (
+  file: File,
+  quotationId: string,
+  category: string,
+): Promise<UploadResult> => {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const path = `event-documents/${quotationId}/${category}/${ts}_${sanitize(
+    file.name,
+  )}`;
+  return uploadToBucket(file, path);
+};
+
+// Elimina un archivo del bucket a partir de su URL pública.
+export const deleteStorageFileByUrl = async (
+  url: string,
+): Promise<boolean> => {
+  try {
+    const marker = `/public/${BUCKET}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return false;
+    const path = decodeURIComponent(url.slice(idx + marker.length));
+    const { error } = await supabase.storage.from(BUCKET).remove([path]);
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
 export const deletePaymentReceipt = async (url: string): Promise<boolean> => {
   try {
     // Extract file path from URL
