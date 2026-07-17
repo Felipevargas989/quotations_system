@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { FixedService, VariableService } from "../../types/services.types";
 import {
+  deleteCategoryById,
   removeFixedService,
   removeVariableService,
+  reorderCategories,
+  updateCategoryById,
   updateFixedService,
-  updateServiceCategory,
   updateVariableService,
 } from "../../services/services.service";
 import ExcelUpload from "./components/ExcelUpload";
@@ -36,16 +38,10 @@ export default function ServicesPage() {
     rawFixedServices: fixedServices,
     orderedCategories,
     categoryLinks,
-    inactiveCategories,
     loading,
     error,
     reload: loadServices,
   } = useServices();
-
-  // Distinct category names across variable services (categories are strings).
-  const categories = [
-    ...new Set(variableServices.map((s) => s.category).filter(Boolean)),
-  ];
 
   const handleUploadSuccess = async () => {
     setUploadError(null);
@@ -121,13 +117,46 @@ export default function ServicesPage() {
     }
   };
 
-  const handleToggleCategory = async (name: string, nextActive: boolean) => {
+  const handleRenameCategory = async (id: number, name: string) => {
+    await updateCategoryById(id, { name });
+    await loadServices();
+  };
+
+  const handleToggleCategoryActive = async (
+    id: number,
+    nextActive: boolean,
+  ) => {
+    await updateCategoryById(id, { is_active: nextActive });
+    await loadServices();
+  };
+
+  const handleReorderCategories = async (orderedIds: number[]) => {
+    await reorderCategories(orderedIds);
+    await loadServices();
+  };
+
+  // Delete a category, surfacing the backend "orphan guard": if any service
+  // would be left with no category, the backend returns 409 + service_ids.
+  const handleDeleteCategory = async (id: number) => {
     try {
-      await updateServiceCategory(name, nextActive);
+      await deleteCategoryById(id);
       await loadServices();
-    } catch (error) {
-      console.error("Error al actualizar el estado de la categoría", error);
-      alert("Error al actualizar el estado de la categoría");
+    } catch (err) {
+      const data = (
+        err as { response?: { data?: { message?: string; service_ids?: number[] } } }
+      )?.response?.data;
+      if (data?.service_ids?.length) {
+        const names = data.service_ids
+          .map((sid) => variableServices.find((s) => s.id === sid)?.name)
+          .filter((n): n is string => !!n);
+        const list = names.length
+          ? names.join(", ")
+          : `${data.service_ids.length} servicio(s)`;
+        throw new Error(
+          `No se puede eliminar: estos servicios quedarían sin categoría: ${list}. Asígnalos a otra categoría primero.`,
+        );
+      }
+      throw new Error(data?.message || "No se pudo eliminar la categoría.");
     }
   };
 
@@ -211,11 +240,13 @@ export default function ServicesPage() {
         onSuccess={handleUploadSuccess}
       />
 
-      {/* Categories activation manager */}
+      {/* Categories management: rename / activate / delete / reorder */}
       <CategoriesManager
-        categories={categories}
-        inactiveCategories={inactiveCategories}
-        onToggleCategory={handleToggleCategory}
+        categories={orderedCategories}
+        onRename={handleRenameCategory}
+        onToggleActive={handleToggleCategoryActive}
+        onDelete={handleDeleteCategory}
+        onReorder={handleReorderCategories}
       />
 
       {/* Variable services grouped by category with drag & drop ordering */}
