@@ -646,7 +646,7 @@ function ServiciosTab({
   const subtotal = valuePerPerson * personas + fixedValue;
   const descAmount =
     discType === "%"
-      ? Math.round((subtotal * (discVal || 0)) / 100)
+      ? Math.round((subtotal * Math.min(discVal || 0, 100)) / 100)
       : Math.min(subtotal, discVal || 0);
   const total = subtotal - descAmount;
 
@@ -786,6 +786,7 @@ function ServiciosTab({
                 value={discVal || undefined}
                 onChange={(v) => setDiscVal(v || 0)}
                 min={0}
+                max={discType === "%" ? 100 : undefined}
                 formatThousands
                 placeholder="0"
                 className="text-right"
