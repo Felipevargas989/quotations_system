@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Armchair, Package, ShoppingCart, Truck, Users } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import ComprasTab from "./components/ComprasTab";
 import ProveedoresTab from "./components/ProveedoresTab";
 import InsumosTab from "./components/InsumosTab";
 import MobiliarioTab from "./components/MobiliarioTab";
@@ -56,27 +57,7 @@ export default function LogisticaPage() {
           </div>
         ) : (
           <>
-            {tab === "compras" && (
-              <div className="p-10">
-                <div className="mx-auto max-w-md text-center">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                    <ShoppingCart size={26} />
-                  </div>
-                  <h2 className="text-lg font-bold text-gray-900">
-                    Compras consolidadas por proveedor
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Selecciona los eventos cerrados que vas a provisionar y
-                    genera una sola lista de compra, consolidada y agrupada por
-                    proveedor, con descarga a Excel. Los eventos quedan
-                    provisionados y sus costos de insumos se congelan.
-                  </p>
-                  <p className="mt-3 text-xs text-gray-400">
-                    Próximamente (requiere recetas en los servicios)
-                  </p>
-                </div>
-              </div>
-            )}
+            {tab === "compras" && <ComprasTab companyId={companyId} />}
             {tab === "insumos" && <InsumosTab companyId={companyId} />}
             {tab === "mobiliario" && <MobiliarioTab companyId={companyId} />}
             {tab === "proveedores" && <ProveedoresTab companyId={companyId} />}

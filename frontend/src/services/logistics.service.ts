@@ -223,6 +223,71 @@ export const getAllRecipeItems = async (
   return (data || []) as RecipeItem[];
 };
 
+// ---------- Compras multi-evento (Fase 3) ----------
+export interface PurchasingEvent {
+  id: string; // uuid de la cotización
+  quotation_number: number;
+  event_date: string | null;
+  people_count: number;
+  total_amount: number;
+  items: unknown;
+  provisioned_at: string | null;
+  provisioned_cost: number | null;
+  client_name: string;
+}
+
+// Eventos cerrados (cotizaciones aceptadas), los mismos de Post Venta.
+export const getAcceptedEvents = async (
+  companyId: number,
+): Promise<PurchasingEvent[]> => {
+  const { data, error } = await supabase
+    .from("quotations")
+    .select(
+      "id, quotation_number, event_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
+    )
+    .eq("company_id", companyId)
+    .eq("quotation_status", "aceptada")
+    .order("event_date", { ascending: true });
+  if (error) {
+    console.error("Error cargando eventos para compras", error);
+    return [];
+  }
+  return (data || []).map((q: Record<string, unknown>) => ({
+    ...(q as unknown as PurchasingEvent),
+    client_name:
+      ((q.clients as { name?: string } | null)?.name as string) || "—",
+  }));
+};
+
+// Marca los eventos como provisionados (fecha + foto del costo estimado).
+// Re-provisionar está permitido: actualiza fecha y costo.
+export const markQuotationsProvisioned = async (
+  entries: { id: string; cost: number }[],
+) => {
+  const now = new Date().toISOString();
+  const results = await Promise.all(
+    entries.map((e) =>
+      supabase
+        .from("quotations")
+        .update({ provisioned_at: now, provisioned_cost: Math.round(e.cost) })
+        .eq("id", e.id),
+    ),
+  );
+  return { error: results.find((r) => r.error)?.error || null };
+};
+
+// Estado de provisión de una cotización (para el badge en Gestión).
+export const getQuotationProvisioning = async (
+  quotationId: string,
+): Promise<{ provisioned_at: string | null }> => {
+  const { data } = await supabase
+    .from("quotations")
+    .select("provisioned_at")
+    .eq("id", quotationId)
+    .single();
+  return { provisioned_at: (data?.provisioned_at as string | null) || null };
+};
+
 // ---------- Recetas por servicio ----------
 export const getRecipeItems = async (
   companyId: number,

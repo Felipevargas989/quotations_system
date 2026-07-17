@@ -7,6 +7,7 @@ import {
   getCatalogServiceNameIds,
   getFixedServiceCostsById,
   getFurnitureItems,
+  getQuotationProvisioning,
   getSupplies,
 } from "../../services/logistics.service";
 import {
@@ -65,6 +66,7 @@ export default function GestionTab({
       { cost_fixed: number | null; cost_per_person: number | null }
     >
   >({});
+  const [provisionedAt, setProvisionedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,16 +78,18 @@ export default function GestionTab({
       getFurnitureItems(companyId),
       getCatalogServiceNameIds(companyId),
       getFixedServiceCostsById(companyId),
+      getQuotationProvisioning(String(quote.id)),
     ])
-      .then(([r, s, f, n, fc]) => {
+      .then(([r, s, f, n, fc, prov]) => {
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
         setNameIds(n);
         setFixedCosts(fc);
+        setProvisionedAt(prov.provisioned_at);
       })
       .finally(() => setLoading(false));
-  }, [companyId]);
+  }, [companyId, quote.id]);
 
   const personas = quote.people_count || 0;
 
@@ -510,6 +514,12 @@ export default function GestionTab({
           <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
             según catálogo
           </span>
+          {provisionedAt && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+              Provisionado el{" "}
+              {new Date(provisionedAt).toLocaleDateString("es-CL")}
+            </span>
+          )}
         </div>
         {hayCostos ? (
           <>
