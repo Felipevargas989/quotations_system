@@ -51,6 +51,26 @@ export const deleteCategorySection = async (id: number) => {
   return { error };
 };
 
+// Marca una sección como la FIJA de su categoría (o ninguna, con null).
+// Primero despeja la fija actual; la base garantiza que haya a lo más una.
+export const setDefaultSection = async (
+  categoryId: number,
+  sectionId: number | null,
+) => {
+  const { error: clearErr } = await supabase
+    .from("category_sections")
+    .update({ is_default: false })
+    .eq("category_id", categoryId)
+    .eq("is_default", true);
+  if (clearErr) return { error: clearErr };
+  if (sectionId === null) return { error: null };
+  const { error } = await supabase
+    .from("category_sections")
+    .update({ is_default: true })
+    .eq("id", sectionId);
+  return { error };
+};
+
 export const reorderCategorySections = async (orderedIds: number[]) => {
   const results = await Promise.all(
     orderedIds.map((id, i) =>

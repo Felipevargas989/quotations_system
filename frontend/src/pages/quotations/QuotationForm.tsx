@@ -9,6 +9,7 @@ import {
   X,
   CheckCircle,
   Layers,
+  Lock,
   Package,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -36,6 +37,8 @@ import {
   QuotationStatus,
 } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
+import { getCategorySections } from "../../services/sections.service";
+import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { UserRole } from "../../constants/users";
@@ -75,12 +78,14 @@ interface SelectedFixedService {
 export default function QuotationForm() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { user, userRole } = useAuth();
+  const { user, userRole, company } = useAuth();
   const {
     products,
     variableServices,
     fixedServices,
     inactiveCategories,
+    orderedCategories,
+    categoryLinks,
     loading: servicesLoading,
     calculatePrice,
   } = useServices();
@@ -192,6 +197,59 @@ export default function QuotationForm() {
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
     useDateAvailability(formData.event_date);
+
+  // Secciones de categoría: la sección FIJA de una categoría hace que sus
+  // servicios entren solos a la cotización al elegir la categoría, y no se
+  // puedan quitar mientras la categoría siga en el evento (ej: pan y pebre).
+  const [categorySections, setCategorySections] = useState<CategorySection[]>(
+    [],
+  );
+  useEffect(() => {
+    if (!company?.id) return;
+    getCategorySections(Number(company.id)).then(setCategorySections);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.id]);
+
+  // Ids de servicios de la sección fija de una categoría (por nombre).
+  const defaultServiceIdsFor = (categoryName: string): number[] => {
+    const cat = orderedCategories.find((c) => c.name === categoryName);
+    if (!cat) return [];
+    const sec = categorySections.find(
+      (s) => s.category_id === cat.id && s.is_default,
+    );
+    if (!sec) return [];
+    return categoryLinks
+      .filter((l) => l.category_id === cat.id && l.section_id === sec.id)
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+          (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+      )
+      .map((l) => l.variable_service_id);
+  };
+
+  // ¿Este item va bloqueado en la categoría? (pertenece a su sección fija)
+  const isLockedService = (categoryName: string, codigo: string) =>
+    defaultServiceIdsFor(categoryName).some((id) => id.toString() === codigo);
+
+  // Items de la sección fija listos para entrar al box (solo activos).
+  const defaultServicesFor = (categoryName: string): SelectedService[] =>
+    defaultServiceIdsFor(categoryName).flatMap((sid) => {
+      const p = products.find(
+        (prod) =>
+          prod.categoria === categoryName && prod.codigo === sid.toString(),
+      );
+      if (!p || p.is_active === false) return [];
+      return [
+        {
+          codigo: p.codigo,
+          nombre: p.nombre,
+          precio: p.precio,
+          categoria: categoryName,
+          quantity: 1,
+        },
+      ];
+    });
 
   // Fetch quotation data if ID exists in URL
   useEffect(() => {
@@ -455,12 +513,19 @@ export default function QuotationForm() {
 
     if (services.length === 0) return null;
 
+    // Los servicios de la sección fija de la categoría van sí o sí, aunque el
+    // grupo se haya guardado antes de definirla.
+    const missing = defaultServicesFor(group.category).filter(
+      (d) => !services.some((s) => s.codigo === d.codigo),
+    );
+    const all = [...services, ...missing];
+
     return {
       id: `group-${group.id}-${Date.now()}`,
       selectedCategory: group.category,
       selectedItem: "",
-      selectedItems: services.map((s) => s.codigo),
-      services,
+      selectedItems: all.map((s) => s.codigo),
+      services: all,
       groupName: group.name,
     };
   };
@@ -583,6 +648,9 @@ export default function QuotationForm() {
   };
 
   const updateServiceBox = (boxId: string, field: string, value: string) => {
+    // Al elegir categoría, sus servicios de sección fija entran de inmediato.
+    const seeded =
+      field === "selectedCategory" && value ? defaultServicesFor(value) : [];
     setServiceBoxes((prev) =>
       prev.map((box) =>
         box.id === boxId
@@ -590,7 +658,11 @@ export default function QuotationForm() {
               ...box,
               [field]: value,
               ...(field === "selectedCategory"
-                ? { selectedItem: "", selectedItems: [], services: [] }
+                ? {
+                    selectedItem: "",
+                    selectedItems: seeded.map((s) => s.codigo),
+                    services: seeded,
+                  }
                 : {}),
             }
           : box,
@@ -786,6 +858,10 @@ export default function QuotationForm() {
       prev.map((box) => {
         if (box.id === boxId) {
           if (newQuantity <= 0) {
+            // Los de la sección fija no se pueden quitar (quedan en 1).
+            if (isLockedService(box.selectedCategory, codigo)) {
+              return box;
+            }
             // Remove service from this box
             return {
               ...box,
@@ -2106,33 +2182,51 @@ export default function QuotationForm() {
                         Items seleccionados:
                       </h5>
                       <div className="space-y-2">
-                        {getSelectedItemsForBox(box.id).map((service) => (
-                          <div
-                            key={service.codigo}
-                            className="flex items-center justify-between bg-gray-50 p-2 rounded"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm">{service.nombre}</span>
+                        {getSelectedItemsForBox(box.id).map((service) => {
+                          // Sección fija: va sí o sí con la categoría, no se
+                          // puede quitar (cantidad mínima 1).
+                          const locked = isLockedService(
+                            box.selectedCategory,
+                            service.codigo,
+                          );
+                          return (
+                            <div
+                              key={service.codigo}
+                              className="flex items-center justify-between bg-gray-50 p-2 rounded"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm">
+                                  {service.nombre}
+                                </span>
+                                {locked && (
+                                  <span
+                                    title="Va siempre con esta categoría (sección fija)"
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5"
+                                  >
+                                    <Lock size={10} /> fijo
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-medium">
+                                  ${service.precio.toLocaleString()}
+                                </span>
+                                <QuantitySelector
+                                  value={service.quantity}
+                                  onChange={(newQuantity) =>
+                                    updateServiceQuantity(
+                                      service.codigo,
+                                      newQuantity,
+                                      box.id,
+                                    )
+                                  }
+                                  min={locked ? 1 : 0}
+                                  disabled={isRestrictedEditing}
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium">
-                                ${service.precio.toLocaleString()}
-                              </span>
-                              <QuantitySelector
-                                value={service.quantity}
-                                onChange={(newQuantity) =>
-                                  updateServiceQuantity(
-                                    service.codigo,
-                                    newQuantity,
-                                    box.id,
-                                  )
-                                }
-                                min={0}
-                                disabled={isRestrictedEditing}
-                              />
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

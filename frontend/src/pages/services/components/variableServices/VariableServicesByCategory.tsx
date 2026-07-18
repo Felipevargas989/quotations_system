@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
+  Star,
   X,
 } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ import {
   getCategorySections,
   renameCategorySection,
   reorderCategorySections,
+  setDefaultSection,
   setLinkSection,
 } from "../../../../services/sections.service";
 
@@ -303,6 +305,37 @@ export default function VariableServicesByCategory({
     await reorderCategorySections(list);
     loadSections();
   };
+
+  // Marcar/desmarcar la sección FIJA de la categoría (a lo más una).
+  const toggleDefaultSection = async (s: CategorySection) => {
+    const { error: err } = await setDefaultSection(
+      s.category_id,
+      s.is_default ? null : s.id,
+    );
+    if (err) {
+      setError("No se pudo marcar la sección fija.");
+      return;
+    }
+    loadSections();
+  };
+
+  const closeSectionsModal = () => {
+    setSectionsEditFor(null);
+    setRenamingSectionId(null);
+    setNewSectionName("");
+    setError(null);
+  };
+
+  // Escape cierra el modal de secciones (todo ya quedó guardado).
+  useEffect(() => {
+    if (sectionsEditFor === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSectionsModal();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionsEditFor]);
 
   // --- Category ordering ---
   const catById = new Map(orderedCategories.map((c) => [c.id, c]));
@@ -611,120 +644,6 @@ export default function VariableServicesByCategory({
               )}
             </div>
 
-            {/* Editor de secciones de la categoría */}
-            {sectionsEditFor === cat.id && (
-              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase text-blue-800">
-                    Secciones de {cat.name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSectionsEditFor(null)}
-                    className="text-blue-400 hover:text-blue-700"
-                    aria-label="Cerrar secciones"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-                {catSections.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center gap-1.5 bg-white border border-blue-100 rounded-lg px-2 py-1.5"
-                  >
-                    {renamingSectionId === s.id ? (
-                      <>
-                        <input
-                          autoFocus
-                          value={renameSectionName}
-                          onChange={(e) =>
-                            setRenameSectionName(e.target.value)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") submitRenameSection(s);
-                            if (e.key === "Escape")
-                              setRenamingSectionId(null);
-                          }}
-                          className="flex-1 border border-gray-300 rounded px-2 py-0.5 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => submitRenameSection(s)}
-                          className="text-green-600"
-                          aria-label="Guardar nombre"
-                        >
-                          <Check size={15} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex-1 text-sm text-gray-800">
-                          {s.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => moveSection(cat.id, s.id, -1)}
-                          disabled={i === 0}
-                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25"
-                          aria-label="Subir sección"
-                        >
-                          <ChevronUp size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveSection(cat.id, s.id, 1)}
-                          disabled={i === catSections.length - 1}
-                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25"
-                          aria-label="Bajar sección"
-                        >
-                          <ChevronDown size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRenamingSectionId(s.id);
-                            setRenameSectionName(s.name);
-                          }}
-                          className="text-gray-400 hover:text-blue-600"
-                          aria-label="Renombrar sección"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeSection(s)}
-                          className="text-gray-400 hover:text-red-600"
-                          title="Eliminar (sus servicios quedan sin sección)"
-                          aria-label="Eliminar sección"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-                <div className="flex items-center gap-2">
-                  <input
-                    value={newSectionName}
-                    onChange={(e) => setNewSectionName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") addSection(cat.id);
-                    }}
-                    placeholder="Nueva sección (ej: Entradas, Fondos, Postres…)"
-                    className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addSection(cat.id)}
-                    disabled={!newSectionName.trim()}
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-40"
-                  >
-                    + Agregar
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Services within this category (drag to reorder por sección) */}
             <div className="p-2">
               {ids.length === 0 ? (
@@ -737,8 +656,16 @@ export default function VariableServicesByCategory({
                   return (
                     <div key={`sec-${sectionKey}`}>
                       {(group.section || catSections.length > 0) && (
-                        <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                        <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400 flex items-center gap-1">
                           {group.section ? group.section.name : "Sin sección"}
+                          {group.section?.is_default && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-amber-500"
+                              title="Sección fija: sus servicios entran solos a la cotización"
+                            >
+                              <Star size={10} fill="currentColor" /> fija
+                            </span>
+                          )}
                         </div>
                       )}
                       {group.ids.map((id) => {
@@ -862,6 +789,183 @@ export default function VariableServicesByCategory({
           </div>
         );
       })}
+
+      {/* Modal de secciones: flotante sobre la lista, para no ver los nombres
+          duplicados. Cada acción se guarda al instante; "Listo" solo cierra. */}
+      {(() => {
+        const editCat =
+          sectionsEditFor !== null ? catById.get(sectionsEditFor) : null;
+        if (!editCat) return null;
+        const modalSections = sectionsFor(editCat.id);
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeSectionsModal();
+            }}
+          >
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[85vh]">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <h3 className="font-semibold text-gray-900">
+                  Secciones · {editCat.name}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Ordenan la carta de esta categoría. La sección con la
+                  estrella es la <b>fija</b>: sus servicios entran solos a la
+                  cotización y no se pueden quitar del evento.
+                </p>
+              </div>
+
+              <div className="px-3 py-2 overflow-y-auto flex-1">
+                {error && (
+                  <p className="mx-2 my-1 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    {error}
+                  </p>
+                )}
+                {modalSections.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-gray-400">
+                    Aún no hay secciones. Crea la primera abajo.
+                  </p>
+                ) : (
+                  modalSections.map((s, i) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                    >
+                      {renamingSectionId === s.id ? (
+                        <>
+                          <input
+                            autoFocus
+                            value={renameSectionName}
+                            onChange={(e) =>
+                              setRenameSectionName(e.target.value)
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") submitRenameSection(s);
+                              if (e.key === "Escape") {
+                                e.stopPropagation();
+                                setRenamingSectionId(null);
+                              }
+                            }}
+                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => submitRenameSection(s)}
+                            className="text-green-600 hover:text-green-800 p-1"
+                            aria-label="Guardar nombre"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => toggleDefaultSection(s)}
+                            title={
+                              s.is_default
+                                ? "Sección fija (clic para quitar)"
+                                : "Marcar como sección fija: sus servicios entran solos a la cotización"
+                            }
+                            aria-label={`Sección fija: ${s.name}`}
+                            className={`p-1 ${
+                              s.is_default
+                                ? "text-amber-500 hover:text-amber-600"
+                                : "text-gray-300 hover:text-amber-500"
+                            }`}
+                          >
+                            <Star
+                              size={16}
+                              fill={s.is_default ? "currentColor" : "none"}
+                            />
+                          </button>
+                          <span className="flex-1 text-sm text-gray-800 truncate">
+                            {s.name}
+                            {s.is_default && (
+                              <span className="ml-2 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                                fija
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => moveSection(editCat.id, s.id, -1)}
+                            disabled={i === 0}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-25 p-1"
+                            aria-label="Subir sección"
+                          >
+                            <ChevronUp size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSection(editCat.id, s.id, 1)}
+                            disabled={i === modalSections.length - 1}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-25 p-1"
+                            aria-label="Bajar sección"
+                          >
+                            <ChevronDown size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRenamingSectionId(s.id);
+                              setRenameSectionName(s.name);
+                            }}
+                            className="text-gray-400 hover:text-blue-600 p-1"
+                            aria-label="Renombrar sección"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSection(s)}
+                            className="text-gray-400 hover:text-red-600 p-1"
+                            title="Eliminar (sus servicios quedan sin sección)"
+                            aria-label="Eliminar sección"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2">
+                <input
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addSection(editCat.id);
+                  }}
+                  placeholder="Nueva sección (ej: Entradas, Fondos, Postres…)"
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => addSection(editCat.id)}
+                  disabled={!newSectionName.trim()}
+                  className="px-3 py-2 bg-white border border-blue-600 text-blue-600 rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-blue-50"
+                >
+                  + Agregar
+                </button>
+              </div>
+
+              <div className="px-5 pb-4">
+                <button
+                  type="button"
+                  onClick={closeSectionsModal}
+                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

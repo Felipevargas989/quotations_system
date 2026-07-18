@@ -52,13 +52,16 @@ export interface VariableServiceCategoryLink {
 }
 
 // Sección dentro de una categoría (Entradas / Fondos / Postres...), como una
-// carta real. Cada categoría define las suyas.
+// carta real. Cada categoría define las suyas. A lo más UNA por categoría es
+// "fija": sus servicios se agregan solos al cotizar la categoría y no se
+// pueden quitar mientras la categoría siga en el evento.
 export interface CategorySection {
   id: number;
   company_id: number;
   category_id: number;
   name: string;
   sort_order: number;
+  is_default?: boolean;
 }
 
 export type CreateVariableService = Partial<
