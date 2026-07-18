@@ -36,6 +36,7 @@ import {
   buildConsolidationContext,
   consolidateEvent,
   newAccumulator,
+  servicesSignature,
 } from "../../../utils/eventConsolidation";
 
 // Compras multi-evento (Fase 3): selecciona eventos cerrados, consolida los
@@ -327,14 +328,24 @@ export default function ComprasTab({
   const stampCompleted = async (
     provMap: Map<string, Set<number>>,
   ): Promise<number> => {
-    const complete: { id: string; cost: number }[] = [];
+    const complete: {
+      id: string;
+      cost: number;
+      people: number;
+      services: { nombre: string; quantity: number }[];
+    }[] = [];
     selectedEvents.forEach((ev) => {
       const a = perEvent.get(ev.id);
       if (!a || a.supplyUse.size === 0) return;
       const set = provMap.get(ev.id);
       const all = [...a.supplyUse.keys()].every((sid) => set?.has(sid));
       if (all && !ev.provisioned_at) {
-        complete.push({ id: ev.id, cost: a.costoInsumos + a.costoFijos });
+        complete.push({
+          id: ev.id,
+          cost: a.costoInsumos + a.costoFijos,
+          people: ev.people_count || 0,
+          services: servicesSignature(ev.items as EventItemsSnapshot),
+        });
       }
     });
     if (complete.length) await markQuotationsProvisioned(complete);
@@ -412,6 +423,8 @@ export default function ComprasTab({
           return {
             id: ev.id,
             cost: (a?.costoInsumos || 0) + (a?.costoFijos || 0),
+            people: ev.people_count || 0,
+            services: servicesSignature(ev.items as EventItemsSnapshot),
           };
         }),
       );

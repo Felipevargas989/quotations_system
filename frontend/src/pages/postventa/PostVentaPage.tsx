@@ -35,6 +35,7 @@ import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import GestionTab from "./GestionTab";
+import { getQuotationProvisioning } from "../../services/logistics.service";
 import {
   getRefundsByQuotation,
   getPaidRefundsByQuotation,
@@ -750,6 +751,23 @@ function ServiciosTab({
     deep(quote.items?.fixed_services),
   );
   const [personas, setPersonas] = useState<number>(quote.people_count || 0);
+  // Provisión: si el evento ya se compró, advertir cambios y restringir
+  // la baja de personas a administradores.
+  const { userRole } = useAuth();
+  const [provInfo, setProvInfo] = useState<{
+    provisioned_at: string | null;
+    provisioned_people: number | null;
+  }>({ provisioned_at: null, provisioned_people: null });
+  useEffect(() => {
+    getQuotationProvisioning(String(quote.id))
+      .then((p) =>
+        setProvInfo({
+          provisioned_at: p.provisioned_at,
+          provisioned_people: p.provisioned_people,
+        }),
+      )
+      .catch(() => {});
+  }, [quote.id]);
   const initDiscAmount = quote.discount_amount || 0;
   const [discType, setDiscType] = useState<"%" | "$">(
     initDiscAmount > 0 ? "$" : "%",
@@ -877,6 +895,18 @@ function ServiciosTab({
   };
 
   const save = async () => {
+    // Evento provisionado: bajar personas es solo para administradores.
+    if (
+      provInfo.provisioned_at &&
+      provInfo.provisioned_people !== null &&
+      personas < provInfo.provisioned_people &&
+      userRole !== "administrador"
+    ) {
+      setMsg(
+        "Evento provisionado: solo un administrador puede disminuir el número de personas.",
+      );
+      return;
+    }
     setSaving(true);
     setMsg(null);
     setNotice(null);
@@ -992,6 +1022,17 @@ function ServiciosTab({
 
   return (
     <div>
+      {/* Aviso: evento ya provisionado */}
+      {provInfo.provisioned_at && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <span className="font-bold">Evento provisionado</span> el{" "}
+          {new Date(provInfo.provisioned_at).toLocaleDateString("es-CL")}
+          {provInfo.provisioned_people !== null &&
+            ` con ${provInfo.provisioned_people} personas`}
+          . Si cambias personas o servicios, revisa las compras en Logística →
+          Compras (puedes re-provisionar para actualizar la foto).
+        </div>
+      )}
       {/* Aviso de reajuste del plan de pagos */}
       {notice && (
         <div

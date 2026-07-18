@@ -85,6 +85,23 @@ export const newAccumulator = (): ConsolidationAccumulator => ({
   noRecipe: [],
 });
 
+// Firma de los servicios de una cotización (nombre + cantidad, ordenada),
+// para la foto de provisión y la detección de cambios posteriores.
+export const servicesSignature = (
+  items: EventItemsSnapshot | null | undefined,
+): { nombre: string; quantity: number }[] => {
+  const list: { nombre: string; quantity: number }[] = [];
+  (items?.variable_services || []).forEach((g) => {
+    (g.items || []).forEach((it) =>
+      list.push({ nombre: it.nombre, quantity: it.quantity || 1 }),
+    );
+  });
+  (items?.fixed_services || []).forEach((it) =>
+    list.push({ nombre: it.nombre, quantity: it.quantity || 1 }),
+  );
+  return list.sort((a, b) => a.nombre.localeCompare(b.nombre));
+};
+
 // Resuelve el id del servicio: por codigo (cotizaciones nuevas: codigo = id)
 // o por nombre en el catálogo (cotizaciones antiguas con códigos tipo "P001").
 const resolveId = (

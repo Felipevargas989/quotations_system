@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Package, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, Download, Package, TrendingUp } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  QuotationProvisioning,
   getAllRecipeItems,
   getCatalogServiceNameIds,
   getFixedServiceCostsById,
@@ -17,6 +18,8 @@ import {
   UNIT_FAMILY_INFO,
   toBaseQty,
 } from "../../types/logistics.types";
+import { servicesSignature } from "../../utils/eventConsolidation";
+import EventResourcesSection from "./EventResourcesSection";
 
 // Gestión del evento: consolida los insumos y el mobiliario de las recetas,
 // muestra los costos (según catálogo) y un resumen de rentabilidad estimada.
@@ -66,7 +69,13 @@ export default function GestionTab({
       { cost_fixed: number | null; cost_per_person: number | null }
     >
   >({});
-  const [provisionedAt, setProvisionedAt] = useState<string | null>(null);
+  const [prov, setProv] = useState<QuotationProvisioning>({
+    provisioned_at: null,
+    provisioned_cost: null,
+    provisioned_people: null,
+    provisioned_services: null,
+  });
+  const [costoRecursos, setCostoRecursos] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,13 +89,13 @@ export default function GestionTab({
       getFixedServiceCostsById(companyId),
       getQuotationProvisioning(String(quote.id)),
     ])
-      .then(([r, s, f, n, fc, prov]) => {
+      .then(([r, s, f, n, fc, pr]) => {
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
         setNameIds(n);
         setFixedCosts(fc);
-        setProvisionedAt(prov.provisioned_at);
+        setProv(pr);
       })
       .finally(() => setLoading(false));
   }, [companyId, quote.id]);
@@ -217,12 +226,61 @@ export default function GestionTab({
       };
     }, [recipes, supplies, furniture, nameIds, fixedCosts, quote, personas]);
 
-  const costoTotal = costoInsumos + costoFijos;
+  // Si el evento está provisionado, la base insumos+fijos queda CONGELADA
+  // con la foto tomada al provisionar; los recursos siguen vivos.
+  const provisioned = !!prov.provisioned_at;
+  const costoBase =
+    provisioned && prov.provisioned_cost !== null
+      ? prov.provisioned_cost
+      : costoInsumos + costoFijos;
+  const costoTotal = costoBase + costoRecursos;
   const montoTotal = quote.total_amount || 0;
   const margen = montoTotal - costoTotal;
   const margenPct = montoTotal > 0 ? (margen / montoTotal) * 100 : 0;
   const hayCostos = costoTotal > 0;
   const fijosSinCosto = fijos.filter((f) => f.sinCosto);
+
+  // Advertencias post-provisión: cambios de personas o servicios vs la foto.
+  const cambios = useMemo(() => {
+    if (!provisioned) return [];
+    const out: string[] = [];
+    if (
+      prov.provisioned_people !== null &&
+      personas !== prov.provisioned_people
+    ) {
+      out.push(
+        `Personas: provisionado con ${prov.provisioned_people}, ahora ${personas}`,
+      );
+    }
+    if (prov.provisioned_services) {
+      const now = servicesSignature(
+        quote.items as Parameters<typeof servicesSignature>[0],
+      );
+      const key = (s: { nombre: string; quantity: number }) =>
+        `${s.nombre}×${s.quantity}`;
+      const before = new Set(prov.provisioned_services.map(key));
+      const after = new Set(now.map(key));
+      const beforeNames = new Set(
+        prov.provisioned_services.map((s) => s.nombre),
+      );
+      const afterNames = new Set(now.map((s) => s.nombre));
+      now.forEach((s) => {
+        if (!before.has(key(s))) {
+          out.push(
+            beforeNames.has(s.nombre)
+              ? `Cambió cantidad: ${s.nombre} (ahora ×${s.quantity})`
+              : `Servicio agregado: ${s.nombre}`,
+          );
+        }
+      });
+      prov.provisioned_services.forEach((s) => {
+        if (!after.has(key(s)) && !afterNames.has(s.nombre)) {
+          out.push(`Servicio quitado: ${s.nombre}`);
+        }
+      });
+    }
+    return out;
+  }, [provisioned, prov, personas, quote.items]);
 
   // Descarga CSV (se abre directo en Excel; separador ; y decimales con coma,
   // formato es-CL). BOM para que Excel respete los acentos.
@@ -287,6 +345,25 @@ export default function GestionTab({
 
   return (
     <div className="space-y-6">
+      {/* ---------- Advertencias post-provisión ---------- */}
+      {cambios.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="flex items-center gap-1.5 text-xs font-bold text-red-700">
+            <AlertTriangle size={14} />
+            El evento cambió después de provisionarse — revisa las compras:
+          </p>
+          <ul className="mt-1 text-xs text-red-700 list-disc pl-5">
+            {cambios.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[11px] text-red-500">
+            Puedes re-provisionar en Logística → Compras para actualizar la
+            foto.
+          </p>
+        </div>
+      )}
+
       {/* ---------- Bloque 1: Insumos y equipo ---------- */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -490,34 +567,32 @@ export default function GestionTab({
         </div>
       )}
 
-      {/* ---------- Bloque 3: recursos del evento (fase 4) ---------- */}
-      <div className="border border-dashed border-gray-300 rounded-lg p-4 flex items-center gap-3">
-        <Users className="text-gray-300 shrink-0" size={22} />
-        <div>
-          <p className="text-sm font-semibold text-gray-500">
-            Recursos del evento
-          </p>
-          <p className="text-xs text-gray-400">
-            Próximamente: asignación de staff y arriendos con precio por
-            evento, y el botón Provisionar que congela los costos.
-          </p>
-        </div>
-      </div>
+      {/* ---------- Bloque 3: recursos del evento ---------- */}
+      {companyId !== null && (
+        <EventResourcesSection
+          companyId={companyId}
+          quotationId={String(quote.id)}
+          personas={personas}
+          onCostChange={setCostoRecursos}
+        />
+      )}
 
       {/* ---------- Bloque 4: rentabilidad estimada ---------- */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp size={16} className="text-gray-500" />
           <h4 className="text-sm font-bold text-gray-800">
-            Rentabilidad estimada
+            {provisioned ? "Rentabilidad del evento" : "Rentabilidad estimada"}
           </h4>
-          <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-            según catálogo
-          </span>
-          {provisionedAt && (
+          {!provisioned && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+              según catálogo
+            </span>
+          )}
+          {prov.provisioned_at && (
             <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
               Provisionado el{" "}
-              {new Date(provisionedAt).toLocaleDateString("es-CL")}
+              {new Date(prov.provisioned_at).toLocaleDateString("es-CL")}
             </span>
           )}
         </div>
@@ -534,14 +609,17 @@ export default function GestionTab({
               </div>
               <div>
                 <p className="text-[11px] uppercase text-gray-500 font-semibold">
-                  Costo estimado
+                  {provisioned ? "Costo" : "Costo estimado"}
                 </p>
                 <p className="text-lg font-bold text-gray-900">
                   {fmtMoney(costoTotal)}
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  insumos {fmtMoney(costoInsumos)} + fijos{" "}
-                  {fmtMoney(costoFijos)}
+                  {provisioned
+                    ? `insumos+fijos congelados ${fmtMoney(costoBase)}`
+                    : `insumos ${fmtMoney(costoInsumos)} + fijos ${fmtMoney(costoFijos)}`}
+                  {" + recursos "}
+                  {fmtMoney(costoRecursos)}
                 </p>
               </div>
               <div>
@@ -561,11 +639,11 @@ export default function GestionTab({
               </div>
             </div>
             <p className="text-[11px] text-gray-400 mt-3">
-              Estimado con precios de catálogo. No incluye staff ni recursos
-              asignados por evento
+              {provisioned
+                ? "Costo de insumos y servicios fijos congelado al provisionar; los recursos del evento se suman en vivo."
+                : "Estimado con precios de catálogo; se congela al provisionar en Logística → Compras."}
               {fijosSinCosto.length > 0 &&
                 ` · ${fijosSinCosto.length} servicio(s) fijo(s) sin costo definido`}
-              . La rentabilidad real se calculará al provisionar.
             </p>
           </>
         ) : (

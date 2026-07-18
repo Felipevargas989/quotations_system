@@ -259,17 +259,28 @@ export const getAcceptedEvents = async (
   }));
 };
 
-// Marca los eventos como provisionados (fecha + foto del costo estimado).
-// Re-provisionar está permitido: actualiza fecha y costo.
+// Marca los eventos como provisionados: fecha + foto del costo estimado,
+// personas y servicios al momento (para advertir cambios posteriores).
+// Re-provisionar está permitido: actualiza la foto completa.
 export const markQuotationsProvisioned = async (
-  entries: { id: string; cost: number }[],
+  entries: {
+    id: string;
+    cost: number;
+    people: number;
+    services: { nombre: string; quantity: number }[];
+  }[],
 ) => {
   const now = new Date().toISOString();
   const results = await Promise.all(
     entries.map((e) =>
       supabase
         .from("quotations")
-        .update({ provisioned_at: now, provisioned_cost: Math.round(e.cost) })
+        .update({
+          provisioned_at: now,
+          provisioned_cost: Math.round(e.cost),
+          provisioned_people: e.people,
+          provisioned_services: e.services,
+        })
         .eq("id", e.id),
     ),
   );
@@ -281,7 +292,12 @@ export const clearQuotationsProvisioned = async (ids: string[]) => {
   if (!ids.length) return { error: null };
   const { error } = await supabase
     .from("quotations")
-    .update({ provisioned_at: null, provisioned_cost: null })
+    .update({
+      provisioned_at: null,
+      provisioned_cost: null,
+      provisioned_people: null,
+      provisioned_services: null,
+    })
     .in("id", ids);
   return { error };
 };
@@ -345,16 +361,93 @@ export const deleteEventSupplyProvisions = async (
   return { error };
 };
 
-// Estado de provisión de una cotización (para el badge en Gestión).
+// Estado de provisión de una cotización (badge + advertencias en Gestión).
+export interface QuotationProvisioning {
+  provisioned_at: string | null;
+  provisioned_cost: number | null;
+  provisioned_people: number | null;
+  provisioned_services: { nombre: string; quantity: number }[] | null;
+}
+
 export const getQuotationProvisioning = async (
   quotationId: string,
-): Promise<{ provisioned_at: string | null }> => {
+): Promise<QuotationProvisioning> => {
   const { data } = await supabase
     .from("quotations")
-    .select("provisioned_at")
+    .select(
+      "provisioned_at, provisioned_cost, provisioned_people, provisioned_services",
+    )
     .eq("id", quotationId)
     .single();
-  return { provisioned_at: (data?.provisioned_at as string | null) || null };
+  return {
+    provisioned_at: (data?.provisioned_at as string | null) || null,
+    provisioned_cost: (data?.provisioned_cost as number | null) ?? null,
+    provisioned_people: (data?.provisioned_people as number | null) ?? null,
+    provisioned_services:
+      (data?.provisioned_services as
+        | { nombre: string; quantity: number }[]
+        | null) || null,
+  };
+};
+
+// ---------- Recursos asignados a un evento (Fase 4) ----------
+export interface EventResource {
+  id: number;
+  quotation_id: string;
+  resource_id: number;
+  quantity: number;
+  price_fixed: number;
+  price_per_person: number;
+}
+
+export const getEventResources = async (
+  companyId: number,
+  quotationId: string,
+): Promise<EventResource[]> => {
+  const { data, error } = await supabase
+    .from("event_resources")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("quotation_id", quotationId)
+    .order("created_at");
+  if (error) {
+    console.error("Error cargando recursos del evento", error);
+    return [];
+  }
+  return (data || []) as EventResource[];
+};
+
+export const addEventResource = async (fields: {
+  company_id: number;
+  quotation_id: string;
+  resource_id: number;
+  quantity: number;
+  price_fixed: number;
+  price_per_person: number;
+}) => {
+  const { error } = await supabase.from("event_resources").insert(fields);
+  return { error };
+};
+
+export const updateEventResource = async (
+  id: number,
+  fields: Partial<
+    Pick<EventResource, "quantity" | "price_fixed" | "price_per_person">
+  >,
+) => {
+  const { error } = await supabase
+    .from("event_resources")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+export const deleteEventResource = async (id: number) => {
+  const { error } = await supabase
+    .from("event_resources")
+    .delete()
+    .eq("id", id);
+  return { error };
 };
 
 // ---------- Recetas por servicio ----------
