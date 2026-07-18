@@ -11,6 +11,9 @@ export enum QuotationStatus {
   EN_NEGOCIACION = "en_negociacion",
   ACEPTADA = "aceptada",
   RECHAZADA = "rechazada",
+  // Evento aceptado que se anula: sale de Post-Venta, Compras y mobiliario,
+  // pero conserva su historia de pagos y comprobantes.
+  CANCELADA = "cancelada",
 }
 
 export enum PaymentPlanType {

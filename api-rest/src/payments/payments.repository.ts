@@ -87,6 +87,7 @@ export class PaymentsRepository {
       id,
       company_id,
       quotation_number,
+      quotation_status,
       total_amount,
       requires_invoice,
       has_contract,

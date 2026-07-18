@@ -30,6 +30,9 @@ export enum QuotationStatus {
   EN_NEGOCIACION = 'en_negociacion',
   ACEPTADA = 'aceptada',
   RECHAZADA = 'rechazada',
+  // Evento aceptado que se anula: sale de Post-Venta/Compras pero conserva
+  // su historia de pagos.
+  CANCELADA = 'cancelada',
 }
 
 export const STATUS_LABELS: Record<QuotationStatus, string> = {
@@ -38,4 +41,5 @@ export const STATUS_LABELS: Record<QuotationStatus, string> = {
   [QuotationStatus.EN_NEGOCIACION]: 'En negociación',
   [QuotationStatus.ACEPTADA]: 'Aceptada',
   [QuotationStatus.RECHAZADA]: 'Rechazada',
+  [QuotationStatus.CANCELADA]: 'Cancelada',
 };

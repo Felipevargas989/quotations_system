@@ -29,7 +29,7 @@ import {
   getQuotationById,
   updateQuotation,
 } from "../../services/quotations.service";
-import { Quotation } from "../../types/quotations.types";
+import { Quotation, QuotationStatus } from "../../types/quotations.types";
 import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
@@ -80,6 +80,8 @@ interface EventRow {
   refunded: number; // reembolsos ya devueltos (is_paid = true)
   cuotas: number;
   status: "pagado" | "vencido" | "pendiente";
+  // Evento anulado: fuera de la lista por defecto, visible con el filtro.
+  cancelled: boolean;
   payments: PaymentWithTransactions[];
 }
 
@@ -87,13 +89,15 @@ interface EventRow {
 // la selección sobrevive recargas/navegación en vez de volver a "todos".
 const STATUS_FILTER_KEY = (userId: string | number) =>
   `eventia_postventa_status_filter_${userId}`;
-const STATUS_FILTER_VALUES = ["pendiente", "pagado", "vencido"];
+const STATUS_FILTER_VALUES = ["pendiente", "pagado", "vencido", "cancelado"];
 
-// Opciones del multi-select (se pueden marcar varias; vacío = todos).
+// Opciones del multi-select (se pueden marcar varias; vacío = todos los
+// vigentes — los cancelados solo aparecen marcando su opción).
 const STATUS_OPTIONS: MultiSelectOption[] = [
   { value: "pendiente", label: "⏳ Pendientes" },
   { value: "pagado", label: "✅ Pagados" },
   { value: "vencido", label: "⚠️ Vencidos" },
+  { value: "cancelado", label: "🚫 Cancelados" },
 ];
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
@@ -223,6 +227,9 @@ export default function PostVentaPage() {
 
         events.push({
           quotationId,
+          cancelled:
+            (q as unknown as { quotation_status?: string })
+              ?.quotation_status === "cancelada",
           quotationNumber: q?.quotation_number ?? 0,
           clientName: q?.clients?.name || "—",
           clientType: client?.client_type,
@@ -278,6 +285,7 @@ export default function PostVentaPage() {
     let venc = 0;
     let pag = 0;
     rows.forEach((r) => {
+      if (r.cancelled) return; // los anulados no cuentan en los totales
       const net = r.paid - r.refunded;
       pag += net;
       const saldo = r.total - net;
@@ -290,8 +298,10 @@ export default function PostVentaPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const matchStatus =
-        statusFilter.length === 0 || statusFilter.includes(r.status);
+      // Anulados: solo si su opción está marcada. El resto, como siempre.
+      const matchStatus = r.cancelled
+        ? statusFilter.includes("cancelado")
+        : statusFilter.length === 0 || statusFilter.includes(r.status);
       const matchSearch =
         !q ||
         String(r.quotationNumber) === q ||
@@ -443,18 +453,26 @@ export default function PostVentaPage() {
                         {clp(r.total)}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="w-36 bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${barColor(p)}`}
-                            style={{ width: `${p}%` }}
-                          />
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {p}% pagado · {clp(net)}
-                          {r.refunded > 0
-                            ? ` · reemb. ${clp(r.refunded)}`
-                            : ""}
-                        </div>
+                        {r.cancelled ? (
+                          <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600">
+                            Cancelado
+                          </span>
+                        ) : (
+                          <>
+                            <div className="w-36 bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${barColor(p)}`}
+                                style={{ width: `${p}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {p}% pagado · {clp(net)}
+                              {r.refunded > 0
+                                ? ` · reemb. ${clp(r.refunded)}`
+                                : ""}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-gray-300">
                         <ChevronRight size={18} />
@@ -546,6 +564,28 @@ function EventModal({
     { key: "cocina", label: "Cocina" },
   ];
 
+  // Anular evento: pasa la cotización a "cancelada". Sale de Post-Venta,
+  // Compras y mobiliario; sus pagos y comprobantes quedan como historia.
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const doCancelEvent = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await updateQuotation(
+        { quotation_status: QuotationStatus.CANCELADA },
+        event.quotationId,
+      );
+      onDataChanged();
+      onClose();
+    } catch {
+      setCancelError("No se pudo anular el evento. Intenta de nuevo.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
@@ -576,13 +616,55 @@ function EventModal({
               {event.requiresInvoice ? " · 🧾 requiere factura" : ""}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {event.cancelled ? (
+              <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">
+                CANCELADO
+              </span>
+            ) : confirmCancel ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">
+                  ¿Anular este evento?
+                </span>
+                <button
+                  disabled={cancelling}
+                  onClick={doCancelEvent}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 disabled:opacity-50"
+                >
+                  Sí, anular
+                </button>
+                <button
+                  disabled={cancelling}
+                  onClick={() => {
+                    setConfirmCancel(false);
+                    setCancelError(null);
+                  }}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50"
+              >
+                Anular evento
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
+        {cancelError && (
+          <p className="shrink-0 px-6 pt-2 text-sm text-red-600">
+            {cancelError}
+          </p>
+        )}
 
         {/* KPIs */}
         <div className="shrink-0 flex gap-4 px-6 pt-5">

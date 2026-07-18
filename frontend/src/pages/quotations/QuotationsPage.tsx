@@ -66,6 +66,7 @@ export default function QuotationsPage() {
     { value: QuotationStatus.EN_NEGOCIACION, label: "💬 En Negociación" },
     { value: QuotationStatus.ACEPTADA, label: "✅ Aceptada" },
     { value: QuotationStatus.RECHAZADA, label: "❌ Rechazada" },
+    { value: QuotationStatus.CANCELADA, label: "🚫 Cancelada" },
   ];
 
   // Restore the persisted status filter (per user) before the first fetch.
@@ -152,6 +153,7 @@ export default function QuotationsPage() {
           QuotationStatus.EN_NEGOCIACION,
           QuotationStatus.ACEPTADA,
           QuotationStatus.RECHAZADA,
+          QuotationStatus.CANCELADA,
         ];
       } else {
         // Fetch only the selected statuses
@@ -254,6 +256,8 @@ export default function QuotationsPage() {
         return "bg-green-100 text-green-800";
       case "rechazada":
         return "bg-red-100 text-red-800";
+      case "cancelada":
+        return "bg-gray-200 text-gray-600";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -568,6 +572,7 @@ export default function QuotationsPage() {
                       <option value="en_negociacion">💬 En Negociación</option>
                       <option value="aceptada">✅ Aceptada</option>
                       <option value="rechazada">❌ Rechazada</option>
+                      <option value="cancelada">🚫 Cancelada</option>
                     </select>
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
