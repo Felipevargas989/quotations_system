@@ -493,6 +493,90 @@ export const deleteEventResource = async (id: number) => {
   return { error };
 };
 
+// ---------- Ficha de cocina: horarios y notas del evento ----------
+export const getEventServiceTimes = async (
+  companyId: number,
+  quotationId: string,
+): Promise<Record<string, string>> => {
+  const { data, error } = await supabase
+    .from("event_service_times")
+    .select("service_name, start_time")
+    .eq("company_id", companyId)
+    .eq("quotation_id", quotationId);
+  if (error) {
+    console.error("Error cargando horarios", error);
+    return {};
+  }
+  const map: Record<string, string> = {};
+  (data || []).forEach(
+    (r: { service_name: string; start_time: string }) => {
+      map[r.service_name] = r.start_time;
+    },
+  );
+  return map;
+};
+
+export const setEventServiceTime = async (
+  companyId: number,
+  quotationId: string,
+  serviceName: string,
+  startTime: string,
+) => {
+  const { error } = await supabase.from("event_service_times").upsert(
+    {
+      company_id: companyId,
+      quotation_id: quotationId,
+      service_name: serviceName,
+      start_time: startTime,
+    },
+    { onConflict: "quotation_id,service_name" },
+  );
+  return { error };
+};
+
+export interface KitchenNote {
+  id: number;
+  note: string;
+}
+
+export const getEventKitchenNotes = async (
+  companyId: number,
+  quotationId: string,
+): Promise<KitchenNote[]> => {
+  const { data, error } = await supabase
+    .from("event_kitchen_notes")
+    .select("id, note")
+    .eq("company_id", companyId)
+    .eq("quotation_id", quotationId)
+    .order("created_at");
+  if (error) {
+    console.error("Error cargando notas de cocina", error);
+    return [];
+  }
+  return (data || []) as KitchenNote[];
+};
+
+export const addEventKitchenNote = async (
+  companyId: number,
+  quotationId: string,
+  note: string,
+) => {
+  const { error } = await supabase.from("event_kitchen_notes").insert({
+    company_id: companyId,
+    quotation_id: quotationId,
+    note,
+  });
+  return { error };
+};
+
+export const deleteEventKitchenNote = async (id: number) => {
+  const { error } = await supabase
+    .from("event_kitchen_notes")
+    .delete()
+    .eq("id", id);
+  return { error };
+};
+
 // ---------- Recetas por servicio ----------
 export const getRecipeItems = async (
   companyId: number,

@@ -28,6 +28,7 @@ import {
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
+import FichaCocinaSection from "./FichaCocinaSection";
 import PhotoPopup from "../../components/PhotoPopup";
 
 // Gestión del evento: consolida insumos (suma) y mobiliario (peak: se lava
@@ -527,7 +528,19 @@ export default function GestionTab({
         )}
       </div>
 
-      {/* ---------- Bloque 2: recursos del evento ---------- */}
+      {/* ---------- Bloque 2: ficha de cocina ---------- */}
+      {companyId !== null && (
+        <FichaCocinaSection
+          companyId={companyId}
+          quote={quote}
+          recipes={recipes}
+          supplies={supplies}
+          furniture={furniture}
+          nameIds={nameIds}
+        />
+      )}
+
+      {/* ---------- Bloque 3: recursos del evento ---------- */}
       {companyId !== null && (
         <EventResourcesSection
           companyId={companyId}
