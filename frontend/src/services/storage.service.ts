@@ -242,3 +242,39 @@ export const uploadCompanyLogo = async (
     };
   }
 };
+
+// Foto de referencia de un ítem de inventario (mobiliario). Bucket público
+// furniture-photos; se muestra en un popup, nunca como descarga.
+export const uploadFurniturePhoto = async (
+  file: File,
+  companyId: number,
+  itemId: number,
+): Promise<UploadResult> => {
+  try {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Solo se permiten imágenes (JPG, PNG, WebP)");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("La imagen es demasiado grande. Máximo 5MB");
+    }
+    const ext = file.name.split(".").pop();
+    const filePath = `${companyId}/${itemId}_${new Date().getTime()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("furniture-photos")
+      .upload(filePath, file, { cacheControl: "3600", upsert: true });
+    if (error) {
+      throw new Error(`Error al subir la foto: ${error.message}`);
+    }
+    const { data } = supabase.storage
+      .from("furniture-photos")
+      .getPublicUrl(filePath);
+    return { success: true, url: data.publicUrl };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Error al subir la foto",
+    };
+  }
+};

@@ -23,6 +23,7 @@ import {
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
+import PhotoPopup from "../../../components/PhotoPopup";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
@@ -46,6 +47,10 @@ export default function RecipeTab({
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [photoView, setPhotoView] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   // Alta de ingrediente
   const [addSupplyId, setAddSupplyId] = useState("");
@@ -484,7 +489,28 @@ export default function RecipeTab({
                   return (
                     <tr key={it.id}>
                       <td className="px-3 py-2 text-gray-900">
-                        {f?.name || "—"}
+                        <div className="flex items-center gap-2">
+                          {f?.photo_url && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPhotoView({
+                                  url: f.photo_url as string,
+                                  title: f.name,
+                                })
+                              }
+                              className="shrink-0"
+                              title="Ver foto de referencia"
+                            >
+                              <img
+                                src={f.photo_url}
+                                alt={f.name}
+                                className="w-8 h-8 rounded-md object-cover border border-gray-200 hover:ring-2 hover:ring-blue-400"
+                              />
+                            </button>
+                          )}
+                          <span>{f?.name || "—"}</span>
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right">
                         <input
@@ -553,6 +579,14 @@ export default function RecipeTab({
           Los servicios fijos solo llevan mobiliario asociado (los ingredientes
           viven en los servicios variables).
         </p>
+      )}
+
+      {photoView && (
+        <PhotoPopup
+          url={photoView.url}
+          title={photoView.title}
+          onClose={() => setPhotoView(null)}
+        />
       )}
     </div>
   );

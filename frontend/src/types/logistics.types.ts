@@ -47,10 +47,28 @@ export const UNITS_BY_FAMILY: Record<UnitFamily, RecipeUnit[]> = {
 export const toBaseQty = (qty: number, unit: RecipeUnit): number =>
   unit === "gr" || unit === "ml" ? qty / 1000 : qty;
 
+export type FurnitureCategory =
+  | "cristaleria"
+  | "cuchilleria"
+  | "vajilla"
+  | "mobiliario"
+  | "otro";
+
+export const FURNITURE_CATEGORY_LABEL: Record<FurnitureCategory, string> = {
+  cristaleria: "Cristalería",
+  cuchilleria: "Cuchillería",
+  vajilla: "Vajilla",
+  mobiliario: "Mobiliario",
+  otro: "Otro",
+};
+
 export interface FurnitureItem {
   id: number;
   company_id: number;
   name: string;
+  category: FurnitureCategory;
+  stock: number; // unidades disponibles (fluctúa por temporada)
+  photo_url: string | null; // foto de referencia (popup, no descarga)
   is_active: boolean;
   created_at: string;
 }

@@ -275,11 +275,10 @@ export default function ComprasTab({
         return a.supplier.name.localeCompare(b.supplier.name);
       });
 
+    // El mobiliario NO va en Compras (no se compra: se reutiliza). Su
+    // disponibilidad se gestiona en Logística → Mobiliario y en Gestión.
     return {
       groups,
-      mobiliario: [...acc.furnTotals.values()]
-        .map((m) => ({ ...m, total: Math.ceil(m.total) }))
-        .sort((a, b) => a.item.name.localeCompare(b.item.name)),
       sinReceta: [...new Set(acc.noRecipe)],
       costoTotal,
     };
@@ -498,14 +497,6 @@ export default function ComprasTab({
       });
       lines.push(`Subtotal;;;${Math.round(g.subtotal)};`);
     });
-    if (consolidation.mobiliario.length) {
-      lines.push("");
-      lines.push("MOBILIARIO");
-      lines.push("Ítem;Cantidad");
-      consolidation.mobiliario.forEach((m) => {
-        lines.push(`${m.item.name};${m.total}`);
-      });
-    }
     lines.push("");
     lines.push("RESUMEN");
     lines.push(
@@ -859,30 +850,6 @@ export default function ComprasTab({
               </div>
             );
           })}
-
-          {consolidation.mobiliario.length > 0 && (
-            <div>
-              <h5 className="text-xs font-bold uppercase text-gray-500 mb-1.5">
-                Mobiliario total
-              </h5>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full text-sm">
-                  <tbody className="divide-y divide-gray-100">
-                    {consolidation.mobiliario.map((m) => (
-                      <tr key={m.item.id}>
-                        <td className="px-3 py-2 text-gray-900">
-                          {m.item.name}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold">
-                          {m.total.toLocaleString("es-CL")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
           {consolidation.sinReceta.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">

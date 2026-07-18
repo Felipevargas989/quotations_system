@@ -3,7 +3,9 @@ import { AlertTriangle, Download, Package, TrendingUp } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  PurchasingEvent,
   QuotationProvisioning,
+  getAcceptedEvents,
   getAllRecipeItems,
   getCatalogServiceNameIds,
   getFurnitureItems,
@@ -15,28 +17,32 @@ import {
   RecipeItem,
   Supply,
   UNIT_FAMILY_INFO,
-  toBaseQty,
 } from "../../types/logistics.types";
-import { servicesSignature } from "../../utils/eventConsolidation";
+import {
+  EventItemsSnapshot,
+  buildConsolidationContext,
+  consolidateEvent,
+  newAccumulator,
+  servicesSignature,
+} from "../../utils/eventConsolidation";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
+import PhotoPopup from "../../components/PhotoPopup";
 
-// Gestión del evento: consolida los insumos y el mobiliario de las recetas,
-// muestra los costos (según catálogo) y un resumen de rentabilidad estimada.
-// Fase 4 agregará la asignación de recursos por evento (staff, arriendos)
-// y el botón Provisionar que congela los costos.
+// Gestión del evento: consolida insumos (suma) y mobiliario (peak: se lava
+// y reutiliza entre servicios), compara contra el stock del inventario
+// —incluyendo eventos que compiten la misma fecha—, administra los
+// recursos del evento y muestra la rentabilidad.
 
-interface ConsolidatedSupply {
-  supply: Supply;
-  totalBase: number; // en unidad base (kg / L / u)
-  services: string[]; // de qué servicios proviene (para el desglose)
-}
-
-interface ConsolidatedFurniture {
-  item: FurnitureItem;
-  total: number; // redondeado hacia arriba (no existen 79,5 sillas)
-}
+const isoDate = (d: unknown): string | null => {
+  if (!d) return null;
+  try {
+    return new Date(d as string).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
+};
 
 const fmtQty = (n: number) =>
   Number(n.toFixed(2)).toLocaleString("es-CL", { maximumFractionDigits: 2 });
@@ -64,6 +70,11 @@ export default function GestionTab({
     provisioned_services: null,
   });
   const [costoRecursos, setCostoRecursos] = useState(0);
+  const [allEvents, setAllEvents] = useState<PurchasingEvent[]>([]);
+  const [photoView, setPhotoView] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,133 +86,95 @@ export default function GestionTab({
       getFurnitureItems(companyId),
       getCatalogServiceNameIds(companyId),
       getQuotationProvisioning(String(quote.id)),
+      getAcceptedEvents(companyId),
     ])
-      .then(([r, s, f, n, pr]) => {
+      .then(([r, s, f, n, pr, ev]) => {
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
         setNameIds(n);
         setProv(pr);
+        setAllEvents(ev);
       })
       .finally(() => setLoading(false));
   }, [companyId, quote.id]);
 
   const personas = quote.people_count || 0;
 
-  const { insumos, mobiliario, sinReceta, fijosServicios, costoInsumos } =
-    useMemo(() => {
-      const supplyById = new Map(supplies.map((s) => [s.id, s]));
-      const furnById = new Map(furniture.map((f) => [f.id, f]));
+  const {
+    insumos,
+    mobiliario,
+    sinReceta,
+    fijosServicios,
+    costoInsumos,
+    sameDayLabels,
+  } = useMemo(() => {
+    const ctx = buildConsolidationContext(
+      recipes,
+      supplies,
+      furniture,
+      nameIds,
+      {},
+    );
+    const acc = newAccumulator();
+    const r = consolidateEvent(
+      quote.items as EventItemsSnapshot,
+      personas,
+      ctx,
+      acc,
+    );
 
-      // Índice de recetas por (tipo, servicio).
-      const byService = new Map<string, RecipeItem[]>();
-      recipes.forEach((r) => {
-        const key = `${r.service_type}-${r.service_id}`;
-        const arr = byService.get(key) || [];
-        arr.push(r);
-        byService.set(key, arr);
-      });
-
-      const supplyTotals = new Map<number, ConsolidatedSupply>();
-      const furnTotals = new Map<number, ConsolidatedFurniture>();
-      const noRecipe: string[] = [];
-      const fixedRows: EventFixedService[] = [];
-
-      // Resuelve el id del servicio: por codigo (cotizaciones nuevas) o por
-      // nombre en el catálogo (cotizaciones antiguas con códigos tipo "P001").
-      const resolveId = (
-        serviceType: "variable" | "fixed",
-        codigo: string,
-        nombre: string,
-      ): number | undefined => {
-        const numericId = Number(codigo);
-        if (
-          Number.isFinite(numericId) &&
-          byService.get(`${serviceType}-${numericId}`)
-        ) {
-          return numericId;
-        }
-        const idByName = nameIds[serviceType][nombre.trim().toLowerCase()];
-        if (idByName !== undefined) return idByName;
-        return Number.isFinite(numericId) ? numericId : undefined;
-      };
-
-      const addRecipeLines = (
-        serviceType: "variable" | "fixed",
-        serviceId: number | undefined,
-        nombre: string,
-        qty: number,
-      ) => {
-        const lines =
-          serviceId !== undefined
-            ? byService.get(`${serviceType}-${serviceId}`)
-            : undefined;
-        if (!lines || lines.length === 0) {
-          noRecipe.push(nombre);
-          return;
-        }
-        lines.forEach((line) => {
-          // cantidad total = por persona × personas × cantidad del servicio
-          const factor = personas * (qty || 1);
-          if (line.item_kind === "insumo" && line.supply_id) {
-            const supply = supplyById.get(line.supply_id);
-            if (!supply) return;
-            const base = toBaseQty(line.qty_per_person, line.unit) * factor;
-            const cur = supplyTotals.get(supply.id);
-            if (cur) {
-              cur.totalBase += base;
-              if (!cur.services.includes(nombre)) cur.services.push(nombre);
-            } else {
-              supplyTotals.set(supply.id, {
-                supply,
-                totalBase: base,
-                services: [nombre],
-              });
-            }
-          } else if (line.item_kind === "mobiliario" && line.furniture_id) {
-            const item = furnById.get(line.furniture_id);
-            if (!item) return;
-            const total = line.qty_per_person * factor;
-            const cur = furnTotals.get(item.id);
-            if (cur) cur.total += total;
-            else furnTotals.set(item.id, { item, total });
-          }
-        });
-      };
-
-      (quote.items?.variable_services || []).forEach((group) => {
-        (group.items || []).forEach((it) => {
-          const id = resolveId("variable", it.codigo, it.nombre);
-          addRecipeLines("variable", id, it.nombre, it.quantity || 1);
-        });
-      });
-      (quote.items?.fixed_services || []).forEach((it) => {
-        const id = resolveId("fixed", it.codigo, it.nombre);
-        addRecipeLines("fixed", id, it.nombre, it.quantity || 1);
-        // Sus recursos de costo se instancian en Recursos del evento.
-        if (id !== undefined) {
-          fixedRows.push({ id, nombre: it.nombre, qty: it.quantity || 1 });
-        }
-      });
-
-      const insumosArr = [...supplyTotals.values()].sort((a, b) =>
-        a.supply.name.localeCompare(b.supply.name),
+    // Eventos que compiten por el mismo stock (misma fecha; el mobiliario
+    // se libera al día siguiente).
+    const myDate = isoDate(quote.event_date);
+    const others = myDate
+      ? allEvents.filter(
+          (e) =>
+            e.id !== String(quote.id) && isoDate(e.event_date) === myDate,
+        )
+      : [];
+    const othersNeed = new Map<number, number>();
+    others.forEach((ev) => {
+      const acc2 = newAccumulator();
+      const r2 = consolidateEvent(
+        ev.items as EventItemsSnapshot,
+        ev.people_count || 0,
+        ctx,
+        acc2,
       );
-      const cInsumos = insumosArr.reduce(
-        (s, c) => s + c.totalBase * (c.supply.price || 0),
-        0,
-      );
+      r2.furnPeak.forEach((p, itemId) => {
+        othersNeed.set(
+          itemId,
+          (othersNeed.get(itemId) || 0) + Math.ceil(p.total),
+        );
+      });
+    });
 
-      return {
-        insumos: insumosArr,
-        mobiliario: [...furnTotals.values()]
-          .map((m) => ({ ...m, total: Math.ceil(m.total) }))
-          .sort((a, b) => a.item.name.localeCompare(b.item.name)),
-        sinReceta: [...new Set(noRecipe)],
-        fijosServicios: fixedRows,
-        costoInsumos: cInsumos,
-      };
-    }, [recipes, supplies, furniture, nameIds, quote, personas]);
+    const insumosArr = [...acc.supplyTotals.values()].sort((a, b) =>
+      a.supply.name.localeCompare(b.supply.name),
+    );
+
+    const mob = [...r.furnPeak.entries()]
+      .map(([itemId, p]) => ({
+        item: ctx.furnById.get(itemId) as FurnitureItem,
+        total: Math.ceil(p.total),
+        peakService: p.peakService,
+        others: othersNeed.get(itemId) || 0,
+      }))
+      .filter((m) => m.item)
+      .sort((a, b) => a.item.name.localeCompare(b.item.name));
+
+    return {
+      insumos: insumosArr,
+      mobiliario: mob,
+      sinReceta: [...new Set(acc.noRecipe)],
+      fijosServicios: r.fixedServices.filter(
+        (f) => f.id !== undefined,
+      ) as EventFixedService[],
+      costoInsumos: r.costoInsumos,
+      sameDayLabels: others.map((o) => `#${o.quotation_number}`),
+    };
+  }, [recipes, supplies, furniture, nameIds, quote, personas, allEvents]);
 
   // Si el evento está provisionado, los INSUMOS quedan congelados con la
   // foto de Compras; los recursos del evento son la foto negociada en sí.
@@ -275,10 +248,12 @@ export default function GestionTab({
       );
     });
     lines.push("");
-    lines.push("MOBILIARIO");
-    lines.push("Ítem;Cantidad");
+    lines.push("MOBILIARIO (necesidad = máximo simultáneo, se reutiliza)");
+    lines.push("Ítem;Necesidad;Stock;Otros eventos misma fecha");
     mobiliario.forEach((m) => {
-      lines.push(`${m.item.name};${m.total}`);
+      lines.push(
+        `${m.item.name};${m.total};${m.item.stock || 0};${m.others || 0}`,
+      );
     });
     lines.push("");
     lines.push("RESUMEN");
@@ -442,24 +417,98 @@ export default function GestionTab({
                   Mobiliario
                 </h5>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="min-w-full text-sm">
+                  <table className="min-w-full text-sm table-fixed">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase">
+                          Ítem
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-28">
+                          Necesidad
+                        </th>
+                        <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-24">
+                          Stock
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase w-56">
+                          Estado
+                        </th>
+                      </tr>
+                    </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {mobiliario.map((m) => (
-                        <tr key={m.item.id}>
-                          <td className="px-3 py-2 text-gray-900">
-                            {m.item.name}
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold">
-                            {m.total.toLocaleString("es-CL")}
-                          </td>
-                        </tr>
-                      ))}
+                      {mobiliario.map((m) => {
+                        const stock = m.item.stock || 0;
+                        const needed = m.total + m.others;
+                        const falta = needed - stock;
+                        return (
+                          <tr key={m.item.id}>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                {m.item.photo_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPhotoView({
+                                        url: m.item.photo_url as string,
+                                        title: m.item.name,
+                                      })
+                                    }
+                                    className="shrink-0"
+                                    title="Ver foto"
+                                  >
+                                    <img
+                                      src={m.item.photo_url}
+                                      alt={m.item.name}
+                                      className="w-8 h-8 rounded-md object-cover border border-gray-200 hover:ring-2 hover:ring-blue-400"
+                                    />
+                                  </button>
+                                )}
+                                <div>
+                                  <span className="text-gray-900">
+                                    {m.item.name}
+                                  </span>
+                                  {m.peakService && (
+                                    <div className="text-[11px] text-gray-400">
+                                      peak en {m.peakService}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 text-right font-semibold">
+                              {m.total.toLocaleString("es-CL")}
+                            </td>
+                            <td className="px-2 py-2 text-right text-gray-600">
+                              {stock > 0 ? stock.toLocaleString("es-CL") : "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              {stock <= 0 ? (
+                                <span className="text-[11px] text-gray-400">
+                                  sin stock definido
+                                </span>
+                              ) : falta > 0 ? (
+                                <span className="text-xs font-semibold text-red-600">
+                                  ⚠ faltan {falta.toLocaleString("es-CL")}
+                                  {m.others > 0 &&
+                                    ` (compite con ${sameDayLabels.join(", ")})`}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold text-green-600">
+                                  ✓ alcanza
+                                  {m.others > 0 &&
+                                    ` (compartido con ${sameDayLabels.join(", ")})`}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1">
-                  El costo del mobiliario va incluido en los recursos de cada
-                  servicio fijo, no por ítem.
+                  La necesidad es el máximo simultáneo entre servicios (se
+                  lava y reutiliza, no se suma). El costo del mobiliario va
+                  en los recursos del evento.
                 </p>
               </div>
             )}
@@ -563,6 +612,14 @@ export default function GestionTab({
           </p>
         )}
       </div>
+
+      {photoView && (
+        <PhotoPopup
+          url={photoView.url}
+          title={photoView.title}
+          onClose={() => setPhotoView(null)}
+        />
+      )}
     </div>
   );
 }

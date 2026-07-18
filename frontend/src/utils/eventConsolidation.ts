@@ -124,6 +124,11 @@ const resolveId = (
 
 // Consolida UN evento dentro del acumulador (compartido entre varios eventos)
 // y devuelve el costo estimado de ese evento en particular.
+export interface FurniturePeak {
+  total: number; // necesidad del evento = MÁXIMO simultáneo entre servicios
+  peakService: string; // servicio donde ocurre el peak
+}
+
 export const consolidateEvent = (
   items: EventItemsSnapshot | null | undefined,
   personas: number,
@@ -133,10 +138,20 @@ export const consolidateEvent = (
   costoInsumos: number;
   costoFijos: number;
   supplyUse: Map<number, number>; // supply_id → cantidad base usada por ESTE evento
+  // Mobiliario: se lava y reutiliza entre servicios → peak, no suma.
+  furnPeak: Map<number, FurniturePeak>;
+  fixedServices: { id: number | undefined; nombre: string; qty: number }[];
 } => {
   let costoInsumos = 0;
   let costoFijos = 0;
   const supplyUse = new Map<number, number>();
+  // uso de mobiliario por servicio: item_id → (servicio → cantidad)
+  const furnByService = new Map<number, Map<string, number>>();
+  const fixedList: {
+    id: number | undefined;
+    nombre: string;
+    qty: number;
+  }[] = [];
 
   const addRecipeLines = (
     serviceType: "variable" | "fixed",
@@ -176,9 +191,10 @@ export const consolidateEvent = (
         const item = ctx.furnById.get(line.furniture_id);
         if (!item) return;
         const total = line.qty_per_person * factor;
-        const cur = acc.furnTotals.get(item.id);
-        if (cur) cur.total += total;
-        else acc.furnTotals.set(item.id, { item, total });
+        // dentro de un servicio se suma; entre servicios se toma el máximo
+        const perService = furnByService.get(item.id) || new Map();
+        perService.set(nombre, (perService.get(nombre) || 0) + total);
+        furnByService.set(item.id, perService);
       }
     });
   };
@@ -192,6 +208,7 @@ export const consolidateEvent = (
   (items?.fixed_services || []).forEach((it) => {
     const id = resolveId(ctx, "fixed", it.codigo, it.nombre);
     addRecipeLines("fixed", id, it.nombre, it.quantity || 1);
+    fixedList.push({ id, nombre: it.nombre, qty: it.quantity || 1 });
     // Costo del servicio fijo (tercerización): fijo + por persona × N.
     const costs = id !== undefined ? ctx.fixedCosts[id] : undefined;
     const fijo = costs?.cost_fixed || 0;
@@ -199,5 +216,26 @@ export const consolidateEvent = (
     costoFijos += (fijo + porPersona * personas) * (it.quantity || 1);
   });
 
-  return { costoInsumos, costoFijos, supplyUse };
+  // Peak de mobiliario del evento (máximo simultáneo entre servicios) y
+  // acumulación en el consolidado compartido.
+  const furnPeak = new Map<number, FurniturePeak>();
+  furnByService.forEach((perService, itemId) => {
+    let peak = 0;
+    let peakService = "";
+    perService.forEach((qty, service) => {
+      if (qty > peak) {
+        peak = qty;
+        peakService = service;
+      }
+    });
+    furnPeak.set(itemId, { total: peak, peakService });
+    const item = ctx.furnById.get(itemId);
+    if (item) {
+      const cur = acc.furnTotals.get(itemId);
+      if (cur) cur.total += peak;
+      else acc.furnTotals.set(itemId, { item, total: peak });
+    }
+  });
+
+  return { costoInsumos, costoFijos, supplyUse, furnPeak, fixedServices: fixedList };
 };
