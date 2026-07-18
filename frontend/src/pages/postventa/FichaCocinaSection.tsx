@@ -73,6 +73,29 @@ export default function FichaCocinaSection({
   const personas = quote.people_count || 0;
   const groups = quote.items?.variable_services || [];
 
+  // Cada SERVICIO de la cotización tiene su propio horario, aunque la
+  // categoría se repita (ej: dos Coffee, mañana y tarde). La 1ª aparición
+  // guarda con el nombre tal cual (compatible con horarios ya guardados);
+  // las siguientes llevan sufijo #2, #3... y en pantalla se rotulan (2º).
+  const slots = useMemo(() => {
+    const catCount = new Map<string, number>();
+    groups.forEach((g) =>
+      catCount.set(g.category, (catCount.get(g.category) || 0) + 1),
+    );
+    const seen = new Map<string, number>();
+    return groups.map((g) => {
+      const n = (seen.get(g.category) || 0) + 1;
+      seen.set(g.category, n);
+      const repeated = (catCount.get(g.category) || 1) > 1;
+      return {
+        group: g,
+        key: n === 1 ? g.category : `${g.category}#${n}`,
+        label: repeated ? `${g.category} (${n}º)` : g.category,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote.items]);
+
   const saveTime = async (serviceName: string, value: string) => {
     setTimes((prev) => ({ ...prev, [serviceName]: value }));
     const { error } = await setEventServiceTime(
@@ -126,10 +149,11 @@ export default function FichaCocinaSection({
         .replace(/>/g, "&gt;");
 
     // Bloques por servicio (categoría de la cotización): platillos ×cant,
-    // receta en letra chica y mobiliario a montar.
-    const bloques = groups
-      .map((g) => {
-        const hora = times[g.category] || "";
+    // receta en letra chica y mobiliario a montar. Un bloque por servicio,
+    // con su propio horario aunque la categoría se repita.
+    const bloques = slots
+      .map(({ group: g, key, label }) => {
+        const hora = times[key] || "";
         const furnTotals = new Map<string, number>();
         const rows = (g.items || [])
           .map((it) => {
@@ -175,7 +199,7 @@ export default function FichaCocinaSection({
           .map(([name, q]) => `${Math.ceil(q).toLocaleString("es-CL")} ${esc(name.toLowerCase())}`)
           .join(" · ");
         return `<div class="servicio">
-          <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(g.category)}</h2></div>
+          <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(label)}</h2></div>
           <div class="platillo"><table class="preparar">${rows}</table></div>
           ${montar ? `<div class="mobiliario"><b>Montar:</b> ${montar}</div>` : ""}
         </div>`;
@@ -350,33 +374,63 @@ export default function FichaCocinaSection({
           onClick={openFicha}
           className="flex items-center gap-1.5 px-3 py-2 bg-blue-900 text-white rounded-lg text-sm font-semibold hover:bg-blue-800"
         >
-          <Printer size={15} /> Ficha de cocina
+          <Printer size={15} /> Imprimir
         </button>
       </div>
       <p className="text-xs text-gray-500 -mt-1">
-        Horarios por servicio y notas del evento. La ficha se genera siempre
-        con los datos vigentes: cambió algo → volver a imprimir.
+        Ponle horario a cada servicio y revisa el contenido; la ficha se
+        imprime siempre con los datos vigentes: cambió algo → volver a
+        imprimir.
       </p>
 
-      {/* Horarios por servicio */}
-      {groups.length > 0 && (
+      {/* Vista previa: un bloque por servicio con su horario y sus platos.
+          Si la categoría se repite (dos Coffee), cada uno tiene su hora. */}
+      {slots.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {groups.map((g) => (
+          {slots.map((s) => (
             <div
-              key={g.category}
-              className="flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2"
+              key={s.key}
+              className="border border-gray-200 rounded-lg overflow-hidden"
             >
-              <span className="text-sm text-gray-800">{g.category}</span>
-              <input
-                type="time"
-                value={times[g.category] || ""}
-                onChange={(e) => saveTime(g.category, e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 py-1 text-sm"
-                aria-label={`Horario de ${g.category}`}
-              />
+              <div className="flex items-center justify-between gap-2 bg-blue-900 text-white px-3 py-1.5">
+                <span className="text-xs font-bold uppercase tracking-wide truncate">
+                  {s.label}
+                </span>
+                <input
+                  type="time"
+                  value={times[s.key] || ""}
+                  onChange={(e) => saveTime(s.key, e.target.value)}
+                  className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white"
+                  aria-label={`Horario de ${s.label}`}
+                />
+              </div>
+              <ul className="px-3 py-1 divide-y divide-gray-100">
+                {(s.group.items || []).map((it) => (
+                  <li
+                    key={it.codigo}
+                    className="flex items-center justify-between gap-2 py-1 text-sm"
+                  >
+                    <span className="text-gray-800 truncate">{it.nombre}</span>
+                    <span className="font-bold text-gray-900 shrink-0">
+                      ×
+                      {(personas * (it.quantity || 1)).toLocaleString("es-CL")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Servicios fijos: en la ficha salen al final; aquí solo un resumen */}
+      {(quote.items?.fixed_services || []).length > 0 && (
+        <p className="text-xs text-gray-500">
+          Servicios fijos:{" "}
+          {(quote.items?.fixed_services || [])
+            .map((f) => `${f.nombre} ×${f.quantity || 1}`)
+            .join(" · ")}
+        </p>
       )}
 
       {/* Notas del evento (lista) */}
