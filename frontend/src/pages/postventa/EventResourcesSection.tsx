@@ -103,6 +103,50 @@ export default function EventResourcesSection({
 
   const total = lines.reduce((s, l) => s + lineTotal(l), 0);
 
+  // Agrupación para la tabla: por tipo (personal → arriendo → compra) y,
+  // dentro de cada grupo, ordenado por proveedor (sin proveedor al final).
+  const grouped = useMemo(() => {
+    const order: ResourceType[] = ["personal", "arriendo", "compra"];
+    const byType = (t: ResourceType | undefined) =>
+      lines.filter((l) => resById.get(l.resource_id)?.type === t);
+    const sortLines = (ls: EventResource[]) =>
+      [...ls].sort((a, b) => {
+        const ra = resById.get(a.resource_id);
+        const rb = resById.get(b.resource_id);
+        const sa = supName(ra?.supplier_id) || "";
+        const sb = supName(rb?.supplier_id) || "";
+        if (sa && !sb) return -1;
+        if (!sa && sb) return 1;
+        return (
+          sa.localeCompare(sb) ||
+          (ra?.name || "").localeCompare(rb?.name || "")
+        );
+      });
+    const groups = order
+      .map((type) => {
+        const ls = sortLines(byType(type));
+        return {
+          type,
+          label: RESOURCE_TYPE_LABEL[type],
+          lines: ls,
+          subtotal: ls.reduce((s, l) => s + lineTotal(l), 0),
+        };
+      })
+      .filter((g) => g.lines.length > 0);
+    // recursos cuyo catálogo fue eliminado: al final, sin grupo propio
+    const orphans = lines.filter((l) => !resById.get(l.resource_id));
+    if (orphans.length) {
+      groups.push({
+        type: "compra",
+        label: "Otros",
+        lines: orphans,
+        subtotal: orphans.reduce((s, l) => s + lineTotal(l), 0),
+      });
+    }
+    return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, resources, suppliers, personas]);
+
   // Instanciación: servicios fijos del evento cuyos recursos aún no fueron
   // importados como líneas (tienen costo en el catálogo pero ninguna línea
   // con su origen). Los sin costo definido solo se informan.
@@ -472,7 +516,20 @@ export default function EventResourcesSection({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {lines.map((l) => {
+              {grouped.flatMap((g) => [
+                <tr key={`hdr-${g.label}`} className="bg-gray-50">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-1.5 text-xs font-bold uppercase text-gray-500"
+                  >
+                    {g.label}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">
+                    {clp(g.subtotal)}
+                  </td>
+                  <td />
+                </tr>,
+                ...g.lines.map((l) => {
                 const r = resById.get(l.resource_id);
                 const hasListPrice =
                   r && (r.list_price_fixed || r.list_price_per_person);
@@ -487,12 +544,9 @@ export default function EventResourcesSection({
                       <span className="text-gray-900">
                         {r?.name || "Recurso eliminado"}
                       </span>
-                      {r && (
+                      {r && supName(r.supplier_id) && (
                         <span className="ml-1.5 text-[11px] text-gray-400">
-                          {RESOURCE_TYPE_LABEL[r.type]}
-                          {supName(r.supplier_id)
-                            ? ` · ${supName(r.supplier_id)}`
-                            : ""}
+                          {supName(r.supplier_id)}
                         </span>
                       )}
                       {isRebaja && (
@@ -571,7 +625,8 @@ export default function EventResourcesSection({
                     </td>
                   </tr>
                 );
-              })}
+                }),
+              ])}
             </tbody>
             <tfoot className="bg-gray-50">
               <tr>
