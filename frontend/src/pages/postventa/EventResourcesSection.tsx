@@ -503,44 +503,44 @@ export default function EventResourcesSection({
           arriendos…
         </p>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Recurso
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase w-20">
-                  Cant.
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
-                  $ fijo
-                </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
-                  $ /persona
-                </th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                  Total
-                </th>
-                <th className="w-8" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {grouped.flatMap((g) => [
-                <tr key={`hdr-${g.label}`} className="bg-gray-50">
-                  <td colSpan={4} className="px-3 py-1.5">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase ${TYPE_PILL[g.type]}`}
-                    >
-                      {g.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">
-                    {clp(g.subtotal)}
-                  </td>
-                  <td />
-                </tr>,
-                ...g.lines.map((l) => {
+        <div className="space-y-4">
+          {grouped.map((g) => (
+            <div key={g.label} className="space-y-1">
+              {/* Encabezado del bloque, afuera del recuadro (patrón Compras) */}
+              <div className="flex items-center justify-between">
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase ${TYPE_PILL[g.type]}`}
+                >
+                  {g.label}
+                </span>
+                <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  {clp(g.subtotal)}
+                </span>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase">
+                        Recurso
+                      </th>
+                      <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-20">
+                        Cant.
+                      </th>
+                      <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-32">
+                        $ fijo
+                      </th>
+                      <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-32">
+                        $ /persona
+                      </th>
+                      <th className="px-3 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase">
+                        Total
+                      </th>
+                      <th className="w-8" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {g.lines.map((l) => {
                 const r = resById.get(l.resource_id);
                 const hasListPrice =
                   r && (r.list_price_fixed || r.list_price_per_person);
@@ -634,26 +634,24 @@ export default function EventResourcesSection({
                         <X size={15} />
                       </button>
                     </td>
-                  </tr>
-                );
-                }),
-              ])}
-            </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase"
-                >
-                  Total recursos
-                </td>
-                <td className="px-3 py-2 text-right font-bold whitespace-nowrap">
-                  {clp(total)}
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
+                      </tr>
+                    );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {/* Total general de recursos */}
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase">
+              Total recursos
+            </span>
+            <span className="font-bold text-gray-900 whitespace-nowrap">
+              {clp(total)}
+            </span>
+          </div>
         </div>
       )}
     </div>
