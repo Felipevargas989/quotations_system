@@ -235,7 +235,7 @@ export default function ComprasTab({
       fixedCosts,
     );
     const acc = newAccumulator();
-    let costoTotal = 0;
+    let costoTotal = 0; // solo insumos: Compras es la lista de compra
     selectedEvents.forEach((ev) => {
       const r = consolidateEvent(
         ev.items as EventItemsSnapshot,
@@ -243,7 +243,7 @@ export default function ComprasTab({
         ctx,
         acc,
       );
-      costoTotal += r.costoInsumos + r.costoFijos;
+      costoTotal += r.costoInsumos;
     });
 
     const supplierById = new Map(suppliers.map((s) => [s.id, s]));
@@ -342,7 +342,7 @@ export default function ComprasTab({
       if (all && !ev.provisioned_at) {
         complete.push({
           id: ev.id,
-          cost: a.costoInsumos + a.costoFijos,
+          cost: a.costoInsumos, // se congelan solo los insumos
           people: ev.people_count || 0,
           services: servicesSignature(ev.items as EventItemsSnapshot),
         });
@@ -422,7 +422,7 @@ export default function ComprasTab({
           const a = perEvent.get(ev.id);
           return {
             id: ev.id,
-            cost: (a?.costoInsumos || 0) + (a?.costoFijos || 0),
+            cost: a?.costoInsumos || 0, // se congelan solo los insumos
             people: ev.people_count || 0,
             services: servicesSignature(ev.items as EventItemsSnapshot),
           };
@@ -509,7 +509,7 @@ export default function ComprasTab({
     lines.push("");
     lines.push("RESUMEN");
     lines.push(
-      `Costo estimado total;${Math.round(consolidation.costoTotal)}`,
+      `Costo insumos estimado;${Math.round(consolidation.costoTotal)}`,
     );
     if (consolidation.sinReceta.length) {
       lines.push("");
@@ -701,7 +701,7 @@ export default function ComprasTab({
                 personas
               </h3>
               <p className="text-xs text-gray-500">
-                Costo estimado total: {fmtMoney(consolidation.costoTotal)}{" "}
+                Costo insumos estimado: {fmtMoney(consolidation.costoTotal)}{" "}
                 (según catálogo)
               </p>
             </div>

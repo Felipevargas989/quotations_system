@@ -398,6 +398,8 @@ export interface EventResource {
   quantity: number;
   price_fixed: number;
   price_per_person: number;
+  // servicio fijo del que se importó la línea (NULL = agregado a mano)
+  origin_fixed_service_id: number | null;
 }
 
 export const getEventResources = async (
@@ -424,9 +426,42 @@ export const addEventResource = async (fields: {
   quantity: number;
   price_fixed: number;
   price_per_person: number;
+  origin_fixed_service_id?: number | null;
 }) => {
   const { error } = await supabase.from("event_resources").insert(fields);
   return { error };
+};
+
+export const addEventResources = async (
+  rows: {
+    company_id: number;
+    quotation_id: string;
+    resource_id: number;
+    quantity: number;
+    price_fixed: number;
+    price_per_person: number;
+    origin_fixed_service_id?: number | null;
+  }[],
+) => {
+  if (!rows.length) return { error: null };
+  const { error } = await supabase.from("event_resources").insert(rows);
+  return { error };
+};
+
+// Todas las líneas de costo de servicios fijos de la empresa (para importar
+// los recursos de los fijos de un evento).
+export const getAllFixedServiceCostItems = async (
+  companyId: number,
+): Promise<FixedServiceCostItem[]> => {
+  const { data, error } = await supabase
+    .from("fixed_service_cost_items")
+    .select("*")
+    .eq("company_id", companyId);
+  if (error) {
+    console.error("Error cargando costos de servicios fijos", error);
+    return [];
+  }
+  return (data || []) as FixedServiceCostItem[];
 };
 
 export const updateEventResource = async (

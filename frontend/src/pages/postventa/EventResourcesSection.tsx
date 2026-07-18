@@ -3,8 +3,10 @@ import { Check, Users, X } from "lucide-react";
 import {
   EventResource,
   addEventResource,
+  addEventResources,
   createManagementResource,
   deleteEventResource,
+  getAllFixedServiceCostItems,
   getEventResources,
   getManagementResources,
   getSuppliers,
@@ -12,6 +14,7 @@ import {
   updateManagementResource,
 } from "../../services/logistics.service";
 import {
+  FixedServiceCostItem,
   ManagementResource,
   RESOURCE_TYPE_LABEL,
   ResourceType,
@@ -23,24 +26,38 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
+export interface EventFixedService {
+  id: number; // id resuelto en el catálogo
+  nombre: string;
+  qty: number;
+}
+
+// Guard a nivel de módulo: evita la doble importación automática en
+// StrictMode (efectos duplicados en desarrollo).
+const importingFor = new Set<string>();
+
 // Recursos asignados a UN evento (Fase 4): staff, arriendos y compras del
-// catálogo. El precio llega precargado desde la lista pero es editable por
-// evento (rebajas negociadas; el staff se valoriza aquí). Seleccionar =
-// agregar; autosave por línea.
+// catálogo. Los recursos de los SERVICIOS FIJOS del evento se importan
+// automáticamente como líneas (instanciación, con chip de origen); el precio
+// llega precargado desde la lista pero es editable por evento (rebajas
+// negociadas; el staff se valoriza aquí). Seleccionar = agregar; autosave.
 export default function EventResourcesSection({
   companyId,
   quotationId,
   personas,
+  fixedServices,
   onCostChange,
 }: {
   readonly companyId: number;
   readonly quotationId: string;
   readonly personas: number;
+  readonly fixedServices: EventFixedService[];
   readonly onCostChange: (total: number) => void;
 }) {
   const [lines, setLines] = useState<EventResource[]>([]);
   const [resources, setResources] = useState<ManagementResource[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [costItems, setCostItems] = useState<FixedServiceCostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -59,11 +76,13 @@ export default function EventResourcesSection({
       getEventResources(companyId, quotationId),
       getManagementResources(companyId),
       getSuppliers(companyId),
+      getAllFixedServiceCostItems(companyId),
     ])
-      .then(([l, r, s]) => {
+      .then(([l, r, s, ci]) => {
         setLines(l);
         setResources(r);
         setSuppliers(s);
+        setCostItems(ci);
       })
       .finally(() => setLoading(false));
   };
@@ -83,6 +102,75 @@ export default function EventResourcesSection({
     (l.quantity || 1);
 
   const total = lines.reduce((s, l) => s + lineTotal(l), 0);
+
+  // Instanciación: servicios fijos del evento cuyos recursos aún no fueron
+  // importados como líneas (tienen costo en el catálogo pero ninguna línea
+  // con su origen). Los sin costo definido solo se informan.
+  const itemsByService = useMemo(() => {
+    const m = new Map<number, FixedServiceCostItem[]>();
+    costItems.forEach((ci) => {
+      const arr = m.get(ci.fixed_service_id) || [];
+      arr.push(ci);
+      m.set(ci.fixed_service_id, arr);
+    });
+    return m;
+  }, [costItems]);
+
+  const pendingServices = useMemo(() => {
+    const originIds = new Set(
+      lines.map((l) => l.origin_fixed_service_id).filter(Boolean),
+    );
+    return fixedServices.filter(
+      (fs) =>
+        (itemsByService.get(fs.id) || []).length > 0 && !originIds.has(fs.id),
+    );
+  }, [fixedServices, itemsByService, lines]);
+
+  const noCostServices = useMemo(
+    () =>
+      fixedServices.filter(
+        (fs) => (itemsByService.get(fs.id) || []).length === 0,
+      ),
+    [fixedServices, itemsByService],
+  );
+
+  const importFromFixed = async (services: EventFixedService[]) => {
+    if (!services.length || importingFor.has(quotationId)) return;
+    importingFor.add(quotationId);
+    try {
+      const rows: Parameters<typeof addEventResources>[0] = [];
+      services.forEach((fs) => {
+        (itemsByService.get(fs.id) || []).forEach((ci) => {
+          const r = resById.get(ci.resource_id);
+          rows.push({
+            company_id: companyId,
+            quotation_id: quotationId,
+            resource_id: ci.resource_id,
+            quantity: (ci.quantity || 1) * (fs.qty || 1),
+            price_fixed: r?.list_price_fixed || 0,
+            price_per_person: r?.list_price_per_person || 0,
+            origin_fixed_service_id: fs.id,
+          });
+        });
+      });
+      const { error } = await addEventResources(rows);
+      if (error) setErr("No se pudieron importar los recursos");
+      else flashSaved();
+    } finally {
+      importingFor.delete(quotationId);
+    }
+    load();
+  };
+
+  // Primera vez (evento sin recursos): importar automáticamente los recursos
+  // de sus servicios fijos.
+  useEffect(() => {
+    if (loading) return;
+    if (lines.length === 0 && pendingServices.length > 0) {
+      importFromFixed(pendingServices);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   useEffect(() => {
     onCostChange(total);
@@ -230,9 +318,26 @@ export default function EventResourcesSection({
         {err && <span className="text-xs text-red-600">{err}</span>}
       </div>
       <p className="text-xs text-gray-500 -mt-1">
-        El precio llega desde la lista del catálogo pero se ajusta para este
-        evento (rebajas, staff por evento).
+        Incluye los recursos de los servicios fijos del evento (importados
+        automáticamente) más lo que agregues. El precio llega desde la lista
+        del catálogo pero se ajusta para este evento (rebajas, staff).
       </p>
+
+      {pendingServices.length > 0 && lines.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-amber-800">
+            <span className="font-bold">Recursos sin importar:</span>{" "}
+            {pendingServices.map((s) => s.nombre).join(" · ")}
+          </p>
+          <button
+            type="button"
+            onClick={() => importFromFixed(pendingServices)}
+            className="shrink-0 px-2.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700"
+          >
+            Importar
+          </button>
+        </div>
+      )}
 
       <SelectWithSearch
         options={options}
@@ -331,6 +436,13 @@ export default function EventResourcesSection({
         </div>
       )}
 
+      {noCostServices.length > 0 && (
+        <p className="text-[11px] text-gray-400">
+          Servicios fijos sin recursos de costo en el catálogo:{" "}
+          {noCostServices.map((s) => s.nombre).join(" · ")}
+        </p>
+      )}
+
       {lines.length === 0 ? (
         <p className="text-sm text-gray-400 italic">
           Agrega los recursos de este evento: garzones, staff de cocina,
@@ -386,6 +498,14 @@ export default function EventResourcesSection({
                       {isRebaja && (
                         <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
                           rebaja
+                        </span>
+                      )}
+                      {l.origin_fixed_service_id && (
+                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                          de{" "}
+                          {fixedServices.find(
+                            (fs) => fs.id === l.origin_fixed_service_id,
+                          )?.nombre || "servicio fijo"}
                         </span>
                       )}
                     </td>

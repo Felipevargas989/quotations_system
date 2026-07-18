@@ -6,7 +6,6 @@ import {
   QuotationProvisioning,
   getAllRecipeItems,
   getCatalogServiceNameIds,
-  getFixedServiceCostsById,
   getFurnitureItems,
   getQuotationProvisioning,
   getSupplies,
@@ -19,7 +18,9 @@ import {
   toBaseQty,
 } from "../../types/logistics.types";
 import { servicesSignature } from "../../utils/eventConsolidation";
-import EventResourcesSection from "./EventResourcesSection";
+import EventResourcesSection, {
+  EventFixedService,
+} from "./EventResourcesSection";
 
 // Gestión del evento: consolida los insumos y el mobiliario de las recetas,
 // muestra los costos (según catálogo) y un resumen de rentabilidad estimada.
@@ -35,13 +36,6 @@ interface ConsolidatedSupply {
 interface ConsolidatedFurniture {
   item: FurnitureItem;
   total: number; // redondeado hacia arriba (no existen 79,5 sillas)
-}
-
-interface FixedServiceCostRow {
-  nombre: string;
-  qty: number;
-  costo: number; // (fijo + por persona × personas) × qty
-  sinCosto: boolean; // no tiene costo definido en el catálogo
 }
 
 const fmtQty = (n: number) =>
@@ -63,12 +57,6 @@ export default function GestionTab({
     variable: Record<string, number>;
     fixed: Record<string, number>;
   }>({ variable: {}, fixed: {} });
-  const [fixedCosts, setFixedCosts] = useState<
-    Record<
-      number,
-      { cost_fixed: number | null; cost_per_person: number | null }
-    >
-  >({});
   const [prov, setProv] = useState<QuotationProvisioning>({
     provisioned_at: null,
     provisioned_cost: null,
@@ -86,15 +74,13 @@ export default function GestionTab({
       getSupplies(companyId),
       getFurnitureItems(companyId),
       getCatalogServiceNameIds(companyId),
-      getFixedServiceCostsById(companyId),
       getQuotationProvisioning(String(quote.id)),
     ])
-      .then(([r, s, f, n, fc, pr]) => {
+      .then(([r, s, f, n, pr]) => {
         setRecipes(r);
         setSupplies(s);
         setFurniture(f);
         setNameIds(n);
-        setFixedCosts(fc);
         setProv(pr);
       })
       .finally(() => setLoading(false));
@@ -102,7 +88,7 @@ export default function GestionTab({
 
   const personas = quote.people_count || 0;
 
-  const { insumos, mobiliario, sinReceta, fijos, costoInsumos, costoFijos } =
+  const { insumos, mobiliario, sinReceta, fijosServicios, costoInsumos } =
     useMemo(() => {
       const supplyById = new Map(supplies.map((s) => [s.id, s]));
       const furnById = new Map(furniture.map((f) => [f.id, f]));
@@ -119,7 +105,7 @@ export default function GestionTab({
       const supplyTotals = new Map<number, ConsolidatedSupply>();
       const furnTotals = new Map<number, ConsolidatedFurniture>();
       const noRecipe: string[] = [];
-      const fixedRows: FixedServiceCostRow[] = [];
+      const fixedRows: EventFixedService[] = [];
 
       // Resuelve el id del servicio: por codigo (cotizaciones nuevas) o por
       // nombre en el catálogo (cotizaciones antiguas con códigos tipo "P001").
@@ -192,17 +178,10 @@ export default function GestionTab({
       (quote.items?.fixed_services || []).forEach((it) => {
         const id = resolveId("fixed", it.codigo, it.nombre);
         addRecipeLines("fixed", id, it.nombre, it.quantity || 1);
-        // Costo del servicio fijo (tercerización): fijo + por persona × N.
-        const costs = id !== undefined ? fixedCosts[id] : undefined;
-        const fijo = costs?.cost_fixed || 0;
-        const porPersona = costs?.cost_per_person || 0;
-        const costo = (fijo + porPersona * personas) * (it.quantity || 1);
-        fixedRows.push({
-          nombre: it.nombre,
-          qty: it.quantity || 1,
-          costo,
-          sinCosto: fijo === 0 && porPersona === 0,
-        });
+        // Sus recursos de costo se instancian en Recursos del evento.
+        if (id !== undefined) {
+          fixedRows.push({ id, nombre: it.nombre, qty: it.quantity || 1 });
+        }
       });
 
       const insumosArr = [...supplyTotals.values()].sort((a, b) =>
@@ -212,7 +191,6 @@ export default function GestionTab({
         (s, c) => s + c.totalBase * (c.supply.price || 0),
         0,
       );
-      const cFijos = fixedRows.reduce((s, r) => s + r.costo, 0);
 
       return {
         insumos: insumosArr,
@@ -220,25 +198,23 @@ export default function GestionTab({
           .map((m) => ({ ...m, total: Math.ceil(m.total) }))
           .sort((a, b) => a.item.name.localeCompare(b.item.name)),
         sinReceta: [...new Set(noRecipe)],
-        fijos: fixedRows,
+        fijosServicios: fixedRows,
         costoInsumos: cInsumos,
-        costoFijos: cFijos,
       };
-    }, [recipes, supplies, furniture, nameIds, fixedCosts, quote, personas]);
+    }, [recipes, supplies, furniture, nameIds, quote, personas]);
 
-  // Si el evento está provisionado, la base insumos+fijos queda CONGELADA
-  // con la foto tomada al provisionar; los recursos siguen vivos.
+  // Si el evento está provisionado, los INSUMOS quedan congelados con la
+  // foto de Compras; los recursos del evento son la foto negociada en sí.
   const provisioned = !!prov.provisioned_at;
   const costoBase =
     provisioned && prov.provisioned_cost !== null
       ? prov.provisioned_cost
-      : costoInsumos + costoFijos;
+      : costoInsumos;
   const costoTotal = costoBase + costoRecursos;
   const montoTotal = quote.total_amount || 0;
   const margen = montoTotal - costoTotal;
   const margenPct = montoTotal > 0 ? (margen / montoTotal) * 100 : 0;
   const hayCostos = costoTotal > 0;
-  const fijosSinCosto = fijos.filter((f) => f.sinCosto);
 
   // Advertencias post-provisión: cambios de personas o servicios vs la foto.
   const cambios = useMemo(() => {
@@ -304,19 +280,13 @@ export default function GestionTab({
     mobiliario.forEach((m) => {
       lines.push(`${m.item.name};${m.total}`);
     });
-    if (fijos.length) {
-      lines.push("");
-      lines.push("SERVICIOS FIJOS (costo tercerización)");
-      lines.push("Servicio;Cantidad;Costo estimado");
-      fijos.forEach((f) => {
-        lines.push(`${f.nombre};${f.qty};${Math.round(f.costo)}`);
-      });
-    }
     lines.push("");
     lines.push("RESUMEN");
     lines.push(`Monto cotizado;${Math.round(montoTotal)}`);
-    lines.push(`Costo estimado (catálogo);${Math.round(costoTotal)}`);
-    lines.push(`Margen estimado;${Math.round(margen)}`);
+    lines.push(
+      `Costo (insumos${provisioned ? " congelados" : ""} + recursos);${Math.round(costoTotal)}`,
+    );
+    lines.push(`Margen;${Math.round(margen)}`);
     if (sinReceta.length) {
       lines.push("");
       lines.push("SERVICIOS SIN RECETA (no incluidos)");
@@ -508,71 +478,13 @@ export default function GestionTab({
         )}
       </div>
 
-      {/* ---------- Bloque 2: costos de servicios fijos ---------- */}
-      {fijos.length > 0 && (
-        <div>
-          <h4 className="text-sm font-bold text-gray-800 mb-1.5">
-            Servicios fijos · costo de tercerización
-          </h4>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Servicio
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                    Cant.
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                    Costo
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {fijos.map((f) => (
-                  <tr key={f.nombre}>
-                    <td className="px-3 py-2 text-gray-900">
-                      {f.nombre}
-                      {f.sinCosto && (
-                        <span className="ml-1.5 text-[11px] text-amber-600">
-                          ⚠ sin costo definido
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right text-gray-600">
-                      {f.qty}
-                    </td>
-                    <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                      {f.sinCosto ? "—" : fmtMoney(f.costo)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td
-                    colSpan={2}
-                    className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase"
-                  >
-                    Total servicios fijos
-                  </td>
-                  <td className="px-3 py-2 text-right font-bold whitespace-nowrap">
-                    {fmtMoney(costoFijos)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ---------- Bloque 3: recursos del evento ---------- */}
+      {/* ---------- Bloque 2: recursos del evento ---------- */}
       {companyId !== null && (
         <EventResourcesSection
           companyId={companyId}
           quotationId={String(quote.id)}
           personas={personas}
+          fixedServices={fijosServicios}
           onCostChange={setCostoRecursos}
         />
       )}
@@ -616,8 +528,8 @@ export default function GestionTab({
                 </p>
                 <p className="text-[11px] text-gray-400">
                   {provisioned
-                    ? `insumos+fijos congelados ${fmtMoney(costoBase)}`
-                    : `insumos ${fmtMoney(costoInsumos)} + fijos ${fmtMoney(costoFijos)}`}
+                    ? `insumos congelados ${fmtMoney(costoBase)}`
+                    : `insumos ${fmtMoney(costoInsumos)}`}
                   {" + recursos "}
                   {fmtMoney(costoRecursos)}
                 </p>
@@ -640,10 +552,8 @@ export default function GestionTab({
             </div>
             <p className="text-[11px] text-gray-400 mt-3">
               {provisioned
-                ? "Costo de insumos y servicios fijos congelado al provisionar; los recursos del evento se suman en vivo."
-                : "Estimado con precios de catálogo; se congela al provisionar en Logística → Compras."}
-              {fijosSinCosto.length > 0 &&
-                ` · ${fijosSinCosto.length} servicio(s) fijo(s) sin costo definido`}
+                ? "Insumos congelados al provisionar; los recursos del evento son la foto negociada de este evento."
+                : "Insumos estimados con precios de catálogo (se congelan al provisionar en Logística → Compras) + recursos del evento."}
             </p>
           </>
         ) : (
