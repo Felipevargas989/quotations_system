@@ -572,7 +572,10 @@ export default function QuotationsPage() {
                       <option value="en_negociacion">💬 En Negociación</option>
                       <option value="aceptada">✅ Aceptada</option>
                       <option value="rechazada">❌ Rechazada</option>
-                      <option value="cancelada">🚫 Cancelada</option>
+                      {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
+                        quotation.quotation_status === "cancelada") && (
+                        <option value="cancelada">🚫 Cancelada</option>
+                      )}
                     </select>
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">

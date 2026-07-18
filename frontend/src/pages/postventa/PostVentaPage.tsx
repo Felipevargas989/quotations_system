@@ -566,6 +566,9 @@ function EventModal({
 
   // Anular evento: pasa la cotización a "cancelada". Sale de Post-Venta,
   // Compras y mobiliario; sus pagos y comprobantes quedan como historia.
+  // Solo el administrador puede anular (los demás roles no ven el botón).
+  const { userRole } = useAuth();
+  const canCancel = userRole === "administrador";
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -621,7 +624,7 @@ function EventModal({
               <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">
                 CANCELADO
               </span>
-            ) : confirmCancel ? (
+            ) : !canCancel ? null : confirmCancel ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">
                   ¿Anular este evento?
