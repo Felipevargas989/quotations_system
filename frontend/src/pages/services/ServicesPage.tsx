@@ -284,13 +284,15 @@ export default function ServicesPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Error loading services: {error}</p>
+          <p className="text-red-800">
+            No se pudieron cargar los servicios: {error}
+          </p>
         </div>
       )}
 
       {loading && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-blue-800">Loading services...</p>
+          <p className="text-blue-800">Cargando servicios…</p>
         </div>
       )}
 

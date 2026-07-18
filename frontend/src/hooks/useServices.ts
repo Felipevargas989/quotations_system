@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { findAllServices } from "../services/services.service";
 import {
   VariableService,
@@ -49,6 +49,10 @@ export function useServices() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // El indicador de carga solo se muestra la PRIMERA vez (página vacía).
+  // Las recargas posteriores (tras arrastrar, renombrar, crear...) son
+  // silenciosas: los datos se reemplazan en su lugar y la página no salta.
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
     loadServices();
@@ -56,7 +60,7 @@ export function useServices() {
 
   const loadServices = async () => {
     try {
-      setLoading(true);
+      if (!initialLoadDone.current) setLoading(true);
       setError(null);
 
       const data = await findAllServices();
@@ -105,6 +109,7 @@ export function useServices() {
       setFormattedFixedServices([]);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   };
 
