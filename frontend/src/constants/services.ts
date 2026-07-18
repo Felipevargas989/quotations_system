@@ -10,6 +10,14 @@ export const CALCULATION_TYPES_NAMES = {
   [CalculationType.FIJO_VARIABLE]: "Fijo variable",
 };
 
+// Tipos seleccionables al crear/editar servicios. VARIABLE_CON_LIMITES fue
+// RETIRADO (mezclaba cosas operativamente): el enum y su cálculo siguen
+// vivos solo para leer cotizaciones históricas que lo guardan en su foto.
+export const SELECTABLE_CALCULATION_TYPES = [
+  CalculationType.FIJO,
+  CalculationType.FIJO_VARIABLE,
+];
+
 export const CALCULATION_TYPES_EXPLANATIONS = {
   [CalculationType.FIJO]: "El precio es fijo",
   [CalculationType.VARIABLE_CON_LIMITES]:

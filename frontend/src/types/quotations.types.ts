@@ -94,6 +94,7 @@ export interface QuotationFormData
     | "quotation_status"
     | "subtotal_amount"
     | "discount_percentage"
+    | "discount_amount"
     | "total_amount"
     | "value_per_person"
     | "fixed_value"

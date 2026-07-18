@@ -106,6 +106,7 @@ export default function QuotationForm() {
     people_count: 1,
     subtotal_amount: 0,
     discount_percentage: 0,
+    discount_amount: 0,
     total_amount: 0,
     quotation_status: isFromRequirement
       ? QuotationStatus.ENVIADA
@@ -139,6 +140,9 @@ export default function QuotationForm() {
   ]);
   const [fixedServiceSlots, setFixedServiceSlots] = useState(3);
   const [discountPercentage, setDiscountPercentage] = useState(0);
+  // Descuento por porcentaje o por monto cerrado (mismo patrón que la
+  // pestaña Servicios de Post Venta).
+  const [discType, setDiscType] = useState<"%" | "$">("%");
   const [subtotalBeforeDiscount, setSubtotalBeforeDiscount] = useState(0);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -239,6 +243,7 @@ export default function QuotationForm() {
         ...quotation,
         event_date: quotation.event_date.split("T")[0],
       });
+      setDiscType((quotation.discount_amount || 0) > 0 ? "$" : "%");
       setIsEditingExisting(!!quotation.id);
 
       // SIEMPRE cargar items desde la base de datos si tiene ID
@@ -289,7 +294,7 @@ export default function QuotationForm() {
 
   useEffect(() => {
     calculateTotals();
-  }, [formData.discount_percentage]);
+  }, [formData.discount_percentage, formData.discount_amount, discType]);
 
   // Handle clicking outside dropdown to close it
   useEffect(() => {
@@ -402,6 +407,22 @@ export default function QuotationForm() {
         return 0;
     }
   };
+
+  // Tope en $ = el mismo % máximo del rol aplicado al subtotal actual.
+  const getMaxDiscountAmount = () =>
+    Math.round((formData.subtotal_amount * getMaxDiscountForRole()) / 100);
+
+  // Monto del descuento según el modo activo (para totales y despliegue).
+  const discountAmountUI =
+    discType === "$"
+      ? Math.min(
+          formData.subtotal_amount,
+          Math.round(formData.discount_amount || 0),
+        )
+      : Math.round(
+          formData.subtotal_amount * ((formData.discount_percentage || 0) / 100),
+        );
+  const hasDiscount = discountAmountUI > 0;
 
   const addServiceBox = () => {
     const newBox: ServiceBox = {
@@ -840,10 +861,13 @@ export default function QuotationForm() {
     // Calcular subtotal antes del descuento para UI
     setSubtotalBeforeDiscount(subtotalAmount);
 
-    // Aplicar descuento usando el valor del formData
-    const discountAmount = Math.round(
-      subtotalAmount * ((formData.discount_percentage || 0) / 100),
-    );
+    // Aplicar descuento: por % o por monto cerrado, según el toggle
+    const discountAmount =
+      discType === "$"
+        ? Math.min(subtotalAmount, Math.round(formData.discount_amount || 0))
+        : Math.round(
+            subtotalAmount * ((formData.discount_percentage || 0) / 100),
+          );
     const finalTotal = Math.round(subtotalAmount - discountAmount);
 
     setFormData((prev) => ({
@@ -896,6 +920,11 @@ export default function QuotationForm() {
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
+        // Solo el modo activo del descuento viaja con valor; el otro va en 0
+        discount_percentage:
+          discType === "%" ? formData.discount_percentage || 0 : 0,
+        discount_amount:
+          discType === "$" ? Math.round(formData.discount_amount || 0) : 0,
         value_per_person: Math.round(formData.value_per_person),
         fixed_value: Math.round(formData.fixed_value),
         subtotal_amount: Math.round(formData.subtotal_amount),
@@ -929,6 +958,7 @@ export default function QuotationForm() {
           quotation_status: quotationData.quotation_status,
           people_count: quotationData.people_count,
           discount_percentage: quotationData.discount_percentage,
+          discount_amount: quotationData.discount_amount,
           observations: quotationData.observations,
         };
         const { error } = await updateQuotation(updatedQuotation, targetId);
@@ -978,6 +1008,7 @@ export default function QuotationForm() {
       people_count: 1,
       subtotal_amount: 0,
       discount_percentage: 0,
+      discount_amount: 0,
       total_amount: 0,
       quotation_status: QuotationStatus.SOLICITADA,
       request_type: QuotationRequestType.COTIZACION,
@@ -2102,32 +2133,70 @@ export default function QuotationForm() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Porcentaje de Descuento
+                    Descuento
                   </label>
-                  <div className="relative">
-                    <NumberInput
-                      id="discount_percentage"
-                      name="discount_percentage"
-                      value={formData.discount_percentage}
-                      onChange={(value) => {
-                        // @ts-ignore
-                        setFormData((prev) => ({
-                          ...prev,
-                          discount_percentage: value
-                            ? Number(value)
-                            : undefined,
-                        }));
-                      }}
-                      min={0}
-                      max={getMaxDiscountForRole()}
-                      disabled={isRestrictedEditing}
-                    />
-                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                      %
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
+                      {(["%", "$"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setDiscType(t)}
+                          disabled={isRestrictedEditing}
+                          className={`px-3 py-2 text-sm font-bold ${
+                            discType === t
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-gray-500 hover:bg-gray-50"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex-1">
+                      {discType === "%" ? (
+                        <NumberInput
+                          id="discount_percentage"
+                          name="discount_percentage"
+                          value={formData.discount_percentage}
+                          onChange={(value) => {
+                            // @ts-ignore
+                            setFormData((prev) => ({
+                              ...prev,
+                              discount_percentage: value
+                                ? Number(value)
+                                : undefined,
+                            }));
+                          }}
+                          min={0}
+                          max={getMaxDiscountForRole()}
+                          disabled={isRestrictedEditing}
+                        />
+                      ) : (
+                        <NumberInput
+                          id="discount_amount"
+                          name="discount_amount"
+                          value={formData.discount_amount || undefined}
+                          onChange={(value) => {
+                            // @ts-ignore
+                            setFormData((prev) => ({
+                              ...prev,
+                              discount_amount: value ? Number(value) : 0,
+                            }));
+                          }}
+                          min={0}
+                          max={getMaxDiscountAmount()}
+                          formatThousands
+                          placeholder="0"
+                          disabled={isRestrictedEditing}
+                        />
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Máximo: {getMaxDiscountForRole()}% ({userRole})
+                    {discType === "%"
+                      ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
+                      : `Máximo: $${getMaxDiscountAmount().toLocaleString()} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
                   </p>
                 </div>
 
@@ -2137,11 +2206,7 @@ export default function QuotationForm() {
                   </label>
                   <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
                     <span className="text-red-600 font-medium">
-                      -$
-                      {Math.round(
-                        formData.subtotal_amount *
-                          ((formData.discount_percentage || 0) / 100),
-                      ).toLocaleString()}
+                      -${discountAmountUI.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -2158,17 +2223,14 @@ export default function QuotationForm() {
                 </div>
               </div>
 
-              {(formData.discount_percentage || 0) > 0 && (
+              {hasDiscount && (
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex items-center">
                     <span className="text-yellow-800 text-sm">
                       💡 <strong>Descuento aplicado:</strong>{" "}
-                      {formData.discount_percentage || 0}% ($
-                      {Math.round(
-                        formData.subtotal_amount *
-                          ((formData.discount_percentage || 0) / 100),
-                      ).toLocaleString()}{" "}
-                      de descuento)
+                      {discType === "%"
+                        ? `${formData.discount_percentage || 0}% ($${discountAmountUI.toLocaleString()} de descuento)`
+                        : `$${discountAmountUI.toLocaleString()} (monto cerrado)`}
                     </span>
                   </div>
                 </div>
@@ -2380,7 +2442,7 @@ export default function QuotationForm() {
 
           {/* Total Final */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            {(formData.discount_percentage || 0) > 0 && (
+            {hasDiscount && (
               <div className="bg-gray-100 px-4 py-2 border-b">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">
@@ -2392,14 +2454,13 @@ export default function QuotationForm() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-red-600">
-                    Descuento ({formData.discount_percentage || 0}%)
+                    Descuento{" "}
+                    {discType === "%"
+                      ? `(${formData.discount_percentage || 0}%)`
+                      : "(monto cerrado)"}
                   </span>
                   <span className="text-red-600">
-                    -$
-                    {Math.round(
-                      formData.subtotal_amount *
-                        ((formData.discount_percentage || 0) / 100),
-                    ).toLocaleString()}
+                    -${discountAmountUI.toLocaleString()}
                   </span>
                 </div>
               </div>

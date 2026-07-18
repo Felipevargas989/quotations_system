@@ -12,6 +12,7 @@ import {
   CALCULATION_TYPES_EXPLANATIONS,
   CALCULATION_TYPES_NAMES,
   CalculationType,
+  SELECTABLE_CALCULATION_TYPES,
 } from "../../../constants/services";
 import { NumberInput } from "../../../components/inputs";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -248,9 +249,9 @@ export default function FixedServiceForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Seleccionar tipo</option>
-              {Object.keys(CALCULATION_TYPES_NAMES).map((type) => (
+              {SELECTABLE_CALCULATION_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {CALCULATION_TYPES_NAMES[type as CalculationType]}
+                  {CALCULATION_TYPES_NAMES[type]}
                 </option>
               ))}
             </select>

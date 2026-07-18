@@ -87,6 +87,7 @@ export class QuotationsService {
       has_contract: createQuotationDto.has_contract || false,
       payment_plan_type: PaymentPlanType.DEFAULT,
       discount_percentage: createQuotationDto.discount_percentage || 0,
+      discount_amount: createQuotationDto.discount_amount || 0,
       subtotal_amount: createQuotationDto.subtotal_amount || 0,
       items: createQuotationDto.items || defaultItems,
     };
