@@ -10,6 +10,7 @@ import {
   Check,
   ChefHat,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Layers,
   Star,
@@ -100,6 +101,39 @@ export default function VariableServicesByCategory({
     sections
       .filter((s) => s.category_id === categoryId)
       .sort((a, b) => a.sort_order - b.sort_order);
+
+  // --- Categorías desplegables ---
+  // El navegador recuerda cuáles quedaron abiertas; la primera vez parten
+  // todas cerradas para que la página sea una lista corta de encabezados.
+  const OPEN_CATS_KEY = "eventia_open_categories";
+  const [openCats, setOpenCats] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem(OPEN_CATS_KEY);
+      return new Set(raw ? (JSON.parse(raw) as number[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const persistOpenCats = (next: Set<number>) => {
+    setOpenCats(next);
+    try {
+      localStorage.setItem(OPEN_CATS_KEY, JSON.stringify([...next]));
+    } catch {
+      /* si no se puede guardar, solo dura la sesión */
+    }
+  };
+  const toggleCategoryOpen = (id: number) => {
+    const next = new Set(openCats);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    persistOpenCats(next);
+  };
+  const openAllCategories = () =>
+    persistOpenCats(new Set(orderedCategories.map((c) => c.id)));
+  const closeAllCategories = () => persistOpenCats(new Set());
 
   // --- Category drag (reorder the boxes) + ⋮ menu ---
   const [dragCategoryId, setDragCategoryId] = useState<number | null>(null);
@@ -467,6 +501,24 @@ export default function VariableServicesByCategory({
         </div>
       )}
 
+      {/* Abrir/cerrar todas las categorías de un viaje */}
+      <div className="flex justify-end gap-4 -mb-1">
+        <button
+          type="button"
+          onClick={openAllCategories}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          Abrir todo
+        </button>
+        <button
+          type="button"
+          onClick={closeAllCategories}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          Cerrar todo
+        </button>
+      </div>
+
       {orderedCats.map((cat) => {
         const catLinks = linksForCategory(cat.id);
         const groups = groupsForCategory(cat.id);
@@ -478,6 +530,7 @@ export default function VariableServicesByCategory({
         const isEditing = editingId === cat.id;
         const isConfirming = confirmDeleteId === cat.id;
         const headerDraggable = !isEditing && !isConfirming;
+        const isOpen = openCats.has(cat.id);
 
         return (
           <div
@@ -495,8 +548,13 @@ export default function VariableServicesByCategory({
                 headerDraggable && handleCategoryDragStart(cat.id)
               }
               onDragEnd={() => setDragCategoryId(null)}
-              className={`relative px-4 py-3 border-b border-gray-200 flex items-center justify-between ${
-                inactiveCat ? "bg-gray-50" : ""
+              onClick={() => {
+                if (!isEditing && !isConfirming) toggleCategoryOpen(cat.id);
+              }}
+              className={`relative px-4 py-3 flex items-center justify-between ${
+                isOpen ? "border-b border-gray-200" : ""
+              } ${inactiveCat ? "bg-gray-50" : ""} ${
+                !isEditing && !isConfirming ? "cursor-pointer" : ""
               }`}
             >
               {isEditing ? (
@@ -568,6 +626,17 @@ export default function VariableServicesByCategory({
                     size={16}
                     className="text-gray-400 cursor-grab flex-shrink-0"
                   />
+                  {isOpen ? (
+                    <ChevronDown
+                      size={16}
+                      className="text-gray-400 flex-shrink-0"
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={16}
+                      className="text-gray-400 flex-shrink-0"
+                    />
+                  )}
                   <h3
                     className={`font-medium ${
                       inactiveCat ? "text-gray-500" : "text-gray-900"
@@ -589,13 +658,20 @@ export default function VariableServicesByCategory({
                   <button
                     type="button"
                     title="Opciones"
-                    onClick={() => toggleMenu(cat.id)}
+                    onClick={(e) => {
+                      // que abrir el menú no pliegue/despliegue la categoría
+                      e.stopPropagation();
+                      toggleMenu(cat.id);
+                    }}
                     className="p-1 rounded hover:bg-gray-100 text-gray-500"
                   >
                     <MoreVertical size={18} />
                   </button>
                   {openMenuId === cat.id && (
-                    <div className="absolute right-2 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-2 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700"
+                    >
                       <button
                         type="button"
                         onClick={() => startRename(cat)}
@@ -644,7 +720,9 @@ export default function VariableServicesByCategory({
               )}
             </div>
 
-            {/* Services within this category (drag to reorder por sección) */}
+            {/* Services within this category (drag to reorder por sección),
+                visibles solo con la categoría desplegada */}
+            {isOpen && (
             <div className="p-2">
               {ids.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400">
@@ -786,6 +864,7 @@ export default function VariableServicesByCategory({
                 })
               )}
             </div>
+            )}
           </div>
         );
       })}
