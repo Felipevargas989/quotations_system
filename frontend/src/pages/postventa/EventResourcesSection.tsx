@@ -506,19 +506,17 @@ export default function EventResourcesSection({
         <div className="space-y-4">
           {grouped.map((g) => (
             <div key={g.label} className="space-y-1">
-              {/* Encabezado del bloque, afuera del recuadro (patrón Compras) */}
-              <div className="flex items-center justify-between">
+              {/* Encabezado del bloque: solo el pill (patrón Compras) */}
+              <div>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase ${TYPE_PILL[g.type]}`}
                 >
                   {g.label}
                 </span>
-                <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
-                  {clp(g.subtotal)}
-                </span>
               </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full text-sm">
+                {/* table-fixed: mismos anchos de columna en los 3 bloques */}
+                <table className="min-w-full text-sm table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase">
@@ -533,7 +531,7 @@ export default function EventResourcesSection({
                       <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-32">
                         $ /persona
                       </th>
-                      <th className="px-3 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase">
+                      <th className="px-3 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-32">
                         Total
                       </th>
                       <th className="w-8" />
@@ -638,6 +636,21 @@ export default function EventResourcesSection({
                     );
                     })}
                   </tbody>
+                  {/* Subtotal bajo los ítems (costumbre local) */}
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-3 py-1.5 text-right text-[11px] font-semibold text-gray-500 uppercase"
+                      >
+                        Subtotal {g.label.toLowerCase()}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
+                        {clp(g.subtotal)}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
