@@ -197,6 +197,45 @@ export default function FichaCocinaSection({
       .map((n) => `<li>${esc(n.note)}</li>`)
       .join("");
 
+    // Servicios fijos: al final de la hoja, bajo las notas. Nombre ×cant y,
+    // si su receta tiene mobiliario, la línea "Montar: ..." en letra chica.
+    const fijosRows = (quote.items?.fixed_services || [])
+      .map((it) => {
+        const numericId = Number(it.codigo);
+        let id: number | undefined =
+          Number.isFinite(numericId) && ctx.byService.get(`fixed-${numericId}`)
+            ? numericId
+            : nameIds.fixed[it.nombre.trim().toLowerCase()];
+        if (id === undefined && Number.isFinite(numericId)) id = numericId;
+        const lines =
+          id !== undefined ? ctx.byService.get(`fixed-${id}`) : undefined;
+        const qty = it.quantity || 1;
+        const furn = new Map<string, number>();
+        lines?.forEach((line) => {
+          if (line.item_kind === "mobiliario" && line.furniture_id) {
+            const f = ctx.furnById.get(line.furniture_id);
+            if (f) {
+              furn.set(
+                f.name,
+                (furn.get(f.name) || 0) + line.qty_per_person * personas * qty,
+              );
+            }
+          }
+        });
+        const montar = [...furn.entries()]
+          .map(
+            ([n, q]) =>
+              `${Math.ceil(q).toLocaleString("es-CL")} ${esc(n.toLowerCase())}`,
+          )
+          .join(" · ");
+        return `<tr><td class="fnombre">${esc(it.nombre)}</td><td class="qty">×${qty}</td></tr>${
+          montar
+            ? `<tr class="fmontar"><td colspan="2">Montar: ${montar}</td></tr>`
+            : ""
+        }`;
+      })
+      .join("");
+
     const clientName =
       (quote as unknown as { clients?: { name?: string } }).clients?.name ||
       "";
@@ -243,6 +282,8 @@ export default function FichaCocinaSection({
   .notas li { font-size:13.5px; padding:5px 0 5px 22px; border-bottom:1px dotted #ccc; position:relative; }
   .notas li:last-child { border-bottom:none; }
   .notas li::before { content:"\\25A0"; position:absolute; left:2px; color:#d97706; font-size:10px; top:8px; }
+  .fijos .fnombre { font-weight:700; font-size:13.5px; }
+  .fijos .fmontar td { font-size:11.5px; color:#777; padding:0 6px 6px; border-bottom:1px solid #e5e5e5; }
   .pie { margin-top:26px; display:flex; justify-content:space-between; font-size:10.5px; color:#888; border-top:1px solid #ddd; padding-top:8px; }
   .btn-imprimir { position:fixed; top:14px; right:14px; background:#1e3a8a; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   @media print {
@@ -270,6 +311,11 @@ export default function FichaCocinaSection({
   ${
     notas
       ? `<div class="seccion notas"><h2>Notas del evento</h2><ul>${notas}</ul></div>`
+      : ""
+  }
+  ${
+    fijosRows
+      ? `<div class="seccion fijos"><h2>Servicios fijos</h2><table>${fijosRows}</table></div>`
       : ""
   }
   <div class="pie">
