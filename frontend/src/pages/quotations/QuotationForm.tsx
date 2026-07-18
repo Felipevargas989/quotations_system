@@ -2151,7 +2151,11 @@ export default function QuotationForm() {
                                 );
                               }
 
-                              return filteredProducts.map((product) => (
+                              const itemButton = (product: {
+                                codigo: string;
+                                nombre: string;
+                                precio: number;
+                              }) => (
                                 <button
                                   key={product.codigo}
                                   type="button"
@@ -2168,7 +2172,58 @@ export default function QuotationForm() {
                                   {product.nombre} - $
                                   {product.precio.toLocaleString()}
                                 </button>
-                              ));
+                              );
+
+                              // Con secciones definidas, el listado se agrupa
+                              // como la carta (Entradas, Principales...); una
+                              // categoría sin secciones se ve igual que hoy.
+                              const cat = orderedCategories.find(
+                                (c) => c.name === box.selectedCategory,
+                              );
+                              const secs = cat
+                                ? categorySections
+                                    .filter((s) => s.category_id === cat.id)
+                                    .sort(
+                                      (a, b) => a.sort_order - b.sort_order,
+                                    )
+                                : [];
+                              if (secs.length === 0) {
+                                return filteredProducts.map(itemButton);
+                              }
+
+                              const sectionOf = (codigo: string) =>
+                                categoryLinks.find(
+                                  (l) =>
+                                    l.category_id === cat!.id &&
+                                    l.variable_service_id.toString() ===
+                                      codigo,
+                                )?.section_id || 0;
+
+                              return [
+                                ...secs.map((s) => ({
+                                  key: `s-${s.id}`,
+                                  name: s.name,
+                                  items: filteredProducts.filter(
+                                    (p) => sectionOf(p.codigo) === s.id,
+                                  ),
+                                })),
+                                {
+                                  key: "s-0",
+                                  name: "Sin sección",
+                                  items: filteredProducts.filter(
+                                    (p) => sectionOf(p.codigo) === 0,
+                                  ),
+                                },
+                              ]
+                                .filter((g) => g.items.length > 0)
+                                .map((g) => (
+                                  <div key={g.key}>
+                                    <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                      {g.name}
+                                    </div>
+                                    {g.items.map(itemButton)}
+                                  </div>
+                                ));
                             })()}
                           </div>
                         )}
