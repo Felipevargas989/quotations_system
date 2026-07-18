@@ -47,6 +47,18 @@ export interface VariableServiceCategoryLink {
   variable_service_id: number;
   category_id: number;
   sort_order?: number | null;
+  // Sección de la categoría a la que pertenece este vínculo (null = sin sección)
+  section_id?: number | null;
+}
+
+// Sección dentro de una categoría (Entradas / Fondos / Postres...), como una
+// carta real. Cada categoría define las suyas.
+export interface CategorySection {
+  id: number;
+  company_id: number;
+  category_id: number;
+  name: string;
+  sort_order: number;
 }
 
 export type CreateVariableService = Partial<

@@ -310,6 +310,7 @@ export default function ServicesPage() {
         Servicios Variables
       </div>
       <VariableServicesByCategory
+        companyId={company?.id ? Number(company.id) : null}
         orderedCategories={orderedCategories}
         variableServices={variableServices}
         categoryLinks={categoryLinks}

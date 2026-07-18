@@ -9,16 +9,29 @@ import {
   Pencil,
   Check,
   ChefHat,
+  ChevronDown,
+  ChevronUp,
+  Layers,
   X,
 } from "lucide-react";
 import {
+  CategorySection,
   ServiceCategorySetting,
   VariableService,
   VariableServiceCategoryLink,
 } from "../../../../types/services.types";
 import { reorderServicesInCategory } from "../../../../services/services.service";
+import {
+  createCategorySection,
+  deleteCategorySection,
+  getCategorySections,
+  renameCategorySection,
+  reorderCategorySections,
+  setLinkSection,
+} from "../../../../services/sections.service";
 
 interface Props {
+  readonly companyId: number | null;
   readonly orderedCategories: ServiceCategorySetting[];
   readonly variableServices: VariableService[];
   readonly categoryLinks: VariableServiceCategoryLink[];
@@ -43,6 +56,7 @@ interface Props {
 // with a drag handle (reorder categories vertically) and a ⋮ menu (rename /
 // activate-deactivate / delete). Inside each box, services drag to reorder.
 export default function VariableServicesByCategory({
+  companyId,
   orderedCategories,
   variableServices,
   categoryLinks,
@@ -57,10 +71,33 @@ export default function VariableServicesByCategory({
   onDeleteCategory,
   onReorderCategories,
 }: Props) {
-  // --- Service drag (within a category) ---
+  // --- Service drag (within a category+sección) ---
   const [dragCategory, setDragCategory] = useState<number | null>(null);
+  const [dragSection, setDragSection] = useState<number | 0 | null>(null);
   const [dragServiceId, setDragServiceId] = useState<number | null>(null);
-  const [localOrder, setLocalOrder] = useState<Record<number, number[]>>({});
+  // clave "categoryId:sectionId" (0 = sin sección) → ids ordenados
+  const [localOrder, setLocalOrder] = useState<Record<string, number[]>>({});
+
+  // --- Secciones por categoría ---
+  const [sections, setSections] = useState<CategorySection[]>([]);
+  const [sectionsEditFor, setSectionsEditFor] = useState<number | null>(null);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [renamingSectionId, setRenamingSectionId] = useState<number | null>(
+    null,
+  );
+  const [renameSectionName, setRenameSectionName] = useState("");
+
+  const loadSections = () => {
+    if (companyId === null) return;
+    getCategorySections(companyId).then(setSections);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(loadSections, [companyId]);
+
+  const sectionsFor = (categoryId: number) =>
+    sections
+      .filter((s) => s.category_id === categoryId)
+      .sort((a, b) => a.sort_order - b.sort_order);
 
   // --- Category drag (reorder the boxes) + ⋮ menu ---
   const [dragCategoryId, setDragCategoryId] = useState<number | null>(null);
@@ -87,39 +124,184 @@ export default function VariableServicesByCategory({
 
   const serviceById = new Map(variableServices.map((s) => [s.id, s]));
 
-  const serviceIdsForCategory = (categoryId: number): number[] => {
-    if (localOrder[categoryId]) return localOrder[categoryId];
-    return categoryLinks
+  // Vínculos de una categoría ordenados; agrupables por sección.
+  const linksForCategory = (categoryId: number) =>
+    categoryLinks
       .filter((l) => l.category_id === categoryId)
       .sort(
         (a, b) =>
           (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
           (b.sort_order ?? Number.MAX_SAFE_INTEGER),
       )
-      .map((l) => l.variable_service_id)
-      .filter((id) => serviceById.has(id));
+      .filter((l) => serviceById.has(l.variable_service_id));
+
+  // Ids de servicios de una categoría dentro de UNA sección (0 = sin sección).
+  const serviceIdsForGroup = (
+    categoryId: number,
+    sectionId: number | 0,
+  ): number[] => {
+    const key = `${categoryId}:${sectionId}`;
+    if (localOrder[key]) return localOrder[key];
+    return linksForCategory(categoryId)
+      .filter((l) => (l.section_id || 0) === sectionId)
+      .map((l) => l.variable_service_id);
+  };
+
+  // Grupos visibles de una categoría: sus secciones (en orden) y, al final,
+  // "sin sección" si hay servicios sueltos. Categoría sin secciones → un solo
+  // grupo plano sin encabezado.
+  const groupsForCategory = (categoryId: number) => {
+    const cats = sectionsFor(categoryId);
+    const groups: { section: CategorySection | null; ids: number[] }[] =
+      cats.map((s) => ({ section: s, ids: serviceIdsForGroup(categoryId, s.id) }));
+    const loose = serviceIdsForGroup(categoryId, 0);
+    if (loose.length > 0 || cats.length === 0) {
+      groups.push({ section: null, ids: loose });
+    }
+    return groups;
+  };
+
+  // Persistir el orden global de la categoría = concatenación de sus grupos
+  // en orden visual (así el sort_order queda coherente dentro y entre secciones).
+  const persistCategoryOrder = async (
+    categoryId: number,
+    overrides: Record<string, number[]>,
+  ) => {
+    const cats = sectionsFor(categoryId);
+    const full: number[] = [];
+    cats.forEach((s) => {
+      const key = `${categoryId}:${s.id}`;
+      full.push(...(overrides[key] ?? serviceIdsForGroup(categoryId, s.id)));
+    });
+    const looseKey = `${categoryId}:0`;
+    full.push(...(overrides[looseKey] ?? serviceIdsForGroup(categoryId, 0)));
+    try {
+      await reorderServicesInCategory(categoryId, full);
+      onReordered();
+    } catch {
+      onReordered();
+    }
   };
 
   const handleServiceDrop = async (
     categoryId: number,
+    sectionId: number | 0,
     targetServiceId: number,
   ) => {
-    if (dragServiceId === null || dragCategory !== categoryId) return;
-    const current = serviceIdsForCategory(categoryId);
+    if (
+      dragServiceId === null ||
+      dragCategory !== categoryId ||
+      dragSection !== sectionId
+    ) {
+      setDragServiceId(null);
+      setDragSection(null);
+      return;
+    }
+    const current = serviceIdsForGroup(categoryId, sectionId);
     const without = current.filter((id) => id !== dragServiceId);
     const targetIndex = without.indexOf(targetServiceId);
     const next = [...without];
     next.splice(targetIndex, 0, dragServiceId);
 
-    setLocalOrder((prev) => ({ ...prev, [categoryId]: next }));
+    const key = `${categoryId}:${sectionId}`;
+    const overrides = { ...localOrder, [key]: next };
+    setLocalOrder(overrides);
     setDragServiceId(null);
     setDragCategory(null);
-    try {
-      await reorderServicesInCategory(categoryId, next);
-      onReordered();
-    } catch {
-      onReordered();
+    setDragSection(null);
+    await persistCategoryOrder(categoryId, overrides);
+  };
+
+  // Cambiar un servicio de sección (selector): entra AL FINAL del destino.
+  const changeSection = async (
+    link: VariableServiceCategoryLink,
+    newSectionId: number | 0,
+  ) => {
+    if ((link.section_id || 0) === newSectionId) return;
+    const destIds = serviceIdsForGroup(link.category_id, newSectionId);
+    const maxSort = Math.max(
+      0,
+      ...linksForCategory(link.category_id).map((l) => l.sort_order ?? 0),
+    );
+    const { error: err } = await setLinkSection(
+      link.id,
+      newSectionId === 0 ? null : newSectionId,
+      maxSort + 1,
+    );
+    if (err) {
+      setError("No se pudo cambiar la sección.");
+      return;
     }
+    // refresco local optimista + confirmación silenciosa del servidor
+    setLocalOrder((prev) => {
+      const next = { ...prev };
+      const fromKey = `${link.category_id}:${link.section_id || 0}`;
+      const toKey = `${link.category_id}:${newSectionId}`;
+      next[fromKey] = serviceIdsForGroup(
+        link.category_id,
+        link.section_id || 0,
+      ).filter((id) => id !== link.variable_service_id);
+      next[toKey] = [...destIds, link.variable_service_id];
+      return next;
+    });
+    onReordered();
+  };
+
+  // --- Gestión de secciones (panel bajo el encabezado de la categoría) ---
+  const addSection = async (categoryId: number) => {
+    const name = newSectionName.trim();
+    if (!name || companyId === null) return;
+    const existing = sectionsFor(categoryId);
+    if (existing.some((s) => s.name.trim().toLowerCase() === name.toLowerCase())) {
+      setError(`Ya existe la sección "${name}" en esta categoría.`);
+      return;
+    }
+    const { error: err } = await createCategorySection({
+      company_id: companyId,
+      category_id: categoryId,
+      name,
+      sort_order: existing.length,
+    });
+    if (err) {
+      setError("No se pudo crear la sección.");
+      return;
+    }
+    setNewSectionName("");
+    loadSections();
+  };
+
+  const submitRenameSection = async (s: CategorySection) => {
+    const name = renameSectionName.trim();
+    if (!name) return;
+    const { error: err } = await renameCategorySection(s.id, name);
+    if (err) {
+      setError("No se pudo renombrar la sección.");
+      return;
+    }
+    setRenamingSectionId(null);
+    loadSections();
+  };
+
+  const removeSection = async (s: CategorySection) => {
+    // Sus servicios quedan "sin sección" (la base lo hace sola).
+    const { error: err } = await deleteCategorySection(s.id);
+    if (err) {
+      setError("No se pudo eliminar la sección.");
+      return;
+    }
+    setLocalOrder({});
+    loadSections();
+    onReordered();
+  };
+
+  const moveSection = async (categoryId: number, id: number, dir: -1 | 1) => {
+    const list = sectionsFor(categoryId).map((s) => s.id);
+    const idx = list.indexOf(id);
+    const swap = idx + dir;
+    if (swap < 0 || swap >= list.length) return;
+    [list[idx], list[swap]] = [list[swap], list[idx]];
+    await reorderCategorySections(list);
+    loadSections();
   };
 
   // --- Category ordering ---
@@ -253,7 +435,12 @@ export default function VariableServicesByCategory({
       )}
 
       {orderedCats.map((cat) => {
-        const ids = serviceIdsForCategory(cat.id);
+        const catLinks = linksForCategory(cat.id);
+        const groups = groupsForCategory(cat.id);
+        const catSections = sectionsFor(cat.id);
+        const linkForService = (serviceId: number) =>
+          catLinks.find((l) => l.variable_service_id === serviceId);
+        const ids = catLinks.map((l) => l.variable_service_id);
         const inactiveCat = cat.is_active === false;
         const isEditing = editingId === cat.id;
         const isConfirming = confirmDeleteId === cat.id;
@@ -385,6 +572,19 @@ export default function VariableServicesByCategory({
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setError(null);
+                          setSectionsEditFor((cur) =>
+                            cur === cat.id ? null : cat.id,
+                          );
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                      >
+                        <Layers size={14} /> Secciones
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => doToggle(cat)}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
                       >
@@ -411,27 +611,152 @@ export default function VariableServicesByCategory({
               )}
             </div>
 
-            {/* Services within this category (drag to reorder) */}
+            {/* Editor de secciones de la categoría */}
+            {sectionsEditFor === cat.id && (
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase text-blue-800">
+                    Secciones de {cat.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSectionsEditFor(null)}
+                    className="text-blue-400 hover:text-blue-700"
+                    aria-label="Cerrar secciones"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+                {catSections.map((s, i) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-1.5 bg-white border border-blue-100 rounded-lg px-2 py-1.5"
+                  >
+                    {renamingSectionId === s.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={renameSectionName}
+                          onChange={(e) =>
+                            setRenameSectionName(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") submitRenameSection(s);
+                            if (e.key === "Escape")
+                              setRenamingSectionId(null);
+                          }}
+                          className="flex-1 border border-gray-300 rounded px-2 py-0.5 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => submitRenameSection(s)}
+                          className="text-green-600"
+                          aria-label="Guardar nombre"
+                        >
+                          <Check size={15} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-sm text-gray-800">
+                          {s.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(cat.id, s.id, -1)}
+                          disabled={i === 0}
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25"
+                          aria-label="Subir sección"
+                        >
+                          <ChevronUp size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(cat.id, s.id, 1)}
+                          disabled={i === catSections.length - 1}
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25"
+                          aria-label="Bajar sección"
+                        >
+                          <ChevronDown size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingSectionId(s.id);
+                            setRenameSectionName(s.name);
+                          }}
+                          className="text-gray-400 hover:text-blue-600"
+                          aria-label="Renombrar sección"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSection(s)}
+                          className="text-gray-400 hover:text-red-600"
+                          title="Eliminar (sus servicios quedan sin sección)"
+                          aria-label="Eliminar sección"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <input
+                    value={newSectionName}
+                    onChange={(e) => setNewSectionName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addSection(cat.id);
+                    }}
+                    placeholder="Nueva sección (ej: Entradas, Fondos, Postres…)"
+                    className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addSection(cat.id)}
+                    disabled={!newSectionName.trim()}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-40"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Services within this category (drag to reorder por sección) */}
             <div className="p-2">
               {ids.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400">
                   Sin servicios en esta categoría.
                 </p>
               ) : (
-                ids.map((id) => {
+                groups.map((group) => {
+                  const sectionKey = group.section?.id ?? 0;
+                  return (
+                    <div key={`sec-${sectionKey}`}>
+                      {(group.section || catSections.length > 0) && (
+                        <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                          {group.section ? group.section.name : "Sin sección"}
+                        </div>
+                      )}
+                      {group.ids.map((id) => {
                   const service = serviceById.get(id);
                   if (!service) return null;
                   const inactive = service.is_active === false;
+                  const link = linkForService(id);
                   return (
                     <div
                       key={id}
                       draggable
                       onDragStart={() => {
                         setDragCategory(cat.id);
+                        setDragSection(sectionKey);
                         setDragServiceId(id);
                       }}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleServiceDrop(cat.id, id)}
+                      onDrop={() => handleServiceDrop(cat.id, sectionKey, id)}
                       className={`flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 ${
                         inactive ? "opacity-60" : ""
                       } ${dragServiceId === id ? "bg-blue-50" : ""}`}
@@ -473,6 +798,24 @@ export default function VariableServicesByCategory({
                         })()}
                       </div>
                       <div className="flex items-center space-x-2 flex-shrink-0">
+                        {catSections.length > 0 && link && (
+                          <select
+                            value={link.section_id || 0}
+                            onChange={(e) =>
+                              changeSection(link, Number(e.target.value))
+                            }
+                            className="text-xs border border-gray-200 rounded-md px-1.5 py-1 text-gray-500 bg-white hover:border-gray-300 max-w-[130px]"
+                            title="Sección"
+                            aria-label={`Sección de ${service.name}`}
+                          >
+                            <option value={0}>Sin sección</option>
+                            {catSections.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <button
                           type="button"
                           title={inactive ? "Activar" : "Desactivar"}
@@ -508,6 +851,9 @@ export default function VariableServicesByCategory({
                           <Trash2 size={16} />
                         </button>
                       </div>
+                    </div>
+                  );
+                      })}
                     </div>
                   );
                 })
