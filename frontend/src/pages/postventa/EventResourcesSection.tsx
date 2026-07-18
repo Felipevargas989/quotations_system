@@ -26,6 +26,19 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
+// Inputs de dinero: texto con separador de miles es-CL (sin flechitas).
+const fmtInput = (n: number) =>
+  n ? Math.round(n).toLocaleString("es-CL") : "";
+const parseInput = (s: string) =>
+  parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
+
+// Color del subgrupo por tipo de recurso.
+const TYPE_PILL: Record<ResourceType, string> = {
+  personal: "bg-teal-100 text-teal-700",
+  arriendo: "bg-indigo-100 text-indigo-700",
+  compra: "bg-rose-100 text-rose-700",
+};
+
 export interface EventFixedService {
   id: number; // id resuelto en el catálogo
   nombre: string;
@@ -346,14 +359,11 @@ export default function EventResourcesSection({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Users size={15} className="text-gray-500" />
-        <h4 className="text-sm font-bold text-gray-800">
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <Users size={17} className="text-gray-600" />
+        <h4 className="text-base font-bold text-gray-900">
           Recursos del evento
         </h4>
-        <span className="text-xs text-gray-400">
-          staff · arriendos · compras
-        </span>
         {saved && (
           <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
             <Check size={13} /> Guardado
@@ -518,11 +528,12 @@ export default function EventResourcesSection({
             <tbody className="divide-y divide-gray-100">
               {grouped.flatMap((g) => [
                 <tr key={`hdr-${g.label}`} className="bg-gray-50">
-                  <td
-                    colSpan={4}
-                    className="px-3 py-1.5 text-xs font-bold uppercase text-gray-500"
-                  >
-                    {g.label}
+                  <td colSpan={4} className="px-3 py-1.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase ${TYPE_PILL[g.type]}`}
+                    >
+                      {g.label}
+                    </span>
                   </td>
                   <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">
                     {clp(g.subtotal)}
@@ -565,14 +576,14 @@ export default function EventResourcesSection({
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       <input
-                        type="number"
-                        step="any"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
                         defaultValue={l.quantity}
                         onBlur={(e) => {
-                          const v = parseFloat(e.target.value);
+                          const v = parseInput(e.target.value);
                           if (v > 0 && v !== l.quantity)
                             saveLine(l.id, { quantity: v });
+                          e.target.value = String(v > 0 ? v : l.quantity);
                         }}
                         className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
                         aria-label="Cantidad"
@@ -580,15 +591,15 @@ export default function EventResourcesSection({
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        defaultValue={l.price_fixed || ""}
+                        type="text"
+                        inputMode="numeric"
+                        defaultValue={fmtInput(l.price_fixed)}
                         placeholder="0"
                         onBlur={(e) => {
-                          const v = parseFloat(e.target.value) || 0;
+                          const v = parseInput(e.target.value);
                           if (v !== l.price_fixed)
                             saveLine(l.id, { price_fixed: v });
+                          e.target.value = fmtInput(v);
                         }}
                         className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
                         aria-label="Precio fijo"
@@ -596,15 +607,15 @@ export default function EventResourcesSection({
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        defaultValue={l.price_per_person || ""}
+                        type="text"
+                        inputMode="numeric"
+                        defaultValue={fmtInput(l.price_per_person)}
                         placeholder="0"
                         onBlur={(e) => {
-                          const v = parseFloat(e.target.value) || 0;
+                          const v = parseInput(e.target.value);
                           if (v !== l.price_per_person)
                             saveLine(l.id, { price_per_person: v });
+                          e.target.value = fmtInput(v);
                         }}
                         className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
                         aria-label="Precio por persona"
