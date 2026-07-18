@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Edit,
   Trash2,
@@ -6,6 +7,8 @@ import {
   Eye,
   EyeOff,
   Calculator,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { VariableService, FixedService } from "../../../types/services.types";
 import { ServiceType } from "../constants";
@@ -50,6 +53,27 @@ export default function ServicesTable({
       currency: "CLP",
       minimumFractionDigits: 0,
     }).format(price);
+  };
+
+  // Caja de servicios fijos desplegable, con la misma memoria que las
+  // categorías: el navegador recuerda si quedó abierta; parte cerrada.
+  const FIXED_OPEN_KEY = "eventia_fixed_services_open";
+  const [fixedOpen, setFixedOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(FIXED_OPEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleFixedOpen = () => {
+    setFixedOpen((cur) => {
+      try {
+        localStorage.setItem(FIXED_OPEN_KEY, cur ? "0" : "1");
+      } catch {
+        /* si no se puede guardar, solo dura la sesión */
+      }
+      return !cur;
+    });
   };
 
   const renderActiveToggle = (
@@ -194,11 +218,21 @@ export default function ServicesTable({
       </div>
       )}
 
-      {/* Fixed Services Table */}
+      {/* Fixed Services Table (desplegable) */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div
+          onClick={toggleFixedOpen}
+          className={`px-6 py-4 cursor-pointer ${
+            fixedOpen ? "border-b border-gray-200" : ""
+          }`}
+        >
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900 flex items-center space-x-2">
+              {fixedOpen ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              )}
               <DollarSign className="h-5 w-5 text-green-600" />
               <span>Servicios Fijos</span>
             </h3>
@@ -208,6 +242,7 @@ export default function ServicesTable({
           </div>
         </div>
 
+        {fixedOpen && (
         <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -353,6 +388,7 @@ export default function ServicesTable({
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );
