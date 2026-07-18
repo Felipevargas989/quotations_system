@@ -51,6 +51,8 @@ export type FurnitureCategory =
   | "cristaleria"
   | "cuchilleria"
   | "vajilla"
+  | "manteleria"
+  | "menaje"
   | "mobiliario"
   | "otro";
 
@@ -58,6 +60,8 @@ export const FURNITURE_CATEGORY_LABEL: Record<FurnitureCategory, string> = {
   cristaleria: "Cristalería",
   cuchilleria: "Cuchillería",
   vajilla: "Vajilla",
+  manteleria: "Mantelería",
+  menaje: "Menaje y decoración",
   mobiliario: "Mobiliario",
   otro: "Otro",
 };
