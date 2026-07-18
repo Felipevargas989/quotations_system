@@ -163,7 +163,9 @@ export default function FixedCostSection({
       name: nName.trim(),
       type: nType,
       list_price_fixed: nPriceFixed > 0 ? nPriceFixed : null,
-      list_price_per_person: nPricePerPerson > 0 ? nPricePerPerson : null,
+      // Regla: el personal nunca se cobra por persona
+      list_price_per_person:
+        nType !== "personal" && nPricePerPerson > 0 ? nPricePerPerson : null,
       supplier_id: nSupplier ? Number(nSupplier) : null,
     });
     if (error || !data) {
@@ -286,16 +288,29 @@ export default function FixedCostSection({
               </p>
             </div>
             <div>
-              <NumberInput
-                value={nPricePerPerson || undefined}
-                onChange={(v) => setNPricePerPerson(v || 0)}
-                min={0}
-                formatThousands
-                placeholder="0"
-              />
-              <p className="mt-0.5 text-[11px] text-gray-500">
-                Por persona (ej: c/silla)
-              </p>
+              {nType === "personal" ? (
+                <>
+                  <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">
+                    —
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    El personal se cobra por evento
+                  </p>
+                </>
+              ) : (
+                <>
+                  <NumberInput
+                    value={nPricePerPerson || undefined}
+                    onChange={(v) => setNPricePerPerson(v || 0)}
+                    min={0}
+                    formatThousands
+                    placeholder="0"
+                  />
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    Por persona (ej: c/silla)
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

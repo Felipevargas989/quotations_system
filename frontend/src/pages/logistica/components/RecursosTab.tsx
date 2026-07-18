@@ -78,7 +78,9 @@ export default function RecursosTab({
       name: name.trim(),
       type,
       list_price_fixed: priceFixed > 0 ? priceFixed : null,
-      list_price_per_person: pricePerPerson > 0 ? pricePerPerson : null,
+      // Regla: el personal nunca se cobra por persona (evita errores de tipeo)
+      list_price_per_person:
+        type !== "personal" && pricePerPerson > 0 ? pricePerPerson : null,
       supplier_id: supplierId ? Number(supplierId) : null,
     };
     const { error } = editing
@@ -283,21 +285,35 @@ export default function RecursosTab({
                     </p>
                   </div>
                   <div>
-                    <NumberInput
-                      value={pricePerPerson || undefined}
-                      onChange={(v) => setPricePerPerson(v || 0)}
-                      min={0}
-                      formatThousands
-                      placeholder="0"
-                    />
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      Por persona (ej: c/silla)
-                    </p>
+                    {type === "personal" ? (
+                      <>
+                        <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">
+                          —
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-gray-400">
+                          El personal se cobra por evento
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <NumberInput
+                          value={pricePerPerson || undefined}
+                          onChange={(v) => setPricePerPerson(v || 0)}
+                          min={0}
+                          formatThousands
+                          placeholder="0"
+                        />
+                        <p className="mt-0.5 text-[11px] text-gray-400">
+                          Por persona (ej: c/silla)
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
                 <p className="mt-1 text-xs text-gray-400">
-                  Puedes llenar uno, ambos o ninguno. Vacíos = el precio se
-                  negocia en cada evento (ej: staff).
+                  {type === "personal"
+                    ? "Vacío = el valor se asigna en cada evento."
+                    : "Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."}
                 </p>
               </div>
               <div>

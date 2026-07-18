@@ -307,7 +307,9 @@ export default function EventResourcesSection({
       type: nType,
       supplier_id: nSupplier ? Number(nSupplier) : null,
       list_price_fixed: nPriceFixed || null,
-      list_price_per_person: nPricePerPerson || null,
+      // Regla: el personal nunca se cobra por persona
+      list_price_per_person:
+        nType !== "personal" ? nPricePerPerson || null : null,
     });
     if (error || !data) {
       setErr("No se pudo crear el recurso");
@@ -448,14 +450,29 @@ export default function EventResourcesSection({
               </p>
             </div>
             <div>
-              <NumberInput
-                value={nPricePerPerson || undefined}
-                onChange={(v) => setNPricePerPerson(v || 0)}
-                min={0}
-                formatThousands
-                placeholder="0"
-              />
-              <p className="mt-0.5 text-[11px] text-gray-500">Por persona</p>
+              {nType === "personal" ? (
+                <>
+                  <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">
+                    —
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    El personal se cobra por evento
+                  </p>
+                </>
+              ) : (
+                <>
+                  <NumberInput
+                    value={nPricePerPerson || undefined}
+                    onChange={(v) => setNPricePerPerson(v || 0)}
+                    min={0}
+                    formatThousands
+                    placeholder="0"
+                  />
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    Por persona
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -604,20 +621,30 @@ export default function EventResourcesSection({
                       />
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        defaultValue={fmtInput(l.price_per_person)}
-                        placeholder="0"
-                        onBlur={(e) => {
-                          const v = parseInput(e.target.value);
-                          if (v !== l.price_per_person)
-                            saveLine(l.id, { price_per_person: v });
-                          e.target.value = fmtInput(v);
-                        }}
-                        className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                        aria-label="Precio por persona"
-                      />
+                      {r?.type === "personal" ? (
+                        // Regla: el personal nunca se cobra por persona
+                        <div
+                          className="w-28 inline-block border border-gray-200 bg-gray-50 rounded-lg px-2 py-1 text-sm text-gray-300 text-right"
+                          title="El personal se cobra por evento"
+                        >
+                          —
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          defaultValue={fmtInput(l.price_per_person)}
+                          placeholder="0"
+                          onBlur={(e) => {
+                            const v = parseInput(e.target.value);
+                            if (v !== l.price_per_person)
+                              saveLine(l.id, { price_per_person: v });
+                            e.target.value = fmtInput(v);
+                          }}
+                          className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                          aria-label="Precio por persona"
+                        />
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
                       {clp(lineTotal(l))}
