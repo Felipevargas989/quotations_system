@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Edit,
   Trash2,
-  DollarSign,
+  Pin,
   Tag,
   Eye,
   EyeOff,
@@ -233,7 +233,7 @@ export default function ServicesTable({
               ) : (
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               )}
-              <DollarSign className="h-5 w-5 text-green-600" />
+              <Pin className="h-5 w-5 text-green-600" />
               <span>Servicios Fijos</span>
             </h3>
             <span className="text-sm text-gray-500">

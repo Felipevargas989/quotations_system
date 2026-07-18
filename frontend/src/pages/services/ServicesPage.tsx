@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { FileSpreadsheet, Pin, Plus, Tag } from "lucide-react";
 import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -27,6 +28,27 @@ export default function ServicesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+
+  // Menú del botón "+ Nuevo servicio" (variable / fijo / importar Excel).
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showCreateMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (!createMenuRef.current?.contains(e.target as Node)) {
+        setShowCreateMenu(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowCreateMenu(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showCreateMenu]);
 
   // ServiceForm states
   const [showFixedServiceForm, setShowFixedServiceForm] = useState(false);
@@ -244,28 +266,51 @@ export default function ServicesPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           Gestión de Servicios
         </h1>
-        <div className="flex space-x-3">
+        {/* Un solo botón: el menú despliega variable / fijo / importar Excel */}
+        <div className="relative" ref={createMenuRef}>
           <button
-            onClick={() => handleCreateService(ServiceType.VARIABLE)}
-            // className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            onClick={() => setShowCreateMenu((v) => !v)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
-            <span>+</span>
-            <span>Servicio Variable</span>
+            <Plus size={18} />
+            <span>Nuevo servicio</span>
           </button>
-          <button
-            onClick={() => handleCreateService(ServiceType.FIXED)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Servicio Fijo</span>
-          </button>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <span>📁 Cargar desde Excel</span>
-          </button>
+          {showCreateMenu && (
+            <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateMenu(false);
+                  handleCreateService(ServiceType.VARIABLE);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                <Tag size={15} className="text-blue-600" /> Servicio variable
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateMenu(false);
+                  handleCreateService(ServiceType.FIXED);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                <Pin size={15} className="text-green-600" /> Servicio fijo
+              </button>
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateMenu(false);
+                  setShowUpload(true);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                <FileSpreadsheet size={15} className="text-gray-500" />{" "}
+                Importar desde Excel
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
