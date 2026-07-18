@@ -210,7 +210,7 @@ export default function UserManagementPage() {
 
       alert("Usuario eliminado correctamente");
     } catch (error) {
-      alert("Error al eliminar el usuario: " + (error as Error).message);
+      alert("No se pudo eliminar el usuario. Intenta de nuevo.");
     } finally {
       setDeleting(false);
     }

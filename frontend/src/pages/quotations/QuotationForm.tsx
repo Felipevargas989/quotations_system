@@ -39,6 +39,7 @@ import { NumberInput } from "../../components/inputs";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { UserRole } from "../../constants/users";
+import { humanizeApiError } from "../../utils/apiErrors";
 
 // TODO: use already defined types
 interface SelectedService {
@@ -980,9 +981,7 @@ export default function QuotationForm() {
       );
       navigate("/quotations");
     } catch (error) {
-      alert(
-        `Error al guardar la cotización: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      );
+      alert(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
     } finally {
       setLoading(false);
     }
@@ -1023,8 +1022,22 @@ export default function QuotationForm() {
     });
   };
 
+  // Campos obligatorios que faltan (para deshabilitar Guardar Y decir por qué).
+  const missingRequiredFields = () => {
+    const missing: string[] = [];
+    if (formData.client_id.trim() === "") missing.push("cliente");
+    if (formData.event_type.trim() === "") missing.push("tipo de evento");
+    // OJO: con ?. la fecha vacía (undefined) pasaba la validación — por eso
+    // el backend devolvía un 400 críptico. Ahora se exige de verdad.
+    if (!formData.event_date || String(formData.event_date).trim() === "") {
+      missing.push("fecha del evento");
+    }
+    return missing;
+  };
+
   const isQuotationFormValid = () => {
     return (
+      missingRequiredFields().length === 0 &&
       formData.client_id.trim() !== "" &&
       formData.event_type.trim() !== "" &&
       formData.event_date?.toString().trim() !== ""
@@ -1450,6 +1463,11 @@ export default function QuotationForm() {
                     : "Guardar Cotización"}
             </span>
           </button>
+          {!loading && missingRequiredFields().length > 0 && (
+            <span className="text-xs text-amber-700 font-medium">
+              Falta: {missingRequiredFields().join(" · ")}
+            </span>
+          )}
         </div>
       </div>
 

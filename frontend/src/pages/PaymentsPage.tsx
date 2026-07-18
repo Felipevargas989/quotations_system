@@ -110,7 +110,9 @@ export default function PaymentsPage() {
 
       setEditingPayment(null);
     } catch (error) {
-      alert("❌ Error al actualizar los detalles: " + (error as any).message);
+      alert(
+        "❌ No se pudieron actualizar los detalles del pago. Intenta de nuevo.",
+      );
     }
   };
 

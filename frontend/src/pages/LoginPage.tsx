@@ -21,7 +21,11 @@ export default function LoginPage() {
     try {
       const { error, userRole } = await signIn(email, password);
       if (error) {
-        setError(error.message);
+        setError(
+          /invalid login credentials/i.test(error.message || "")
+            ? "Correo o contraseña incorrectos."
+            : "No se pudo iniciar sesión. Intenta de nuevo.",
+        );
       } else {
         // Basic role-based navigation
         if (userRole && userRole === UserRole.ADMINISTRADOR) {
