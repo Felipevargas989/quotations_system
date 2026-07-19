@@ -112,10 +112,16 @@ export default function InsumosTab({
         setPkgUnit(baseUnit);
       }
       setPkgPrice(s.package_price || 0);
-    } else {
+    } else if (s) {
+      // Insumo antiguo sin formato: a granel (contenido 1, precio directo).
       setPkgQty(1);
       setPkgUnit(baseUnit);
-      setPkgPrice(s?.price || 0);
+      setPkgPrice(s.price || 0);
+    } else {
+      // Nuevo: parte vacío — Contenido y Precio son obligatorios.
+      setPkgQty(0);
+      setPkgUnit(baseUnit);
+      setPkgPrice(0);
     }
     setErr(null);
     setShowModal(true);
@@ -126,7 +132,7 @@ export default function InsumosTab({
   const unifiedPrice = pkgQtyBase > 0 ? (pkgPrice || 0) / pkgQtyBase : 0;
 
   const save = async () => {
-    if (!name.trim() || pkgQtyBase <= 0) return;
+    if (!name.trim() || pkgQtyBase <= 0 || !pkgPrice) return;
     setSaving(true);
     setErr(null);
     const fields = {
@@ -481,7 +487,7 @@ export default function InsumosTab({
                         onChange={(v) => setPkgQty(v || 0)}
                         min={0}
                         className="text-sm text-right"
-                        placeholder="1"
+                        placeholder="0"
                       />
                       <select
                         value={pkgUnit}
@@ -566,7 +572,9 @@ export default function InsumosTab({
                 </button>
                 <button
                   onClick={save}
-                  disabled={saving || !name.trim()}
+                  disabled={
+                    saving || !name.trim() || pkgQtyBase <= 0 || !pkgPrice
+                  }
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving ? "Guardando…" : "Guardar"}
