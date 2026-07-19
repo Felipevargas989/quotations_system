@@ -179,6 +179,10 @@ export default function QuotationForm() {
     contact_person: false,
   });
 
+  // Aviso visible cuando el "último día" se limpia solo (inicio movido más
+  // allá del fin): nada de borrados silenciosos.
+  const [endDateCleared, setEndDateCleared] = useState(false);
+
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
   const [itemSearch, setItemSearch] = useState("");
@@ -1757,16 +1761,22 @@ export default function QuotationForm() {
                   type="date"
                   value={formData.event_date}
                   onChange={(e) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      event_date: e.target.value,
-                      // si el "hasta" quedó antes del nuevo inicio, se limpia
-                      event_end_date:
+                    setFormData((prev) => {
+                      const clears = Boolean(
                         prev.event_end_date &&
-                        String(prev.event_end_date) < e.target.value
+                          String(prev.event_end_date) < e.target.value,
+                      );
+                      // si el "hasta" queda antes del nuevo inicio se limpia,
+                      // pero AVISANDO (nada de borrados silenciosos)
+                      setEndDateCleared(clears);
+                      return {
+                        ...prev,
+                        event_date: e.target.value,
+                        event_end_date: clears
                           ? undefined
                           : prev.event_end_date,
-                    }));
+                      };
+                    });
                   }}
                   disabled={isRestrictedEditing}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -1779,6 +1789,7 @@ export default function QuotationForm() {
                   value={formData.event_end_date || ""}
                   min={String(formData.event_date || "")}
                   onChange={(e) => {
+                    setEndDateCleared(false);
                     setFormData((prev) => ({
                       ...prev,
                       event_end_date: e.target.value || undefined,
@@ -1787,6 +1798,13 @@ export default function QuotationForm() {
                   disabled={isRestrictedEditing || !formData.event_date}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
+                {endDateCleared && (
+                  <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    El último día se quitó porque quedaba antes de la nueva
+                    fecha de inicio. Si el evento sigue siendo de varios
+                    días, vuelve a elegirlo.
+                  </p>
+                )}
                 {checkingConflicts && (
                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center space-x-2">
