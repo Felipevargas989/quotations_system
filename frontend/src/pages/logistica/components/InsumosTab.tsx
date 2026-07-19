@@ -187,7 +187,11 @@ export default function InsumosTab({
                 (h) => (
                   <th
                     key={h}
-                    className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    // Ancho fijo en Acciones: la confirmación de borrado ocupa
+                    // lo mismo que los iconos y la tabla no se reacomoda.
+                    className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                      h === "Acciones" ? "w-36" : ""
+                    }`}
                   >
                     {h}
                   </th>
@@ -218,25 +222,25 @@ export default function InsumosTab({
                   </td>
                   <td className="px-4 py-3">
                     {confirmDeleteId === s.id ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <span className="text-xs text-gray-600">
-                          ¿Eliminar "{s.name}"?
+                          ¿Eliminar?
                         </span>
                         <button
                           disabled={deleting}
                           onClick={() => doDelete(s)}
-                          className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                          className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
                           title="Sí, eliminar"
                         >
-                          <Check size={16} />
+                          <Check size={15} />
                         </button>
                         <button
                           disabled={deleting}
                           onClick={() => setConfirmDeleteId(null)}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="p-1 text-gray-500 hover:text-gray-700"
                           title="Cancelar"
                         >
-                          <X size={16} />
+                          <X size={15} />
                         </button>
                       </div>
                     ) : (
