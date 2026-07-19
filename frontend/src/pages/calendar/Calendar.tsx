@@ -67,7 +67,13 @@ export default function CalendarPage() {
     return [QuotationStatus.ACEPTADA];
   };
 
-  const [value, setValue] = useState<Value>(initialDate);
+  // Sin día seleccionado por defecto: azul solo cuando el usuario pincha
+  // (o cuando la URL trae ?date, ej: desde el aviso de choque del cotizador).
+  const [value, setValue] = useState<Value>(
+    searchParams.get("date") ? initialDate : null,
+  );
+  // Mes visible (independiente de la selección).
+  const [activeMonth, setActiveMonth] = useState<Date>(initialDate);
   const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(
@@ -111,7 +117,7 @@ export default function CalendarPage() {
   }, [selectedStatuses]);
 
   useEffect(() => {
-    const currentMonth = value instanceof Date ? value : new Date();
+    const currentMonth = activeMonth;
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
 
@@ -128,7 +134,7 @@ export default function CalendarPage() {
     }).length;
 
     setCurrentMonthEventsCount(count);
-  }, [value, quotations]);
+  }, [activeMonth, quotations]);
 
   const fetchQuotations = async () => {
     try {
@@ -297,7 +303,7 @@ export default function CalendarPage() {
     activeStartDate: Date | null;
   }) => {
     if (activeStartDate) {
-      setValue(activeStartDate);
+      setActiveMonth(activeStartDate);
     }
   };
 
@@ -416,7 +422,7 @@ export default function CalendarPage() {
                 onChange={handleDateClick}
                 onActiveStartDateChange={handleActiveStartDateChange}
                 value={value}
-                activeStartDate={value instanceof Date ? value : new Date()}
+                activeStartDate={activeMonth}
                 locale="es-ES"
                 tileClassName={tileClassName}
                 tileContent={tileContent}
@@ -583,6 +589,17 @@ export default function CalendarPage() {
         .custom-calendar .react-calendar__tile--now abbr {
           color: #1d4ed8;
           font-weight: 600;
+        }
+
+        /* La selección es la capa de arriba: si el día seleccionado es
+           también "hoy", mandan el bloque azul y el número en blanco */
+        .custom-calendar .react-calendar__tile--now.react-calendar__tile--active {
+          background: #2563eb !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .custom-calendar .react-calendar__tile--now.react-calendar__tile--active abbr {
+          color: white;
         }
 
         /* Días con eventos: tinte suave SIN borde ni transform (los bordes
