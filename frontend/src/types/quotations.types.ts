@@ -77,6 +77,10 @@ export interface Quotation {
   event_date: Date;
   // Último día del evento (null/ausente = un solo día).
   event_end_date?: Date | null;
+  // Niños dentro del total (people_count = adultos + niños; 0 = solo adultos).
+  children_count?: number;
+  // Propina % sobre variables, DESPUÉS del IVA (null/ausente = sin propina).
+  tip_percentage?: number | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;
@@ -114,6 +118,9 @@ export interface QuotationFormData
   // En el formulario la fecha viaja como string yyyy-mm-dd (igual que
   // event_date en la práctica); null = evento de un día.
   event_end_date?: string | null;
+  // Cotizador 2.0: niños dentro del total y propina opcional post-IVA.
+  children_count?: number;
+  tip_percentage?: number | null;
 }
 
 export type QuotationPublicFormData = Pick<

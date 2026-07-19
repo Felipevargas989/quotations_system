@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Save,
-  RotateCcw,
   ArrowLeft,
   Plus,
   Trash2,
@@ -62,6 +61,12 @@ interface ServiceBox {
   groupName?: string; // Set (in memory) when the box was loaded from a saved group
   // Día del evento al que pertenece este servicio (1..N; eventos de un día = 1)
   day?: number;
+  // Audiencia del servicio: adultos (default) o niños. Cada caja
+  // multiplica por SU audiencia, no por el total del evento.
+  audience?: "adultos" | "ninos";
+  // Personas de este servicio. undefined = automático (el total de su
+  // audiencia); un número = ajuste manual (ej: coffee solo para 30).
+  people?: number;
 }
 
 // TODO: use already defined types
@@ -155,6 +160,11 @@ export default function QuotationForm() {
   // pestaña Servicios de Post Venta).
   const [discType, setDiscType] = useState<"%" | "$">("%");
   const [subtotalBeforeDiscount, setSubtotalBeforeDiscount] = useState(0);
+  // Propina opcional sobre los servicios variables, DESPUÉS del IVA
+  // (no lleva IVA, va directa al equipo).
+  const [tipEnabled, setTipEnabled] = useState(false);
+  const [tipPct, setTipPct] = useState<number>(10);
+  const [tipAmountUI, setTipAmountUI] = useState(0);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [clientFormData, setClientFormData] = useState<ClientFormData>({
@@ -241,6 +251,19 @@ export default function QuotationForm() {
       timeZone: "UTC",
     })})`;
   };
+
+  // Niños/adultos: people_count sigue siendo el TOTAL de asistentes;
+  // children_count dice cuántos son niños. Cada caja multiplica por su
+  // audiencia (o por su ajuste manual de personas).
+  const childrenCount = Number(formData.children_count || 0);
+  const adultsCount = Math.max(
+    0,
+    Number(formData.people_count || 0) - childrenCount,
+  );
+  const audienceCount = (box: Pick<ServiceBox, "audience">) =>
+    box.audience === "ninos" ? childrenCount : adultsCount;
+  const boxPeople = (box: Pick<ServiceBox, "audience" | "people">) =>
+    box.people ?? audienceCount(box);
 
   // Ids de servicios de la sección fija de una categoría (por nombre).
   const defaultServiceIdsFor = (categoryName: string): number[] => {
@@ -338,6 +361,9 @@ export default function QuotationForm() {
           : undefined,
       });
       setDiscType((quotation.discount_amount || 0) > 0 ? "$" : "%");
+      // Propina guardada (null = sin propina)
+      setTipEnabled(quotation.tip_percentage != null);
+      setTipPct(quotation.tip_percentage ?? 10);
       setIsEditingExisting(!!quotation.id);
 
       // SIEMPRE cargar items desde la base de datos si tiene ID
@@ -384,11 +410,22 @@ export default function QuotationForm() {
 
   useEffect(() => {
     calculateTotals();
-  }, [serviceBoxes, selectedFixedServices, formData.people_count]);
+  }, [
+    serviceBoxes,
+    selectedFixedServices,
+    formData.people_count,
+    formData.children_count,
+  ]);
 
   useEffect(() => {
     calculateTotals();
-  }, [formData.discount_percentage, formData.discount_amount, discType]);
+  }, [
+    formData.discount_percentage,
+    formData.discount_amount,
+    discType,
+    tipEnabled,
+    tipPct,
+  ]);
 
   // Handle clicking outside dropdown to close it
   useEffect(() => {
@@ -410,7 +447,14 @@ export default function QuotationForm() {
       const { data: quotationData } = await getQuotationById(quotationId);
 
       if (quotationData?.items) {
-        loadExistingItemsFromJSON(quotationData.items);
+        // Los conteos de la cotización permiten distinguir "automático"
+        // (personas = su audiencia) de un ajuste manual.
+        const kids = Number(quotationData.children_count || 0);
+        const adults = Math.max(
+          0,
+          Number(quotationData.people_count || 0) - kids,
+        );
+        loadExistingItemsFromJSON(quotationData.items, adults, kids);
       } else {
         // Limpiar servicios seleccionados si no hay items
         setSelectedFixedServices([]);
@@ -420,7 +464,11 @@ export default function QuotationForm() {
     }
   };
 
-  const loadExistingItemsFromJSON = (itemsData: any) => {
+  const loadExistingItemsFromJSON = (
+    itemsData: any,
+    adultsAtLoad?: number,
+    kidsAtLoad?: number,
+  ) => {
     // Cargar servicios variables (cada service box es una entidad separada)
     const serviceBoxesData: ServiceBox[] = [];
 
@@ -454,6 +502,20 @@ export default function QuotationForm() {
             selectedItems: boxItems,
             services: boxServices,
             day: serviceBox.day || 1,
+            // Audiencia y personas del servicio (cotizaciones antiguas:
+            // adultos y automático). people guardado se respeta como
+            // ajuste manual solo si difiere del total de su audiencia.
+            audience: serviceBox.audience === "ninos" ? "ninos" : "adultos",
+            people: (() => {
+              if (typeof serviceBox.people !== "number") return undefined;
+              const expected =
+                serviceBox.audience === "ninos"
+                  ? (kidsAtLoad ?? -1)
+                  : (adultsAtLoad ?? -1);
+              return serviceBox.people === expected
+                ? undefined
+                : serviceBox.people;
+            })(),
           });
         }
       });
@@ -947,17 +1009,16 @@ export default function QuotationForm() {
   };
 
   const calculateTotals = () => {
-    // Calculate total from all services in all boxes
-    const variableTotal = Math.round(
-      serviceBoxes.reduce(
-        (sum, box) =>
-          sum +
-          box.services.reduce(
-            (boxSum, service) => boxSum + service.precio * service.quantity,
-            0,
-          ),
-        0,
-      ),
+    // Cotizador 2.0: cada caja multiplica por SU audiencia (adultos o
+    // niños) o por su ajuste manual de personas — ya no por el total.
+    const variableGrandTotal = Math.round(
+      serviceBoxes.reduce((sum, box) => {
+        const perPerson = box.services.reduce(
+          (boxSum, service) => boxSum + service.precio * service.quantity,
+          0,
+        );
+        return sum + perPerson * boxPeople(box);
+      }, 0),
     );
 
     const fixedTotal = Math.round(
@@ -967,13 +1028,23 @@ export default function QuotationForm() {
       ),
     );
 
-    // El valor por persona es el total de servicios variables
-    const valuePerPerson = variableTotal;
-
-    // Subtotal = (valor por persona × número de personas) + servicios fijos
-    const subtotalAmount = Math.round(
-      valuePerPerson * Number(formData.people_count) + fixedTotal,
+    // value_per_person (columna histórica) = valor por ADULTO de los
+    // servicios que cubren a todos los adultos.
+    const valuePerPerson = Math.round(
+      serviceBoxes.reduce((sum, box) => {
+        if ((box.audience || "adultos") !== "adultos") return sum;
+        if (boxPeople(box) !== adultsCount) return sum;
+        return (
+          sum +
+          box.services.reduce(
+            (boxSum, s) => boxSum + s.precio * s.quantity,
+            0,
+          )
+        );
+      }, 0),
     );
+
+    const subtotalAmount = Math.round(variableGrandTotal + fixedTotal);
 
     // Calcular subtotal antes del descuento para UI
     setSubtotalBeforeDiscount(subtotalAmount);
@@ -987,12 +1058,19 @@ export default function QuotationForm() {
           );
     const finalTotal = Math.round(subtotalAmount - discountAmount);
 
+    // Propina: % sobre los servicios variables, DESPUÉS del IVA (no
+    // lleva IVA). Se suma al total a pagar.
+    const tipAmount = tipEnabled
+      ? Math.round(variableGrandTotal * ((tipPct || 0) / 100))
+      : 0;
+    setTipAmountUI(tipAmount);
+
     setFormData((prev) => ({
       ...prev,
       value_per_person: valuePerPerson,
       fixed_value: fixedTotal,
       subtotal_amount: subtotalAmount,
-      total_amount: finalTotal,
+      total_amount: finalTotal + tipAmount,
     }));
   };
 
@@ -1010,6 +1088,10 @@ export default function QuotationForm() {
           .map((box) => ({
             category: box.selectedCategory,
             day: Math.min(box.day || 1, eventDaysCount),
+            // Audiencia y personas RESUELTAS del servicio: la foto queda
+            // completa aunque después cambien los contadores del evento.
+            audience: box.audience || "adultos",
+            people: boxPeople(box),
             items: box.services.map((service) => ({
               codigo: service.codigo,
               nombre: service.nombre,
@@ -1037,6 +1119,8 @@ export default function QuotationForm() {
         event_type: formData.event_type,
         event_date: formData.event_date,
         event_end_date: formData.event_end_date || null,
+        children_count: childrenCount,
+        tip_percentage: tipEnabled ? tipPct || 0 : null,
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
@@ -1107,40 +1191,6 @@ export default function QuotationForm() {
     }
   };
 
-  const handleClear = () => {
-    setServiceBoxes([
-      {
-        id: "1",
-        selectedCategory: "",
-        selectedItem: "",
-        selectedItems: [],
-        services: [],
-      },
-    ]);
-    setSelectedFixedServices([]);
-    setSelectedCollection(null);
-    setDiscountPercentage(0);
-    setIsEditingExisting(false);
-    setFormData({
-      event_type: EventType.ALMUERZO_O_CENA,
-      event_date: undefined,
-      people_count: 1,
-      subtotal_amount: 0,
-      discount_percentage: 0,
-      discount_amount: 0,
-      total_amount: 0,
-      quotation_status: QuotationStatus.SOLICITADA,
-      request_type: QuotationRequestType.COTIZACION,
-      observations: "",
-      value_per_person: 0,
-      fixed_value: 0,
-      client_id: "",
-      items: {
-        variable_services: [],
-        fixed_services: [],
-      },
-    });
-  };
 
   // Campos obligatorios que faltan (para deshabilitar Guardar Y decir por qué).
   const missingRequiredFields = () => {
@@ -1152,6 +1202,7 @@ export default function QuotationForm() {
     if (!formData.event_date || String(formData.event_date).trim() === "") {
       missing.push("fecha del evento");
     }
+    if (!Number(formData.people_count || 0)) missing.push("asistentes");
     return missing;
   };
 
@@ -1554,15 +1605,6 @@ export default function QuotationForm() {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          {!isRestrictedEditing && (
-            <button
-              onClick={handleClear}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center space-x-2"
-            >
-              <RotateCcw size={16} />
-              <span>Limpiar Cotización</span>
-            </button>
-          )}
           <button
             onClick={handleSubmit}
             disabled={loading || !isQuotationFormValid()}
@@ -1590,6 +1632,18 @@ export default function QuotationForm() {
           )}
         </div>
       </div>
+
+      {/* Número y autoría como información, no como cajas del formulario */}
+      <p className="text-xs text-gray-400 px-2">
+        {quotation?.quotation_number
+          ? `Cotización #${quotation.quotation_number}`
+          : "Cotización nueva — el número se asigna al guardar"}
+        {" · creada por "}
+        {creatorUser?.full_name ||
+          creatorUser?.email ||
+          user?.email ||
+          "usuario actual"}
+      </p>
 
       {isRestrictedEditing && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
@@ -1627,61 +1681,27 @@ export default function QuotationForm() {
               Información del evento
             </h3>
 
-            {/* Creado por - New Row */}
-            <div className="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Cotización creada por
-                </label>
-                <div className="w-fit px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50 text-gray-600">
-                  {creatorUser ? (
-                    <span title={creatorUser.email}>
-                      {creatorUser.full_name || creatorUser.email}
-                    </span>
-                  ) : quotation?.user_id ? (
-                    <span className="text-gray-400">Cargando...</span>
-                  ) : (
-                    <span className="text-gray-400">
-                      {user?.email || "Usuario actual"}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Número de Cotización and Cliente - Second Row */}
+            {/* Cliente (número y autoría viven arriba, como información) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Número de Cotización
+                  Cliente *
                 </label>
-                <div className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50 text-gray-600">
-                  {quotation?.quotation_number || "Auto-generado"}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Cliente Existente *
-                </label>
-                <div className="flex space-x-2">
-                  <SelectWithSearch
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.client_type})`,
-                    }))}
-                    value={formData.client_id || ""}
-                    onChange={(value) => handleClientSelect(value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowClientModal(true)}
-                    className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-1"
-                    title="Crear nuevo cliente"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
+                <SelectWithSearch
+                  options={clients.map((client) => ({
+                    value: client.id,
+                    label: `${client.name} (${client.client_type})`,
+                  }))}
+                  value={formData.client_id || ""}
+                  onChange={(value) => handleClientSelect(value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowClientModal(true)}
+                  className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  + Nuevo cliente
+                </button>
               </div>
             </div>
 
@@ -1854,23 +1874,53 @@ export default function QuotationForm() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Número de Personas *
-                </label>
-                <NumberInput
-                  id="people_count"
-                  name="people_count"
-                  value={formData.people_count}
-                  onChange={(value) => {
-                    // @ts-ignore
-                    setFormData((prev) => ({
-                      ...prev,
-                      people_count: value ? Number(value) : undefined,
-                    }));
-                  }}
-                  min={1}
-                  disabled={isRestrictedEditing}
-                />
+                {/* people_count = adultos + niños (el total sigue viajando
+                    en la columna de siempre; niños en children_count) */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Adultos *
+                    </label>
+                    <NumberInput
+                      value={adultsCount || undefined}
+                      onChange={(value) => {
+                        const adults = value ? Number(value) : 0;
+                        // @ts-ignore -- people_count vacio mientras se edita
+                        setFormData((prev) => ({
+                          ...prev,
+                          people_count: adults + childrenCount || undefined,
+                        }));
+                      }}
+                      min={0}
+                      disabled={isRestrictedEditing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Niños
+                    </label>
+                    <NumberInput
+                      value={childrenCount || undefined}
+                      onChange={(value) => {
+                        const kids = value ? Number(value) : 0;
+                        // @ts-ignore -- people_count vacio mientras se edita
+                        setFormData((prev) => ({
+                          ...prev,
+                          people_count:
+                            adultsCount + kids || undefined,
+                          children_count: kids,
+                        }));
+                      }}
+                      min={0}
+                      disabled={isRestrictedEditing}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  = {adultsCount + childrenCount} asistente
+                  {adultsCount + childrenCount === 1 ? "" : "s"}
+                </p>
               </div>
             </div>
           </div>
@@ -2072,10 +2122,90 @@ export default function QuotationForm() {
                   className="border border-gray-200 rounded-lg p-4"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <h4 className="font-medium text-gray-900">
                         Servicio {index + 1}
                       </h4>
+                      {/* Audiencia: cada servicio es de adultos O de niños;
+                          multiplica por su contador (o su ajuste manual). */}
+                      {childrenCount > 0 && (
+                        <div
+                          className="flex rounded-md border border-gray-300 overflow-hidden"
+                          title="Audiencia de este servicio"
+                        >
+                          {(["adultos", "ninos"] as const).map((aud) => {
+                            const on = (box.audience || "adultos") === aud;
+                            return (
+                              <button
+                                key={aud}
+                                type="button"
+                                disabled={isRestrictedEditing}
+                                onClick={() =>
+                                  setServiceBoxes((prev) =>
+                                    prev.map((b) =>
+                                      b.id === box.id
+                                        ? { ...b, audience: aud, people: undefined }
+                                        : b,
+                                    ),
+                                  )
+                                }
+                                className={`px-2.5 py-1 text-xs font-bold ${
+                                  on
+                                    ? aud === "ninos"
+                                      ? "bg-amber-600 text-white"
+                                      : "bg-blue-900 text-white"
+                                    : "bg-white text-gray-500 hover:bg-gray-50"
+                                }`}
+                              >
+                                {aud === "ninos" ? "Niños" : "Adultos"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <label
+                        className="flex items-center gap-1 text-xs text-gray-600"
+                        title="Personas de este servicio (por defecto, toda su audiencia)"
+                      >
+                        <span className="font-semibold">Personas</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={boxPeople(box) || ""}
+                          onChange={(e) => {
+                            const v = parseInt(
+                              e.target.value.replace(/\./g, ""),
+                              10,
+                            );
+                            setServiceBoxes((prev) =>
+                              prev.map((b) =>
+                                b.id === box.id
+                                  ? {
+                                      ...b,
+                                      // igual a su audiencia = automático
+                                      people:
+                                        !Number.isFinite(v) ||
+                                        v === audienceCount(b)
+                                          ? undefined
+                                          : v,
+                                    }
+                                  : b,
+                              ),
+                            );
+                          }}
+                          disabled={isRestrictedEditing}
+                          className={`w-14 border rounded-md px-1.5 py-1 text-xs text-right font-semibold ${
+                            box.people !== undefined
+                              ? "border-amber-400 bg-amber-50 text-amber-900"
+                              : "border-gray-300"
+                          }`}
+                        />
+                        {box.people !== undefined && (
+                          <span className="text-[10px] text-amber-700">
+                            de {audienceCount(box)}
+                          </span>
+                        )}
+                      </label>
                       {eventDaysCount > 1 && (
                         <select
                           value={Math.min(box.day || 1, eventDaysCount)}
@@ -2551,85 +2681,86 @@ export default function QuotationForm() {
               </div>
             </div>
             <div className="divide-y divide-gray-200">
-              {serviceCategories.map((category) => {
-                // Get all services from all boxes for this category
-                const categoryServices = serviceBoxes.flatMap((box) =>
-                  box.services.filter((s) => s.categoria === category),
-                );
-                if (categoryServices.length === 0) return null;
-
-                return (
-                  <div
-                    key={category}
-                    className="flex justify-between px-4 py-2 text-sm"
-                  >
-                    <span className="text-gray-700">{category}</span>
-                    <span className="font-medium text-gray-900">
-                      $
-                      {categoryServices
-                        .reduce(
-                          (sum, service) =>
-                            sum + service.precio * service.quantity,
-                          0,
-                        )
-                        .toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-
-              {/* Servicios cargados */}
-              {serviceBoxes
-                .flatMap((box) => box.services)
-                .filter((s) => s.categoria === "Cargado").length > 0 && (
-                <div className="flex justify-between px-4 py-2 text-sm">
-                  <span className="text-blue-700">Servicios Cargados</span>
-                  <span className="font-medium text-blue-900">
-                    $
-                    {serviceBoxes
-                      .flatMap((box) => box.services)
-                      .filter((s) => s.categoria === "Cargado")
-                      .reduce(
-                        (sum, service) =>
-                          sum + service.precio * service.quantity,
-                        0,
-                      )
-                      .toLocaleString()}
-                  </span>
-                </div>
+              {/* Una línea POR SERVICIO (nunca fusionadas): audiencia, día
+                  si es multi-día, y personas. La hora se define en Cocina. */}
+              {serviceBoxes.filter(
+                (b) => b.selectedCategory && b.services.length > 0,
+              ).length === 0 ? (
+                <p className="px-4 py-3 text-sm text-gray-400">
+                  Aún no hay servicios.
+                </p>
+              ) : (
+                serviceBoxes
+                  .filter((b) => b.selectedCategory && b.services.length > 0)
+                  .map((box) => {
+                    const perPerson = box.services.reduce(
+                      (s, it) => s + it.precio * it.quantity,
+                      0,
+                    );
+                    const people = boxPeople(box);
+                    const aud = box.audience || "adultos";
+                    const parts: string[] = [];
+                    if (eventDaysCount > 1)
+                      parts.push(`Día ${Math.min(box.day || 1, eventDaysCount)}`);
+                    parts.push(
+                      box.people !== undefined
+                        ? `${people} de ${audienceCount(box)} personas`
+                        : `${people} personas`,
+                    );
+                    return (
+                      <div key={box.id} className="px-4 py-2 text-sm">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-700">
+                            <span
+                              className={`mr-1 text-[10px] font-extrabold ${
+                                aud === "ninos"
+                                  ? "text-amber-700"
+                                  : "text-blue-900"
+                              }`}
+                            >
+                              {aud === "ninos" ? "NIÑOS" : "ADULTOS"}
+                            </span>
+                            {box.selectedCategory}
+                          </span>
+                          <span className="font-medium text-gray-900 whitespace-nowrap">
+                            ${(perPerson * people).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                          {parts.join(" · ")}
+                        </p>
+                      </div>
+                    );
+                  })
               )}
 
-              {/* Líneas vacías para completar */}
-              {Array.from({
-                length: Math.max(
-                  0,
-                  6 -
-                    serviceCategories.filter((category) =>
-                      serviceBoxes
-                        .flatMap((box) => box.services)
-                        .some((s) => s.categoria === category),
-                    ).length -
-                    (serviceBoxes
-                      .flatMap((box) => box.services)
-                      .filter((s) => s.categoria === "Cargado").length > 0
-                      ? 1
-                      : 0),
-                ),
-              }).map((_, index) => (
-                <div
-                  key={`empty-${index}`}
-                  className="flex justify-between px-4 py-2 text-sm"
-                >
-                  <span className="text-gray-400">-</span>
-                  <span className="text-gray-400">$0</span>
-                </div>
-              ))}
-
-              <div className="bg-yellow-300 px-4 py-2">
-                <div className="flex justify-between font-bold text-black">
-                  <span>Total por persona</span>
+              <div className="bg-yellow-300 px-4 py-2 space-y-0.5">
+                <div className="flex justify-between text-sm font-bold text-black">
+                  <span>Por adulto (servicios completos)</span>
                   <span>${formData.value_per_person.toLocaleString()}</span>
                 </div>
+                {childrenCount > 0 && (
+                  <div className="flex justify-between text-sm font-bold text-black">
+                    <span>Por niño</span>
+                    <span>
+                      $
+                      {Math.round(
+                        serviceBoxes.reduce((sum, box) => {
+                          if ((box.audience || "adultos") !== "ninos")
+                            return sum;
+                          if (boxPeople(box) !== childrenCount) return sum;
+                          return (
+                            sum +
+                            box.services.reduce(
+                              (s, it) => s + it.precio * it.quantity,
+                              0,
+                            )
+                          );
+                        }, 0),
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2770,30 +2901,94 @@ export default function QuotationForm() {
               </div>
             )}
 
-            <div className="bg-orange-300 px-4 py-2">
-              <div className="flex justify-between font-bold text-black">
-                <span>Total IVA incluido cotización</span>
-                <span>${formData.total_amount.toLocaleString()}</span>
-              </div>
-            </div>
+            {/* La propina NO lleva IVA: Neto e IVA se calculan sobre el
+                total SIN propina, y la propina se suma al final. */}
+            {(() => {
+              const totalConIva = formData.total_amount - tipAmountUI;
+              return (
+                <>
+                  <div className="divide-y divide-gray-200">
+                    <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
+                      <span className="font-medium text-black">Neto</span>
+                      <span className="font-medium text-black">
+                        ${Math.round(totalConIva / 1.19).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
+                      <span className="font-medium text-black">IVA (19%)</span>
+                      <span className="font-medium text-black">
+                        $
+                        {Math.round(
+                          totalConIva - totalConIva / 1.19,
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
 
-            <div className="divide-y divide-gray-200">
-              <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
-                <span className="font-medium text-black">Neto</span>
-                <span className="font-medium text-black">
-                  ${Math.round(formData.total_amount / 1.19).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
-                <span className="font-medium text-black">IVA</span>
-                <span className="font-medium text-black">
-                  $
-                  {Math.round(
-                    formData.total_amount - formData.total_amount / 1.19,
-                  ).toLocaleString()}
-                </span>
-              </div>
-            </div>
+                  <div className="bg-orange-300 px-4 py-2">
+                    <div className="flex justify-between font-bold text-black">
+                      <span>Total con IVA</span>
+                      <span>${totalConIva.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Propina opcional: sobre los variables, DESPUÉS del
+                      IVA, va directa al equipo */}
+                  <div className="px-4 py-2.5 border-t-2 border-dashed border-gray-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={tipEnabled}
+                          disabled={isRestrictedEditing}
+                          onChange={(e) => setTipEnabled(e.target.checked)}
+                          className="w-4 h-4 accent-blue-600"
+                        />
+                        <span className="text-gray-700">Propina equipo</span>
+                        {tipEnabled && (
+                          <span className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={tipPct || ""}
+                              disabled={isRestrictedEditing}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                setTipPct(
+                                  Number.isFinite(v)
+                                    ? Math.min(100, Math.max(0, v))
+                                    : 0,
+                                );
+                              }}
+                              className="w-12 border border-gray-300 rounded-md px-1.5 py-0.5 text-xs text-right"
+                            />
+                            <span className="text-xs text-gray-500">%</span>
+                          </span>
+                        )}
+                      </label>
+                      {tipEnabled && (
+                        <span className="font-bold text-gray-900">
+                          ${tipAmountUI.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    {tipEnabled && (
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        Sobre los servicios variables, después del IVA. No
+                        lleva IVA: va directa al equipo.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="bg-blue-900 px-4 py-2.5">
+                    <div className="flex justify-between font-extrabold text-white">
+                      <span>TOTAL A PAGAR</span>
+                      <span>${formData.total_amount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

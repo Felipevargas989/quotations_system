@@ -350,6 +350,9 @@ export default function FichaCocinaSection({
       .map(({ group: g, key, label }) => {
         const hora = times[key] || "";
         const furnTotals = new Map<string, number>();
+        // Personas de ESTE servicio (audiencia niños/adultos o ajuste
+        // manual del cotizador); cotizaciones antiguas = total del evento.
+        const groupPeople = (g as { people?: number }).people ?? personas;
         const itemRow = (it: {
           codigo: string;
           nombre: string;
@@ -358,7 +361,7 @@ export default function FichaCocinaSection({
             const id = resolveVarId(it.codigo, it.nombre);
             const lines =
               id !== undefined ? ctx.byService.get(`variable-${id}`) : undefined;
-            const porciones = personas * (it.quantity || 1);
+            const porciones = groupPeople * (it.quantity || 1);
             let receta = "";
             if (lines?.length) {
               const parts: string[] = [];
@@ -670,7 +673,11 @@ ${paginas}
               >
                 <span className="text-gray-800 truncate">{it.nombre}</span>
                 <span className="font-bold text-gray-900 shrink-0">
-                  ×{(personas * (it.quantity || 1)).toLocaleString("es-CL")}
+                  ×
+                  {(
+                    ((s.group as { people?: number }).people ?? personas) *
+                    (it.quantity || 1)
+                  ).toLocaleString("es-CL")}
                 </span>
               </div>
             ))}

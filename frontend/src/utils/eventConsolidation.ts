@@ -16,7 +16,15 @@ export interface SnapshotItem {
 }
 
 export interface EventItemsSnapshot {
-  variable_services?: { items?: SnapshotItem[] }[];
+  variable_services?: {
+    items?: SnapshotItem[];
+    // Cotizador 2.0: cada servicio multiplica por SUS personas (su
+    // audiencia adultos/niños o un ajuste manual). Ausente = el total
+    // del evento (cotizaciones antiguas).
+    people?: number;
+    audience?: "adultos" | "ninos";
+    day?: number;
+  }[];
   fixed_services?: SnapshotItem[];
 }
 
@@ -159,6 +167,9 @@ export const consolidateEvent = (
     serviceId: number | undefined,
     nombre: string,
     qty: number,
+    // Personas de ESTE servicio (audiencia niños/adultos o ajuste
+    // manual); los fijos y las cotizaciones antiguas usan el total.
+    servicePeople: number = personas,
   ) => {
     const lines =
       serviceId !== undefined
@@ -169,8 +180,8 @@ export const consolidateEvent = (
       return;
     }
     lines.forEach((line) => {
-      // cantidad total = por persona × personas × cantidad del servicio
-      const factor = personas * (qty || 1);
+      // cantidad total = por persona × personas del servicio × cantidad
+      const factor = servicePeople * (qty || 1);
       if (line.item_kind === "insumo" && line.supply_id) {
         const supply = ctx.supplyById.get(line.supply_id);
         if (!supply) return;
@@ -206,9 +217,10 @@ export const consolidateEvent = (
   };
 
   (items?.variable_services || []).forEach((group) => {
+    const groupPeople = group.people ?? personas;
     (group.items || []).forEach((it) => {
       const id = resolveId(ctx, "variable", it.codigo, it.nombre);
-      addRecipeLines("variable", id, it.nombre, it.quantity || 1);
+      addRecipeLines("variable", id, it.nombre, it.quantity || 1, groupPeople);
     });
   });
   (items?.fixed_services || []).forEach((it) => {
