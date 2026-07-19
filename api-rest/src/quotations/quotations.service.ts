@@ -425,26 +425,56 @@ export class QuotationsService {
           updateQuotationDto.total_amount &&
           updateQuotationDto.total_amount > quotation.total_amount
         ) {
-          // If payments, then get the last one and increase the amount by the difference between the new total_amount and the previous total_amount
-          if (payments && payments.length > 0) {
-            // Get the last payment and increase the amount by the difference between the new total_amount and the previous total_amount
-            const lastPayment = payments[payments.length - 1];
-            const newAmount =
-              lastPayment.amount +
-              (updateQuotationDto.total_amount - quotation.total_amount);
-            await this.paymentsService.update(lastPayment.id, {
-              amount: newAmount,
-            });
+          let amountToCharge =
+            updateQuotationDto.total_amount - quotation.total_amount;
+
+          // TAREA #42 — compensación: antes de crear deuda nueva, consumir
+          // los reembolsos PENDIENTES (no pagados) de esta cotización, del
+          // más antiguo al más nuevo. Si el reembolso cubre toda la
+          // diferencia, solo se achica (o se elimina si queda en 0) y no
+          // nace deuda. Así nunca conviven "te debo" y "me debes".
+          // Los reembolsos YA PAGADOS no se tocan: esa plata ya salió.
+          const pendingRefunds =
+            await this.refundsService.findPendingByQuotation(id);
+
+          for (const refund of pendingRefunds) {
+            if (amountToCharge <= 0) break;
+
+            if (refund.amount > amountToCharge) {
+              // The refund covers the whole new debt: shrink it and stop
+              await this.refundsService.updateAmount(
+                refund.id,
+                refund.amount - amountToCharge,
+              );
+              amountToCharge = 0;
+            } else {
+              // The refund is fully consumed by the new debt: remove it
+              await this.refundsService.remove(refund.id);
+              amountToCharge = amountToCharge - refund.amount;
+            }
           }
 
-          // If not payments, then create new payment with the difference between the new total_amount and the previous total_amount
-          else if (!payments || payments.length === 0) {
-            const newPayment: CreatePaymentDto = {
-              quotation_id: id,
-              amount: updateQuotationDto.total_amount - quotation.total_amount,
-              notes: 'Pago creado por diferencia de total_amount',
-            };
-            await this.paymentsService.createPayment(newPayment, companyId);
+          // Only the remainder (if any) becomes new debt
+          if (amountToCharge > 0) {
+            // If payments, then get the last one and increase the amount by the remaining difference
+            if (payments && payments.length > 0) {
+              // Get the last payment and increase the amount by the remaining difference
+              const lastPayment = payments[payments.length - 1];
+              const newAmount = lastPayment.amount + amountToCharge;
+              await this.paymentsService.update(lastPayment.id, {
+                amount: newAmount,
+              });
+            }
+
+            // If not payments, then create new payment with the remaining difference
+            else if (!payments || payments.length === 0) {
+              const newPayment: CreatePaymentDto = {
+                quotation_id: id,
+                amount: amountToCharge,
+                notes: 'Pago creado por diferencia de total_amount',
+              };
+              await this.paymentsService.createPayment(newPayment, companyId);
+            }
           }
         }
       }

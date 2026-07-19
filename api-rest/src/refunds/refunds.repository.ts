@@ -24,6 +24,33 @@ export class RefundsRepository {
       .single();
   }
 
+  // Reembolsos PENDIENTES (no pagados) de una cotización, del más antiguo
+  // al más nuevo — orden en que la compensación (tarea #42) los consume.
+  findPendingByQuotation(quotationId: string) {
+    this.logger.info(
+      `findPendingByQuotation refunds for quotation ${quotationId}`,
+    );
+    return this.supabase.client
+      .from('refunds')
+      .select('*')
+      .eq('quotation_id', quotationId)
+      .eq('is_paid', false)
+      .order('created_at', { ascending: true });
+  }
+
+  updateAmount(id: string, amount: number) {
+    this.logger.info(`updateAmount refund ${id} -> ${amount}`);
+    return this.supabase.client
+      .from('refunds')
+      .update({ amount })
+      .eq('id', id);
+  }
+
+  remove(id: string) {
+    this.logger.info(`remove refund ${id}`);
+    return this.supabase.client.from('refunds').delete().eq('id', id);
+  }
+
   findAll(companyId: Company['id']) {
     this.logger.info(`findAll refunds with companyId ${companyId}`);
     return this.supabase.client

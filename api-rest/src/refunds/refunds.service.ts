@@ -38,6 +38,26 @@ export class RefundsService {
     }
   }
 
+  // Compensación (tarea #42): los usa QuotationsService cuando el total de
+  // un evento aceptado SUBE — la deuda nueva consume primero los reembolsos
+  // pendientes, para que nunca convivan "te debo" y "me debes".
+  async findPendingByQuotation(quotationId: string) {
+    const { data, error } =
+      await this.refundsRepository.findPendingByQuotation(quotationId);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateAmount(id: string, amount: number) {
+    const { error } = await this.refundsRepository.updateAmount(id, amount);
+    if (error) throw error;
+  }
+
+  async remove(id: string) {
+    const { error } = await this.refundsRepository.remove(id);
+    if (error) throw error;
+  }
+
   // findOne(id: number) {
   //   return `This action returns a #${id} refund`;
   // }
