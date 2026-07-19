@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useEffect } from "react";
+import React, { forwardRef, useState, useEffect, useRef } from "react";
 import { NumberInputProps } from "./types";
 
 const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
@@ -21,6 +21,10 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   ) => {
     const [displayValue, setDisplayValue] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
+    // Mientras el campo tiene el foco, NUNCA se re-formatea: lo que el
+    // usuario escribe es exactamente lo que se parsea. El formato bonito
+    // se aplica recién al salir (evita "3.927" + "0" → "3.9270" decimal).
+    const isFocusedRef = useRef(false);
 
     // Norma general: formato chileno (miles con punto, decimal con coma).
     const formatNumberForDisplay = (num: number): string => {
@@ -50,8 +54,9 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       return isNaN(num) ? undefined : num;
     };
 
-    // Initialize display value
+    // Initialize display value (solo cuando el campo NO está en edición)
     useEffect(() => {
+      if (isFocusedRef.current) return;
       if (value !== undefined && value !== null) {
         setDisplayValue(formatNumberForDisplay(value));
       } else {
@@ -87,7 +92,14 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       onChange?.(numericValue);
     };
 
-    const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+      isFocusedRef.current = true;
+      // Seleccionar todo al entrar: escribir reemplaza sin tener que borrar.
+      event.target.select();
+    };
+
+    const handleBlur = () => {
+      isFocusedRef.current = false;
       // Clear error on blur
       setError(null);
 
@@ -120,6 +132,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           name={name}
           value={displayValue}
           onChange={handleChange}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
           disabled={disabled}
