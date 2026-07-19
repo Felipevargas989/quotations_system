@@ -40,6 +40,20 @@ export class CreateQuotationDto {
   @Min(1, { message: 'People count must be at least 1' })
   people_count: number;
 
+  // Niños dentro del total de asistentes (0 = evento solo adultos).
+  // people_count sigue siendo el TOTAL: adultos = people_count - niños.
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  children_count?: number;
+
+  // Propina opcional sobre los servicios variables, DESPUÉS del IVA
+  // (no lleva IVA, va directa al equipo). null = sin propina.
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  tip_percentage?: number | null;
+
   @IsString()
   @IsOptional()
   observations: string;

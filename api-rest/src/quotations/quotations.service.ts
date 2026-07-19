@@ -78,6 +78,10 @@ export class QuotationsService {
       client_id: createQuotationDto.client_id,
       event_type: createQuotationDto.event_type,
       people_count: createQuotationDto.people_count,
+      // Niños/adultos y propina (Cotizador 2.0). Van AQUÍ además del DTO:
+      // si faltan en el insert, se botan en silencio (bug del 19-07).
+      children_count: createQuotationDto.children_count || 0,
+      tip_percentage: createQuotationDto.tip_percentage ?? null,
       observations: createQuotationDto.observations,
       event_date: eventDateUtc,
       // Último día (evento multi-día); null = un solo día. Si esto falta,

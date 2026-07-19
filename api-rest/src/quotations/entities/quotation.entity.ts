@@ -44,6 +44,10 @@ export interface Quotation {
   event_date: Date;
   // Último día del evento (null = un solo día).
   event_end_date?: Date | null;
+  // Niños dentro del total (people_count = adultos + niños).
+  children_count?: number;
+  // Propina % sobre variables, post-IVA (null = sin propina).
+  tip_percentage?: number | null;
   value_per_person: number;
   fixed_value: number;
   request_type: RequestType;
