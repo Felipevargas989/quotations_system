@@ -332,9 +332,8 @@ export default function QuotationsPage() {
     if (!quotationForPaymentPlan) return;
 
     try {
-      // Create payments array
+      // Create payments array (el editor entrega montos en pesos directos)
       const paymentsToCreate = customPlan.map((payment, index) => {
-        // Use the due_date directly from the payment object (set via date selector)
         if (!payment.due_date) {
           throw new Error(
             `La fecha de vencimiento es requerida para el pago ${index + 1}`,
@@ -344,9 +343,7 @@ export default function QuotationsPage() {
         const paymentToCreate: CreatePayment = {
           quotation_id: quotationForPaymentPlan.id,
           payment_number: index + 1,
-          amount: Math.round(
-            (quotationForPaymentPlan.total_amount * payment.percentage) / 100,
-          ),
+          amount: Math.round(payment.amount),
           due_date: new Date(payment.due_date),
           status: "pendiente",
           payment_type: payment.payment_type,
@@ -436,6 +433,11 @@ export default function QuotationsPage() {
             id: quotationForPaymentPlan.id,
             quotation_number:
               quotationForPaymentPlan.quotation_number.toString(),
+            client_name: (
+              quotationForPaymentPlan as unknown as {
+                clients?: { name?: string };
+              }
+            ).clients?.name,
             total_amount: quotationForPaymentPlan.total_amount,
             event_date: quotationForPaymentPlan.event_date,
           }}

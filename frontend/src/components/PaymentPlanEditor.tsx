@@ -1,231 +1,109 @@
 import { useState } from "react";
 import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { NumberInput } from "./inputs";
 
+// Plan de pagos al aceptar: una lista simple de cuotas — comentario, fecha y
+// MONTO en pesos (el % se calcula solo, informativo). Parte con una sola
+// cuota por el total: el caso "una cuota" es solo apretar Aceptar. Sin
+// plantillas preseteadas: rara vez le achuntaban a la realidad.
+
+interface PlanRow {
+  label: string;
+  due_date: string;
+  amount: number | undefined;
+}
+
 interface PaymentPlanEditorProps {
-  quotation: {
+  readonly quotation: {
     id: string;
     quotation_number: string;
-
+    client_name?: string;
     total_amount: number;
     event_date?: Date;
   };
-  onSave: (customPlan: any[]) => void;
-  onCancel: () => void;
+  readonly onSave: (
+    plan: { payment_type: string; amount: number; due_date: string; notes: string }[],
+  ) => void;
+  readonly onCancel: () => void;
 }
+
+const clp = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
 export default function PaymentPlanEditor({
   quotation,
   onSave,
   onCancel,
 }: PaymentPlanEditorProps) {
-  const [planType, setPlanType] = useState<
-    "default" | "contado" | "three_payments" | "custom"
-  >("default");
+  const total = quotation.total_amount || 0;
+  const today = format(new Date(), "yyyy-MM-dd");
+  const eventDateTxt = quotation.event_date
+    ? new Date(quotation.event_date).toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : null;
 
-  const eventDate = quotation.event_date
-    ? new Date(quotation.event_date)
-    : addDays(new Date(), 30);
-  const today = new Date();
-
-  // Initialize custom payments with due dates
-  const [customPayments, setCustomPayments] = useState([
-    {
-      payment_type: "Abono de Reserva",
-      percentage: 50,
-      due_date: format(today, "yyyy-MM-dd"),
-      notes: "Pago de reserva - 50% del total",
-    },
-    {
-      payment_type: "Pago Final",
-      percentage: 50,
-      due_date: format(addDays(eventDate, -15), "yyyy-MM-dd"),
-      notes: "Pago final - 50% del total, 15 días antes del evento",
-    },
+  const [rows, setRows] = useState<PlanRow[]>([
+    { label: "Cuota 1", due_date: today, amount: total },
   ]);
 
-  // Store due dates for preset plans (index-based)
-  const [presetDueDates, setPresetDueDates] = useState<{
-    [planType: string]: { [index: number]: string };
-  }>({
-    default: {},
-    contado: {},
-    three_payments: {},
-  });
+  const suma = rows.reduce((s, r) => s + (r.amount || 0), 0);
+  const diff = total - suma; // >0 falta asignar · <0 sobra
+  const pct = (amount: number | undefined) =>
+    total > 0 ? Math.round(((amount || 0) / total) * 1000) / 10 : 0;
 
-  const getDefaultDueDate = (paymentType: string, daysBeforeEvent: number) => {
-    if (paymentType === "Pago Único" || paymentType === "Abono de Reserva") {
-      return format(today, "yyyy-MM-dd");
-    }
-    return format(addDays(eventDate, -daysBeforeEvent), "yyyy-MM-dd");
-  };
+  const updateRow = (i: number, patch: Partial<PlanRow>) =>
+    setRows((prev) => prev.map((r, ix) => (ix === i ? { ...r, ...patch } : r)));
 
-  const addCustomPayment = () => {
-    setCustomPayments((prev) => [
+  // La cuota nueva nace con lo que falta por asignar (si hay algo).
+  const addRow = () =>
+    setRows((prev) => [
       ...prev,
       {
-        payment_type: "Pago Regular",
-        percentage: 0,
-        due_date: format(addDays(today, 30), "yyyy-MM-dd"),
-        notes: "",
+        label: `Cuota ${prev.length + 1}`,
+        due_date: today,
+        amount: diff > 0 ? diff : undefined,
       },
     ]);
-  };
 
-  const removeCustomPayment = (index: number) => {
-    setCustomPayments((prev) => prev.filter((_, i) => i !== index));
-  };
+  const removeRow = (i: number) =>
+    setRows((prev) => prev.filter((_, ix) => ix !== i));
 
-  const updateCustomPayment = (index: number, field: string, value: any) => {
-    setCustomPayments((prev) =>
-      prev.map((payment, i) =>
-        i === index ? { ...payment, [field]: value } : payment,
-      ),
-    );
-  };
-
-  const updatePresetDueDate = (
-    planTypeKey: string,
-    index: number,
-    dueDate: string,
-  ) => {
-    setPresetDueDates((prev) => ({
-      ...prev,
-      [planTypeKey]: {
-        ...prev[planTypeKey],
-        [index]: dueDate,
-      },
-    }));
-  };
-
-  const getPresetPlan = () => {
-    switch (planType) {
-      case "contado":
-        return [
-          {
-            payment_type: "Pago Único",
-            percentage: 100,
-            days_before_event: 0,
-            notes: "Pago completo al contado",
-          },
-        ];
-
-      case "three_payments":
-        return [
-          {
-            payment_type: "Abono de Reserva",
-            percentage: 40,
-            days_before_event: 0,
-            notes: "Pago de reserva - 40% del total",
-          },
-          {
-            payment_type: "Segundo Pago",
-            percentage: 40,
-            days_before_event: 30,
-            notes: "Segundo pago - 40% del total, 30 días antes del evento",
-          },
-          {
-            payment_type: "Pago Final",
-            percentage: 20,
-            days_before_event: 7,
-            notes: "Pago final - 20% del total, 7 días antes del evento",
-          },
-        ];
-
-      case "default":
-        return [
-          {
-            payment_type: "Abono de Reserva",
-            percentage: 50,
-            days_before_event: 0,
-            notes: "Pago de reserva - 50% del total",
-          },
-          {
-            payment_type: "Pago Final",
-            percentage: 50,
-            days_before_event: 15,
-            notes: "Pago final - 50% del total, 15 días antes del evento",
-          },
-        ];
-
-      case "custom":
-        return customPayments.map((p) => ({
-          payment_type: p.payment_type,
-          percentage: p.percentage,
-          days_before_event: 0, // Not used anymore, but kept for compatibility
-          notes: p.notes,
-          due_date: p.due_date,
-        }));
-
-      default:
-        return [];
-    }
-  };
-
-  const currentPlan = getPresetPlan();
-  const totalPercentage = currentPlan.reduce(
-    (sum, payment) => sum + payment.percentage,
-    0,
+  const rowsValid = rows.every(
+    (r) => (r.amount || 0) > 0 && r.due_date && r.label.trim(),
   );
+  const canSave = rows.length > 0 && rowsValid && diff === 0;
 
   const handleSave = () => {
-    if (totalPercentage !== 100) {
-      alert("El total de porcentajes debe ser 100%");
-      return;
-    }
-
-    if (currentPlan.length === 0) {
-      alert("Debe haber al menos un pago en el plan");
-      return;
-    }
-
-    // Map plan with due dates
-    const planWithDueDates = currentPlan.map((payment, index) => {
-      let dueDate: string;
-
-      if (planType === "custom") {
-        // Custom plans already have due_date in the payment object
-        dueDate =
-          (payment as any).due_date ||
-          getDefaultDueDate(payment.payment_type, payment.days_before_event);
-      } else {
-        // For preset plans, use the stored due date or calculate default
-        const storedDate = presetDueDates[planType]?.[index];
-        if (storedDate) {
-          dueDate = storedDate;
-        } else {
-          dueDate = getDefaultDueDate(
-            payment.payment_type,
-            payment.days_before_event,
-          );
-        }
-      }
-
-      return {
-        ...payment,
-        due_date: dueDate,
-      };
-    });
-
-    onSave(planWithDueDates);
+    if (!canSave) return;
+    onSave(
+      rows.map((r) => ({
+        payment_type: r.label.trim(),
+        amount: Math.round(r.amount || 0),
+        due_date: r.due_date,
+        notes: "",
+      })),
+    );
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                Editar Plan de Pagos
+                Plan de pagos
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                {/* {quotation.quotation_number} - {quotation.client_name} */}
-                QUOTATATION_NUMBER - CLIENT_NAME
+                Cotización #{quotation.quotation_number}
+                {quotation.client_name ? ` · ${quotation.client_name}` : ""}
+                {eventDateTxt ? ` · Evento: ${eventDateTxt}` : ""}
               </p>
               <p className="text-lg font-bold text-green-600">
-                Total: ${quotation.total_amount.toLocaleString()}
+                Total: {clp(total)}
               </p>
             </div>
             <button
@@ -237,323 +115,88 @@ export default function PaymentPlanEditor({
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Selector de tipo de plan */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Tipo de Plan de Pagos
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <button
-                onClick={() => {
-                  setPlanType("contado");
-                }}
-                className={`p-3 border rounded-lg text-left ${
-                  planType === "contado"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-              >
-                <div className="font-medium">Pago al Contado</div>
-                <div className="text-sm text-gray-500">100% inmediato</div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setPlanType("default");
-                }}
-                className={`p-3 border rounded-lg text-left ${
-                  planType === "default"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-              >
-                <div className="font-medium">Plan Estándar</div>
-                <div className="text-sm text-gray-500">50% + 50%</div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setPlanType("three_payments");
-                }}
-                className={`p-3 border rounded-lg text-left ${
-                  planType === "three_payments"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-              >
-                <div className="font-medium">Tres Pagos</div>
-                <div className="text-sm text-gray-500">40% + 40% + 20%</div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setPlanType("custom");
-                }}
-                className={`p-3 border rounded-lg text-left ${
-                  planType === "custom"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-              >
-                <div className="font-medium">Personalizado</div>
-                <div className="text-sm text-gray-500">
-                  Configurar manualmente
-                </div>
-              </button>
-            </div>
+        <div className="p-6 space-y-3">
+          {/* Encabezados de la lista */}
+          <div className="grid grid-cols-[1fr,150px,150px,64px,32px] gap-2 px-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <span>Comentario</span>
+            <span>Vence</span>
+            <span className="text-right">Monto</span>
+            <span className="text-right">%</span>
+            <span></span>
           </div>
 
-          {/* Editor de pagos personalizados */}
-          {planType === "custom" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Pagos Personalizados
-                </h3>
+          {rows.map((r, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr,150px,150px,64px,32px] gap-2 items-center"
+            >
+              <input
+                value={r.label}
+                onChange={(e) => updateRow(i, { label: e.target.value })}
+                placeholder="Ej: Abono reserva, contra factura…"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="date"
+                value={r.due_date}
+                onChange={(e) => updateRow(i, { due_date: e.target.value })}
+                className="px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <NumberInput
+                value={r.amount}
+                onChange={(v) => updateRow(i, { amount: v || undefined })}
+                min={0}
+                formatThousands
+                placeholder="0"
+              />
+              <span className="text-right text-sm text-gray-400 tabular-nums">
+                {pct(r.amount)}%
+              </span>
+              {rows.length > 1 ? (
                 <button
-                  onClick={addCustomPayment}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                  onClick={() => removeRow(i)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 justify-self-end"
+                  title="Quitar cuota"
                 >
-                  <Plus size={16} />
-                  <span>Agregar Pago</span>
+                  <Trash2 size={15} />
                 </button>
-              </div>
-
-              <div className="space-y-4">
-                {customPayments.map((payment, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">
-                        Pago {index + 1}
-                      </h4>
-                      {customPayments.length > 1 && (
-                        <button
-                          onClick={() => removeCustomPayment(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Tipo de Pago
-                        </label>
-                        <input
-                          type="text"
-                          value={payment.payment_type}
-                          onChange={(e) =>
-                            updateCustomPayment(
-                              index,
-                              "payment_type",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Ej: Abono de Reserva"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Porcentaje (%)
-                        </label>
-                        <NumberInput
-                          id="percentage"
-                          name="percentage"
-                          value={payment.percentage}
-                          onChange={(value) => {
-                            updateCustomPayment(
-                              index,
-                              "percentage",
-                              value ? Number(value) : undefined,
-                            );
-                          }}
-                          min={0}
-                          max={100}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fecha de Vencimiento
-                        </label>
-                        <input
-                          type="date"
-                          value={payment.due_date}
-                          onChange={(e) =>
-                            updateCustomPayment(
-                              index,
-                              "due_date",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          min={format(today, "yyyy-MM-dd")}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Monto
-                        </label>
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
-                          <span className="font-medium text-gray-900">
-                            $
-                            {Math.round(
-                              (quotation.total_amount * payment.percentage) /
-                                100,
-                            ).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Notas
-                      </label>
-                      <input
-                        type="text"
-                        value={payment.notes}
-                        onChange={(e) =>
-                          updateCustomPayment(index, "notes", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Descripción del pago..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Vista previa del plan */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                Vista Previa del Plan
-              </h3>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-3 font-medium text-gray-700">
-                        Tipo de Pago
-                      </th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-700">
-                        Porcentaje
-                      </th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-700">
-                        Monto
-                      </th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-700">
-                        Fecha Vencimiento
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentPlan.map((payment, index) => {
-                      let dueDateValue: string;
-
-                      if (planType === "custom") {
-                        dueDateValue =
-                          (payment as any).due_date ||
-                          format(today, "yyyy-MM-dd");
-                      } else {
-                        const storedDate = presetDueDates[planType]?.[index];
-                        if (storedDate) {
-                          dueDateValue = storedDate;
-                        } else {
-                          dueDateValue = getDefaultDueDate(
-                            payment.payment_type,
-                            payment.days_before_event,
-                          );
-                        }
-                      }
-
-                      return (
-                        <tr key={index} className="border-b border-gray-100">
-                          <td className="py-2 px-3">{payment.payment_type}</td>
-                          <td className="py-2 px-3 text-right">
-                            {payment.percentage}%
-                          </td>
-                          <td className="py-2 px-3 text-right font-medium">
-                            $
-                            {Math.round(
-                              (quotation.total_amount * payment.percentage) /
-                                100,
-                            ).toLocaleString()}
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            <input
-                              type="date"
-                              value={dueDateValue}
-                              onChange={(e) => {
-                                if (planType === "custom") {
-                                  updateCustomPayment(
-                                    index,
-                                    "due_date",
-                                    e.target.value,
-                                  );
-                                } else {
-                                  updatePresetDueDate(
-                                    planType,
-                                    index,
-                                    e.target.value,
-                                  );
-                                }
-                              }}
-                              className="px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300"
-                              min={format(today, "yyyy-MM-dd")}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
-                      <td className="py-2 px-3">TOTAL</td>
-                      <td className="py-2 px-3 text-right">
-                        {totalPercentage}%
-                      </td>
-                      <td className="py-2 px-3 text-right">
-                        ${quotation.total_amount.toLocaleString()}
-                      </td>
-                      <td className="py-2 px-3"></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {totalPercentage !== 100 && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">
-                    ⚠️ El total de porcentajes debe ser 100%. Actual:{" "}
-                    {totalPercentage}%
-                  </p>
-                </div>
+              ) : (
+                <span />
               )}
             </div>
+          ))}
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={addRow}
+              className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              <Plus size={16} /> Agregar cuota
+            </button>
+            {/* Cuadratura contra el total, en vivo */}
+            {diff === 0 ? (
+              <span className="text-sm font-semibold text-green-600">
+                Suma {clp(suma)} · cuadra con el total
+              </span>
+            ) : diff > 0 ? (
+              <span className="text-sm font-semibold text-amber-600">
+                Suma {clp(suma)} · falta asignar {clp(diff)}
+              </span>
+            ) : (
+              <span className="text-sm font-semibold text-red-600">
+                Suma {clp(suma)} · sobran {clp(-diff)}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="p-6 border-t border-gray-200">
-          {/* Warning message */}
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-center space-x-2">
-              <AlertTriangle size={16} className="text-yellow-600" />
+              <AlertTriangle size={16} className="text-yellow-600 shrink-0" />
               <p className="text-yellow-800 text-sm font-medium">
-                ⚠️ Al aceptar este plan de pagos, la cotización será marcada
-                como "Aceptada" y no podrá ser modificada.
+                Al aceptar, la cotización queda Aceptada y el evento pasa a
+                Post-Venta con estas cuotas para el seguimiento de pagos.
               </p>
             </div>
           </div>
@@ -567,11 +210,11 @@ export default function PaymentPlanEditor({
             </button>
             <button
               onClick={handleSave}
-              disabled={totalPercentage !== 100}
+              disabled={!canSave}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               <Save size={16} />
-              <span>Aceptar Plan y Cotización</span>
+              <span>Aceptar plan y cotización</span>
             </button>
           </div>
         </div>
