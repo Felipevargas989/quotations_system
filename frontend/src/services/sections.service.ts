@@ -1,5 +1,8 @@
 import { supabase } from "../lib/supabase";
-import { CategorySection } from "../types/services.types";
+import {
+  CategorySection,
+  VariableServiceCategoryLink,
+} from "../types/services.types";
 
 // Secciones de categoría (Entradas / Fondos / Postres...). Acceso directo a
 // Supabase, mismo patrón que logistics.service.
@@ -49,6 +52,31 @@ export const deleteCategorySection = async (id: number) => {
     .delete()
     .eq("id", id);
   return { error };
+};
+
+// Datos para ordenar platos "como la carta" (ficha de cocina): categorías
+// (id por nombre), secciones en su orden y vínculos servicio-categoría.
+export const getMenuOrder = async (companyId: number) => {
+  const [cats, secs, links] = await Promise.all([
+    supabase
+      .from("service_categories")
+      .select("id, name")
+      .eq("company_id", companyId),
+    supabase
+      .from("category_sections")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("sort_order"),
+    supabase
+      .from("variable_service_categories")
+      .select("id, category_id, variable_service_id, section_id, sort_order")
+      .eq("company_id", companyId),
+  ]);
+  return {
+    categories: (cats.data || []) as { id: number; name: string }[],
+    sections: (secs.data || []) as CategorySection[],
+    links: (links.data || []) as VariableServiceCategoryLink[],
+  };
 };
 
 // Marca una sección como la FIJA de su categoría (o ninguna, con null).

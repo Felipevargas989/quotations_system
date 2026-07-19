@@ -22,6 +22,11 @@ import {
   consolidateEvent,
   newAccumulator,
 } from "../../utils/eventConsolidation";
+import { getMenuOrder } from "../../services/sections.service";
+import {
+  CategorySection,
+  VariableServiceCategoryLink,
+} from "../../types/services.types";
 
 // Ficha de cocina: horarios por servicio + notas del evento (lista) y la
 // vista imprimible aprobada (azul marino, notas amarillas). La ficha se
@@ -141,6 +146,76 @@ export default function FichaCocinaSection({
     return nameIds.variable[nombre.trim().toLowerCase()];
   };
 
+  // ---------- Orden "como la carta": secciones de cada categoría ----------
+  const [menu, setMenu] = useState<{
+    categories: { id: number; name: string }[];
+    sections: CategorySection[];
+    links: VariableServiceCategoryLink[];
+  }>({ categories: [], sections: [], links: [] });
+  useEffect(() => {
+    getMenuOrder(companyId).then(setMenu);
+  }, [companyId]);
+
+  // Id del servicio para efectos de orden (sin exigir que tenga receta).
+  const serviceIdOf = (codigo: string, nombre: string) => {
+    const n = Number(codigo);
+    if (Number.isFinite(n) && String(codigo).trim() !== "") return n;
+    return nameIds.variable[nombre.trim().toLowerCase()];
+  };
+
+  type SnapItem = { codigo: string; nombre: string; quantity?: number };
+
+  // Agrupa y ordena los platos de un servicio según las secciones de su
+  // categoría (mismo orden que en Gestión de Servicios). Platos sin sección
+  // van al final bajo "Otros". Categoría sin secciones → un grupo sin título.
+  const orderItems = (
+    categoryName: string,
+    items: SnapItem[],
+  ): { name: string | null; items: SnapItem[] }[] => {
+    const cat = menu.categories.find(
+      (c) =>
+        c.name.trim().toLowerCase() === categoryName.trim().toLowerCase(),
+    );
+    if (!cat) return [{ name: null, items }];
+    const secs = menu.sections.filter((s) => s.category_id === cat.id);
+    if (secs.length === 0) return [{ name: null, items }];
+    const linkByService = new Map(
+      menu.links
+        .filter((l) => l.category_id === cat.id)
+        .map((l) => [l.variable_service_id, l]),
+    );
+    const linkOf = (it: SnapItem) => {
+      const id = serviceIdOf(it.codigo, it.nombre);
+      return id === undefined ? undefined : linkByService.get(id);
+    };
+    const grouped = secs.map((s) => ({
+      name: s.name,
+      items: [] as SnapItem[],
+    }));
+    const bySec = new Map(secs.map((s, i) => [s.id, grouped[i]]));
+    const rest: SnapItem[] = [];
+    items.forEach((it) => {
+      const g = linkOf(it)?.section_id
+        ? bySec.get(linkOf(it)!.section_id as number)
+        : undefined;
+      if (g) {
+        g.items.push(it);
+      } else {
+        rest.push(it);
+      }
+    });
+    grouped.forEach((g) =>
+      g.items.sort(
+        (a, b) =>
+          (linkOf(a)?.sort_order ?? Number.MAX_SAFE_INTEGER) -
+          (linkOf(b)?.sort_order ?? Number.MAX_SAFE_INTEGER),
+      ),
+    );
+    const out = grouped.filter((g) => g.items.length > 0);
+    if (rest.length > 0) out.push({ name: "Otros", items: rest });
+    return out.length > 0 ? out : [{ name: null, items }];
+  };
+
   const openFicha = () => {
     const esc = (s: string) =>
       String(s || "")
@@ -155,8 +230,11 @@ export default function FichaCocinaSection({
       .map(({ group: g, key, label }) => {
         const hora = times[key] || "";
         const furnTotals = new Map<string, number>();
-        const rows = (g.items || [])
-          .map((it) => {
+        const itemRow = (it: {
+          codigo: string;
+          nombre: string;
+          quantity?: number;
+        }) => {
             const id = resolveVarId(it.codigo, it.nombre);
             const lines =
               id !== undefined ? ctx.byService.get(`variable-${id}`) : undefined;
@@ -193,7 +271,15 @@ export default function FichaCocinaSection({
                 ? `<tr class="receta"><td colspan="2">Receta: ${receta}</td></tr>`
                 : ""
             }`;
-          })
+        };
+        // Platos ordenados como la carta, con subtítulo de sección.
+        const rows = orderItems(g.category, g.items || [])
+          .map(
+            (og) =>
+              (og.name
+                ? `<tr class="subseccion"><td colspan="2">${esc(og.name)}</td></tr>`
+                : "") + og.items.map(itemRow).join(""),
+          )
           .join("");
         const montar = [...furnTotals.entries()]
           .map(([name, q]) => `${Math.ceil(q).toLocaleString("es-CL")} ${esc(name.toLowerCase())}`)
@@ -296,6 +382,7 @@ export default function FichaCocinaSection({
   .preparar .plato { font-size:16px; font-weight:800; padding:7px 6px 2px; border-bottom:none; }
   .preparar .qty { font-size:16px; vertical-align:bottom; border-bottom:none; }
   .preparar .receta td { font-size:11.5px; color:#777; padding:0 6px 7px; border-bottom:1px solid #e5e5e5; }
+  .preparar .subseccion td { font-size:10.5px; font-weight:800; letter-spacing:1.5px; color:#1e3a8a; text-transform:uppercase; padding:10px 6px 1px; border-bottom:1.5px solid #1e3a8a; }
   .mobiliario { padding:8px 14px; background:#eff6ff; border-top:1px solid #dbeafe; font-size:12.5px; color:#1e3a8a; }
   .mobiliario b { text-transform:uppercase; font-size:11px; letter-spacing:.5px; }
   .seccion { margin-top:24px; page-break-inside:avoid; }
@@ -404,20 +491,35 @@ export default function FichaCocinaSection({
                   aria-label={`Horario de ${s.label}`}
                 />
               </div>
-              <ul className="px-3 py-1 divide-y divide-gray-100">
-                {(s.group.items || []).map((it) => (
-                  <li
-                    key={it.codigo}
-                    className="flex items-center justify-between gap-2 py-1 text-sm"
-                  >
-                    <span className="text-gray-800 truncate">{it.nombre}</span>
-                    <span className="font-bold text-gray-900 shrink-0">
-                      ×
-                      {(personas * (it.quantity || 1)).toLocaleString("es-CL")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="px-3 py-1">
+                {orderItems(s.group.category, s.group.items || []).map(
+                  (og, gi) => (
+                    <div key={og.name ?? `g-${gi}`}>
+                      {og.name && (
+                        <div className="pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-900 border-b border-blue-900/25">
+                          {og.name}
+                        </div>
+                      )}
+                      {og.items.map((it) => (
+                        <div
+                          key={it.codigo}
+                          className="flex items-center justify-between gap-2 py-1 text-sm border-b border-gray-100 last:border-b-0"
+                        >
+                          <span className="text-gray-800 truncate">
+                            {it.nombre}
+                          </span>
+                          <span className="font-bold text-gray-900 shrink-0">
+                            ×
+                            {(personas * (it.quantity || 1)).toLocaleString(
+                              "es-CL",
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
           ))}
         </div>
