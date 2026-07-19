@@ -166,6 +166,28 @@ export default function InsumosTab({
     .filter((r) => showInactive || r.is_active)
     .filter((r) => !q || r.name.toLowerCase().includes(q));
 
+  // Agrupado por proveedor, como Compras: proveedores alfabéticos,
+  // "Sin proveedor" al final, insumos alfabéticos dentro de cada grupo.
+  const grouped = (() => {
+    const m = new Map<string, Supply[]>();
+    filtered.forEach((s) => {
+      const key = s.supplier_id
+        ? supplierName(s.supplier_id)
+        : "Sin proveedor";
+      m.set(key, [...(m.get(key) || []), s]);
+    });
+    return [...m.entries()]
+      .map(([name, items]) => ({
+        name,
+        items: [...items].sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .sort((a, b) => {
+        if (a.name === "Sin proveedor") return 1;
+        if (b.name === "Sin proveedor") return -1;
+        return a.name.localeCompare(b.name);
+      });
+  })();
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-1 gap-3">
@@ -225,7 +247,7 @@ export default function InsumosTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
-              {["Insumo", "Familia de unidad", "Precio base", "Merma", "Proveedor", "Acciones"].map(
+              {["Insumo", "Familia de unidad", "Precio base", "Merma", "Acciones"].map(
                 (h) => (
                   <th
                     key={h}
@@ -242,7 +264,16 @@ export default function InsumosTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((s) => {
+            {grouped.map((g) => [
+              <tr key={`g-${g.name}`}>
+                <td
+                  colSpan={5}
+                  className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50"
+                >
+                  {g.name}
+                </td>
+              </tr>,
+              ...g.items.map((s) => {
               const fam = UNIT_FAMILY_INFO[s.unit_family];
               return (
                 <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
@@ -270,9 +301,6 @@ export default function InsumosTab({
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {s.waste_pct ? `${s.waste_pct}%` : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {supplierName(s.supplier_id)}
                   </td>
                   <td className="px-4 py-3">
                     {/* La confirmación flota ENCIMA de los iconos (que quedan
@@ -366,7 +394,8 @@ export default function InsumosTab({
                   </td>
                 </tr>
               );
-            })}
+              }),
+            ])}
           </tbody>
         </table>
       )}
