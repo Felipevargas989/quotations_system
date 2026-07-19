@@ -115,14 +115,16 @@ export default function CalendarPage() {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
 
+    const monthStartStr = format(monthStart, "yyyy-MM-dd");
+    const monthEndStr = format(monthEnd, "yyyy-MM-dd");
     const count = quotations.filter((q) => {
-      // Parse only the date part (YYYY-MM-DD) to avoid timezone conversion
-      const eventDateStr = String(q.event_date);
-      const dateStr = eventDateStr.includes("T")
-        ? eventDateStr.split("T")[0]
-        : eventDateStr;
-      const eventDate = parseISO(dateStr);
-      return isWithinInterval(eventDate, { start: monthStart, end: monthEnd });
+      // Cuenta el evento si su RANGO toca el mes visible.
+      const startStr = String(q.event_date).split("T")[0];
+      const rawEnd = q.event_end_date
+        ? String(q.event_end_date).split("T")[0]
+        : startStr;
+      const endStr = rawEnd >= startStr ? rawEnd : startStr;
+      return startStr <= monthEndStr && endStr >= monthStartStr;
     }).length;
 
     setCurrentMonthEventsCount(count);
@@ -149,14 +151,16 @@ export default function CalendarPage() {
   };
 
   const getQuotationsForDate = (date: Date): QuotationWithClient[] => {
+    // Comparación por texto yyyy-mm-dd (inmune a zonas horarias). Un evento
+    // multi-día aparece TODOS los días de su rango [event_date, event_end_date].
+    const tileStr = format(date, "yyyy-MM-dd");
     return quotations.filter((q) => {
-      // Parse only the date part (YYYY-MM-DD) to avoid timezone conversion
-      const eventDateStr = String(q.event_date);
-      const dateStr = eventDateStr.includes("T")
-        ? eventDateStr.split("T")[0]
-        : eventDateStr;
-      const eventDate = parseISO(dateStr);
-      return isSameDay(eventDate, date);
+      const startStr = String(q.event_date).split("T")[0];
+      const rawEnd = q.event_end_date
+        ? String(q.event_end_date).split("T")[0]
+        : startStr;
+      const endStr = rawEnd >= startStr ? rawEnd : startStr;
+      return tileStr >= startStr && tileStr <= endStr;
     });
   };
 
