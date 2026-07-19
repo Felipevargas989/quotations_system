@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -150,6 +150,52 @@ export default function CalendarPage() {
     }
   };
 
+  // Colores sólidos por estado para las bandas (hex, no clases tailwind).
+  const STATUS_HEX: Record<string, string> = {
+    solicitada: "#eab308",
+    enviada: "#3b82f6",
+    en_negociacion: "#a855f7",
+    aceptada: "#22c55e",
+    rechazada: "#ef4444",
+    cancelada: "#9ca3af",
+    realizada: "#10b981",
+  };
+
+  // Rango [inicio, fin] de un evento en texto yyyy-mm-dd (fin >= inicio).
+  const eventRange = (q: QuotationWithClient) => {
+    const start = String(q.event_date).split("T")[0];
+    const rawEnd = q.event_end_date
+      ? String(q.event_end_date).split("T")[0]
+      : start;
+    return { start, end: rawEnd >= start ? rawEnd : start };
+  };
+
+  // Asignación de PISTAS (filas) para que las bandas de eventos que se topan
+  // no se pisen: cada evento toma la primera pista libre en todo su rango.
+  const eventLanes = useMemo(() => {
+    const evs = quotations
+      .map((q) => ({ id: q.id, ...eventRange(q) }))
+      .sort((a, b) =>
+        a.start === b.start
+          ? b.end.localeCompare(a.end) // el más largo primero
+          : a.start.localeCompare(b.start),
+      );
+    const laneEnds: string[] = [];
+    const map = new Map<string, number>();
+    evs.forEach((e) => {
+      let lane = laneEnds.findIndex((le) => le < e.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(e.end);
+      } else {
+        laneEnds[lane] = e.end;
+      }
+      map.set(e.id, lane);
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotations]);
+
   const getQuotationsForDate = (date: Date): QuotationWithClient[] => {
     // Comparación por texto yyyy-mm-dd (inmune a zonas horarias). Un evento
     // multi-día aparece TODOS los días de su rango [event_date, event_end_date].
@@ -174,50 +220,58 @@ export default function CalendarPage() {
     return "";
   };
 
+  // Bandas continuas estilo agenda: cada evento es una barra que atraviesa
+  // sus días. En cada casilla se dibuja el SEGMENTO que le toca: punta
+  // redondeada solo en el primer y último día, y el nombre en el primer día
+  // de cada tramo semanal. Máximo 3 pistas visibles + "+N más".
+  const MAX_BAND_LANES = 3;
   const tileContent = ({ date, view }: { date: Date; view: string }) => {
-    if (view === "month") {
-      const dayQuotations = getQuotationsForDate(date);
-      if (dayQuotations.length > 0) {
-        // Get the dominant status color (most frequent status)
-        const statusCounts = dayQuotations.reduce(
-          (acc, q) => {
-            acc[q.quotation_status] = (acc[q.quotation_status] || 0) + 1;
-            return acc;
-          },
-          {} as Record<QuotationStatus, number>,
-        );
-        const dominantStatus = Object.entries(statusCounts).sort(
-          ([, a], [, b]) => b - a,
-        )[0][0] as QuotationStatus;
+    if (view !== "month") return null;
+    const dayQuotations = getQuotationsForDate(date);
+    if (dayQuotations.length === 0) return null;
 
-        return (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="flex flex-col items-center gap-1">
-              {/* Event count badge */}
-              <div
-                className={`${getStatusColor(dominantStatus)} text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm shadow-md`}
-              >
-                {dayQuotations.length}
-              </div>
-              {/* Multiple status indicators */}
-              {dayQuotations.length > 1 && (
-                <div className="flex gap-0.5">
-                  {[...new Set(dayQuotations.map((q) => q.quotation_status))]
-                    .slice(0, 4)
-                    .map((status) => (
-                      <div
-                        key={status}
-                        className={`w-1.5 h-1.5 rounded-full ${getStatusColor(status)}`}
-                      />
-                    ))}
-                </div>
-              )}
-            </div>
+    const tileStr = format(date, "yyyy-MM-dd");
+    const isMonday = date.getDay() === 1; // la semana parte en lunes
+
+    const bands = dayQuotations
+      .map((q) => ({ q, lane: eventLanes.get(q.id) ?? 0 }))
+      .filter((b) => b.lane < MAX_BAND_LANES)
+      .map(({ q, lane }) => {
+        const { start, end } = eventRange(q);
+        return {
+          id: q.id,
+          lane,
+          color: STATUS_HEX[q.quotation_status] || "#6b7280",
+          rl: tileStr === start,
+          rr: tileStr === end,
+          label:
+            tileStr === start || isMonday
+              ? `#${q.quotation_number} ${q.clients?.name || ""}`.trim()
+              : "",
+        };
+      });
+    const extra = dayQuotations.filter(
+      (q) => (eventLanes.get(q.id) ?? 0) >= MAX_BAND_LANES,
+    ).length;
+
+    return (
+      <div className="ev-bands pointer-events-none">
+        {bands.map((b) => (
+          <div
+            key={b.id}
+            className={`ev-band${b.rl ? " ev-rl" : ""}${b.rr ? " ev-rr" : ""}`}
+            style={{ top: b.lane * 20, background: b.color }}
+          >
+            {b.label && <span>{b.label}</span>}
           </div>
-        );
-      }
-    }
-    return null;
+        ))}
+        {extra > 0 && (
+          <div className="ev-more" style={{ top: MAX_BAND_LANES * 20 }}>
+            +{extra} más
+          </div>
+        )}
+      </div>
+    );
   };
 
   const getStatusColor = (status: QuotationStatus): string => {
@@ -473,15 +527,16 @@ export default function CalendarPage() {
         }
 
         .custom-calendar .react-calendar__tile {
-          padding: 0.5em;
+          padding: 0;
           position: relative;
-          height: 110px;
+          height: 118px;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: flex-start;
           border-radius: 8px;
-          transition: all 0.2s;
+          transition: background 0.2s;
+          overflow: visible;
         }
 
         .custom-calendar .react-calendar__tile abbr {
@@ -507,7 +562,6 @@ export default function CalendarPage() {
 
         .custom-calendar .react-calendar__tile:enabled:hover {
           background: #f3f4f6;
-          transform: scale(1.02);
         }
 
         .custom-calendar .react-calendar__navigation button {
@@ -522,7 +576,8 @@ export default function CalendarPage() {
         .custom-calendar .react-calendar__tile--now {
           background: #dbeafe;
           border-radius: 8px;
-          border: 2px solid #3b82f6;
+          /* inset shadow en vez de borde: no corre las bandas ni un pixel */
+          box-shadow: inset 0 0 0 2px #3b82f6;
         }
 
         .custom-calendar .react-calendar__tile--now abbr {
@@ -530,20 +585,65 @@ export default function CalendarPage() {
           font-weight: 600;
         }
 
-        /* Add subtle background to days with events */
+        /* Días con eventos: tinte suave SIN borde ni transform (los bordes
+           corren las bandas y el scale rompe la continuidad entre casillas) */
         .custom-calendar .react-calendar__tile.has-events {
           background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bfdbfe;
         }
 
         .custom-calendar .react-calendar__tile.has-events:enabled:hover {
           background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-          transform: scale(1.05);
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
 
         .custom-calendar .react-calendar__tile--active.has-events {
           background: #2563eb !important;
+        }
+
+        /* Bandas continuas de eventos (segmentos por casilla que se empalman
+           con la casilla vecina; puntas redondeadas solo al inicio y al fin
+           reales del evento) */
+        .ev-bands {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 38px;
+          bottom: 0;
+          z-index: 5;
+        }
+
+        .ev-band {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 17px;
+          font-size: 10px;
+          line-height: 15px;
+          font-weight: 600;
+          color: #fff;
+          overflow: hidden;
+          white-space: nowrap;
+          text-align: left;
+          padding: 1px 5px;
+        }
+
+        .ev-band.ev-rl {
+          left: 3px;
+          border-top-left-radius: 9px;
+          border-bottom-left-radius: 9px;
+        }
+
+        .ev-band.ev-rr {
+          right: 3px;
+          border-top-right-radius: 9px;
+          border-bottom-right-radius: 9px;
+        }
+
+        .ev-more {
+          position: absolute;
+          left: 5px;
+          font-size: 10px;
+          font-weight: 600;
+          color: #6b7280;
         }
       `}</style>
     </div>
