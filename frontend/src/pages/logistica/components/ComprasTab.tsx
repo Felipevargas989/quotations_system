@@ -358,19 +358,29 @@ export default function ComprasTab({
       supply_id: number;
       qty_base: number;
       cost: number;
+      supplier_id: number | null;
+      supplier_name: string | null;
     }[] = [];
     const supplyById = new Map(supplies.map((s) => [s.id, s]));
+    const supplierById = new Map(suppliers.map((s) => [s.id, s]));
     selectedEvents.forEach((ev) => {
       const a = perEvent.get(ev.id);
       if (!a) return;
       a.supplyUse.forEach((base, sid) => {
         if (onlySupplies && !onlySupplies.has(sid)) return;
+        // Foto del proveedor al momento de comprar: la estadística por
+        // proveedor queda fiel aunque el insumo cambie de proveedor después.
+        const supplier = supplyById.get(sid)?.supplier_id
+          ? supplierById.get(supplyById.get(sid)!.supplier_id!)
+          : undefined;
         rows.push({
           company_id: companyId,
           quotation_id: ev.id,
           supply_id: sid,
           qty_base: base,
           cost: Math.round(base * (supplyById.get(sid)?.price || 0)),
+          supplier_id: supplier?.id ?? null,
+          supplier_name: supplier?.name ?? null,
         });
       });
     });

@@ -81,7 +81,9 @@ export default function RecursosTab({
       // Regla: el personal nunca se cobra por persona (evita errores de tipeo)
       list_price_per_person:
         type !== "personal" && pricePerPerson > 0 ? pricePerPerson : null,
-      supplier_id: supplierId ? Number(supplierId) : null,
+      // Regla: el personal no lleva proveedor (se contrata directo)
+      supplier_id:
+        type !== "personal" && supplierId ? Number(supplierId) : null,
     };
     const { error } = editing
       ? await updateManagementResource(editing.id, fields)
@@ -316,21 +318,24 @@ export default function RecursosTab({
                     : "Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."}
                 </p>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Proveedor (opcional)
-                </label>
-                <SelectWithSearch
-                  options={suppliers
-                    .filter((s) => s.is_active)
-                    .map((s) => ({ value: String(s.id), label: s.name }))}
-                  value={supplierId}
-                  onChange={setSupplierId}
-                  placeholder="Sin proveedor"
-                  searchPlaceholder="Buscar proveedor…"
-                  noResultsText="Sin resultados"
-                />
-              </div>
+              {/* El personal se contrata directo, no lleva proveedor */}
+              {type !== "personal" && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">
+                    Proveedor (opcional)
+                  </label>
+                  <SelectWithSearch
+                    options={suppliers
+                      .filter((s) => s.is_active)
+                      .map((s) => ({ value: String(s.id), label: s.name }))}
+                    value={supplierId}
+                    onChange={setSupplierId}
+                    placeholder="Sin proveedor"
+                    searchPlaceholder="Buscar proveedor…"
+                    noResultsText="Sin resultados"
+                  />
+                </div>
+              )}
               {err && <p className="text-xs text-red-600">{err}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <button

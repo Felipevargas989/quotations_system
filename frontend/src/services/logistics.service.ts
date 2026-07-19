@@ -51,6 +51,43 @@ export const updateSupplier = async (
   return { error };
 };
 
+// Cuántos insumos y recursos apuntan a cada proveedor. Con cualquier
+// referencia el proveedor no se puede eliminar (las compras se generan a
+// su nombre); sin ninguna, sí.
+export const getSuppliersUsage = async (
+  companyId: number,
+): Promise<Record<number, { supplies: number; resources: number }>> => {
+  const usage: Record<number, { supplies: number; resources: number }> = {};
+  const [sup, res] = await Promise.all([
+    supabase
+      .from("supplies")
+      .select("supplier_id")
+      .eq("company_id", companyId)
+      .not("supplier_id", "is", null),
+    supabase
+      .from("management_resources")
+      .select("supplier_id")
+      .eq("company_id", companyId)
+      .not("supplier_id", "is", null),
+  ]);
+  (sup.data || []).forEach((r) => {
+    const id = r.supplier_id as number;
+    usage[id] = usage[id] || { supplies: 0, resources: 0 };
+    usage[id].supplies += 1;
+  });
+  (res.data || []).forEach((r) => {
+    const id = r.supplier_id as number;
+    usage[id] = usage[id] || { supplies: 0, resources: 0 };
+    usage[id].resources += 1;
+  });
+  return usage;
+};
+
+export const deleteSupplier = async (id: number) => {
+  const { error } = await supabase.from("suppliers").delete().eq("id", id);
+  return { error };
+};
+
 // ---------- Insumos ----------
 export const getSupplies = async (companyId: number): Promise<Supply[]> => {
   const { data, error } = await supabase
@@ -366,6 +403,11 @@ export interface EventSupplyProvision {
   qty_base: number;
   cost: number;
   provisioned_at: string;
+  // Foto del proveedor al momento de comprar (migración 30): la
+  // estadística por proveedor no se reescribe si el insumo cambia de
+  // proveedor, se renombra o se elimina después.
+  supplier_id: number | null;
+  supplier_name: string | null;
 }
 
 export const getEventSupplyProvisions = async (
@@ -390,6 +432,8 @@ export const upsertEventSupplyProvisions = async (
     supply_id: number;
     qty_base: number;
     cost: number;
+    supplier_id: number | null;
+    supplier_name: string | null;
   }[],
 ) => {
   if (!rows.length) return { error: null };

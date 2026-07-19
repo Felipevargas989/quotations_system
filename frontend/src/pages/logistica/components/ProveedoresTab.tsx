@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Pencil, Search, X } from "lucide-react";
+import { Check, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupplier,
+  deleteSupplier,
   getSuppliers,
+  getSuppliersUsage,
   updateSupplier,
 } from "../../../services/logistics.service";
 import { Supplier } from "../../../types/logistics.types";
@@ -23,14 +25,36 @@ export default function ProveedoresTab({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [usage, setUsage] = useState<
+    Record<number, { supplies: number; resources: number }>
+  >({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listErr, setListErr] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
-    getSuppliers(companyId)
-      .then(setRows)
+    Promise.all([getSuppliers(companyId), getSuppliersUsage(companyId)])
+      .then(([s, u]) => {
+        setRows(s);
+        setUsage(u);
+      })
       .finally(() => setLoading(false));
   };
   useEffect(load, [companyId]);
+
+  const doDelete = async (s: Supplier) => {
+    setDeleting(true);
+    setListErr(null);
+    const { error } = await deleteSupplier(s.id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setListErr(`No se pudo eliminar "${s.name}". Intenta de nuevo.`);
+      return;
+    }
+    load();
+  };
 
   const open = (s?: Supplier) => {
     setEditing(s || null);
@@ -68,11 +92,6 @@ export default function ProveedoresTab({
     load();
   };
 
-  const toggleActive = async (s: Supplier) => {
-    await updateSupplier(s.id, { is_active: !s.is_active });
-    load();
-  };
-
   const q = search.trim().toLowerCase();
   const filtered = rows.filter((r) => !q || r.name.toLowerCase().includes(q));
 
@@ -99,6 +118,8 @@ export default function ProveedoresTab({
         </button>
       </div>
 
+      {listErr && <p className="text-xs text-red-600 mb-2">{listErr}</p>}
+
       {loading ? (
         <div className="py-10 flex justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
@@ -115,18 +136,23 @@ export default function ProveedoresTab({
             <tr>
               {["Proveedor", "Contacto", "Teléfono", "Notas", "Acciones"].map(
                 (h) => (
-                <th
-                  key={h}
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
+                  <th
+                    key={h}
+                    // Ancho fijo en Acciones: la confirmación de borrado ocupa
+                    // lo mismo que los iconos y la tabla no se reacomoda.
+                    className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                      h === "Acciones" ? "w-32" : ""
+                    }`}
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.map((s) => (
-              <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
+              <tr key={s.id}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {s.name}
                 </td>
@@ -140,23 +166,80 @@ export default function ProveedoresTab({
                   {s.notes || "—"}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => open(s)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                      title="Editar"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={() => toggleActive(s)}
-                      className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                        s.is_active ? "text-green-600" : "text-gray-400"
+                  {/* La confirmación flota ENCIMA de los iconos (que quedan
+                      invisibles pero ocupando su espacio): el contenido que
+                      dimensiona la tabla nunca cambia → cero movimiento. */}
+                  <div className="relative">
+                    {confirmDeleteId === s.id && (
+                      <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                        <span className="text-xs text-gray-600">
+                          ¿Eliminar?
+                        </span>
+                        <button
+                          disabled={deleting}
+                          onClick={() => doDelete(s)}
+                          className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                          title="Sí, eliminar"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="p-1 text-gray-500 hover:text-gray-700"
+                          title="Cancelar"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    )}
+                    <div
+                      className={`flex items-center gap-2 h-7 ${
+                        confirmDeleteId === s.id ? "invisible" : ""
                       }`}
-                      title={s.is_active ? "Desactivar" : "Activar"}
                     >
-                      {s.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
-                    </button>
+                      <button
+                        onClick={() => open(s)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        title="Editar"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      {(() => {
+                        const u = usage[s.id];
+                        const inUse =
+                          !!u && (u.supplies > 0 || u.resources > 0);
+                        if (inUse) {
+                          const parts = [];
+                          if (u.supplies > 0)
+                            parts.push(
+                              `${u.supplies} insumo${u.supplies === 1 ? "" : "s"}`,
+                            );
+                          if (u.resources > 0)
+                            parts.push(
+                              `${u.resources} recurso${u.resources === 1 ? "" : "s"}`,
+                            );
+                          return (
+                            <button
+                              disabled
+                              className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                              title={`En uso (${parts.join(" y ")}): no se puede eliminar. Si cambió de datos, edítalo.`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={() => setConfirmDeleteId(s.id)}
+                            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </td>
               </tr>
