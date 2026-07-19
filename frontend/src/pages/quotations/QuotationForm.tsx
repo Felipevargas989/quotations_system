@@ -2240,6 +2240,16 @@ export default function QuotationForm() {
                                 .filter(
                                   (product) => product.is_active !== false,
                                 )
+                                // La sección FIJA no se ofrece en el
+                                // buscador: sus servicios entran solos a la
+                                // cotización y no se pueden quitar.
+                                .filter(
+                                  (product) =>
+                                    !isLockedService(
+                                      box.selectedCategory,
+                                      product.codigo,
+                                    ),
+                                )
                                 .filter((product) =>
                                   product.nombre
                                     .toLowerCase()
