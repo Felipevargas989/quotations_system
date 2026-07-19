@@ -60,6 +60,8 @@ interface ServiceBox {
   selectedItems: string[];
   services: SelectedService[]; // Each box has its own services
   groupName?: string; // Set (in memory) when the box was loaded from a saved group
+  // Día del evento al que pertenece este servicio (1..N; eventos de un día = 1)
+  day?: number;
 }
 
 // TODO: use already defined types
@@ -73,6 +75,8 @@ interface SelectedFixedService {
   min_precio?: number;
   max_precio?: number;
   precio_por_persona?: number;
+  // Día del evento (0 = todo el evento, 1..N = día específico)
+  day?: number;
 }
 
 export default function QuotationForm() {
@@ -210,6 +214,29 @@ export default function QuotationForm() {
     getCategorySections(Number(company.id)).then(setCategorySections);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.id]);
+
+  // Días del evento según el rango (1..N; sin "hasta" = 1). Con más de un
+  // día, cada servicio lleva selector de día (variables parten en Día 1,
+  // fijos en "Todo el evento").
+  const eventDaysCount = (() => {
+    if (!formData.event_date || !formData.event_end_date) return 1;
+    const s = new Date(`${String(formData.event_date)}T00:00:00Z`).getTime();
+    const e = new Date(
+      `${String(formData.event_end_date)}T00:00:00Z`,
+    ).getTime();
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e < s) return 1;
+    return Math.min(60, Math.round((e - s) / 86400000) + 1);
+  })();
+  const dayLabel = (n: number) => {
+    const base = new Date(`${String(formData.event_date)}T00:00:00Z`);
+    if (!Number.isFinite(base.getTime())) return `Día ${n}`;
+    const d = new Date(base.getTime() + (n - 1) * 86400000);
+    return `Día ${n} (${d.toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "UTC",
+    })})`;
+  };
 
   // Ids de servicios de la sección fija de una categoría (por nombre).
   const defaultServiceIdsFor = (categoryName: string): number[] => {
@@ -422,6 +449,7 @@ export default function QuotationForm() {
             selectedItem: "",
             selectedItems: boxItems,
             services: boxServices,
+            day: serviceBox.day || 1,
           });
         }
       });
@@ -440,6 +468,7 @@ export default function QuotationForm() {
       min_precio: item.min_precio || 0,
       max_precio: item.max_precio || 0,
       precio_por_persona: item.precio_por_persona || 0,
+      day: item.day || 0,
     }));
 
     setSelectedFixedServices(fixedServicesLoaded);
@@ -973,6 +1002,7 @@ export default function QuotationForm() {
           .filter((box) => box.selectedCategory && box.services.length > 0)
           .map((box) => ({
             category: box.selectedCategory,
+            day: Math.min(box.day || 1, eventDaysCount),
             items: box.services.map((service) => ({
               codigo: service.codigo,
               nombre: service.nombre,
@@ -984,6 +1014,7 @@ export default function QuotationForm() {
         fixed_services: selectedFixedServices.map((service) => ({
           codigo: service.codigo,
           nombre: service.nombre,
+          day: Math.min(service.day || 0, eventDaysCount),
           precio: service.precio_calculado,
           categoria: service.categoria,
           quantity: service.quantity,
@@ -2020,10 +2051,33 @@ export default function QuotationForm() {
                   className="border border-gray-200 rounded-lg p-4"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div>
+                    <div className="flex items-center gap-3">
                       <h4 className="font-medium text-gray-900">
                         Servicio {index + 1}
                       </h4>
+                      {eventDaysCount > 1 && (
+                        <select
+                          value={Math.min(box.day || 1, eventDaysCount)}
+                          onChange={(e) =>
+                            setServiceBoxes((prev) =>
+                              prev.map((b) =>
+                                b.id === box.id
+                                  ? { ...b, day: Number(e.target.value) }
+                                  : b,
+                              ),
+                            )
+                          }
+                          disabled={isRestrictedEditing}
+                          className="text-xs border border-blue-200 bg-blue-50 text-blue-800 font-semibold rounded-md px-2 py-1"
+                          title="Día del evento en que va este servicio"
+                        >
+                          {Array.from({ length: eventDaysCount }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {dayLabel(i + 1)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       {box.groupName && (
                         <p className="mt-0.5 flex items-center space-x-1 text-sm font-medium text-blue-600">
                           <Layers size={14} />
@@ -2584,6 +2638,30 @@ export default function QuotationForm() {
                     </select>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {eventDaysCount > 1 && (
+                      <select
+                        value={Math.min(service.day || 0, eventDaysCount)}
+                        onChange={(e) =>
+                          setSelectedFixedServices((prev) =>
+                            prev.map((f, i) =>
+                              i === index
+                                ? { ...f, day: Number(e.target.value) }
+                                : f,
+                            ),
+                          )
+                        }
+                        disabled={isRestrictedEditing}
+                        className="text-xs border border-blue-200 bg-blue-50 text-blue-800 font-semibold rounded-md px-2 py-1"
+                        title="Día del evento (o todo el evento)"
+                      >
+                        <option value={0}>Todo el evento</option>
+                        {Array.from({ length: eventDaysCount }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>
+                            {dayLabel(i + 1)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <span className="font-medium text-gray-900 w-20 text-right">
                       $
                       {service

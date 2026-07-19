@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChefHat, Printer, X } from "lucide-react";
+import {
+  Check,
+  ChefHat,
+  ChevronDown,
+  ChevronRight,
+  Printer,
+  X,
+} from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import {
   KitchenNote,
   addEventKitchenNote,
   deleteEventKitchenNote,
+  getEventDayPrints,
   getEventKitchenNotes,
   getEventServiceTimes,
+  markEventDaysPrinted,
   setEventServiceTime,
 } from "../../services/logistics.service";
 import {
@@ -64,9 +73,11 @@ export default function FichaCocinaSection({
     Promise.all([
       getEventServiceTimes(companyId, quotationId),
       getEventKitchenNotes(companyId, quotationId),
-    ]).then(([t, n]) => {
+      getEventDayPrints(companyId, quotationId),
+    ]).then(([t, n, dp]) => {
       setTimes(t);
       setNotes(n);
+      setDayPrints(dp);
     });
   }, [companyId, quotationId]);
 
@@ -101,6 +112,97 @@ export default function FichaCocinaSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote.items]);
 
+  // ---------- Días del evento (multi-día, mockup aprobado) ----------
+  const daysCount = (() => {
+    if (!quote.event_date || !quote.event_end_date) return 1;
+    const sMs = new Date(String(quote.event_date)).getTime();
+    const eMs = new Date(String(quote.event_end_date)).getTime();
+    if (!Number.isFinite(sMs) || !Number.isFinite(eMs) || eMs <= sMs) return 1;
+    return Math.min(60, Math.round((eMs - sMs) / 86400000) + 1);
+  })();
+  const multiDay = daysCount > 1;
+  const allDays = Array.from({ length: daysCount }, (_, i) => i + 1);
+  const dayDateStr = (n: number) => {
+    const sMs = new Date(String(quote.event_date)).getTime();
+    return new Date(sMs + (n - 1) * 86400000).toISOString().slice(0, 10);
+  };
+  const fmtLargaUTC = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  const todayStr = (() => {
+    const d = new Date();
+    const p = (x: number) => String(x).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  })();
+  const dayState = (n: number): "pasado" | "hoy" | "futuro" => {
+    const ds = dayDateStr(n);
+    return ds === todayStr ? "hoy" : ds < todayStr ? "pasado" : "futuro";
+  };
+
+  // Día de cada servicio variable (del cotizador; legado sin día = 1) y
+  // orden DENTRO del día: por horario ascendente, sin hora al final.
+  const slotDay = (sl: (typeof slots)[number]) =>
+    Math.min((sl.group as unknown as { day?: number }).day || 1, daysCount);
+  const orderByTime = (list: typeof slots) =>
+    [...list].sort((a, b) => {
+      const ta = times[a.key] || "";
+      const tb = times[b.key] || "";
+      if (ta && tb) return ta < tb ? -1 : ta > tb ? 1 : 0;
+      if (ta) return -1;
+      if (tb) return 1;
+      return 0;
+    });
+  const slotsForDay = (n: number) =>
+    orderByTime(slots.filter((sl) => slotDay(sl) === n));
+
+  // Servicios fijos: día 0 = "todo el evento" (aparece en cada día).
+  const fixedList = quote.items?.fixed_services || [];
+  const fixedDayOf = (f: unknown) =>
+    Math.min((f as { day?: number }).day || 0, daysCount);
+  const fixedForDay = (n: number) =>
+    fixedList.filter((f) => fixedDayOf(f) === n || fixedDayOf(f) === 0);
+  const notesForDay = (n: number) =>
+    notes.filter((x) => (x.day ?? 1) === n);
+
+  // Estado de la vista multi-día: desplegables (por defecto solo se abre el
+  // día de HOY, o el primer día futuro), selección de impresión y registro
+  // de fichas ya impresas (verde suave).
+  const [openDays, setOpenDays] = useState<Set<number> | null>(null);
+  const defaultOpenDay =
+    allDays.find((n) => dayState(n) === "hoy") ??
+    allDays.find((n) => dayState(n) === "futuro") ??
+    daysCount;
+  const isDayOpen = (n: number) =>
+    openDays ? openDays.has(n) : n === defaultOpenDay;
+  const toggleDay = (n: number) =>
+    setOpenDays((prev) => {
+      const next = new Set(prev ?? [defaultOpenDay]);
+      if (next.has(n)) {
+        next.delete(n);
+      } else {
+        next.add(n);
+      }
+      return next;
+    });
+  const [checkedDays, setCheckedDays] = useState<Set<number>>(new Set());
+  const toggleChecked = (n: number) =>
+    setCheckedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) {
+        next.delete(n);
+      } else {
+        next.add(n);
+      }
+      return next;
+    });
+  const [dayPrints, setDayPrints] = useState<Record<number, string>>({});
+  const [noteDrafts, setNoteDrafts] = useState<Record<number, string>>({});
+
   const saveTime = async (serviceName: string, value: string) => {
     setTimes((prev) => ({ ...prev, [serviceName]: value }));
     const { error } = await setEventServiceTime(
@@ -126,6 +228,23 @@ export default function FichaCocinaSection({
   const removeNote = async (id: number) => {
     const { error } = await deleteEventKitchenNote(id);
     if (!error) setNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // Nota de un día específico (multi-día).
+  const addNoteDay = async (day: number) => {
+    const text = (noteDrafts[day] || "").trim();
+    if (!text) return;
+    const { error } = await addEventKitchenNote(
+      companyId,
+      quotationId,
+      text,
+      day,
+    );
+    if (!error) {
+      setNoteDrafts((prev) => ({ ...prev, [day]: "" }));
+      setNotes(await getEventKitchenNotes(companyId, quotationId));
+      flashSaved();
+    }
   };
 
   // ---------- Datos calculados para la ficha ----------
@@ -226,7 +345,7 @@ export default function FichaCocinaSection({
     // Bloques por servicio (categoría de la cotización): platillos ×cant,
     // receta en letra chica y mobiliario a montar. Un bloque por servicio,
     // con su propio horario aunque la categoría se repita.
-    const bloques = slots
+    const bloquesDe = (slotList: typeof slots) => slotList
       .map(({ group: g, key, label }) => {
         const hora = times[key] || "";
         const furnTotals = new Map<string, number>();
@@ -292,24 +411,26 @@ export default function FichaCocinaSection({
       })
       .join("");
 
-    // Retiro de bodega: consolidado de insumos de TODO el evento.
-    const acc = newAccumulator();
-    consolidateEvent(quote.items as EventItemsSnapshot, personas, ctx, acc);
-    const bodega = [...acc.supplyTotals.values()]
-      .sort((a, b) => b.totalBase * (b.supply.price || 0) - a.totalBase * (a.supply.price || 0))
-      .map(
-        (c) =>
-          `<tr><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
-      )
-      .join("");
+    // Retiro de bodega de un conjunto de servicios (todo el evento o un día).
+    const bodegaDe = (snapshot: EventItemsSnapshot) => {
+      const acc = newAccumulator();
+      consolidateEvent(snapshot, personas, ctx, acc);
+      return [...acc.supplyTotals.values()]
+        .sort((a, b) => b.totalBase * (b.supply.price || 0) - a.totalBase * (a.supply.price || 0))
+        .map(
+          (c) =>
+            `<tr><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
+        )
+        .join("");
+    };
 
-    const notas = notes
-      .map((n) => `<li>${esc(n.note)}</li>`)
-      .join("");
+    const notasDe = (list: KitchenNote[]) =>
+      list.map((n) => `<li>${esc(n.note)}</li>`).join("");
 
-    // Servicios fijos: al final de la hoja, bajo las notas. Nombre ×cant y,
-    // si su receta tiene mobiliario, la línea "Montar: ..." en letra chica.
-    const fijosRows = (quote.items?.fixed_services || [])
+    // Servicios fijos: nombre ×cant y, si su receta tiene mobiliario, la
+    // línea "Montar: ..." en letra chica. Con etiqueta TODO EL EVENTO en
+    // fichas multi-día.
+    const fijosDe = (list: typeof fixedList, conTag: boolean) => list
       .map((it) => {
         const numericId = Number(it.codigo);
         let id: number | undefined =
@@ -338,7 +459,11 @@ export default function FichaCocinaSection({
               `${Math.ceil(q).toLocaleString("es-CL")} ${esc(n.toLowerCase())}`,
           )
           .join(" · ");
-        return `<tr><td class="fnombre">${esc(it.nombre)}</td><td class="qty">×${qty}</td></tr>${
+        const tag =
+          conTag && fixedDayOf(it) === 0
+            ? ` <span class="tageva">todo el evento</span>`
+            : "";
+        return `<tr><td class="fnombre">${esc(it.nombre)}${tag}</td><td class="qty">×${qty}</td></tr>${
           montar
             ? `<tr class="fmontar"><td colspan="2">Montar: ${montar}</td></tr>`
             : ""
@@ -356,14 +481,90 @@ export default function FichaCocinaSection({
         month: "long",
         year: "numeric",
       });
-    // Evento multi-día: "viernes 24 ... al domingo 26 ..."
-    const fecha = quote.event_date
-      ? quote.event_end_date &&
-        String(quote.event_end_date) !== String(quote.event_date)
-        ? `${fmtLarga(new Date(quote.event_date))} al ${fmtLarga(new Date(quote.event_end_date))}`
-        : fmtLarga(new Date(quote.event_date))
-      : "—";
     const generada = new Date().toLocaleString("es-CL");
+
+    // Una página completa de ficha (evento de un día = una sola página;
+    // multi-día = una página por día seleccionado).
+    const paginaDe = (
+      fechaTxt: string,
+      bloques: string,
+      bodega: string,
+      tituloBodega: string,
+      notas: string,
+      fijos: string,
+    ) => `<div class="hoja pagina">
+  <div class="encabezado">
+    <div><div class="marca">EVENTIA</div><h1>FICHA DE COCINA</h1></div>
+    <div class="evento">
+      <strong>Evento #${quote.quotation_number}${clientName ? ` · ${esc(clientName)}` : ""}</strong><br>
+      ${esc(fechaTxt)}<br>
+      <span class="personas">${personas.toLocaleString("es-CL")} personas</span>
+    </div>
+  </div>
+  ${bloques || '<p style="margin-top:20px;color:#888">Sin servicios variables asignados.</p>'}
+  ${
+    bodega
+      ? `<div class="seccion"><h2>${esc(tituloBodega)}</h2><table class="bodega">${bodega}</table></div>`
+      : ""
+  }
+  ${
+    notas
+      ? `<div class="seccion notas"><h2>Notas</h2><ul>${notas}</ul></div>`
+      : ""
+  }
+  ${
+    fijos
+      ? `<div class="seccion fijos"><h2>Servicios fijos</h2><table>${fijos}</table></div>`
+      : ""
+  }
+  <div class="pie">
+    <span>Generada el ${esc(generada)} · Eventia</span>
+    <span>Si cambian personas, servicios o notas: volver a imprimir — la ficha siempre sale con los datos vigentes</span>
+  </div>
+</div>`;
+
+    let paginas: string;
+    let daysPrinted: number[] = [];
+    if (!multiDay) {
+      const fechaTxt = quote.event_date
+        ? fmtLarga(new Date(quote.event_date))
+        : "—";
+      paginas = paginaDe(
+        fechaTxt,
+        bloquesDe(slots),
+        bodegaDe(quote.items as EventItemsSnapshot),
+        "Retiro de bodega — totales del evento",
+        notasDe(notes),
+        fijosDe(fixedList, false),
+      );
+    } else {
+      // Días a imprimir: los marcados; sin marcar ninguno = todos.
+      daysPrinted = checkedDays.size
+        ? [...checkedDays].sort((a, b) => a - b)
+        : [...allDays];
+      paginas = daysPrinted
+        .map((n) => {
+          const snapshot = {
+            variable_services: groups.filter(
+              (_, i) => slotDay(slots[i]) === n,
+            ),
+            // el retiro de los fijos "todo el evento" se hace el día 1
+            fixed_services: fixedList.filter(
+              (f) =>
+                fixedDayOf(f) === n || (n === 1 && fixedDayOf(f) === 0),
+            ),
+          } as EventItemsSnapshot;
+          return paginaDe(
+            `DÍA ${n} de ${daysCount} — ${fmtLargaUTC(dayDateStr(n))}`,
+            bloquesDe(slotsForDay(n)),
+            bodegaDe(snapshot),
+            `Retiro de bodega — día ${n}`,
+            notasDe(notesForDay(n)),
+            fijosDe(fixedForDay(n), true),
+          );
+        })
+        .join("");
+    }
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Ficha de Cocina — Evento #${quote.quotation_number}</title>
@@ -402,6 +603,9 @@ export default function FichaCocinaSection({
   .fijos .fnombre { font-weight:700; font-size:13.5px; }
   .fijos .fmontar td { font-size:11.5px; color:#777; padding:0 6px 6px; border-bottom:1px solid #e5e5e5; }
   .pie { margin-top:26px; display:flex; justify-content:space-between; font-size:10.5px; color:#888; border-top:1px solid #ddd; padding-top:8px; }
+  .pagina { page-break-after:always; margin-bottom:26px; }
+  .pagina:last-child { page-break-after:auto; margin-bottom:0; }
+  .tageva { font-size:9.5px; font-weight:800; text-transform:uppercase; color:#6b7280; background:#e5e7eb; border-radius:999px; padding:1px 7px; letter-spacing:.5px; }
   .btn-imprimir { position:fixed; top:14px; right:14px; background:#1e3a8a; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   @media print {
     body { background:#fff; padding:0; }
@@ -410,42 +614,82 @@ export default function FichaCocinaSection({
   }
 </style></head><body>
 <button class="btn-imprimir" onclick="window.print()">Imprimir / PDF</button>
-<div class="hoja">
-  <div class="encabezado">
-    <div><div class="marca">EVENTIA</div><h1>FICHA DE COCINA</h1></div>
-    <div class="evento">
-      <strong>Evento #${quote.quotation_number}${clientName ? ` · ${esc(clientName)}` : ""}</strong><br>
-      ${esc(fecha)}<br>
-      <span class="personas">${personas.toLocaleString("es-CL")} personas</span>
-    </div>
-  </div>
-  ${bloques || '<p style="margin-top:20px;color:#888">Este evento no tiene servicios variables.</p>'}
-  ${
-    bodega
-      ? `<div class="seccion"><h2>Retiro de bodega — totales del evento</h2><table class="bodega">${bodega}</table></div>`
-      : ""
-  }
-  ${
-    notas
-      ? `<div class="seccion notas"><h2>Notas del evento</h2><ul>${notas}</ul></div>`
-      : ""
-  }
-  ${
-    fijosRows
-      ? `<div class="seccion fijos"><h2>Servicios fijos</h2><table>${fijosRows}</table></div>`
-      : ""
-  }
-  <div class="pie">
-    <span>Generada el ${esc(generada)} · Eventia</span>
-    <span>Si cambian personas, servicios o notas: volver a imprimir — la ficha siempre sale con los datos vigentes</span>
-  </div>
-</div>
+${paginas}
 </body></html>`;
 
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(html);
     win.document.close();
+
+    // Registrar las fichas impresas por día (verde suave en el desplegable).
+    if (multiDay && daysPrinted.length > 0) {
+      markEventDaysPrinted(companyId, quotationId, daysPrinted).then(
+        async () =>
+          setDayPrints(await getEventDayPrints(companyId, quotationId)),
+      );
+    }
+  };
+
+  // Tarjeta de vista previa de un servicio: horario editable + platos por
+  // sección con porciones. Se usa en la vista simple y dentro de cada día.
+  const slotCard = (s: (typeof slots)[number]) => (
+    <div
+      key={s.key}
+      className="border border-gray-200 rounded-lg overflow-hidden"
+    >
+      <div className="flex items-center justify-between gap-2 bg-blue-900 text-white px-3 py-1.5">
+        <span className="text-xs font-bold uppercase tracking-wide truncate">
+          {s.label}
+        </span>
+        <input
+          type="time"
+          value={times[s.key] || ""}
+          onChange={(e) => saveTime(s.key, e.target.value)}
+          className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white"
+          aria-label={`Horario de ${s.label}`}
+        />
+      </div>
+      <div className="px-3 py-1">
+        {orderItems(s.group.category, s.group.items || []).map((og, gi) => (
+          <div key={og.name ?? `g-${gi}`}>
+            {og.name && (
+              <div className="pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-900 border-b border-blue-900/25">
+                {og.name}
+              </div>
+            )}
+            {og.items.map((it) => (
+              <div
+                key={it.codigo}
+                className="flex items-center justify-between gap-2 py-1 text-sm border-b border-gray-100 last:border-b-0"
+              >
+                <span className="text-gray-800 truncate">{it.nombre}</span>
+                <span className="font-bold text-gray-900 shrink-0">
+                  ×{(personas * (it.quantity || 1)).toLocaleString("es-CL")}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Retiro de bodega de un día (para el cuadro en pantalla).
+  const dayBodegaTotals = (n: number) => {
+    const snapshot = {
+      variable_services: groups.filter((_, i) => slotDay(slots[i]) === n),
+      fixed_services: fixedList.filter(
+        (f) => fixedDayOf(f) === n || (n === 1 && fixedDayOf(f) === 0),
+      ),
+    } as EventItemsSnapshot;
+    const acc = newAccumulator();
+    consolidateEvent(snapshot, personas, ctx, acc);
+    return [...acc.supplyTotals.values()].sort(
+      (a, b) =>
+        b.totalBase * (b.supply.price || 0) -
+        a.totalBase * (a.supply.price || 0),
+    );
   };
 
   return (
@@ -471,118 +715,254 @@ export default function FichaCocinaSection({
         </button>
       </div>
       <p className="text-xs text-gray-500 -mt-1">
-        Ponle horario a cada servicio y revisa el contenido; la ficha se
-        imprime siempre con los datos vigentes: cambió algo → volver a
-        imprimir.
+        {multiDay
+          ? `Evento de ${daysCount} días. Marca los días que quieres imprimir (sin marcar ninguno se imprime todo); sale una página por día, siempre con los datos vigentes.`
+          : "Ponle horario a cada servicio y revisa el contenido; la ficha se imprime siempre con los datos vigentes: cambió algo → volver a imprimir."}
       </p>
 
-      {/* Vista previa: un bloque por servicio con su horario y sus platos.
-          Si la categoría se repite (dos Coffee), cada uno tiene su hora. */}
-      {slots.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {slots.map((s) => (
-            <div
-              key={s.key}
-              className="border border-gray-200 rounded-lg overflow-hidden"
+      {!multiDay ? (
+        <>
+          {/* ---- Evento de un día: vista de siempre ---- */}
+          {slots.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {slots.map(slotCard)}
+            </div>
+          )}
+
+          {fixedList.length > 0 && (
+            <p className="text-xs text-gray-500">
+              Servicios fijos:{" "}
+              {fixedList
+                .map((f) => `${f.nombre} ×${f.quantity || 1}`)
+                .join(" · ")}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addNote();
+              }}
+              placeholder="Agregar nota (ej: 2 alérgicos al maní, carne a punto…)"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={addNote}
+              disabled={!newNote.trim()}
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
             >
-              <div className="flex items-center justify-between gap-2 bg-blue-900 text-white px-3 py-1.5">
-                <span className="text-xs font-bold uppercase tracking-wide truncate">
-                  {s.label}
-                </span>
-                <input
-                  type="time"
-                  value={times[s.key] || ""}
-                  onChange={(e) => saveTime(s.key, e.target.value)}
-                  className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white"
-                  aria-label={`Horario de ${s.label}`}
-                />
-              </div>
-              <div className="px-3 py-1">
-                {orderItems(s.group.category, s.group.items || []).map(
-                  (og, gi) => (
-                    <div key={og.name ?? `g-${gi}`}>
-                      {og.name && (
-                        <div className="pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-900 border-b border-blue-900/25">
-                          {og.name}
+              + Agregar
+            </button>
+          </div>
+          {notes.length > 0 && (
+            <ul className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 divide-y divide-amber-100">
+              {notes.map((n) => (
+                <li
+                  key={n.id}
+                  className="flex items-center justify-between gap-2 py-1.5 text-sm text-gray-800"
+                >
+                  <span>
+                    <span className="text-amber-600 mr-1.5">■</span>
+                    {n.note}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeNote(n.id)}
+                    className="text-gray-300 hover:text-red-500 shrink-0"
+                    aria-label="Eliminar nota"
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          {/* ---- Multi-día: cada día es un desplegable autocontenido ---- */}
+          {allDays.map((n) => {
+            const st = dayState(n);
+            const printed = Boolean(dayPrints[n]);
+            const open = isDayOpen(n);
+            const daySlots = slotsForDay(n);
+            const borderCls =
+              st === "hoy"
+                ? "border-2 border-blue-900"
+                : printed
+                  ? "border border-emerald-200"
+                  : "border border-gray-200";
+            const headCls =
+              st === "hoy"
+                ? "bg-blue-900"
+                : printed
+                  ? "bg-emerald-50"
+                  : "bg-gray-50";
+            const titleCls =
+              st === "hoy"
+                ? "text-white"
+                : printed
+                  ? "text-emerald-700"
+                  : st === "pasado"
+                    ? "text-gray-400"
+                    : "text-gray-700";
+            return (
+              <div
+                key={n}
+                className={`rounded-xl overflow-hidden ${borderCls}`}
+              >
+                <div
+                  className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer ${headCls}`}
+                  onClick={() => toggleDay(n)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checkedDays.has(n)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleChecked(n)}
+                    className="w-4 h-4 accent-blue-900"
+                    aria-label={`Incluir día ${n} en la impresión`}
+                  />
+                  {st === "hoy" && (
+                    <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide">
+                      HOY
+                    </span>
+                  )}
+                  <span className={`text-sm font-bold ${titleCls}`}>
+                    DÍA {n} — {fmtLargaUTC(dayDateStr(n))}
+                  </span>
+                  <span
+                    className={`ml-auto flex items-center gap-1 text-xs ${
+                      st === "hoy" ? "text-blue-200" : "text-gray-400"
+                    }`}
+                  >
+                    {printed && st !== "hoy" ? "ficha impresa" : ""}
+                    {open ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
+                  </span>
+                </div>
+
+                {open && (
+                  <div className="p-3 space-y-2.5">
+                    {daySlots.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {daySlots.map(slotCard)}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">
+                        Sin servicios variables asignados a este día.
+                      </p>
+                    )}
+
+                    {/* Retiro de bodega del día */}
+                    {(() => {
+                      const rows = dayBodegaTotals(n);
+                      if (rows.length === 0) return null;
+                      return (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                            Retiro de bodega — día {n}
+                          </div>
+                          <div className="px-3 py-1">
+                            {rows.map((c) => (
+                              <div
+                                key={c.supply.id}
+                                className="flex items-center justify-between gap-2 py-0.5 text-sm border-b border-gray-50 last:border-b-0"
+                              >
+                                <span className="text-gray-800">
+                                  {c.supply.name}
+                                </span>
+                                <span className="font-bold text-gray-900 shrink-0">
+                                  {fmtQty(c.totalBase)}{" "}
+                                  {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      )}
-                      {og.items.map((it) => (
-                        <div
-                          key={it.codigo}
-                          className="flex items-center justify-between gap-2 py-1 text-sm border-b border-gray-100 last:border-b-0"
-                        >
-                          <span className="text-gray-800 truncate">
-                            {it.nombre}
-                          </span>
-                          <span className="font-bold text-gray-900 shrink-0">
-                            ×
-                            {(personas * (it.quantity || 1)).toLocaleString(
-                              "es-CL",
+                      );
+                    })()}
+
+                    {/* Servicios fijos del día */}
+                    {fixedForDay(n).length > 0 && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-sm text-blue-900">
+                        <span className="text-[10px] font-bold uppercase tracking-wide mr-1">
+                          Servicios fijos de este día:
+                        </span>
+                        {fixedForDay(n).map((f, i) => (
+                          <span key={`${f.codigo}-${i}`}>
+                            {i > 0 && " · "}
+                            {f.nombre} ×{f.quantity || 1}
+                            {fixedDayOf(f) === 0 && (
+                              <span className="ml-1 text-[9px] font-bold uppercase text-gray-500 bg-gray-200 rounded-full px-1.5 py-0.5">
+                                todo el evento
+                              </span>
                             )}
                           </span>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Notas del día */}
+                    {notesForDay(n).length > 0 && (
+                      <ul className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1 divide-y divide-amber-100">
+                        {notesForDay(n).map((x) => (
+                          <li
+                            key={x.id}
+                            className="flex items-center justify-between gap-2 py-1.5 text-sm text-gray-800"
+                          >
+                            <span>
+                              <span className="text-amber-600 mr-1.5">■</span>
+                              {x.note}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeNote(x.id)}
+                              className="text-gray-300 hover:text-red-500 shrink-0"
+                              aria-label="Eliminar nota"
+                            >
+                              <X size={14} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={noteDrafts[n] || ""}
+                        onChange={(e) =>
+                          setNoteDrafts((prev) => ({
+                            ...prev,
+                            [n]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addNoteDay(n);
+                        }}
+                        placeholder={`Agregar nota del día ${n}…`}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addNoteDay(n)}
+                        disabled={!(noteDrafts[n] || "").trim()}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-40"
+                      >
+                        + Agregar
+                      </button>
                     </div>
-                  ),
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Servicios fijos: en la ficha salen al final; aquí solo un resumen */}
-      {(quote.items?.fixed_services || []).length > 0 && (
-        <p className="text-xs text-gray-500">
-          Servicios fijos:{" "}
-          {(quote.items?.fixed_services || [])
-            .map((f) => `${f.nombre} ×${f.quantity || 1}`)
-            .join(" · ")}
-        </p>
-      )}
-
-      {/* Notas del evento (lista) */}
-      <div className="flex items-center gap-2">
-        <input
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addNote();
-          }}
-          placeholder="Agregar nota (ej: 2 alérgicos al maní, carne a punto…)"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          onClick={addNote}
-          disabled={!newNote.trim()}
-          className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
-        >
-          + Agregar
-        </button>
-      </div>
-      {notes.length > 0 && (
-        <ul className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 divide-y divide-amber-100">
-          {notes.map((n) => (
-            <li
-              key={n.id}
-              className="flex items-center justify-between gap-2 py-1.5 text-sm text-gray-800"
-            >
-              <span>
-                <span className="text-amber-600 mr-1.5">■</span>
-                {n.note}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeNote(n.id)}
-                className="text-gray-300 hover:text-red-500 shrink-0"
-                aria-label="Eliminar nota"
-              >
-                <X size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+        </>
       )}
     </div>
   );

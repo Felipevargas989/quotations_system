@@ -582,6 +582,8 @@ export const setEventServiceTime = async (
 export interface KitchenNote {
   id: number;
   note: string;
+  // Día del evento al que pertenece la nota (null = nota antigua → día 1).
+  day: number | null;
 }
 
 export const getEventKitchenNotes = async (
@@ -590,7 +592,7 @@ export const getEventKitchenNotes = async (
 ): Promise<KitchenNote[]> => {
   const { data, error } = await supabase
     .from("event_kitchen_notes")
-    .select("id, note")
+    .select("id, note, day")
     .eq("company_id", companyId)
     .eq("quotation_id", quotationId)
     .order("created_at");
@@ -605,12 +607,56 @@ export const addEventKitchenNote = async (
   companyId: number,
   quotationId: string,
   note: string,
+  day?: number,
 ) => {
   const { error } = await supabase.from("event_kitchen_notes").insert({
     company_id: companyId,
     quotation_id: quotationId,
     note,
+    day: day ?? null,
   });
+  return { error };
+};
+
+// ---------- Fichas impresas por día ----------
+// La primera impresión de la ficha de un día queda registrada: el
+// desplegable del día se pinta verde suave. Día pasado sin registro =
+// operó sin ficha.
+export const getEventDayPrints = async (
+  companyId: number,
+  quotationId: string,
+): Promise<Record<number, string>> => {
+  const { data, error } = await supabase
+    .from("event_day_prints")
+    .select("day, printed_at")
+    .eq("company_id", companyId)
+    .eq("quotation_id", quotationId);
+  if (error) {
+    console.error("Error cargando fichas impresas", error);
+    return {};
+  }
+  const map: Record<number, string> = {};
+  (data || []).forEach((r: { day: number; printed_at: string }) => {
+    map[r.day] = r.printed_at;
+  });
+  return map;
+};
+
+export const markEventDaysPrinted = async (
+  companyId: number,
+  quotationId: string,
+  days: number[],
+) => {
+  if (!days.length) return { error: null };
+  const { error } = await supabase.from("event_day_prints").upsert(
+    days.map((day) => ({
+      company_id: companyId,
+      quotation_id: quotationId,
+      day,
+      printed_at: new Date().toISOString(),
+    })),
+    { onConflict: "quotation_id,day" },
+  );
   return { error };
 };
 
