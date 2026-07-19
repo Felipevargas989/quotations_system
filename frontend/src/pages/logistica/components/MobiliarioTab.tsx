@@ -7,14 +7,17 @@ import {
   EyeOff,
   Pencil,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import {
   createFurnitureItem,
+  deleteFurnitureItem,
   getAcceptedEvents,
   getAllRecipeItems,
   getCatalogServiceNameIds,
   getFurnitureItems,
+  getFurnitureUsage,
   getSupplies,
   updateFurnitureItem,
 } from "../../../services/logistics.service";
@@ -72,16 +75,40 @@ export default function MobiliarioTab({
     loaded: boolean;
   }>({ conflicts: [], loaded: false });
 
+  // Uso por ítem (recetas): decide si la papelera está disponible.
+  const [usage, setUsage] = useState<Record<number, { recipes: number }>>({});
+  // Los inactivos se ocultan por defecto para no ensuciar la vista.
+  const [showInactive, setShowInactive] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listErr, setListErr] = useState<string | null>(null);
+
   // Refresco silencioso: el spinner solo en la PRIMERA carga.
   const firstLoad = useRef(true);
   const load = () => {
     if (firstLoad.current) setLoading(true);
-    getFurnitureItems(companyId)
-      .then(setRows)
+    Promise.all([getFurnitureItems(companyId), getFurnitureUsage(companyId)])
+      .then(([f, u]) => {
+        setRows(f);
+        setUsage(u);
+      })
       .finally(() => {
         firstLoad.current = false;
         setLoading(false);
       });
+  };
+
+  const doDelete = async (f: FurnitureItem) => {
+    setDeleting(true);
+    setListErr(null);
+    const { error } = await deleteFurnitureItem(f.id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setListErr(`No se pudo eliminar "${f.name}". Intenta de nuevo.`);
+      return;
+    }
+    load();
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [companyId]);
@@ -259,16 +286,18 @@ export default function MobiliarioTab({
   };
 
   const q = search.trim().toLowerCase();
+  const inactiveCount = rows.filter((r) => !r.is_active).length;
   const filtered = useMemo(() => {
     const catOrder = Object.keys(FURNITURE_CATEGORY_LABEL);
     return rows
+      .filter((r) => showInactive || r.is_active)
       .filter((r) => !q || r.name.toLowerCase().includes(q))
       .sort(
         (a, b) =>
           catOrder.indexOf(a.category) - catOrder.indexOf(b.category) ||
           a.name.localeCompare(b.name),
       );
-  }, [rows, q]);
+  }, [rows, q, showInactive]);
 
   const fmtDate = (d: string) =>
     new Date(d + "T12:00:00").toLocaleDateString("es-CL", {
@@ -307,10 +336,28 @@ export default function MobiliarioTab({
             </button>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mb-4">
-          Inventario: stock editable en la fila (fluctúa por temporada) y foto
-          de referencia — clic en la miniatura para verla en grande.
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-gray-400">
+            Inventario: stock editable en la fila (fluctúa por temporada) y
+            foto de referencia — clic en la miniatura para verla en grande.
+          </p>
+          {inactiveCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowInactive((v) => !v)}
+              className="text-xs text-blue-600 hover:underline shrink-0"
+            >
+              {showInactive
+                ? "Ocultar inactivos"
+                : `Ver inactivos (${inactiveCount})`}
+            </button>
+          )}
+        </div>
+        {listErr && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">{listErr}</p>
+          </div>
+        )}
 
         {loading ? (
           <div className="py-10 flex justify-center">
@@ -336,7 +383,9 @@ export default function MobiliarioTab({
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
                     Stock
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-28">
+                  {/* Ancho fijo: la confirmación de borrado ocupa lo mismo
+                      que los iconos y la tabla no se reacomoda. */}
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-36">
                     Acciones
                   </th>
                 </tr>
@@ -398,27 +447,82 @@ export default function MobiliarioTab({
                       />
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => open(f)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => toggleActive(f)}
-                          className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                            f.is_active ? "text-green-600" : "text-gray-400"
+                      {/* La confirmación flota ENCIMA de los iconos (que
+                          quedan invisibles pero ocupando su espacio). */}
+                      <div className="relative">
+                        {confirmDeleteId === f.id && (
+                          <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                            <span className="text-xs text-gray-600">
+                              ¿Eliminar?
+                            </span>
+                            <button
+                              disabled={deleting}
+                              onClick={() => doDelete(f)}
+                              className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                              title="Sí, eliminar"
+                            >
+                              <Check size={15} />
+                            </button>
+                            <button
+                              disabled={deleting}
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="p-1 text-gray-500 hover:text-gray-700"
+                              title="Cancelar"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        )}
+                        <div
+                          className={`flex items-center gap-2 h-7 ${
+                            confirmDeleteId === f.id ? "invisible" : ""
                           }`}
-                          title={f.is_active ? "Desactivar" : "Activar"}
                         >
-                          {f.is_active ? (
-                            <Eye size={15} />
-                          ) : (
-                            <EyeOff size={15} />
-                          )}
-                        </button>
+                          <button
+                            onClick={() => open(f)}
+                            className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                            title="Editar"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => toggleActive(f)}
+                            className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                              f.is_active ? "text-green-600" : "text-gray-400"
+                            }`}
+                            title={f.is_active ? "Desactivar" : "Activar"}
+                          >
+                            {f.is_active ? (
+                              <Eye size={15} />
+                            ) : (
+                              <EyeOff size={15} />
+                            )}
+                          </button>
+                          {(() => {
+                            const u = usage[f.id];
+                            const inUse = !!u && u.recipes > 0;
+                            if (inUse) {
+                              return (
+                                <button
+                                  disabled
+                                  className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                                  title={`En uso en ${u.recipes} receta${u.recipes === 1 ? "" : "s"}: no se puede eliminar, solo desactivar`}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => setConfirmDeleteId(f.id)}
+                                className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </td>
                   </tr>

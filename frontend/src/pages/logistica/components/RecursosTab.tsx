@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, EyeOff, Pencil, Search, X } from "lucide-react";
+import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createManagementResource,
+  deleteManagementResource,
   getManagementResources,
+  getResourcesUsage,
   getSuppliers,
   updateManagementResource,
 } from "../../../services/logistics.service";
@@ -43,14 +45,29 @@ export default function RecursosTab({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Uso por recurso (costos de servicios fijos + eventos): decide papelera.
+  const [usage, setUsage] = useState<
+    Record<number, { costLines: number; events: number }>
+  >({});
+  // Los inactivos se ocultan por defecto para no ensuciar la vista.
+  const [showInactive, setShowInactive] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listErr, setListErr] = useState<string | null>(null);
+
   // Refresco silencioso: el spinner solo en la PRIMERA carga.
   const firstLoad = useRef(true);
   const load = () => {
     if (firstLoad.current) setLoading(true);
-    Promise.all([getManagementResources(companyId), getSuppliers(companyId)])
-      .then(([r, s]) => {
+    Promise.all([
+      getManagementResources(companyId),
+      getSuppliers(companyId),
+      getResourcesUsage(companyId),
+    ])
+      .then(([r, s, u]) => {
         setRows(r);
         setSuppliers(s);
+        setUsage(u);
       })
       .finally(() => {
         firstLoad.current = false;
@@ -58,6 +75,19 @@ export default function RecursosTab({
       });
   };
   useEffect(load, [companyId]);
+
+  const doDelete = async (r: ManagementResource) => {
+    setDeleting(true);
+    setListErr(null);
+    const { error } = await deleteManagementResource(r.id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setListErr(`No se pudo eliminar "${r.name}". Intenta de nuevo.`);
+      return;
+    }
+    load();
+  };
 
   const supplierName = useMemo(() => {
     const m = new Map(suppliers.map((s) => [s.id, s.name]));
@@ -112,7 +142,10 @@ export default function RecursosTab({
   };
 
   const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => !q || r.name.toLowerCase().includes(q));
+  const inactiveCount = rows.filter((r) => !r.is_active).length;
+  const filtered = rows
+    .filter((r) => showInactive || r.is_active)
+    .filter((r) => !q || r.name.toLowerCase().includes(q));
 
   return (
     <div className="p-6">
@@ -136,11 +169,29 @@ export default function RecursosTab({
           + Nuevo recurso
         </button>
       </div>
-      <p className="text-xs text-gray-400 mb-4">
-        Staff, arriendos y compras. El precio de lista es opcional (la lista
-        anual de tus proveedores): sirve de referencia y en cada evento siempre
-        es editable. El staff puede ir sin precio.
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-gray-400">
+          Staff, arriendos y compras. El precio de lista es opcional (la lista
+          anual de tus proveedores): sirve de referencia y en cada evento
+          siempre es editable. El staff puede ir sin precio.
+        </p>
+        {inactiveCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowInactive((v) => !v)}
+            className="text-xs text-blue-600 hover:underline shrink-0"
+          >
+            {showInactive
+              ? "Ocultar inactivos"
+              : `Ver inactivos (${inactiveCount})`}
+          </button>
+        )}
+      </div>
+      {listErr && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm text-red-800">{listErr}</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-10 flex justify-center">
@@ -166,7 +217,11 @@ export default function RecursosTab({
               ].map((h) => (
                 <th
                   key={h}
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  // Ancho fijo en Acciones: la confirmación de borrado ocupa
+                  // lo mismo que los iconos y la tabla no se reacomoda.
+                  className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                    h === "Acciones" ? "w-36" : ""
+                  }`}
                 >
                   {h}
                 </th>
@@ -200,23 +255,88 @@ export default function RecursosTab({
                   {r.last_price ? clp(r.last_price) : "—"}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => open(r)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                      title="Editar"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={() => toggleActive(r)}
-                      className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                        r.is_active ? "text-green-600" : "text-gray-400"
+                  {/* La confirmación flota ENCIMA de los iconos (que quedan
+                      invisibles pero ocupando su espacio): cero movimiento. */}
+                  <div className="relative">
+                    {confirmDeleteId === r.id && (
+                      <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                        <span className="text-xs text-gray-600">
+                          ¿Eliminar?
+                        </span>
+                        <button
+                          disabled={deleting}
+                          onClick={() => doDelete(r)}
+                          className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                          title="Sí, eliminar"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="p-1 text-gray-500 hover:text-gray-700"
+                          title="Cancelar"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    )}
+                    <div
+                      className={`flex items-center gap-2 h-7 ${
+                        confirmDeleteId === r.id ? "invisible" : ""
                       }`}
-                      title={r.is_active ? "Desactivar" : "Activar"}
                     >
-                      {r.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
-                    </button>
+                      <button
+                        onClick={() => open(r)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        title="Editar"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => toggleActive(r)}
+                        className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                          r.is_active ? "text-green-600" : "text-gray-400"
+                        }`}
+                        title={r.is_active ? "Desactivar" : "Activar"}
+                      >
+                        {r.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
+                      </button>
+                      {(() => {
+                        const u = usage[r.id];
+                        const inUse =
+                          !!u && (u.costLines > 0 || u.events > 0);
+                        if (inUse) {
+                          const parts = [];
+                          if (u.costLines > 0)
+                            parts.push(
+                              `${u.costLines} costo${u.costLines === 1 ? "" : "s"} de servicio fijo`,
+                            );
+                          if (u.events > 0)
+                            parts.push(
+                              `${u.events} evento${u.events === 1 ? "" : "s"}`,
+                            );
+                          return (
+                            <button
+                              disabled
+                              className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                              title={`En uso (${parts.join(" y ")}): no se puede eliminar, solo desactivar`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={() => setConfirmDeleteId(r.id)}
+                            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </td>
               </tr>

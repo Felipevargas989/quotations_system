@@ -88,6 +88,72 @@ export const deleteSupplier = async (id: number) => {
   return { error };
 };
 
+// Referencias de cada recurso de gestión (costos de servicios fijos +
+// recursos asignados a eventos). Con cualquiera, no se elimina: la
+// eliminación arrastraría esa historia en cascada.
+export const getResourcesUsage = async (
+  companyId: number,
+): Promise<Record<number, { costLines: number; events: number }>> => {
+  const usage: Record<number, { costLines: number; events: number }> = {};
+  const [cost, ev] = await Promise.all([
+    supabase
+      .from("fixed_service_cost_items")
+      .select("resource_id")
+      .eq("company_id", companyId),
+    supabase
+      .from("event_resources")
+      .select("resource_id")
+      .eq("company_id", companyId),
+  ]);
+  (cost.data || []).forEach((r) => {
+    const id = r.resource_id as number;
+    usage[id] = usage[id] || { costLines: 0, events: 0 };
+    usage[id].costLines += 1;
+  });
+  (ev.data || []).forEach((r) => {
+    const id = r.resource_id as number;
+    usage[id] = usage[id] || { costLines: 0, events: 0 };
+    usage[id].events += 1;
+  });
+  return usage;
+};
+
+export const deleteManagementResource = async (id: number) => {
+  const { error } = await supabase
+    .from("management_resources")
+    .delete()
+    .eq("id", id);
+  return { error };
+};
+
+// Recetas que usan cada item de mobiliario. Con cualquiera, no se
+// elimina (la eliminación borraría esas líneas de receta en cascada).
+export const getFurnitureUsage = async (
+  companyId: number,
+): Promise<Record<number, { recipes: number }>> => {
+  const usage: Record<number, { recipes: number }> = {};
+  const { data } = await supabase
+    .from("service_recipe_items")
+    .select("furniture_id")
+    .eq("company_id", companyId)
+    .eq("item_kind", "mobiliario")
+    .not("furniture_id", "is", null);
+  (data || []).forEach((r) => {
+    const id = r.furniture_id as number;
+    usage[id] = usage[id] || { recipes: 0 };
+    usage[id].recipes += 1;
+  });
+  return usage;
+};
+
+export const deleteFurnitureItem = async (id: number) => {
+  const { error } = await supabase
+    .from("furniture_items")
+    .delete()
+    .eq("id", id);
+  return { error };
+};
+
 // ---------- Insumos ----------
 export const getSupplies = async (companyId: number): Promise<Supply[]> => {
   const { data, error } = await supabase
