@@ -22,28 +22,30 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     const [displayValue, setDisplayValue] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
 
-    // Format number for display with thousand separators
+    // Norma general: formato chileno (miles con punto, decimal con coma).
     const formatNumberForDisplay = (num: number): string => {
       if (isNaN(num)) return "";
-
-      let formatted = num.toString();
-
-      if (formatThousands && num >= 1000) {
-        const parts = formatted.split(".");
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        formatted = parts.join(",");
-      }
-
-      return formatted;
+      return num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
     };
 
-    // Parse display value back to number
+    // Acepta coma O punto como decimal: "1,5" y "1.5" valen 1,5;
+    // "1.500" (agrupación de a 3) vale mil quinientos.
     const parseDisplayValue = (displayVal: string): number | undefined => {
-      if (!displayVal.trim()) return undefined;
+      const raw = displayVal.trim();
+      if (!raw) return undefined;
 
-      // Remove thousand separators and replace comma with dot for decimal
-      const cleanValue = displayVal.replace(/\./g, "").replace(",", ".");
-      const num = parseFloat(cleanValue);
+      let clean = raw;
+      if (clean.includes(",")) {
+        // Con coma: la coma es el decimal, los puntos son miles.
+        clean = clean.replace(/\./g, "").replace(",", ".");
+      } else {
+        // Sin coma: puntos que agrupan de a 3 son miles; si no, decimal.
+        const parts = clean.split(".");
+        const isGrouping =
+          parts.length > 1 && parts.slice(1).every((p) => p.length === 3);
+        if (isGrouping) clean = parts.join("");
+      }
+      const num = parseFloat(clean);
 
       return isNaN(num) ? undefined : num;
     };

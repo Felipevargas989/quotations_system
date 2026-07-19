@@ -441,15 +441,11 @@ export default function InsumosTab({
                       Contenido *
                     </label>
                     <div className="flex gap-1">
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={pkgQty || ""}
-                        onChange={(e) =>
-                          setPkgQty(parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right"
+                      <NumberInput
+                        value={pkgQty || undefined}
+                        onChange={(v) => setPkgQty(v || 0)}
+                        min={0}
+                        className="text-sm text-right"
                         placeholder="1"
                       />
                       <select

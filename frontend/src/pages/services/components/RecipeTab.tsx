@@ -127,7 +127,7 @@ export default function RecipeTab({
   const margin = (servicePrice || 0) - costPerPerson;
 
   const addIngredient = async () => {
-    const qty = parseFloat(addQty);
+    const qty = parseNum(addQty);
     if (!addSupplyId || !qty || qty <= 0) return;
     setErr(null);
     const { error } = await addRecipeItem({
@@ -185,8 +185,11 @@ export default function RecipeTab({
     load();
   };
 
+  // Norma general: coma o punto valen como decimal ("0,1" = "0.1").
+  const parseNum = (raw: string) => parseFloat(raw.replace(",", "."));
+
   const changeQty = async (it: RecipeItem, raw: string) => {
-    const qty = parseFloat(raw);
+    const qty = parseNum(raw);
     if (!qty || qty <= 0 || qty === it.qty_per_person) return;
     await updateRecipeItem(it.id, { qty_per_person: qty });
     flashSaved();
@@ -284,9 +287,8 @@ export default function RecipeTab({
               />
             </div>
             <input
-              type="number"
-              step="any"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={addQty}
               onChange={(e) => setAddQty(e.target.value)}
               placeholder="Cant."
@@ -307,7 +309,7 @@ export default function RecipeTab({
             <button
               type="button"
               onClick={addIngredient}
-              disabled={!addSupplyId || !parseFloat(addQty)}
+              disabled={!addSupplyId || !parseNum(addQty)}
               className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
             >
               <Plus size={16} />
@@ -423,10 +425,12 @@ export default function RecipeTab({
                         </td>
                         <td className="px-3 py-2 text-right">
                           <input
-                            type="number"
-                            step="any"
-                            min="0"
-                            defaultValue={it.qty_per_person}
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={it.qty_per_person.toLocaleString(
+                              "es-CL",
+                              { maximumFractionDigits: 6 },
+                            )}
                             onBlur={(e) => changeQty(it, e.target.value)}
                             className={qtyInputCls}
                           />{" "}
