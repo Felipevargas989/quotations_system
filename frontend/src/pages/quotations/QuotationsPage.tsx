@@ -269,6 +269,26 @@ export default function QuotationsPage() {
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     try {
+      // Guardia de estados: volver de post-venta (aceptada/realizada/
+      // cancelada) a pre-venta elimina el plan de pagos — se avisa antes.
+      // Si hay pagos registrados, el backend rechaza el cambio.
+      const POST_SALE = ["aceptada", "realizada", "cancelada"];
+      const PRE_SALE = ["solicitada", "enviada", "en_negociacion", "rechazada"];
+      const current = quotations.find((q) => q.id === quotationId);
+      if (
+        current &&
+        POST_SALE.includes(current.quotation_status) &&
+        PRE_SALE.includes(newStatus)
+      ) {
+        const ok = confirm(
+          "Esta cotización ya pasó a Post-Venta con su plan de pagos.\n\nSi no hay pagos registrados, el plan se eliminará y la cotización volverá a pre-venta. Si ya hay pagos registrados, el sistema no permitirá el cambio (para eso está Anular en Post-Venta).\n\n¿Continuar?",
+        );
+        if (!ok) {
+          await fetchQuotations(statusFilter);
+          return;
+        }
+      }
+
       if (newStatus === QuotationStatus.ACEPTADA) {
         const quotation = quotations.find((q) => q.id === quotationId);
         if (quotation) {
@@ -321,8 +341,16 @@ export default function QuotationsPage() {
       await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {
+      // El backend puede rechazar con un motivo claro (ej: la guardia de
+      // estados cuando hay pagos registrados) — mostrarlo tal cual.
+      const backendMsg = (
+        error as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
       alert(
-        `Error al actualizar el estado: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        `No se pudo actualizar el estado: ${
+          backendMsg ||
+          (error instanceof Error ? error.message : "Error desconocido")
+        }`,
       );
       await fetchQuotations(statusFilter);
     }

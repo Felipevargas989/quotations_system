@@ -1,4 +1,9 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  forwardRef,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Client } from 'src/clients/entities/client.entity';
@@ -286,6 +291,46 @@ export class QuotationsService {
 
       if (!quotation) {
         throw new Error('Quotation not found');
+      }
+
+      // GUARDIA DE ESTADOS: abandonar un estado de post-venta (aceptada /
+      // realizada / cancelada) hacia uno de pre-venta solo se permite si el
+      // evento NO tiene dinero registrado — y en ese caso el plan de pagos
+      // se elimina completo, para no dejar cuotas huérfanas en Post-Venta.
+      // Con abonos o reembolsos encima, el camino correcto es Anular.
+      const PRE_SALE_STATUSES = [
+        QuotationStatus.SOLICITADA,
+        QuotationStatus.ENVIADA,
+        QuotationStatus.EN_NEGOCIACION,
+        QuotationStatus.RECHAZADA,
+      ];
+      const POST_SALE_STATUSES = [
+        QuotationStatus.ACEPTADA,
+        QuotationStatus.REALIZADA,
+        QuotationStatus.CANCELADA,
+      ];
+      const targetStatus = updateQuotationDto.quotation_status;
+      if (
+        targetStatus &&
+        PRE_SALE_STATUSES.includes(targetStatus) &&
+        POST_SALE_STATUSES.includes(quotation.quotation_status)
+      ) {
+        const { data: planPayments } =
+          await this.paymentsService.findAllPaymentsFromQuotation(
+            [id],
+            companyId,
+          );
+        const hasMoney = (planPayments || []).some(
+          (p) =>
+            Number((p as { paid_amount?: number }).paid_amount || 0) > 0 ||
+            (p.payment_transactions || []).length > 0,
+        );
+        if (hasMoney) {
+          throw new BadRequestException(
+            'Esta cotización tiene pagos registrados: no puede volver a un estado de pre-venta. Si el evento se cayó, usa "Anular evento" en Post-Venta.',
+          );
+        }
+        await this.paymentsService.deletePaymentPlan(id, companyId);
       }
 
       // 1. Check quotation status
