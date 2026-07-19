@@ -221,30 +221,38 @@ export default function InsumosTab({
                     {supplierName(s.supplier_id)}
                   </td>
                   <td className="px-4 py-3">
-                    {confirmDeleteId === s.id ? (
-                      <div className="flex items-center gap-1.5 whitespace-nowrap h-7">
-                        <span className="text-xs text-gray-600">
-                          ¿Eliminar?
-                        </span>
-                        <button
-                          disabled={deleting}
-                          onClick={() => doDelete(s)}
-                          className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                          title="Sí, eliminar"
-                        >
-                          <Check size={15} />
-                        </button>
-                        <button
-                          disabled={deleting}
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="p-1 text-gray-500 hover:text-gray-700"
-                          title="Cancelar"
-                        >
-                          <X size={15} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 h-7">
+                    {/* La confirmación flota ENCIMA de los iconos (que quedan
+                        invisibles pero ocupando su espacio): el contenido que
+                        dimensiona la tabla nunca cambia → cero movimiento. */}
+                    <div className="relative">
+                      {confirmDeleteId === s.id && (
+                        <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                          <span className="text-xs text-gray-600">
+                            ¿Eliminar?
+                          </span>
+                          <button
+                            disabled={deleting}
+                            onClick={() => doDelete(s)}
+                            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                            title="Sí, eliminar"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            disabled={deleting}
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="p-1 text-gray-500 hover:text-gray-700"
+                            title="Cancelar"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      )}
+                      <div
+                        className={`flex items-center gap-2 h-7 ${
+                          confirmDeleteId === s.id ? "invisible" : ""
+                        }`}
+                      >
                         <button
                           onClick={() => open(s)}
                           className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
@@ -300,7 +308,7 @@ export default function InsumosTab({
                           );
                         })()}
                       </div>
-                    )}
+                    </div>
                   </td>
                 </tr>
               );
