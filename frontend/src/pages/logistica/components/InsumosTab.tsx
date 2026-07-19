@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupply,
@@ -55,15 +55,21 @@ export default function InsumosTab({
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
+  // Refresco silencioso: el spinner solo en la PRIMERA carga; al guardar,
+  // editar o eliminar, los datos se actualizan por detrás sin mover nada.
+  const firstLoad = useRef(true);
   const load = () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     Promise.all([getSupplies(companyId), getSuppliers(companyId)])
       .then(async ([s, p]) => {
         setRows(s);
         setSuppliers(p);
         setUsage(await getSupplyUsage(s.map((x) => x.id)));
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        firstLoad.current = false;
+        setLoading(false);
+      });
   };
   useEffect(load, [companyId]);
 

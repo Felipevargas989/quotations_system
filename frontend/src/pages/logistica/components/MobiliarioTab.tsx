@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Camera,
@@ -72,11 +72,16 @@ export default function MobiliarioTab({
     loaded: boolean;
   }>({ conflicts: [], loaded: false });
 
+  // Refresco silencioso: el spinner solo en la PRIMERA carga.
+  const firstLoad = useRef(true);
   const load = () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     getFurnitureItems(companyId)
       .then(setRows)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        firstLoad.current = false;
+        setLoading(false);
+      });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [companyId]);

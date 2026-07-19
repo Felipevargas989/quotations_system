@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, EyeOff, Pencil, Search, X } from "lucide-react";
 import {
   createManagementResource,
@@ -43,14 +43,19 @@ export default function RecursosTab({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Refresco silencioso: el spinner solo en la PRIMERA carga.
+  const firstLoad = useRef(true);
   const load = () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     Promise.all([getManagementResources(companyId), getSuppliers(companyId)])
       .then(([r, s]) => {
         setRows(r);
         setSuppliers(s);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        firstLoad.current = false;
+        setLoading(false);
+      });
   };
   useEffect(load, [companyId]);
 

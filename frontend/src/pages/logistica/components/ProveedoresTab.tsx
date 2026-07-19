@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupplier,
@@ -32,14 +32,19 @@ export default function ProveedoresTab({
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
+  // Refresco silencioso: el spinner solo en la PRIMERA carga.
+  const firstLoad = useRef(true);
   const load = () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     Promise.all([getSuppliers(companyId), getSuppliersUsage(companyId)])
       .then(([s, u]) => {
         setRows(s);
         setUsage(u);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        firstLoad.current = false;
+        setLoading(false);
+      });
   };
   useEffect(load, [companyId]);
 
