@@ -222,7 +222,7 @@ export default function InsumosTab({
                   </td>
                   <td className="px-4 py-3">
                     {confirmDeleteId === s.id ? (
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap h-7">
                         <span className="text-xs text-gray-600">
                           ¿Eliminar?
                         </span>
@@ -244,7 +244,7 @@ export default function InsumosTab({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 h-7">
                         <button
                           onClick={() => open(s)}
                           className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
