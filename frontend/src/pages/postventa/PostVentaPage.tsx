@@ -85,6 +85,9 @@ interface EventRow {
   cancelled: boolean;
   // Evento realizado: sigue en la lista (cobranza) con su etiqueta verde.
   done: boolean;
+  // Fecha del evento (y último día si es multi-día), para la columna.
+  eventDate: string | null;
+  eventEndDate: string | null;
   payments: PaymentWithTransactions[];
 }
 
@@ -237,10 +240,16 @@ export default function PostVentaPage() {
 
         const qStatus = (q as unknown as { quotation_status?: string })
           ?.quotation_status;
+        const qDates = q as unknown as {
+          event_date?: string | null;
+          event_end_date?: string | null;
+        };
         events.push({
           quotationId,
           cancelled: qStatus === "cancelada",
           done: qStatus === "realizada",
+          eventDate: qDates?.event_date ?? null,
+          eventEndDate: qDates?.event_end_date ?? null,
           quotationNumber: q?.quotation_number ?? 0,
           clientName: q?.clients?.name || "—",
           clientType: client?.client_type,
@@ -412,7 +421,7 @@ export default function PostVentaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["N° Cot.", "Cliente", "Contacto", "Monto", "Estado de pago", ""].map(
+                {["N° Cot.", "Fecha evento", "Cliente", "Contacto", "Monto", "Estado de pago", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -428,7 +437,7 @@ export default function PostVentaPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     Sin eventos que coincidan.
@@ -446,6 +455,17 @@ export default function PostVentaPage() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
                         #{r.quotationNumber}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {fmtDate(r.eventDate)}
+                        </div>
+                        {r.eventEndDate &&
+                          r.eventEndDate !== r.eventDate && (
+                            <div className="text-xs text-gray-500">
+                              al {fmtDate(r.eventEndDate)}
+                            </div>
+                          )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">

@@ -88,6 +88,8 @@ export class PaymentsRepository {
       company_id,
       quotation_number,
       quotation_status,
+      event_date,
+      event_end_date,
       total_amount,
       requires_invoice,
       has_contract,
