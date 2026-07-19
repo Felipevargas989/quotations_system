@@ -857,6 +857,9 @@ export default function QuotationForm() {
                 min_precio: service.min_precio || 0,
                 max_precio: service.max_precio || 0,
                 precio_por_persona: service.precio_por_persona || 0,
+                // preservar el día elegido: cambiar el servicio de la fila
+                // no debe resetear el selector de día
+                day: item.day,
               }
             : item,
         ),
