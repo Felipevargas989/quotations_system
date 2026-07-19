@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Pencil, Search, X } from "lucide-react";
+import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupply,
+  deleteSupply,
   getSuppliers,
   getSupplies,
+  getSupplyUsage,
   updateSupply,
 } from "../../../services/logistics.service";
 import {
@@ -35,16 +37,40 @@ export default function InsumosTab({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Uso por insumo (recetas y compras): decide si la papelera está disponible.
+  const [usage, setUsage] = useState<
+    Record<number, { recipes: number; provisions: number }>
+  >({});
+  // Los inactivos se ocultan por defecto para no ensuciar la vista.
+  const [showInactive, setShowInactive] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listErr, setListErr] = useState<string | null>(null);
+
   const load = () => {
     setLoading(true);
     Promise.all([getSupplies(companyId), getSuppliers(companyId)])
-      .then(([s, p]) => {
+      .then(async ([s, p]) => {
         setRows(s);
         setSuppliers(p);
+        setUsage(await getSupplyUsage(s.map((x) => x.id)));
       })
       .finally(() => setLoading(false));
   };
   useEffect(load, [companyId]);
+
+  const doDelete = async (s: Supply) => {
+    setDeleting(true);
+    setListErr(null);
+    const { error } = await deleteSupply(s.id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (error) {
+      setListErr(`No se pudo eliminar "${s.name}". Intenta de nuevo.`);
+      return;
+    }
+    load();
+  };
 
   const supplierName = useMemo(() => {
     const m = new Map(suppliers.map((s) => [s.id, s.name]));
@@ -93,7 +119,10 @@ export default function InsumosTab({
   };
 
   const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => !q || r.name.toLowerCase().includes(q));
+  const inactiveCount = rows.filter((r) => !r.is_active).length;
+  const filtered = rows
+    .filter((r) => showInactive || r.is_active)
+    .filter((r) => !q || r.name.toLowerCase().includes(q));
 
   return (
     <div className="p-6">
@@ -117,10 +146,28 @@ export default function InsumosTab({
           + Nuevo insumo
         </button>
       </div>
-      <p className="text-xs text-gray-400 mb-4">
-        El precio va por unidad base (kg, L o unidad). Cambiarlo afecta solo a
-        eventos futuros; los provisionados mantienen su costo congelado.
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-gray-400">
+          El precio va por unidad base (kg, L o unidad). Cambiarlo afecta solo
+          a eventos futuros; los provisionados mantienen su costo congelado.
+        </p>
+        {inactiveCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowInactive((v) => !v)}
+            className="text-xs text-blue-600 hover:underline shrink-0"
+          >
+            {showInactive
+              ? "Ocultar inactivos"
+              : `Ver inactivos (${inactiveCount})`}
+          </button>
+        )}
+      </div>
+      {listErr && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm text-red-800">{listErr}</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-10 flex justify-center">
@@ -170,24 +217,86 @@ export default function InsumosTab({
                     {supplierName(s.supplier_id)}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => open(s)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                        title="Editar"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => toggleActive(s)}
-                        className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                          s.is_active ? "text-green-600" : "text-gray-400"
-                        }`}
-                        title={s.is_active ? "Desactivar" : "Activar"}
-                      >
-                        {s.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
-                      </button>
-                    </div>
+                    {confirmDeleteId === s.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">
+                          ¿Eliminar "{s.name}"?
+                        </span>
+                        <button
+                          disabled={deleting}
+                          onClick={() => doDelete(s)}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                          title="Sí, eliminar"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                          title="Cancelar"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => open(s)}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          title="Editar"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => toggleActive(s)}
+                          className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                            s.is_active ? "text-green-600" : "text-gray-400"
+                          }`}
+                          title={s.is_active ? "Desactivar" : "Activar"}
+                        >
+                          {s.is_active ? (
+                            <Eye size={15} />
+                          ) : (
+                            <EyeOff size={15} />
+                          )}
+                        </button>
+                        {(() => {
+                          const u = usage[s.id];
+                          const inUse =
+                            !!u && (u.recipes > 0 || u.provisions > 0);
+                          if (inUse) {
+                            const parts = [];
+                            if (u.recipes > 0)
+                              parts.push(
+                                `${u.recipes} receta${u.recipes === 1 ? "" : "s"}`,
+                              );
+                            if (u.provisions > 0)
+                              parts.push(
+                                `${u.provisions} compra${u.provisions === 1 ? "" : "s"} registrada${u.provisions === 1 ? "" : "s"}`,
+                              );
+                            return (
+                              <button
+                                disabled
+                                className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                                title={`En uso (${parts.join(", ")}): no se puede eliminar, solo desactivar`}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => setConfirmDeleteId(s.id)}
+                              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                              title="Eliminar (no está en ninguna receta)"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

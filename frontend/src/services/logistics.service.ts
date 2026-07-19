@@ -87,6 +87,49 @@ export const updateSupply = async (
   return { error };
 };
 
+// Uso de cada insumo: en cuántos servicios aparece su receta y si tiene
+// compras registradas (aprovisionamientos). Eliminar solo se permite si está
+// totalmente libre; si está en uso, la opción es desactivarlo — borrar en
+// cascada haría desaparecer líneas de receta e historial de compras.
+export const getSupplyUsage = async (
+  supplyIds: number[],
+): Promise<Record<number, { recipes: number; provisions: number }>> => {
+  const usage: Record<number, { recipes: number; provisions: number }> = {};
+  if (!supplyIds.length) return usage;
+  supplyIds.forEach((id) => {
+    usage[id] = { recipes: 0, provisions: 0 };
+  });
+  const [rec, prov] = await Promise.all([
+    supabase
+      .from("service_recipe_items")
+      .select("supply_id, service_id")
+      .in("supply_id", supplyIds),
+    supabase
+      .from("event_supply_provisions")
+      .select("supply_id")
+      .in("supply_id", supplyIds),
+  ]);
+  const seen = new Set<string>();
+  (rec.data || []).forEach((r) => {
+    const sid = r.supply_id as number;
+    const key = `${sid}-${r.service_id}`;
+    if (usage[sid] && !seen.has(key)) {
+      seen.add(key);
+      usage[sid].recipes += 1;
+    }
+  });
+  (prov.data || []).forEach((r) => {
+    const sid = r.supply_id as number;
+    if (usage[sid]) usage[sid].provisions += 1;
+  });
+  return usage;
+};
+
+export const deleteSupply = async (id: number) => {
+  const { error } = await supabase.from("supplies").delete().eq("id", id);
+  return { error };
+};
+
 // ---------- Mobiliario (mini-catálogo; la Fase 5 lo extiende) ----------
 export const getFurnitureItems = async (
   companyId: number,
