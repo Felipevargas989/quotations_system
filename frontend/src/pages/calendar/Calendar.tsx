@@ -546,18 +546,27 @@ export default function CalendarPage() {
           font-weight: 500;
         }
 
+        /* Día seleccionado: anillo delgado + número en circulito azul
+           (nada de bloque sólido: las bandas son las protagonistas) */
         .custom-calendar .react-calendar__tile--active {
-          background: #2563eb !important;
-          color: white;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+          background: #eff6ff !important;
+          box-shadow: inset 0 0 0 2px #2563eb;
         }
 
         .custom-calendar .react-calendar__tile--active abbr {
-          color: white;
+          background: #2563eb;
+          color: #fff;
+          border-radius: 9999px;
+          min-width: 26px;
+          height: 26px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 6px;
         }
 
         .custom-calendar .react-calendar__tile--active:enabled:hover {
-          background: #1d4ed8 !important;
+          background: #dbeafe !important;
         }
 
         .custom-calendar .react-calendar__tile:enabled:hover {
@@ -596,7 +605,7 @@ export default function CalendarPage() {
         }
 
         .custom-calendar .react-calendar__tile--active.has-events {
-          background: #2563eb !important;
+          background: #eff6ff !important;
         }
 
         /* Bandas continuas de eventos (segmentos por casilla que se empalman
