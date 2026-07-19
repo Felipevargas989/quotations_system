@@ -782,10 +782,16 @@ function EventModal({
           !event.cancelled &&
           !doneNotice &&
           quote?.event_date &&
-          String(quote.event_date).slice(0, 10) < todayISO() && (
+          String(quote.event_end_date || quote.event_date).slice(0, 10) <
+            todayISO() && (
             <p className="shrink-0 px-6 pt-2 text-xs text-amber-700">
-              Este evento ya pasó ({fmtDate(String(quote.event_date))}): cuando
-              corresponda, márcalo como realizado.
+              Este evento ya pasó (
+              {fmtDate(String(quote.event_date))}
+              {quote.event_end_date &&
+              String(quote.event_end_date) !== String(quote.event_date)
+                ? ` al ${fmtDate(String(quote.event_end_date))}`
+                : ""}
+              ): cuando corresponda, márcalo como realizado.
             </p>
           )}
 

@@ -279,6 +279,8 @@ export interface PurchasingEvent {
   id: string; // uuid de la cotización
   quotation_number: number;
   event_date: string | null;
+  // Último día del evento (null = un solo día).
+  event_end_date: string | null;
   people_count: number;
   total_amount: number;
   items: unknown;
@@ -294,7 +296,7 @@ export const getAcceptedEvents = async (
   const { data, error } = await supabase
     .from("quotations")
     .select(
-      "id, quotation_number, event_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
+      "id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
     )
     .eq("company_id", companyId)
     .eq("quotation_status", "aceptada")

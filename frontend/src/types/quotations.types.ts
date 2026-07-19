@@ -75,6 +75,8 @@ export interface Quotation {
   client_id: string;
   event_type: EventType;
   event_date: Date;
+  // Último día del evento (null/ausente = un solo día).
+  event_end_date?: Date | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;
@@ -109,6 +111,9 @@ export interface QuotationFormData
   has_contract?: Quotation["has_contract"];
   requires_invoice?: Quotation["requires_invoice"];
   event_date: Quotation["event_date"] | undefined;
+  // En el formulario la fecha viaja como string yyyy-mm-dd (igual que
+  // event_date en la práctica); null = evento de un día.
+  event_end_date?: string | null;
 }
 
 export type QuotationPublicFormData = Pick<

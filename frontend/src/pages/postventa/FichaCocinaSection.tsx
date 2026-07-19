@@ -349,13 +349,19 @@ export default function FichaCocinaSection({
     const clientName =
       (quote as unknown as { clients?: { name?: string } }).clients?.name ||
       "";
+    const fmtLarga = (d: Date) =>
+      d.toLocaleDateString("es-CL", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    // Evento multi-día: "viernes 24 ... al domingo 26 ..."
     const fecha = quote.event_date
-      ? new Date(quote.event_date).toLocaleDateString("es-CL", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
+      ? quote.event_end_date &&
+        String(quote.event_end_date) !== String(quote.event_date)
+        ? `${fmtLarga(new Date(quote.event_date))} al ${fmtLarga(new Date(quote.event_end_date))}`
+        : fmtLarga(new Date(quote.event_date))
       : "—";
     const generada = new Date().toLocaleString("es-CL");
 

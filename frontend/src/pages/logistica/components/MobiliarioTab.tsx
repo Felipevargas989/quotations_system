@@ -109,10 +109,16 @@ export default function MobiliarioTab({
         { events: string[]; need: Map<number, number> }
       >();
       // (tipado explícito para evitar inferencia never[] en events)
+      // Un evento multi-día retiene su mobiliario TODOS los días del rango:
+      // su necesidad se suma en cada día, no solo en el primero.
       events.forEach((ev) => {
         if (!ev.event_date) return;
-        const date = new Date(ev.event_date).toISOString().slice(0, 10);
-        if (date < today) return;
+        const start = new Date(ev.event_date).toISOString().slice(0, 10);
+        const end = ev.event_end_date
+          ? new Date(ev.event_end_date).toISOString().slice(0, 10)
+          : start;
+        const lastDay = end >= start ? end : start;
+
         const acc = newAccumulator();
         const r = consolidateEvent(
           ev.items as EventItemsSnapshot,
@@ -121,18 +127,30 @@ export default function MobiliarioTab({
           acc,
         );
         if (r.furnPeak.size === 0) return;
-        const entry = byDate.get(date) || {
-          events: [] as string[],
-          need: new Map<number, number>(),
-        };
-        entry.events.push(`#${ev.quotation_number} ${ev.client_name}`);
-        r.furnPeak.forEach((p, itemId) => {
-          entry.need.set(
-            itemId,
-            (entry.need.get(itemId) || 0) + Math.ceil(p.total),
-          );
-        });
-        byDate.set(date, entry);
+
+        // días del rango (tope de seguridad: 60 días)
+        let cursor = new Date(`${start}T00:00:00Z`).getTime();
+        const lastMs = new Date(`${lastDay}T00:00:00Z`).getTime();
+        for (
+          let dayN = 0;
+          cursor <= lastMs && dayN < 60;
+          cursor += 86400000, dayN++
+        ) {
+          const date = new Date(cursor).toISOString().slice(0, 10);
+          if (date < today) continue;
+          const entry = byDate.get(date) || {
+            events: [] as string[],
+            need: new Map<number, number>(),
+          };
+          entry.events.push(`#${ev.quotation_number} ${ev.client_name}`);
+          r.furnPeak.forEach((p, itemId) => {
+            entry.need.set(
+              itemId,
+              (entry.need.get(itemId) || 0) + Math.ceil(p.total),
+            );
+          });
+          byDate.set(date, entry);
+        }
       });
 
       const conflicts: DateConflict[] = [];

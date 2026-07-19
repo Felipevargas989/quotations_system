@@ -109,6 +109,7 @@ export default function QuotationForm() {
   const [formData, setFormData] = useState<QuotationFormData>({
     event_type: EventType.ALMUERZO_O_CENA,
     event_date: undefined,
+    event_end_date: undefined,
     people_count: 1,
     subtotal_amount: 0,
     discount_percentage: 0,
@@ -196,7 +197,7 @@ export default function QuotationForm() {
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
-    useDateAvailability(formData.event_date);
+    useDateAvailability(formData.event_date, formData.event_end_date);
 
   // Secciones de categoría: la sección FIJA de una categoría hace que sus
   // servicios entren solos a la cotización al elegir la categoría, y no se
@@ -301,6 +302,9 @@ export default function QuotationForm() {
       setFormData({
         ...quotation,
         event_date: quotation.event_date.split("T")[0],
+        event_end_date: quotation.event_end_date
+          ? String(quotation.event_end_date).split("T")[0]
+          : undefined,
       });
       setDiscType((quotation.discount_amount || 0) > 0 ? "$" : "%");
       setIsEditingExisting(!!quotation.id);
@@ -994,6 +998,7 @@ export default function QuotationForm() {
         ...formData,
         event_type: formData.event_type,
         event_date: formData.event_date,
+        event_end_date: formData.event_end_date || null,
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
@@ -1026,6 +1031,7 @@ export default function QuotationForm() {
           client_id: quotationData.client_id,
           event_type: quotationData.event_type,
           event_date: quotationData.event_date,
+          event_end_date: quotationData.event_end_date || null,
           request_type: quotationData.request_type,
           value_per_person: Math.round(quotationData.value_per_person),
           fixed_value: Math.round(quotationData.fixed_value),
@@ -1720,9 +1726,31 @@ export default function QuotationForm() {
                     setFormData((prev) => ({
                       ...prev,
                       event_date: e.target.value,
+                      // si el "hasta" quedó antes del nuevo inicio, se limpia
+                      event_end_date:
+                        prev.event_end_date &&
+                        String(prev.event_end_date) < e.target.value
+                          ? undefined
+                          : prev.event_end_date,
                     }));
                   }}
                   disabled={isRestrictedEditing}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+                <label className="block text-xs font-medium text-gray-600 mb-1 mt-2">
+                  Último día (opcional, para eventos de varios días)
+                </label>
+                <input
+                  type="date"
+                  value={formData.event_end_date || ""}
+                  min={String(formData.event_date || "")}
+                  onChange={(e) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      event_end_date: e.target.value || undefined,
+                    }));
+                  }}
+                  disabled={isRestrictedEditing || !formData.event_date}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 {checkingConflicts && (
@@ -1745,7 +1773,7 @@ export default function QuotationForm() {
                         </span>
                         <div className="flex-1">
                           <p className="text-xs text-yellow-800">
-                            Hay más eventos programados para este mismo día.{" "}
+                            Hay más eventos programados en estas fechas.{" "}
                             <a
                               href={`/calendar?date=${formData.event_date}&filter=all`}
                               target="_blank"

@@ -491,10 +491,15 @@ export class QuotationsService {
       `checkConflictsWithExistingQuotations with params ${JSON.stringify(params)}`,
     );
     try {
-      // 1. Get all quotations with the same event_date
+      // Choque por RANGO de fechas: un evento multi-día choca con cualquier
+      // otro cuyo rango se tope (evento sin "hasta" = un solo día).
+      const myStart = new Date(getEventDateUtc(params.event_date)).getTime();
+      const myEnd = new Date(
+        getEventDateUtc(params.event_end_date || params.event_date),
+      ).getTime();
+
       const data = await this.quotationsRepository.findAll({
         company_id: companyId,
-        event_date: new Date(getEventDateUtc(params.event_date)),
         statuses: [
           QuotationStatus.SOLICITADA,
           QuotationStatus.ENVIADA,
@@ -503,19 +508,16 @@ export class QuotationsService {
         ],
       });
 
-      // 2. If there are any quotations, return there is conflicts
-      if (data.length > 0) {
-        return {
-          has_conflicts: true,
-        };
-      }
+      const has_conflicts = data.some((q) => {
+        if (!q.event_date) return false;
+        const qStart = new Date(q.event_date).getTime();
+        const qEnd = q.event_end_date
+          ? new Date(q.event_end_date).getTime()
+          : qStart;
+        return qStart <= myEnd && myStart <= qEnd;
+      });
 
-      // 3. If there are no quotations, return there is no conflicts
-      return {
-        has_conflicts: false,
-      };
-
-      // 2. If there are any quotations, return there is conflicts
+      return { has_conflicts };
     } catch (error) {
       this.logger.error(error);
       throw error;

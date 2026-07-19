@@ -30,6 +30,11 @@ export class CreateQuotationDto {
   @IsNotEmpty()
   event_date: string; // <- keep as string
 
+  // Último día del evento (opcional): null = evento de un solo día.
+  @IsDateString()
+  @IsOptional()
+  event_end_date?: string | null;
+
   @IsNumber()
   @IsNotEmpty()
   @Min(1, { message: 'People count must be at least 1' })

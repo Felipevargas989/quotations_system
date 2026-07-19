@@ -124,15 +124,21 @@ export default function GestionTab({
       acc,
     );
 
-    // Eventos que compiten por el mismo stock (misma fecha; el mobiliario
-    // se libera al día siguiente).
-    const myDate = isoDate(quote.event_date);
-    const others = myDate
-      ? allEvents.filter(
-          (e) =>
-            e.id !== String(quote.id) && isoDate(e.event_date) === myDate,
-        )
-      : [];
+    // Eventos que compiten por el mismo stock: RANGOS de fechas que se
+    // topan (un evento multi-día retiene el mobiliario todos sus días; se
+    // libera al día siguiente del último).
+    const myStart = isoDate(quote.event_date);
+    const myEnd = isoDate(quote.event_end_date) || myStart;
+    const others =
+      myStart && myEnd
+        ? allEvents.filter((e) => {
+            if (e.id === String(quote.id)) return false;
+            const eStart = isoDate(e.event_date);
+            if (!eStart) return false;
+            const eEnd = isoDate(e.event_end_date) || eStart;
+            return eStart <= myEnd && myStart <= eEnd;
+          })
+        : [];
     const othersNeed = new Map<number, number>();
     others.forEach((ev) => {
       const acc2 = newAccumulator();

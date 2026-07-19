@@ -97,12 +97,16 @@ export const getQuotationById = async (quotationId: string) => {
 
 export const checkConflictsWithExistingQuotations = async (
   eventDate: string,
+  eventEndDate?: string,
 ) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS_CHECK_CONFLICTS}`,
     "GET",
     undefined,
-    { event_date: eventDate },
+    {
+      event_date: eventDate,
+      ...(eventEndDate ? { event_end_date: eventEndDate } : {}),
+    },
   );
   return {
     data: response as { has_conflicts: boolean },

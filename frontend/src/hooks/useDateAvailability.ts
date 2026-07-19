@@ -8,6 +8,7 @@ interface UseDateAvailabilityReturn {
 
 export const useDateAvailability = (
   eventDate: string | Date | null | undefined,
+  eventEndDate?: string | Date | null,
 ): UseDateAvailabilityReturn => {
   const [hasConflicts, setHasConflicts] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -23,11 +24,20 @@ export const useDateAvailability = (
         dateString = eventDate;
       }
 
+      let endString: string | undefined;
+      if (eventEndDate instanceof Date) {
+        endString = eventEndDate.toISOString().split("T")[0];
+      } else if (typeof eventEndDate === "string" && eventEndDate) {
+        endString = eventEndDate;
+      }
+
       if (dateString) {
         setIsChecking(true);
         try {
-          const { data } =
-            await checkConflictsWithExistingQuotations(dateString);
+          const { data } = await checkConflictsWithExistingQuotations(
+            dateString,
+            endString,
+          );
           setHasConflicts(data?.has_conflicts || false);
         } catch (error) {
           setHasConflicts(false);
@@ -41,7 +51,8 @@ export const useDateAvailability = (
     };
 
     checkConflicts();
-  }, [eventDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDate, eventEndDate]);
 
   return { hasConflicts, isChecking };
 };

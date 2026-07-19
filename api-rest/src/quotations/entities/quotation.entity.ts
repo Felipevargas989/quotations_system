@@ -42,6 +42,8 @@ export interface Quotation {
   client_id: string;
   event_type: EventType;
   event_date: Date;
+  // Último día del evento (null = un solo día).
+  event_end_date?: Date | null;
   value_per_person: number;
   fixed_value: number;
   request_type: RequestType;
