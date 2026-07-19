@@ -580,8 +580,11 @@ export default function QuotationsPage() {
                         quotation.quotation_status === "cancelada") && (
                         <option value="cancelada">🚫 Cancelada</option>
                       )}
-                      {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
-                        quotation.quotation_status === "realizada") && (
+                      {/* Realizada NO se elige desde aquí: solo el botón de
+                          Post-Venta la declara (y envía la encuesta). La opción
+                          existe únicamente para MOSTRAR el estado actual y
+                          permitir revertirlo a Aceptada si fue un error. */}
+                      {quotation.quotation_status === "realizada" && (
                         <option value="realizada">🎉 Realizada</option>
                       )}
                     </select>
