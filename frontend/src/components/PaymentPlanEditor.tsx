@@ -173,10 +173,10 @@ export default function PaymentPlanEditor({
             >
               <Plus size={16} /> Agregar cuota
             </button>
-            {/* Cuadratura contra el total, en vivo */}
+            {/* Suma contra el total, en vivo */}
             {diff === 0 ? (
               <span className="text-sm font-semibold text-green-600">
-                Suma {clp(suma)} · cuadra con el total
+                Suma {clp(suma)}
               </span>
             ) : diff > 0 ? (
               <span className="text-sm font-semibold text-amber-600">
