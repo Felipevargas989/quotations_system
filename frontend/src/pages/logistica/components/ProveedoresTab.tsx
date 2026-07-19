@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Pencil, Search, Trash2, X } from "lucide-react";
+import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupplier,
   deleteSupplier,
@@ -92,8 +92,33 @@ export default function ProveedoresTab({
     load();
   };
 
+  // Dar de baja un proveedor con historia: deja de ofrecerse en los
+  // selectores, pero sus insumos siguen apuntándole. El aviso lo dice.
+  const toggleActive = async (s: Supplier) => {
+    if (s.is_active) {
+      const u = usage[s.id];
+      const inUse = !!u && (u.supplies > 0 || u.resources > 0);
+      if (inUse) {
+        const parts = [];
+        if (u.supplies > 0)
+          parts.push(`${u.supplies} insumo${u.supplies === 1 ? "" : "s"}`);
+        if (u.resources > 0)
+          parts.push(`${u.resources} recurso${u.resources === 1 ? "" : "s"}`);
+        const ok = window.confirm(
+          `Este proveedor tiene ${parts.join(" y ")} asociados: seguirán apuntándole y las compras saldrán a su nombre. Solo dejará de aparecer al asignar proveedor a insumos o recursos nuevos. Si cambiaste de proveedor, reasigna también esos insumos. ¿Darlo de baja?`,
+        );
+        if (!ok) return;
+      }
+    }
+    await updateSupplier(s.id, { is_active: !s.is_active });
+    load();
+  };
+
   const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => !q || r.name.toLowerCase().includes(q));
+  // Los dados de baja al final de la lista, para que no molesten.
+  const filtered = rows
+    .filter((r) => !q || r.name.toLowerCase().includes(q))
+    .sort((a, b) => Number(b.is_active) - Number(a.is_active));
 
   return (
     <div className="p-6">
@@ -141,7 +166,7 @@ export default function ProveedoresTab({
                     // Ancho fijo en Acciones: la confirmación de borrado ocupa
                     // lo mismo que los iconos y la tabla no se reacomoda.
                     className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                      h === "Acciones" ? "w-32" : ""
+                      h === "Acciones" ? "w-36" : ""
                     }`}
                   >
                     {h}
@@ -152,7 +177,7 @@ export default function ProveedoresTab({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.map((s) => (
-              <tr key={s.id}>
+              <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {s.name}
                 </td>
@@ -204,6 +229,19 @@ export default function ProveedoresTab({
                         title="Editar"
                       >
                         <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => toggleActive(s)}
+                        className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                          s.is_active ? "text-green-600" : "text-gray-400"
+                        }`}
+                        title={
+                          s.is_active
+                            ? "Dar de baja (deja de ofrecerse al asignar proveedor)"
+                            : "Reactivar"
+                        }
+                      >
+                        {s.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
                       </button>
                       {(() => {
                         const u = usage[s.id];

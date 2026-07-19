@@ -7,10 +7,10 @@
 --    actual de cada insumo (lo mejor posible para las compras ya hechas).
 -- 2) Recursos tipo PERSONA sin proveedor: esa figura es gente que se
 --    contrata directo, no por agencia. Limpieza de los que lo tenían.
--- 3) Los proveedores pierden el activar/desactivar en la app (mientras
---    tengan insumos, las compras se generan a su nombre igual; ahora el
---    camino es eliminar —solo sin referencias— o editar). Se reactivan
---    los que quedaron inactivos.
+-- 3) Reglas de app (sin DDL): eliminar proveedor solo SIN insumos ni
+--    recursos asociados; con historia, el ojo lo DA DE BAJA (deja de
+--    ofrecerse en los selectores, va al final de la lista) con aviso de
+--    que sus insumos siguen apuntándole.
 
 ALTER TABLE public.event_supply_provisions
   ADD COLUMN IF NOT EXISTS supplier_id bigint
@@ -29,5 +29,3 @@ WHERE esp.supply_id = s.id
 UPDATE public.management_resources
 SET supplier_id = NULL
 WHERE type = 'personal' AND supplier_id IS NOT NULL;
-
-UPDATE public.suppliers SET is_active = true WHERE is_active = false;
