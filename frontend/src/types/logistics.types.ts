@@ -29,8 +29,16 @@ export interface Supply {
   company_id: number;
   name: string;
   unit_family: UnitFamily;
-  price: number; // por unidad base (kg / L / unidad)
+  price: number; // por unidad base (kg / L / unidad) — calculado del formato
   supplier_id: number | null;
+  // Merma %: lo que se pierde entre comprar y servir. Las recetas van en
+  // NETO; compras y costos usan la cantidad BRUTA (neta / (1 - merma)).
+  waste_pct: number;
+  // Formato de compra real (botella 1,5 L; caja 22 kg). package_qty en
+  // unidad base. Informativo para Compras; el costo es SIEMPRE lineal.
+  package_name: string | null;
+  package_qty: number | null;
+  package_price: number | null;
   is_active: boolean;
   created_at: string;
 }
@@ -47,6 +55,12 @@ export const UNITS_BY_FAMILY: Record<UnitFamily, RecipeUnit[]> = {
 // Convierte una cantidad de receta a la unidad base del insumo (kg/L/u).
 export const toBaseQty = (qty: number, unit: RecipeUnit): number =>
   unit === "gr" || unit === "ml" ? qty / 1000 : qty;
+
+// Cantidad BRUTA a comprar: lo servido (neto) más la merma del insumo.
+export const grossQty = (netBase: number, supply: Supply): number => {
+  const w = supply.waste_pct || 0;
+  return w > 0 && w < 100 ? netBase / (1 - w / 100) : netBase;
+};
 
 export type FurnitureCategory =
   | "cristaleria"

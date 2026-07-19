@@ -489,7 +489,7 @@ export default function ComprasTab({
           g.supplier?.contact_name ? `;${g.supplier.contact_name}` : ""
         }${g.supplier?.phone ? `;${g.supplier.phone}` : ""}`,
       );
-      lines.push("Insumo;Cantidad;Unidad;Costo estimado;Provisión");
+      lines.push("Insumo;Cantidad;Unidad;Formato;Costo estimado;Provisión");
       g.rows.forEach((c) => {
         const qty = fmtQty(c.totalBase).replace(".", "");
         const st = supplyStatus(c.supply.id);
@@ -499,13 +499,22 @@ export default function ComprasTab({
             : st.prov > 0
               ? `parcial ${st.prov}/${st.used}`
               : "pendiente";
+        // Equivalencia en formato de compra (informativa, redondeada arriba)
+        const formato =
+          c.supply.package_qty &&
+          c.supply.package_qty > 0 &&
+          (c.supply.package_name || c.supply.package_qty !== 1)
+            ? `${Math.ceil(c.totalBase / c.supply.package_qty)} x ${
+                c.supply.package_name || "formato"
+              } de ${c.supply.package_qty} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
+            : "";
         lines.push(
-          `${c.supply.name};${qty};${UNIT_FAMILY_INFO[c.supply.unit_family].base};${Math.round(
+          `${c.supply.name};${qty};${UNIT_FAMILY_INFO[c.supply.unit_family].base};${formato};${Math.round(
             c.totalBase * (c.supply.price || 0),
           )};${estado}`,
         );
       });
-      lines.push(`Subtotal;;;${Math.round(g.subtotal)};`);
+      lines.push(`Subtotal;;;;${Math.round(g.subtotal)};`);
     });
     lines.push("");
     lines.push("RESUMEN");
@@ -835,6 +844,24 @@ export default function ComprasTab({
                             <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}
                               {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                              {/* Equivalencia en formato de compra (informativa,
+                                  redondeada hacia arriba). El costo es lineal. */}
+                              {c.supply.package_qty &&
+                                c.supply.package_qty > 0 &&
+                                (c.supply.package_name ||
+                                  c.supply.package_qty !== 1) && (
+                                  <div className="text-[11px] font-normal text-gray-400">
+                                    →{" "}
+                                    {Math.ceil(
+                                      c.totalBase / c.supply.package_qty,
+                                    ).toLocaleString("es-CL")}{" "}
+                                    × {c.supply.package_name || "formato"} de{" "}
+                                    {Number(
+                                      c.supply.package_qty,
+                                    ).toLocaleString("es-CL")}{" "}
+                                    {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                                  </div>
+                                )}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
                               {c.supply.price

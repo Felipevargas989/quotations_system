@@ -23,6 +23,7 @@ import {
   RecipeItem,
   Supply,
   UNIT_FAMILY_INFO,
+  grossQty,
   toBaseQty,
 } from "../../types/logistics.types";
 import {
@@ -365,8 +366,12 @@ export default function FichaCocinaSection({
                 if (line.item_kind === "insumo" && line.supply_id) {
                   const sup = ctx.supplyById.get(line.supply_id);
                   if (!sup) return;
-                  const base =
-                    toBaseQty(line.qty_per_person, line.unit) * porciones;
+                  // Bruta (neta + merma): lo que la cocina saca en crudo,
+                  // coherente con el retiro de bodega y con Compras.
+                  const base = grossQty(
+                    toBaseQty(line.qty_per_person, line.unit) * porciones,
+                    sup,
+                  );
                   parts.push(
                     `${esc(sup.name.toLowerCase())} ${fmtQty(base)} ${UNIT_FAMILY_INFO[sup.unit_family].base}`,
                   );

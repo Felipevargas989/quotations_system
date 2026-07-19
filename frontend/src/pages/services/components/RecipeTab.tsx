@@ -19,6 +19,7 @@ import {
   UNIT_FAMILY_INFO,
   UNITS_BY_FAMILY,
   UnitFamily,
+  grossQty,
   toBaseQty,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
@@ -107,10 +108,20 @@ export default function RecipeTab({
   const ingredientItems = items.filter((i) => i.item_kind === "insumo");
   const furnitureItems = items.filter((i) => i.item_kind === "mobiliario");
 
+  // Costo sobre la cantidad BRUTA (neta + merma del insumo): es lo que se
+  // compra de verdad. La receta se ingresa siempre en NETO (lo servido).
   const lineCost = (it: RecipeItem): number => {
     const s = it.supply_id ? supplyById.get(it.supply_id) : undefined;
     if (!s) return 0;
-    return toBaseQty(it.qty_per_person, it.unit) * (s.price || 0);
+    return grossQty(toBaseQty(it.qty_per_person, it.unit), s) * (s.price || 0);
+  };
+  // Bruta mostrada en la MISMA unidad en que está escrita la línea.
+  const lineGross = (it: RecipeItem): number => {
+    const s = it.supply_id ? supplyById.get(it.supply_id) : undefined;
+    const w = s?.waste_pct || 0;
+    return w > 0 && w < 100
+      ? it.qty_per_person / (1 - w / 100)
+      : it.qty_per_person;
   };
   const costPerPerson = ingredientItems.reduce((t, it) => t + lineCost(it), 0);
   const margin = (servicePrice || 0) - costPerPerson;
@@ -253,7 +264,7 @@ export default function RecipeTab({
       {showIngredients && (
         <div>
           <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">
-            Ingredientes · cantidad por persona
+            Ingredientes · cantidad neta por persona (lo que llega al plato)
           </h3>
 
           <div className="flex gap-2 items-start">
@@ -375,8 +386,23 @@ export default function RecipeTab({
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Insumo
                     </th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                      Cant. / persona
+                    <th
+                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase"
+                      title="Lo que llega al plato, por persona"
+                    >
+                      Cant. neta
+                    </th>
+                    <th
+                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase"
+                      title="% de pérdida definido en el insumo"
+                    >
+                      Merma
+                    </th>
+                    <th
+                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase"
+                      title="Lo que se compra: neta + merma (calculado)"
+                    >
+                      Cant. bruta
                     </th>
                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                       Costo / persona
@@ -389,6 +415,7 @@ export default function RecipeTab({
                     const s = it.supply_id
                       ? supplyById.get(it.supply_id)
                       : undefined;
+                    const w = s?.waste_pct || 0;
                     return (
                       <tr key={it.id}>
                         <td className="px-3 py-2 text-gray-900">
@@ -404,6 +431,17 @@ export default function RecipeTab({
                             className={qtyInputCls}
                           />{" "}
                           <span className="text-gray-500">{it.unit}</span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-500">
+                          {w ? `${w}%` : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-500">
+                          {Number(
+                            lineGross(it).toFixed(
+                              lineGross(it) < 10 ? 2 : 1,
+                            ),
+                          ).toLocaleString("es-CL")}{" "}
+                          {it.unit}
                         </td>
                         <td className="px-3 py-2 text-right font-medium">
                           {clp(lineCost(it))}

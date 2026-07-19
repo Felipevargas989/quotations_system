@@ -9,10 +9,13 @@ import {
   updateSupply,
 } from "../../../services/logistics.service";
 import {
+  RecipeUnit,
   Supplier,
   Supply,
   UNIT_FAMILY_INFO,
+  UNITS_BY_FAMILY,
   UnitFamily,
+  toBaseQty,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
@@ -32,8 +35,13 @@ export default function InsumosTab({
   const [editing, setEditing] = useState<Supply | null>(null);
   const [name, setName] = useState("");
   const [family, setFamily] = useState<UnitFamily>("masa");
-  const [price, setPrice] = useState<number>(0);
   const [supplierId, setSupplierId] = useState<string>("");
+  // Formato de compra: el precio unificado por unidad base se calcula solo.
+  const [pkgName, setPkgName] = useState("");
+  const [pkgQty, setPkgQty] = useState<number>(1);
+  const [pkgUnit, setPkgUnit] = useState<RecipeUnit>("kg");
+  const [pkgPrice, setPkgPrice] = useState<number>(0);
+  const [waste, setWaste] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -80,22 +88,50 @@ export default function InsumosTab({
   const open = (s?: Supply) => {
     setEditing(s || null);
     setName(s?.name || "");
-    setFamily(s?.unit_family || "masa");
-    setPrice(s?.price || 0);
+    const fam = s?.unit_family || "masa";
+    setFamily(fam);
     setSupplierId(s?.supplier_id ? String(s.supplier_id) : "");
+    setWaste(s?.waste_pct || 0);
+    setPkgName(s?.package_name || "");
+    // Sin formato guardado: contenido 1 unidad base y el precio directo,
+    // idéntico al comportamiento anterior.
+    const baseUnit = UNITS_BY_FAMILY[fam][0];
+    if (s?.package_qty && s.package_qty > 0) {
+      // Contenidos chicos se muestran en subunidad (750 ml, no 0,75 L).
+      if (s.package_qty < 1 && baseUnit !== "u") {
+        setPkgQty(s.package_qty * 1000);
+        setPkgUnit(UNITS_BY_FAMILY[fam][1] || baseUnit);
+      } else {
+        setPkgQty(s.package_qty);
+        setPkgUnit(baseUnit);
+      }
+      setPkgPrice(s.package_price || 0);
+    } else {
+      setPkgQty(1);
+      setPkgUnit(baseUnit);
+      setPkgPrice(s?.price || 0);
+    }
     setErr(null);
     setShowModal(true);
   };
 
+  // Precio unificado por unidad base, calculado en vivo del formato.
+  const pkgQtyBase = toBaseQty(pkgQty || 0, pkgUnit);
+  const unifiedPrice = pkgQtyBase > 0 ? (pkgPrice || 0) / pkgQtyBase : 0;
+
   const save = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || pkgQtyBase <= 0) return;
     setSaving(true);
     setErr(null);
     const fields = {
       name: name.trim(),
       unit_family: family,
-      price: price || 0,
+      price: unifiedPrice,
       supplier_id: supplierId ? Number(supplierId) : null,
+      waste_pct: waste || 0,
+      package_name: pkgName.trim() || null,
+      package_qty: pkgQtyBase,
+      package_price: pkgPrice || 0,
     };
     const { error } = editing
       ? await updateSupply(editing.id, fields)
@@ -183,7 +219,7 @@ export default function InsumosTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
-              {["Insumo", "Familia de unidad", "Precio base", "Proveedor", "Acciones"].map(
+              {["Insumo", "Familia de unidad", "Precio base", "Merma", "Proveedor", "Acciones"].map(
                 (h) => (
                   <th
                     key={h}
@@ -214,8 +250,20 @@ export default function InsumosTab({
                     <span className="text-xs text-gray-400">{fam.units}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {clp(s.price)}{" "}
+                    {clp(Math.round(s.price))}{" "}
                     <span className="text-xs text-gray-400">/{fam.base}</span>
+                    {s.package_qty &&
+                      s.package_qty > 0 &&
+                      (s.package_name || s.package_qty !== 1) && (
+                        <div className="text-xs text-gray-400">
+                          {s.package_name || "formato"} de{" "}
+                          {Number(s.package_qty).toLocaleString("es-CL")}{" "}
+                          {fam.base} · {clp(s.package_price || 0)}
+                        </div>
+                      )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {s.waste_pct ? `${s.waste_pct}%` : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {supplierName(s.supplier_id)}
@@ -352,7 +400,11 @@ export default function InsumosTab({
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setFamily(f)}
+                      onClick={() => {
+                        setFamily(f);
+                        if (!UNITS_BY_FAMILY[f].includes(pkgUnit))
+                          setPkgUnit(UNITS_BY_FAMILY[f][0]);
+                      }}
                       className={`px-2 py-2 rounded-lg border text-xs font-semibold ${
                         family === f
                           ? "border-blue-600 bg-blue-50 text-blue-700"
@@ -367,17 +419,96 @@ export default function InsumosTab({
                   ))}
                 </div>
               </div>
+              {/* Cómo se compra de verdad: el precio unificado se calcula solo */}
+              <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-700">
+                  ¿Cómo lo compras?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Formato (opcional)
+                    </label>
+                    <input
+                      value={pkgName}
+                      onChange={(e) => setPkgName(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej: botella, caja"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Contenido *
+                    </label>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={pkgQty || ""}
+                        onChange={(e) =>
+                          setPkgQty(parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right"
+                        placeholder="1"
+                      />
+                      <select
+                        value={pkgUnit}
+                        onChange={(e) =>
+                          setPkgUnit(e.target.value as RecipeUnit)
+                        }
+                        className="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                      >
+                        {UNITS_BY_FAMILY[family].map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">
+                    Precio del formato *
+                  </label>
+                  <NumberInput
+                    value={pkgPrice || undefined}
+                    onChange={(v) => setPkgPrice(v || 0)}
+                    min={0}
+                    formatThousands
+                    placeholder="0"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  {pkgQtyBase > 0 ? (
+                    <>
+                      Precio unificado:{" "}
+                      <span className="font-semibold text-gray-800">
+                        {clp(Math.round(unifiedPrice))} por{" "}
+                        {UNIT_FAMILY_INFO[family].base}
+                      </span>
+                    </>
+                  ) : (
+                    "Ingresa el contenido del formato para calcular el precio unificado."
+                  )}
+                </p>
+              </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">
-                  Precio por {UNIT_FAMILY_INFO[family].base} *
+                  Merma (%)
                 </label>
                 <NumberInput
-                  value={price || undefined}
-                  onChange={(v) => setPrice(v || 0)}
+                  value={waste || undefined}
+                  onChange={(v) => setWaste(Math.min(v || 0, 99))}
                   min={0}
-                  formatThousands
                   placeholder="0"
                 />
+                <p className="mt-1 text-xs text-gray-400">
+                  Lo que se pierde al limpiar o cocinar. Las recetas se
+                  ingresan en neto (lo servido); compras y costos usan la
+                  cantidad bruta.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">

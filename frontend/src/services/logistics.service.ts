@@ -108,6 +108,10 @@ export const createSupply = async (fields: {
   unit_family: Supply["unit_family"];
   price: number;
   supplier_id?: number | null;
+  waste_pct?: number;
+  package_name?: string | null;
+  package_qty?: number | null;
+  package_price?: number | null;
 }) => {
   const { data, error } = await supabase
     .from("supplies")
@@ -120,7 +124,18 @@ export const createSupply = async (fields: {
 export const updateSupply = async (
   id: number,
   fields: Partial<
-    Pick<Supply, "name" | "unit_family" | "price" | "supplier_id" | "is_active">
+    Pick<
+      Supply,
+      | "name"
+      | "unit_family"
+      | "price"
+      | "supplier_id"
+      | "is_active"
+      | "waste_pct"
+      | "package_name"
+      | "package_qty"
+      | "package_price"
+    >
   >,
 ) => {
   const { error } = await supabase.from("supplies").update(fields).eq("id", id);

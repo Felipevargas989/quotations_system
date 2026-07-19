@@ -2,6 +2,7 @@ import {
   FurnitureItem,
   RecipeItem,
   Supply,
+  grossQty,
   toBaseQty,
 } from "../types/logistics.types";
 
@@ -173,7 +174,12 @@ export const consolidateEvent = (
       if (line.item_kind === "insumo" && line.supply_id) {
         const supply = ctx.supplyById.get(line.supply_id);
         if (!supply) return;
-        const base = toBaseQty(line.qty_per_person, line.unit) * factor;
+        // La receta viene en NETO (lo servido); se compra y cuesta la BRUTA
+        // (neta + merma del insumo). Costo lineal por unidad base.
+        const base = grossQty(
+          toBaseQty(line.qty_per_person, line.unit) * factor,
+          supply,
+        );
         costoInsumos += base * (supply.price || 0);
         supplyUse.set(supply.id, (supplyUse.get(supply.id) || 0) + base);
         const cur = acc.supplyTotals.get(supply.id);
