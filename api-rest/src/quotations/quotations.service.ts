@@ -80,6 +80,11 @@ export class QuotationsService {
       people_count: createQuotationDto.people_count,
       observations: createQuotationDto.observations,
       event_date: eventDateUtc,
+      // Último día (evento multi-día); null = un solo día. Si esto falta,
+      // la creación bota el rango en silencio — no repetir el bug 19-07.
+      event_end_date: createQuotationDto.event_end_date
+        ? getEventDateUtc(createQuotationDto.event_end_date)
+        : null,
       company_id: companyId,
       total_amount: createQuotationDto.total_amount || 0,
       quotation_status: createQuotationDto.quotation_status,
