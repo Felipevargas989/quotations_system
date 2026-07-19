@@ -209,6 +209,67 @@ export class QuotationsService {
     return this.quotationsRepository.findOne(id);
   }
 
+  // Evento REALIZADO: cambia el estado y dispara la encuesta de satisfacción
+  // al cliente. La encuesta sale UNA sola vez: survey_sent_at se estampa solo
+  // cuando el correo salió bien, y bloquea reenvíos si el evento se re-marca.
+  async markEventDone(id: string, companyId: number) {
+    const { data: quotation, error } =
+      await this.quotationsRepository.findOne(id);
+    if (error) throw error;
+    if (!quotation || quotation.company_id !== companyId) {
+      throw new Error('Quotation not found');
+    }
+    if (quotation.quotation_status !== QuotationStatus.ACEPTADA) {
+      throw new Error('Only accepted events can be marked as done');
+    }
+
+    await this.quotationsRepository.update(
+      id,
+      {
+        quotation_status: QuotationStatus.REALIZADA,
+      } as unknown as UpdateQuotationDto,
+      companyId,
+    );
+
+    const alreadySurveyed = Boolean(
+      (quotation as { survey_sent_at?: string | null }).survey_sent_at,
+    );
+    let surveySent = false;
+    if (!alreadySurveyed && quotation.clients?.email) {
+      try {
+        await this.emailService.sendEmail(
+          quotation.clients.email,
+          EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
+          {
+            clientName: quotation.clients.name,
+            companyName: quotation.companies?.name,
+            companyId: quotation.company_id,
+            quotationId: quotation.id,
+          },
+          quotation.company_id,
+        );
+        surveySent = true;
+        await this.quotationsRepository.update(
+          id,
+          {
+            survey_sent_at: new Date().toISOString(),
+          } as unknown as UpdateQuotationDto,
+          companyId,
+        );
+      } catch (emailError) {
+        // El estado ya quedó realizado; un correo fallido no lo revierte.
+        this.logger.error('Error sending satisfaction survey:', emailError);
+      }
+    }
+
+    return {
+      quotation_status: QuotationStatus.REALIZADA,
+      survey_sent: surveySent,
+      survey_already_sent: alreadySurveyed,
+      client_has_email: Boolean(quotation.clients?.email),
+    };
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,

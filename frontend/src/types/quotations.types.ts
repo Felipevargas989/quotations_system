@@ -14,6 +14,9 @@ export enum QuotationStatus {
   // Evento aceptado que se anula: sale de Post-Venta, Compras y mobiliario,
   // pero conserva su historia de pagos y comprobantes.
   CANCELADA = "cancelada",
+  // Evento que ya ocurrió: sigue en Post-Venta (cobranza pendiente) pero
+  // sale de Compras/mobiliario. Al marcarse se envía la encuesta.
+  REALIZADA = "realizada",
 }
 
 export enum PaymentPlanType {

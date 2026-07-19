@@ -67,6 +67,7 @@ export default function QuotationsPage() {
     { value: QuotationStatus.ACEPTADA, label: "✅ Aceptada" },
     { value: QuotationStatus.RECHAZADA, label: "❌ Rechazada" },
     { value: QuotationStatus.CANCELADA, label: "🚫 Cancelada" },
+    { value: QuotationStatus.REALIZADA, label: "🎉 Realizada" },
   ];
 
   // Restore the persisted status filter (per user) before the first fetch.
@@ -154,6 +155,7 @@ export default function QuotationsPage() {
           QuotationStatus.ACEPTADA,
           QuotationStatus.RECHAZADA,
           QuotationStatus.CANCELADA,
+          QuotationStatus.REALIZADA,
         ];
       } else {
         // Fetch only the selected statuses
@@ -258,6 +260,8 @@ export default function QuotationsPage() {
         return "bg-red-100 text-red-800";
       case "cancelada":
         return "bg-gray-200 text-gray-600";
+      case "realizada":
+        return "bg-emerald-100 text-emerald-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -575,6 +579,10 @@ export default function QuotationsPage() {
                       {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
                         quotation.quotation_status === "cancelada") && (
                         <option value="cancelada">🚫 Cancelada</option>
+                      )}
+                      {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
+                        quotation.quotation_status === "realizada") && (
+                        <option value="realizada">🎉 Realizada</option>
                       )}
                     </select>
                   </td>

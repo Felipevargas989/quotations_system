@@ -29,6 +29,22 @@ export const getQuotations = async (
   return { data: response as QuotationWithClient[] };
 };
 
+// Declara el evento REALIZADO: cambia el estado y el backend envía la
+// encuesta de satisfacción al cliente (una sola vez).
+export interface MarkEventDoneResult {
+  quotation_status: string;
+  survey_sent: boolean;
+  survey_already_sent: boolean;
+  client_has_email: boolean;
+}
+export const markEventDone = async (quotationId: string) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/realizado`,
+    "POST",
+  );
+  return response as MarkEventDoneResult;
+};
+
 export const deleteQuotation = async (quotationId: string) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,

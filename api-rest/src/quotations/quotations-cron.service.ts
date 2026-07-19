@@ -84,44 +84,9 @@ export class QuotationsCronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_9AM)
-  async checkEventsForSurvey() {
-    this.logger.info('CRON job: Checking for quotations for survey');
-
-    try {
-      // get event date 3 days ago
-      const eventDate = new Date();
-      eventDate.setUTCDate(eventDate.getUTCDate() - 3);
-      // Normalize date
-      const normalizedEventDate = normalizeDateToUtc(eventDate);
-
-      const doneEvents = await this.quotationsRepository.findAll({
-        company_id: undefined,
-        statuses: [QuotationStatus.ACEPTADA],
-        request_type: RequestType.COTIZACION,
-        event_date: normalizedEventDate,
-      });
-
-      // 3. Loop properly with await
-      for (const event of doneEvents) {
-        // Send the email
-        await this.emailService.sendEmail(
-          event.clients.email,
-          EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
-          {
-            clientName: event.clients.name,
-            companyName: event.companies.name,
-            companyId: event.company_id,
-            quotationId: event.id,
-          },
-          event.company_id,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Error checking quotations for survey:', error);
-      throw error;
-    }
-  }
+  // La encuesta de satisfacción ya NO se envía por fecha (antes: cron a los
+  // 3 días del evento, a ciegas). Ahora se dispara al declarar el evento
+  // REALIZADO en Post-Venta — ver QuotationsService.markEventDone.
 
   @Cron(CronExpression.MONDAY_TO_FRIDAY_AT_09_30AM)
   async checkQuotationStatuses() {

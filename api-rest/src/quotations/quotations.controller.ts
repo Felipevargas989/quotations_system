@@ -99,6 +99,14 @@ export class QuotationsController {
     return this.quotationsService.findOne(id);
   }
 
+  // Declara el evento REALIZADO y dispara la encuesta de satisfacción al
+  // cliente (una sola vez; ver QuotationsService.markEventDone).
+  @Post(':id/realizado')
+  markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/realizado`);
+    return this.quotationsService.markEventDone(id, user.company_id);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

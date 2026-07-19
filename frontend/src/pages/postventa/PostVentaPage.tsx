@@ -27,6 +27,7 @@ import {
 import { getClients } from "../../services/clients.service";
 import {
   getQuotationById,
+  markEventDone,
   updateQuotation,
 } from "../../services/quotations.service";
 import { Quotation, QuotationStatus } from "../../types/quotations.types";
@@ -82,6 +83,8 @@ interface EventRow {
   status: "pagado" | "vencido" | "pendiente";
   // Evento anulado: fuera de la lista por defecto, visible con el filtro.
   cancelled: boolean;
+  // Evento realizado: sigue en la lista (cobranza) con su etiqueta verde.
+  done: boolean;
   payments: PaymentWithTransactions[];
 }
 
@@ -89,7 +92,13 @@ interface EventRow {
 // la selección sobrevive recargas/navegación en vez de volver a "todos".
 const STATUS_FILTER_KEY = (userId: string | number) =>
   `eventia_postventa_status_filter_${userId}`;
-const STATUS_FILTER_VALUES = ["pendiente", "pagado", "vencido", "cancelado"];
+const STATUS_FILTER_VALUES = [
+  "pendiente",
+  "pagado",
+  "vencido",
+  "realizado",
+  "cancelado",
+];
 
 // Opciones del multi-select (se pueden marcar varias; vacío = todos los
 // vigentes — los cancelados solo aparecen marcando su opción).
@@ -97,6 +106,7 @@ const STATUS_OPTIONS: MultiSelectOption[] = [
   { value: "pendiente", label: "⏳ Pendientes" },
   { value: "pagado", label: "✅ Pagados" },
   { value: "vencido", label: "⚠️ Vencidos" },
+  { value: "realizado", label: "🎉 Realizados" },
   { value: "cancelado", label: "🚫 Cancelados" },
 ];
 
@@ -225,11 +235,12 @@ export default function PostVentaPage() {
         else if (ps.some((p) => cuotaStatus(p) === "vencido"))
           status = "vencido";
 
+        const qStatus = (q as unknown as { quotation_status?: string })
+          ?.quotation_status;
         events.push({
           quotationId,
-          cancelled:
-            (q as unknown as { quotation_status?: string })
-              ?.quotation_status === "cancelada",
+          cancelled: qStatus === "cancelada",
+          done: qStatus === "realizada",
           quotationNumber: q?.quotation_number ?? 0,
           clientName: q?.clients?.name || "—",
           clientType: client?.client_type,
@@ -298,10 +309,13 @@ export default function PostVentaPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      // Anulados: solo si su opción está marcada. El resto, como siempre.
+      // Anulados: solo si su opción está marcada. Realizados: siempre
+      // visibles (pueden tener cobranza pendiente) y aislables con su opción.
       const matchStatus = r.cancelled
         ? statusFilter.includes("cancelado")
-        : statusFilter.length === 0 || statusFilter.includes(r.status);
+        : statusFilter.length === 0 ||
+          statusFilter.includes(r.status) ||
+          (r.done && statusFilter.includes("realizado"));
       const matchSearch =
         !q ||
         String(r.quotationNumber) === q ||
@@ -459,6 +473,11 @@ export default function PostVentaPage() {
                           </span>
                         ) : (
                           <>
+                            {r.done && (
+                              <span className="inline-block mb-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-700">
+                                ✓ Realizado
+                              </span>
+                            )}
                             <div className="w-36 bg-gray-200 rounded-full h-2">
                               <div
                                 className={`h-2 rounded-full ${barColor(p)}`}
@@ -589,6 +608,40 @@ function EventModal({
     }
   };
 
+  // Marcar realizado: cualquier rol operativo. El backend cambia el estado y
+  // envía la encuesta de satisfacción al cliente (una sola vez).
+  const [confirmDone, setConfirmDone] = useState(false);
+  const [markingDone, setMarkingDone] = useState(false);
+  const [doneNotice, setDoneNotice] = useState<string | null>(null);
+  const [doneError, setDoneError] = useState<string | null>(null);
+  const doMarkDone = async () => {
+    setMarkingDone(true);
+    setDoneError(null);
+    try {
+      const res = await markEventDone(event.quotationId);
+      let encuesta: string;
+      if (res.survey_sent) {
+        encuesta = "Se envió la encuesta de satisfacción al cliente.";
+      } else if (res.survey_already_sent) {
+        encuesta = "La encuesta ya se había enviado antes, no se reenvió.";
+      } else {
+        encuesta =
+          "El cliente no tiene correo registrado, así que la encuesta no se envió.";
+      }
+      const saldoTxt =
+        saldo > 0 ? ` Ojo: quedan ${clp(saldo)} por cobrar de este evento.` : "";
+      setDoneNotice(`Evento marcado como realizado. ${encuesta}${saldoTxt}`);
+      setConfirmDone(false);
+      onDataChanged();
+    } catch {
+      setDoneError(
+        "No se pudo marcar el evento como realizado. Intenta de nuevo.",
+      );
+    } finally {
+      setMarkingDone(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
@@ -620,11 +673,50 @@ function EventModal({
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {!event.cancelled &&
+              (event.done ? (
+                <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700">
+                  ✓ REALIZADO
+                </span>
+              ) : confirmDone ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    ¿Marcar como realizado? Se enviará la encuesta al cliente.
+                  </span>
+                  <button
+                    disabled={markingDone}
+                    onClick={doMarkDone}
+                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Sí, realizado
+                  </button>
+                  <button
+                    disabled={markingDone}
+                    onClick={() => {
+                      setConfirmDone(false);
+                      setDoneError(null);
+                    }}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setConfirmDone(true);
+                    setConfirmCancel(false);
+                  }}
+                  className="px-3 py-1.5 border border-emerald-300 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-50"
+                >
+                  Marcar realizado
+                </button>
+              ))}
             {event.cancelled ? (
               <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">
                 CANCELADO
               </span>
-            ) : !canCancel ? null : confirmCancel ? (
+            ) : !canCancel || confirmDone ? null : confirmCancel ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">
                   ¿Anular este evento?
@@ -649,7 +741,10 @@ function EventModal({
               </div>
             ) : (
               <button
-                onClick={() => setConfirmCancel(true)}
+                onClick={() => {
+                  setConfirmCancel(true);
+                  setConfirmDone(false);
+                }}
                 className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50"
               >
                 Anular evento
@@ -668,6 +763,31 @@ function EventModal({
             {cancelError}
           </p>
         )}
+        {doneError && (
+          <p className="shrink-0 px-6 pt-2 text-sm text-red-600">{doneError}</p>
+        )}
+        {doneNotice && (
+          <div
+            className={`shrink-0 mx-6 mt-3 rounded-lg border px-4 py-2.5 text-sm ${
+              doneNotice.includes("por cobrar")
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+            }`}
+          >
+            {doneNotice}
+          </div>
+        )}
+        {/* Sugerencia: el evento ya pasó y sigue sin marcarse realizado */}
+        {!event.done &&
+          !event.cancelled &&
+          !doneNotice &&
+          quote?.event_date &&
+          String(quote.event_date).slice(0, 10) < todayISO() && (
+            <p className="shrink-0 px-6 pt-2 text-xs text-amber-700">
+              Este evento ya pasó ({fmtDate(String(quote.event_date))}): cuando
+              corresponda, márcalo como realizado.
+            </p>
+          )}
 
         {/* KPIs */}
         <div className="shrink-0 flex gap-4 px-6 pt-5">

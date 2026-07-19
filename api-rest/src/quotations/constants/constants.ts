@@ -33,6 +33,9 @@ export enum QuotationStatus {
   // Evento aceptado que se anula: sale de Post-Venta/Compras pero conserva
   // su historia de pagos.
   CANCELADA = 'cancelada',
+  // Evento que ya ocurrió: sigue en Post-Venta (cobranza) pero sale de
+  // Compras/mobiliario. Al marcarse se envía la encuesta de satisfacción.
+  REALIZADA = 'realizada',
 }
 
 export const STATUS_LABELS: Record<QuotationStatus, string> = {
@@ -42,4 +45,5 @@ export const STATUS_LABELS: Record<QuotationStatus, string> = {
   [QuotationStatus.ACEPTADA]: 'Aceptada',
   [QuotationStatus.RECHAZADA]: 'Rechazada',
   [QuotationStatus.CANCELADA]: 'Cancelada',
+  [QuotationStatus.REALIZADA]: 'Realizada',
 };
