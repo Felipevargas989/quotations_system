@@ -18,6 +18,7 @@ export default function ProveedoresTab({
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ export default function ProveedoresTab({
   const open = (s?: Supplier) => {
     setEditing(s || null);
     setName(s?.name || "");
+    setContactName(s?.contact_name || "");
     setPhone(s?.phone || "");
     setNotes(s?.notes || "");
     setErr(null);
@@ -46,6 +48,7 @@ export default function ProveedoresTab({
     setErr(null);
     const fields = {
       name: name.trim(),
+      contact_name: contactName.trim() || null,
       phone: phone.trim() || null,
       notes: notes.trim() || null,
     };
@@ -110,7 +113,8 @@ export default function ProveedoresTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
-              {["Proveedor", "Teléfono", "Notas", "Acciones"].map((h) => (
+              {["Proveedor", "Contacto", "Teléfono", "Notas", "Acciones"].map(
+                (h) => (
                 <th
                   key={h}
                   className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -125,6 +129,9 @@ export default function ProveedoresTab({
               <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {s.name}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-500">
+                  {s.contact_name || "—"}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {s.phone || "—"}
@@ -182,6 +189,17 @@ export default function ProveedoresTab({
                   onChange={(e) => setName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   placeholder="Ej: Verdulería Los Andes"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Persona de contacto
+                </label>
+                <input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Ej: Juan Pérez"
                 />
               </div>
               <div>

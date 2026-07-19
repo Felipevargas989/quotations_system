@@ -476,8 +476,8 @@ export default function ComprasTab({
       lines.push("");
       lines.push(
         `PROVEEDOR;${g.supplier ? g.supplier.name : "Sin proveedor asignado"}${
-          g.supplier?.phone ? `;${g.supplier.phone}` : ""
-        }`,
+          g.supplier?.contact_name ? `;${g.supplier.contact_name}` : ""
+        }${g.supplier?.phone ? `;${g.supplier.phone}` : ""}`,
       );
       lines.push("Insumo;Cantidad;Unidad;Costo estimado;Provisión");
       g.rows.forEach((c) => {
@@ -770,9 +770,11 @@ export default function ComprasTab({
                   <h5 className="text-xs font-bold uppercase text-gray-600">
                     {g.supplier ? g.supplier.name : "Sin proveedor asignado"}
                   </h5>
-                  {g.supplier?.phone && (
+                  {(g.supplier?.contact_name || g.supplier?.phone) && (
                     <span className="text-[11px] text-gray-400">
-                      {g.supplier.phone}
+                      {[g.supplier.contact_name, g.supplier.phone]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   )}
                 </div>

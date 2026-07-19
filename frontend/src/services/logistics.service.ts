@@ -30,6 +30,7 @@ export const getSuppliers = async (companyId: number): Promise<Supplier[]> => {
 export const createSupplier = async (fields: {
   company_id: number;
   name: string;
+  contact_name?: string | null;
   phone?: string | null;
   notes?: string | null;
 }) => {
@@ -39,7 +40,9 @@ export const createSupplier = async (fields: {
 
 export const updateSupplier = async (
   id: number,
-  fields: Partial<Pick<Supplier, "name" | "phone" | "notes" | "is_active">>,
+  fields: Partial<
+    Pick<Supplier, "name" | "contact_name" | "phone" | "notes" | "is_active">
+  >,
 ) => {
   const { error } = await supabase
     .from("suppliers")

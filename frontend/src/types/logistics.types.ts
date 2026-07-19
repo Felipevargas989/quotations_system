@@ -17,6 +17,7 @@ export interface Supplier {
   id: number;
   company_id: number;
   name: string;
+  contact_name: string | null;
   phone: string | null;
   notes: string | null;
   is_active: boolean;
