@@ -891,6 +891,8 @@ export default function QuotationForm() {
       name,
       email: newContactEmail.trim() || null,
       phone: newContactPhone.trim() || null,
+      // Si el cliente no tenia personas, la primera queda como principal
+      is_primary: clientContacts.length === 0,
     });
     setSavingContact(false);
     if (!error && data) {

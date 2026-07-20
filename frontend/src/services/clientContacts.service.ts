@@ -14,6 +14,9 @@ export interface ClientContact {
   // por correo — exigir más que el nombre afectaría la operación.
   email: string | null;
   phone: string | null;
+  // Contacto principal del cliente (uno por cliente; espejo en
+  // clients.contact_person, sincronizado por la aplicación)
+  is_primary: boolean;
   created_at: string;
 }
 
@@ -24,6 +27,7 @@ export const getClientContacts = async (
     .from("client_contacts")
     .select("*")
     .eq("client_id", clientId)
+    .order("is_primary", { ascending: false })
     .order("name");
   if (error) {
     console.error("Error cargando contactos del cliente", error);
@@ -38,6 +42,7 @@ export const createClientContact = async (fields: {
   name: string;
   email?: string | null;
   phone?: string | null;
+  is_primary?: boolean;
 }) => {
   const { data, error } = await supabase
     .from("client_contacts")
@@ -45,4 +50,40 @@ export const createClientContact = async (fields: {
     .select()
     .single();
   return { data: data as ClientContact | null, error };
+};
+
+export const updateClientContact = async (
+  id: number,
+  fields: Partial<Pick<ClientContact, "name" | "email" | "phone">>,
+) => {
+  const { error } = await supabase
+    .from("client_contacts")
+    .update(fields)
+    .eq("id", id);
+  return { error };
+};
+
+export const deleteClientContact = async (id: number) => {
+  const { error } = await supabase
+    .from("client_contacts")
+    .delete()
+    .eq("id", id);
+  return { error };
+};
+
+// Marca el principal (uno por cliente): limpia el anterior y fija el nuevo.
+export const setPrimaryContact = async (
+  clientId: string,
+  contactId: number,
+) => {
+  await supabase
+    .from("client_contacts")
+    .update({ is_primary: false })
+    .eq("client_id", clientId)
+    .eq("is_primary", true);
+  const { error } = await supabase
+    .from("client_contacts")
+    .update({ is_primary: true })
+    .eq("id", contactId);
+  return { error };
 };
