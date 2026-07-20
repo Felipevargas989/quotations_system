@@ -1210,6 +1210,31 @@ export default function QuotationForm() {
           : formData.quotation_status,
       };
 
+      // UNA sola lista de campos editables, compartida por crear y
+      // actualizar. Si mañana se agrega un campo nuevo, se agrega AQUÍ y
+      // viaja por ambos caminos — así no puede repetirse el bug de
+      // children_count/tip/contacto perdidos al editar (20-07-2026).
+      const editableFields: QuotationFormDataUpdate = {
+        client_id: quotationData.client_id,
+        event_type: quotationData.event_type,
+        event_date: quotationData.event_date,
+        event_end_date: quotationData.event_end_date || null,
+        request_type: quotationData.request_type,
+        value_per_person: quotationData.value_per_person,
+        fixed_value: quotationData.fixed_value,
+        subtotal_amount: quotationData.subtotal_amount,
+        total_amount: quotationData.total_amount,
+        items: quotationData.items,
+        quotation_status: quotationData.quotation_status,
+        people_count: quotationData.people_count,
+        discount_percentage: quotationData.discount_percentage,
+        discount_amount: quotationData.discount_amount,
+        observations: quotationData.observations,
+        children_count: quotationData.children_count,
+        tip_percentage: quotationData.tip_percentage,
+        contact_name: quotationData.contact_name,
+      };
+
       // if quotation already exists (from requirement or updating a quotation)
       if (quotation?.id || isFromRequirement) {
         // Actualizar cotización existente
@@ -1220,31 +1245,17 @@ export default function QuotationForm() {
           );
         }
 
-        const updatedQuotation: QuotationFormDataUpdate = {
-          client_id: quotationData.client_id,
-          event_type: quotationData.event_type,
-          event_date: quotationData.event_date,
-          event_end_date: quotationData.event_end_date || null,
-          request_type: quotationData.request_type,
-          value_per_person: Math.round(quotationData.value_per_person),
-          fixed_value: Math.round(quotationData.fixed_value),
-          subtotal_amount: Math.round(quotationData.subtotal_amount),
-          total_amount: Math.round(quotationData.total_amount),
-          items: quotationData.items,
-          quotation_status: quotationData.quotation_status,
-          people_count: quotationData.people_count,
-          discount_percentage: quotationData.discount_percentage,
-          discount_amount: quotationData.discount_amount,
-          observations: quotationData.observations,
-        };
-        const { error } = await updateQuotation(updatedQuotation, targetId);
+        const { error } = await updateQuotation(editableFields, targetId);
 
         if (error) throw error;
       }
       // if quotation does not exist
       else {
         // Create new quotation
-        const { error } = await createQuotation(quotationData);
+        const { error } = await createQuotation({
+          ...quotationData,
+          ...editableFields,
+        });
 
         if (error) throw error;
       }
@@ -1840,15 +1851,7 @@ export default function QuotationForm() {
             }`}
           >
             <Save size={16} />
-            <span>
-              {loading
-                ? "Guardando..."
-                : isEditingExisting
-                  ? "Actualizar Cotización"
-                  : isFromRequirement
-                    ? "Crear Cotización"
-                    : "Guardar Cotización"}
-            </span>
+            <span>{loading ? "Guardando..." : "Guardar Cotización"}</span>
           </button>
           {!loading && missingRequiredFields().length > 0 && (
             <span className="text-xs text-amber-700 font-medium">
@@ -2344,12 +2347,6 @@ export default function QuotationForm() {
                       </div>
                     )}
                     <div className="ml-auto pb-2 flex items-center gap-2">
-                      {box.groupName && (
-                        <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
-                          <Layers size={13} />
-                          {box.groupName}
-                        </span>
-                      )}
                       {serviceBoxes.length > 1 && !isRestrictedEditing && (
                         <button
                           onClick={() => removeServiceBox(box.id)}
@@ -2531,6 +2528,11 @@ export default function QuotationForm() {
                           </div>
                         )}
                       </div>
+                      {box.groupName && (
+                        <p className="mt-1 text-xs font-medium text-blue-600">
+                          Menú: {box.groupName}
+                        </p>
+                      )}
                     </div>
                   </div>
 
