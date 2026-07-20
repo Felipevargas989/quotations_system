@@ -648,6 +648,27 @@ export default function QuotationForm() {
     if (newBox) setServiceBoxes((prev) => [...prev, newBox]);
   };
 
+  // Aplica un menu guardado A UNA caja existente (mockup: el link vive
+  // dentro de la caja). Conserva dia, audiencia y personas de la caja.
+  const loadGroupIntoBox = (boxId: string, group: ServiceGroup) => {
+    const built = buildBoxFromGroup(group);
+    if (!built) return;
+    setServiceBoxes((prev) =>
+      prev.map((b) =>
+        b.id === boxId
+          ? {
+              ...b,
+              selectedCategory: built.selectedCategory,
+              selectedItem: "",
+              selectedItems: built.selectedItems,
+              services: built.services,
+              groupName: built.groupName,
+            }
+          : b,
+      ),
+    );
+  };
+
   const openSaveGroupModal = (boxId: string) => {
     setGroupModalBoxId(boxId);
     setGroupName("");
@@ -2064,7 +2085,7 @@ export default function QuotationForm() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Servicios Variables
+                  Servicios
                 </h3>
                 {selectedCollection && (
                   <span className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium">
@@ -2074,76 +2095,8 @@ export default function QuotationForm() {
                 )}
               </div>
               <div className="flex items-center flex-wrap gap-2">
-                {/* Cargar / administrar grupos guardados */}
-                <div className="relative dropdown-container">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenDropdown(
-                        openDropdown === "service-groups"
-                          ? null
-                          : "service-groups",
-                      )
-                    }
-                    disabled={isRestrictedEditing || serviceGroups.length === 0}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    title="Cargar un grupo guardado"
-                  >
-                    <Layers size={16} />
-                    <span>
-                      {serviceGroups.length === 0
-                        ? "Sin grupos guardados"
-                        : "Cargar grupo"}
-                    </span>
-                  </button>
-
-                  {openDropdown === "service-groups" &&
-                    serviceGroups.length > 0 && (
-                      <div className="absolute right-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {serviceGroups.map((group) => (
-                          <div
-                            key={group.id}
-                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                loadGroupAsBox(group);
-                                setOpenDropdown(null);
-                              }}
-                              className="flex-1 text-left text-sm"
-                            >
-                              <span className="text-gray-900">
-                                {group.name}
-                              </span>{" "}
-                              <span className="text-gray-500">
-                                ({group.category})
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (
-                                  window.confirm(
-                                    `¿Eliminar el grupo "${group.name}"?`,
-                                  )
-                                ) {
-                                  await removeServiceGroup(group.id);
-                                }
-                              }}
-                              className="ml-2 text-red-600 hover:text-red-800"
-                              title="Eliminar grupo"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                </div>
-
-                {/* Cargar / administrar paquetes (grupos de grupos) */}
+                {/* Paquetes: un solo boton (mockup). El dropdown lista los
+                    guardados y al pie permite crear uno nuevo. */}
                 <div className="relative dropdown-container">
                   <button
                     type="button"
@@ -2156,95 +2109,96 @@ export default function QuotationForm() {
                     }
                     disabled={
                       isRestrictedEditing ||
-                      serviceGroupCollections.length === 0
+                      (serviceGroupCollections.length === 0 &&
+                        serviceGroups.length === 0)
                     }
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    title="Cargar un paquete guardado"
+                    className="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    title="Usar o crear un paquete (evento completo guardado)"
                   >
                     <Package size={16} />
-                    <span>
-                      {serviceGroupCollections.length === 0
-                        ? "Sin paquetes guardados"
-                        : "Cargar paquete"}
-                    </span>
+                    <span>Partir de un paquete</span>
                   </button>
 
-                  {openDropdown === "service-group-collections" &&
-                    serviceGroupCollections.length > 0 && (
-                      <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {serviceGroupCollections.map((collection) => (
-                          <div
-                            key={collection.id}
-                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                  {openDropdown === "service-group-collections" && (
+                    <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {serviceGroupCollections.map((collection) => (
+                        <div
+                          key={collection.id}
+                          className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              loadCollectionAsBoxes(collection);
+                              setOpenDropdown(null);
+                            }}
+                            className="flex-1 text-left text-sm"
                           >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                loadCollectionAsBoxes(collection);
-                                setOpenDropdown(null);
-                              }}
-                              className="flex-1 text-left text-sm"
-                            >
-                              <span className="text-gray-900">
-                                {collection.name}
-                              </span>{" "}
-                              <span className="text-gray-500">
-                                ({collection.groups?.length || 0} grupos)
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
+                            <span className="text-gray-900">
+                              {collection.name}
+                            </span>{" "}
+                            <span className="text-gray-500">
+                              ({collection.groups?.length || 0} grupos)
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (
+                                window.confirm(
+                                  `¿Eliminar el paquete "${collection.name}"?`,
+                                )
+                              ) {
+                                await removeServiceGroupCollection(
+                                  collection.id,
+                                );
                                 if (
-                                  window.confirm(
-                                    `¿Eliminar el paquete "${collection.name}"?`,
-                                  )
+                                  selectedCollection?.id === collection.id
                                 ) {
-                                  await removeServiceGroupCollection(
-                                    collection.id,
-                                  );
-                                  if (
-                                    selectedCollection?.id === collection.id
-                                  ) {
-                                    setSelectedCollection(null);
-                                  }
+                                  setSelectedCollection(null);
                                 }
-                              }}
-                              className="ml-2 text-red-600 hover:text-red-800"
-                              title="Eliminar paquete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              }
+                            }}
+                            className="ml-2 text-red-600 hover:text-red-800"
+                            title="Eliminar paquete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      {serviceGroupCollections.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-gray-400">
+                          Aún no hay paquetes guardados.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenDropdown(null);
+                          openCollectionModal();
+                        }}
+                        disabled={serviceGroups.length === 0}
+                        className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+                        title="Crear un paquete agrupando menús guardados"
+                      >
+                        + Crear paquete nuevo…
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Crear paquete a partir de grupos guardados */}
-                <button
-                  type="button"
-                  onClick={openCollectionModal}
-                  disabled={isRestrictedEditing || serviceGroups.length === 0}
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  title="Crear un paquete agrupando varios grupos"
-                >
-                  <Package size={16} />
-                  <span>Crear paquete</span>
-                </button>
 
                 <button
                   onClick={addServiceBox}
                   disabled={isRestrictedEditing}
-                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${
                     isRestrictedEditing
                       ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
                   <Plus size={16} />
-                  <span>Agregar Servicio</span>
+                  <span>Agregar servicio</span>
                 </button>
               </div>
             </div>
@@ -2259,152 +2213,14 @@ export default function QuotationForm() {
                       : "border-gray-200"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h4 className="font-medium text-gray-900">
-                        Servicio {index + 1}
-                      </h4>
-                      {/* Audiencia: cada servicio es de adultos O de niños;
-                          multiplica por su contador (o su ajuste manual). */}
-                      {childrenCount > 0 && (
-                        <div
-                          className="flex rounded-md border border-gray-300 overflow-hidden"
-                          title="Audiencia de este servicio"
-                        >
-                          {(["adultos", "ninos"] as const).map((aud) => {
-                            const on = (box.audience || "adultos") === aud;
-                            return (
-                              <button
-                                key={aud}
-                                type="button"
-                                disabled={isRestrictedEditing}
-                                onClick={() =>
-                                  setServiceBoxes((prev) =>
-                                    prev.map((b) =>
-                                      b.id === box.id
-                                        ? { ...b, audience: aud, people: undefined }
-                                        : b,
-                                    ),
-                                  )
-                                }
-                                className={`px-2.5 py-1 text-xs font-bold ${
-                                  on
-                                    ? aud === "ninos"
-                                      ? "bg-amber-600 text-white"
-                                      : "bg-blue-900 text-white"
-                                    : "bg-white text-gray-500 hover:bg-gray-50"
-                                }`}
-                              >
-                                {aud === "ninos" ? "Niños" : "Adultos"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                      <label
-                        className="flex items-center gap-1 text-xs text-gray-600"
-                        title="Personas de este servicio (por defecto, toda su audiencia)"
-                      >
-                        <span className="font-semibold">Personas</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={boxPeople(box) || ""}
-                          onChange={(e) => {
-                            const v = parseInt(
-                              e.target.value.replace(/\./g, ""),
-                              10,
-                            );
-                            setServiceBoxes((prev) =>
-                              prev.map((b) =>
-                                b.id === box.id
-                                  ? {
-                                      ...b,
-                                      // igual a su audiencia = automático
-                                      people:
-                                        !Number.isFinite(v) ||
-                                        v === audienceCount(b)
-                                          ? undefined
-                                          : v,
-                                    }
-                                  : b,
-                              ),
-                            );
-                          }}
-                          disabled={isRestrictedEditing}
-                          className={`w-14 border rounded-md px-1.5 py-1 text-xs text-right font-semibold ${
-                            box.people !== undefined
-                              ? "border-amber-400 bg-amber-50 text-amber-900"
-                              : "border-gray-300"
-                          }`}
-                        />
-                        {box.people !== undefined && (
-                          <span className="text-[10px] text-amber-700">
-                            de {audienceCount(box)}
-                          </span>
-                        )}
-                      </label>
-                      {eventDaysCount > 1 && (
-                        <select
-                          value={Math.min(box.day || 1, eventDaysCount)}
-                          onChange={(e) =>
-                            setServiceBoxes((prev) =>
-                              prev.map((b) =>
-                                b.id === box.id
-                                  ? { ...b, day: Number(e.target.value) }
-                                  : b,
-                              ),
-                            )
-                          }
-                          disabled={isRestrictedEditing}
-                          className="text-xs border border-blue-200 bg-blue-50 text-blue-800 font-semibold rounded-md px-2 py-1"
-                          title="Día del evento en que va este servicio"
-                        >
-                          {Array.from({ length: eventDaysCount }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                              {dayLabel(i + 1)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {box.groupName && (
-                        <p className="mt-0.5 flex items-center space-x-1 text-sm font-medium text-blue-600">
-                          <Layers size={14} />
-                          <span>
-                            {box.groupName} · {box.selectedCategory}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {!box.groupName &&
-                        box.selectedCategory &&
-                        box.services.length > 0 &&
-                        !isRestrictedEditing && (
-                          <button
-                            type="button"
-                            onClick={() => openSaveGroupModal(box.id)}
-                            className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800"
-                            title="Guardar esta categoría y sus items como grupo"
-                          >
-                            <Layers size={16} />
-                            <span>Guardar como grupo</span>
-                          </button>
-                        )}
-                      {serviceBoxes.length > 1 && !isRestrictedEditing && (
-                        <button
-                          onClick={() => removeServiceBox(box.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {/* Cabecera de la caja (mockup): numero + Categoria +
+                      Audiencia + Personas + Dia, todo etiquetado en una fila */}
+                  <div className="flex items-end gap-3 flex-wrap mb-3">
+                    <span className="text-xs font-bold text-gray-400 pb-3">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
                         Categoría
                       </label>
                       <select
@@ -2419,14 +2235,12 @@ export default function QuotationForm() {
                         disabled={
                           box.selectedCategory !== "" || isRestrictedEditing
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">Seleccionar categoría</option>
                         {serviceCategories
                           .filter(
                             (category) =>
-                              // Hide deactivated categories from the picker, but
-                              // keep the one already selected on an existing box.
                               !inactiveCategorySet.has(category) ||
                               category === box.selectedCategory,
                           )
@@ -2437,9 +2251,144 @@ export default function QuotationForm() {
                           ))}
                       </select>
                     </div>
-
+                    {childrenCount > 0 && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Audiencia
+                        </label>
+                        <div
+                          className="flex rounded-lg border border-gray-300 overflow-hidden"
+                          title="Audiencia de este servicio"
+                        >
+                          {(["adultos", "ninos"] as const).map((aud) => {
+                            const on = (box.audience || "adultos") === aud;
+                            return (
+                              <button
+                                key={aud}
+                                type="button"
+                                disabled={isRestrictedEditing}
+                                onClick={() =>
+                                  setServiceBoxes((prev) =>
+                                    prev.map((b) =>
+                                      b.id === box.id
+                                        ? {
+                                            ...b,
+                                            audience: aud,
+                                            people: undefined,
+                                          }
+                                        : b,
+                                    ),
+                                  )
+                                }
+                                className={`px-3 py-2 text-sm font-bold ${
+                                  on
+                                    ? aud === "ninos"
+                                      ? "bg-amber-600 text-white"
+                                      : "bg-blue-900 text-white"
+                                    : "bg-white text-gray-500 hover:bg-gray-50"
+                                }`}
+                              >
+                                {aud === "ninos" ? "Niños" : "Adultos"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label
+                        className="block text-xs font-medium text-gray-600 mb-1"
+                        title="Personas de este servicio (por defecto, toda su audiencia)"
+                      >
+                        Personas
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={boxPeople(box) || ""}
+                        onChange={(e) => {
+                          const v = parseInt(
+                            e.target.value.replace(/\./g, ""),
+                            10,
+                          );
+                          setServiceBoxes((prev) =>
+                            prev.map((b) =>
+                              b.id === box.id
+                                ? {
+                                    ...b,
+                                    people:
+                                      !Number.isFinite(v) ||
+                                      v === audienceCount(b)
+                                        ? undefined
+                                        : v,
+                                  }
+                                : b,
+                            ),
+                          );
+                        }}
+                        disabled={isRestrictedEditing}
+                        className={`w-24 border rounded-lg px-3 py-2 text-sm text-right font-semibold ${
+                          box.people !== undefined
+                            ? "border-amber-400 bg-amber-50 text-amber-900"
+                            : "border-gray-300"
+                        }`}
+                      />
+                      {box.people !== undefined && (
+                        <p className="mt-0.5 text-[10px] text-amber-700">
+                          de {audienceCount(box)}
+                        </p>
+                      )}
+                    </div>
+                    {eventDaysCount > 1 && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Día
+                        </label>
+                        <select
+                          value={Math.min(box.day || 1, eventDaysCount)}
+                          onChange={(e) =>
+                            setServiceBoxes((prev) =>
+                              prev.map((b) =>
+                                b.id === box.id
+                                  ? { ...b, day: Number(e.target.value) }
+                                  : b,
+                              ),
+                            )
+                          }
+                          disabled={isRestrictedEditing}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg font-semibold text-blue-900"
+                          title="Día del evento en que va este servicio"
+                        >
+                          {Array.from({ length: eventDaysCount }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {dayLabel(i + 1)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div className="ml-auto pb-2 flex items-center gap-2">
+                      {box.groupName && (
+                        <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
+                          <Layers size={13} />
+                          {box.groupName}
+                        </span>
+                      )}
+                      {serviceBoxes.length > 1 && !isRestrictedEditing && (
+                        <button
+                          onClick={() => removeServiceBox(box.id)}
+                          className="text-red-500 hover:text-red-700"
+                          title="Quitar este servicio"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
                         Item
                       </label>
                       <div className="relative dropdown-container">
@@ -2614,55 +2563,194 @@ export default function QuotationForm() {
 
                   {box.selectedCategory && (
                     <div className="mt-4">
-                      <h5 className="text-sm font-medium text-gray-700 mb-2">
-                        Items seleccionados:
-                      </h5>
-                      <div className="space-y-2">
-                        {getSelectedItemsForBox(box.id).map((service) => {
-                          // Sección fija: va sí o sí con la categoría, no se
-                          // puede quitar (cantidad mínima 1).
-                          const locked = isLockedService(
-                            box.selectedCategory,
-                            service.codigo,
-                          );
-                          return (
-                            <div
-                              key={service.codigo}
-                              className="flex items-center justify-between bg-gray-50 p-2 rounded"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm">
-                                  {service.nombre}
-                                </span>
-                                {locked && (
-                                  <span
-                                    title="Va siempre con esta categoría (sección fija)"
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5"
-                                  >
-                                    <Lock size={10} /> fijo
-                                  </span>
-                                )}
+                      {/* Items agrupados por seccion, como la carta (mockup):
+                          subtitulo azul marino, nombre, precio, cantidad por
+                          persona y el total de porciones a la derecha. */}
+                      {(() => {
+                        const cat = orderedCategories.find(
+                          (c) => c.name === box.selectedCategory,
+                        );
+                        const secs = cat
+                          ? categorySections
+                              .filter((s) => s.category_id === cat.id)
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                          : [];
+                        const sectionOf = (codigo: string) =>
+                          cat
+                            ? categoryLinks.find(
+                                (l) =>
+                                  l.category_id === cat.id &&
+                                  l.variable_service_id.toString() === codigo,
+                              )?.section_id || 0
+                            : 0;
+                        const items = getSelectedItemsForBox(box.id);
+                        const groups = [
+                          ...secs.map((s) => ({
+                            key: `s-${s.id}`,
+                            name: s.name,
+                            items: items.filter(
+                              (it) => sectionOf(it.codigo) === s.id,
+                            ),
+                          })),
+                          {
+                            key: "s-0",
+                            name: secs.length ? "Otros" : "",
+                            items: items.filter(
+                              (it) => sectionOf(it.codigo) === 0,
+                            ),
+                          },
+                        ].filter((g) => g.items.length > 0);
+                        return groups.map((g) => (
+                          <div key={g.key}>
+                            {g.name && (
+                              <div className="pt-2 pb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-900 border-b border-blue-900/20">
+                                {g.name}
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium">
-                                  ${service.precio.toLocaleString()}
-                                </span>
-                                <QuantitySelector
-                                  value={service.quantity}
-                                  onChange={(newQuantity) =>
-                                    updateServiceQuantity(
-                                      service.codigo,
-                                      newQuantity,
-                                      box.id,
+                            )}
+                            {g.items.map((service) => {
+                              const locked = isLockedService(
+                                box.selectedCategory,
+                                service.codigo,
+                              );
+                              return (
+                                <div
+                                  key={service.codigo}
+                                  className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
+                                >
+                                  <span className="text-gray-800 flex items-center gap-2 min-w-0">
+                                    <span className="truncate">
+                                      {service.nombre}
+                                    </span>
+                                    {locked && (
+                                      <span
+                                        title="Va siempre con esta categoría (sección fija)"
+                                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
+                                      >
+                                        <Lock size={10} /> fijo
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="flex items-center gap-3 shrink-0">
+                                    <span className="text-gray-500">
+                                      ${service.precio.toLocaleString()}
+                                    </span>
+                                    <QuantitySelector
+                                      value={service.quantity}
+                                      onChange={(newQuantity) =>
+                                        updateServiceQuantity(
+                                          service.codigo,
+                                          newQuantity,
+                                          box.id,
+                                        )
+                                      }
+                                      min={locked ? 1 : 0}
+                                      disabled={isRestrictedEditing}
+                                    />
+                                    <span className="font-bold text-gray-900 w-14 text-right">
+                                      ×
+                                      {(
+                                        service.quantity * boxPeople(box)
+                                      ).toLocaleString("es-CL")}
+                                    </span>
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ));
+                      })()}
+
+                      {/* Menus guardados de esta categoria + guardar el actual */}
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="relative dropdown-container">
+                          {(() => {
+                            const boxGroups = serviceGroups.filter(
+                              (g) =>
+                                !box.selectedCategory ||
+                                g.category === box.selectedCategory,
+                            );
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenDropdown(
+                                      openDropdown === `groups-${box.id}`
+                                        ? null
+                                        : `groups-${box.id}`,
                                     )
                                   }
-                                  min={locked ? 1 : 0}
-                                  disabled={isRestrictedEditing}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                                  disabled={
+                                    isRestrictedEditing ||
+                                    boxGroups.length === 0
+                                  }
+                                  className="text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
+                                >
+                                  Usar un menú guardado de esta categoría…
+                                </button>
+                                {openDropdown === `groups-${box.id}` &&
+                                  boxGroups.length > 0 && (
+                                    <div className="absolute left-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                      {boxGroups.map((group) => (
+                                        <div
+                                          key={group.id}
+                                          className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              loadGroupIntoBox(box.id, group);
+                                              setOpenDropdown(null);
+                                            }}
+                                            className="flex-1 text-left text-sm"
+                                          >
+                                            <span className="text-gray-900">
+                                              {group.name}
+                                            </span>{" "}
+                                            <span className="text-gray-500">
+                                              ({group.category})
+                                            </span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (
+                                                window.confirm(
+                                                  `¿Eliminar el menú "${group.name}"?`,
+                                                )
+                                              ) {
+                                                await removeServiceGroup(
+                                                  group.id,
+                                                );
+                                              }
+                                            }}
+                                            className="ml-2 text-red-600 hover:text-red-800"
+                                            title="Eliminar menú guardado"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                        {!box.groupName &&
+                          box.services.length > 0 &&
+                          !isRestrictedEditing && (
+                            <button
+                              type="button"
+                              onClick={() => openSaveGroupModal(box.id)}
+                              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                              title="Guardar esta categoría y sus items como menú"
+                            >
+                              <Layers size={13} />
+                              Guardar como menú
+                            </button>
+                          )}
                       </div>
                     </div>
                   )}
