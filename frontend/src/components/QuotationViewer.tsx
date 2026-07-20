@@ -210,7 +210,7 @@ export default function QuotationViewer({
     .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
     .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
     .qv-marca { display:flex; gap:14px; align-items:center; }
-    .qv-logo { width:54px; height:54px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; overflow:hidden; }
+    .qv-logo { width:72px; height:72px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:26px; overflow:hidden; }
     .qv-logo img { width:100%; height:100%; object-fit:cover; }
     .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
     .qv-folio { text-align:right; }
@@ -235,6 +235,10 @@ export default function QuotationViewer({
     .qv-val td { font-size:12.5px; padding:6px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
     .qv-val .der { text-align:right; white-space:nowrap; font-weight:600; color:#111827; }
     .qv-val .calc { color:#6b7280; font-weight:400; }
+    .qv-val td:first-child { width:100%; }
+    .qv-val .dia { color:#6b7280; white-space:nowrap; }
+    .qv-val .per { text-align:right; white-space:nowrap; }
+    .qv-val .unit { text-align:right; white-space:nowrap; color:#6b7280; font-weight:400; }
     .qv-val tr.sub td { font-weight:800; color:#111827; background:${brandS || "#f9fafb"}; }
     .qv-resumen { margin-top:22px; margin-left:auto; width:320px; }
     .qv-resumen .linea { display:flex; justify-content:space-between; font-size:12.5px; color:#4b5563; padding:4px 12px; }
@@ -306,18 +310,25 @@ export default function QuotationViewer({
         .join("")
     : `<table class="qv-prog">${sortedGroups.map(progRow).join("")}</table>`;
 
+  // Tabla de valores en columnas alineadas: Concepto | Día | Personas |
+  // Valor | Monto. En eventos de un día la columna Día no existe. Las
+  // filas de valor por persona cubren todo el evento: su celda Día va
+  // con "—".
+  const valCols = multiDay ? 5 : 4;
+  const diaCell = (txt: string) =>
+    multiDay ? `<td class="dia">${txt}</td>` : "";
   const valoresRows = [
     adults > 0 && perAdulto > 0
-      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td><td class="der"><span class="calc">${clp(perAdulto)} × ${adults.toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(perAdulto * adults)}</td></tr>`
+      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td>${diaCell("—")}<td class="per">${adults.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perAdulto)}</td><td class="der">${clp(perAdulto * adults)}</td></tr>`
       : "",
     kids > 0 && perNino > 0
-      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td><td class="der"><span class="calc">${clp(perNino)} × ${kids.toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(perNino * kids)}</td></tr>`
+      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td>${diaCell("—")}<td class="per">${kids.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perNino)}</td><td class="der">${clp(perNino * kids)}</td></tr>`
       : "",
     ...partials.map(
       (g) =>
-        `<tr><td><b>${esc(g.category || "Servicio")}</b> <span class="calc">·${multiDay ? ` Día ${Math.min(g.day || 1, daysCount)} ·` : ""} ${groupPeople(g).toLocaleString("es-CL")} personas</span></td><td class="der"><span class="calc">${clp(groupPerPerson(g))} × ${groupPeople(g).toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
+        `<tr><td>${esc(g.category || "Servicio")}</td>${diaCell(`Día ${Math.min(g.day || 1, daysCount)}`)}<td class="per">${groupPeople(g).toLocaleString("es-CL")} personas</td><td class="unit">${clp(groupPerPerson(g))}</td><td class="der">${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
     ),
-    `<tr class="sub"><td>Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
+    `<tr class="sub"><td colspan="${valCols - 1}">Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
   ].join("");
 
   const fijosRows =
