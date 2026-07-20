@@ -2879,22 +2879,76 @@ export default function QuotationForm() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Servicios fijos del evento
             </h3>
-            <div className="space-y-3">
-              {selectedFixedServices.map((service, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
-                >
-                  <div className="flex-1">
+            <div>
+              {selectedFixedServices.map((service, index) =>
+                service?.codigo ? (
+                  /* Servicio elegido: fila limpia estilo mockup */
+                  <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 text-sm"
+                  >
+                    <span className="text-gray-800 truncate">
+                      {service.nombre}
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0 text-gray-500">
+                      <span className="font-medium text-gray-900">
+                        $
+                        {(
+                          service.precio_calculado * service.quantity
+                        ).toLocaleString()}
+                      </span>
+                      <span>×{service.quantity}</span>
+                      {eventDaysCount > 1 && (
+                        <select
+                          value={Math.min(service.day || 0, eventDaysCount)}
+                          onChange={(e) =>
+                            setSelectedFixedServices((prev) =>
+                              prev.map((f, i) =>
+                                i === index
+                                  ? { ...f, day: Number(e.target.value) }
+                                  : f,
+                              ),
+                            )
+                          }
+                          disabled={isRestrictedEditing}
+                          className="text-sm text-gray-500 bg-transparent border-0 focus:ring-0 cursor-pointer"
+                          title="Día del evento (o todo el evento)"
+                        >
+                          <option value={0}>todo el evento</option>
+                          {Array.from({ length: eventDaysCount }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {dayLabel(i + 1)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {!isRestrictedEditing && (
+                        <button
+                          onClick={() => removeFixedService(index)}
+                          className="text-gray-300 hover:text-red-600"
+                          title="Quitar"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  /* Fila en seleccion: solo el selector, sin ruido */
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 py-2 border-b border-gray-100"
+                  >
                     <select
-                      value={service?.codigo || ""}
+                      value=""
                       onChange={(e) =>
                         handleFixedServiceSelect(e.target.value, index)
                       }
                       disabled={isRestrictedEditing}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      autoFocus
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">Seleccionar servicio fijo</option>
+                      <option value="">Seleccionar servicio fijo…</option>
                       {fixedServices.map((fixedService) => (
                         <option
                           key={fixedService.codigo}
@@ -2904,63 +2958,28 @@ export default function QuotationForm() {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {eventDaysCount > 1 && (
-                      <select
-                        value={Math.min(service.day || 0, eventDaysCount)}
-                        onChange={(e) =>
-                          setSelectedFixedServices((prev) =>
-                            prev.map((f, i) =>
-                              i === index
-                                ? { ...f, day: Number(e.target.value) }
-                                : f,
-                            ),
-                          )
-                        }
-                        disabled={isRestrictedEditing}
-                        className="text-xs border border-blue-200 bg-blue-50 text-blue-800 font-semibold rounded-md px-2 py-1"
-                        title="Día del evento (o todo el evento)"
-                      >
-                        <option value={0}>Todo el evento</option>
-                        {Array.from({ length: eventDaysCount }, (_, i) => (
-                          <option key={i + 1} value={i + 1}>
-                            {dayLabel(i + 1)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <span className="font-medium text-gray-900 w-20 text-right">
-                      $
-                      {service
-                        ? (
-                            service.precio_calculado * service.quantity
-                          ).toLocaleString()
-                        : "0"}
-                    </span>
                     {!isRestrictedEditing && (
                       <button
                         onClick={() => removeFixedService(index)}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-gray-300 hover:text-red-600"
+                        title="Cancelar"
                       >
                         <Trash2 size={14} />
                       </button>
                     )}
                   </div>
-                </div>
-              ))}
+                ),
+              )}
 
-              {/* Add more services button */}
               <button
                 onClick={addNewFixedServiceSlot}
-                disabled={isRestrictedEditing}
-                className={`w-full py-2 px-3 border-2 border-dashed rounded-lg transition-colors flex items-center justify-center space-x-2 ${
-                  isRestrictedEditing
-                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600"
-                }`}
+                disabled={
+                  isRestrictedEditing ||
+                  selectedFixedServices.some((s) => !s.codigo)
+                }
+                className="mt-2 text-sm font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
               >
-                <span className="text-sm">+ Agregar más servicios</span>
+                + Agregar servicio fijo
               </button>
             </div>
           </div>
