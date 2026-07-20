@@ -91,6 +91,25 @@ export default function QuotationViewer({
     );
   const isFull = (g: VarGroup) => groupPeople(g) === audienceTotal(g);
 
+  // Orden de presentación: por día, luego por el orden de las categorías
+  // en el sistema, y adultos antes que niños. Aplica al programa y a la
+  // tabla de valores por igual.
+  const catRank = (name?: string) => {
+    if (!menu || !name) return 9999;
+    const i = menu.categories.findIndex((c) => c.name === name);
+    return i === -1 ? 9999 : i;
+  };
+  const sortedGroups = [...varGroups].sort(
+    (a, b) =>
+      (a.day || 1) - (b.day || 1) ||
+      catRank(a.category) - catRank(b.category) ||
+      (audienceOf(a) === audienceOf(b)
+        ? 0
+        : audienceOf(a) === "adultos"
+          ? -1
+          : 1),
+  );
+
   const variableTotal = varGroups.reduce(
     (s, g) => s + groupPerPerson(g) * groupPeople(g),
     0,
@@ -101,7 +120,7 @@ export default function QuotationViewer({
   const perNino = varGroups
     .filter((g) => audienceOf(g) === "ninos" && isFull(g))
     .reduce((s, g) => s + groupPerPerson(g), 0);
-  const partials = varGroups.filter((g) => !isFull(g));
+  const partials = sortedGroups.filter((g) => !isFull(g));
 
   const fixedTotal = fixedList.reduce(
     (s, f) => s + (f.precio || 0) * (f.quantity || 1),
@@ -165,45 +184,66 @@ export default function QuotationViewer({
     { day: "numeric", month: "long", year: "numeric" },
   );
 
+  // ---------- Colores de marca ----------
+  // Primario: acentos de identidad (línea del encabezado, "COTIZACIÓN",
+  // títulos de sección, etiqueta ADULTOS, panel TOTAL A PAGAR, logo sin
+  // imagen). Secundario: fondos suaves (franjas de día, fila de subtotal,
+  // caja de observaciones). Si la empresa no configuró colores, se usa el
+  // azul y los grises del mockup aprobado. El texto sobre el primario se
+  // elige blanco o negro automáticamente según la luminosidad del color.
+  const hexOk = (c?: string) =>
+    c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+  const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
+  const brandS = hexOk(company?.colors?.secondary);
+  const onBrandP = (() => {
+    const n = parseInt(brandP.slice(1), 16);
+    const lum =
+      (0.299 * ((n >> 16) & 255) +
+        0.587 * ((n >> 8) & 255) +
+        0.114 * (n & 255)) /
+      255;
+    return lum > 0.6 ? "#111827" : "#fff";
+  })();
+
   // ---------- Plantilla (mockup aprobado) ----------
   const css = `
     .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
-    .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a8a; padding-bottom:18px; }
+    .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
     .qv-marca { display:flex; gap:14px; align-items:center; }
-    .qv-logo { width:54px; height:54px; border-radius:50%; background:#1e3a8a; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; overflow:hidden; }
+    .qv-logo { width:54px; height:54px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; overflow:hidden; }
     .qv-logo img { width:100%; height:100%; object-fit:cover; }
     .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
     .qv-folio { text-align:right; }
-    .qv-folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:#1e3a8a; text-transform:uppercase; }
+    .qv-folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
     .qv-folio .num { font-size:26px; font-weight:800; }
     .qv-folio .fecha { font-size:11px; color:#6b7280; margin-top:2px; }
     .qv-datos { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px 24px; padding:18px 0; border-bottom:1px solid #e5e7eb; }
     .qv-dato .k { font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9ca3af; text-transform:uppercase; }
     .qv-dato .v { font-size:13px; font-weight:600; margin-top:1px; }
     .qv-dato .v small { font-weight:400; color:#6b7280; }
-    .qv-hoja h2 { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:#1e3a8a; margin:26px 0 10px; }
+    .qv-hoja h2 { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:${brandP}; margin:26px 0 10px; }
     .qv-dia { margin-bottom:12px; }
-    .qv-dia h3 { font-size:12px; font-weight:800; color:#374151; background:#f3f4f6; border-radius:6px; padding:5px 10px; margin:0 0 4px; }
+    .qv-dia h3 { font-size:12px; font-weight:800; color:#374151; background:${brandS || "#f3f4f6"}; border-radius:6px; padding:5px 10px; margin:0 0 4px; }
     .qv-prog { width:100%; border-collapse:collapse; }
     .qv-prog td { font-size:12.5px; padding:5px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
     .qv-prog tr:last-child td { border-bottom:none; }
     .qv-prog .aud { text-align:right; color:#6b7280; font-size:11.5px; white-space:nowrap; vertical-align:top; padding-top:7px; }
     .qv-prog .inc { font-size:11px; color:#6b7280; font-weight:400; margin-top:2px; line-height:1.5; }
-    .qv-tagA { color:#1e3a8a; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
+    .qv-tagA { color:${brandP}; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
     .qv-tagN { color:#b45309; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
     .qv-val { width:100%; border-collapse:collapse; }
     .qv-val td { font-size:12.5px; padding:6px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
     .qv-val .der { text-align:right; white-space:nowrap; font-weight:600; color:#111827; }
     .qv-val .calc { color:#6b7280; font-weight:400; }
-    .qv-val tr.sub td { font-weight:800; color:#111827; background:#f9fafb; }
+    .qv-val tr.sub td { font-weight:800; color:#111827; background:${brandS || "#f9fafb"}; }
     .qv-resumen { margin-top:22px; margin-left:auto; width:320px; }
     .qv-resumen .linea { display:flex; justify-content:space-between; font-size:12.5px; color:#4b5563; padding:4px 12px; }
     .qv-resumen .linea b { color:#111827; }
     .qv-resumen .iva-box { border-top:1px solid #e5e7eb; margin-top:4px; padding-top:4px; }
     .qv-resumen .totcon { display:flex; justify-content:space-between; background:#fef3c7; font-size:13px; font-weight:800; padding:7px 12px; border-radius:6px; margin-top:6px; }
     .qv-resumen .prop { display:flex; justify-content:space-between; font-size:12px; color:#6b7280; padding:5px 12px; border-bottom:1px dashed #e5e7eb; }
-    .qv-resumen .final { display:flex; justify-content:space-between; background:#1e3a8a; color:#fff; font-size:14.5px; font-weight:800; padding:9px 12px; border-radius:6px; margin-top:6px; }
-    .qv-obs { margin-top:24px; background:#f9fafb; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
+    .qv-resumen .final { display:flex; justify-content:space-between; background:${brandP}; color:${onBrandP}; font-size:14.5px; font-weight:800; padding:9px 12px; border-radius:6px; margin-top:6px; }
+    .qv-obs { margin-top:24px; background:${brandS || "#f9fafb"}; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
     .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
     .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
     @media print {
@@ -247,15 +287,15 @@ export default function QuotationViewer({
 
   const progRow = (g: VarGroup) => {
     const inc = includesOf(g);
-    return `<tr><td>${esc(g.category || "Servicio")}${
-      inc ? `<div class="inc">Incluye: ${esc(inc)}</div>` : ""
+    return `<tr><td><b>${esc(g.category || "Servicio")}</b>${
+      inc ? `<div class="inc"><b>Incluye:</b> ${esc(inc)}</div>` : ""
     }</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
   };
 
   const programa = multiDay
     ? Array.from({ length: daysCount }, (_, i) => i + 1)
         .map((n) => {
-          const del = varGroups.filter(
+          const del = sortedGroups.filter(
             (g) => Math.min(g.day || 1, daysCount) === n,
           );
           if (del.length === 0) return "";
@@ -264,7 +304,7 @@ export default function QuotationViewer({
             .join("")}</table></div>`;
         })
         .join("")
-    : `<table class="qv-prog">${varGroups.map(progRow).join("")}</table>`;
+    : `<table class="qv-prog">${sortedGroups.map(progRow).join("")}</table>`;
 
   const valoresRows = [
     adults > 0 && perAdulto > 0
@@ -275,7 +315,7 @@ export default function QuotationViewer({
       : "",
     ...partials.map(
       (g) =>
-        `<tr><td>${esc(g.category || "Servicio")} <span class="calc">·${multiDay ? ` Día ${Math.min(g.day || 1, daysCount)} ·` : ""} ${groupPeople(g).toLocaleString("es-CL")} personas</span></td><td class="der"><span class="calc">${clp(groupPerPerson(g))} × ${groupPeople(g).toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
+        `<tr><td><b>${esc(g.category || "Servicio")}</b> <span class="calc">·${multiDay ? ` Día ${Math.min(g.day || 1, daysCount)} ·` : ""} ${groupPeople(g).toLocaleString("es-CL")} personas</span></td><td class="der"><span class="calc">${clp(groupPerPerson(g))} × ${groupPeople(g).toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
     ),
     `<tr class="sub"><td>Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
   ].join("");
