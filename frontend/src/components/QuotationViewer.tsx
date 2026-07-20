@@ -210,7 +210,7 @@ export default function QuotationViewer({
     .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
     .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
     .qv-marca { display:flex; gap:14px; align-items:center; }
-    .qv-logo { width:72px; height:72px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:26px; overflow:hidden; }
+    .qv-logo { width:88px; height:88px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:32px; overflow:hidden; }
     .qv-logo img { width:100%; height:100%; object-fit:cover; }
     .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
     .qv-folio { text-align:right; }
