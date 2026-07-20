@@ -175,6 +175,8 @@ export default function QuotationForm() {
   const [clientContacts, setClientContacts] = useState<ClientContact[]>([]);
   const [newContactOpen, setNewContactOpen] = useState(false);
   const [newContactName, setNewContactName] = useState("");
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -866,6 +868,8 @@ export default function QuotationForm() {
       company_id: company.id,
       client_id: formData.client_id,
       name,
+      email: newContactEmail.trim() || null,
+      phone: newContactPhone.trim() || null,
     });
     setSavingContact(false);
     if (!error && data) {
@@ -875,6 +879,8 @@ export default function QuotationForm() {
       setFormData((prev) => ({ ...prev, contact_name: data.name }));
       setNewContactOpen(false);
       setNewContactName("");
+      setNewContactEmail("");
+      setNewContactPhone("");
     }
   };
 
@@ -1643,7 +1649,76 @@ export default function QuotationForm() {
               ✏️ Editando cotización existente
             </div>
           )}
-          {isRestrictedEditing && (
+          {/* Modal: nueva persona de contacto (nombre obligatorio; correo y
+          telefono opcionales — hay contactos solo-telefono o solo-correo) */}
+      {newContactOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">Nueva persona</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Nombre *
+                </label>
+                <input
+                  autoFocus
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Ej: Juanita Pérez"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Correo
+                </label>
+                <input
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => setNewContactEmail(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Teléfono
+                </label>
+                <input
+                  value={newContactPhone}
+                  onChange={(e) => setNewContactPhone(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="+56 9 ..."
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewContactOpen(false);
+                    setNewContactName("");
+                    setNewContactEmail("");
+                    setNewContactPhone("");
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={addClientContact}
+                  disabled={savingContact || !newContactName.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingContact ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRestrictedEditing && (
             <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
               🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas
             </div>
@@ -1753,10 +1828,28 @@ export default function QuotationForm() {
                   Persona de contacto
                 </label>
                 <SelectWithSearch
-                  options={clientContacts.map((c) => ({
-                    value: c.name,
-                    label: c.name,
-                  }))}
+                  options={(() => {
+                    // Contactos de la tabla + el contact_person historico
+                    // del cliente (clientes creados despues del backfill),
+                    // sin duplicar.
+                    const names = clientContacts.map((c) => c.name);
+                    const legacy = (
+                      clients.find((c) => c.id === formData.client_id) as
+                        | { contact_person?: string | null }
+                        | undefined
+                    )?.contact_person?.trim();
+                    if (
+                      legacy &&
+                      !names.some(
+                        (n) => n.toLowerCase() === legacy.toLowerCase(),
+                      )
+                    ) {
+                      names.push(legacy);
+                    }
+                    return names
+                      .sort((a, b) => a.localeCompare(b))
+                      .map((n) => ({ value: n, label: n }));
+                  })()}
                   value={formData.contact_name || ""}
                   onChange={(value) =>
                     setFormData((prev) => ({
@@ -1773,41 +1866,14 @@ export default function QuotationForm() {
                   noResultsText="Sin contactos para este cliente"
                   disabled={isRestrictedEditing || !formData.client_id}
                 />
-                {!newContactOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => setNewContactOpen(true)}
-                    disabled={isRestrictedEditing || !formData.client_id}
-                    className="mt-1 text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300"
-                  >
-                    + Nueva persona
-                  </button>
-                ) : (
-                  <div className="mt-1 flex items-center gap-1">
-                    <input
-                      autoFocus
-                      value={newContactName}
-                      onChange={(e) => setNewContactName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addClientContact();
-                        if (e.key === "Escape") {
-                          setNewContactOpen(false);
-                          setNewContactName("");
-                        }
-                      }}
-                      placeholder="Nombre de la persona"
-                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <button
-                      type="button"
-                      onClick={addClientContact}
-                      disabled={savingContact || !newContactName.trim()}
-                      className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded disabled:opacity-50"
-                    >
-                      {savingContact ? "…" : "Guardar"}
-                    </button>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setNewContactOpen(true)}
+                  disabled={isRestrictedEditing || !formData.client_id}
+                  className="mt-1 text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300"
+                >
+                  + Nueva persona
+                </button>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1823,7 +1889,7 @@ export default function QuotationForm() {
                     }))
                   }
                   disabled={isRestrictedEditing}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Seleccionar tipo</option>
                   {Object.values(EventType).map((type) => (
@@ -1864,7 +1930,7 @@ export default function QuotationForm() {
                     });
                   }}
                   disabled={isRestrictedEditing}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1883,7 +1949,7 @@ export default function QuotationForm() {
                     }));
                   }}
                   disabled={isRestrictedEditing || !formData.event_date}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
             </div>

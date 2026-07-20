@@ -10,6 +10,10 @@ export interface ClientContact {
   company_id: number;
   client_id: string;
   name: string;
+  // Opcionales: hay contactos que se comunican solo por teléfono o solo
+  // por correo — exigir más que el nombre afectaría la operación.
+  email: string | null;
+  phone: string | null;
   created_at: string;
 }
 
@@ -32,6 +36,8 @@ export const createClientContact = async (fields: {
   company_id: number;
   client_id: string;
   name: string;
+  email?: string | null;
+  phone?: string | null;
 }) => {
   const { data, error } = await supabase
     .from("client_contacts")
