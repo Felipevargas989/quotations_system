@@ -1,76 +1,31 @@
-import { X, Download, FileText, CheckCircle } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { X, Download, FileText } from "lucide-react";
 import { QuotationWithClient } from "../types/quotations.types";
 import { useAuth } from "../contexts/AuthContext";
-import { formatISOUTCDateToString } from "../utils/dates";
 
-// User-defined colors (only 2 required)
-export interface UserColorConfig {
-  primary: string;
-  secondary: string;
-}
-
-// Full color palette used internally
-interface ColorPalette {
-  primary: string;
-  primaryDark: string;
-  secondary: string;
-  secondaryDark: string;
-  accent: string;
-  accentDark: string;
-  success: string;
-  successDark: string;
-}
+// Visor de cotización + PDF al cliente (mockup aprobado 20-07).
+// UNA sola plantilla HTML para la pantalla (el "ojo") y para imprimir:
+// lo que se ve es exactamente lo que recibe el cliente.
+//
+// Reglas del documento (definidas por Felipe):
+// - El cliente NO ve el detalle de platos ni precios internos: solo el
+//   programa por día, los valores por audiencia (por persona × personas),
+//   los servicios parciales como línea propia y los fijos en detalle.
+// - La propina es "Propina sugerida" y si no existe NO aparece.
+// - Neto/IVA se calculan sobre el total SIN propina (la propina no lleva
+//   IVA y se suma al final).
 
 interface QuotationViewerProps {
   quotation: QuotationWithClient;
   onClose: () => void;
 }
 
-// Default user colors
-export const defaultUserColors: UserColorConfig = {
-  primary: "#ED3F27",
-  secondary: "#134686",
-};
+const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
-// Utility function to darken a hex color
-const darkenColor = (hex: string, percent: number = 15): string => {
-  // Remove # if present
-  hex = hex.replace("#", "");
-
-  // Convert to RGB
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-
-  // Darken
-  const darkenValue = (val: number) =>
-    Math.max(0, Math.floor(val * (1 - percent / 100)));
-
-  const newR = darkenValue(r);
-  const newG = darkenValue(g);
-  const newB = darkenValue(b);
-
-  // Convert back to hex
-  const toHex = (val: number) => val.toString(16).padStart(2, "0");
-
-  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
-};
-
-// Generate full color palette from user colors
-const generateColorPalette = (userColors: UserColorConfig): ColorPalette => {
-  return {
-    primary: userColors.primary,
-    primaryDark: darkenColor(userColors.primary, 20),
-    secondary: userColors.secondary,
-    secondaryDark: darkenColor(userColors.secondary, 20),
-    accent: userColors.primary, // Use primary for accent
-    accentDark: darkenColor(userColors.primary, 25),
-    success: userColors.secondary, // Use secondary for success
-    successDark: darkenColor(userColors.secondary, 20),
-  };
-};
+const esc = (s: string) =>
+  String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
 export default function QuotationViewer({
   quotation,
@@ -78,47 +33,292 @@ export default function QuotationViewer({
 }: QuotationViewerProps) {
   const { company } = useAuth();
 
-  // Use company colors if available, otherwise use provided colors or defaults
-  const finalColors = company?.colors || defaultUserColors;
+  // ---------- Datos base ----------
+  const kids = Number(quotation.children_count || 0);
+  const adults = Math.max(0, Number(quotation.people_count || 0) - kids);
 
-  // Generate full color palette from user colors
-  const colorPalette = generateColorPalette(finalColors);
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "solicitada":
-        return "bg-yellow-100 text-yellow-800";
-      case "enviada":
-        return "bg-blue-100 text-blue-800";
-      case "en_negociacion":
-        return "bg-purple-100 text-purple-800";
-      case "aceptada":
-        return "bg-green-100 text-green-800";
-      case "rechazada":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  type VarGroup = {
+    category?: string;
+    day?: number;
+    audience?: string;
+    people?: number;
+    items?: { precio?: number; quantity?: number }[];
   };
+  const varGroups: VarGroup[] = (quotation.items?.variable_services ||
+    []) as VarGroup[];
+  const fixedList = (quotation.items?.fixed_services || []) as {
+    nombre?: string;
+    precio?: number;
+    quantity?: number;
+    day?: number;
+  }[];
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "solicitada":
-        return "📋 Solicitada";
-      case "enviada":
-        return "📤 Enviada";
-      case "en_negociacion":
-        return "💬 En Negociación";
-      case "aceptada":
-        return "✅ Aceptada";
-      case "rechazada":
-        return "❌ Rechazada";
-      default:
-        return status;
+  const audienceOf = (g: VarGroup) =>
+    g.audience === "ninos" ? "ninos" : "adultos";
+  const audienceTotal = (g: VarGroup) =>
+    audienceOf(g) === "ninos" ? kids : adults;
+  const groupPeople = (g: VarGroup) =>
+    typeof g.people === "number"
+      ? g.people
+      : audienceTotal(g) || Number(quotation.people_count || 0);
+  const groupPerPerson = (g: VarGroup) =>
+    (g.items || []).reduce(
+      (s, it) => s + (it.precio || 0) * (it.quantity || 1),
+      0,
+    );
+  const isFull = (g: VarGroup) => groupPeople(g) === audienceTotal(g);
+
+  const variableTotal = varGroups.reduce(
+    (s, g) => s + groupPerPerson(g) * groupPeople(g),
+    0,
+  );
+  const perAdulto = varGroups
+    .filter((g) => audienceOf(g) === "adultos" && isFull(g))
+    .reduce((s, g) => s + groupPerPerson(g), 0);
+  const perNino = varGroups
+    .filter((g) => audienceOf(g) === "ninos" && isFull(g))
+    .reduce((s, g) => s + groupPerPerson(g), 0);
+  const partials = varGroups.filter((g) => !isFull(g));
+
+  const fixedTotal = fixedList.reduce(
+    (s, f) => s + (f.precio || 0) * (f.quantity || 1),
+    0,
+  );
+
+  // Propina: se recalcula (no se guarda el monto)
+  const tipPct = quotation.tip_percentage;
+  const tipAmount =
+    tipPct != null && tipPct > 0
+      ? Math.round(variableTotal * (tipPct / 100))
+      : 0;
+  const totalConIva = Math.round(
+    Number(quotation.total_amount || 0) - tipAmount,
+  );
+  const neto = Math.round(totalConIva / 1.19);
+  const iva = totalConIva - neto;
+  const subtotal = Math.round(Number(quotation.subtotal_amount || 0));
+  const discount = Math.max(0, subtotal - totalConIva);
+
+  // ---------- Fechas ----------
+  const startMs = new Date(String(quotation.event_date)).getTime();
+  const endMs = quotation.event_end_date
+    ? new Date(String(quotation.event_end_date)).getTime()
+    : NaN;
+  const daysCount =
+    Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+      ? Math.min(60, Math.round((endMs - startMs) / 86400000) + 1)
+      : 1;
+  const multiDay = daysCount > 1;
+
+  const fmtLarga = (ms: number) =>
+    new Date(ms).toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC",
+    });
+  const eventDateLabel = (() => {
+    if (!Number.isFinite(startMs)) return "—";
+    const y = new Date(startMs).toLocaleDateString("es-CL", {
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    if (!multiDay) return `${fmtLarga(startMs)} ${y}`;
+    const d1 = new Date(startMs).toLocaleDateString("es-CL", {
+      day: "numeric",
+      timeZone: "UTC",
+    });
+    const d2 = new Date(endMs).toLocaleDateString("es-CL", {
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC",
+    });
+    return `${d1} al ${d2} ${y} <small>(${daysCount} días)</small>`;
+  })();
+  const dayHeader = (n: number) =>
+    `Día ${n} — ${fmtLarga(startMs + (n - 1) * 86400000)}`;
+  const emittedLabel = new Date(quotation.created_at).toLocaleDateString(
+    "es-CL",
+    { day: "numeric", month: "long", year: "numeric" },
+  );
+
+  // ---------- Plantilla (mockup aprobado) ----------
+  const css = `
+    .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
+    .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a8a; padding-bottom:18px; }
+    .qv-marca { display:flex; gap:14px; align-items:center; }
+    .qv-logo { width:54px; height:54px; border-radius:50%; background:#1e3a8a; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; overflow:hidden; }
+    .qv-logo img { width:100%; height:100%; object-fit:cover; }
+    .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
+    .qv-folio { text-align:right; }
+    .qv-folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:#1e3a8a; text-transform:uppercase; }
+    .qv-folio .num { font-size:26px; font-weight:800; }
+    .qv-folio .fecha { font-size:11px; color:#6b7280; margin-top:2px; }
+    .qv-datos { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px 24px; padding:18px 0; border-bottom:1px solid #e5e7eb; }
+    .qv-dato .k { font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9ca3af; text-transform:uppercase; }
+    .qv-dato .v { font-size:13px; font-weight:600; margin-top:1px; }
+    .qv-dato .v small { font-weight:400; color:#6b7280; }
+    .qv-hoja h2 { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:#1e3a8a; margin:26px 0 10px; }
+    .qv-dia { margin-bottom:12px; }
+    .qv-dia h3 { font-size:12px; font-weight:800; color:#374151; background:#f3f4f6; border-radius:6px; padding:5px 10px; margin:0 0 4px; }
+    .qv-prog { width:100%; border-collapse:collapse; }
+    .qv-prog td { font-size:12.5px; padding:5px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
+    .qv-prog tr:last-child td { border-bottom:none; }
+    .qv-prog .aud { text-align:right; color:#6b7280; font-size:11.5px; white-space:nowrap; }
+    .qv-tagA { color:#1e3a8a; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
+    .qv-tagN { color:#b45309; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
+    .qv-val { width:100%; border-collapse:collapse; }
+    .qv-val td { font-size:12.5px; padding:6px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
+    .qv-val .der { text-align:right; white-space:nowrap; font-weight:600; color:#111827; }
+    .qv-val .calc { color:#6b7280; font-weight:400; }
+    .qv-val tr.sub td { font-weight:800; color:#111827; background:#f9fafb; }
+    .qv-resumen { margin-top:22px; margin-left:auto; width:320px; }
+    .qv-resumen .linea { display:flex; justify-content:space-between; font-size:12.5px; color:#4b5563; padding:4px 12px; }
+    .qv-resumen .linea b { color:#111827; }
+    .qv-resumen .iva-box { border-top:1px solid #e5e7eb; margin-top:4px; padding-top:4px; }
+    .qv-resumen .totcon { display:flex; justify-content:space-between; background:#fef3c7; font-size:13px; font-weight:800; padding:7px 12px; border-radius:6px; margin-top:6px; }
+    .qv-resumen .prop { display:flex; justify-content:space-between; font-size:12px; color:#6b7280; padding:5px 12px; border-bottom:1px dashed #e5e7eb; }
+    .qv-resumen .final { display:flex; justify-content:space-between; background:#1e3a8a; color:#fff; font-size:14.5px; font-weight:800; padding:9px 12px; border-radius:6px; margin-top:6px; }
+    .qv-obs { margin-top:24px; background:#f9fafb; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
+    .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
+    .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff !important; }
+      .qv-hoja { padding: 0; }
     }
-  };
+  `;
+
+  const audTag = (g: VarGroup) =>
+    audienceOf(g) === "ninos"
+      ? `<span class="qv-tagN">NIÑOS</span>`
+      : `<span class="qv-tagA">ADULTOS</span>`;
+
+  const progRow = (g: VarGroup) =>
+    `<tr><td>${esc(g.category || "Servicio")}</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
+
+  const programa = multiDay
+    ? Array.from({ length: daysCount }, (_, i) => i + 1)
+        .map((n) => {
+          const del = varGroups.filter(
+            (g) => Math.min(g.day || 1, daysCount) === n,
+          );
+          if (del.length === 0) return "";
+          return `<div class="qv-dia"><h3>${esc(dayHeader(n))}</h3><table class="qv-prog">${del
+            .map(progRow)
+            .join("")}</table></div>`;
+        })
+        .join("")
+    : `<table class="qv-prog">${varGroups.map(progRow).join("")}</table>`;
+
+  const valoresRows = [
+    adults > 0 && perAdulto > 0
+      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td><td class="der"><span class="calc">${clp(perAdulto)} × ${adults.toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(perAdulto * adults)}</td></tr>`
+      : "",
+    kids > 0 && perNino > 0
+      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td><td class="der"><span class="calc">${clp(perNino)} × ${kids.toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(perNino * kids)}</td></tr>`
+      : "",
+    ...partials.map(
+      (g) =>
+        `<tr><td>${esc(g.category || "Servicio")} <span class="calc">·${multiDay ? ` Día ${Math.min(g.day || 1, daysCount)} ·` : ""} ${groupPeople(g).toLocaleString("es-CL")} personas</span></td><td class="der"><span class="calc">${clp(groupPerPerson(g))} × ${groupPeople(g).toLocaleString("es-CL")} personas&nbsp;&nbsp;</span> ${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
+    ),
+    `<tr class="sub"><td>Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
+  ].join("");
+
+  const fijosRows =
+    fixedList.length > 0
+      ? [
+          ...fixedList.map((f) => {
+            const qty = f.quantity || 1;
+            const dayTag = multiDay
+              ? ` <span class="calc">· ${
+                  !f.day || f.day === 0
+                    ? "todo el evento"
+                    : `Día ${Math.min(f.day, daysCount)}`
+                }</span>`
+              : "";
+            return `<tr><td>${esc(f.nombre || "")}${qty > 1 ? ` <span class="calc">×${qty}</span>` : ""}${dayTag}</td><td class="der">${clp((f.precio || 0) * qty)}</td></tr>`;
+          }),
+          `<tr class="sub"><td>Subtotal servicios fijos</td><td class="der">${clp(fixedTotal)}</td></tr>`,
+        ].join("")
+      : "";
+
+  const logoHtml = company?.logo_url
+    ? `<img src="${esc(company.logo_url)}" alt="logo">`
+    : esc(
+        (company?.name || "E")
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      );
+
+  const body = `
+    <div class="qv-hoja">
+      <div class="qv-head">
+        <div class="qv-marca">
+          <div class="qv-logo">${logoHtml}</div>
+          <div><h1>${esc(company?.name || "Empresa")}</h1></div>
+        </div>
+        <div class="qv-folio">
+          <div class="tipo">Cotización</div>
+          <div class="num">N° ${quotation.quotation_number}</div>
+          <div class="fecha">Emitida el ${esc(emittedLabel)}</div>
+        </div>
+      </div>
+
+      <div class="qv-datos">
+        <div class="qv-dato"><div class="k">Cliente</div><div class="v">${esc(quotation.clients?.name || "—")}</div></div>
+        ${
+          quotation.contact_name
+            ? `<div class="qv-dato"><div class="k">Persona de contacto</div><div class="v">${esc(quotation.contact_name)}</div></div>`
+            : ""
+        }
+        <div class="qv-dato"><div class="k">Tipo de evento</div><div class="v">${esc(String(quotation.event_type || "—"))}</div></div>
+        <div class="qv-dato"><div class="k">Fecha del evento</div><div class="v">${eventDateLabel}</div></div>
+        <div class="qv-dato"><div class="k">Asistentes</div><div class="v">${(adults + kids).toLocaleString("es-CL")}${kids > 0 ? ` <small>· ${adults} adultos + ${kids} niños</small>` : ""}</div></div>
+        <div class="qv-dato"><div class="k">Validez</div><div class="v">15 días</div></div>
+      </div>
+
+      ${varGroups.length > 0 ? `<h2>Programa del evento</h2>${programa}` : ""}
+
+      ${varGroups.length > 0 ? `<h2>Valores · servicios de alimentación</h2><table class="qv-val">${valoresRows}</table>` : ""}
+
+      ${fijosRows ? `<h2>Servicios fijos del evento</h2><table class="qv-val">${fijosRows}</table>` : ""}
+
+      <div class="qv-resumen">
+        ${
+          discount > 0
+            ? `<div class="linea"><span>Subtotal</span><b>${clp(subtotal)}</b></div>
+               <div class="linea"><span>Descuento</span><b>−${clp(discount)}</b></div>`
+            : ""
+        }
+        <div class="linea iva-box"><span>Neto</span><b>${clp(neto)}</b></div>
+        <div class="linea"><span>IVA (19%)</span><b>${clp(iva)}</b></div>
+        ${
+          tipAmount > 0
+            ? `<div class="totcon"><span>Total con IVA</span><span>${clp(totalConIva)}</span></div>
+               <div class="prop"><span>Propina sugerida (${tipPct}% alimentación)</span><span>${clp(tipAmount)}</span></div>
+               <div class="final"><span>TOTAL</span><span>${clp(totalConIva + tipAmount)}</span></div>`
+            : `<div class="final"><span>TOTAL</span><span>${clp(totalConIva)}</span></div>`
+        }
+      </div>
+
+      ${
+        quotation.observations
+          ? `<div class="qv-obs"><b>Observaciones</b>${esc(quotation.observations)}</div>`
+          : ""
+      }
+
+      <div class="qv-pie">
+        <span>${esc(company?.name || "")}</span>
+        <span>Cotización N° ${quotation.quotation_number} · válida por 15 días</span>
+      </div>
+    </div>
+  `;
 
   const handleDownloadPDF = (): void => {
-    // Crear una nueva ventana para imprimir
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert(
@@ -126,846 +326,54 @@ export default function QuotationViewer({
       );
       return;
     }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Cotización ${quotation.quotation_number} - ${company?.name || "Empresa"}</title>
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: 'Montserrat', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              margin: 0;
-              color: #2c3e50;
-              line-height: 1.6;
-              font-size: 13px;
-              background: #fff;
-            }
-            .header {
-              background: linear-gradient(135deg, ${colorPalette.primary} 0%, ${colorPalette.primaryDark} 100%);
-              color: white;
-              padding: 12px 15px;
-              text-align: center;
-              position: relative;
-              overflow: hidden;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            }
-            .header::before {
-              content: '';
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="60" r="1" fill="rgba(255,255,255,0.1)"/></svg>');
-              opacity: 0.3;
-            }
-            .logo-section {
-              position: relative;
-              z-index: 1;
-              flex: 1;
-              display: flex;
-              align-items: center;
-              justify-content: flex-start;
-            }
-            .header-logo {
-              position: relative;
-              z-index: 1;
-              max-width: 120px;
-              max-height: 100px;
-              width: auto;
-              height: auto;
-              object-fit: contain;
-            }
-            .header-center {
-              flex: 1;
-              text-align: center;
-            }
-            .company-name {
-              font-size: 18px;
-              font-weight: 700;
-              margin-bottom: 3px;
-            }
-            .company-subtitle {
-              font-size: 13px;
-              color: rgba(255,255,255,0.9);
-              font-weight: 300;
-            }
-            .quotation-title {
-              font-size: 14px;
-              color: #fff;
-              margin: 8px 0 3px 0;
-              font-weight: 600;
-              letter-spacing: 1px;
-            }
-            .quotation-number {
-              font-size: 12px;
-              color: rgba(255,255,255,0.9);
-              background: rgba(255,255,255,0.2);
-              padding: 3px 10px;
-              border-radius: 12px;
-              display: inline-block;
-              backdrop-filter: blur(10px);
-            }
-            .section {
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 4px;
-              padding: 6px;
-              margin: 4px 3px;
-              box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            }
-            .section h3 {
-              font-size: 12px;
-              font-weight: 600;
-              color: #1a202c;
-              margin-bottom: 4px;
-              border-bottom: 2px solid ${colorPalette.secondary};
-              padding-bottom: 2px;
-            }
-            .info-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 3px;
-              margin-bottom: 4px;
-            }
-            .info-item {
-              background: white;
-              padding: 3px;
-              border-radius: 2px;
-              border-left: 3px solid ${colorPalette.secondary};
-              box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-            }
-            .info-label {
-              font-weight: 600;
-              color: #4a5568;
-              font-size: 9px;
-              text-transform: uppercase;
-              letter-spacing: 0.3px;
-              margin-bottom: 1px;
-              display: block;
-            }
-            .info-value {
-              color: #1a202c;
-              font-size: 11px;
-              font-weight: 500;
-            }
-            .status-badge {
-              display: inline-block;
-              padding: 4px 8px;
-              border-radius: 12px;
-              font-size: 10px;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .status-aceptada { background: #e5e7eb; color: #1f2937; }
-            .status-enviada { background: #e5e7eb; color: #1f2937; }
-            .status-en_negociacion { background: #e5e7eb; color: #1f2937; }
-            .status-solicitada { background: #e5e7eb; color: #1f2937; }
-            .status-rechazada { background: #e5e7eb; color: #1f2937; }
-
-            .pricing-summary {
-              background: white;
-              border-radius: 4px;
-              margin: 3px;
-              box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-              overflow: hidden;
-            }
-            .pricing-header {
-              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
-              color: white;
-              padding: 8px;
-              text-align: center;
-            }
-            .pricing-header h3 {
-              font-size: 12px;
-              font-weight: 600;
-              margin-bottom: 1px;
-            }
-            .pricing-subtitle {
-              font-size: 10px;
-              opacity: 0.9;
-            }
-            .pricing-content {
-              padding: 6px;
-            }
-            .pricing-row {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              padding: 3px 0;
-              border-bottom: 1px solid #f1f5f9;
-            }
-            .pricing-row:last-child {
-              border-bottom: none;
-            }
-            .pricing-label {
-              font-weight: 500;
-              color: #4a5568;
-              font-size: 11px;
-            }
-            .pricing-value {
-              font-weight: 600;
-              color: #1a202c;
-              font-size: 11px;
-            }
-            .total-label {
-              font-weight: 700;
-              color: #1a202c;
-              font-size: 12px;
-            }
-            .total-value {
-              font-weight: 700;
-              color: #1f2937;
-              font-size: 14px;
-            }
-            .discount-row .pricing-value {
-              color: #dc2626;
-            }
-            .observations {
-              background: #f9fafb;
-              border: 1px solid #e5e7eb;
-              border-radius: 4px;
-              padding: 6px;
-              margin: 4px 3px;
-            }
-            .observations h4 {
-              font-size: 11px;
-              font-weight: 600;
-              color: #1f2937;
-              margin-bottom: 3px;
-            }
-            .observations p {
-              font-size: 10px;
-              color: #374151;
-              line-height: 1.3;
-            }
-            .footer {
-              background: #f8fafc;
-              border-top: 1px solid #e2e8f0;
-              padding: 6px 4px;
-              margin-top: 8px;
-              text-align: center;
-            }
-            .footer-content {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              font-size: 9px;
-              color: #64748b;
-            }
-            .footer-left p, .footer-right p {
-              margin: 1px 0;
-            }
-            .services-section {
-              background: white;
-              border-radius: 4px;
-              margin: 3px;
-              box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-              overflow: hidden;
-            }
-            .services-header {
-              background: linear-gradient(135deg, ${colorPalette.success} 0%, ${colorPalette.successDark} 100%);
-              color: white;
-              padding: 8px;
-              text-align: center;
-            }
-            .services-header h3 {
-              font-size: 12px;
-              font-weight: 600;
-              margin-bottom: 1px;
-            }
-            .services-subtitle {
-              font-size: 10px;
-              opacity: 0.9;
-            }
-            .services-content {
-              padding: 6px;
-            }
-            .category-group {
-              margin-bottom: 4px;
-              page-break-inside: avoid;
-            }
-            .category-title {
-              font-size: 11px;
-              font-weight: 600;
-              color: #1f2937;
-              margin-bottom: 3px;
-              padding-bottom: 1px;
-              border-bottom: 1px solid #d1d5db;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .service-item {
-              display: flex;
-              align-items: center;
-              padding: 2px 0;
-              border-bottom: 1px solid #f1f5f9;
-              font-size: 10px;
-            }
-            .service-item:last-child {
-              border-bottom: none;
-            }
-            .service-name {
-              flex: 1;
-              color: #374151;
-              font-weight: 500;
-              font-size: 10px;
-            }
-            .service-quantity {
-              color: #6b7280;
-              font-size: 9px;
-              margin-left: 4px;
-            }
-            .service-check {
-              color: #1f2937;
-              font-weight: bold;
-              margin-left: 4px;
-            }
-            .fixed-services {
-              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
-            }
-            .variable-services {
-              background: linear-gradient(135deg, ${colorPalette.secondary} 0%, ${colorPalette.secondaryDark} 100%);
-            }
-            @media print {
-              body { margin: 0; }
-              .header { break-inside: avoid; }
-              .section { break-inside: avoid; }
-              .pricing-summary { break-inside: avoid; }
-              .services-section { break-inside: avoid; }
-              .category-group { break-inside: avoid; }
-              .page-break { page-break-before: always; }
-            }
-          </style>
-        </head>
-        <body>
-          <!-- Header -->
-          <div class="header">
-            <div class="logo-section">
-              ${!company?.logo_url ? `<div class="company-name">${company?.name || "Empresa"}</div>` : ""}
-            </div>
-            <div class="header-center">
-              ${company?.logo_url ? `<div class="company-name">${company?.name || "Empresa"}</div>` : ""}
-              <div class="quotation-title">COTIZACIÓN DE SERVICIOS</div>
-              <div class="quotation-number">N° ${quotation.quotation_number}</div>
-            </div>
-            <div class="logo-section" style="justify-content: flex-end;">
-              ${company?.logo_url ? `<img src="${company?.logo_url}" alt="Logo" class="header-logo" />` : ""}
-            </div>
-          </div>
-
-          <!-- Client Information -->
-          <div class="section">
-            <h3>Información del Cliente y Evento</h3>
-            <div class="info-grid">
-              <div class="info-item">
-                <span class="info-label">Cliente</span>
-                <span class="info-value">${quotation.clients.name}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Fecha Cotización</span>
-                <span class="info-value">${format(new Date(quotation.created_at), "dd/MM/yyyy", { locale: es })}</span>
-              </div>
-              ${
-                quotation.event_date
-                  ? `
-              <div class="info-item">
-                <span class="info-label">Fecha Evento</span>
-                <span class="info-value">${formatISOUTCDateToString(quotation.event_date)}</span>
-              </div>
-              `
-                  : ""
-              }
-              <div class="info-item">
-                <span class="info-label">Personas</span>
-                <span class="info-value">${quotation.people_count}</span>
-              </div>
-              ${
-                quotation.event_type
-                  ? `
-              <div class="info-item">
-                <span class="info-label">Tipo Evento</span>
-                <span class="info-value">${quotation.event_type}</span>
-              </div>
-              `
-                  : ""
-              }
-              <div class="info-item">
-                <span class="info-label">Estado</span>
-                <span class="status-badge status-${quotation.quotation_status}">${getStatusText(quotation.quotation_status)}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Pricing Summary -->
-          <div class="pricing-summary">
-            <div class="pricing-header">
-              <h3>Resumen de Cotización</h3>
-              <div class="pricing-subtitle">Servicios integrales para su evento</div>
-            </div>
-            <div class="pricing-content">
-              <div class="pricing-row">
-                <span class="pricing-label">Subtotal (Base)</span>
-                <span class="pricing-value">$${Math.round(quotation.total_amount / 1.19).toLocaleString()}</span>
-              </div>
-              <div class="pricing-row">
-                <span class="pricing-label">IVA (19%)</span>
-                <span class="pricing-value">$${Math.round(quotation.total_amount - quotation.total_amount / 1.19).toLocaleString()}</span>
-              </div>
-              <div class="pricing-row">
-                <span class="total-label">Total General</span>
-                <span class="total-value">$${quotation.total_amount.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          ${
-            quotation.items &&
-            quotation.items.variable_services &&
-            quotation.items.variable_services.length > 0
-              ? `
-          <!-- Detailed Services List -->
-          <div class="services-section">
-            <div class="services-header variable-services">
-              <h3>Servicios Variables</h3>
-              <div class="services-subtitle">Servicios por persona • ${quotation.people_count} personas</div>
-            </div>
-            <div class="services-content">
-              ${quotation.items.variable_services
-                .map(
-                  (categoryGroup) => `
-                <div class="category-group">
-                  <div class="category-title">${categoryGroup.category}</div>
-                  ${categoryGroup.items
-                    .map(
-                      (service) => `
-                    <div class="service-item">
-                      <span class="service-name">${service.nombre}</span>
-                      ${service.quantity > 1 ? `<span class="service-quantity">(x${service.quantity})</span>` : ""}
-                      <span class="service-check">✓</span>
-                    </div>
-                  `,
-                    )
-                    .join("")}
-                </div>
-              `,
-                )
-                .join("")}
-            </div>
-          </div>
-          `
-              : ""
-          }
-
-          ${
-            quotation.items &&
-            quotation.items.fixed_services &&
-            quotation.items.fixed_services.length > 0
-              ? `
-          <!-- Fixed Services List -->
-          <div class="services-section">
-            <div class="services-header fixed-services">
-              <h3>Servicios Fijos</h3>
-              <div class="services-subtitle">Servicios independientes del número de personas</div>
-            </div>
-            <div class="services-content">
-              ${quotation.items.fixed_services
-                .map(
-                  (service) => `
-                <div class="service-item">
-                  <span class="service-name">${service.nombre}</span>
-                  ${service.quantity > 1 ? `<span class="service-quantity">(x${service.quantity})</span>` : ""}
-                  <span class="service-check">✓</span>
-                </div>
-              `,
-                )
-                .join("")}
-            </div>
-          </div>
-          `
-              : ""
-          }
-
-          <!-- Terms and Conditions -->
-          <div class="pricing-summary">
-            <div class="pricing-header">
-              <h3>Condiciones</h3>
-              <div class="pricing-subtitle">Válido 30 días desde la fecha de emisión</div>
-            </div>
-            <div class="pricing-content">
-              <div class="pricing-row">
-                <span class="pricing-label">Número de Personas</span>
-                <span class="pricing-value">${quotation.people_count}</span>
-              </div>
-              <div class="pricing-row">
-                <span class="pricing-label">Emisión: ${format(new Date(quotation.created_at), "dd/MM/yyyy", { locale: es })}</span>
-                <span class="pricing-value">CLP</span>
-              </div>
-              <div class="pricing-row">
-                <span class="total-label">Estado</span>
-                <span class="total-value">${getStatusText(quotation.quotation_status)}</span>
-              </div>
-            </div>
-          </div>
-
-          ${
-            quotation.observations
-              ? `
-          <!-- Observaciones -->
-          <div class="observations">
-            <h4>Observaciones</h4>
-            <p>${quotation.observations}</p>
-          </div>
-          `
-              : ""
-          }
-
-          <!-- Footer -->
-          <div class="footer">
-            <div class="footer-content">
-              <div class="footer-left">
-                <p>Cotización generada el ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                <p>Documento válido por 30 días desde la fecha de emisión</p>
-              </div>
-              <div class="footer-right">
-                <p>${company?.name || "Empresa"}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Promotional Footer -->
-          <div style="margin-top: 12px; padding: 8px; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-top: 2px solid ${colorPalette.primary}; border-radius: 4px;">
-            <p style="font-size: 10px; color: #4b5563; margin: 2px 0;">
-              Cotización creada con <strong style="color: #1f2937;">Eventia</strong>
-            </p>
-            <p style="font-size: 9px; color: #6b7280; margin: 2px 0;">
-              Sistema de gestión de cotizaciones • <a href="https://www.eventi-app.com/" style="color: #1f2937; text-decoration: none; font-weight: 600;">www.eventi-app.com</a>
-            </p>
-          </div>
-        </body>
-      </html>
-    `);
-
+    printWindow.document.write(`<!DOCTYPE html>
+      <html lang="es"><head><meta charset="utf-8">
+      <title>Cotización ${quotation.quotation_number} - ${esc(company?.name || "Empresa")}</title>
+      <style>body{margin:0;} ${css}</style>
+      </head><body>${body}</body></html>`);
     printWindow.document.close();
-
-    // Esperar a que se cargue el contenido y luego imprimir
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
     }, 500);
   };
 
+  // ---------- Modal en pantalla: la MISMA hoja ----------
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden">
-        {/* Header del modal */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
+        <div className="bg-blue-900 text-white px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white bg-opacity-20 p-2 rounded-lg">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">
-                  Cotización #{quotation.quotation_number}
-                </h2>
-                <p className="text-blue-100 text-sm">
-                  {quotation.clients.name} •{" "}
-                  {format(new Date(quotation.created_at), "dd/MM/yyyy", {
-                    locale: es,
-                  })}
-                </p>
-              </div>
+            <div className="flex items-center space-x-3">
+              <FileText className="h-5 w-5" />
+              <h2 className="text-lg font-bold">
+                Cotización #{quotation.quotation_number}
+              </h2>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleDownloadPDF}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                className="bg-white bg-opacity-15 hover:bg-opacity-25 text-white px-4 py-2 rounded-lg flex items-center space-x-2 text-sm font-semibold"
               >
-                <Download size={16} />
+                <Download size={15} />
                 <span>PDF</span>
               </button>
               <button
                 onClick={onClose}
-                className="text-white hover:text-blue-100 transition-colors duration-200"
+                className="text-white hover:text-blue-200"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Contenido de la cotización */}
-        <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
-          <div id="quotation-content" className="p-8 space-y-8">
-            {/* Status Badge */}
-            <div className="flex justify-center">
-              <span
-                className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(quotation.quotation_status)}`}
-              >
-                {getStatusText(quotation.quotation_status)}
-              </span>
-            </div>
-
-            {/* Client and Event Information */}
-            <div className="bg-gray-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                Información del Cliente y Evento
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Cliente</p>
-                  <p className="font-medium text-gray-900">
-                    {quotation.clients.name}
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Fecha Cotización</p>
-                  <p className="font-medium text-gray-900">
-                    {format(new Date(quotation.created_at), "dd/MM/yyyy", {
-                      locale: es,
-                    })}
-                  </p>
-                </div>
-                {quotation.event_date && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600 mb-1">Fecha Evento</p>
-                    <p className="font-medium text-gray-900">
-                      {formatISOUTCDateToString(quotation.event_date)}
-                    </p>
-                  </div>
-                )}
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">
-                    Número de Personas
-                  </p>
-                  <p className="font-medium text-gray-900">
-                    {quotation.people_count}
-                  </p>
-                </div>
-                {quotation.event_type && (
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600 mb-1">Tipo de Evento</p>
-                    <p className="font-medium text-gray-900">
-                      {quotation.event_type}
-                    </p>
-                  </div>
-                )}
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">
-                    Valor por Persona
-                  </p>
-                  <p className="font-medium text-gray-900">
-                    $
-                    {Math.round(
-                      quotation.total_amount / quotation.people_count,
-                    ).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Pricing Summary */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-2 h-2 bg-green-600 rounded-full mr-3"></div>
-                Resumen de Cotización
-              </h3>
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Subtotal (Base)</span>
-                    <span className="font-medium">
-                      $
-                      {Math.round(
-                        quotation.total_amount / 1.19,
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-gray-600">IVA (19%)</span>
-                    <span className="font-medium">
-                      $
-                      {Math.round(
-                        quotation.total_amount - quotation.total_amount / 1.19,
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center py-3 border-t-2 border-green-200">
-                    <span className="text-lg font-semibold text-gray-900">
-                      Total General
-                    </span>
-                    <span className="text-2xl font-bold text-green-600">
-                      ${quotation.total_amount.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Services List */}
-            {quotation.items &&
-              quotation.items.variable_services &&
-              quotation.items.variable_services.length > 0 && (
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <div className="w-2 h-2 bg-green-600 rounded-full mr-3"></div>
-                    Servicios Variables
-                  </h3>
-                  <div className="space-y-4">
-                    {quotation.items.variable_services.map(
-                      (categoryGroup, categoryIndex) => (
-                        <div
-                          key={categoryIndex}
-                          className="bg-white p-4 rounded-lg border border-gray-200"
-                        >
-                          <h4 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide border-b border-gray-200 pb-2">
-                            {categoryGroup.category}
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {categoryGroup.items.map(
-                              (service, serviceIndex) => (
-                                <div
-                                  key={serviceIndex}
-                                  className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    <span className="font-medium text-gray-900 text-sm">
-                                      {service.nombre}
-                                      {service.quantity > 1 && (
-                                        <span className="text-xs text-gray-500 ml-2">
-                                          (x{service.quantity})
-                                        </span>
-                                      )}
-                                    </span>
-                                  </div>
-                                  <div className="text-green-600">
-                                    <CheckCircle size={14} />
-                                  </div>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
-
-            {/* Fixed Services List */}
-            {quotation.items &&
-              quotation.items.fixed_services &&
-              quotation.items.fixed_services.length > 0 && (
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <div className="w-2 h-2 bg-purple-600 rounded-full mr-3"></div>
-                    Servicios Fijos
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {quotation.items.fixed_services.map((service, index) => (
-                      <div
-                        key={index}
-                        className="bg-white p-4 rounded-lg border border-gray-200 flex items-center justify-between"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          <span className="font-medium text-gray-900">
-                            {service.nombre}
-                            {service.quantity > 1 && (
-                              <span className="text-sm text-gray-500 ml-2">
-                                (x{service.quantity})
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        <div className="text-purple-600">
-                          <CheckCircle size={16} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Terms and Conditions */}
-            <div className="bg-amber-50 rounded-xl p-6 border border-amber-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-2 h-2 bg-amber-600 rounded-full mr-3"></div>
-                Condiciones y Validez
-              </h3>
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-600">Emisión</span>
-                    <span className="font-medium">
-                      {format(new Date(quotation.created_at), "dd/MM/yyyy", {
-                        locale: es,
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-600">Válido por</span>
-                    <span className="font-medium">30 días</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-600">Moneda</span>
-                    <span className="font-medium">CLP (Pesos Chilenos)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-600">Estado actual</span>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(quotation.quotation_status)}`}
-                    >
-                      {getStatusText(quotation.quotation_status)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Observaciones */}
-            {quotation.observations && (
-              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                  Observaciones
-                </h3>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <p className="text-gray-700 leading-relaxed">
-                    {quotation.observations}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="bg-gray-100 rounded-xl p-6 text-center">
-              <div className="flex items-center justify-center space-x-2 mb-2">
-                <span className="font-semibold text-gray-900">
-                  {company?.name || "Empresa"}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600">
-                Cotización generada el{" "}
-                {format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })} •
-                Documento válido por 30 días desde la fecha de emisión
-              </p>
-            </div>
-          </div>
+        <div className="overflow-y-auto max-h-[calc(95vh-64px)] bg-gray-100 p-6">
+          <style>{css}</style>
+          <div
+            className="shadow-lg mx-auto max-w-3xl"
+            dangerouslySetInnerHTML={{ __html: body }}
+          />
         </div>
       </div>
     </div>
