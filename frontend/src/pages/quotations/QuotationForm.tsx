@@ -591,7 +591,8 @@ export default function QuotationForm() {
           Math.round(formData.discount_amount || 0),
         )
       : Math.round(
-          formData.subtotal_amount * ((formData.discount_percentage || 0) / 100),
+          formData.subtotal_amount *
+            ((formData.discount_percentage || 0) / 100),
         );
   const hasDiscount = discountAmountUI > 0;
 
@@ -914,8 +915,7 @@ export default function QuotationForm() {
         ...prev,
         client_id: clientId,
         // el contacto pertenece al cliente anterior: se limpia
-        contact_name:
-          prev.client_id === clientId ? prev.contact_name : null,
+        contact_name: prev.client_id === clientId ? prev.contact_name : null,
       }));
     }
   };
@@ -1110,10 +1110,7 @@ export default function QuotationForm() {
         if (boxPeople(box) !== adultsCount) return sum;
         return (
           sum +
-          box.services.reduce(
-            (boxSum, s) => boxSum + s.precio * s.quantity,
-            0,
-          )
+          box.services.reduce((boxSum, s) => boxSum + s.precio * s.quantity, 0)
         );
       }, 0),
     );
@@ -1264,7 +1261,6 @@ export default function QuotationForm() {
       setLoading(false);
     }
   };
-
 
   // Campos obligatorios que faltan (para deshabilitar Guardar Y decir por qué).
   const missingRequiredFields = () => {
@@ -1674,80 +1670,166 @@ export default function QuotationForm() {
           )}
           {/* Modal: nueva persona de contacto (nombre obligatorio; correo y
           telefono opcionales — hay contactos solo-telefono o solo-correo) */}
-      {newContactOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Nueva persona</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Nombre *
-                </label>
-                <input
-                  autoFocus
-                  value={newContactName}
-                  onChange={(e) => setNewContactName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Ej: Juanita Pérez"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Correo
-                </label>
-                <input
-                  type="email"
-                  value={newContactEmail}
-                  onChange={(e) => setNewContactEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="correo@ejemplo.com"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Teléfono
-                </label>
-                <input
-                  value={newContactPhone}
-                  onChange={(e) => setNewContactPhone(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="+56 9 ..."
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewContactOpen(false);
-                    setNewContactName("");
-                    setNewContactEmail("");
-                    setNewContactPhone("");
-                  }}
-                  className="px-3 py-2 text-sm text-gray-600"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={addClientContact}
-                  disabled={savingContact || !newContactName.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {savingContact ? "Guardando..." : "Guardar"}
-                </button>
+          {newContactOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+                <h3 className="font-semibold text-gray-900 mb-4">
+                  Nueva persona
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Nombre *
+                    </label>
+                    <input
+                      autoFocus
+                      value={newContactName}
+                      onChange={(e) => setNewContactName(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej: Juanita Pérez"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Correo
+                    </label>
+                    <input
+                      type="email"
+                      value={newContactEmail}
+                      onChange={(e) => setNewContactEmail(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="correo@ejemplo.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Teléfono
+                    </label>
+                    <input
+                      value={newContactPhone}
+                      onChange={(e) => setNewContactPhone(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="+56 9 ..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewContactOpen(false);
+                        setNewContactName("");
+                        setNewContactEmail("");
+                        setNewContactPhone("");
+                      }}
+                      className="px-3 py-2 text-sm text-gray-600"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addClientContact}
+                      disabled={savingContact || !newContactName.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingContact ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {isRestrictedEditing && (
+          {isRestrictedEditing && (
             <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
               🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas
             </div>
           )}
         </div>
         <div className="flex items-center space-x-3">
+          <div className="relative dropdown-container">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenDropdown(
+                  openDropdown === "service-group-collections"
+                    ? null
+                    : "service-group-collections",
+                )
+              }
+              disabled={
+                isRestrictedEditing ||
+                (serviceGroupCollections.length === 0 &&
+                  serviceGroups.length === 0)
+              }
+              className="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+              title="Usar o crear un paquete (evento completo guardado)"
+            >
+              <Package size={16} />
+              <span>Partir de un paquete</span>
+            </button>
+
+            {openDropdown === "service-group-collections" && (
+              <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {serviceGroupCollections.map((collection) => (
+                  <div
+                    key={collection.id}
+                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        loadCollectionAsBoxes(collection);
+                        setOpenDropdown(null);
+                      }}
+                      className="flex-1 text-left text-sm"
+                    >
+                      <span className="text-gray-900">{collection.name}</span>{" "}
+                      <span className="text-gray-500">
+                        ({collection.groups?.length || 0} grupos)
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (
+                          window.confirm(
+                            `¿Eliminar el paquete "${collection.name}"?`,
+                          )
+                        ) {
+                          await removeServiceGroupCollection(collection.id);
+                          if (selectedCollection?.id === collection.id) {
+                            setSelectedCollection(null);
+                          }
+                        }
+                      }}
+                      className="ml-2 text-red-600 hover:text-red-800"
+                      title="Eliminar paquete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {serviceGroupCollections.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-gray-400">
+                    Aún no hay paquetes guardados.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenDropdown(null);
+                    openCollectionModal();
+                  }}
+                  disabled={serviceGroups.length === 0}
+                  className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+                  title="Crear un paquete agrupando menús guardados"
+                >
+                  + Crear paquete nuevo…
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={handleSubmit}
             disabled={loading || !isQuotationFormValid()}
@@ -1977,108 +2059,107 @@ export default function QuotationForm() {
               </div>
             </div>
             <div className="mb-4">
-                {endDateCleared && (
-                  <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                    El último día se quitó porque quedaba antes de la nueva
-                    fecha de inicio. Si el evento sigue siendo de varios
-                    días, vuelve a elegirlo.
-                  </p>
+              {endDateCleared && (
+                <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  El último día se quitó porque quedaba antes de la nueva fecha
+                  de inicio. Si el evento sigue siendo de varios días, vuelve a
+                  elegirlo.
+                </p>
+              )}
+              {checkingConflicts && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                    <p className="text-xs text-blue-800">
+                      Verificando disponibilidad...
+                    </p>
+                  </div>
+                </div>
+              )}
+              {!checkingConflicts &&
+                hasDateConflicts &&
+                formData.event_date && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <span className="text-yellow-600 font-semibold text-xs">
+                        ⚠️
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs text-yellow-800">
+                          Hay más eventos programados en estas fechas.{" "}
+                          <a
+                            href={`/calendar?date=${formData.event_date}&filter=all`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline hover:text-yellow-900"
+                          >
+                            Ver en calendario
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {checkingConflicts && (
-                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+              {!checkingConflicts &&
+                !hasDateConflicts &&
+                formData.event_date && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                      <p className="text-xs text-blue-800">
-                        Verificando disponibilidad...
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <p className="text-xs text-green-800">
+                        Fecha disponible - No hay otros eventos programados
                       </p>
                     </div>
                   </div>
                 )}
-                {!checkingConflicts &&
-                  hasDateConflicts &&
-                  formData.event_date && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-start space-x-2">
-                        <span className="text-yellow-600 font-semibold text-xs">
-                          ⚠️
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-xs text-yellow-800">
-                            Hay más eventos programados en estas fechas.{" "}
-                            <a
-                              href={`/calendar?date=${formData.event_date}&filter=all`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-semibold underline hover:text-yellow-900"
-                            >
-                              Ver en calendario
-                            </a>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                {!checkingConflicts &&
-                  !hasDateConflicts &&
-                  formData.event_date && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                        <p className="text-xs text-green-800">
-                          Fecha disponible - No hay otros eventos programados
-                        </p>
-                      </div>
-                    </div>
-                  )}
             </div>
 
             {/* Fila 3: contadores de asistentes, misma grilla que arriba */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Adultos *
-                    </label>
-                    <NumberInput
-                      value={adultsCount || undefined}
-                      onChange={(value) => {
-                        const adults = value ? Number(value) : 0;
-                        // @ts-ignore -- people_count vacio mientras se edita
-                        setFormData((prev) => ({
-                          ...prev,
-                          people_count: adults + childrenCount || undefined,
-                        }));
-                      }}
-                      min={0}
-                      disabled={isRestrictedEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Niños
-                    </label>
-                    <NumberInput
-                      value={childrenCount || undefined}
-                      onChange={(value) => {
-                        const kids = value ? Number(value) : 0;
-                        // @ts-ignore -- people_count vacio mientras se edita
-                        setFormData((prev) => ({
-                          ...prev,
-                          people_count:
-                            adultsCount + kids || undefined,
-                          children_count: kids,
-                        }));
-                      }}
-                      min={0}
-                      disabled={isRestrictedEditing}
-                      placeholder="0"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Adultos *
+                  </label>
+                  <NumberInput
+                    value={adultsCount || undefined}
+                    onChange={(value) => {
+                      const adults = value ? Number(value) : 0;
+                      // @ts-ignore -- people_count vacio mientras se edita
+                      setFormData((prev) => ({
+                        ...prev,
+                        people_count: adults + childrenCount || undefined,
+                      }));
+                    }}
+                    min={0}
+                    disabled={isRestrictedEditing}
+                  />
                 </div>
-                <p className="pb-2 text-sm text-gray-400">
-                  = {adultsCount + childrenCount} asistente
-                  {adultsCount + childrenCount === 1 ? "" : "s"}
-                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Niños
+                  </label>
+                  <NumberInput
+                    value={childrenCount || undefined}
+                    onChange={(value) => {
+                      const kids = value ? Number(value) : 0;
+                      // @ts-ignore -- people_count vacio mientras se edita
+                      setFormData((prev) => ({
+                        ...prev,
+                        people_count: adultsCount + kids || undefined,
+                        children_count: kids,
+                      }));
+                    }}
+                    min={0}
+                    disabled={isRestrictedEditing}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <p className="pb-2 text-sm text-gray-400">
+                = {adultsCount + childrenCount} asistente
+                {adultsCount + childrenCount === 1 ? "" : "s"}
+              </p>
             </div>
           </div>
 
@@ -2095,113 +2176,6 @@ export default function QuotationForm() {
                     <span>{selectedCollection.name}</span>
                   </span>
                 )}
-              </div>
-              <div className="flex items-center flex-wrap gap-2">
-                {/* Paquetes: un solo boton (mockup). El dropdown lista los
-                    guardados y al pie permite crear uno nuevo. */}
-                <div className="relative dropdown-container">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenDropdown(
-                        openDropdown === "service-group-collections"
-                          ? null
-                          : "service-group-collections",
-                      )
-                    }
-                    disabled={
-                      isRestrictedEditing ||
-                      (serviceGroupCollections.length === 0 &&
-                        serviceGroups.length === 0)
-                    }
-                    className="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                    title="Usar o crear un paquete (evento completo guardado)"
-                  >
-                    <Package size={16} />
-                    <span>Partir de un paquete</span>
-                  </button>
-
-                  {openDropdown === "service-group-collections" && (
-                    <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {serviceGroupCollections.map((collection) => (
-                        <div
-                          key={collection.id}
-                          className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              loadCollectionAsBoxes(collection);
-                              setOpenDropdown(null);
-                            }}
-                            className="flex-1 text-left text-sm"
-                          >
-                            <span className="text-gray-900">
-                              {collection.name}
-                            </span>{" "}
-                            <span className="text-gray-500">
-                              ({collection.groups?.length || 0} grupos)
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (
-                                window.confirm(
-                                  `¿Eliminar el paquete "${collection.name}"?`,
-                                )
-                              ) {
-                                await removeServiceGroupCollection(
-                                  collection.id,
-                                );
-                                if (
-                                  selectedCollection?.id === collection.id
-                                ) {
-                                  setSelectedCollection(null);
-                                }
-                              }
-                            }}
-                            className="ml-2 text-red-600 hover:text-red-800"
-                            title="Eliminar paquete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-                      {serviceGroupCollections.length === 0 && (
-                        <p className="px-3 py-2 text-sm text-gray-400">
-                          Aún no hay paquetes guardados.
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenDropdown(null);
-                          openCollectionModal();
-                        }}
-                        disabled={serviceGroups.length === 0}
-                        className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
-                        title="Crear un paquete agrupando menús guardados"
-                      >
-                        + Crear paquete nuevo…
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={addServiceBox}
-                  disabled={isRestrictedEditing}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${
-                    isRestrictedEditing
-                      ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <Plus size={16} />
-                  <span>Agregar servicio</span>
-                </button>
               </div>
             </div>
 
@@ -2515,9 +2489,7 @@ export default function QuotationForm() {
                               const secs = cat
                                 ? categorySections
                                     .filter((s) => s.category_id === cat.id)
-                                    .sort(
-                                      (a, b) => a.sort_order - b.sort_order,
-                                    )
+                                    .sort((a, b) => a.sort_order - b.sort_order)
                                 : [];
                               if (secs.length === 0) {
                                 return filteredProducts.map(itemButton);
@@ -2527,8 +2499,7 @@ export default function QuotationForm() {
                                 categoryLinks.find(
                                   (l) =>
                                     l.category_id === cat!.id &&
-                                    l.variable_service_id.toString() ===
-                                      codigo,
+                                    l.variable_service_id.toString() === codigo,
                                 )?.section_id || 0;
 
                               return [
@@ -2758,6 +2729,14 @@ export default function QuotationForm() {
                   )}
                 </div>
               ))}
+
+              <button
+                onClick={addServiceBox}
+                disabled={isRestrictedEditing}
+                className="mt-2 text-sm font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
+              >
+                + Agregar servicio
+              </button>
             </div>
           </div>
 
@@ -3037,7 +3016,9 @@ export default function QuotationForm() {
                     const aud = box.audience || "adultos";
                     const parts: string[] = [];
                     if (eventDaysCount > 1)
-                      parts.push(`Día ${Math.min(box.day || 1, eventDaysCount)}`);
+                      parts.push(
+                        `Día ${Math.min(box.day || 1, eventDaysCount)}`,
+                      );
                     parts.push(
                       box.people !== undefined
                         ? `${people} de ${audienceCount(box)} personas`
@@ -3219,8 +3200,8 @@ export default function QuotationForm() {
                     </div>
                     {tipEnabled && (
                       <p className="mt-1 text-[11px] text-gray-400">
-                        Sobre los servicios variables, después del IVA. No
-                        lleva IVA: va directa al equipo.
+                        Sobre los servicios variables, después del IVA. No lleva
+                        IVA: va directa al equipo.
                       </p>
                     )}
                   </div>
