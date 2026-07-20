@@ -81,6 +81,8 @@ export interface Quotation {
   children_count?: number;
   // Propina % sobre variables, DESPUÉS del IVA (null/ausente = sin propina).
   tip_percentage?: number | null;
+  // Persona de contacto del evento (texto libre; puente a Etapa 4).
+  contact_name?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;
@@ -121,6 +123,7 @@ export interface QuotationFormData
   // Cotizador 2.0: niños dentro del total y propina opcional post-IVA.
   children_count?: number;
   tip_percentage?: number | null;
+  contact_name?: string | null;
 }
 
 export type QuotationPublicFormData = Pick<

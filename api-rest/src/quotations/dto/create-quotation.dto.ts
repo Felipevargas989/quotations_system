@@ -54,6 +54,11 @@ export class CreateQuotationDto {
   @Min(0)
   tip_percentage?: number | null;
 
+  // Persona de contacto del evento (texto libre; puente a la Etapa 4).
+  @IsString()
+  @IsOptional()
+  contact_name?: string | null;
+
   @IsString()
   @IsOptional()
   observations: string;

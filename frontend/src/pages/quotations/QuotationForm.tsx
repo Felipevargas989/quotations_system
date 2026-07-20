@@ -1682,7 +1682,7 @@ export default function QuotationForm() {
             </h3>
 
             {/* Cliente (número y autoría viven arriba, como información) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Cliente *
@@ -1703,51 +1703,24 @@ export default function QuotationForm() {
                   + Nuevo cliente
                 </button>
               </div>
-            </div>
-
-            {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Nombre del Cliente
+                  Persona de contacto
                 </label>
                 <input
                   type="text"
-                  required
-                  value={formData.client_name}
-                  readOnly
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-                  placeholder="Seleccione un cliente"
+                  value={formData.contact_name || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      contact_name: e.target.value || null,
+                    }))
+                  }
+                  disabled={isRestrictedEditing}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  placeholder="Ej: Juanita — Dideco"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.client_email}
-                  readOnly
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-                  placeholder="Seleccione un cliente"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  readOnly
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-                  placeholder="Seleccione un cliente"
-                />
-              </div>
-            </div> */}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Tipo de Evento *
@@ -1772,7 +1745,11 @@ export default function QuotationForm() {
                   ))}
                 </select>
               </div>
+            </div>
 
+            {/* Fila 2: fechas lado a lado; los avisos van DEBAJO a lo ancho
+                para no desalinear las columnas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-1">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Fecha del Evento *
@@ -1801,8 +1778,10 @@ export default function QuotationForm() {
                   disabled={isRestrictedEditing}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
-                <label className="block text-xs font-medium text-gray-600 mb-1 mt-2">
-                  Último día (opcional, para eventos de varios días)
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Último día (opcional)
                 </label>
                 <input
                   type="date"
@@ -1818,6 +1797,9 @@ export default function QuotationForm() {
                   disabled={isRestrictedEditing || !formData.event_date}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
+              </div>
+            </div>
+            <div className="mb-4">
                 {endDateCleared && (
                   <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                     El último día se quitó porque quedaba antes de la nueva
@@ -1871,11 +1853,10 @@ export default function QuotationForm() {
                       </div>
                     </div>
                   )}
-              </div>
+            </div>
 
-              <div>
-                {/* people_count = adultos + niños (el total sigue viajando
-                    en la columna de siempre; niños en children_count) */}
+            {/* Fila 3: contadores de asistentes */}
+            <div className="max-w-md">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1921,7 +1902,6 @@ export default function QuotationForm() {
                   = {adultsCount + childrenCount} asistente
                   {adultsCount + childrenCount === 1 ? "" : "s"}
                 </p>
-              </div>
             </div>
           </div>
 

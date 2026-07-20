@@ -48,6 +48,8 @@ export interface Quotation {
   children_count?: number;
   // Propina % sobre variables, post-IVA (null = sin propina).
   tip_percentage?: number | null;
+  // Persona de contacto del evento (texto libre).
+  contact_name?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: RequestType;

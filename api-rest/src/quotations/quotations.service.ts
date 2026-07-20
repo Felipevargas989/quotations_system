@@ -82,6 +82,7 @@ export class QuotationsService {
       // si faltan en el insert, se botan en silencio (bug del 19-07).
       children_count: createQuotationDto.children_count || 0,
       tip_percentage: createQuotationDto.tip_percentage ?? null,
+      contact_name: createQuotationDto.contact_name || null,
       observations: createQuotationDto.observations,
       event_date: eventDateUtc,
       // Último día (evento multi-día); null = un solo día. Si esto falta,
