@@ -227,6 +227,31 @@ export class QuotationsService {
   // Evento REALIZADO: cambia el estado y dispara la encuesta de satisfacción
   // al cliente. La encuesta sale UNA sola vez: survey_sent_at se estampa solo
   // cuando el correo salió bien, y bloquea reenvíos si el evento se re-marca.
+  // Destinatario de la correspondencia de una cotización (regla 20-07):
+  // 1) el CONTACTO asociado a la cotización, si tiene correo;
+  // 2) contacto SIN correo -> NO se envía (null, sin fallback silencioso);
+  // 3) cotización sin contacto -> correo del cliente (particulares y
+  //    cotizaciones antiguas siguen funcionando como siempre).
+  private async resolveRecipient(quotation: {
+    client_id: string;
+    contact_name?: string | null;
+    clients?: { name: string; email?: string | null };
+  }): Promise<{ email: string; name: string } | null> {
+    const contactName = (quotation.contact_name || '').trim();
+    if (contactName) {
+      const { data: contact } = await this.quotationsRepository
+        .findContactByName(quotation.client_id, contactName);
+      if (contact?.email) {
+        return { email: contact.email, name: contact.name };
+      }
+      return null; // la persona existe pero no tiene correo: no se envía
+    }
+    if (quotation.clients?.email) {
+      return { email: quotation.clients.email, name: quotation.clients.name };
+    }
+    return null;
+  }
+
   async markEventDone(id: string, companyId: number) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
@@ -249,14 +274,15 @@ export class QuotationsService {
     const alreadySurveyed = Boolean(
       (quotation as { survey_sent_at?: string | null }).survey_sent_at,
     );
+    const recipient = await this.resolveRecipient(quotation);
     let surveySent = false;
-    if (!alreadySurveyed && quotation.clients?.email) {
+    if (!alreadySurveyed && recipient) {
       try {
         await this.emailService.sendEmail(
-          quotation.clients.email,
+          recipient.email,
           EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
           {
-            clientName: quotation.clients.name,
+            clientName: recipient.name,
             companyName: quotation.companies?.name,
             companyId: quotation.company_id,
             quotationId: quotation.id,
@@ -281,7 +307,9 @@ export class QuotationsService {
       quotation_status: QuotationStatus.REALIZADA,
       survey_sent: surveySent,
       survey_already_sent: alreadySurveyed,
-      client_has_email: Boolean(quotation.clients?.email),
+      // true si hay a quién enviar (contacto de la cotización con correo,
+      // o cliente con correo cuando no hay contacto asociado)
+      client_has_email: Boolean(recipient),
     };
   }
 
@@ -490,16 +518,21 @@ export class QuotationsService {
           quotation.quotation_status !== QuotationStatus.ENVIADA &&
           updateQuotationDto.quotation_status === QuotationStatus.ENVIADA
         ) {
-          void this.emailService.sendEmail(
-            quotation.clients.email,
-            EmailStructure.QUOTATION_IS_SENT,
-            {
-              clientName: quotation.clients.name,
-              companyName: quotation.companies.name,
-              quotationNumber: quotation.quotation_number,
-            },
-            companyId,
-          );
+          // La correspondencia sigue a la persona de la cotización (misma
+          // regla que la encuesta); sin destinatario, no se envía.
+          const sentRecipient = await this.resolveRecipient(quotation);
+          if (sentRecipient) {
+            void this.emailService.sendEmail(
+              sentRecipient.email,
+              EmailStructure.QUOTATION_IS_SENT,
+              {
+                clientName: sentRecipient.name,
+                companyName: quotation.companies.name,
+                quotationNumber: quotation.quotation_number,
+              },
+              companyId,
+            );
+          }
         }
       } catch (error) {
         // Do not throw error, just log it

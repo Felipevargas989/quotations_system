@@ -646,7 +646,7 @@ function EventModal({
         encuesta = "La encuesta ya se había enviado antes, no se reenvió.";
       } else {
         encuesta =
-          "El cliente no tiene correo registrado, así que la encuesta no se envió.";
+          "No hay correo para el contacto de esta cotización, así que la encuesta no se envió. Puedes agregarle correo en Gestión de Clientes.";
       }
       const saldoTxt =
         saldo > 0 ? ` Ojo: quedan ${clp(saldo)} por cobrar de este evento.` : "";
@@ -701,7 +701,7 @@ function EventModal({
               ) : confirmDone ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700">
-                    ¿Marcar como realizado? Se enviará la encuesta al cliente.
+                    ¿Marcar como realizado? Se enviará la encuesta al contacto de la cotización.
                   </span>
                   <button
                     disabled={markingDone}

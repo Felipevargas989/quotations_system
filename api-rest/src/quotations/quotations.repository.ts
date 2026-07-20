@@ -155,4 +155,16 @@ export class QuotationsRepository {
     }
     return data as unknown as Quotation;
   }
+
+  // Contacto de la cotización: correo de la persona (client_contacts) por
+  // cliente + nombre, sin distinguir mayúsculas. La correspondencia sigue
+  // a la persona asociada a la cotización.
+  findContactByName(clientId: string, name: string) {
+    return this.supabase.client
+      .from('client_contacts')
+      .select('name, email')
+      .eq('client_id', clientId)
+      .ilike('name', name)
+      .maybeSingle();
+  }
 }

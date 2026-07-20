@@ -65,7 +65,13 @@ export default function ClientsPage() {
     phone: string;
   } | null>(null);
   const [savingContact, setSavingContact] = useState(false);
+  // Al CREAR una empresa: correo y teléfono de la persona de contacto
+  // (la empresa no tiene correo/teléfono propios; las personas sí)
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
   const { company } = useAuth();
+
+  const isEmpresa = formData.client_type !== "Particulares";
 
   // Espejo: clients.contact_person siempre refleja el nombre del principal.
   const syncPrimaryName = async (clientId: string, name: string) => {
@@ -205,8 +211,12 @@ export default function ClientsPage() {
             company_id: company.id,
             client_id: createdClient.id,
             name: formData.contact_person.trim(),
+            email: newContactEmail.trim() || null,
+            phone: newContactPhone.trim() || null,
             is_primary: true,
           });
+          setNewContactEmail("");
+          setNewContactPhone("");
         }
 
         alert("Cliente creado exitosamente");
@@ -360,6 +370,9 @@ export default function ClientsPage() {
                 </select>
               </div>
 
+              {/* La empresa no tiene correo/teléfono propios: esos datos
+                  viven en las personas de contacto. Particulares sí. */}
+              {!isEmpresa && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Email
@@ -382,7 +395,9 @@ export default function ClientsPage() {
                   <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                 )}
               </div>
+              )}
 
+              {!isEmpresa && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Teléfono
@@ -405,6 +420,7 @@ export default function ClientsPage() {
                   <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
                 )}
               </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -413,18 +429,38 @@ export default function ClientsPage() {
                     : "Persona de contacto (principal)"}
                 </label>
                 {!editingClient ? (
-                  <input
-                    type="text"
-                    value={formData.contact_person}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        contact_person: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nombre del contacto principal"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.contact_person}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          contact_person: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Nombre del contacto principal"
+                    />
+                    {isEmpresa && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="email"
+                          value={newContactEmail}
+                          onChange={(e) => setNewContactEmail(e.target.value)}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                          placeholder="Correo de la persona"
+                        />
+                        <input
+                          type="tel"
+                          value={newContactPhone}
+                          onChange={(e) => setNewContactPhone(e.target.value)}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                          placeholder="Teléfono de la persona"
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="border border-gray-200 rounded-lg p-3 space-y-1">
                     {contacts.length === 0 && !contactDraft && (
