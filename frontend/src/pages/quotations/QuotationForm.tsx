@@ -1611,7 +1611,7 @@ export default function QuotationForm() {
             className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
               loading || !isQuotationFormValid()
                 ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                : "bg-green-600 text-white hover:bg-green-700"
+                : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
             <Save size={16} />
@@ -1676,8 +1676,8 @@ export default function QuotationForm() {
         {/* Columna principal - Formulario */}
         <div className="lg:col-span-2 space-y-6">
           {/* Información del cliente */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Información del evento
             </h3>
 
@@ -1926,7 +1926,7 @@ export default function QuotationForm() {
           </div>
 
           {/* Servicios Variables */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-xl shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -2119,7 +2119,11 @@ export default function QuotationForm() {
               {serviceBoxes.map((box, index) => (
                 <div
                   key={box.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className={`border rounded-lg p-4 ${
+                    (box.audience || "adultos") === "ninos"
+                      ? "border-amber-300 bg-amber-50/50"
+                      : "border-gray-200"
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3 flex-wrap">
@@ -2535,8 +2539,8 @@ export default function QuotationForm() {
 
           {/* Descuento */}
           {userRole && getMaxDiscountForRole() > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Descuento
               </h3>
 
@@ -2648,132 +2652,12 @@ export default function QuotationForm() {
             </div>
           )}
 
-          {/* Observaciones */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-              Observaciones
+          {/* Servicios fijos del evento (editable; el resumen los lista) */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Servicios fijos del evento
             </h3>
-            <textarea
-              value={formData.observations}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  observations: e.target.value,
-                }))
-              }
-              rows={4}
-              disabled={isRestrictedEditing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-              placeholder="Detalles adicionales, requerimientos especiales, etc."
-            />
-          </div>
-        </div>
-
-        {/* Columna lateral - Resúmenes */}
-        <div className="space-y-6">
-          {/* Resumen por persona */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="bg-yellow-400 px-4 py-2">
-              <div className="flex justify-between">
-                <span className="font-bold text-black">
-                  Servicios Variables
-                </span>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {/* Una línea POR SERVICIO (nunca fusionadas): audiencia, día
-                  si es multi-día, y personas. La hora se define en Cocina. */}
-              {serviceBoxes.filter(
-                (b) => b.selectedCategory && b.services.length > 0,
-              ).length === 0 ? (
-                <p className="px-4 py-3 text-sm text-gray-400">
-                  Aún no hay servicios.
-                </p>
-              ) : (
-                serviceBoxes
-                  .filter((b) => b.selectedCategory && b.services.length > 0)
-                  .map((box) => {
-                    const perPerson = box.services.reduce(
-                      (s, it) => s + it.precio * it.quantity,
-                      0,
-                    );
-                    const people = boxPeople(box);
-                    const aud = box.audience || "adultos";
-                    const parts: string[] = [];
-                    if (eventDaysCount > 1)
-                      parts.push(`Día ${Math.min(box.day || 1, eventDaysCount)}`);
-                    parts.push(
-                      box.people !== undefined
-                        ? `${people} de ${audienceCount(box)} personas`
-                        : `${people} personas`,
-                    );
-                    return (
-                      <div key={box.id} className="px-4 py-2 text-sm">
-                        <div className="flex justify-between gap-2">
-                          <span className="text-gray-700">
-                            <span
-                              className={`mr-1 text-[10px] font-extrabold ${
-                                aud === "ninos"
-                                  ? "text-amber-700"
-                                  : "text-blue-900"
-                              }`}
-                            >
-                              {aud === "ninos" ? "NIÑOS" : "ADULTOS"}
-                            </span>
-                            {box.selectedCategory}
-                          </span>
-                          <span className="font-medium text-gray-900 whitespace-nowrap">
-                            ${(perPerson * people).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-400">
-                          {parts.join(" · ")}
-                        </p>
-                      </div>
-                    );
-                  })
-              )}
-
-              <div className="bg-yellow-300 px-4 py-2 space-y-0.5">
-                <div className="flex justify-between text-sm font-bold text-black">
-                  <span>Por adulto (servicios completos)</span>
-                  <span>${formData.value_per_person.toLocaleString()}</span>
-                </div>
-                {childrenCount > 0 && (
-                  <div className="flex justify-between text-sm font-bold text-black">
-                    <span>Por niño</span>
-                    <span>
-                      $
-                      {Math.round(
-                        serviceBoxes.reduce((sum, box) => {
-                          if ((box.audience || "adultos") !== "ninos")
-                            return sum;
-                          if (boxPeople(box) !== childrenCount) return sum;
-                          return (
-                            sum +
-                            box.services.reduce(
-                              (s, it) => s + it.precio * it.quantity,
-                              0,
-                            )
-                          );
-                        }, 0),
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Servicios Fijos - Selección */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="bg-yellow-400 px-4 py-2">
-              <div className="flex justify-between">
-                <span className="font-bold text-black">Servicios Fijos</span>
-              </div>
-            </div>
-
-            <div className="p-4 space-y-3">
+            <div className="space-y-3">
               {selectedFixedServices.map((service, index) => (
                 <div
                   key={index}
@@ -2857,26 +2741,144 @@ export default function QuotationForm() {
                 <span className="text-sm">+ Agregar más servicios</span>
               </button>
             </div>
-
-            <div className="bg-yellow-300 px-4 py-2">
-              <div className="flex justify-between font-bold text-black">
-                <span>Total Fijo</span>
-                <span>
-                  $
-                  {selectedFixedServices
-                    .reduce(
-                      (sum, service) =>
-                        sum + service.precio_calculado * service.quantity,
-                      0,
-                    )
-                    .toLocaleString()}
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* Total Final */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Observaciones */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Observaciones
+            </h3>
+            <textarea
+              value={formData.observations}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  observations: e.target.value,
+                }))
+              }
+              rows={4}
+              disabled={isRestrictedEditing}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              placeholder="Detalles adicionales, requerimientos especiales, etc."
+            />
+          </div>
+        </div>
+
+        {/* Columna lateral - Resúmenes */}
+        <div className="space-y-6">
+          {/* Resumen de la cotización: panel único, estilo mockup v1 */}
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <div className="bg-blue-900 px-4 py-2.5">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-white">
+                Resumen de la cotización
+              </span>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {/* Una línea POR SERVICIO (nunca fusionadas): audiencia, día
+                  si es multi-día, y personas. La hora se define en Cocina. */}
+              {serviceBoxes.filter(
+                (b) => b.selectedCategory && b.services.length > 0,
+              ).length === 0 ? (
+                <p className="px-4 py-3 text-sm text-gray-400">
+                  Aún no hay servicios.
+                </p>
+              ) : (
+                serviceBoxes
+                  .filter((b) => b.selectedCategory && b.services.length > 0)
+                  .map((box) => {
+                    const perPerson = box.services.reduce(
+                      (s, it) => s + it.precio * it.quantity,
+                      0,
+                    );
+                    const people = boxPeople(box);
+                    const aud = box.audience || "adultos";
+                    const parts: string[] = [];
+                    if (eventDaysCount > 1)
+                      parts.push(`Día ${Math.min(box.day || 1, eventDaysCount)}`);
+                    parts.push(
+                      box.people !== undefined
+                        ? `${people} de ${audienceCount(box)} personas`
+                        : `${people} personas`,
+                    );
+                    return (
+                      <div key={box.id} className="px-4 py-2 text-sm">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-700">
+                            <span
+                              className={`mr-1 text-[10px] font-extrabold ${
+                                aud === "ninos"
+                                  ? "text-amber-700"
+                                  : "text-blue-900"
+                              }`}
+                            >
+                              {aud === "ninos" ? "NIÑOS" : "ADULTOS"}
+                            </span>
+                            {box.selectedCategory}
+                          </span>
+                          <span className="font-medium text-gray-900 whitespace-nowrap">
+                            ${(perPerson * people).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                          {parts.join(" · ")}
+                        </p>
+                      </div>
+                    );
+                  })
+              )}
+
+              <div className="bg-gray-50 px-4 py-2 space-y-0.5 border-t border-gray-200">
+                <div className="flex justify-between text-xs font-semibold text-gray-600">
+                  <span>Por adulto (servicios completos)</span>
+                  <span>${formData.value_per_person.toLocaleString()}</span>
+                </div>
+                {childrenCount > 0 && (
+                  <div className="flex justify-between text-xs font-semibold text-gray-600">
+                    <span>Por niño</span>
+                    <span>
+                      $
+                      {Math.round(
+                        serviceBoxes.reduce((sum, box) => {
+                          if ((box.audience || "adultos") !== "ninos")
+                            return sum;
+                          if (boxPeople(box) !== childrenCount) return sum;
+                          return (
+                            sum +
+                            box.services.reduce(
+                              (s, it) => s + it.precio * it.quantity,
+                              0,
+                            )
+                          );
+                        }, 0),
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Fijos: solo lectura aquí (se editan en su tarjeta) */}
+            {selectedFixedServices.filter((s) => s.codigo).length > 0 && (
+              <div className="border-t border-gray-200">
+                {selectedFixedServices
+                  .filter((s) => s.codigo)
+                  .map((service, i) => (
+                    <div
+                      key={`fs-${i}`}
+                      className="flex justify-between px-4 py-2 text-sm bg-gray-50"
+                    >
+                      <span className="text-gray-700">{service.nombre}</span>
+                      <span className="font-medium text-gray-900">
+                        $
+                        {(
+                          service.precio_calculado * service.quantity
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
             {hasDiscount && (
               <div className="bg-gray-100 px-4 py-2 border-b">
                 <div className="flex justify-between text-sm">
@@ -2908,15 +2910,15 @@ export default function QuotationForm() {
               return (
                 <>
                   <div className="divide-y divide-gray-200">
-                    <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
-                      <span className="font-medium text-black">Neto</span>
-                      <span className="font-medium text-black">
+                    <div className="flex justify-between px-4 py-1.5 text-sm">
+                      <span className="text-gray-500">Neto</span>
+                      <span className="text-gray-700">
                         ${Math.round(totalConIva / 1.19).toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between px-4 py-2 text-sm bg-yellow-200">
-                      <span className="font-medium text-black">IVA (19%)</span>
-                      <span className="font-medium text-black">
+                    <div className="flex justify-between px-4 py-1.5 text-sm">
+                      <span className="text-gray-500">IVA (19%)</span>
+                      <span className="text-gray-700">
                         $
                         {Math.round(
                           totalConIva - totalConIva / 1.19,
@@ -2925,7 +2927,7 @@ export default function QuotationForm() {
                     </div>
                   </div>
 
-                  <div className="bg-orange-300 px-4 py-2">
+                  <div className="bg-amber-100 px-4 py-2">
                     <div className="flex justify-between font-bold text-black">
                       <span>Total con IVA</span>
                       <span>${totalConIva.toLocaleString()}</span>
