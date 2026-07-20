@@ -1,6 +1,12 @@
+import { useEffect, useState } from "react";
 import { X, Download, FileText } from "lucide-react";
 import { QuotationWithClient } from "../types/quotations.types";
 import { useAuth } from "../contexts/AuthContext";
+import { getMenuOrder } from "../services/sections.service";
+import {
+  CategorySection,
+  VariableServiceCategoryLink,
+} from "../types/services.types";
 
 // Visor de cotización + PDF al cliente (mockup aprobado 20-07).
 // UNA sola plantilla HTML para la pantalla (el "ojo") y para imprimir:
@@ -33,6 +39,18 @@ export default function QuotationViewer({
 }: QuotationViewerProps) {
   const { company } = useAuth();
 
+  // Orden de la carta (secciones): el "incluye" de cada servicio se lista
+  // en el mismo orden que el menu, sin precios (el detalle de cobros es
+  // interno). Mientras carga, se usa el orden del snapshot.
+  const [menu, setMenu] = useState<{
+    categories: { id: number; name: string }[];
+    sections: CategorySection[];
+    links: VariableServiceCategoryLink[];
+  } | null>(null);
+  useEffect(() => {
+    if (company?.id) getMenuOrder(company.id).then(setMenu);
+  }, [company?.id]);
+
   // ---------- Datos base ----------
   const kids = Number(quotation.children_count || 0);
   const adults = Math.max(0, Number(quotation.people_count || 0) - kids);
@@ -42,7 +60,12 @@ export default function QuotationViewer({
     day?: number;
     audience?: string;
     people?: number;
-    items?: { precio?: number; quantity?: number }[];
+    items?: {
+      codigo?: string;
+      nombre?: string;
+      precio?: number;
+      quantity?: number;
+    }[];
   };
   const varGroups: VarGroup[] = (quotation.items?.variable_services ||
     []) as VarGroup[];
@@ -164,7 +187,8 @@ export default function QuotationViewer({
     .qv-prog { width:100%; border-collapse:collapse; }
     .qv-prog td { font-size:12.5px; padding:5px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
     .qv-prog tr:last-child td { border-bottom:none; }
-    .qv-prog .aud { text-align:right; color:#6b7280; font-size:11.5px; white-space:nowrap; }
+    .qv-prog .aud { text-align:right; color:#6b7280; font-size:11.5px; white-space:nowrap; vertical-align:top; padding-top:7px; }
+    .qv-prog .inc { font-size:11px; color:#6b7280; font-weight:400; margin-top:2px; line-height:1.5; }
     .qv-tagA { color:#1e3a8a; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
     .qv-tagN { color:#b45309; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
     .qv-val { width:100%; border-collapse:collapse; }
@@ -189,13 +213,44 @@ export default function QuotationViewer({
     }
   `;
 
+  // Nombres de lo que incluye un servicio, ordenados como la carta.
+  const includesOf = (g: VarGroup): string => {
+    const items = (g.items || []).filter((it) => it.nombre);
+    if (items.length === 0) return "";
+    if (!menu) return items.map((it) => it.nombre).join(" · ");
+    const cat = menu.categories.find((c) => c.name === g.category);
+    const secSort = new Map(menu.sections.map((s) => [s.id, s.sort_order]));
+    const linkSec = new Map(
+      menu.links
+        .filter((l) => !cat || l.category_id === cat.id)
+        .map((l) => [String(l.variable_service_id), l.section_id]),
+    );
+    return items
+      .map((it, i) => ({
+        nombre: it.nombre as string,
+        sort:
+          (it.codigo && linkSec.get(String(it.codigo)) != null
+            ? (secSort.get(linkSec.get(String(it.codigo)) as number) ?? 9998)
+            : 9999) *
+            10000 +
+          i,
+      }))
+      .sort((a, b) => a.sort - b.sort)
+      .map((x) => x.nombre)
+      .join(" · ");
+  };
+
   const audTag = (g: VarGroup) =>
     audienceOf(g) === "ninos"
       ? `<span class="qv-tagN">NIÑOS</span>`
       : `<span class="qv-tagA">ADULTOS</span>`;
 
-  const progRow = (g: VarGroup) =>
-    `<tr><td>${esc(g.category || "Servicio")}</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
+  const progRow = (g: VarGroup) => {
+    const inc = includesOf(g);
+    return `<tr><td>${esc(g.category || "Servicio")}${
+      inc ? `<div class="inc">Incluye: ${esc(inc)}</div>` : ""
+    }</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
+  };
 
   const programa = multiDay
     ? Array.from({ length: daysCount }, (_, i) => i + 1)
