@@ -132,7 +132,12 @@ export default function SelectWithSearch({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
+        <span
+          className={`truncate text-left ${
+            selectedOption ? "text-gray-900" : "text-gray-500"
+          }`}
+          title={selectedOption?.label}
+        >
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <div className="flex items-center space-x-1">

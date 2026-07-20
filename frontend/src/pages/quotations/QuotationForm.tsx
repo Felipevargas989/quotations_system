@@ -37,6 +37,11 @@ import {
 } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
 import { getCategorySections } from "../../services/sections.service";
+import {
+  ClientContact,
+  createClientContact,
+  getClientContacts,
+} from "../../services/clientContacts.service";
 import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -165,6 +170,12 @@ export default function QuotationForm() {
   const [tipEnabled, setTipEnabled] = useState(false);
   const [tipPct, setTipPct] = useState<number>(10);
   const [tipAmountUI, setTipAmountUI] = useState(0);
+  // Contactos del cliente elegido (lista minima; la cotizacion guarda el
+  // nombre como foto en contact_name)
+  const [clientContacts, setClientContacts] = useState<ClientContact[]>([]);
+  const [newContactOpen, setNewContactOpen] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [clientFormData, setClientFormData] = useState<ClientFormData>({
@@ -836,12 +847,46 @@ export default function QuotationForm() {
 
   // generateQuotationNumber function removed - quotation_number is now auto-generated in database
 
+  // Contactos del cliente: se cargan al elegirlo (y al abrir una
+  // cotizacion existente).
+  useEffect(() => {
+    if (!formData.client_id) {
+      setClientContacts([]);
+      return;
+    }
+    getClientContacts(formData.client_id).then(setClientContacts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.client_id]);
+
+  const addClientContact = async () => {
+    const name = newContactName.trim();
+    if (!name || !formData.client_id || !company?.id) return;
+    setSavingContact(true);
+    const { data, error } = await createClientContact({
+      company_id: company.id,
+      client_id: formData.client_id,
+      name,
+    });
+    setSavingContact(false);
+    if (!error && data) {
+      setClientContacts((prev) =>
+        [...prev, data].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setFormData((prev) => ({ ...prev, contact_name: data.name }));
+      setNewContactOpen(false);
+      setNewContactName("");
+    }
+  };
+
   const handleClientSelect = (clientId: string, clientData?: any) => {
     const selectedClient = clientData || clients.find((c) => c.id === clientId);
     if (selectedClient) {
       setFormData((prev) => ({
         ...prev,
         client_id: clientId,
+        // el contacto pertenece al cliente anterior: se limpia
+        contact_name:
+          prev.client_id === clientId ? prev.contact_name : null,
       }));
     }
   };
@@ -1690,7 +1735,7 @@ export default function QuotationForm() {
                 <SelectWithSearch
                   options={clients.map((client) => ({
                     value: client.id,
-                    label: `${client.name} (${client.client_type})`,
+                    label: client.name,
                   }))}
                   value={formData.client_id || ""}
                   onChange={(value) => handleClientSelect(value)}
@@ -1707,19 +1752,62 @@ export default function QuotationForm() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Persona de contacto
                 </label>
-                <input
-                  type="text"
+                <SelectWithSearch
+                  options={clientContacts.map((c) => ({
+                    value: c.name,
+                    label: c.name,
+                  }))}
                   value={formData.contact_name || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      contact_name: e.target.value || null,
+                      contact_name: value || null,
                     }))
                   }
-                  disabled={isRestrictedEditing}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  placeholder="Ej: Juanita — Dideco"
+                  placeholder={
+                    formData.client_id
+                      ? "Sin contacto"
+                      : "Elige un cliente primero"
+                  }
+                  searchPlaceholder="Buscar persona…"
+                  noResultsText="Sin contactos para este cliente"
+                  disabled={isRestrictedEditing || !formData.client_id}
                 />
+                {!newContactOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setNewContactOpen(true)}
+                    disabled={isRestrictedEditing || !formData.client_id}
+                    className="mt-1 text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300"
+                  >
+                    + Nueva persona
+                  </button>
+                ) : (
+                  <div className="mt-1 flex items-center gap-1">
+                    <input
+                      autoFocus
+                      value={newContactName}
+                      onChange={(e) => setNewContactName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addClientContact();
+                        if (e.key === "Escape") {
+                          setNewContactOpen(false);
+                          setNewContactName("");
+                        }
+                      }}
+                      placeholder="Nombre de la persona"
+                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={addClientContact}
+                      disabled={savingContact || !newContactName.trim()}
+                      className="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded disabled:opacity-50"
+                    >
+                      {savingContact ? "…" : "Guardar"}
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1749,7 +1837,7 @@ export default function QuotationForm() {
 
             {/* Fila 2: fechas lado a lado; los avisos van DEBAJO a lo ancho
                 para no desalinear las columnas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-1">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Fecha del Evento *
@@ -1855,9 +1943,9 @@ export default function QuotationForm() {
                   )}
             </div>
 
-            {/* Fila 3: contadores de asistentes */}
-            <div className="max-w-md">
-                <div className="grid grid-cols-2 gap-2">
+            {/* Fila 3: contadores de asistentes, misma grilla que arriba */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="grid grid-cols-2 gap-4 md:col-span-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
                       Adultos *
@@ -1898,7 +1986,7 @@ export default function QuotationForm() {
                     />
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="pb-2 text-sm text-gray-400">
                   = {adultsCount + childrenCount} asistente
                   {adultsCount + childrenCount === 1 ? "" : "s"}
                 </p>
