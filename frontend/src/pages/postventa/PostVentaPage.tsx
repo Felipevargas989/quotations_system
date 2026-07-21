@@ -967,23 +967,33 @@ function EventModal({
                             <div className="font-semibold text-gray-900">
                               {clp(pay.amount)}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div
+                              className="text-xs text-gray-500 truncate max-w-md"
+                              title={
+                                txs.length === 1 && txs[0].notes
+                                  ? txs[0].notes
+                                  : undefined
+                              }
+                            >
                               {pay.status === "pagado"
                                 ? `Pagado · ${fmtDate(pay.last_payment_date)}`
                                 : `Vence ${fmtDate(pay.due_date)}`}
                               {cp > 0 && cp < 100
                                 ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
                                 : ""}
+                              {txs.length === 1 && txs[0].notes ? (
+                                <span className="text-gray-400">
+                                  {" "}
+                                  · {txs[0].notes}
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                           {statusBadge(cuotaStatus(pay))}
                         </div>
                         {txs.length === 1 && (
                           <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span>
-                              {fmtDate(txs[0].transaction_date)} ·{" "}
-                              {txs[0].payment_method || "—"}
-                            </span>
+                            <span>{txs[0].payment_method || "—"}</span>
                             {txActions(txs[0])}
                           </div>
                         )}
@@ -995,12 +1005,21 @@ function EventModal({
                               key={t.id}
                               className="flex items-center justify-between pl-13 text-xs text-gray-600"
                             >
-                              <span className="pl-[52px]">
+                              <span
+                                className="pl-[52px] truncate max-w-lg"
+                                title={t.notes || undefined}
+                              >
                                 {fmtDate(t.transaction_date)} ·{" "}
                                 {t.payment_method || "—"} ·{" "}
                                 <span className="font-semibold text-gray-800">
                                   {clp(t.amount)}
                                 </span>
+                                {t.notes ? (
+                                  <span className="text-gray-400">
+                                    {" "}
+                                    · {t.notes}
+                                  </span>
+                                ) : null}
                               </span>
                               {txActions(t)}
                             </div>
@@ -1753,7 +1772,9 @@ function RegistrarPagoPanel({
     .filter((p) => p.remaining > 0);
   const maxAmount = pending.reduce((s, p) => s + p.remaining, 0);
 
-  // Vista previa del derrame: cómo se repartirá el monto entre las cuotas.
+  // Vista previa del derrame: cómo se repartirá el monto entre las
+  // cuotas. Solo se calcula con un monto válido (si excede el saldo, el
+  // panel se esconde en vez de mostrar repartos imposibles).
   const preview: { number: number; portion: number; fills: boolean }[] = [];
   let left = Math.min(amount || 0, maxAmount);
   for (const p of pending) {
@@ -1778,8 +1799,12 @@ function RegistrarPagoPanel({
     setErr(null);
   };
 
+  // Monto válido: mayor que cero y hasta el saldo pendiente. Mientras
+  // no lo sea, el botón queda bloqueado (el campo vibra y avisa).
+  const amountValid = !!amount && amount > 0 && amount <= maxAmount;
+
   const submit = async () => {
-    if (!amount || amount <= 0) return;
+    if (!amountValid) return;
     setSaving(true);
     setErr(null);
     setOk(null);
@@ -1928,8 +1953,8 @@ function RegistrarPagoPanel({
             />
           </div>
 
-          {/* Vista previa del derrame */}
-          {amount > 0 && preview.length > 0 && (
+          {/* Vista previa del derrame (solo con monto válido) */}
+          {amountValid && preview.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <p className="text-[11px] font-bold uppercase text-gray-500 mb-1.5">
                 Así se repartirá el pago
@@ -1967,10 +1992,14 @@ function RegistrarPagoPanel({
             <button
               type="button"
               onClick={submit}
-              disabled={saving || !amount || amount <= 0}
+              disabled={saving || !amountValid}
               className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? "Guardando…" : "Registrar pago"}
+              {saving
+                ? "Guardando…"
+                : amountValid
+                  ? `Registrar ${clp(amount)}`
+                  : "Registrar pago"}
             </button>
           </div>
         </div>
@@ -2012,6 +2041,7 @@ function EditRegistroModal({
   const [method, setMethod] = useState<string>(
     tx.payment_method || PAYMENT_METHODS[0],
   );
+  const [nota, setNota] = useState<string>(tx.notes || "");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -2041,6 +2071,7 @@ function EditRegistroModal({
         amount,
         payment_method: method,
         transaction_date: date,
+        notes: nota.trim() || undefined,
         receipt_photo_url: receipt,
       });
       onSaved();
@@ -2108,6 +2139,16 @@ function EditRegistroModal({
               <option key={m}>{m}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600">Nota</label>
+          <input
+            type="text"
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="Información adicional…"
+            className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+          />
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-600">

@@ -1,5 +1,26 @@
-import React, { forwardRef, useState, useEffect, useRef } from "react";
+import React, {
+  forwardRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { NumberInputProps } from "./types";
+
+// Campo numérico con la norma es-CL (rediseño 21-07-2026, definido con
+// Felipe tras el bug del "$1"):
+//
+// - formatThousands: el usuario teclea DÍGITOS y el campo pone los puntos
+//   de miles EN VIVO; los puntos que escriba el usuario se ignoran (el
+//   "1.00.000" que se leía como $1 ya no puede existir). La coma queda
+//   reservada para decimales.
+// - La pantalla y el valor interno son SIEMPRE el mismo número: onChange
+//   se dispara con cada tecla, incluso si el valor viola min/max.
+// - Violación de min/max: el campo vibra + borde rojo + mensaje
+//   formateado. NO se ajusta solo ni se congela: el usuario corrige, y
+//   es el formulario padre quien bloquea su botón mientras tanto.
+// - Sin formatThousands (campos chicos: contenido 1,5, porcentajes) se
+//   mantiene el parseo clásico: coma o punto decimal, "1.500" = miles.
 
 const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   (
@@ -21,75 +42,143 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   ) => {
     const [displayValue, setDisplayValue] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
-    // Mientras el campo tiene el foco, NUNCA se re-formatea: lo que el
-    // usuario escribe es exactamente lo que se parsea. El formato bonito
-    // se aplica recién al salir (evita "3.927" + "0" → "3.9270" decimal).
+    const [shaking, setShaking] = useState(false);
     const isFocusedRef = useRef(false);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const pendingCaretRef = useRef<number | null>(null);
 
-    // Norma general: formato chileno (miles con punto, decimal con coma).
-    const formatNumberForDisplay = (num: number): string => {
+    const setRefs = (el: HTMLInputElement | null) => {
+      inputRef.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    };
+
+    const fmtCL = (num: number): string => {
       if (isNaN(num)) return "";
       return num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
     };
 
-    // Acepta coma O punto como decimal: "1,5" y "1.5" valen 1,5;
-    // "1.500" (agrupación de a 3) vale mil quinientos.
-    const parseDisplayValue = (displayVal: string): number | undefined => {
+    // ---- formatThousands: normalización en vivo ----
+    // Conserva dígitos y la primera coma; agrupa el entero de a 3 con
+    // puntos. Devuelve el texto a mostrar y el número limpio a parsear.
+    const normalizeLive = (raw: string): { display: string; clean: string } => {
+      let digitsAndComma = "";
+      let commaSeen = false;
+      for (const ch of raw) {
+        if (/\d/.test(ch)) digitsAndComma += ch;
+        else if (ch === "," && !commaSeen) {
+          digitsAndComma += ",";
+          commaSeen = true;
+        }
+      }
+      const [intRaw, decRaw = ""] = digitsAndComma.split(",");
+      const intPart = intRaw.replace(/^0+(?=\d)/, "");
+      const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      const display = commaSeen ? `${grouped},${decRaw}` : grouped;
+      const clean = (intPart || "0") + (commaSeen ? `.${decRaw}` : "");
+      return { display, clean: digitsAndComma === "" ? "" : clean };
+    };
+
+    const countSig = (s: string) => (s.match(/[\d,]/g) || []).length;
+    const posAfterSig = (s: string, n: number) => {
+      if (n <= 0) return 0;
+      let seen = 0;
+      for (let i = 0; i < s.length; i++) {
+        if (/[\d,]/.test(s[i])) {
+          seen++;
+          if (seen === n) return i + 1;
+        }
+      }
+      return s.length;
+    };
+
+    // ---- parseo clásico (campos sin formatThousands) ----
+    const parseClassic = (displayVal: string): number | undefined => {
       const raw = displayVal.trim();
       if (!raw) return undefined;
-
       let clean = raw;
       if (clean.includes(",")) {
-        // Con coma: la coma es el decimal, los puntos son miles.
         clean = clean.replace(/\./g, "").replace(",", ".");
       } else {
-        // Sin coma: puntos que agrupan de a 3 son miles; si no, decimal.
         const parts = clean.split(".");
         const isGrouping =
           parts.length > 1 && parts.slice(1).every((p) => p.length === 3);
         if (isGrouping) clean = parts.join("");
       }
       const num = parseFloat(clean);
-
       return isNaN(num) ? undefined : num;
     };
 
-    // Initialize display value (solo cuando el campo NO está en edición)
+    // Sincronizar desde el valor externo (solo sin foco)
     useEffect(() => {
       if (isFocusedRef.current) return;
       if (value !== undefined && value !== null) {
-        setDisplayValue(formatNumberForDisplay(value));
+        setDisplayValue(fmtCL(value));
       } else {
         setDisplayValue("");
       }
     }, [value, formatThousands]);
 
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const inputValue = event.target.value;
+    // Reponer el cursor tras el reformateo en vivo
+    useLayoutEffect(() => {
+      if (
+        pendingCaretRef.current !== null &&
+        inputRef.current &&
+        isFocusedRef.current
+      ) {
+        inputRef.current.setSelectionRange(
+          pendingCaretRef.current,
+          pendingCaretRef.current,
+        );
+        pendingCaretRef.current = null;
+      }
+    }, [displayValue]);
 
-      // Update display state immediately
-      setDisplayValue(inputValue);
+    const triggerShake = () => {
+      setShaking(false);
+      requestAnimationFrame(() => setShaking(true));
+    };
 
-      // Parse the value
-      const numericValue = parseDisplayValue(inputValue);
-
-      // Clear previous error
+    // Chequeo de rango: avisa (vibración + mensaje formateado) pero NUNCA
+    // altera ni congela el valor — el padre decide bloquear su botón.
+    const rangeCheck = (num: number | undefined) => {
+      if (num === undefined) {
+        setError(null);
+        return;
+      }
+      if (max !== undefined && num > max) {
+        setError(`El máximo es ${fmtCL(max)}`);
+        triggerShake();
+        return;
+      }
+      if (min !== undefined && num < min) {
+        setError(`El mínimo es ${fmtCL(min)}`);
+        triggerShake();
+        return;
+      }
       setError(null);
+    };
 
-      // Validate min/max constraints and show error
-      if (numericValue !== undefined) {
-        if (min !== undefined && numericValue < min) {
-          setError(`El valor mínimo es ${min}`);
-          return; // Don't update if below minimum
-        }
-        if (max !== undefined && numericValue > max) {
-          setError(`El valor máximo es ${max}`);
-          return; // Don't update if above maximum
-        }
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = event.target.value;
+
+      if (formatThousands) {
+        const caret = event.target.selectionStart ?? raw.length;
+        const sig = countSig(raw.slice(0, caret));
+        const { display, clean } = normalizeLive(raw);
+        setDisplayValue(display);
+        pendingCaretRef.current = posAfterSig(display, sig);
+        const num = clean === "" ? undefined : parseFloat(clean);
+        const parsed = num !== undefined && isNaN(num) ? undefined : num;
+        rangeCheck(parsed);
+        onChange?.(parsed);
+        return;
       }
 
-      // Call onChange with the parsed value
-      onChange?.(numericValue);
+      setDisplayValue(raw);
+      const parsed = parseClassic(raw);
+      rangeCheck(parsed);
+      onChange?.(parsed);
     };
 
     const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
@@ -100,19 +189,18 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
     const handleBlur = () => {
       isFocusedRef.current = false;
-      // Clear error on blur
-      setError(null);
-
-      // Format the display value on blur if it's not empty
+      // Al salir, la pantalla muestra el número real formateado (el mismo
+      // que viajó por onChange). El aviso de rango se conserva visible.
       if (displayValue.trim() !== "") {
-        const numericValue = parseDisplayValue(displayValue);
-        if (numericValue !== undefined) {
-          setDisplayValue(formatNumberForDisplay(numericValue));
+        const parsed = formatThousands
+          ? parseFloat(normalizeLive(displayValue).clean || "NaN")
+          : parseClassic(displayValue);
+        if (parsed !== undefined && !isNaN(parsed)) {
+          setDisplayValue(fmtCL(parsed));
         }
       }
     };
 
-    // Base input classes
     const baseClasses = `
       w-full px-3 py-2 border rounded-lg
       focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -121,19 +209,23 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       ${disabled ? "bg-gray-100 cursor-not-allowed opacity-60" : "bg-white"}
     `.trim();
 
-    const inputClasses = `${baseClasses} ${className}`;
+    const inputClasses = `${baseClasses} ${className} ${
+      shaking ? "ni-shake" : ""
+    }`;
 
     return (
       <div className="w-full">
         <input
-          ref={ref}
+          ref={setRefs}
           type="text"
+          inputMode="decimal"
           id={id}
           name={name}
           value={displayValue}
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onAnimationEnd={() => setShaking(false)}
           placeholder={placeholder}
           disabled={disabled}
           required={required}

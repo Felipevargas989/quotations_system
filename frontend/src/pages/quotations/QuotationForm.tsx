@@ -1125,14 +1125,15 @@ export default function QuotationForm() {
       discType === "$"
         ? Math.min(subtotalAmount, Math.round(formData.discount_amount || 0))
         : Math.round(
-            subtotalAmount * ((formData.discount_percentage || 0) / 100),
+            subtotalAmount *
+              (Math.min(formData.discount_percentage || 0, 100) / 100),
           );
     const finalTotal = Math.round(subtotalAmount - discountAmount);
 
     // Propina: % sobre los servicios variables, DESPUÉS del IVA (no
     // lleva IVA). Se suma al total a pagar.
     const tipAmount = tipEnabled
-      ? Math.round(variableGrandTotal * ((tipPct || 0) / 100))
+      ? Math.round(variableGrandTotal * (Math.min(tipPct || 0, 100) / 100))
       : 0;
     setTipAmountUI(tipAmount);
 
