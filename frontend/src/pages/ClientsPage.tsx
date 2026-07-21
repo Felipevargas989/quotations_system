@@ -56,6 +56,11 @@ export default function ClientsPage() {
     email: "",
     phone: "",
   });
+  // Confirmación inline de borrado de cliente (solo clientes sin
+  // cotizaciones; los demás muestran el basurero desactivado).
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingClient, setDeletingClient] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // ----- Personas de contacto del cliente en edición (multi-contactos) -----
   const [contacts, setContacts] = useState<ClientContact[]>([]);
@@ -267,16 +272,24 @@ export default function ClientsPage() {
     setShowForm(true);
   };
 
+  // Eliminación con confirmación inline (patrón del sistema, sin popups
+  // del navegador). Solo llega aquí un cliente SIN cotizaciones: para
+  // los que tienen, el basurero va desactivado y el backend además lo
+  // rechaza con 409 por si acaso.
   const handleDelete = async (clientId: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este cliente?")) return;
-
+    setDeletingClient(true);
+    setDeleteError(null);
     try {
       await deleteClient(clientId);
-      alert("Cliente eliminado exitosamente");
+      setConfirmDeleteId(null);
       loadClients();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting client:", error);
-      alert("Error al eliminar el cliente");
+      setDeleteError(
+        error?.response?.data?.message || "No se pudo eliminar el cliente",
+      );
+    } finally {
+      setDeletingClient(false);
     }
   };
 
@@ -884,20 +897,54 @@ export default function ClientsPage() {
                       {new Date(client.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(client)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      {confirmDeleteId === client.id ? (
+                        <div>
+                          <ConfirmInline
+                            question="¿Eliminar cliente?"
+                            busy={deletingClient}
+                            onYes={() => handleDelete(client.id)}
+                            onNo={() => {
+                              setConfirmDeleteId(null);
+                              setDeleteError(null);
+                            }}
+                          />
+                          {deleteError && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {deleteError}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEdit(client)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          {(client.quotation_count ?? 0) > 0 ? (
+                            // Un cliente con cotizaciones NO se elimina:
+                            // su historial vive en esas cotizaciones.
+                            <span
+                              title={`No se puede eliminar: tiene ${client.quotation_count} cotización${(client.quotation_count ?? 0) > 1 ? "es" : ""} asociada${(client.quotation_count ?? 0) > 1 ? "s" : ""}`}
+                              className="text-gray-300 cursor-not-allowed"
+                            >
+                              <Trash2 size={16} />
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setConfirmDeleteId(client.id);
+                                setDeleteError(null);
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                              title="Eliminar cliente"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

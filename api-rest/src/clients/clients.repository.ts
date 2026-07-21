@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { Client } from './entities/client.entity';
@@ -28,13 +28,21 @@ export class ClientsRepository {
 
   async findAll(companyId: number) {
     this.logger.info(`findAll clients with companyId ${companyId}`);
+    // quotations(id) embeds only the ids of linked quotations, so the
+    // frontend can know how many exist (a client with quotations must
+    // not be deletable) without loading the heavy quotation payloads.
     const { data, error } = await this.supabase.client
       .from('clients')
-      .select('*')
+      .select('*, quotations(id)')
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data as unknown as Client[];
+    return (data as unknown as (Client & { quotations?: { id: string }[] })[]).map(
+      ({ quotations, ...client }) => ({
+        ...client,
+        quotation_count: quotations?.length ?? 0,
+      }),
+    ) as unknown as Client[];
   }
 
   async update(id: string, updateClient: UpdateClient, companyId: number) {
@@ -54,6 +62,20 @@ export class ClientsRepository {
 
   async remove(id: string, companyId: number) {
     this.logger.info(`remove client with id ${id}`);
+    // A client with linked quotations must never be deleted (the DB
+    // foreign key also blocks it, but this returns a clear message
+    // instead of a raw constraint error).
+    const { count, error: countError } = await this.supabase.client
+      .from('quotations')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', id)
+      .eq('company_id', companyId);
+    if (countError) throw countError;
+    if ((count ?? 0) > 0) {
+      throw new ConflictException(
+        'El cliente tiene cotizaciones asociadas y no puede eliminarse',
+      );
+    }
     const { data, error } = await this.supabase.client
       .from('clients')
       .delete()
@@ -61,10 +83,7 @@ export class ClientsRepository {
       .eq('company_id', companyId)
       .select()
       .single();
-    if (error) {
-      // TODO: manage error with quotations linked to the client
-      throw error;
-    }
+    if (error) throw error;
     return data as unknown as Client;
   }
 
