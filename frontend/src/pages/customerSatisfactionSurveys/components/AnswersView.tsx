@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   findAllAnswersFromCompany,
@@ -23,19 +24,29 @@ import Navigation from "./navigatino";
 
 export default function AnswersView() {
   const { company } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedQuotationId, setSelectedQuotationId] = useState<string>("");
-  const [surveyResponses, setSurveyResponses] = useState<
-    CustomerSatisfactionSurveyResponse[]
-  >([]);
-  const [template, setTemplate] = useState<SurveyTemplate | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (company?.id) {
-      fetchData();
-    }
-  }, [company?.id]);
+  // Respuestas de encuestas + plantilla vía React Query (Etapa 5).
+  const answersQuery = useQuery({
+    queryKey: ["surveys", "answers", company?.id],
+    enabled: !!company?.id,
+    queryFn: async () => {
+      const [responses, templateData] = await Promise.all([
+        findAllAnswersFromCompany(),
+        getTemplate(company!.id),
+      ]);
+      return { responses, template: templateData };
+    },
+  });
+  const surveyResponses: CustomerSatisfactionSurveyResponse[] =
+    answersQuery.data?.responses ?? [];
+  const template: SurveyTemplate | null = answersQuery.data?.template ?? null;
+  const loading = answersQuery.isPending && !!company?.id;
+  const error = answersQuery.isError ? "Error al cargar los datos" : null;
+
+  const fetchData = () =>
+    queryClient.invalidateQueries({ queryKey: ["surveys", "answers"] });
 
   // Auto-select first quotation when responses are loaded
   useEffect(() => {
@@ -43,26 +54,6 @@ export default function AnswersView() {
       setSelectedQuotationId(surveyResponses[0].quotation_id);
     }
   }, [surveyResponses, selectedQuotationId]);
-
-  const fetchData = async () => {
-    if (!company?.id) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const [responses, templateData] = await Promise.all([
-        findAllAnswersFromCompany(),
-        getTemplate(company.id),
-      ]);
-      setSurveyResponses(responses);
-      setTemplate(templateData);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Error al cargar los datos");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getUniqueQuotations = () => {
     const uniqueQuotations = new Map();

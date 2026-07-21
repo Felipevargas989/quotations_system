@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   DollarSign,
   TrendingUp,
@@ -131,7 +132,7 @@ export default function DashboardPage() {
   // Selected time range (default to 1 year)
   const [selectedTimeRange, setSelectedTimeRange] = useState("1_year");
 
-  const [data, setData] = useState<DashboardData>({
+  const EMPTY_DASHBOARD: DashboardData = {
     totalRequests: 0,
     totalClients: 0,
     totalSales: 0,
@@ -140,21 +141,16 @@ export default function DashboardPage() {
     eventsByMonth: [],
     salesPipeline: [],
     paymentsByMonth: [],
-  });
-  const [loading, setLoading] = useState(true);
+  };
 
-  useEffect(() => {
-    if (user && company?.id) {
-      loadDashboardData();
-    }
-  }, [user, company?.id, selectedTimeRange]);
-
-  const loadDashboardData = async () => {
-    if (!user || !company?.id) return;
-
-    try {
-      setLoading(true);
-
+  // Dashboard vía React Query (Etapa 5): una clave por rango de tiempo;
+  // al cambiar el rango se sigue mostrando el anterior mientras llega
+  // el nuevo (sin parpadeo), y volver al dashboard es instantáneo.
+  const dashboardQuery = useQuery({
+    queryKey: ["dashboard", company?.id, selectedTimeRange],
+    enabled: !!user && !!company?.id,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<DashboardData> => {
       // Get selected time range and its date range
       const selectedOption = timeRangeOptions.find(
         (option) => option.value === selectedTimeRange,
@@ -169,8 +165,7 @@ export default function DashboardPage() {
       );
 
       if (!analyticsData) {
-        console.error("No analytics data received");
-        return;
+        throw new Error("No analytics data received");
       }
 
       // Get total requests count from analytics service
@@ -246,7 +241,7 @@ export default function DashboardPage() {
           monthKey: monthYearKey,
         }));
 
-      setData({
+      return {
         totalRequests,
         totalClients,
         totalSales,
@@ -268,13 +263,11 @@ export default function DashboardPage() {
           amount: number;
           monthKey: string;
         }[],
-      });
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      };
+    },
+  });
+  const data = dashboardQuery.data ?? EMPTY_DASHBOARD;
+  const loading = dashboardQuery.isPending;
 
   const getStatusLabel = (status: string) => {
     const labels = {
@@ -602,7 +595,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <button
-          onClick={loadDashboardData}
+          onClick={() => dashboardQuery.refetch()}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
         >
           <TrendingUp size={16} />

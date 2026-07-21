@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   ChefHat,
@@ -70,17 +71,31 @@ export default function FichaCocinaSection({
   const [newNote, setNewNote] = useState("");
   const [saved, setSaved] = useState(false);
 
+  // Carga vía React Query (Etapa 5): reabrir la cocina del mismo evento
+  // es instantáneo. Las horas/notas son superficie de EDICIÓN, así que
+  // se copian al estado local UNA VEZ por evento — los refrescos en
+  // segundo plano no pisan lo que se esté escribiendo.
+  const cocinaQuery = useQuery({
+    queryKey: ["postventa", "cocina", companyId, quotationId],
+    staleTime: 0,
+    queryFn: async () => {
+      const [t, n, dp] = await Promise.all([
+        getEventServiceTimes(companyId, quotationId),
+        getEventKitchenNotes(companyId, quotationId),
+        getEventDayPrints(companyId, quotationId),
+      ]);
+      return { times: t, notes: n, dayPrints: dp };
+    },
+  });
+  const cocinaLoaded = !!cocinaQuery.data;
   useEffect(() => {
-    Promise.all([
-      getEventServiceTimes(companyId, quotationId),
-      getEventKitchenNotes(companyId, quotationId),
-      getEventDayPrints(companyId, quotationId),
-    ]).then(([t, n, dp]) => {
-      setTimes(t);
-      setNotes(n);
-      setDayPrints(dp);
-    });
-  }, [companyId, quotationId]);
+    if (cocinaQuery.data) {
+      setTimes(cocinaQuery.data.times);
+      setNotes(cocinaQuery.data.notes);
+      setDayPrints(cocinaQuery.data.dayPrints);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotationId, cocinaLoaded]);
 
   const flashSaved = () => {
     setSaved(true);

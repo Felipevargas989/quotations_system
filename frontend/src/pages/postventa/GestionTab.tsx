@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Download, Package, TrendingUp } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
@@ -56,48 +57,49 @@ export default function GestionTab({
 }) {
   const { company } = useAuth();
   const companyId = company?.id ? Number(company.id) : null;
-  const [recipes, setRecipes] = useState<RecipeItem[]>([]);
-  const [supplies, setSupplies] = useState<Supply[]>([]);
-  const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
-  const [nameIds, setNameIds] = useState<{
-    variable: Record<string, number>;
-    fixed: Record<string, number>;
-  }>({ variable: {}, fixed: {} });
-  const [prov, setProv] = useState<QuotationProvisioning>({
-    provisioned_at: null,
-    provisioned_cost: null,
-    provisioned_people: null,
-    provisioned_services: null,
-  });
   const [costoRecursos, setCostoRecursos] = useState(0);
-  const [allEvents, setAllEvents] = useState<PurchasingEvent[]>([]);
   const [photoView, setPhotoView] = useState<{
     url: string;
     title: string;
   } | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (companyId === null) return;
-    setLoading(true);
-    Promise.all([
-      getAllRecipeItems(companyId),
-      getSupplies(companyId),
-      getFurnitureItems(companyId),
-      getCatalogServiceNameIds(companyId),
-      getQuotationProvisioning(String(quote.id)),
-      getAcceptedEvents(companyId),
-    ])
-      .then(([r, s, f, n, pr, ev]) => {
-        setRecipes(r);
-        setSupplies(s);
-        setFurniture(f);
-        setNameIds(n);
-        setProv(pr);
-        setAllEvents(ev);
-      })
-      .finally(() => setLoading(false));
-  }, [companyId, quote.id]);
+  // Gestión (lectura de aprovisionamiento) vía React Query (Etapa 5,
+  // frescura inmediata bajo el prefijo ["postventa"]).
+  const gestionQuery = useQuery({
+    queryKey: ["postventa", "gestion", companyId, quote.id],
+    enabled: companyId !== null,
+    staleTime: 0,
+    queryFn: async () => {
+      const [r, s, f, n, pr, ev] = await Promise.all([
+        getAllRecipeItems(companyId!),
+        getSupplies(companyId!),
+        getFurnitureItems(companyId!),
+        getCatalogServiceNameIds(companyId!),
+        getQuotationProvisioning(String(quote.id)),
+        getAcceptedEvents(companyId!),
+      ]);
+      return {
+        recipes: r,
+        supplies: s,
+        furniture: f,
+        nameIds: n,
+        prov: pr,
+        allEvents: ev,
+      };
+    },
+  });
+  const recipes = gestionQuery.data?.recipes ?? [];
+  const supplies = gestionQuery.data?.supplies ?? [];
+  const furniture = gestionQuery.data?.furniture ?? [];
+  const nameIds = gestionQuery.data?.nameIds ?? { variable: {}, fixed: {} };
+  const prov: QuotationProvisioning = gestionQuery.data?.prov ?? {
+    provisioned_at: null,
+    provisioned_cost: null,
+    provisioned_people: null,
+    provisioned_services: null,
+  };
+  const allEvents = gestionQuery.data?.allEvents ?? [];
+  const loading = gestionQuery.isPending && companyId !== null;
 
   const personas = quote.people_count || 0;
 

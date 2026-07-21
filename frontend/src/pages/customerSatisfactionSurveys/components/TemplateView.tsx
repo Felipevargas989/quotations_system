@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../../contexts/AuthContext";
 import { FileText } from "lucide-react";
 import { SurveyTemplate } from "../../../types/customerSatisfactionSurveys.types";
@@ -7,31 +7,18 @@ import Navigation from "./navigatino";
 
 export default function TemplateView() {
   const { company } = useAuth();
-  const [template, setTemplate] = useState<SurveyTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (company?.id) {
-      fetchTemplate();
-    }
-  }, [company?.id]);
-
-  const fetchTemplate = async () => {
-    if (!company?.id) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const templateData = await getTemplate(company.id);
-      setTemplate(templateData);
-    } catch (err) {
-      console.error("Error fetching template:", err);
-      setError("Error al cargar la plantilla de encuesta");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Plantilla de encuesta vía React Query (Etapa 5).
+  const templateQuery = useQuery({
+    queryKey: ["surveys", "template", company?.id],
+    enabled: !!company?.id,
+    queryFn: (): Promise<SurveyTemplate | null> => getTemplate(company!.id),
+  });
+  const template: SurveyTemplate | null = templateQuery.data ?? null;
+  const loading = templateQuery.isPending && !!company?.id;
+  const error = templateQuery.isError
+    ? "Error al cargar la plantilla de encuesta"
+    : null;
 
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
@@ -99,7 +86,7 @@ export default function TemplateView() {
               </h3>
               <p className="text-red-700 mt-1">{error}</p>
               <button
-                onClick={fetchTemplate}
+                onClick={() => templateQuery.refetch()}
                 className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Reintentar

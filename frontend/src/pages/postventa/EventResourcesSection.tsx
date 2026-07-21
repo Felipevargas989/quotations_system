@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmInline from "../../components/ConfirmInline";
 import { Check, Users, X } from "lucide-react";
 import {
@@ -68,11 +69,7 @@ export default function EventResourcesSection({
   readonly fixedServices: EventFixedService[];
   readonly onCostChange: (total: number) => void;
 }) {
-  const [lines, setLines] = useState<EventResource[]>([]);
-  const [resources, setResources] = useState<ManagementResource[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [costItems, setCostItems] = useState<FixedServiceCostItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -84,25 +81,31 @@ export default function EventResourcesSection({
   const [nPricePerPerson, setNPricePerPerson] = useState<number>(0);
   const [nSupplier, setNSupplier] = useState("");
 
-  const load = () => {
-    setLoading(true);
-    Promise.all([
-      getEventResources(companyId, quotationId),
-      getManagementResources(companyId),
-      getSuppliers(companyId),
-      getAllFixedServiceCostItems(companyId),
-    ])
-      .then(([l, r, s, ci]) => {
-        setLines(l);
-        setResources(r);
-        setSuppliers(s);
-        setCostItems(ci);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [companyId, quotationId]);
+  // Recursos del evento vía React Query (Etapa 5, frescura inmediata:
+  // asignaciones = costos del evento). El prefijo ["postventa"] hace
+  // que el embudo refreshAfterSave también los alcance.
+  const recursosQuery = useQuery({
+    queryKey: ["postventa", "recursos", companyId, quotationId],
+    staleTime: 0,
+    queryFn: async () => {
+      const [l, r, s, ci] = await Promise.all([
+        getEventResources(companyId, quotationId),
+        getManagementResources(companyId),
+        getSuppliers(companyId),
+        getAllFixedServiceCostItems(companyId),
+      ]);
+      return { lines: l, resources: r, suppliers: s, costItems: ci };
+    },
+  });
+  const lines = recursosQuery.data?.lines ?? [];
+  const resources = recursosQuery.data?.resources ?? [];
+  const suppliers = recursosQuery.data?.suppliers ?? [];
+  const costItems = recursosQuery.data?.costItems ?? [];
+  const loading = recursosQuery.isPending;
+  const load = () =>
+    queryClient.invalidateQueries({
+      queryKey: ["postventa", "recursos", companyId, quotationId],
+    });
 
   const resById = useMemo(
     () => new Map(resources.map((r) => [r.id, r])),
@@ -289,8 +292,17 @@ export default function EventResourcesSection({
         merged.price_per_person || 0,
       );
     }
-    setLines((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, ...fields } : l)),
+    // Parche quirúrgico del caché (la fila no salta) + confirmación.
+    queryClient.setQueryData<{
+      lines: EventResource[];
+      resources: ManagementResource[];
+      suppliers: Supplier[];
+      costItems: FixedServiceCostItem[];
+    }>(["postventa", "recursos", companyId, quotationId], (prev) =>
+      prev && {
+        ...prev,
+        lines: prev.lines.map((l) => (l.id === id ? { ...l, ...fields } : l)),
+      },
     );
   };
 
@@ -301,7 +313,18 @@ export default function EventResourcesSection({
     const { error } = await deleteEventResource(id);
     if (!error) {
       setConfirmLineId(null);
-      setLines((prev) => prev.filter((l) => l.id !== id));
+      queryClient.setQueryData<{
+        lines: EventResource[];
+        resources: ManagementResource[];
+        suppliers: Supplier[];
+        costItems: FixedServiceCostItem[];
+      }>(["postventa", "recursos", companyId, quotationId], (prev) =>
+        prev && {
+          ...prev,
+          lines: prev.lines.filter((l) => l.id !== id),
+        },
+      );
+      load();
     }
   };
 
