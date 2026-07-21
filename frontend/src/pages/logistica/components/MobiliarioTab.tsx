@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   Camera,
@@ -52,8 +53,7 @@ export default function MobiliarioTab({
 }: {
   readonly companyId: number;
 }) {
-  const [rows, setRows] = useState<FurnitureItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<FurnitureItem | null>(null);
@@ -75,28 +75,30 @@ export default function MobiliarioTab({
     loaded: boolean;
   }>({ conflicts: [], loaded: false });
 
-  // Uso por ítem (recetas): decide si la papelera está disponible.
-  const [usage, setUsage] = useState<Record<number, { recipes: number }>>({});
   // Los inactivos se ocultan por defecto para no ensuciar la vista.
   const [showInactive, setShowInactive] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  // Refresco silencioso: el spinner solo en la PRIMERA carga.
-  const firstLoad = useRef(true);
-  const load = () => {
-    if (firstLoad.current) setLoading(true);
-    Promise.all([getFurnitureItems(companyId), getFurnitureUsage(companyId)])
-      .then(([f, u]) => {
-        setRows(f);
-        setUsage(u);
-      })
-      .finally(() => {
-        firstLoad.current = false;
-        setLoading(false);
-      });
-  };
+  // Vía React Query (Etapa 3): spinner solo la PRIMERA carga; refrescos
+  // silenciosos tras cada guardado (histórico). usage (recetas por
+  // ítem) decide si la papelera está disponible.
+  const mobiliarioQuery = useQuery({
+    queryKey: ["logistica", "mobiliario", companyId],
+    queryFn: async () => {
+      const [f, u] = await Promise.all([
+        getFurnitureItems(companyId),
+        getFurnitureUsage(companyId),
+      ]);
+      return { rows: f, usage: u };
+    },
+  });
+  const rows = mobiliarioQuery.data?.rows ?? [];
+  const usage = mobiliarioQuery.data?.usage ?? {};
+  const loading = mobiliarioQuery.isPending;
+  const load = () =>
+    queryClient.invalidateQueries({ queryKey: ["logistica", "mobiliario"] });
 
   const doDelete = async (f: FurnitureItem) => {
     setDeleting(true);
@@ -110,8 +112,6 @@ export default function MobiliarioTab({
     }
     load();
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [companyId]);
 
   // Radar: consolida los eventos futuros y busca fechas en conflicto.
   useEffect(() => {
@@ -274,13 +274,23 @@ export default function MobiliarioTab({
     load();
   };
 
-  // Stock editable en la fila (autosave onBlur).
+  // Stock editable en la fila (autosave onBlur): el caché se actualiza
+  // quirúrgicamente para que la fila no salte, y se confirma por detrás.
   const saveStock = async (f: FurnitureItem, value: number) => {
     if (value === f.stock || value < 0) return;
     await updateFurnitureItem(f.id, { stock: value });
-    setRows((prev) =>
-      prev.map((r) => (r.id === f.id ? { ...r, stock: value } : r)),
+    queryClient.setQueryData<{
+      rows: FurnitureItem[];
+      usage: Record<number, { recipes: number }>;
+    }>(["logistica", "mobiliario", companyId], (prev) =>
+      prev && {
+        ...prev,
+        rows: prev.rows.map((r) =>
+          r.id === f.id ? { ...r, stock: value } : r,
+        ),
+      },
     );
+    load();
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
   };

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupplier,
@@ -14,8 +15,7 @@ export default function ProveedoresTab({
 }: {
   readonly companyId: number;
 }) {
-  const [rows, setRows] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -25,9 +25,6 @@ export default function ProveedoresTab({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [usage, setUsage] = useState<
-    Record<number, { supplies: number; resources: number }>
-  >({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   // Dar de baja con recursos/insumos asociados: confirmación inline (sin
   // popup del navegador), mismo patrón flotante del basurero.
@@ -35,21 +32,25 @@ export default function ProveedoresTab({
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  // Refresco silencioso: el spinner solo en la PRIMERA carga.
-  const firstLoad = useRef(true);
-  const load = () => {
-    if (firstLoad.current) setLoading(true);
-    Promise.all([getSuppliers(companyId), getSuppliersUsage(companyId)])
-      .then(([s, u]) => {
-        setRows(s);
-        setUsage(u);
-      })
-      .finally(() => {
-        firstLoad.current = false;
-        setLoading(false);
-      });
-  };
-  useEffect(load, [companyId]);
+  // Vía React Query (Etapa 3): spinner solo la PRIMERA carga; los
+  // refrescos tras guardar/editar/eliminar son silenciosos (histórico).
+  const proveedoresQuery = useQuery({
+    queryKey: ["logistica", "proveedores", companyId],
+    queryFn: async () => {
+      const [s, u] = await Promise.all([
+        getSuppliers(companyId),
+        getSuppliersUsage(companyId),
+      ]);
+      return { rows: s, usage: u };
+    },
+  });
+  const rows = proveedoresQuery.data?.rows ?? [];
+  const usage = proveedoresQuery.data?.usage ?? {};
+  const loading = proveedoresQuery.isPending;
+  const load = () =>
+    queryClient.invalidateQueries({
+      queryKey: ["logistica", "proveedores"],
+    });
 
   const doDelete = async (s: Supplier) => {
     setDeleting(true);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileSpreadsheet, Pin, Plus, Tag } from "lucide-react";
 import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
@@ -74,14 +75,16 @@ export default function ServicesPage() {
   } = useServices();
 
   // Costo de insumos por persona de cada servicio variable (desde recetas),
-  // para mostrar costo y margen junto al precio en la lista.
+  // para mostrar costo y margen junto al precio en la lista. Vía React
+  // Query (Etapa 3): silencioso — la lista funciona igual sin costos.
   const { company } = useAuth();
-  const [recipeCosts, setRecipeCosts] = useState<Record<number, number>>({});
+  const queryClient = useQueryClient();
 
-  const loadRecipeCosts = async () => {
-    if (!company?.id) return;
-    try {
-      const companyId = Number(company.id);
+  const { data: recipeCosts = {} } = useQuery({
+    queryKey: ["recipeCosts", company?.id],
+    enabled: !!company?.id,
+    queryFn: async (): Promise<Record<number, number>> => {
+      const companyId = Number(company!.id);
       const [items, supplies] = await Promise.all([
         getAllIngredientRecipeItems(companyId),
         getSupplies(companyId),
@@ -95,16 +98,14 @@ export default function ServicesPage() {
           (costs[it.service_id] || 0) +
           toBaseQty(it.qty_per_person, it.unit) * price;
       });
-      setRecipeCosts(costs);
-    } catch {
-      /* silencioso: la lista funciona igual sin costos */
-    }
-  };
+      return costs;
+    },
+    retry: 0,
+  });
 
-  useEffect(() => {
-    loadRecipeCosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company?.id]);
+  const loadRecipeCosts = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
+  };
 
   const handleUploadSuccess = async () => {
     setUploadError(null);

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createSupply,
@@ -27,9 +28,7 @@ export default function InsumosTab({
 }: {
   readonly companyId: number;
 }) {
-  const [rows, setRows] = useState<Supply[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Supply | null>(null);
@@ -45,33 +44,33 @@ export default function InsumosTab({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Uso por insumo (recetas y compras): decide si la papelera está disponible.
-  const [usage, setUsage] = useState<
-    Record<number, { recipes: number; provisions: number }>
-  >({});
   // Los inactivos se ocultan por defecto para no ensuciar la vista.
   const [showInactive, setShowInactive] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  // Refresco silencioso: el spinner solo en la PRIMERA carga; al guardar,
-  // editar o eliminar, los datos se actualizan por detrás sin mover nada.
-  const firstLoad = useRef(true);
-  const load = () => {
-    if (firstLoad.current) setLoading(true);
-    Promise.all([getSupplies(companyId), getSuppliers(companyId)])
-      .then(async ([s, p]) => {
-        setRows(s);
-        setSuppliers(p);
-        setUsage(await getSupplyUsage(s.map((x) => x.id)));
-      })
-      .finally(() => {
-        firstLoad.current = false;
-        setLoading(false);
-      });
-  };
-  useEffect(load, [companyId]);
+  // Vía React Query (Etapa 3): spinner solo la PRIMERA carga; los
+  // refrescos tras guardar/editar/eliminar son silenciosos (histórico).
+  // usage (recetas y compras por insumo) decide si la papelera está
+  // disponible.
+  const insumosQuery = useQuery({
+    queryKey: ["logistica", "insumos", companyId],
+    queryFn: async () => {
+      const [s, p] = await Promise.all([
+        getSupplies(companyId),
+        getSuppliers(companyId),
+      ]);
+      const u = await getSupplyUsage(s.map((x) => x.id));
+      return { rows: s, suppliers: p, usage: u };
+    },
+  });
+  const rows = insumosQuery.data?.rows ?? [];
+  const suppliers = insumosQuery.data?.suppliers ?? [];
+  const usage = insumosQuery.data?.usage ?? {};
+  const loading = insumosQuery.isPending;
+  const load = () =>
+    queryClient.invalidateQueries({ queryKey: ["logistica", "insumos"] });
 
   const doDelete = async (s: Supply) => {
     setDeleting(true);

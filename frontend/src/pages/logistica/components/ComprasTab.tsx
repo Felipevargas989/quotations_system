@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Download,
@@ -68,24 +69,7 @@ export default function ComprasTab({
 }: {
   readonly companyId: number;
 }) {
-  const [events, setEvents] = useState<PurchasingEvent[]>([]);
-  const [provisions, setProvisions] = useState<EventSupplyProvision[]>([]);
-  const [recipes, setRecipes] = useState<RecipeItem[]>([]);
-  const [supplies, setSupplies] = useState<Supply[]>([]);
-  const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [nameIds, setNameIds] = useState<{
-    variable: Record<string, number>;
-    fixed: Record<string, number>;
-  }>({ variable: {}, fixed: {} });
-  const [fixedCosts, setFixedCosts] = useState<
-    Record<
-      number,
-      { cost_fixed: number | null; cost_per_person: number | null }
-    >
-  >({});
-  const [loading, setLoading] = useState(true);
-
+  const queryClient = useQueryClient();
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -98,42 +82,59 @@ export default function ComprasTab({
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState("");
 
-  const loadAll = () => {
-    setLoading(true);
-    Promise.all([
-      getAcceptedEvents(companyId),
-      getEventSupplyProvisions(companyId),
-      getAllRecipeItems(companyId),
-      getSupplies(companyId),
-      getFurnitureItems(companyId),
-      getSuppliers(companyId),
-      getCatalogServiceNameIds(companyId),
-      getFixedServiceCostsById(companyId),
-    ])
-      .then(([ev, pr, r, s, f, sup, n, fc]) => {
-        setEvents(ev);
-        setProvisions(pr);
-        setRecipes(r);
-        setSupplies(s);
-        setFurniture(f);
-        setSuppliers(sup);
-        setNameIds(n);
-        setFixedCosts(fc);
-      })
-      .finally(() => setLoading(false));
-  };
+  // Vía React Query (Etapa 3), en DOS consultas para conservar el
+  // comportamiento histórico: la "base" (recetas, insumos, mobiliario,
+  // proveedores, catálogo, costos) cambia poco; el "estado" (eventos +
+  // provisiones) se refresca tras cada aprovisionar/desaprovisionar
+  // sin recargar la base completa.
+  const baseQuery = useQuery({
+    queryKey: ["logistica", "compras", "base", companyId],
+    queryFn: async () => {
+      const [r, s, f, sup, n, fc] = await Promise.all([
+        getAllRecipeItems(companyId),
+        getSupplies(companyId),
+        getFurnitureItems(companyId),
+        getSuppliers(companyId),
+        getCatalogServiceNameIds(companyId),
+        getFixedServiceCostsById(companyId),
+      ]);
+      return {
+        recipes: r,
+        supplies: s,
+        furniture: f,
+        suppliers: sup,
+        nameIds: n,
+        fixedCosts: fc,
+      };
+    },
+  });
+  const estadoQuery = useQuery({
+    queryKey: ["logistica", "compras", "estado", companyId],
+    queryFn: async () => {
+      const [ev, pr] = await Promise.all([
+        getAcceptedEvents(companyId),
+        getEventSupplyProvisions(companyId),
+      ]);
+      return { events: ev, provisions: pr };
+    },
+  });
 
+  const events = estadoQuery.data?.events ?? [];
+  const provisions = estadoQuery.data?.provisions ?? [];
+  const recipes = baseQuery.data?.recipes ?? [];
+  const supplies = baseQuery.data?.supplies ?? [];
+  const furniture = baseQuery.data?.furniture ?? [];
+  const suppliers = baseQuery.data?.suppliers ?? [];
+  const nameIds = baseQuery.data?.nameIds ?? { variable: {}, fixed: {} };
+  const fixedCosts = baseQuery.data?.fixedCosts ?? {};
+  const loading = baseQuery.isPending || estadoQuery.isPending;
+
+  // Tras aprovisionar/desaprovisionar solo se refresca el estado.
   const refresh = async () => {
-    const [ev, pr] = await Promise.all([
-      getAcceptedEvents(companyId),
-      getEventSupplyProvisions(companyId),
-    ]);
-    setEvents(ev);
-    setProvisions(pr);
+    await queryClient.invalidateQueries({
+      queryKey: ["logistica", "compras", "estado"],
+    });
   };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadAll, [companyId]);
 
   // provisiones indexadas por evento y por (evento, insumo)
   const provByEvent = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, Lock, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
 import { useAuth } from "../../contexts/AuthContext";
@@ -21,42 +22,32 @@ export default function ConfigurationPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Company and notifications state
-  const [company, setCompany] = useState<Company | null>(null);
+  // Empresa vía React Query (Etapa 3); las casillas de notificaciones
+  // se editan localmente y parten del valor guardado.
   const [emailNotifications, setEmailNotifications] = useState<{
     [key in EmailStructure]?: boolean;
   }>({});
-  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
 
-  // Load company data on component mount
+  const companyQuery = useQuery({
+    queryKey: ["company", userCompany?.id],
+    enabled: !!userCompany?.id,
+    queryFn: async (): Promise<Company | null> => {
+      const { data, error } = await getCompany(userCompany!.id.toString());
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
+  const company = companyQuery.data ?? null;
+  const isLoadingCompany = companyQuery.isPending;
+
+  // Inicializa las casillas una vez por empresa cargada (los refrescos
+  // en segundo plano no pisan lo que se esté editando).
   useEffect(() => {
-    const loadCompanyData = async () => {
-      if (!userCompany?.id) return;
-
-      try {
-        setIsLoadingCompany(true);
-        const { data, error } = await getCompany(userCompany.id.toString());
-
-        if (error) {
-          console.error("Error loading company:", error);
-          return;
-        }
-
-        if (data) {
-          setCompany(data);
-          // Initialize email notifications with current company settings
-          setEmailNotifications(data.notifications?.emails || {});
-        }
-      } catch (error) {
-        console.error("Error loading company:", error);
-      } finally {
-        setIsLoadingCompany(false);
-      }
-    };
-
-    loadCompanyData();
-  }, [userCompany?.id]);
+    if (company) {
+      setEmailNotifications(company.notifications?.emails || {});
+    }
+  }, [company?.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

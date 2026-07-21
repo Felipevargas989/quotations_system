@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Edit2,
@@ -32,8 +33,18 @@ interface UserProfile {
 
 export default function UserManagementPage() {
   const { user } = useAuth();
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Usuarios vía React Query (Etapa 3): caché con revalidación en
+  // segundo plano; cada crear/editar/eliminar invalida la lista.
+  const { data: users = [], isPending: loading } = useQuery({
+    queryKey: ["users"],
+    queryFn: async (): Promise<UserProfile[]> => {
+      const { data, error } = await getUsers();
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -75,21 +86,8 @@ export default function UserManagementPage() {
     },
   ];
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
   const loadUsers = async () => {
-    try {
-      const { data, error } = await getUsers();
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error("Error loading users:", error);
-    } finally {
-      setLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: ["users"] });
   };
 
   const getRoleInfo = (role: string) => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import {
@@ -74,8 +75,6 @@ export default function CalendarPage() {
   );
   // Mes visible (independiente de la selección).
   const [activeMonth, setActiveMonth] = useState<Date>(initialDate);
-  const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     searchParams.get("date") ? initialDate : null,
   );
@@ -112,9 +111,27 @@ export default function CalendarPage() {
     },
   ];
 
-  useEffect(() => {
-    fetchQuotations();
-  }, [selectedStatuses]);
+  // Eventos del calendario vía React Query (Etapa 3): la clave parte
+  // con "quotations", así los guardados que invalidan cotizaciones
+  // refrescan también el calendario. Al cambiar los filtros se sigue
+  // mostrando el mes anterior mientras llega la nueva selección.
+  const calendarQuery = useQuery({
+    queryKey: [
+      "quotations",
+      "calendar",
+      [...selectedStatuses].sort().join(","),
+    ],
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<QuotationWithClient[]> => {
+      const response = await getQuotations(
+        QuotationRequestType.COTIZACION,
+        selectedStatuses,
+      );
+      return (response.data || []).filter((q) => q.event_date != null);
+    },
+  });
+  const quotations = calendarQuery.data ?? [];
+  const loading = calendarQuery.isPending;
 
   useEffect(() => {
     const currentMonth = activeMonth;
@@ -136,25 +153,7 @@ export default function CalendarPage() {
     setCurrentMonthEventsCount(count);
   }, [activeMonth, quotations]);
 
-  const fetchQuotations = async () => {
-    try {
-      setLoading(true);
-      const response = await getQuotations(
-        QuotationRequestType.COTIZACION,
-        selectedStatuses,
-      );
-      if (response.data) {
-        const quotationsWithDates = response.data.filter(
-          (q) => q.event_date != null,
-        );
-        setQuotations(quotationsWithDates);
-      }
-    } catch (error) {
-      console.error("Error fetching quotations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // (fetchQuotations eliminado: React Query reacciona sola a los filtros.)
 
   // Colores sólidos por estado para las bandas (hex, no clases tailwind).
   const STATUS_HEX: Record<string, string> = {

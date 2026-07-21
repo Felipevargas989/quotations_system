@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   createManagementResource,
@@ -31,9 +32,7 @@ export default function RecursosTab({
 }: {
   readonly companyId: number;
 }) {
-  const [rows, setRows] = useState<ManagementResource[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ManagementResource | null>(null);
@@ -45,36 +44,32 @@ export default function RecursosTab({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Uso por recurso (costos de servicios fijos + eventos): decide papelera.
-  const [usage, setUsage] = useState<
-    Record<number, { costLines: number; events: number }>
-  >({});
   // Los inactivos se ocultan por defecto para no ensuciar la vista.
   const [showInactive, setShowInactive] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  // Refresco silencioso: el spinner solo en la PRIMERA carga.
-  const firstLoad = useRef(true);
-  const load = () => {
-    if (firstLoad.current) setLoading(true);
-    Promise.all([
-      getManagementResources(companyId),
-      getSuppliers(companyId),
-      getResourcesUsage(companyId),
-    ])
-      .then(([r, s, u]) => {
-        setRows(r);
-        setSuppliers(s);
-        setUsage(u);
-      })
-      .finally(() => {
-        firstLoad.current = false;
-        setLoading(false);
-      });
-  };
-  useEffect(load, [companyId]);
+  // Vía React Query (Etapa 3): spinner solo la PRIMERA carga; refrescos
+  // silenciosos tras cada guardado (histórico). usage (costos de fijos
+  // + eventos por recurso) decide si la papelera está disponible.
+  const recursosQuery = useQuery({
+    queryKey: ["logistica", "recursos", companyId],
+    queryFn: async () => {
+      const [r, s, u] = await Promise.all([
+        getManagementResources(companyId),
+        getSuppliers(companyId),
+        getResourcesUsage(companyId),
+      ]);
+      return { rows: r, suppliers: s, usage: u };
+    },
+  });
+  const rows = recursosQuery.data?.rows ?? [];
+  const suppliers = recursosQuery.data?.suppliers ?? [];
+  const usage = recursosQuery.data?.usage ?? {};
+  const loading = recursosQuery.isPending;
+  const load = () =>
+    queryClient.invalidateQueries({ queryKey: ["logistica", "recursos"] });
 
   const doDelete = async (r: ManagementResource) => {
     setDeleting(true);
