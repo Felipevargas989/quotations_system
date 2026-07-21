@@ -315,13 +315,15 @@ export default function PostVentaPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      // Anulados: solo si su opción está marcada. Realizados: siempre
-      // visibles (pueden tener cobranza pendiente) y aislables con su opción.
+      // Dos familias de estados: pendiente/pagado/vencido filtran los
+      // eventos VIVOS; "Realizado" y "Anulado" son archivos y cada uno
+      // entra SOLO con su propia opción (un realizado pagado ya no se
+      // cuela por "Pagado"). Sin filtros marcados, se ve todo.
       const matchStatus = r.cancelled
         ? statusFilter.includes("cancelado")
-        : statusFilter.length === 0 ||
-          statusFilter.includes(r.status) ||
-          (r.done && statusFilter.includes("realizado"));
+        : r.done
+          ? statusFilter.length === 0 || statusFilter.includes("realizado")
+          : statusFilter.length === 0 || statusFilter.includes(r.status);
       const matchSearch =
         !q ||
         String(r.quotationNumber) === q ||
