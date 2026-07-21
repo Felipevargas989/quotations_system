@@ -65,6 +65,11 @@ export class ClientsService {
     return this.clientsRepository.remove(id, companyId);
   }
 
+  findSummary(id: string, companyId: number) {
+    this.logger.info(`findSummary client ${id}`);
+    return this.clientsRepository.findSummary(id, companyId);
+  }
+
   // ---- Tipos de cliente ----
   findTypes(companyId: number) {
     return this.clientsRepository.findTypes(companyId);

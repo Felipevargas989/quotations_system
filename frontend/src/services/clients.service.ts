@@ -25,3 +25,13 @@ export const deleteClient = async (id: string) => {
   const response = await apiRequest(`${API_ROUTES.CLIENTS}/${id}`, "DELETE");
   return { data: response };
 };
+
+// Ficha 360° del cliente: ficha + contactos + cotizaciones + cuotas
+// impagas + encuestas, en una sola llamada.
+export const getClientSummary = async (id: string) => {
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENTS}/${id}/summary`,
+    "GET",
+  );
+  return response;
+};

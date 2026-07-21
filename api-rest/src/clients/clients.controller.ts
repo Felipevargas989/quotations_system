@@ -82,6 +82,13 @@ export class ClientsController {
   //   return this.clientsService.findOne(+id);
   // }
 
+  // Ficha 360° del cliente: resumen comercial completo en una llamada.
+  @Get(':id/summary')
+  findSummary(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`GET /clients/${id}/summary`);
+    return this.clientsService.findSummary(id, user.company_id);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

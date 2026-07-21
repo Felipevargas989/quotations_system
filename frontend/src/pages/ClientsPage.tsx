@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -15,6 +16,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
 import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
+import { getClientTypeColor } from "../utils/clientTypeColor";
 import {
   validateEmail,
   validatePhone,
@@ -50,6 +52,7 @@ const TYPE_FILTER_KEY = (userId: string | number) =>
 
 export default function ClientsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -416,31 +419,8 @@ export default function ClientsPage() {
     return matchesSearch && matchesType;
   });
 
-  const getClientTypeColor = (type: string) => {
-    const colors = {
-      "Colegios & Universidades": "bg-blue-100 text-blue-800",
-      Particulares: "bg-green-100 text-green-800",
-      "Tour Operadores": "bg-purple-100 text-purple-800",
-      Empresas: "bg-orange-100 text-orange-800",
-      Iglesias: "bg-yellow-100 text-yellow-800",
-      "Empresas Publicas": "bg-red-100 text-red-800",
-    };
-    const known = colors[type as keyof typeof colors];
-    if (known) return known;
-    // Tipos creados por la empresa: color automático ESTABLE (el mismo
-    // nombre siempre recibe el mismo color, en cualquier sesión).
-    const palette = [
-      "bg-teal-100 text-teal-800",
-      "bg-rose-100 text-rose-800",
-      "bg-indigo-100 text-indigo-800",
-      "bg-lime-100 text-lime-800",
-      "bg-cyan-100 text-cyan-800",
-      "bg-fuchsia-100 text-fuchsia-800",
-    ];
-    let hash = 0;
-    for (const ch of type) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    return palette[hash % palette.length];
-  };
+  // (getClientTypeColor vive ahora en utils/clientTypeColor.ts, compartido
+  // con la ficha 360° del cliente.)
 
   if (showForm) {
     return (
@@ -1112,7 +1092,14 @@ export default function ClientsPage() {
                 </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50">
+                  // Toda la fila abre la ficha 360° del cliente; los
+                  // botones de acciones detienen la propagación.
+                  <tr
+                    key={client.id}
+                    onClick={() => navigate(`/clients/${client.id}`)}
+                    title="Ver ficha del cliente"
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Building className="h-8 w-8 text-gray-400 mr-3" />
@@ -1159,7 +1146,10 @@ export default function ClientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(client.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm font-medium"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {/* La celda SIEMPRE mide lo de los dos iconos; la
                           confirmación flota anclada a la derecha y crece
                           hacia la izquierda sobre la fila, sin mover la

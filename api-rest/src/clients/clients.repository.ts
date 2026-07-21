@@ -164,6 +164,62 @@ export class ClientsRepository {
     return { deleted: true };
   }
 
+  // Resumen comercial del cliente (ficha 360°, definido con Felipe el
+  // 21-07-2026): ficha + contactos + cotizaciones + cuotas impagas +
+  // encuestas de satisfacción, todo en una sola llamada.
+  async findSummary(id: string, companyId: number) {
+    this.logger.info(`findSummary client ${id} companyId ${companyId}`);
+    const { data: client, error: clientError } = await this.supabase.client
+      .from('clients')
+      .select('*, client_contacts(id, name, email, phone, is_primary)')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .single();
+    if (clientError) throw clientError;
+
+    const { data: quotations, error: qError } = await this.supabase.client
+      .from('quotations')
+      .select(
+        'id, quotation_number, quotation_status, event_type, event_date, total_amount, people_count, children_count, contact_name, created_at',
+      )
+      .eq('client_id', id)
+      .eq('company_id', companyId)
+      .order('event_date', { ascending: false });
+    if (qError) throw qError;
+
+    const qIds = (quotations ?? []).map((q) => q.id);
+    let pendingPayments: {
+      quotation_id: string;
+      amount: number;
+      status: string;
+    }[] = [];
+    let surveys: { quotation_id: string; answers: unknown }[] = [];
+    if (qIds.length) {
+      // Cuotas impagas (pendiente/vencido) = saldo vivo del cliente.
+      const { data: cuotas, error: pError } = await this.supabase.client
+        .from('payments')
+        .select('quotation_id, amount, status')
+        .in('quotation_id', qIds)
+        .in('status', ['pendiente', 'vencido']);
+      if (pError) throw pError;
+      pendingPayments = cuotas ?? [];
+
+      const { data: responses, error: sError } = await this.supabase.client
+        .from('customer_satisfaction_survey_responses')
+        .select('quotation_id, answers')
+        .in('quotation_id', qIds);
+      if (sError) throw sError;
+      surveys = responses ?? [];
+    }
+
+    return {
+      client,
+      quotations: quotations ?? [],
+      pendingPayments,
+      surveys,
+    };
+  }
+
   findOne(company_id: number, id?: number, email?: string, phone?: string) {
     this.logger.info(
       `findOne client with company_id ${company_id} and id ${id} and email ${email} and phone ${phone}`,
