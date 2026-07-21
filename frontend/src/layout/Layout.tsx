@@ -18,7 +18,7 @@ import FloatingWhatsAppButton from "./FloatingWhatsAppButton";
 import Sidebar from "./Sidebar";
 
 export default function Layout() {
-  const { user, userRole, signOut, loading, company } = useAuth();
+  const { userName, user, userRole, signOut, loading, company } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -97,8 +97,18 @@ export default function Layout() {
                     className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
                   >
                     <User size={16} />
-                    <span className="hidden sm:block" title={user.email}>
-                      {user.email?.substring(0, 5)}
+                    <span
+                      className="hidden sm:block text-left leading-tight"
+                      title={user.email}
+                    >
+                      <span className="block text-sm font-medium">
+                        {userName || user.email}
+                      </span>
+                      {userRole && (
+                        <span className="block text-[11px] text-gray-400 capitalize">
+                          {userRole}
+                        </span>
+                      )}
                     </span>
                     <ChevronDown size={14} />
                   </button>

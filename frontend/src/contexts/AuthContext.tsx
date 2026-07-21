@@ -8,6 +8,7 @@ import { Company } from "../types/companies.types.ts";
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
+  userName: string | null;
   company: Omit<Company, "created_at"> | null;
   loading: boolean;
   signIn: (
@@ -25,6 +26,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  // Nombre completo del perfil (para la cabecera: nombre + rol, no el
+  // correo cortado)
+  const [userName, setUserName] = useState<string | null>(null);
   const [company, setCompany] = useState<Omit<Company, "created_at"> | null>(
     null,
   );
@@ -43,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
       } else if (data) {
         setUserRole(data.role);
+        setUserName((data as { full_name?: string }).full_name || null);
         setCompany(data.companies);
       }
     } catch (error) {
@@ -201,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession,
     userRole,
+    userName,
     company,
     loadUserProfile,
   };
