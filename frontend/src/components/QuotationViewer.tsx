@@ -249,6 +249,13 @@ export default function QuotationViewer({
     .qv-obs { margin-top:24px; background:${brandS || "#f9fafb"}; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
     .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
     .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
+    /* Los colores del documento se respetan al imprimir/PDF: sin esto,
+       el navegador borra los fondos (modo ahorro de tinta) y la papeleta
+       sale lavada. */
+    .qv-hoja, .qv-hoja * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     @media print {
       @page { margin: 12mm; }
       body { background: #fff !important; }
