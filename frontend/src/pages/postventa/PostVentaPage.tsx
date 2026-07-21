@@ -8,6 +8,7 @@ import {
   X,
   ChevronRight,
   Upload,
+  Pencil,
   Trash2,
   FileText,
   Undo2,
@@ -20,6 +21,8 @@ import FileViewLink from "../../components/FileViewLink";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
+  updatePaymentTransaction,
+  deletePaymentTransaction,
   PaymentWithTransactions,
   PaymentTransaction,
 } from "../../services/paymentTransactions.service";
@@ -160,7 +163,7 @@ export default function PostVentaPage() {
   const [filterRestored, setFilterRestored] = useState(false);
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [tab, setTab] = useState<
-    "pagos" | "comprobantes" | "documentos" | "servicios" | "gestion" | "cocina"
+    "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
   >("pagos");
 
   useEffect(() => {
@@ -554,21 +557,9 @@ export default function PostVentaPage() {
 // ---- Event detail modal ----
 interface EventModalProps {
   readonly event: EventRow;
-  readonly tab:
-    | "pagos"
-    | "comprobantes"
-    | "documentos"
-    | "servicios"
-    | "gestion"
-    | "cocina";
+  readonly tab: "pagos" | "documentos" | "servicios" | "gestion" | "cocina";
   readonly setTab: (
-    t:
-      | "pagos"
-      | "comprobantes"
-      | "documentos"
-      | "servicios"
-      | "gestion"
-      | "cocina",
+    t: "pagos" | "documentos" | "servicios" | "gestion" | "cocina",
   ) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
@@ -584,7 +575,6 @@ function EventModal({
   const netPaid = event.paid - event.refunded;
   const saldo = event.total - netPaid;
   const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
-  const transactions = event.payments.flatMap((pay) => pay.transactions || []);
 
   // Load the full quotation (items, personas, discount, comments) for the
   // Servicios tab.
@@ -609,11 +599,30 @@ function EventModal({
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
-    { key: "comprobantes", label: "Comprobantes" },
     { key: "servicios", label: "Servicios" },
     { key: "gestion", label: "Gestión" },
     { key: "cocina", label: "Cocina" },
   ];
+
+  // Rectificacion de registros de pago: el lapiz edita fecha/monto/
+  // comprobante de un abono mal ingresado; el basurero elimina el
+  // registro (la cuota vuelve a pendiente; el backend re-cuadra el plan
+  // con la regla de division del 20-07).
+  const [editTx, setEditTx] = useState<PaymentTransaction | null>(null);
+  const onDeleteTx = async (t: PaymentTransaction) => {
+    if (
+      !window.confirm(
+        `¿Eliminar este registro de ${clp(t.amount)}? La cuota volverá a quedar pendiente; la cuota no se elimina.`,
+      )
+    )
+      return;
+    try {
+      await deletePaymentTransaction(t.id);
+      onDataChanged();
+    } catch {
+      alert("No se pudo eliminar el registro. Intenta de nuevo.");
+    }
+  };
 
   // Anular evento: pasa la cotización a "cancelada". Sale de Post-Venta,
   // Compras y mobiliario; sus pagos y comprobantes quedan como historia.
@@ -905,30 +914,90 @@ function EventModal({
                   const cp = pay.amount
                     ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
                     : 0;
+                  const txs = pay.transactions || [];
+                  // Registro de pago con sus acciones: ver comprobante,
+                  // rectificar (lapiz) y eliminar (basurero). El lapiz y
+                  // el basurero son del REGISTRO, nunca de la cuota.
+                  const txActions = (t: PaymentTransaction) => (
+                    <span className="flex items-center gap-3 shrink-0">
+                      {t.receipt_photo_url && (
+                        <FileViewLink
+                          url={t.receipt_photo_url}
+                          title={`Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditTx(t)}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Rectificar registro (fecha, monto o comprobante)"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteTx(t)}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Eliminar registro (la cuota vuelve a pendiente)"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </span>
+                  );
                   return (
                     <div
                       key={pay.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                      className="p-3 border border-gray-200 rounded-xl"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
-                          {pay.payment_number}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">
-                            {clp(pay.amount)}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
+                            {pay.payment_number}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {pay.status === "pagado"
-                              ? `Pagado · ${fmtDate(pay.last_payment_date)}`
-                              : `Vence ${fmtDate(pay.due_date)}`}
-                            {cp > 0 && cp < 100
-                              ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
-                              : ""}
+                          <div>
+                            <div className="font-semibold text-gray-900">
+                              {clp(pay.amount)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {pay.status === "pagado"
+                                ? `Pagado · ${fmtDate(pay.last_payment_date)}`
+                                : `Vence ${fmtDate(pay.due_date)}`}
+                              {cp > 0 && cp < 100
+                                ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
+                                : ""}
+                            </div>
                           </div>
+                          {statusBadge(cuotaStatus(pay))}
                         </div>
-                        {statusBadge(cuotaStatus(pay))}
+                        {txs.length === 1 && (
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>
+                              {fmtDate(txs[0].transaction_date)} ·{" "}
+                              {txs[0].payment_method || "—"}
+                            </span>
+                            {txActions(txs[0])}
+                          </div>
+                        )}
                       </div>
+                      {txs.length > 1 && (
+                        <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                          {txs.map((t) => (
+                            <div
+                              key={t.id}
+                              className="flex items-center justify-between pl-13 text-xs text-gray-600"
+                            >
+                              <span className="pl-[52px]">
+                                {fmtDate(t.transaction_date)} ·{" "}
+                                {t.payment_method || "—"} ·{" "}
+                                <span className="font-semibold text-gray-800">
+                                  {clp(t.amount)}
+                                </span>
+                              </span>
+                              {txActions(t)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -937,14 +1006,18 @@ function EventModal({
                 quotationId={event.quotationId}
                 onChanged={onDataChanged}
               />
+              {editTx && (
+                <EditRegistroModal
+                  tx={editTx}
+                  quotationId={event.quotationId}
+                  onClose={() => setEditTx(null)}
+                  onSaved={() => {
+                    setEditTx(null);
+                    onDataChanged();
+                  }}
+                />
+              )}
             </div>
-          )}
-
-          {tab === "comprobantes" && (
-            <ComprobantesTab
-              quotationId={event.quotationId}
-              transactions={transactions}
-            />
           )}
 
           {tab === "documentos" && (
@@ -1887,114 +1960,168 @@ interface LedgerEntry {
   url: string | null;
 }
 
-function ComprobantesTab({
+// ---- Reembolsos: gestión/registro (vive en la pestaña Pagos) ----
+// ---- Rectificar un registro de pago (fecha, monto, comprobante) ----
+// Regla de cuadratura del backend: si el monto editado deja la cuota a
+// medias, la cuota se divide; si la deja exacta, queda pagada. Un monto
+// mayor que la cuota se rechaza con guia (eliminar y re-registrar).
+function EditRegistroModal({
+  tx,
   quotationId,
-  transactions,
+  onClose,
+  onSaved,
 }: {
+  readonly tx: PaymentTransaction;
   readonly quotationId: string;
-  readonly transactions: PaymentTransaction[];
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
 }) {
-  const [refunds, setRefunds] = useState<Refund[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [amount, setAmount] = useState<number>(tx.amount);
+  const [date, setDate] = useState<string>(
+    String(tx.transaction_date || "").slice(0, 10),
+  );
+  const [method, setMethod] = useState<string>(
+    tx.payment_method || PAYMENT_METHODS[0],
+  );
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    getRefundsByQuotation(quotationId)
-      .then(setRefunds)
-      .finally(() => setLoading(false));
-  }, [quotationId]);
-
-  const entries: LedgerEntry[] = [
-    ...transactions.map((t) => ({
-      key: `p-${t.id}`,
-      kind: "pago" as const,
-      amount: t.amount,
-      date: t.transaction_date,
-      method: t.payment_method,
-      url: t.receipt_photo_url || null,
-    })),
-    // Solo reembolsos ya registrados (is_paid) entran al ledger de comprobantes.
-    ...refunds
-      .filter((r) => r.is_paid)
-      .map((r) => ({
-        key: `r-${r.id}`,
-        kind: "reembolso" as const,
-        amount: r.amount,
-        date: r.refund_date || null,
-        method: r.payment_method || null,
-        url: r.receipt_url || null,
-      })),
-  ].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const save = async () => {
+    if (!amount || amount <= 0) {
+      setErr("El monto debe ser mayor que cero.");
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    try {
+      let receipt = tx.receipt_photo_url || undefined;
+      if (file) {
+        const up = await uploadPaymentReceipt(
+          file,
+          quotationId,
+          tx.payment_id,
+          tx.id,
+        );
+        if (!up.success || !up.url) {
+          throw new Error(up.error || "No se pudo subir el comprobante");
+        }
+        receipt = up.url;
+      }
+      await updatePaymentTransaction(tx.id, {
+        amount,
+        payment_method: method,
+        transaction_date: date,
+        receipt_photo_url: receipt,
+      });
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
-        Comprobantes de pagos y reembolsos del evento. Los reembolsos se
-        registran desde la pestaña <span className="font-semibold">Pagos</span>.
-      </p>
-      {loading ? (
-        <div className="py-4 flex justify-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-gray-900">Rectificar registro</h4>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            title="Cerrar"
+          >
+            <X size={18} />
+          </button>
         </div>
-      ) : entries.length === 0 ? (
-        <p className="text-sm text-gray-500">Aún no hay comprobantes.</p>
-      ) : (
-        entries.map((e) => {
-          const refund = e.kind === "reembolso";
-          return (
-            <div
-              key={e.key}
-              className={`flex items-center gap-4 p-3 border rounded-xl ${
-                refund ? "border-red-200 bg-red-50" : "border-gray-200"
-              }`}
-            >
-              <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center text-[10px] text-center leading-tight ${
-                  e.url
-                    ? refund
-                      ? "bg-red-100 text-red-600"
-                      : "bg-emerald-50 text-emerald-600"
-                    : "bg-gray-100 text-gray-400"
-                }`}
-              >
-                {e.url ? "✓ IMG" : "sin archivo"}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  {refund && (
-                    <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 flex items-center gap-1">
-                      <Undo2 size={11} /> Reembolso
-                    </span>
-                  )}
-                  <span
-                    className={`font-semibold text-sm ${
-                      refund ? "text-red-700" : "text-gray-900"
-                    }`}
-                  >
-                    {refund ? "− " : ""}
-                    {clp(e.amount)} · {fmtDate(e.date)}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {e.method || "—"}
-                </div>
-              </div>
-              {e.url && (
-                <FileViewLink
-                  url={e.url}
-                  title={`Comprobante · ${clp(e.amount)} · ${fmtDate(e.date)}`}
-                  className="mr-2"
-                />
-              )}
-            </div>
-          );
-        })
-      )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-600">Monto</label>
+            <NumberInput
+              value={amount || undefined}
+              onChange={(v) => setAmount(v || 0)}
+              min={0}
+              formatThousands
+              placeholder="0"
+              className="text-right"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">
+              Fecha de pago
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600">
+            Medio de pago
+          </label>
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+          >
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600">
+            Reemplazar comprobante{" "}
+            <span className="font-normal text-gray-400">
+              (opcional · imagen o PDF · máx. 5 MB)
+            </span>
+          </label>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="w-full text-xs mt-1"
+          />
+          {tx.receipt_photo_url && !file && (
+            <p className="text-[11px] text-gray-400 mt-1">
+              Si no eliges archivo, se conserva el comprobante actual.
+            </p>
+          )}
+        </div>
+        {err && <p className="text-xs text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ---- Reembolsos: gestión/registro (vive en la pestaña Pagos) ----
 function ReembolsosManager({
   quotationId,
   onChanged,

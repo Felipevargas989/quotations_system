@@ -115,8 +115,14 @@ export class PaymentsController {
   }
 
   @Delete('transactions/:id')
-  removePaymentTransaction(@Param('id') id: number) {
+  removePaymentTransaction(
+    @Param('id') id: number,
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`DELETE /payments/transactions/${id}`);
-    return this.paymentsService.removePaymentTransaction(+id);
+    return this.paymentsService.removePaymentTransaction(
+      +id,
+      user.company_id,
+    );
   }
 }

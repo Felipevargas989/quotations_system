@@ -384,6 +384,16 @@ export class PaymentsService {
         );
       }
 
+      // Regla de cuadratura: si la última cuota tocada quedó a medias,
+      // se divide (parte pagada + cuota nueva por el remanente).
+      const lastTouched = distribution[distribution.length - 1];
+      if (lastTouched && !lastTouched.fully_paid) {
+        await this.normalizePaymentAfterTransactions(
+          lastTouched.payment_id,
+          companyId,
+        );
+      }
+
       return { total: dto.amount, distribution };
     } catch (error) {
       this.logger.error(error);
@@ -475,7 +485,9 @@ export class PaymentsService {
       if (new_paid > payment.amount) {
         this.logger.error('Current paid is greater than amount');
         throw new Error(
-          `El monto total no puede exceder ${payment.amount - current_paid}`,
+          isUpdate
+            ? `El monto excede esta cuota (máximo ${payment.amount - current_paid + (transactionFromDB?.amount || 0)}). Para un pago mayor, elimina el registro y regístralo de nuevo: el excedente se derramará a las cuotas siguientes.`
+            : `El monto total no puede exceder ${payment.amount - current_paid}`,
         );
       }
 
@@ -541,27 +553,10 @@ export class PaymentsService {
 
         transaction = updatedTransaction;
       }
-      // 5.0 Define payment status
-      const getPaymentStatus = () => {
-        if (new_paid === payment.amount) {
-          return PaymentStatus.PAGADO;
-        }
-        if (payment.due_date < new Date()) {
-          return PaymentStatus.VENCIDO;
-        }
-        return PaymentStatus.PENDIENTE;
-      };
-
-      // 5.1 Update payment status
-      const { error: updatedPaymentError } =
-        await this.paymentsRepository.updatePayment(payment_id, {
-          status: getPaymentStatus(),
-        });
-
-      if (updatedPaymentError) {
-        this.logger.error(updatedPaymentError);
-        throw updatedPaymentError;
-      }
+      // 5. Cuadratura de la cuota (regla de Felipe, 20-07-2026): tras
+      //    cualquier registro, la cuota queda 100% pagada o 100%
+      //    pendiente; un pago parcial divide la cuota.
+      await this.normalizePaymentAfterTransactions(payment_id, companyId);
 
       // 6. Return new transaction
       return transaction;
@@ -577,9 +572,88 @@ export class PaymentsService {
   update(id: Payment['id'], updatePaymentDto: UpdatePaymentDto) {
     return this.paymentsRepository.updatePayment(id, updatePaymentDto);
   }
-  removePaymentTransaction(id: number) {
+  async removePaymentTransaction(id: number, companyId: Company['id']) {
     this.logger.info(`removePaymentTransaction with id ${id}`);
-    return this.paymentsRepository.removePaymentTransaction(id);
+    const { data: tx } =
+      await this.paymentsRepository.findPaymentTransactionById(id);
+    const result = await this.paymentsRepository.removePaymentTransaction(id);
+    // La cuota vuelve a pendiente/vencido (o se re-cuadra) segun lo que
+    // quede abonado. La cuota nunca se elimina junto con el registro.
+    if (tx?.payment_id) {
+      await this.normalizePaymentAfterTransactions(tx.payment_id, companyId);
+    }
+    return result;
+  }
+
+  /**
+   * Regla de cuadratura (Felipe, 20-07-2026): despues de cualquier
+   * cambio de registros, toda cuota queda 100% pagada o 100% pendiente.
+   * - abonado == monto  -> PAGADO
+   * - 0 < abonado < monto -> DIVISION: la cuota queda pagada por lo
+   *   abonado y nace una cuota nueva por el remanente, heredando la
+   *   fecha de vencimiento original (si estaba vencida, nace vencida);
+   *   las cuotas posteriores corren su numeracion.
+   * - abonado == 0 -> vuelve a PENDIENTE o VENCIDO segun su fecha.
+   */
+  private async normalizePaymentAfterTransactions(
+    paymentId: Payment['id'],
+    companyId: Company['id'],
+  ) {
+    const { data: payment } = await this.paymentsRepository.findPaymentById(
+      paymentId,
+      companyId,
+    );
+    if (!payment) return;
+    const { data: txs } =
+      await this.paymentsRepository.findAllTransactionsByPaymentId(paymentId);
+    const paid = (txs || []).reduce(
+      (sum: number, t: PaymentTransaction) => sum + t.amount,
+      0,
+    );
+    const overdue = new Date(payment.due_date) < new Date();
+
+    if (paid <= 0) {
+      await this.paymentsRepository.updatePayment(paymentId, {
+        status: overdue ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE,
+        paid_date: null as unknown as Date,
+      });
+      return;
+    }
+    if (paid >= payment.amount) {
+      await this.paymentsRepository.updatePayment(paymentId, {
+        status: PaymentStatus.PAGADO,
+      });
+      return;
+    }
+
+    // Division de la cuota parcial
+    const remainder = payment.amount - paid;
+    const { data: siblings } =
+      await this.paymentsRepository.findAllPaymentsFromQuotation(
+        [payment.quotation_id],
+        companyId,
+      );
+    const later = (siblings || [])
+      .filter((p) => p.payment_number > payment.payment_number)
+      .sort((a, b) => b.payment_number - a.payment_number);
+    for (const p of later) {
+      await this.paymentsRepository.updatePayment(p.id, {
+        payment_number: p.payment_number + 1,
+      });
+    }
+    await this.paymentsRepository.updatePayment(paymentId, {
+      amount: paid,
+      status: PaymentStatus.PAGADO,
+    });
+    await this.paymentsRepository.createPayment({
+      quotation_id: payment.quotation_id,
+      payment_number: payment.payment_number + 1,
+      amount: remainder,
+      due_date: payment.due_date,
+      status: overdue ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE,
+      payment_type: payment.payment_type,
+      notes: payment.notes,
+    } as CreatePayment);
   }
 
   async removePayment(id: Payment['id']) {
