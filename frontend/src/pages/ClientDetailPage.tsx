@@ -13,6 +13,7 @@ import {
   Trash2,
   Copy,
   Eye,
+  Check,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
@@ -407,43 +408,60 @@ export default function ClientDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Building className="h-9 w-9 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
-          {typeEditing ? (
-            <select
-              autoFocus
-              disabled={typeSaving}
-              defaultValue={client.client_type}
-              onChange={(e) => saveType(e.target.value)}
-              onBlur={() => setTypeEditing(false)}
-              className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          {/* Etiqueta de tipo + menú propio del sistema para cambiarlo
+              (tarjeta blanca con las etiquetas de colores reales — nada
+              de desplegables nativos del navegador) */}
+          <span className="relative flex items-center gap-1">
+            <span
+              className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
             >
-              {clientTypesList.map((t) => (
-                <option key={t.id} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-              {!clientTypesList.some(
-                (t) => t.name === client.client_type,
-              ) && (
-                <option value={client.client_type}>{client.client_type}</option>
-              )}
-            </select>
-          ) : (
-            <span className="flex items-center gap-1">
-              <span
-                className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
-              >
-                {client.client_type}
-              </span>
-              <button
-                type="button"
-                onClick={() => setTypeEditing(true)}
-                className="text-gray-400 hover:text-blue-600"
-                title="Cambiar tipo de cliente"
-              >
-                <Pencil size={13} />
-              </button>
+              {client.client_type}
             </span>
-          )}
+            <button
+              type="button"
+              onClick={() => setTypeEditing((v) => !v)}
+              className={`${typeEditing ? "text-blue-600" : "text-gray-400"} hover:text-blue-600`}
+              title="Cambiar tipo de cliente"
+            >
+              <Pencil size={13} />
+            </button>
+            {typeEditing && (
+              <>
+                {/* Clic fuera: cierra sin cambiar nada */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setTypeEditing(false)}
+                />
+                <div className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
+                  {[
+                    ...clientTypesList.map((t) => t.name),
+                    ...(clientTypesList.some(
+                      (t) => t.name === client.client_type,
+                    )
+                      ? []
+                      : [client.client_type]),
+                  ].map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={typeSaving}
+                      onClick={() => saveType(name)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(name)}`}
+                      >
+                        {name}
+                      </span>
+                      {name === client.client_type && (
+                        <Check size={14} className="text-blue-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </span>
           <span
             className={`text-sm ${dormido ? "text-amber-600 font-semibold" : "text-gray-500"}`}
           >
