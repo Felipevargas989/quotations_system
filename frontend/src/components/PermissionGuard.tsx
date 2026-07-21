@@ -14,10 +14,12 @@ export default function PermissionGuard({
   allowedRoles,
   fallback,
 }: PermissionGuardProps) {
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, loading, roleLoading } = useAuth();
 
-  // Show loading while checking permissions
-  if (loading) {
+  // Show loading while checking permissions. OJO: incluye la ventana en
+  // que la sesión ya está pero el rol aún viene en camino — antes esa
+  // ventana mostraba un FALSO "Permisos Insuficientes" (bug 21-07-2026).
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase.ts";
 import { UserRole } from "../constants/permissions";
 import { getUser } from "../services/users.service.ts";
@@ -11,6 +12,10 @@ interface AuthContextType {
   userName: string | null;
   company: Omit<Company, "created_at"> | null;
   loading: boolean;
+  /** true mientras el rol/perfil aún viene en camino (con usuario
+   *  logeado). PermissionGuard muestra "Verificando permisos…" en vez
+   *  del falso "Permisos Insuficientes". */
+  roleLoading: boolean;
   signIn: (
     email: string,
     password: string,
@@ -23,36 +28,76 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Perfil guardado en el navegador (patrón "mostrar lo conocido y
+// refrescar por detrás", Etapa 0 de React Query, 21-07-2026): al abrir
+// la aplicación el rol aparece AL INSTANTE desde el último perfil
+// conocido, y React Query lo revalida en silencio contra el servidor.
+// La autoridad real vive en el backend (valida cada operación con el
+// token); esto solo decide qué se muestra en pantalla.
+const PROFILE_CACHE_KEY = (userId: string) => `eventia_profile_${userId}`;
+
+interface ProfileData {
+  role: UserRole;
+  full_name?: string | null;
+  companies?: Omit<Company, "created_at"> | null;
+}
+
+const readCachedProfile = (userId: string): ProfileData | undefined => {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY(userId));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    return parsed?.role ? (parsed as ProfileData) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeCachedProfile = (userId: string, profile: ProfileData) => {
+  try {
+    localStorage.setItem(PROFILE_CACHE_KEY(userId), JSON.stringify(profile));
+  } catch {
+    /* sin espacio o deshabilitado: el caché es un extra, no un requisito */
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  // Nombre completo del perfil (para la cabecera: nombre + rol, no el
-  // correo cortado)
-  const [userName, setUserName] = useState<string | null>(null);
-  const [company, setCompany] = useState<Omit<Company, "created_at"> | null>(
-    null,
-  );
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Perfil (rol + nombre + empresa) vía React Query: parte del último
+  // valor guardado (instantáneo), revalida siempre al montar, y ante
+  // fallas de red reintenta solo antes de rendirse.
+  const profileQuery = useQuery({
+    queryKey: ["profile", user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<ProfileData> => {
+      const { data, error } = await getUser(user!.id);
+      if (error || !data) throw error || new Error("Perfil no encontrado");
+      const profile: ProfileData = {
+        role: data.role,
+        full_name: (data as { full_name?: string }).full_name || null,
+        companies: data.companies || null,
+      };
+      writeCachedProfile(user!.id, profile);
+      return profile;
+    },
+    initialData: user ? readCachedProfile(user.id) : undefined,
+    // El valor guardado se considera antiguo: se muestra al tiro pero
+    // SIEMPRE se revalida contra el servidor al partir.
+    initialDataUpdatedAt: 0,
+    staleTime: 5 * 60_000,
+    retry: 3,
+  });
+
+  const userRole: UserRole | null = profileQuery.data?.role ?? null;
+  const userName = profileQuery.data?.full_name ?? null;
+  const company = profileQuery.data?.companies ?? null;
+  const roleLoading = !!user && !profileQuery.data && profileQuery.isPending;
 
   const loadUserProfile = async () => {
-    if (!user) {
-      setUserRole(null);
-      setCompany(null);
-      return;
-    }
-
-    try {
-      const { data, error } = await getUser(user.id);
-
-      if (error) {
-      } else if (data) {
-        setUserRole(data.role);
-        setUserName((data as { full_name?: string }).full_name || null);
-        setCompany(data.companies);
-      }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-    }
+    await profileQuery.refetch();
   };
 
   useEffect(() => {
@@ -100,10 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load user profile whenever user changes
-  useEffect(() => {
-    loadUserProfile();
-  }, [user]);
+  // (La carga del perfil la maneja React Query: reacciona sola al
+  // cambio de usuario vía la queryKey, con caché y reintentos.)
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -181,6 +224,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      // Al cerrar sesión se limpia el caché de consultas en memoria,
+      // para que otra cuenta en el mismo navegador parta limpia.
+      queryClient.clear();
     } catch (error) {
       console.error("Error in signOut:", error);
     }
@@ -208,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userRole,
     userName,
     company,
+    roleLoading,
     loadUserProfile,
   };
 
