@@ -28,6 +28,7 @@ import {
 import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
+import { matchesSearch } from "../../utils/searchMatch";
 
 // Persist the quotations status filter per user, so the selection survives
 // reloads / navigation instead of resetting to the default each time.
@@ -423,13 +424,14 @@ export default function QuotationsPage() {
     navigate(`/quotation-form/${quotation.id}`);
   };
 
-  const filteredQuotations = quotations.filter((quotation) => {
-    const matchesSearch =
+  // Número: exacto (decisión 21-07). Nombre: búsqueda inteligente (sin
+  // tildes, palabras en cualquier orden).
+  const filteredQuotations = quotations.filter(
+    (quotation) =>
       !searchTerm ||
-      quotation.quotation_number?.toString() === searchTerm.toLowerCase() ||
-      quotation.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+      quotation.quotation_number?.toString() === searchTerm.trim() ||
+      matchesSearch(searchTerm, quotation.clients?.name),
+  );
 
   return (
     <div className="space-y-6">

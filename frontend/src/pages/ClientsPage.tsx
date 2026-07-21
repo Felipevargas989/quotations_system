@@ -19,6 +19,7 @@ import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
 import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
 import { getClientTypeColor } from "../utils/clientTypeColor";
+import { matchesSearch } from "../utils/searchMatch";
 import {
   validateEmail,
   validatePhone,
@@ -424,16 +425,19 @@ export default function ClientsPage() {
   ].map((name) => ({ value: name, label: name }));
 
   // Buscador y filtro de tipos se aplican JUNTOS (vacío = todos).
+  // Búsqueda inteligente: sin tildes, por palabras en cualquier orden.
   const filteredClients = clients.filter((client) => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.client_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.email &&
-        client.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesText = matchesSearch(
+      searchTerm,
+      client.name,
+      client.client_type,
+      client.email,
+      client.contact_person,
+    );
     const matchesType =
       typeFilter.length === 0 ||
       typeFilter.includes((client.client_type || "").trim());
-    return matchesSearch && matchesType;
+    return matchesText && matchesType;
   });
 
   // (getClientTypeColor vive ahora en utils/clientTypeColor.ts, compartido

@@ -39,6 +39,7 @@ import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import { matchesSearch } from "../../utils/searchMatch";
 import GestionTab from "./GestionTab";
 import CocinaTab from "./CocinaTab";
 import { getQuotationProvisioning } from "../../services/logistics.service";
@@ -320,7 +321,7 @@ export default function PostVentaPage() {
   }, [rows]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     return rows.filter((r) => {
       // Dos familias de estados: pendiente/pagado/vencido filtran los
       // eventos VIVOS; "Realizado" y "Anulado" son archivos y cada uno
@@ -331,11 +332,12 @@ export default function PostVentaPage() {
         : r.done
           ? statusFilter.length === 0 || statusFilter.includes("realizado")
           : statusFilter.length === 0 || statusFilter.includes(r.status);
+      // Número: exacto. Cliente/contacto: búsqueda inteligente (sin
+      // tildes, palabras en cualquier orden).
       const matchSearch =
         !q ||
         String(r.quotationNumber) === q ||
-        r.clientName.toLowerCase().includes(q) ||
-        (r.contactPerson || "").toLowerCase().includes(q);
+        matchesSearch(q, r.clientName, r.contactPerson);
       return matchStatus && matchSearch;
     });
   }, [rows, search, statusFilter]);

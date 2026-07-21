@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { matchesSearch } from "../../../utils/searchMatch";
 import {
   createFurnitureItem,
   deleteFurnitureItem,
@@ -295,13 +296,13 @@ export default function MobiliarioTab({
     setTimeout(() => setSavedFlash(false), 1500);
   };
 
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
   const inactiveCount = rows.filter((r) => !r.is_active).length;
   const filtered = useMemo(() => {
     const catOrder = Object.keys(FURNITURE_CATEGORY_LABEL);
     return rows
       .filter((r) => showInactive || r.is_active)
-      .filter((r) => !q || r.name.toLowerCase().includes(q))
+      .filter((r) => !q || matchesSearch(q, r.name))
       .sort(
         (a, b) =>
           catOrder.indexOf(a.category) - catOrder.indexOf(b.category) ||

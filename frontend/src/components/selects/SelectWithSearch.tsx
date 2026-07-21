@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
+import { matchesSearch } from "../../utils/searchMatch";
 
 export default function SelectWithSearch({
   options,
@@ -19,9 +20,10 @@ export default function SelectWithSearch({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter options based on search text
+  // Búsqueda inteligente del sistema: sin tildes, por palabras en
+  // cualquier orden (utils/searchMatch).
   const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(searchText.toLowerCase()),
+    matchesSearch(searchText, option.label),
   );
 
   // Get selected option label

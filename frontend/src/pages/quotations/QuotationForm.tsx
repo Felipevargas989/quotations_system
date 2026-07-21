@@ -51,6 +51,7 @@ import {
 import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import { matchesSearch } from "../../utils/searchMatch";
 import { UserRole } from "../../constants/users";
 import { humanizeApiError } from "../../utils/apiErrors";
 
@@ -2539,9 +2540,7 @@ export default function QuotationForm() {
                                     ),
                                 )
                                 .filter((product) =>
-                                  product.nombre
-                                    .toLowerCase()
-                                    .includes(itemSearch.trim().toLowerCase()),
+                                  matchesSearch(itemSearch, product.nombre),
                                 );
 
                               if (filteredProducts.length === 0) {

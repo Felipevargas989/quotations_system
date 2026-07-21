@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
+import { matchesSearch } from "../../../utils/searchMatch";
 import {
   createManagementResource,
   deleteManagementResource,
@@ -136,11 +137,11 @@ export default function RecursosTab({
     load();
   };
 
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
   const inactiveCount = rows.filter((r) => !r.is_active).length;
   const filtered = rows
     .filter((r) => showInactive || r.is_active)
-    .filter((r) => !q || r.name.toLowerCase().includes(q));
+    .filter((r) => !q || matchesSearch(q, r.name));
 
   return (
     <div className="p-6">

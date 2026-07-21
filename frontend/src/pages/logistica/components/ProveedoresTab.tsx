@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
+import { matchesSearch } from "../../../utils/searchMatch";
 import {
   createSupplier,
   deleteSupplier,
@@ -134,10 +135,10 @@ export default function ProveedoresTab({
     return `${parts.join(" y ")} seguirán a su nombre · ¿darlo de baja?`;
   };
 
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
   // Los dados de baja al final de la lista, para que no molesten.
   const filtered = rows
-    .filter((r) => !q || r.name.toLowerCase().includes(q))
+    .filter((r) => !q || matchesSearch(q, r.name))
     .sort((a, b) => Number(b.is_active) - Number(a.is_active));
 
   return (

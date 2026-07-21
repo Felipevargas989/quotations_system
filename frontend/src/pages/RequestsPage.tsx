@@ -29,6 +29,7 @@ import {
   getQuotations,
 } from "../services/quotations.service.ts";
 import { formatISOUTCDateToString } from "../utils/dates.ts";
+import { matchesSearch } from "../utils/searchMatch";
 
 export default function RequestsPage() {
   const { user, userRole, company } = useAuth();
@@ -103,13 +104,14 @@ export default function RequestsPage() {
     }
   };
 
-  const filteredRequests = requests.filter((request) => {
-    const matchesSearch =
+  // Número: exacto. Nombre: búsqueda inteligente (sin tildes, palabras
+  // en cualquier orden).
+  const filteredRequests = requests.filter(
+    (request) =>
       !searchTerm ||
-      request.quotation_number?.toString() === searchTerm.toLowerCase() ||
-      request.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+      request.quotation_number?.toString() === searchTerm.trim() ||
+      matchesSearch(searchTerm, request.clients?.name),
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
