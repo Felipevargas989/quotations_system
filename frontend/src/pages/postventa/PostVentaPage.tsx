@@ -15,9 +15,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "../../contexts/AuthContext";
-import MultiSelect, {
-  MultiSelectOption,
-} from "../../components/MultiSelect";
+import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
@@ -208,67 +206,66 @@ export default function PostVentaPage() {
         getPaidRefundsByQuotation(),
       ]);
 
-      const clientByName = new Map<string, any>(
-        (clients || []).map((c: any) => [c.name, c]),
-      );
+    const clientByName = new Map<string, any>(
+      (clients || []).map((c: any) => [c.name, c]),
+    );
 
-      const byQuotation = new Map<string, PaymentWithTransactions[]>();
-      (payments || []).forEach((p) => {
-        if (!p.quotation_id) return;
-        const arr = byQuotation.get(p.quotation_id) || [];
-        arr.push(p);
-        byQuotation.set(p.quotation_id, arr);
+    const byQuotation = new Map<string, PaymentWithTransactions[]>();
+    (payments || []).forEach((p) => {
+      if (!p.quotation_id) return;
+      const arr = byQuotation.get(p.quotation_id) || [];
+      arr.push(p);
+      byQuotation.set(p.quotation_id, arr);
+    });
+
+    const events: EventRow[] = [];
+    byQuotation.forEach((ps, quotationId) => {
+      const q = ps[0].quotations;
+      const total =
+        q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
+      const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
+      const refunded = refundsPaid[quotationId] || 0;
+      const client = q?.clients?.name
+        ? clientByName.get(q.clients.name)
+        : undefined;
+
+      // Saldo neto: lo pagado menos lo ya devuelto al cliente.
+      const saldo = total - (paid - refunded);
+      let status: EventRow["status"] = "pendiente";
+      if (saldo <= 0) status = "pagado";
+      else if (ps.some((p) => cuotaStatus(p) === "vencido")) status = "vencido";
+
+      const qStatus = (q as unknown as { quotation_status?: string })
+        ?.quotation_status;
+      const qDates = q as unknown as {
+        event_date?: string | null;
+        event_end_date?: string | null;
+      };
+      events.push({
+        quotationId,
+        cancelled: qStatus === "cancelada",
+        done: qStatus === "realizada",
+        eventDate: qDates?.event_date ?? null,
+        eventEndDate: qDates?.event_end_date ?? null,
+        quotationNumber: q?.quotation_number ?? 0,
+        clientName: q?.clients?.name || "—",
+        clientType: client?.client_type,
+        contactPerson: client?.contact_person,
+        phone: client?.phone,
+        requiresInvoice: q?.requires_invoice,
+        hasContract: q?.has_contract,
+        total,
+        paid,
+        refunded,
+        cuotas: ps.length,
+        status,
+        payments: ps
+          .slice()
+          .sort((a, b) => a.payment_number - b.payment_number),
       });
+    });
 
-      const events: EventRow[] = [];
-      byQuotation.forEach((ps, quotationId) => {
-        const q = ps[0].quotations;
-        const total =
-          q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
-        const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
-        const refunded = refundsPaid[quotationId] || 0;
-        const client = q?.clients?.name
-          ? clientByName.get(q.clients.name)
-          : undefined;
-
-        // Saldo neto: lo pagado menos lo ya devuelto al cliente.
-        const saldo = total - (paid - refunded);
-        let status: EventRow["status"] = "pendiente";
-        if (saldo <= 0) status = "pagado";
-        else if (ps.some((p) => cuotaStatus(p) === "vencido"))
-          status = "vencido";
-
-        const qStatus = (q as unknown as { quotation_status?: string })
-          ?.quotation_status;
-        const qDates = q as unknown as {
-          event_date?: string | null;
-          event_end_date?: string | null;
-        };
-        events.push({
-          quotationId,
-          cancelled: qStatus === "cancelada",
-          done: qStatus === "realizada",
-          eventDate: qDates?.event_date ?? null,
-          eventEndDate: qDates?.event_end_date ?? null,
-          quotationNumber: q?.quotation_number ?? 0,
-          clientName: q?.clients?.name || "—",
-          clientType: client?.client_type,
-          contactPerson: client?.contact_person,
-          phone: client?.phone,
-          requiresInvoice: q?.requires_invoice,
-          hasContract: q?.has_contract,
-          total,
-          paid,
-          refunded,
-          cuotas: ps.length,
-          status,
-          payments: ps
-            .slice()
-            .sort((a, b) => a.payment_number - b.payment_number),
-        });
-      });
-
-      events.sort((a, b) => b.quotationNumber - a.quotationNumber);
+    events.sort((a, b) => b.quotationNumber - a.quotationNumber);
     return events;
   };
 
@@ -356,7 +353,12 @@ export default function PostVentaPage() {
     { l: "Pendiente", v: totals.pend, c: "text-yellow-600", Icon: Clock },
     { l: "Pagado", v: totals.pag, c: "text-green-600", Icon: CheckCircle },
     { l: "Vencido", v: totals.venc, c: "text-red-600", Icon: AlertTriangle },
-    { l: "Total general", v: totals.total, c: "text-blue-600", Icon: DollarSign },
+    {
+      l: "Total general",
+      v: totals.total,
+      c: "text-blue-600",
+      Icon: DollarSign,
+    },
   ];
 
   return (
@@ -412,7 +414,9 @@ export default function PostVentaPage() {
       {/* Events list */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">Eventos cerrados</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Eventos cerrados
+          </h2>
           <span className="text-sm text-gray-500">
             {filtered.length} de {rows.length}
           </span>
@@ -421,16 +425,22 @@ export default function PostVentaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["N° Cot.", "Fecha evento", "Cliente", "Contacto", "Monto", "Estado de pago", ""].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {[
+                  "N° Cot.",
+                  "Fecha evento",
+                  "Cliente",
+                  "Contacto",
+                  "Monto",
+                  "Estado de pago",
+                  "",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -460,12 +470,11 @@ export default function PostVentaPage() {
                         <div className="text-sm text-gray-900">
                           {fmtDate(r.eventDate)}
                         </div>
-                        {r.eventEndDate &&
-                          r.eventEndDate !== r.eventDate && (
-                            <div className="text-xs text-gray-500">
-                              al {fmtDate(r.eventEndDate)}
-                            </div>
-                          )}
+                        {r.eventEndDate && r.eventEndDate !== r.eventDate && (
+                          <div className="text-xs text-gray-500">
+                            al {fmtDate(r.eventEndDate)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
@@ -649,7 +658,9 @@ function EventModal({
           "No hay correo para el contacto de esta cotización, así que la encuesta no se envió. Puedes agregarle correo en Gestión de Clientes.";
       }
       const saldoTxt =
-        saldo > 0 ? ` Ojo: quedan ${clp(saldo)} por cobrar de este evento.` : "";
+        saldo > 0
+          ? ` Ojo: quedan ${clp(saldo)} por cobrar de este evento.`
+          : "";
       setDoneNotice(`Evento marcado como realizado. ${encuesta}${saldoTxt}`);
       setConfirmDone(false);
       onDataChanged();
@@ -701,7 +712,8 @@ function EventModal({
               ) : confirmDone ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700">
-                    ¿Marcar como realizado? Se enviará la encuesta al contacto de la cotización.
+                    ¿Marcar como realizado? Se enviará la encuesta al contacto
+                    de la cotización.
                   </span>
                   <button
                     disabled={markingDone}
@@ -805,8 +817,7 @@ function EventModal({
           String(quote.event_end_date || quote.event_date).slice(0, 10) <
             todayISO() && (
             <p className="shrink-0 px-6 pt-2 text-xs text-amber-700">
-              Este evento ya pasó (
-              {fmtDate(String(quote.event_date))}
+              Este evento ya pasó ({fmtDate(String(quote.event_date))}
               {quote.event_end_date &&
               String(quote.event_end_date) !== String(quote.event_date)
                 ? ` al ${fmtDate(String(quote.event_end_date))}`
@@ -884,40 +895,40 @@ function EventModal({
             <div className="space-y-6">
               <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
               <div className="space-y-3">
-              <h4 className="text-sm font-bold text-gray-800">
-                Calendario de pagos
-              </h4>
-              {event.payments.map((pay) => {
-                const cp = pay.amount
-                  ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
-                  : 0;
-                return (
-                  <div
-                    key={pay.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
-                        {pay.payment_number}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {clp(pay.amount)}
+                <h4 className="text-sm font-bold text-gray-800">
+                  Calendario de pagos
+                </h4>
+                {event.payments.map((pay) => {
+                  const cp = pay.amount
+                    ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
+                    : 0;
+                  return (
+                    <div
+                      key={pay.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
+                          {pay.payment_number}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {pay.status === "pagado"
-                            ? `Pagado · ${fmtDate(pay.last_payment_date)}`
-                            : `Vence ${fmtDate(pay.due_date)}`}
-                          {cp > 0 && cp < 100
-                            ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
-                            : ""}
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {clp(pay.amount)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {pay.status === "pagado"
+                              ? `Pagado · ${fmtDate(pay.last_payment_date)}`
+                              : `Vence ${fmtDate(pay.due_date)}`}
+                            {cp > 0 && cp < 100
+                              ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
+                              : ""}
+                          </div>
                         </div>
+                        {statusBadge(cuotaStatus(pay))}
                       </div>
-                      {statusBadge(cuotaStatus(pay))}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
               <ReembolsosManager
                 quotationId={event.quotationId}
@@ -997,13 +1008,32 @@ function ServiciosTab({
   readonly paidAmount: number;
   readonly onSaved: () => void;
 }) {
+  // Contadores de la cotización: total = adultos + niños (Cotizador 2.0).
+  const initKids = Number(quote.children_count || 0);
+  const initAdults = Math.max(0, Number(quote.people_count || 0) - initKids);
+  const multiDia = Boolean(
+    quote.event_end_date &&
+      String(quote.event_end_date).slice(0, 10) !==
+        String(quote.event_date).slice(0, 10),
+  );
   const [varGroups, setVarGroups] = useState<any[]>(() =>
-    deep(quote.items?.variable_services),
+    deep(quote.items?.variable_services).map((g: any) => ({
+      ...g,
+      // people igual a su audiencia al cargar = "automático": sigue al
+      // contador si este cambia. Distinto = ajuste manual, se respeta.
+      people:
+        typeof g.people === "number" &&
+        g.people !== (g.audience === "ninos" ? initKids : initAdults)
+          ? g.people
+          : undefined,
+    })),
   );
   const [fixed, setFixed] = useState<any[]>(() =>
     deep(quote.items?.fixed_services),
   );
-  const [personas, setPersonas] = useState<number>(quote.people_count || 0);
+  const [adultsN, setAdultsN] = useState<number>(initAdults);
+  const [kidsN, setKidsN] = useState<number>(initKids);
+  const personas = adultsN + kidsN;
   // Provisión: si el evento ya se compró, advertir cambios y restringir
   // la baja de personas a administradores.
   const { userRole } = useAuth();
@@ -1095,20 +1125,39 @@ function ServiciosTab({
   // Precio por persona de un ítem variable = precio × cantidad (igual que la
   // cotización). value_per_person = suma de esos; fixed_value = fijos × cant.
   const ppp = (it: any) => (it.precio || 0) * (it.quantity || 1);
+  // Matemática del Cotizador 2.0: cada grupo multiplica por SUS personas
+  // (su audiencia, o su ajuste manual), no por el total del evento.
+  const audOf = (g: any) => (g.audience === "ninos" ? "ninos" : "adultos");
+  const audCount = (g: any) => (audOf(g) === "ninos" ? kidsN : adultsN);
+  const gPeople = (g: any) =>
+    typeof g.people === "number" ? g.people : audCount(g);
+  const gPP = (g: any) =>
+    (g.items || []).reduce((t: number, it: any) => t + ppp(it), 0);
+  const variableTotal = varGroups.reduce((t, g) => t + gPP(g) * gPeople(g), 0);
+  // value_per_person (columna histórica) = valor por ADULTO de los grupos
+  // que cubren a todos los adultos (misma definición del cotizador).
   const valuePerPerson = varGroups.reduce(
-    (t, g) => t + (g.items || []).reduce((tt: number, it: any) => tt + ppp(it), 0),
+    (t, g) =>
+      audOf(g) === "adultos" && gPeople(g) === adultsN ? t + gPP(g) : t,
     0,
   );
   const fixedValue = fixed.reduce(
     (t, f) => t + (f.precio || 0) * (f.quantity || 1),
     0,
   );
-  const subtotal = valuePerPerson * personas + fixedValue;
+  const subtotal = variableTotal + fixedValue;
   const descAmount =
     discType === "%"
       ? Math.round((subtotal * Math.min(discVal || 0, 100)) / 100)
       : Math.min(subtotal, discVal || 0);
-  const total = subtotal - descAmount;
+  // Propina post-IVA de la cotización (no editable aquí): % sobre los
+  // servicios variables, sumada después del descuento.
+  const tipPct = quote.tip_percentage;
+  const tipAmount =
+    tipPct != null && tipPct > 0
+      ? Math.round(variableTotal * (tipPct / 100))
+      : 0;
+  const total = subtotal - descAmount + tipAmount;
 
   const removeVar = (gi: number, ii: number) => {
     setVarGroups((prev) => {
@@ -1139,7 +1188,13 @@ function ServiciosTab({
           const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
           const grp = copy.find((g) => g.category === addCat);
           if (grp) grp.items.push(item);
-          else copy.push({ category: addCat, items: [item] });
+          else
+            copy.push({
+              category: addCat,
+              audience: "adultos",
+              day: 1,
+              items: [item],
+            });
           return copy;
         });
       }
@@ -1171,6 +1226,9 @@ function ServiciosTab({
           .filter((g) => (g.items || []).length > 0)
           .map((g) => ({
             category: g.category,
+            day: g.day || 1,
+            audience: audOf(g),
+            people: gPeople(g),
             items: (g.items || []).map((it: any) => ({
               codigo: it.codigo,
               nombre: it.nombre,
@@ -1194,6 +1252,7 @@ function ServiciosTab({
       const { error } = await updateQuotation(
         {
           people_count: personas,
+          children_count: kidsN,
           discount_percentage: discType === "%" ? discVal || 0 : 0,
           discount_amount: discType === "$" ? discVal || 0 : 0,
           value_per_person: Math.round(valuePerPerson),
@@ -1298,7 +1357,11 @@ function ServiciosTab({
           }`}
         >
           <span className="text-lg leading-none mt-0.5">
-            {notice.tone === "refund" ? "↩️" : notice.tone === "down" ? "📉" : "📈"}
+            {notice.tone === "refund"
+              ? "↩️"
+              : notice.tone === "down"
+                ? "📉"
+                : "📈"}
           </span>
           <div className="flex-1">
             <p
@@ -1325,23 +1388,44 @@ function ServiciosTab({
         </div>
       )}
 
-      {/* Personas (editable) */}
+      {/* Asistentes (editable): adultos + niños, como el cotizador */}
       <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm font-semibold text-blue-900">
         <span>
-          👥 Personas del evento{" "}
+          👥 Asistentes del evento{" "}
           <span className="text-[10px] font-semibold uppercase text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded ml-1">
             de la cotización
           </span>
         </span>
-        <div className="w-28">
-          <NumberInput
-            value={personas || undefined}
-            onChange={(v) => setPersonas(v || 0)}
-            min={0}
-            formatThousands
-            placeholder="0"
-            className="text-right"
-          />
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+            Adultos
+            <div className="w-24">
+              <NumberInput
+                value={adultsN || undefined}
+                onChange={(v) => setAdultsN(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+                className="text-right"
+              />
+            </div>
+          </label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+            Niños
+            <div className="w-24">
+              <NumberInput
+                value={kidsN || undefined}
+                onChange={(v) => setKidsN(v || 0)}
+                min={0}
+                formatThousands
+                placeholder="0"
+                className="text-right"
+              />
+            </div>
+          </label>
+          <span className="text-gray-500">
+            = {personas.toLocaleString("es-CL")}
+          </span>
         </div>
       </div>
 
@@ -1358,11 +1442,25 @@ function ServiciosTab({
 
       {varGroups.map((g, gi) => (
         <div key={g.category || gi}>
-          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3">
-            {g.category}
+          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
+            <span>{g.category}</span>
+            <span className="normal-case font-semibold">
+              <span
+                className={
+                  audOf(g) === "ninos" ? "text-amber-700" : "text-blue-700"
+                }
+              >
+                {audOf(g) === "ninos" ? "NIÑOS" : "ADULTOS"}
+              </span>
+              <span className="text-gray-500">
+                {" "}
+                · {gPeople(g).toLocaleString("es-CL")} personas
+                {multiDia ? ` · Día ${g.day || 1}` : ""}
+              </span>
+            </span>
           </div>
           {(g.items || []).map((it: any, i: number) =>
-            row(it.nombre, personas, ppp(it), `v-${gi}-${i}`, () =>
+            row(it.nombre, gPeople(g), ppp(it), `v-${gi}-${i}`, () =>
               removeVar(gi, i),
             ),
           )}
@@ -1475,6 +1573,12 @@ function ServiciosTab({
           </span>
           <span className="text-red-600">− {clp(descAmount)}</span>
         </div>
+        {tipAmount > 0 && (
+          <div className="flex justify-between">
+            <span>Propina sugerida ({tipPct}%)</span>
+            <span className="font-medium">{clp(tipAmount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
           <span>Total a pagar</span>
           <span>{clp(total)}</span>
@@ -1507,9 +1611,10 @@ function ServiciosTab({
       </div>
 
       <p className="text-xs text-gray-400 mt-3">
-        Editable: personas, servicios (agregar por categoría / quitar con ✕),
-        descuento (% o $) y comentarios. Al guardar, si cambia el total, el plan
-        de pagos se ajusta automáticamente.
+        Editable: adultos y niños, servicios (agregar por categoría / quitar con
+        ✕), descuento (% o $) y comentarios. Cada servicio multiplica por las
+        personas de SU audiencia; la propina de la cotización se mantiene. Al
+        guardar, si cambia el total, el plan de pagos se ajusta automáticamente.
       </p>
     </div>
   );
