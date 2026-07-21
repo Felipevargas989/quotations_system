@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ConfirmInline from "../../components/ConfirmInline";
 import { Check, Users, X } from "lucide-react";
 import {
   EventResource,
@@ -131,8 +132,7 @@ export default function EventResourcesSection({
         if (sa && !sb) return -1;
         if (!sa && sb) return 1;
         return (
-          sa.localeCompare(sb) ||
-          (ra?.name || "").localeCompare(rb?.name || "")
+          sa.localeCompare(sb) || (ra?.name || "").localeCompare(rb?.name || "")
         );
       });
     const groups = order
@@ -294,9 +294,15 @@ export default function EventResourcesSection({
     );
   };
 
+  // Quitar un recurso ya asignado pasa por confirmacion inline (regla
+  // de Post-Venta: nada delicado se borra de un clic).
+  const [confirmLineId, setConfirmLineId] = useState<number | null>(null);
   const removeLine = async (id: number) => {
     const { error } = await deleteEventResource(id);
-    if (!error) setLines((prev) => prev.filter((l) => l.id !== id));
+    if (!error) {
+      setConfirmLineId(null);
+      setLines((prev) => prev.filter((l) => l.id !== id));
+    }
   };
 
   const createResource = async () => {
@@ -375,8 +381,8 @@ export default function EventResourcesSection({
       </div>
       <p className="text-xs text-gray-500 -mt-1">
         Incluye los recursos de los servicios fijos del evento (importados
-        automáticamente) más lo que agregues. El precio llega desde la lista
-        del catálogo pero se ajusta para este evento (rebajas, staff).
+        automáticamente) más lo que agregues. El precio llega desde la lista del
+        catálogo pero se ajusta para este evento (rebajas, staff).
       </p>
 
       {pendingServices.length > 0 && lines.length > 0 && (
@@ -556,111 +562,130 @@ export default function EventResourcesSection({
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {g.lines.map((l) => {
-                const r = resById.get(l.resource_id);
-                const hasListPrice =
-                  r && (r.list_price_fixed || r.list_price_per_person);
-                const isRebaja =
-                  hasListPrice &&
-                  ((l.price_fixed || 0) < (r?.list_price_fixed || 0) ||
-                    (l.price_per_person || 0) <
-                      (r?.list_price_per_person || 0));
-                return (
-                  <tr key={l.id}>
-                    <td className="px-3 py-2">
-                      <span className="text-gray-900">
-                        {r?.name || "Recurso eliminado"}
-                      </span>
-                      {r && supName(r.supplier_id) && (
-                        <span className="ml-1.5 text-[11px] text-gray-400">
-                          {supName(r.supplier_id)}
-                        </span>
-                      )}
-                      {isRebaja && (
-                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-                          rebaja
-                        </span>
-                      )}
-                      {l.origin_fixed_service_id && (
-                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                          de{" "}
-                          {fixedServices.find(
-                            (fs) => fs.id === l.origin_fixed_service_id,
-                          )?.nombre || "servicio fijo"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        defaultValue={l.quantity}
-                        onBlur={(e) => {
-                          const v = parseInput(e.target.value);
-                          if (v > 0 && v !== l.quantity)
-                            saveLine(l.id, { quantity: v });
-                          e.target.value = String(v > 0 ? v : l.quantity);
-                        }}
-                        className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                        aria-label="Cantidad"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        defaultValue={fmtInput(l.price_fixed)}
-                        placeholder="0"
-                        onBlur={(e) => {
-                          const v = parseInput(e.target.value);
-                          if (v !== l.price_fixed)
-                            saveLine(l.id, { price_fixed: v });
-                          e.target.value = fmtInput(v);
-                        }}
-                        className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                        aria-label="Precio fijo"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      {r?.type === "personal" ? (
-                        // Regla: el personal nunca se cobra por persona
-                        <div
-                          className="w-28 inline-block border border-gray-200 bg-gray-50 rounded-lg px-2 py-1 text-sm text-gray-300 text-right"
-                          title="El personal se cobra por evento"
-                        >
-                          —
-                        </div>
-                      ) : (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          defaultValue={fmtInput(l.price_per_person)}
-                          placeholder="0"
-                          onBlur={(e) => {
-                            const v = parseInput(e.target.value);
-                            if (v !== l.price_per_person)
-                              saveLine(l.id, { price_per_person: v });
-                            e.target.value = fmtInput(v);
-                          }}
-                          className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                          aria-label="Precio por persona"
-                        />
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
-                      {clp(lineTotal(l))}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeLine(l.id)}
-                        className="text-gray-300 hover:text-red-500"
-                        aria-label="Quitar recurso"
-                      >
-                        <X size={15} />
-                      </button>
-                    </td>
-                      </tr>
-                    );
+                      const r = resById.get(l.resource_id);
+                      const hasListPrice =
+                        r && (r.list_price_fixed || r.list_price_per_person);
+                      const isRebaja =
+                        hasListPrice &&
+                        ((l.price_fixed || 0) < (r?.list_price_fixed || 0) ||
+                          (l.price_per_person || 0) <
+                            (r?.list_price_per_person || 0));
+                      if (confirmLineId === l.id) {
+                        return (
+                          <tr key={l.id} className="bg-red-50/60">
+                            <td colSpan={6} className="px-3 py-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-900 truncate mr-3">
+                                  {r?.name || "Recurso"}
+                                </span>
+                                <ConfirmInline
+                                  question="¿Quitar este recurso del evento?"
+                                  yesLabel="Sí, quitar"
+                                  onYes={() => removeLine(l.id)}
+                                  onNo={() => setConfirmLineId(null)}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr key={l.id}>
+                          <td className="px-3 py-2">
+                            <span className="text-gray-900">
+                              {r?.name || "Recurso eliminado"}
+                            </span>
+                            {r && supName(r.supplier_id) && (
+                              <span className="ml-1.5 text-[11px] text-gray-400">
+                                {supName(r.supplier_id)}
+                              </span>
+                            )}
+                            {isRebaja && (
+                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+                                rebaja
+                              </span>
+                            )}
+                            {l.origin_fixed_service_id && (
+                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                                de{" "}
+                                {fixedServices.find(
+                                  (fs) => fs.id === l.origin_fixed_service_id,
+                                )?.nombre || "servicio fijo"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={l.quantity}
+                              onBlur={(e) => {
+                                const v = parseInput(e.target.value);
+                                if (v > 0 && v !== l.quantity)
+                                  saveLine(l.id, { quantity: v });
+                                e.target.value = String(v > 0 ? v : l.quantity);
+                              }}
+                              className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                              aria-label="Cantidad"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={fmtInput(l.price_fixed)}
+                              placeholder="0"
+                              onBlur={(e) => {
+                                const v = parseInput(e.target.value);
+                                if (v !== l.price_fixed)
+                                  saveLine(l.id, { price_fixed: v });
+                                e.target.value = fmtInput(v);
+                              }}
+                              className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                              aria-label="Precio fijo"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            {r?.type === "personal" ? (
+                              // Regla: el personal nunca se cobra por persona
+                              <div
+                                className="w-28 inline-block border border-gray-200 bg-gray-50 rounded-lg px-2 py-1 text-sm text-gray-300 text-right"
+                                title="El personal se cobra por evento"
+                              >
+                                —
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                defaultValue={fmtInput(l.price_per_person)}
+                                placeholder="0"
+                                onBlur={(e) => {
+                                  const v = parseInput(e.target.value);
+                                  if (v !== l.price_per_person)
+                                    saveLine(l.id, { price_per_person: v });
+                                  e.target.value = fmtInput(v);
+                                }}
+                                className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                                aria-label="Precio por persona"
+                              />
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                            {clp(lineTotal(l))}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmLineId(l.id)}
+                              className="text-gray-300 hover:text-red-500"
+                              aria-label="Quitar recurso"
+                            >
+                              <X size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
                     })}
                   </tbody>
                   {/* Subtotal bajo los ítems (costumbre local) */}

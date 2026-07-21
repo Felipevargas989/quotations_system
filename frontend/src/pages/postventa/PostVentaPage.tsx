@@ -18,6 +18,7 @@ import { es } from "date-fns/locale";
 import { useAuth } from "../../contexts/AuthContext";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import FileViewLink from "../../components/FileViewLink";
+import ConfirmInline from "../../components/ConfirmInline";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
@@ -609,18 +610,18 @@ function EventModal({
   // registro (la cuota vuelve a pendiente; el backend re-cuadra el plan
   // con la regla de division del 20-07).
   const [editTx, setEditTx] = useState<PaymentTransaction | null>(null);
+  const [confirmTxId, setConfirmTxId] = useState<number | null>(null);
+  const [deletingTx, setDeletingTx] = useState(false);
   const onDeleteTx = async (t: PaymentTransaction) => {
-    if (
-      !window.confirm(
-        `¿Eliminar este registro de ${clp(t.amount)}? La cuota volverá a quedar pendiente; la cuota no se elimina.`,
-      )
-    )
-      return;
+    setDeletingTx(true);
     try {
       await deletePaymentTransaction(t.id);
+      setConfirmTxId(null);
       onDataChanged();
     } catch {
       alert("No se pudo eliminar el registro. Intenta de nuevo.");
+    } finally {
+      setDeletingTx(false);
     }
   };
 
@@ -918,32 +919,40 @@ function EventModal({
                   // Registro de pago con sus acciones: ver comprobante,
                   // rectificar (lapiz) y eliminar (basurero). El lapiz y
                   // el basurero son del REGISTRO, nunca de la cuota.
-                  const txActions = (t: PaymentTransaction) => (
-                    <span className="flex items-center gap-3 shrink-0">
-                      {t.receipt_photo_url && (
-                        <FileViewLink
-                          url={t.receipt_photo_url}
-                          title={`Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`}
-                        />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setEditTx(t)}
-                        className="text-gray-400 hover:text-blue-600"
-                        title="Rectificar registro (fecha, monto o comprobante)"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteTx(t)}
-                        className="text-gray-400 hover:text-red-600"
-                        title="Eliminar registro (la cuota vuelve a pendiente)"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </span>
-                  );
+                  const txActions = (t: PaymentTransaction) =>
+                    confirmTxId === t.id ? (
+                      <ConfirmInline
+                        question="¿Eliminar este registro?"
+                        onYes={() => onDeleteTx(t)}
+                        onNo={() => setConfirmTxId(null)}
+                        busy={deletingTx}
+                      />
+                    ) : (
+                      <span className="flex items-center gap-3 shrink-0">
+                        {t.receipt_photo_url && (
+                          <FileViewLink
+                            url={t.receipt_photo_url}
+                            title={`Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setEditTx(t)}
+                          className="text-gray-400 hover:text-blue-600"
+                          title="Rectificar registro (fecha, monto o comprobante)"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmTxId(t.id)}
+                          className="text-gray-400 hover:text-red-600"
+                          title="Eliminar registro (la cuota vuelve a pendiente)"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </span>
+                    );
                   return (
                     <div
                       key={pay.id}
@@ -1374,32 +1383,52 @@ function ServiciosTab({
     }
   };
 
+  // Quitar un servicio pasa por confirmacion inline (es delicado aunque
+  // el cambio recien se aplique al Guardar).
+  const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const row = (
     nombre: string,
     cant: number,
     precio: number,
     key: string,
     onRemove: () => void,
-  ) => (
-    <div
-      key={key}
-      style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
-      className="items-center py-2 border-t border-gray-100 text-sm"
-    >
-      <div className="text-gray-900">{nombre}</div>
-      <div className="text-right text-gray-500">{cant}</div>
-      <div className="text-right text-gray-500">{clp(precio)}</div>
-      <div className="text-right font-medium">{clp(precio * cant)}</div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-red-500 hover:text-red-700 text-right"
-        title="Quitar"
+  ) =>
+    confirmRowKey === key ? (
+      <div
+        key={key}
+        className="flex items-center justify-between py-2 border-t border-gray-100 text-sm"
       >
-        ✕
-      </button>
-    </div>
-  );
+        <span className="text-gray-900 truncate mr-3">{nombre}</span>
+        <ConfirmInline
+          question="¿Quitar del evento?"
+          yesLabel="Sí, quitar"
+          onYes={() => {
+            onRemove();
+            setConfirmRowKey(null);
+          }}
+          onNo={() => setConfirmRowKey(null)}
+        />
+      </div>
+    ) : (
+      <div
+        key={key}
+        style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
+        className="items-center py-2 border-t border-gray-100 text-sm"
+      >
+        <div className="text-gray-900">{nombre}</div>
+        <div className="text-right text-gray-500">{cant}</div>
+        <div className="text-right text-gray-500">{clp(precio)}</div>
+        <div className="text-right font-medium">{clp(precio * cant)}</div>
+        <button
+          type="button"
+          onClick={() => setConfirmRowKey(key)}
+          className="text-red-500 hover:text-red-700 text-right"
+          title="Quitar"
+        >
+          ✕
+        </button>
+      </div>
+    );
 
   const svcOptions =
     addCat === "Servicios fijos"
@@ -2385,10 +2414,18 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
     }
   };
 
+  const [confirmDocId, setConfirmDocId] = useState<number | null>(null);
+  const [deletingDoc, setDeletingDoc] = useState(false);
   const onDelete = async (doc: EventDocument) => {
-    await deleteStorageFileByUrl(doc.file_url);
-    await deleteDocument(doc.id);
-    load();
+    setDeletingDoc(true);
+    try {
+      await deleteStorageFileByUrl(doc.file_url);
+      await deleteDocument(doc.id);
+      setConfirmDocId(null);
+      load();
+    } finally {
+      setDeletingDoc(false);
+    }
   };
 
   if (loading) {
@@ -2462,15 +2499,26 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                         {fmtDate(d.uploaded_at)}
                       </div>
                     </div>
-                    <FileViewLink url={d.file_url} title={d.file_name} />
-                    <button
-                      type="button"
-                      onClick={() => onDelete(d)}
-                      className="text-gray-300 hover:text-red-500"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {confirmDocId === d.id ? (
+                      <ConfirmInline
+                        question="¿Eliminar este documento?"
+                        onYes={() => onDelete(d)}
+                        onNo={() => setConfirmDocId(null)}
+                        busy={deletingDoc}
+                      />
+                    ) : (
+                      <>
+                        <FileViewLink url={d.file_url} title={d.file_name} />
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDocId(d.id)}
+                          className="text-gray-300 hover:text-red-500"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
