@@ -12,9 +12,12 @@ import {
   Plus,
   Trash2,
   Copy,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
+import QuotationViewer from "../components/QuotationViewer";
+import { getQuotationById } from "../services/quotations.service";
 import { getClientSummary, updateClient } from "../services/clients.service";
 import {
   createClientContact,
@@ -148,6 +151,25 @@ export default function ClientDetailPage() {
   const [confirmContactDelId, setConfirmContactDelId] = useState<number | null>(
     null,
   );
+
+  // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
+  // El resumen de la ficha viaja liviano; al abrir se busca la
+  // cotización completa (items incluidos).
+  const [viewingQuotation, setViewingQuotation] = useState<any>(null);
+
+  const openViewer = async (quotationId: string) => {
+    try {
+      const { data: full } = await getQuotationById(quotationId);
+      if (full) {
+        setViewingQuotation({
+          ...full,
+          clients: { name: data?.client.name || "" },
+        });
+      }
+    } catch (error) {
+      console.error("Error abriendo el visor de cotización:", error);
+    }
+  };
 
   const loadSummary = async (withSpinner: boolean) => {
     if (!id) return;
@@ -721,8 +743,8 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    {/* Columna de duplicar */}
-                    <th className="w-10" aria-label="Duplicar" />
+                    {/* Acciones: ver · editar · duplicar */}
+                    <th className="w-24" aria-label="Acciones" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -733,8 +755,8 @@ export default function ClientDetailPage() {
                     return (
                       <tr
                         key={q.id}
-                        onClick={() => navigate(`/quotation-form/${q.id}`)}
-                        title="Abrir cotización"
+                        onClick={() => openViewer(q.id)}
+                        title="Ver resumen de la cotización"
                         className="hover:bg-gray-50 cursor-pointer"
                       >
                         <td className="px-4 py-3 text-sm font-semibold text-blue-600">
@@ -776,21 +798,41 @@ export default function ClientDetailPage() {
                           </span>
                         </td>
                         <td
-                          className="px-2 py-3 text-center"
+                          className="px-2 py-3"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate("/quotation-form", {
-                                state: { duplicateFrom: q.id },
-                              })
-                            }
-                            className="text-gray-400 hover:text-blue-600"
-                            title="Duplicar: nueva cotización a partir de esta (sin fecha, número nuevo)"
-                          >
-                            <Copy size={15} />
-                          </button>
+                          <div className="flex items-center justify-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => openViewer(q.id)}
+                              className="text-gray-400 hover:text-blue-600"
+                              title="Ver resumen"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/quotation-form/${q.id}`)
+                              }
+                              className="text-gray-400 hover:text-blue-600"
+                              title="Editar cotización"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate("/quotation-form", {
+                                  state: { duplicateFrom: q.id },
+                                })
+                              }
+                              className="text-gray-400 hover:text-blue-600"
+                              title="Duplicar: nueva cotización a partir de esta (sin fecha, número nuevo)"
+                            >
+                              <Copy size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -801,6 +843,14 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Visor de resumen (el mismo del panel de cotizaciones) */}
+      {viewingQuotation && (
+        <QuotationViewer
+          quotation={viewingQuotation}
+          onClose={() => setViewingQuotation(null)}
+        />
+      )}
     </div>
   );
 }
