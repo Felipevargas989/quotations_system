@@ -7,6 +7,17 @@ export const getClients = async () => {
   return { data: response };
 };
 
+// Consulta compartida de React Query: lista de clientes (con
+// quotation_count). Misma queryKey en todas las pantallas = un solo
+// caché que se invalida tras cada guardado.
+export const clientsQueryOptions = {
+  queryKey: ["clients"] as const,
+  queryFn: async () => {
+    const { data } = await getClients();
+    return data as import("../types/clients.types").Client[];
+  },
+};
+
 export const createClient = async (client: ClientFormData) => {
   const response = await apiRequest(`${API_ROUTES.CLIENTS}`, "POST", client);
   return { data: response };

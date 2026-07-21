@@ -26,16 +26,15 @@ import {
 } from "../utils/validation";
 import { CLIENT_TYPES } from "../constants/clientTypes";
 import {
+  clientsQueryOptions,
   createClient,
   deleteClient,
-  getClients,
   updateClient,
 } from "../services/clients.service";
 import {
-  ClientTypeItem,
+  clientTypesQueryOptions,
   createClientType,
   deleteClientType,
-  getClientTypes,
   reorderClientTypes,
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
@@ -62,12 +61,8 @@ export default function ClientsPage() {
   // a esta pantalla se pinta AL INSTANTE con lo último conocido y se
   // revalida en segundo plano. Tras cada guardado se invalida.
   const { data: clients = [], isPending: loading } = useQuery({
-    queryKey: ["clients"],
+    ...clientsQueryOptions,
     enabled: !!user,
-    queryFn: async () => {
-      const { data } = await getClients();
-      return data as Client[];
-    },
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,15 +97,8 @@ export default function ClientsPage() {
   // solo selecciona. Caché compartido con la ficha 360° (misma
   // queryKey); respaldo con los 6 estándar si el catálogo no responde.
   const { data: clientTypes = [] } = useQuery({
-    queryKey: ["clientTypes"],
+    ...clientTypesQueryOptions,
     enabled: !!user,
-    queryFn: async (): Promise<ClientTypeItem[]> => {
-      try {
-        return await getClientTypes();
-      } catch {
-        return CLIENT_TYPES.map((name, i) => ({ id: -(i + 1), name }));
-      }
-    },
   });
   const invalidateTypes = () =>
     queryClient.invalidateQueries({ queryKey: ["clientTypes"] });

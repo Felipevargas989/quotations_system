@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import QuotationViewer from "../../components/QuotationViewer";
@@ -29,12 +34,20 @@ import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 const STATUS_FILTER_KEY = (userId: string | number) =>
   `eventia_quotations_status_filter_${userId}`;
 
+const ALL_STATUSES: QuotationStatus[] = [
+  QuotationStatus.SOLICITADA,
+  QuotationStatus.ENVIADA,
+  QuotationStatus.EN_NEGOCIACION,
+  QuotationStatus.ACEPTADA,
+  QuotationStatus.RECHAZADA,
+  QuotationStatus.CANCELADA,
+  QuotationStatus.REALIZADA,
+];
+
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
-  const [quotations, setQuotations] = useState<QuotationWithClient[]>([]);
-  const [requirements, setRequirements] = useState<QuotationWithClient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const initialStatusFilter = [
     QuotationStatus.SOLICITADA,
@@ -100,19 +113,58 @@ export default function QuotationsPage() {
     }
   }, [statusFilter, user, filterRestored]);
 
-  useEffect(() => {
-    if (user) {
-      fetchRequirements();
-    }
-  }, [user]);
+  // ---- Cotizaciones y requerimientos vía React Query (Etapa 2) ----
+  // La consulta reacciona sola al filtro y al orden; al cambiar de
+  // combinación se sigue mostrando la lista anterior mientras llega la
+  // nueva (sin parpadeo a blanco). Volver a esta pantalla pinta al
+  // instante desde caché y revalida en segundo plano.
+  const statusesToFetch: QuotationStatus[] =
+    statusFilter.length === 0
+      ? ALL_STATUSES
+      : (statusFilter as QuotationStatus[]);
 
-  // Fetch quotations once the persisted filter is restored, and thereafter on
-  // any filter or sort change.
-  useEffect(() => {
-    if (user && filterRestored) {
-      fetchQuotations(statusFilter);
-    }
-  }, [user, filterRestored, statusFilter, sortBy, sortOrder]);
+  const quotationsQuery = useQuery({
+    queryKey: [
+      "quotations",
+      [...statusesToFetch].sort().join(","),
+      sortBy,
+      sortOrder,
+    ],
+    enabled: !!user && filterRestored,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<QuotationWithClient[]> => {
+      const { data } = await getQuotations(
+        QuotationRequestType.COTIZACION,
+        statusesToFetch,
+        sortBy,
+        sortOrder,
+      );
+      return data;
+    },
+  });
+  const quotations = quotationsQuery.data ?? [];
+  const loading = quotationsQuery.isPending;
+
+  const { data: requirements = [] } = useQuery({
+    queryKey: ["requirements"],
+    enabled: !!user,
+    queryFn: async (): Promise<QuotationWithClient[]> => {
+      // Requirements don't need status filtering, they are always "solicitada"
+      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO, [
+        QuotationStatus.SOLICITADA,
+      ]);
+      return data;
+    },
+  });
+
+  // Los antiguos "fetch" ahora son invalidaciones: todos los puntos que
+  // llaman tras guardar/cambiar estado siguen funcionando igual.
+  const fetchQuotations = async (_statusFilter?: string[]) => {
+    await queryClient.invalidateQueries({ queryKey: ["quotations"] });
+  };
+  const fetchRequirements = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["requirements"] });
+  };
 
   // Handle column sorting
   const handleSort = (column: "quotation_number" | "event_date") => {
@@ -139,62 +191,9 @@ export default function QuotationsPage() {
     return true;
   };
 
-  const fetchQuotations = async (statusFilter?: string[]) => {
-    if (!user) return;
-
-    try {
-      // Determine which statuses to fetch based on the filter
-      let statusesToFetch: QuotationStatus[];
-
-      if (!statusFilter || statusFilter.length === 0) {
-        // Fetch all quotation statuses
-        statusesToFetch = [
-          QuotationStatus.SOLICITADA,
-          QuotationStatus.ENVIADA,
-          QuotationStatus.EN_NEGOCIACION,
-          QuotationStatus.ACEPTADA,
-          QuotationStatus.RECHAZADA,
-          QuotationStatus.CANCELADA,
-          QuotationStatus.REALIZADA,
-        ];
-      } else {
-        // Fetch only the selected statuses
-        statusesToFetch = statusFilter as QuotationStatus[];
-      }
-
-      const { data } = await getQuotations(
-        QuotationRequestType.COTIZACION,
-        statusesToFetch,
-        sortBy,
-        sortOrder,
-      );
-
-      // Set quotations data
-      setQuotations(data);
-    } catch (error) {
-      console.error("Error fetching quotations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const refreshData = async () => {
     await fetchQuotations(statusFilter);
     await fetchRequirements();
-  };
-
-  const fetchRequirements = async () => {
-    if (!user) return;
-
-    try {
-      // Requirements don't need status filtering, they are always "solicitada"
-      const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO, [
-        QuotationStatus.SOLICITADA,
-      ]);
-      setRequirements(data);
-    } catch (error) {
-      console.error("Error fetching requirements:", error);
-    }
   };
 
   const handleDeleteQuotation = async (

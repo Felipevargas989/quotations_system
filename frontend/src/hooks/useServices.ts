@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { findAllServices } from "../services/services.service";
 import {
   VariableService,
@@ -32,152 +33,144 @@ export interface FixedServiceFormatted {
   precio_por_persona: number;
 }
 
-export function useServices() {
-  const [variableServices, setVariableServices] = useState<VariableService[]>(
-    [],
-  );
-  const [fixedServices, setFixedServices] = useState<FixedService[]>([]);
-  const [categorySettings, setCategorySettings] = useState<
-    ServiceCategorySetting[]
-  >([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categoryLinks, setCategoryLinks] = useState<
-    VariableServiceCategoryLink[]
-  >([]);
-  const [formattedFixedServices, setFormattedFixedServices] = useState<
-    FixedServiceFormatted[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // El indicador de carga solo se muestra la PRIMERA vez (página vacía).
-  // Las recargas posteriores (tras arrastrar, renombrar, crear...) son
-  // silenciosas: los datos se reemplazan en su lugar y la página no salta.
-  const initialLoadDone = useRef(false);
+interface ServicesData {
+  variableServices: VariableService[];
+  fixedServices: FixedService[];
+  categories: ServiceCategorySetting[];
+  categoryLinks: VariableServiceCategoryLink[];
+}
 
-  useEffect(() => {
-    loadServices();
-  }, []);
+// Build one Product per (service, category) link, sorted by category order
+// then per-category service order. This is what the quotation picker consumes.
+const buildProductsFromLinks = (
+  services: VariableService[],
+  categories: ServiceCategorySetting[],
+  links: VariableServiceCategoryLink[],
+): Product[] => {
+  const serviceById = new Map(services.map((s) => [s.id, s]));
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
 
-  const loadServices = async () => {
-    try {
-      if (!initialLoadDone.current) setLoading(true);
-      setError(null);
+  // If there are no links at all (fresh DB / pre-migration), fall back to the
+  // legacy single-category text so the picker still works.
+  if (!links.length) {
+    return services.map((service) => ({
+      codigo: service.id.toString(),
+      nombre: service.name,
+      precio: service.price,
+      categoria: service.category,
+      is_active: service.is_active,
+    }));
+  }
 
-      const data = await findAllServices();
-
-      // Check if data exists and has the expected structure
-      if (!data) {
-        setError("No data returned from API");
-        return;
-      }
-
-      if (!data.variableServices || !Array.isArray(data.variableServices)) {
-        setError("Invalid variable services data");
-        return;
-      }
-
-      if (!data.fixedServices || !Array.isArray(data.fixedServices)) {
-        setError("Invalid fixed services data");
-        return;
-      }
-
-      const categories = Array.isArray(data.categories) ? data.categories : [];
-      const links = Array.isArray(data.categoryLinks) ? data.categoryLinks : [];
-
-      setVariableServices(data.variableServices);
-      setFixedServices(data.fixedServices);
-      setCategorySettings(categories);
-      setCategoryLinks(links);
-
-      // Build the picker products: one entry per (service, category) link, so a
-      // service appears under every category it belongs to, in its per-category
-      // order. Falls back to the legacy single category if there are no links.
-      setProducts(
-        buildProductsFromLinks(data.variableServices, categories, links),
-      );
-
-      // Transform fixed services to QuotationForm format
-      const transformedFixedServices = data.fixedServices.map(
-        transformFixedServiceToFormatted,
-      );
-      setFormattedFixedServices(transformedFixedServices);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error loading services");
-      setVariableServices([]);
-      setFixedServices([]);
-      setProducts([]);
-      setFormattedFixedServices([]);
-    } finally {
-      setLoading(false);
-      initialLoadDone.current = true;
-    }
-  };
-
-  // Build one Product per (service, category) link, sorted by category order
-  // then per-category service order. This is what the quotation picker consumes.
-  const buildProductsFromLinks = (
-    services: VariableService[],
-    categories: ServiceCategorySetting[],
-    links: VariableServiceCategoryLink[],
-  ): Product[] => {
-    const serviceById = new Map(services.map((s) => [s.id, s]));
-    const categoryById = new Map(categories.map((c) => [c.id, c]));
-
-    // If there are no links at all (fresh DB / pre-migration), fall back to the
-    // legacy single-category text so the picker still works.
-    if (!links.length) {
-      return services.map((service) => ({
+  const rows = links
+    .map((link) => {
+      const service = serviceById.get(link.variable_service_id);
+      const category = categoryById.get(link.category_id);
+      if (!service || !category) return null;
+      return {
         codigo: service.id.toString(),
         nombre: service.name,
         precio: service.price,
-        categoria: service.category,
+        categoria: category.name,
         is_active: service.is_active,
-      }));
-    }
+        category_id: category.id,
+        sort_order: link.sort_order ?? null,
+        _catOrder: category.sort_order ?? Number.MAX_SAFE_INTEGER,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
 
-    const rows = links
-      .map((link) => {
-        const service = serviceById.get(link.variable_service_id);
-        const category = categoryById.get(link.category_id);
-        if (!service || !category) return null;
-        return {
-          codigo: service.id.toString(),
-          nombre: service.name,
-          precio: service.price,
-          categoria: category.name,
-          is_active: service.is_active,
-          category_id: category.id,
-          sort_order: link.sort_order ?? null,
-          _catOrder: category.sort_order ?? Number.MAX_SAFE_INTEGER,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-
-    rows.sort((a, b) => {
-      if (a._catOrder !== b._catOrder) return a._catOrder - b._catOrder;
-      const so =
-        (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-        (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-      if (so !== 0) return so;
-      return a.nombre.localeCompare(b.nombre);
-    });
-
-    return rows.map(({ _catOrder, ...p }) => p);
-  };
-
-  // Transform FixedService to QuotationForm format
-  const transformFixedServiceToFormatted = (
-    service: FixedService,
-  ): FixedServiceFormatted => ({
-    // Use the database id as the unique selection identifier (see note above).
-    codigo: service.id.toString(),
-    nombre: service.name,
-    precio: service.price,
-    tipo_calculo: service.calculation_type,
-    min_precio: service.min_price || 0,
-    max_precio: service.max_price || 0,
-    precio_por_persona: service.price_per_person || 0,
+  rows.sort((a, b) => {
+    if (a._catOrder !== b._catOrder) return a._catOrder - b._catOrder;
+    const so =
+      (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+      (b.sort_order ?? Number.MAX_SAFE_INTEGER);
+    if (so !== 0) return so;
+    return a.nombre.localeCompare(b.nombre);
   });
+
+  return rows.map(({ _catOrder, ...p }) => p);
+};
+
+// Transform FixedService to QuotationForm format
+const transformFixedServiceToFormatted = (
+  service: FixedService,
+): FixedServiceFormatted => ({
+  // Use the database id as the unique selection identifier (see note above).
+  codigo: service.id.toString(),
+  nombre: service.name,
+  precio: service.price,
+  tipo_calculo: service.calculation_type,
+  min_precio: service.min_price || 0,
+  max_precio: service.max_price || 0,
+  precio_por_persona: service.price_per_person || 0,
+});
+
+// Catálogo completo (servicios variables + fijos + categorías) vía
+// React Query (Etapa 2, 21-07-2026). Misma API del hook original:
+// - loading solo la PRIMERA vez (sin datos aún); las recargas tras
+//   arrastrar/renombrar/crear son silenciosas — el caché se reemplaza
+//   en su lugar y la página no salta (comportamiento histórico).
+// - reload() invalida y espera la versión fresca (awaitable).
+export function useServices() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["services"],
+    queryFn: async (): Promise<ServicesData> => {
+      const data = await findAllServices();
+      if (!data) throw new Error("No data returned from API");
+      if (!data.variableServices || !Array.isArray(data.variableServices)) {
+        throw new Error("Invalid variable services data");
+      }
+      if (!data.fixedServices || !Array.isArray(data.fixedServices)) {
+        throw new Error("Invalid fixed services data");
+      }
+      return {
+        variableServices: data.variableServices,
+        fixedServices: data.fixedServices,
+        categories: Array.isArray(data.categories) ? data.categories : [],
+        categoryLinks: Array.isArray(data.categoryLinks)
+          ? data.categoryLinks
+          : [],
+      };
+    },
+  });
+
+  const variableServices = query.data?.variableServices ?? [];
+  const fixedServices = query.data?.fixedServices ?? [];
+  const categorySettings = query.data?.categories ?? [];
+  const categoryLinks = query.data?.categoryLinks ?? [];
+
+  // Derivados memorizados: solo se recalculan cuando llegan datos nuevos.
+  const products = useMemo(
+    () =>
+      buildProductsFromLinks(variableServices, categorySettings, categoryLinks),
+    [query.data],
+  );
+
+  const formattedFixedServices = useMemo(
+    () => fixedServices.map(transformFixedServiceToFormatted),
+    [query.data],
+  );
+
+  // Names of categories explicitly marked inactive (default = active).
+  const inactiveCategories = useMemo(
+    () =>
+      categorySettings.filter((c) => c.is_active === false).map((c) => c.name),
+    [query.data],
+  );
+
+  // Categories ordered by their sort_order (for admin + picker ordering).
+  const orderedCategories = useMemo(
+    () =>
+      [...categorySettings].sort(
+        (a, b) =>
+          (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+          (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+      ),
+    [query.data],
+  );
 
   // Calculate price for fixed services based on calculation type and people count
   const calculateFixedServicePrice = (
@@ -203,17 +196,8 @@ export function useServices() {
     }
   };
 
-  // Names of categories explicitly marked inactive (default = active).
-  const inactiveCategories = categorySettings
-    .filter((c) => c.is_active === false)
-    .map((c) => c.name);
-
-  // Categories ordered by their sort_order (for admin + picker ordering).
-  const orderedCategories = [...categorySettings].sort(
-    (a, b) =>
-      (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-      (b.sort_order ?? Number.MAX_SAFE_INTEGER),
-  );
+  const reload = () =>
+    queryClient.invalidateQueries({ queryKey: ["services"] });
 
   return {
     // Raw data
@@ -229,11 +213,15 @@ export function useServices() {
     products,
 
     // State
-    loading,
-    error,
+    loading: query.isPending,
+    error: query.error
+      ? query.error instanceof Error
+        ? query.error.message
+        : "Error loading services"
+      : null,
 
     // Actions
-    reload: loadServices,
+    reload,
     calculatePrice: calculateFixedServicePrice,
   };
 }

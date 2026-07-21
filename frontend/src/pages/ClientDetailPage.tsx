@@ -26,10 +26,7 @@ import {
   deleteClientContact,
   setPrimaryContact,
 } from "../services/clientContacts.service";
-import {
-  ClientTypeItem,
-  getClientTypes,
-} from "../services/clientTypes.service";
+import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
 import { ClientFormData } from "../types/clients.types";
 
@@ -163,10 +160,7 @@ export default function ClientDetailPage() {
   // Gestión de Clientes — misma queryKey)
   const [typeEditing, setTypeEditing] = useState(false);
   const [typeSaving, setTypeSaving] = useState(false);
-  const { data: clientTypesList = [] } = useQuery({
-    queryKey: ["clientTypes"],
-    queryFn: (): Promise<ClientTypeItem[]> => getClientTypes(),
-  });
+  const { data: clientTypesList = [] } = useQuery(clientTypesQueryOptions);
 
   // Contactos: agregar / eliminar / marcar principal desde la ficha
   const [contactDraft, setContactDraft] = useState<{

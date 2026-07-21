@@ -20,13 +20,17 @@ import { ServiceGroupCollection } from "../../types/serviceGroupCollections.type
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
-import { getClientTypes } from "../../services/clientTypes.service";
+import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import {
   createQuotation,
   getQuotationById,
   updateQuotation,
 } from "../../services/quotations.service";
-import { createClient, getClients } from "../../services/clients.service";
+import {
+  createClient,
+  clientsQueryOptions,
+} from "../../services/clients.service";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUser } from "../../services/users.service";
 import { ClientFormData } from "../../types/clients.types";
 import {
@@ -154,7 +158,10 @@ export default function QuotationForm() {
     },
   });
 
-  const [clients, setClients] = useState<any[]>([]);
+  // Clientes desde el caché compartido de React Query (Etapa 2): el
+  // formulario abre con la lista ya conocida y revalida por detrás.
+  const queryClientRQ = useQueryClient();
+  const { data: clients = [] } = useQuery(clientsQueryOptions);
   const [loading, setLoading] = useState(false);
   // Removed selectedServices state - now each service box has its own services
   const [selectedFixedServices, setSelectedFixedServices] = useState<
@@ -198,10 +205,12 @@ export default function QuotationForm() {
     contact_person: "",
     client_type: DEFAULT_CLIENT_TYPE,
   });
-  // Tipos de cliente por empresa (dinámicos, con los estándar de respaldo)
-  const [clientTypesList, setClientTypesList] = useState<string[]>([
+  // Tipos de cliente por empresa (caché compartido; los 6 estándar son
+  // el respaldo si el catálogo no responde)
+  const { data: clientTypesData } = useQuery(clientTypesQueryOptions);
+  const clientTypesList: string[] = clientTypesData?.map((t) => t.name) ?? [
     ...CLIENT_TYPES,
-  ]);
+  ];
   const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
@@ -407,14 +416,7 @@ export default function QuotationForm() {
     fetchQuotationData();
   }, [id, duplicateFrom, navigate]);
 
-  useEffect(() => {
-    loadClients();
-    // Tipos de cliente dinámicos (catálogo por empresa); si falla la
-    // carga se usan los 6 estándar como respaldo.
-    getClientTypes()
-      .then((types) => setClientTypesList(types.map((t) => t.name)))
-      .catch(() => setClientTypesList([...CLIENT_TYPES]));
-  }, []);
+  // (Clientes y tipos los carga React Query automáticamente.)
 
   // Update form validity when client form data changes
   useEffect(() => {
@@ -922,15 +924,7 @@ export default function QuotationForm() {
     return box.services;
   };
 
-  const loadClients = async () => {
-    try {
-      const { data } = await getClients();
-
-      setClients(data);
-    } catch (error) {
-      setClients([]);
-    }
-  };
+  // (loadClients eliminado: la lista vive en el caché ["clients"].)
 
   // generateQuotationNumber function removed - quotation_number is now auto-generated in database
 
@@ -1007,8 +1001,13 @@ export default function QuotationForm() {
       const { data: newClient } = await createClient(clientFormData);
 
       if (newClient) {
-        // Add the new client to the local state immediately
-        setClients((prev) => [...prev, newClient]);
+        // El cliente nuevo entra al caché al instante (visible en el
+        // selector) y se confirma con el servidor por detrás.
+        queryClientRQ.setQueryData<any[]>(["clients"], (prev) => [
+          ...(prev ?? []),
+          newClient,
+        ]);
+        queryClientRQ.invalidateQueries({ queryKey: ["clients"] });
 
         // Auto-select the newly created client with its data
         handleClientSelect(newClient.id, newClient);

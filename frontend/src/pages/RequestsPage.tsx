@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
@@ -31,34 +32,30 @@ import { formatISOUTCDateToString } from "../utils/dates.ts";
 
 export default function RequestsPage() {
   const { user, userRole, company } = useAuth();
-  const [requests, setRequests] = useState<QuotationWithClient[]>([]);
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] =
     useState<QuotationWithClient | null>(null);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showPublicLinkModal, setShowPublicLinkModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetchRequests();
-  }, [user]);
-
-  const fetchRequests = async () => {
-    if (!user) return;
-
-    try {
+  // Requerimientos vía React Query (Etapa 2): MISMA queryKey que la
+  // sección de requerimientos del panel de cotizaciones — un solo
+  // caché compartido entre ambas pantallas.
+  const { data: requests = [], isPending: loading } = useQuery({
+    queryKey: ["requirements"],
+    enabled: !!user,
+    queryFn: async (): Promise<QuotationWithClient[]> => {
       const { data } = await getQuotations(QuotationRequestType.REQUERIMIENTO, [
         QuotationStatus.SOLICITADA,
       ]);
+      return data;
+    },
+  });
 
-      // if (error) throw error;
-      setRequests(data);
-    } catch (error) {
-      setRequests([]);
-    } finally {
-      setLoading(false);
-    }
+  const fetchRequests = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["requirements"] });
   };
 
   const handleDelete = async (requestId: string) => {
@@ -78,7 +75,11 @@ export default function RequestsPage() {
 
       if (error) throw error;
 
-      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      // Sale de la pantalla al instante y se confirma con el servidor.
+      queryClient.setQueryData<QuotationWithClient[]>(["requirements"], (prev) =>
+        (prev ?? []).filter((r) => r.id !== requestId),
+      );
+      queryClient.invalidateQueries({ queryKey: ["requirements"] });
       alert("Requerimiento eliminado exitosamente");
     } catch (error) {
       alert("Error al eliminar el requerimiento");

@@ -1,4 +1,5 @@
 import { API_ROUTES } from "../constants/api.routes";
+import { CLIENT_TYPES } from "../constants/clientTypes";
 import { apiRequest } from "./api";
 
 // Tipos de cliente por empresa (tabla client_types). Los tipos dejaron
@@ -14,6 +15,20 @@ export interface ClientTypeItem {
 export const getClientTypes = async (): Promise<ClientTypeItem[]> => {
   const response = await apiRequest(API_ROUTES.CLIENT_TYPES, "GET");
   return response as ClientTypeItem[];
+};
+
+// Consulta compartida de React Query: TODAS las pantallas que muestran
+// tipos usan esta misma definición (misma queryKey = mismo caché).
+// Respaldo: los 6 estándar si el catálogo no responde.
+export const clientTypesQueryOptions = {
+  queryKey: ["clientTypes"] as const,
+  queryFn: async (): Promise<ClientTypeItem[]> => {
+    try {
+      return await getClientTypes();
+    } catch {
+      return CLIENT_TYPES.map((name, i) => ({ id: -(i + 1), name }));
+    }
+  },
 };
 
 // Para formularios públicos (sin login): cotización pública.

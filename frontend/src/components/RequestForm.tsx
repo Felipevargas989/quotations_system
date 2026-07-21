@@ -3,9 +3,10 @@ import { Save, RotateCcw, Plus, X, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
-import { getClients } from "../services/clients.service";
+import { clientsQueryOptions } from "../services/clients.service";
 import { createClient } from "../services/clients.service";
-import { getClientTypes } from "../services/clientTypes.service";
+import { clientTypesQueryOptions } from "../services/clientTypes.service";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ClientFormData } from "../types/clients.types";
 import {
@@ -37,7 +38,9 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     observations: "",
     client_id: "",
   });
-  const [clients, setClients] = useState<any[]>([]);
+  // Clientes desde el caché compartido de React Query (Etapa 2)
+  const queryClientRQ = useQueryClient();
+  const { data: clients = [] } = useQuery(clientsQueryOptions);
   const [loading, setLoading] = useState(false);
   const [isExistingClient, setIsExistingClient] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -48,10 +51,11 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     contact_person: "",
     client_type: DEFAULT_CLIENT_TYPE as string,
   });
-  // Tipos de cliente por empresa (dinámicos, con los estándar de respaldo)
-  const [clientTypesList, setClientTypesList] = useState<string[]>([
+  // Tipos de cliente por empresa (caché compartido; estándar de respaldo)
+  const { data: clientTypesData } = useQuery(clientTypesQueryOptions);
+  const clientTypesList: string[] = clientTypesData?.map((t) => t.name) ?? [
     ...CLIENT_TYPES,
-  ]);
+  ];
   const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
@@ -83,12 +87,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   ];
 
   useEffect(() => {
-    loadClients();
-    // Tipos de cliente dinámicos (catálogo por empresa); respaldo: los
-    // 6 estándar si el catálogo no responde.
-    getClientTypes()
-      .then((types) => setClientTypesList(types.map((t) => t.name)))
-      .catch(() => setClientTypesList([...CLIENT_TYPES]));
+    // (Clientes y tipos los carga React Query automáticamente.)
     if (request) {
       const requestData: QuotationFormData = {
         request_type: request.request_type,
@@ -120,16 +119,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     return touchedFields[fieldName] && clientErrors[fieldName];
   };
 
-  const loadClients = async () => {
-    try {
-      const { data } = await getClients();
-
-      // if (error) throw error;
-      setClients(data);
-    } catch (error) {
-      setClients([]);
-    }
-  };
+  // (loadClients eliminado: la lista vive en el caché ["clients"].)
 
   // generateRequestNumber function removed - quotation_number is now auto-generated in database
 
@@ -176,10 +166,13 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
       // if (error) throw error;
 
       if (newClient) {
-        // Add the new client to the local state immediately
-        setClients((prev) => [...prev, newClient]);
-
-        // Auto-select the newly created client
+        // El cliente nuevo entra al caché al instante y se confirma
+        // con el servidor por detrás.
+        queryClientRQ.setQueryData<any[]>(["clients"], (prev) => [
+          ...(prev ?? []),
+          newClient,
+        ]);
+        queryClientRQ.invalidateQueries({ queryKey: ["clients"] });
 
         // Auto-select the newly created client with its data
         handleClientSelect(newClient.id, newClient);
