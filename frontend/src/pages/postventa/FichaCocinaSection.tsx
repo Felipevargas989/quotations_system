@@ -88,6 +88,8 @@ export default function FichaCocinaSection({
   };
 
   const personas = quote.people_count || 0;
+  const kids = Number(quote.children_count || 0);
+  const adults = Math.max(0, personas - kids);
   const groups = quote.items?.variable_services || [];
 
   // Cada SERVICIO de la cotización tiene su propio horario, aunque la
@@ -104,10 +106,15 @@ export default function FichaCocinaSection({
       const n = (seen.get(g.category) || 0) + 1;
       seen.set(g.category, n);
       const repeated = (catCount.get(g.category) || 1) > 1;
+      // Audiencia visible solo cuando el evento tiene niños; la clave (key)
+      // NO cambia para no perder las horas ya guardadas por servicio.
+      const aud = (g as { audience?: string }).audience;
+      const audTag =
+        kids > 0 && aud ? (aud === "ninos" ? " · Niños" : " · Adultos") : "";
       return {
         group: g,
         key: n === 1 ? g.category : `${g.category}#${n}`,
-        label: repeated ? `${g.category} (${n}º)` : g.category,
+        label: (repeated ? `${g.category} (${n}º)` : g.category) + audTag,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,8 +174,7 @@ export default function FichaCocinaSection({
     Math.min((f as { day?: number }).day || 0, daysCount);
   const fixedForDay = (n: number) =>
     fixedList.filter((f) => fixedDayOf(f) === n || fixedDayOf(f) === 0);
-  const notesForDay = (n: number) =>
-    notes.filter((x) => (x.day ?? 1) === n);
+  const notesForDay = (n: number) => notes.filter((x) => (x.day ?? 1) === n);
 
   // Estado de la vista multi-día: desplegables (por defecto solo se abre el
   // día de HOY, o el primer día futuro), selección de impresión y registro
@@ -250,8 +256,7 @@ export default function FichaCocinaSection({
 
   // ---------- Datos calculados para la ficha ----------
   const ctx = useMemo(
-    () =>
-      buildConsolidationContext(recipes, supplies, furniture, nameIds, {}),
+    () => buildConsolidationContext(recipes, supplies, furniture, nameIds, {}),
     [recipes, supplies, furniture, nameIds],
   );
 
@@ -293,8 +298,7 @@ export default function FichaCocinaSection({
     items: SnapItem[],
   ): { name: string | null; items: SnapItem[] }[] => {
     const cat = menu.categories.find(
-      (c) =>
-        c.name.trim().toLowerCase() === categoryName.trim().toLowerCase(),
+      (c) => c.name.trim().toLowerCase() === categoryName.trim().toLowerCase(),
     );
     if (!cat) return [{ name: null, items }];
     const secs = menu.sections.filter((s) => s.category_id === cat.id);
@@ -346,21 +350,24 @@ export default function FichaCocinaSection({
     // Bloques por servicio (categoría de la cotización): platillos ×cant,
     // receta en letra chica y mobiliario a montar. Un bloque por servicio,
     // con su propio horario aunque la categoría se repita.
-    const bloquesDe = (slotList: typeof slots) => slotList
-      .map(({ group: g, key, label }) => {
-        const hora = times[key] || "";
-        const furnTotals = new Map<string, number>();
-        // Personas de ESTE servicio (audiencia niños/adultos o ajuste
-        // manual del cotizador); cotizaciones antiguas = total del evento.
-        const groupPeople = (g as { people?: number }).people ?? personas;
-        const itemRow = (it: {
-          codigo: string;
-          nombre: string;
-          quantity?: number;
-        }) => {
+    const bloquesDe = (slotList: typeof slots) =>
+      slotList
+        .map(({ group: g, key, label }) => {
+          const hora = times[key] || "";
+          const furnTotals = new Map<string, number>();
+          // Personas de ESTE servicio (audiencia niños/adultos o ajuste
+          // manual del cotizador); cotizaciones antiguas = total del evento.
+          const groupPeople = (g as { people?: number }).people ?? personas;
+          const itemRow = (it: {
+            codigo: string;
+            nombre: string;
+            quantity?: number;
+          }) => {
             const id = resolveVarId(it.codigo, it.nombre);
             const lines =
-              id !== undefined ? ctx.byService.get(`variable-${id}`) : undefined;
+              id !== undefined
+                ? ctx.byService.get(`variable-${id}`)
+                : undefined;
             const porciones = groupPeople * (it.quantity || 1);
             let receta = "";
             if (lines?.length) {
@@ -398,33 +405,40 @@ export default function FichaCocinaSection({
                 ? `<tr class="receta"><td colspan="2">Receta: ${receta}</td></tr>`
                 : ""
             }`;
-        };
-        // Platos ordenados como la carta, con subtítulo de sección.
-        const rows = orderItems(g.category, g.items || [])
-          .map(
-            (og) =>
-              (og.name
-                ? `<tr class="subseccion"><td colspan="2">${esc(og.name)}</td></tr>`
-                : "") + og.items.map(itemRow).join(""),
-          )
-          .join("");
-        const montar = [...furnTotals.entries()]
-          .map(([name, q]) => `${Math.ceil(q).toLocaleString("es-CL")} ${esc(name.toLowerCase())}`)
-          .join(" · ");
-        return `<div class="servicio">
-          <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(label)}</h2></div>
+          };
+          // Platos ordenados como la carta, con subtítulo de sección.
+          const rows = orderItems(g.category, g.items || [])
+            .map(
+              (og) =>
+                (og.name
+                  ? `<tr class="subseccion"><td colspan="2">${esc(og.name)}</td></tr>`
+                  : "") + og.items.map(itemRow).join(""),
+            )
+            .join("");
+          const montar = [...furnTotals.entries()]
+            .map(
+              ([name, q]) =>
+                `${Math.ceil(q).toLocaleString("es-CL")} ${esc(name.toLowerCase())}`,
+            )
+            .join(" · ");
+          return `<div class="servicio">
+          <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(label)}</h2><span class="svc-pers">${groupPeople.toLocaleString("es-CL")} personas</span></div>
           <div class="platillo"><table class="preparar">${rows}</table></div>
           ${montar ? `<div class="mobiliario"><b>Montar:</b> ${montar}</div>` : ""}
         </div>`;
-      })
-      .join("");
+        })
+        .join("");
 
     // Retiro de bodega de un conjunto de servicios (todo el evento o un día).
     const bodegaDe = (snapshot: EventItemsSnapshot) => {
       const acc = newAccumulator();
       consolidateEvent(snapshot, personas, ctx, acc);
       return [...acc.supplyTotals.values()]
-        .sort((a, b) => b.totalBase * (b.supply.price || 0) - a.totalBase * (a.supply.price || 0))
+        .sort(
+          (a, b) =>
+            b.totalBase * (b.supply.price || 0) -
+            a.totalBase * (a.supply.price || 0),
+        )
         .map(
           (c) =>
             `<tr><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
@@ -438,50 +452,52 @@ export default function FichaCocinaSection({
     // Servicios fijos: nombre ×cant y, si su receta tiene mobiliario, la
     // línea "Montar: ..." en letra chica. Con etiqueta TODO EL EVENTO en
     // fichas multi-día.
-    const fijosDe = (list: typeof fixedList, conTag: boolean) => list
-      .map((it) => {
-        const numericId = Number(it.codigo);
-        let id: number | undefined =
-          Number.isFinite(numericId) && ctx.byService.get(`fixed-${numericId}`)
-            ? numericId
-            : nameIds.fixed[it.nombre.trim().toLowerCase()];
-        if (id === undefined && Number.isFinite(numericId)) id = numericId;
-        const lines =
-          id !== undefined ? ctx.byService.get(`fixed-${id}`) : undefined;
-        const qty = it.quantity || 1;
-        const furn = new Map<string, number>();
-        lines?.forEach((line) => {
-          if (line.item_kind === "mobiliario" && line.furniture_id) {
-            const f = ctx.furnById.get(line.furniture_id);
-            if (f) {
-              furn.set(
-                f.name,
-                (furn.get(f.name) || 0) + line.qty_per_person * personas * qty,
-              );
+    const fijosDe = (list: typeof fixedList, conTag: boolean) =>
+      list
+        .map((it) => {
+          const numericId = Number(it.codigo);
+          let id: number | undefined =
+            Number.isFinite(numericId) &&
+            ctx.byService.get(`fixed-${numericId}`)
+              ? numericId
+              : nameIds.fixed[it.nombre.trim().toLowerCase()];
+          if (id === undefined && Number.isFinite(numericId)) id = numericId;
+          const lines =
+            id !== undefined ? ctx.byService.get(`fixed-${id}`) : undefined;
+          const qty = it.quantity || 1;
+          const furn = new Map<string, number>();
+          lines?.forEach((line) => {
+            if (line.item_kind === "mobiliario" && line.furniture_id) {
+              const f = ctx.furnById.get(line.furniture_id);
+              if (f) {
+                furn.set(
+                  f.name,
+                  (furn.get(f.name) || 0) +
+                    line.qty_per_person * personas * qty,
+                );
+              }
             }
-          }
-        });
-        const montar = [...furn.entries()]
-          .map(
-            ([n, q]) =>
-              `${Math.ceil(q).toLocaleString("es-CL")} ${esc(n.toLowerCase())}`,
-          )
-          .join(" · ");
-        const tag =
-          conTag && fixedDayOf(it) === 0
-            ? ` <span class="tageva">todo el evento</span>`
-            : "";
-        return `<tr><td class="fnombre">${esc(it.nombre)}${tag}</td><td class="qty">×${qty}</td></tr>${
-          montar
-            ? `<tr class="fmontar"><td colspan="2">Montar: ${montar}</td></tr>`
-            : ""
-        }`;
-      })
-      .join("");
+          });
+          const montar = [...furn.entries()]
+            .map(
+              ([n, q]) =>
+                `${Math.ceil(q).toLocaleString("es-CL")} ${esc(n.toLowerCase())}`,
+            )
+            .join(" · ");
+          const tag =
+            conTag && fixedDayOf(it) === 0
+              ? ` <span class="tageva">todo el evento</span>`
+              : "";
+          return `<tr><td class="fnombre">${esc(it.nombre)}${tag}</td><td class="qty">×${qty}</td></tr>${
+            montar
+              ? `<tr class="fmontar"><td colspan="2">Montar: ${montar}</td></tr>`
+              : ""
+          }`;
+        })
+        .join("");
 
     const clientName =
-      (quote as unknown as { clients?: { name?: string } }).clients?.name ||
-      "";
+      (quote as unknown as { clients?: { name?: string } }).clients?.name || "";
     const fmtLarga = (d: Date) =>
       d.toLocaleDateString("es-CL", {
         weekday: "long",
@@ -506,7 +522,7 @@ export default function FichaCocinaSection({
     <div class="evento">
       <strong>Evento #${quote.quotation_number}${clientName ? ` · ${esc(clientName)}` : ""}</strong><br>
       ${esc(fechaTxt)}<br>
-      <span class="personas">${personas.toLocaleString("es-CL")} personas</span>
+      <span class="personas">${personas.toLocaleString("es-CL")} personas${kids > 0 ? ` (${adults.toLocaleString("es-CL")} adultos · ${kids.toLocaleString("es-CL")} niños)` : ""}</span>
     </div>
   </div>
   ${bloques || '<p style="margin-top:20px;color:#888">Sin servicios variables asignados.</p>'}
@@ -553,13 +569,10 @@ export default function FichaCocinaSection({
       paginas = daysPrinted
         .map((n) => {
           const snapshot = {
-            variable_services: groups.filter(
-              (_, i) => slotDay(slots[i]) === n,
-            ),
+            variable_services: groups.filter((_, i) => slotDay(slots[i]) === n),
             // el retiro de los fijos "todo el evento" se hace el día 1
             fixed_services: fixedList.filter(
-              (f) =>
-                fixedDayOf(f) === n || (n === 1 && fixedDayOf(f) === 0),
+              (f) => fixedDayOf(f) === n || (n === 1 && fixedDayOf(f) === 0),
             ),
           } as EventItemsSnapshot;
           return paginaDe(
@@ -590,6 +603,7 @@ export default function FichaCocinaSection({
   .servicio-head { display:flex; align-items:center; gap:12px; background:#1e3a8a; color:#fff; padding:7px 12px; }
   .hora { font-size:17px; font-weight:800; background:#fff; color:#1e3a8a; padding:1px 8px; border-radius:3px; }
   .servicio-head h2 { font-size:15px; text-transform:uppercase; letter-spacing:1px; }
+  .svc-pers { margin-left:auto; font-size:13px; font-weight:700; opacity:.9; }
   .platillo { padding:6px 14px; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   td { padding:2.5px 6px; border-bottom:1px dotted #ccc; }
@@ -632,9 +646,8 @@ ${paginas}
 
     // Registrar las fichas impresas por día (verde suave en el desplegable).
     if (multiDay && daysPrinted.length > 0) {
-      markEventDaysPrinted(companyId, quotationId, daysPrinted).then(
-        async () =>
-          setDayPrints(await getEventDayPrints(companyId, quotationId)),
+      markEventDaysPrinted(companyId, quotationId, daysPrinted).then(async () =>
+        setDayPrints(await getEventDayPrints(companyId, quotationId)),
       );
     }
   };
@@ -709,9 +722,7 @@ ${paginas}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ChefHat size={17} className="text-gray-600" />
-          <h4 className="text-base font-bold text-gray-900">
-            Ficha de cocina
-          </h4>
+          <h4 className="text-base font-bold text-gray-900">Ficha de cocina</h4>
           {saved && (
             <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
               <Check size={13} /> Guardado
