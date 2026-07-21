@@ -11,7 +11,6 @@ import RequestsPage from "./pages/RequestsPage";
 import QuotationsPage from "./pages/quotations/QuotationsPage";
 import QuotationForm from "./pages/quotations/QuotationForm";
 import ClientsPage from "./pages/ClientsPage";
-import PaymentsPage from "./pages/PaymentsPage";
 import PostVentaPage from "./pages/postventa/PostVentaPage";
 import LogisticaPage from "./pages/logistica/LogisticaPage";
 import UserManagementPage from "./pages/UserManagementPage.tsx";
@@ -126,16 +125,6 @@ function App() {
               element={
                 <PermissionGuard allowedRoles={SECTION_ROLES.clients}>
                   <ClientsPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Payments - Operaciones, Admin */}
-            <Route
-              path="payments"
-              element={
-                <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
-                  <PaymentsPage />
                 </PermissionGuard>
               }
             />

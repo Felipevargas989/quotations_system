@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import {
   FileText,
-  DollarSign,
   Home,
   Users,
   ClipboardList,
@@ -53,12 +52,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/clients",
       icon: Users,
       section: "clients",
-    },
-    {
-      name: "Pagos",
-      href: "/payments",
-      icon: DollarSign,
-      section: "payments",
     },
     {
       name: "Post‑Venta",
