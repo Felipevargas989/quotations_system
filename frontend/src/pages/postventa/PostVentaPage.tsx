@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "../../contexts/AuthContext";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
+import FileViewLink from "../../components/FileViewLink";
 import {
   getPaymentsWithTransactions,
   createOverflowPayment,
@@ -1799,7 +1800,10 @@ function RegistrarPagoPanel({
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600">
-                Comprobante
+                Comprobante{" "}
+                <span className="font-normal text-gray-400">
+                  (imagen o PDF · máx. 5 MB)
+                </span>
               </label>
               <input
                 type="file"
@@ -1976,14 +1980,11 @@ function ComprobantesTab({
                 </div>
               </div>
               {e.url && (
-                <a
-                  href={e.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                >
-                  Ver
-                </a>
+                <FileViewLink
+                  url={e.url}
+                  title={`Comprobante · ${clp(e.amount)} · ${fmtDate(e.date)}`}
+                  className="mr-2"
+                />
               )}
             </div>
           );
@@ -2119,14 +2120,10 @@ function RefundRow({
           </div>
         </div>
         {registered && refund.receipt_url && (
-          <a
-            href={refund.receipt_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-          >
-            Ver
-          </a>
+          <FileViewLink
+            url={refund.receipt_url}
+            title={`Comprobante de reembolso · ${clp(refund.amount)}`}
+          />
         )}
         <button
           type="button"
@@ -2185,7 +2182,10 @@ function RefundRow({
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600">
-                Comprobante
+                Comprobante{" "}
+                <span className="font-normal text-gray-400">
+                  (imagen o PDF · máx. 5 MB)
+                </span>
               </label>
               <input
                 type="file"
@@ -2302,6 +2302,9 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                 }`}
               >
                 <Upload size={13} /> {busy ? "Subiendo…" : "Subir"}
+                <span className="font-normal opacity-70 text-[10px]">
+                  máx. 5 MB
+                </span>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -2332,14 +2335,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                         {fmtDate(d.uploaded_at)}
                       </div>
                     </div>
-                    <a
-                      href={d.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                    >
-                      Ver
-                    </a>
+                    <FileViewLink url={d.file_url} title={d.file_name} />
                     <button
                       type="button"
                       onClick={() => onDelete(d)}
