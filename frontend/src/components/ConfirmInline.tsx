@@ -16,13 +16,13 @@ export default function ConfirmInline({
   readonly busy?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 text-xs whitespace-nowrap">
+    <span className="inline-flex items-center gap-2 text-xs">
       <span className="text-gray-700 font-medium">{question}</span>
       <button
         type="button"
         disabled={busy}
         onClick={onYes}
-        className="px-2.5 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50"
+        className="shrink-0 whitespace-nowrap px-2.5 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50"
       >
         {busy ? "…" : yesLabel}
       </button>
@@ -30,7 +30,7 @@ export default function ConfirmInline({
         type="button"
         disabled={busy}
         onClick={onNo}
-        className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200"
+        className="shrink-0 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200"
       >
         No
       </button>

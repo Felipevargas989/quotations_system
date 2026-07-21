@@ -36,6 +36,7 @@ import {
   QuotationStatus,
 } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
+import ConfirmInline from "../../components/ConfirmInline";
 import { getCategorySections } from "../../services/sections.service";
 import {
   ClientContact,
@@ -207,6 +208,13 @@ export default function QuotationForm() {
   const [endDateCleared, setEndDateCleared] = useState(false);
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  // Confirmaciones inline (sin popups del navegador): paquete a
+  // reemplazar/eliminar y menú guardado a eliminar.
+  const [confirmPkg, setConfirmPkg] = useState<{
+    id: number;
+    action: "replace" | "delete";
+  } | null>(null);
+  const [confirmGroupDel, setConfirmGroupDel] = useState<number | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
   const [itemSearch, setItemSearch] = useState("");
 
@@ -729,19 +737,6 @@ export default function QuotationForm() {
       .filter((box): box is ServiceBox => box !== null);
 
     if (boxes.length === 0) return;
-
-    // Warn before discarding existing services
-    const hasExistingServices = serviceBoxes.some(
-      (box) => box.services.length > 0,
-    );
-    if (
-      hasExistingServices &&
-      !window.confirm(
-        `Esto reemplazará los servicios actuales con el paquete "${collection.name}". ¿Continuar?`,
-      )
-    ) {
-      return;
-    }
 
     setServiceBoxes(boxes);
     setSelectedCollection({ id: collection.id, name: collection.name });
@@ -1782,46 +1777,81 @@ export default function QuotationForm() {
 
             {openDropdown === "service-group-collections" && (
               <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {serviceGroupCollections.map((collection) => (
-                  <div
-                    key={collection.id}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        loadCollectionAsBoxes(collection);
-                        setOpenDropdown(null);
-                      }}
-                      className="flex-1 text-left text-sm"
-                    >
-                      <span className="text-gray-900">{collection.name}</span>{" "}
-                      <span className="text-gray-500">
-                        ({collection.groups?.length || 0} grupos)
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (
-                          window.confirm(
-                            `¿Eliminar el paquete "${collection.name}"?`,
-                          )
-                        ) {
-                          await removeServiceGroupCollection(collection.id);
-                          if (selectedCollection?.id === collection.id) {
-                            setSelectedCollection(null);
-                          }
+                {serviceGroupCollections.map((collection) =>
+                  confirmPkg?.id === collection.id ? (
+                    <div key={collection.id} className="px-3 py-2">
+                      <ConfirmInline
+                        question={
+                          confirmPkg.action === "replace"
+                            ? "¿Reemplazar los servicios actuales?"
+                            : `¿Eliminar "${collection.name}"?`
                         }
-                      }}
-                      className="ml-2 text-red-600 hover:text-red-800"
-                      title="Eliminar paquete"
+                        yesLabel={
+                          confirmPkg.action === "replace"
+                            ? "Sí, reemplazar"
+                            : "Sí, eliminar"
+                        }
+                        onYes={async () => {
+                          if (confirmPkg.action === "replace") {
+                            loadCollectionAsBoxes(collection);
+                            setConfirmPkg(null);
+                            setOpenDropdown(null);
+                          } else {
+                            await removeServiceGroupCollection(collection.id);
+                            if (selectedCollection?.id === collection.id) {
+                              setSelectedCollection(null);
+                            }
+                            setConfirmPkg(null);
+                          }
+                        }}
+                        onNo={() => setConfirmPkg(null)}
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      key={collection.id}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const hasExistingServices = serviceBoxes.some(
+                            (box) => box.services.length > 0,
+                          );
+                          if (hasExistingServices) {
+                            setConfirmPkg({
+                              id: collection.id,
+                              action: "replace",
+                            });
+                          } else {
+                            loadCollectionAsBoxes(collection);
+                            setOpenDropdown(null);
+                          }
+                        }}
+                        className="flex-1 text-left text-sm"
+                      >
+                        <span className="text-gray-900">{collection.name}</span>{" "}
+                        <span className="text-gray-500">
+                          ({collection.groups?.length || 0} grupos)
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmPkg({
+                            id: collection.id,
+                            action: "delete",
+                          });
+                        }}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                        title="Eliminar paquete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ),
+                )}
                 {serviceGroupCollections.length === 0 && (
                   <p className="px-3 py-2 text-sm text-gray-400">
                     Aún no hay paquetes guardados.
@@ -2667,47 +2697,59 @@ export default function QuotationForm() {
                                 {openDropdown === `groups-${box.id}` &&
                                   boxGroups.length > 0 && (
                                     <div className="absolute left-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                      {boxGroups.map((group) => (
-                                        <div
-                                          key={group.id}
-                                          className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                                        >
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              loadGroupIntoBox(box.id, group);
-                                              setOpenDropdown(null);
-                                            }}
-                                            className="flex-1 text-left text-sm"
+                                      {boxGroups.map((group) =>
+                                        confirmGroupDel === group.id ? (
+                                          <div
+                                            key={group.id}
+                                            className="px-3 py-2"
                                           >
-                                            <span className="text-gray-900">
-                                              {group.name}
-                                            </span>{" "}
-                                            <span className="text-gray-500">
-                                              ({group.category})
-                                            </span>
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={async (e) => {
-                                              e.stopPropagation();
-                                              if (
-                                                window.confirm(
-                                                  `¿Eliminar el menú "${group.name}"?`,
-                                                )
-                                              ) {
+                                            <ConfirmInline
+                                              question={`¿Eliminar "${group.name}"?`}
+                                              onYes={async () => {
                                                 await removeServiceGroup(
                                                   group.id,
                                                 );
+                                                setConfirmGroupDel(null);
+                                              }}
+                                              onNo={() =>
+                                                setConfirmGroupDel(null)
                                               }
-                                            }}
-                                            className="ml-2 text-red-600 hover:text-red-800"
-                                            title="Eliminar menú guardado"
+                                            />
+                                          </div>
+                                        ) : (
+                                          <div
+                                            key={group.id}
+                                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
                                           >
-                                            <Trash2 size={14} />
-                                          </button>
-                                        </div>
-                                      ))}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                loadGroupIntoBox(box.id, group);
+                                                setOpenDropdown(null);
+                                              }}
+                                              className="flex-1 text-left text-sm"
+                                            >
+                                              <span className="text-gray-900">
+                                                {group.name}
+                                              </span>{" "}
+                                              <span className="text-gray-500">
+                                                ({group.category})
+                                              </span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setConfirmGroupDel(group.id);
+                                              }}
+                                              className="ml-2 text-red-600 hover:text-red-800"
+                                              title="Eliminar menú guardado"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        ),
+                                      )}
                                     </div>
                                   )}
                               </>

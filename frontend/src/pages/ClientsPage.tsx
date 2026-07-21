@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import ConfirmInline from "../components/ConfirmInline";
 import {
   validateEmail,
   validatePhone,
@@ -142,8 +143,10 @@ export default function ClientsPage() {
     setContacts(await getClientContacts(client.id));
   };
 
+  // Confirmación inline para eliminar contacto (sin popup del navegador)
+  const [confirmContactId, setConfirmContactId] = useState<number | null>(null);
   const removeContact = async (client: Client, contact: ClientContact) => {
-    if (!window.confirm(`¿Eliminar a "${contact.name}"?`)) return;
+    setConfirmContactId(null);
     await deleteClientContact(contact.id);
     let list = await getClientContacts(client.id);
     // Si se fue el principal y quedan personas, la primera hereda.
@@ -547,50 +550,63 @@ export default function ClientsPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                !c.is_primary && makePrimary(editingClient, c)
-                              }
-                              className={
-                                c.is_primary
-                                  ? "p-1.5 text-amber-500 cursor-default"
-                                  : "p-1.5 text-gray-300 hover:text-amber-500"
-                              }
-                              title={
-                                c.is_primary
-                                  ? "Contacto principal"
-                                  : "Marcar como principal"
-                              }
-                            >
-                              <Star
-                                size={15}
-                                fill={c.is_primary ? "currentColor" : "none"}
+                            {confirmContactId === c.id ? (
+                              <ConfirmInline
+                                question={`¿Eliminar a "${c.name}"?`}
+                                onYes={() => removeContact(editingClient, c)}
+                                onNo={() => setConfirmContactId(null)}
                               />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setContactDraft({
-                                  id: c.id,
-                                  name: c.name,
-                                  email: c.email || "",
-                                  phone: c.phone || "",
-                                })
-                              }
-                              className="p-1.5 text-gray-400 hover:text-blue-600"
-                              title="Editar"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeContact(editingClient, c)}
-                              className="p-1.5 text-gray-400 hover:text-red-600"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    !c.is_primary &&
+                                    makePrimary(editingClient, c)
+                                  }
+                                  className={
+                                    c.is_primary
+                                      ? "p-1.5 text-amber-500 cursor-default"
+                                      : "p-1.5 text-gray-300 hover:text-amber-500"
+                                  }
+                                  title={
+                                    c.is_primary
+                                      ? "Contacto principal"
+                                      : "Marcar como principal"
+                                  }
+                                >
+                                  <Star
+                                    size={15}
+                                    fill={
+                                      c.is_primary ? "currentColor" : "none"
+                                    }
+                                  />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setContactDraft({
+                                      id: c.id,
+                                      name: c.name,
+                                      email: c.email || "",
+                                      phone: c.phone || "",
+                                    })
+                                  }
+                                  className="p-1.5 text-gray-400 hover:text-blue-600"
+                                  title="Editar"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmContactId(c.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ),

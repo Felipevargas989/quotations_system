@@ -29,6 +29,9 @@ export default function ProveedoresTab({
     Record<number, { supplies: number; resources: number }>
   >({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  // Dar de baja con recursos/insumos asociados: confirmación inline (sin
+  // popup del navegador), mismo patrón flotante del basurero.
+  const [confirmBajaId, setConfirmBajaId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
@@ -104,19 +107,30 @@ export default function ProveedoresTab({
       const u = usage[s.id];
       const inUse = !!u && (u.supplies > 0 || u.resources > 0);
       if (inUse) {
-        const parts = [];
-        if (u.supplies > 0)
-          parts.push(`${u.supplies} insumo${u.supplies === 1 ? "" : "s"}`);
-        if (u.resources > 0)
-          parts.push(`${u.resources} recurso${u.resources === 1 ? "" : "s"}`);
-        const ok = window.confirm(
-          `Este proveedor tiene ${parts.join(" y ")} asociados: seguirán apuntándole y las compras saldrán a su nombre. Solo dejará de aparecer al asignar proveedor a insumos o recursos nuevos. Si cambiaste de proveedor, reasigna también esos insumos. ¿Darlo de baja?`,
-        );
-        if (!ok) return;
+        // La advertencia se confirma inline sobre la fila.
+        setConfirmBajaId(s.id);
+        return;
       }
     }
     await updateSupplier(s.id, { is_active: !s.is_active });
     load();
+  };
+
+  const doBaja = async (s: Supplier) => {
+    await updateSupplier(s.id, { is_active: false });
+    setConfirmBajaId(null);
+    load();
+  };
+
+  const bajaLabel = (id: number) => {
+    const u = usage[id];
+    if (!u) return "¿Darlo de baja?";
+    const parts = [];
+    if (u.supplies > 0)
+      parts.push(`${u.supplies} insumo${u.supplies === 1 ? "" : "s"}`);
+    if (u.resources > 0)
+      parts.push(`${u.resources} recurso${u.resources === 1 ? "" : "s"}`);
+    return `${parts.join(" y ")} seguirán a su nombre · ¿darlo de baja?`;
   };
 
   const q = search.trim().toLowerCase();
@@ -200,6 +214,27 @@ export default function ProveedoresTab({
                       invisibles pero ocupando su espacio): el contenido que
                       dimensiona la tabla nunca cambia → cero movimiento. */}
                   <div className="relative">
+                    {confirmBajaId === s.id && (
+                      <div className="absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                        <span className="text-xs text-gray-600">
+                          {bajaLabel(s.id)}
+                        </span>
+                        <button
+                          onClick={() => doBaja(s)}
+                          className="p-1 text-red-600 hover:text-red-800"
+                          title="Sí, dar de baja"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmBajaId(null)}
+                          className="p-1 text-gray-500 hover:text-gray-700"
+                          title="Cancelar"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    )}
                     {confirmDeleteId === s.id && (
                       <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
                         <span className="text-xs text-gray-600">
@@ -225,7 +260,9 @@ export default function ProveedoresTab({
                     )}
                     <div
                       className={`flex items-center gap-2 h-7 ${
-                        confirmDeleteId === s.id ? "invisible" : ""
+                        confirmDeleteId === s.id || confirmBajaId === s.id
+                          ? "invisible"
+                          : ""
                       }`}
                     >
                       <button
