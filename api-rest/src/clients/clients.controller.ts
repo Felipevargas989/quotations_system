@@ -13,6 +13,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
+import { ReorderClientTypesDto } from './dto/reorder-client-types.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
 @Controller('clients')
@@ -61,6 +62,17 @@ export class ClientsController {
   removeType(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/types/${id}`);
     return this.clientsService.removeType(+id, user.company_id);
+  }
+
+  // Reordenar tipos (flechas ↑↓): recibe los ids en el orden final.
+  // Declarado antes de PATCH :id para que "types" no sea capturado.
+  @Patch('types/reorder')
+  reorderTypes(
+    @Body() reorderDto: ReorderClientTypesDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /clients/types/reorder ${reorderDto.ids}`);
+    return this.clientsService.reorderTypes(user.company_id, reorderDto.ids);
   }
 
   @Post()

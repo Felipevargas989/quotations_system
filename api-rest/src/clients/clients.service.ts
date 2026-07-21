@@ -79,6 +79,10 @@ export class ClientsService {
     return this.clientsRepository.createType(companyId, name);
   }
 
+  reorderTypes(companyId: number, ids: number[]) {
+    return this.clientsRepository.reorderTypes(companyId, ids);
+  }
+
   removeType(id: number, companyId: number) {
     return this.clientsRepository.removeType(id, companyId);
   }

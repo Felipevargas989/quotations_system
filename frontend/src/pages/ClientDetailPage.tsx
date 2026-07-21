@@ -8,8 +8,23 @@ import {
   Star,
   MapPin,
   FileText,
+  Pencil,
+  Plus,
+  Trash2,
+  Copy,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import ConfirmInline from "../components/ConfirmInline";
 import { getClientSummary, updateClient } from "../services/clients.service";
+import {
+  createClientContact,
+  deleteClientContact,
+  setPrimaryContact,
+} from "../services/clientContacts.service";
+import {
+  ClientTypeItem,
+  getClientTypes,
+} from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
 import { ClientFormData } from "../types/clients.types";
 
@@ -108,6 +123,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { company } = useAuth();
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -117,23 +133,128 @@ export default function ClientDetailPage() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
 
+  // Tipo de cliente editable en la ficha
+  const [typeEditing, setTypeEditing] = useState(false);
+  const [typeSaving, setTypeSaving] = useState(false);
+  const [clientTypesList, setClientTypesList] = useState<ClientTypeItem[]>([]);
+
+  // Contactos: agregar / eliminar / marcar principal desde la ficha
+  const [contactDraft, setContactDraft] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+  const [savingContact, setSavingContact] = useState(false);
+  const [confirmContactDelId, setConfirmContactDelId] = useState<number | null>(
+    null,
+  );
+
+  const loadSummary = async (withSpinner: boolean) => {
+    if (!id) return;
+    if (withSpinner) setLoading(true);
+    setLoadError(false);
+    try {
+      const summary = (await getClientSummary(id)) as SummaryData;
+      setData(summary);
+      if (withSpinner) setNotesDraft(summary.client.notes || "");
+    } catch {
+      if (withSpinner) setLoadError(true);
+    } finally {
+      if (withSpinner) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      if (!id) return;
-      setLoading(true);
-      setLoadError(false);
-      try {
-        const summary = (await getClientSummary(id)) as SummaryData;
-        setData(summary);
-        setNotesDraft(summary.client.notes || "");
-      } catch {
-        setLoadError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadSummary(true);
+    getClientTypes()
+      .then(setClientTypesList)
+      .catch(() => setClientTypesList([]));
   }, [id]);
+
+  // Cambiar el tipo de cliente desde la ficha
+  const saveType = async (newType: string) => {
+    if (!data || !newType || newType === data.client.client_type) {
+      setTypeEditing(false);
+      return;
+    }
+    setTypeSaving(true);
+    try {
+      await updateClient(
+        { client_type: newType } as ClientFormData,
+        data.client.id,
+      );
+      setData((prev) =>
+        prev
+          ? { ...prev, client: { ...prev.client, client_type: newType } }
+          : prev,
+      );
+    } catch {
+      /* si falla, la etiqueta conserva el tipo real */
+    } finally {
+      setTypeSaving(false);
+      setTypeEditing(false);
+    }
+  };
+
+  // Espejo: clients.contact_person refleja el nombre del principal
+  const syncPrimaryMirror = async (clientId: string, name: string) => {
+    try {
+      await updateClient({ contact_person: name } as ClientFormData, clientId);
+    } catch {
+      /* espejo best-effort */
+    }
+  };
+
+  const addContact = async () => {
+    if (!data || !contactDraft || !contactDraft.name.trim() || !company?.id)
+      return;
+    setSavingContact(true);
+    try {
+      const isFirst = (data.client.client_contacts || []).length === 0;
+      await createClientContact({
+        company_id: company.id,
+        client_id: data.client.id,
+        name: contactDraft.name.trim(),
+        email: contactDraft.email.trim() || null,
+        phone: contactDraft.phone.trim() || null,
+        is_primary: isFirst,
+      });
+      if (isFirst) {
+        await syncPrimaryMirror(data.client.id, contactDraft.name.trim());
+      }
+      setContactDraft(null);
+      await loadSummary(false);
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const removeContact = async (contactId: number) => {
+    if (!data) return;
+    const contactsNow = data.client.client_contacts || [];
+    const removed = contactsNow.find((c) => c.id === contactId);
+    await deleteClientContact(contactId);
+    // Si se eliminó el principal, se promueve el siguiente (y el espejo
+    // de la ficha se mantiene coherente).
+    if (removed?.is_primary) {
+      const remaining = contactsNow.filter((c) => c.id !== contactId);
+      if (remaining.length > 0) {
+        await setPrimaryContact(data.client.id, remaining[0].id);
+        await syncPrimaryMirror(data.client.id, remaining[0].name);
+      } else {
+        await syncPrimaryMirror(data.client.id, "");
+      }
+    }
+    setConfirmContactDelId(null);
+    await loadSummary(false);
+  };
+
+  const makePrimary = async (contactId: number, name: string) => {
+    if (!data) return;
+    await setPrimaryContact(data.client.id, contactId);
+    await syncPrimaryMirror(data.client.id, name);
+    await loadSummary(false);
+  };
 
   const saveNotes = async () => {
     if (!data) return;
@@ -264,11 +385,43 @@ export default function ClientDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Building className="h-9 w-9 text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
-          <span
-            className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
-          >
-            {client.client_type}
-          </span>
+          {typeEditing ? (
+            <select
+              autoFocus
+              disabled={typeSaving}
+              defaultValue={client.client_type}
+              onChange={(e) => saveType(e.target.value)}
+              onBlur={() => setTypeEditing(false)}
+              className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {clientTypesList.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+              {!clientTypesList.some(
+                (t) => t.name === client.client_type,
+              ) && (
+                <option value={client.client_type}>{client.client_type}</option>
+              )}
+            </select>
+          ) : (
+            <span className="flex items-center gap-1">
+              <span
+                className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+              >
+                {client.client_type}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTypeEditing(true)}
+                className="text-gray-400 hover:text-blue-600"
+                title="Cambiar tipo de cliente"
+              >
+                <Pencil size={13} />
+              </button>
+            </span>
+          )}
           <span
             className={`text-sm ${dormido ? "text-amber-600 font-semibold" : "text-gray-500"}`}
           >
@@ -276,6 +429,17 @@ export default function ClientDetailPage() {
             {lastCreated ? ` (${fmtDate(lastCreated.toISOString())})` : ""}
             {dormido ? " · cliente dormido" : ""}
           </span>
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/quotation-form", {
+                state: { clientId: client.id },
+              })
+            }
+            className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+          >
+            <Plus size={16} /> Nueva cotización
+          </button>
         </div>
       </div>
 
@@ -352,30 +516,121 @@ export default function ClientDetailPage() {
           )}
           {contacts.map((c) => (
             <div key={c.id} className="text-sm">
-              <p className="font-medium text-gray-900 flex items-center gap-1">
-                {c.is_primary && (
-                  <Star size={14} className="text-amber-500 fill-amber-400" />
-                )}
-                {c.name}
-              </p>
-              {c.email && (
-                <a
-                  href={`mailto:${c.email}`}
-                  className="flex items-center gap-1 text-blue-600 hover:underline"
-                >
-                  <Mail size={13} /> {c.email}
-                </a>
-              )}
-              {c.phone && (
-                <a
-                  href={`tel:${c.phone}`}
-                  className="flex items-center gap-1 text-blue-600 hover:underline"
-                >
-                  <Phone size={13} /> {c.phone}
-                </a>
+              {confirmContactDelId === c.id ? (
+                <ConfirmInline
+                  question={`¿Eliminar a ${c.name}?`}
+                  onYes={() => removeContact(c.id)}
+                  onNo={() => setConfirmContactDelId(null)}
+                />
+              ) : (
+                <>
+                  <p className="font-medium text-gray-900 flex items-center gap-1">
+                    {c.is_primary ? (
+                      <Star
+                        size={14}
+                        className="text-amber-500 fill-amber-400"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => makePrimary(c.id, c.name)}
+                        className="text-gray-300 hover:text-amber-500"
+                        title="Marcar como contacto principal"
+                      >
+                        <Star size={14} />
+                      </button>
+                    )}
+                    {c.name}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmContactDelId(c.id)}
+                      className="ml-auto text-gray-300 hover:text-red-600"
+                      title="Eliminar contacto"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </p>
+                  {c.email && (
+                    <a
+                      href={`mailto:${c.email}`}
+                      className="flex items-center gap-1 text-blue-600 hover:underline"
+                    >
+                      <Mail size={13} /> {c.email}
+                    </a>
+                  )}
+                  {c.phone && (
+                    <a
+                      href={`tel:${c.phone}`}
+                      className="flex items-center gap-1 text-blue-600 hover:underline"
+                    >
+                      <Phone size={13} /> {c.phone}
+                    </a>
+                  )}
+                </>
               )}
             </div>
           ))}
+
+          {/* Agregar contacto desde la ficha */}
+          {contactDraft ? (
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                autoFocus
+                value={contactDraft.name}
+                onChange={(e) =>
+                  setContactDraft((p) => p && { ...p, name: e.target.value })
+                }
+                placeholder="Nombre *"
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="email"
+                value={contactDraft.email}
+                onChange={(e) =>
+                  setContactDraft((p) => p && { ...p, email: e.target.value })
+                }
+                placeholder="Correo (opcional)"
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="tel"
+                value={contactDraft.phone}
+                onChange={(e) =>
+                  setContactDraft((p) => p && { ...p, phone: e.target.value })
+                }
+                placeholder="Teléfono (opcional)"
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={savingContact || !contactDraft.name.trim()}
+                  onClick={addContact}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingContact ? "…" : "Guardar contacto"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactDraft(null)}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                setContactDraft({ name: "", email: "", phone: "" })
+              }
+              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+            >
+              <Plus size={13} /> Agregar contacto
+            </button>
+          )}
           {/* Datos de la ficha (particulares suelen tenerlos aquí) */}
           {(client.email || client.phone || client.address) && (
             <div className="pt-3 border-t border-gray-100 text-sm space-y-1">
@@ -466,6 +721,8 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
+                    {/* Columna de duplicar */}
+                    <th className="w-10" aria-label="Duplicar" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -517,6 +774,23 @@ export default function ClientDetailPage() {
                             {STATUS_LABELS[q.quotation_status] ||
                               q.quotation_status}
                           </span>
+                        </td>
+                        <td
+                          className="px-2 py-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate("/quotation-form", {
+                                state: { duplicateFrom: q.id },
+                              })
+                            }
+                            className="text-gray-400 hover:text-blue-600"
+                            title="Duplicar: nueva cotización a partir de esta (sin fecha, número nuevo)"
+                          >
+                            <Copy size={15} />
+                          </button>
                         </td>
                       </tr>
                     );

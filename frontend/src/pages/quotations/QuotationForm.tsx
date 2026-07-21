@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Save,
   ArrowLeft,
@@ -93,6 +93,15 @@ interface SelectedFixedService {
 
 export default function QuotationForm() {
   const { id } = useParams<{ id?: string }>();
+  // Estado de navegación desde la ficha 360° del cliente:
+  // - clientId: "Nueva cotización" con el cliente ya preseleccionado.
+  // - duplicateFrom: "Duplicar" una cotización existente (se copia todo
+  //   menos la fecha del evento; se crea con número y estado nuevos).
+  const location = useLocation();
+  const navClientId = (location.state as any)?.clientId as string | undefined;
+  const duplicateFrom = (location.state as any)?.duplicateFrom as
+    | string
+    | undefined;
   const navigate = useNavigate();
   const { user, userRole, company } = useAuth();
   const {
@@ -355,11 +364,48 @@ export default function QuotationForm() {
           alert("Error al cargar la cotización");
           navigate("/quotations");
         }
+      } else if (duplicateFrom) {
+        // DUPLICAR: se hidrata el formulario con una copia SINTÉTICA de
+        // la cotización origen — solo los campos del formulario, sin id
+        // ni número (así el guardado CREA una nueva) y sin fecha (hay
+        // que elegirla). El backend valida con whitelist estricta, por
+        // eso no se copia el objeto completo.
+        try {
+          const { data } = await getQuotationById(duplicateFrom);
+          if (!data) return;
+          setQuotation({
+            client_id: data.client_id,
+            event_type: data.event_type,
+            event_date: "", // la fecha del nuevo evento se elige
+            event_end_date: null,
+            people_count: data.people_count,
+            children_count: data.children_count,
+            subtotal_amount: data.subtotal_amount,
+            discount_percentage: data.discount_percentage,
+            discount_amount: data.discount_amount,
+            total_amount: data.total_amount,
+            quotation_status: QuotationStatus.SOLICITADA,
+            request_type: QuotationRequestType.COTIZACION,
+            observations: data.observations || "",
+            value_per_person: data.value_per_person,
+            fixed_value: data.fixed_value,
+            items: data.items,
+            tip_percentage: data.tip_percentage,
+            contact_name: data.contact_name,
+            has_contract: data.has_contract,
+            requires_invoice: data.requires_invoice,
+            payment_plan_type: data.payment_plan_type,
+            // Los service boxes se cargan desde la cotización origen:
+            __items_source_id: duplicateFrom,
+          });
+        } catch (error) {
+          console.error("Error duplicando cotización:", error);
+        }
       }
     };
 
     fetchQuotationData();
-  }, [id, navigate]);
+  }, [id, duplicateFrom, navigate]);
 
   useEffect(() => {
     loadClients();
@@ -384,9 +430,12 @@ export default function QuotationForm() {
 
   useEffect(() => {
     if (quotation) {
+      // __items_source_id es solo una instrucción interna del modo
+      // "duplicar": NO debe viajar en el payload (whitelist estricta).
+      const { __items_source_id, ...quotationFields } = quotation;
       setFormData({
-        ...quotation,
-        event_date: quotation.event_date.split("T")[0],
+        ...quotationFields,
+        event_date: String(quotation.event_date || "").split("T")[0],
         event_end_date: quotation.event_end_date
           ? String(quotation.event_end_date).split("T")[0]
           : undefined,
@@ -397,9 +446,11 @@ export default function QuotationForm() {
       setTipPct(quotation.tip_percentage ?? 10);
       setIsEditingExisting(!!quotation.id);
 
-      // SIEMPRE cargar items desde la base de datos si tiene ID
-      if (quotation.id) {
-        loadItemsFromDatabase(quotation.id);
+      // SIEMPRE cargar items desde la base de datos si tiene ID (o desde
+      // la cotización origen cuando se está duplicando)
+      const itemsSourceId = quotation.id || __items_source_id;
+      if (itemsSourceId) {
+        loadItemsFromDatabase(itemsSourceId);
       }
 
       // Fetch user information if quotation has user_id
@@ -430,6 +481,13 @@ export default function QuotationForm() {
       }));
     }
   }, [quotation, clients]);
+
+  // "Nueva cotización" desde la ficha 360°: cliente ya preseleccionado.
+  useEffect(() => {
+    if (!id && !duplicateFrom && navClientId && clients.length > 0) {
+      setFormData((prev) => ({ ...prev, client_id: navClientId }));
+    }
+  }, [navClientId, clients, id, duplicateFrom]);
 
   useEffect(() => {
     // Obtener categorías únicas de productos

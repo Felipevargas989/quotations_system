@@ -98,13 +98,16 @@ export class ClientsRepository {
 
   async findTypes(companyId: number) {
     this.logger.info(`findTypes with companyId ${companyId}`);
+    // Orden manual de la empresa (flechas ↑↓ en "Gestionar tipos");
+    // los sin orden asignado van al final, alfabéticamente.
     const { data, error } = await this.supabase.client
       .from('client_types')
-      .select('id, name')
+      .select('id, name, sort_order')
       .eq('company_id', companyId)
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('name');
     if (error) throw error;
-    return data as { id: number; name: string }[];
+    return data as { id: number; name: string; sort_order: number | null }[];
   }
 
   async createType(companyId: number, name: string) {
@@ -117,20 +120,44 @@ export class ClientsRepository {
     // existente en vez de crear un duplicado.
     const { data: existing, error: exError } = await this.supabase.client
       .from('client_types')
-      .select('id, name')
+      .select('id, name, sort_order')
       .eq('company_id', companyId);
     if (exError) throw exError;
     const match = (existing ?? []).find(
       (t) => t.name.trim().toLowerCase() === clean.toLowerCase(),
     );
     if (match) return match;
+    // El tipo nuevo entra al final del orden manual.
+    const nextOrder =
+      Math.max(0, ...(existing ?? []).map((t) => t.sort_order ?? 0)) + 1;
     const { data, error } = await this.supabase.client
       .from('client_types')
-      .insert([{ company_id: companyId, name: clean }])
-      .select('id, name')
+      .insert([{ company_id: companyId, name: clean, sort_order: nextOrder }])
+      .select('id, name, sort_order')
       .single();
     if (error) throw error;
-    return data as { id: number; name: string };
+    return data as { id: number; name: string; sort_order: number };
+  }
+
+  // Reordenar tipos: recibe los ids en el orden final y persiste 1..N.
+  async reorderTypes(companyId: number, ids: number[]) {
+    this.logger.info(`reorderTypes companyId ${companyId} ids ${ids}`);
+    const { data: own, error: ownError } = await this.supabase.client
+      .from('client_types')
+      .select('id')
+      .eq('company_id', companyId);
+    if (ownError) throw ownError;
+    const ownIds = new Set((own ?? []).map((t) => t.id));
+    const valid = ids.filter((i) => ownIds.has(i));
+    for (let i = 0; i < valid.length; i++) {
+      const { error } = await this.supabase.client
+        .from('client_types')
+        .update({ sort_order: i + 1 })
+        .eq('id', valid[i])
+        .eq('company_id', companyId);
+      if (error) throw error;
+    }
+    return this.findTypes(companyId);
   }
 
   async removeType(id: number, companyId: number) {

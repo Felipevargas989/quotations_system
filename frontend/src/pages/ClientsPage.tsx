@@ -12,6 +12,7 @@ import {
   Pencil,
   Check,
   X,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
@@ -34,6 +35,7 @@ import {
   createClientType,
   deleteClientType,
   getClientTypes,
+  reorderClientTypes,
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
 import {
@@ -82,13 +84,16 @@ export default function ClientsPage() {
   const [typeFilterRestored, setTypeFilterRestored] = useState(false);
 
   // ---- Tipos de cliente dinámicos (tabla client_types) ----
+  // TODA la gestión (crear, ordenar con flechas, eliminar) vive en el
+  // panel "Gestionar tipos" (decisión Felipe 21-07-2026); el desplegable
+  // solo selecciona.
   const [clientTypes, setClientTypes] = useState<ClientTypeItem[]>([]);
-  const [creatingType, setCreatingType] = useState(false); // campo "nuevo tipo" visible
   const [newTypeName, setNewTypeName] = useState("");
   const [savingType, setSavingType] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [managingTypes, setManagingTypes] = useState(false); // panel de gestión
   const [confirmTypeDelId, setConfirmTypeDelId] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const loadClientTypes = async () => {
     try {
@@ -105,11 +110,8 @@ export default function ClientsPage() {
     setSavingType(true);
     setTypeError(null);
     try {
-      const created = await createClientType(name);
+      await createClientType(name);
       await loadClientTypes();
-      // El tipo recién creado queda seleccionado en el formulario.
-      setFormData((prev) => ({ ...prev, client_type: created.name }));
-      setCreatingType(false);
       setNewTypeName("");
     } catch (error: any) {
       setTypeError(
@@ -117,6 +119,24 @@ export default function ClientsPage() {
       );
     } finally {
       setSavingType(false);
+    }
+  };
+
+  // Subir/bajar un tipo: reordena en pantalla al instante y persiste.
+  const moveType = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= clientTypes.length || reordering) return;
+    const next = [...clientTypes];
+    [next[index], next[target]] = [next[target], next[index]];
+    setClientTypes(next);
+    setReordering(true);
+    try {
+      await reorderClientTypes(next.map((t) => t.id));
+    } catch {
+      // Si falla la persistencia, se recarga el orden real.
+      await loadClientTypes();
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -395,16 +415,21 @@ export default function ClientsPage() {
     }
   };
 
-  // Opciones del filtro: unión del catálogo y los tipos presentes en la
-  // base (por si un cliente conserva un tipo antiguo fuera del catálogo).
+  // Opciones del filtro: el catálogo en SU orden manual primero, y al
+  // final (alfabéticos) los tipos antiguos que aún viven en clientes
+  // pero ya no están en el catálogo.
+  const catalogNames = clientTypes.map((t) => t.name);
+  const extraNames = [
+    ...new Set(
+      clients
+        .map((c) => (c.client_type || "").trim())
+        .filter((n) => n && !catalogNames.includes(n)),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "es"));
   const typeFilterOptions: MultiSelectOption[] = [
-    ...new Set([
-      ...clientTypes.map((t) => t.name),
-      ...clients.map((c) => (c.client_type || "").trim()).filter(Boolean),
-    ]),
-  ]
-    .sort((a, b) => a.localeCompare(b, "es"))
-    .map((name) => ({ value: name, label: name }));
+    ...catalogNames,
+    ...extraNames,
+  ].map((name) => ({ value: name, label: name }));
 
   // Buscador y filtro de tipos se aplican JUNTOS (vacío = todos).
   const filteredClients = clients.filter((client) => {
@@ -479,17 +504,12 @@ export default function ClientsPage() {
                 <select
                   required
                   value={formData.client_type}
-                  onChange={(e) => {
-                    if (e.target.value === "__nuevo__") {
-                      setCreatingType(true);
-                      setTypeError(null);
-                      return; // el valor seleccionado no cambia
-                    }
+                  onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
                       client_type: e.target.value,
-                    }));
-                  }}
+                    }))
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {clientTypes.map((type) => (
@@ -507,51 +527,7 @@ export default function ClientsPage() {
                         {formData.client_type}
                       </option>
                     )}
-                  <option value="__nuevo__">+ Crear nuevo tipo…</option>
                 </select>
-
-                {creatingType && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={newTypeName}
-                      onChange={(e) => setNewTypeName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleCreateType();
-                        }
-                        if (e.key === "Escape") {
-                          setCreatingType(false);
-                          setNewTypeName("");
-                        }
-                      }}
-                      placeholder="Ej: Club Adulto Mayor"
-                      maxLength={60}
-                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <button
-                      type="button"
-                      disabled={savingType || !newTypeName.trim()}
-                      onClick={handleCreateType}
-                      className="shrink-0 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingType ? "…" : "Crear"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreatingType(false);
-                        setNewTypeName("");
-                        setTypeError(null);
-                      }}
-                      className="shrink-0 px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg font-semibold hover:bg-gray-200"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
 
                 <button
                   type="button"
@@ -567,7 +543,7 @@ export default function ClientsPage() {
 
                 {managingTypes && (
                   <div className="mt-1 border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {clientTypes.map((type) => {
+                    {clientTypes.map((type, index) => {
                       const inUse = typeUsage(type.name);
                       return (
                         <div
@@ -588,28 +564,77 @@ export default function ClientsPage() {
                                   {inUse} cliente{inUse === 1 ? "" : "s"}
                                 </span>
                               </span>
-                              {inUse > 0 ? (
-                                <span
-                                  title={`No se puede eliminar: ${inUse} cliente${inUse === 1 ? "" : "s"} usa${inUse === 1 ? "" : "n"} este tipo`}
-                                  className="text-gray-300 cursor-not-allowed"
-                                >
-                                  <Trash2 size={14} />
-                                </span>
-                              ) : (
+                              <span className="flex items-center gap-1.5 shrink-0">
                                 <button
                                   type="button"
-                                  onClick={() => setConfirmTypeDelId(type.id)}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Eliminar tipo (sin clientes)"
+                                  disabled={index === 0 || reordering}
+                                  onClick={() => moveType(index, -1)}
+                                  className="text-gray-500 hover:text-blue-600 disabled:text-gray-200 disabled:cursor-not-allowed font-bold"
+                                  title="Subir"
                                 >
-                                  <Trash2 size={14} />
+                                  ↑
                                 </button>
-                              )}
+                                <button
+                                  type="button"
+                                  disabled={
+                                    index === clientTypes.length - 1 ||
+                                    reordering
+                                  }
+                                  onClick={() => moveType(index, 1)}
+                                  className="text-gray-500 hover:text-blue-600 disabled:text-gray-200 disabled:cursor-not-allowed font-bold"
+                                  title="Bajar"
+                                >
+                                  ↓
+                                </button>
+                                {inUse > 0 ? (
+                                  <span
+                                    title={`No se puede eliminar: ${inUse} cliente${inUse === 1 ? "" : "s"} usa${inUse === 1 ? "" : "n"} este tipo`}
+                                    className="text-gray-300 cursor-not-allowed ml-1"
+                                  >
+                                    <Trash2 size={14} />
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmTypeDelId(type.id)}
+                                    className="text-red-600 hover:text-red-800 ml-1"
+                                    title="Eliminar tipo (sin clientes)"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </span>
                             </>
                           )}
                         </div>
                       );
                     })}
+                    {/* Crear un tipo nuevo: vive AQUÍ, junto al resto de
+                        la gestión (no en el desplegable). */}
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <input
+                        type="text"
+                        value={newTypeName}
+                        onChange={(e) => setNewTypeName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCreateType();
+                          }
+                        }}
+                        placeholder="Nuevo tipo (Ej: Club Adulto Mayor)"
+                        maxLength={60}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingType || !newTypeName.trim()}
+                        onClick={handleCreateType}
+                        className="shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingType ? "…" : "+ Agregar"}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1069,13 +1094,15 @@ export default function ClientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
+                {/* Columna del chevron › (la fila se abre al pinchar) */}
+                <th className="w-8" aria-label="Abrir ficha" />
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     Cargando...
@@ -1084,7 +1111,7 @@ export default function ClientsPage() {
               ) : filteredClients.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     No se encontraron clientes
@@ -1203,6 +1230,14 @@ export default function ClientsPage() {
                           </div>
                         )}
                       </div>
+                    </td>
+                    {/* Chevron › : señal visual de que la fila se abre
+                        (mismo lenguaje que Post-Venta) */}
+                    <td className="pr-4 text-right">
+                      <ChevronRight
+                        size={18}
+                        className="inline text-gray-300"
+                      />
                     </td>
                   </tr>
                 ))

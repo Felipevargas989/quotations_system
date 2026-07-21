@@ -8,6 +8,7 @@ import { apiRequest } from "./api";
 export interface ClientTypeItem {
   id: number;
   name: string;
+  sort_order?: number | null;
 }
 
 export const getClientTypes = async (): Promise<ClientTypeItem[]> => {
@@ -36,4 +37,16 @@ export const createClientType = async (
 export const deleteClientType = async (id: number) => {
   const response = await apiRequest(`${API_ROUTES.CLIENT_TYPES}/${id}`, "DELETE");
   return { data: response };
+};
+
+// Reordenar (flechas ↑↓ del panel Gestionar tipos): ids en el orden final.
+export const reorderClientTypes = async (
+  ids: number[],
+): Promise<ClientTypeItem[]> => {
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENT_TYPES}/reorder`,
+    "PATCH",
+    { ids },
+  );
+  return response as ClientTypeItem[];
 };
