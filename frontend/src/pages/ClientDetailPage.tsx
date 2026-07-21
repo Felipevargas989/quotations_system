@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Building,
@@ -128,19 +129,44 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { company } = useAuth();
-  const [data, setData] = useState<SummaryData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Ficha 360° vía React Query (Etapa 1, 21-07-2026): la primera visita
+  // carga del servidor; volver a una ficha ya vista abre AL INSTANTE y
+  // se revalida en segundo plano. Tras cada guardado se invalida.
+  const summaryQuery = useQuery({
+    queryKey: ["clientSummary", id],
+    enabled: !!id,
+    queryFn: async () => (await getClientSummary(id!)) as SummaryData,
+  });
+  const data = summaryQuery.data ?? null;
+  const loading = summaryQuery.isPending;
+  const loadError = summaryQuery.isError;
+
+  const invalidateSummary = () =>
+    queryClient.invalidateQueries({ queryKey: ["clientSummary", id] });
+  const invalidateClients = () =>
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
 
   // Notas editables directamente en la ficha
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
 
-  // Tipo de cliente editable en la ficha
+  // El borrador de notas se sincroniza una vez por cliente cargado (los
+  // refrescos en segundo plano NO pisan lo que se esté escribiendo).
+  useEffect(() => {
+    setNotesDraft(data?.client.notes || "");
+  }, [data?.client.id]);
+
+  // Tipo de cliente editable en la ficha (caché de tipos compartido con
+  // Gestión de Clientes — misma queryKey)
   const [typeEditing, setTypeEditing] = useState(false);
   const [typeSaving, setTypeSaving] = useState(false);
-  const [clientTypesList, setClientTypesList] = useState<ClientTypeItem[]>([]);
+  const { data: clientTypesList = [] } = useQuery({
+    queryKey: ["clientTypes"],
+    queryFn: (): Promise<ClientTypeItem[]> => getClientTypes(),
+  });
 
   // Contactos: agregar / eliminar / marcar principal desde la ficha
   const [contactDraft, setContactDraft] = useState<{
@@ -154,13 +180,19 @@ export default function ClientDetailPage() {
   );
 
   // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
-  // El resumen de la ficha viaja liviano; al abrir se busca la
-  // cotización completa (items incluidos).
+  // fetchQuery cachea la cotización completa: reabrir el mismo visor
+  // dentro de la ventana de frescura es instantáneo.
   const [viewingQuotation, setViewingQuotation] = useState<any>(null);
 
   const openViewer = async (quotationId: string) => {
     try {
-      const { data: full } = await getQuotationById(quotationId);
+      const full = await queryClient.fetchQuery({
+        queryKey: ["quotation", quotationId],
+        queryFn: async () => {
+          const { data: q } = await getQuotationById(quotationId);
+          return q;
+        },
+      });
       if (full) {
         setViewingQuotation({
           ...full,
@@ -171,28 +203,6 @@ export default function ClientDetailPage() {
       console.error("Error abriendo el visor de cotización:", error);
     }
   };
-
-  const loadSummary = async (withSpinner: boolean) => {
-    if (!id) return;
-    if (withSpinner) setLoading(true);
-    setLoadError(false);
-    try {
-      const summary = (await getClientSummary(id)) as SummaryData;
-      setData(summary);
-      if (withSpinner) setNotesDraft(summary.client.notes || "");
-    } catch {
-      if (withSpinner) setLoadError(true);
-    } finally {
-      if (withSpinner) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSummary(true);
-    getClientTypes()
-      .then(setClientTypesList)
-      .catch(() => setClientTypesList([]));
-  }, [id]);
 
   // Cambiar el tipo de cliente desde la ficha
   const saveType = async (newType: string) => {
@@ -206,11 +216,15 @@ export default function ClientDetailPage() {
         { client_type: newType } as ClientFormData,
         data.client.id,
       );
-      setData((prev) =>
-        prev
-          ? { ...prev, client: { ...prev.client, client_type: newType } }
-          : prev,
+      queryClient.setQueryData<SummaryData>(
+        ["clientSummary", id],
+        (prev) =>
+          prev && {
+            ...prev,
+            client: { ...prev.client, client_type: newType },
+          },
       );
+      invalidateClients();
     } catch {
       /* si falla, la etiqueta conserva el tipo real */
     } finally {
@@ -246,7 +260,8 @@ export default function ClientDetailPage() {
         await syncPrimaryMirror(data.client.id, contactDraft.name.trim());
       }
       setContactDraft(null);
-      await loadSummary(false);
+      await invalidateSummary();
+      invalidateClients();
     } finally {
       setSavingContact(false);
     }
@@ -269,14 +284,16 @@ export default function ClientDetailPage() {
       }
     }
     setConfirmContactDelId(null);
-    await loadSummary(false);
+    await invalidateSummary();
+    invalidateClients();
   };
 
   const makePrimary = async (contactId: number, name: string) => {
     if (!data) return;
     await setPrimaryContact(data.client.id, contactId);
     await syncPrimaryMirror(data.client.id, name);
-    await loadSummary(false);
+    await invalidateSummary();
+    invalidateClients();
   };
 
   const saveNotes = async () => {
@@ -285,10 +302,10 @@ export default function ClientDetailPage() {
     setNotesSaved(false);
     try {
       await updateClient({ notes: notesDraft } as ClientFormData, data.client.id);
-      setData((prev) =>
-        prev
-          ? { ...prev, client: { ...prev.client, notes: notesDraft } }
-          : prev,
+      queryClient.setQueryData<SummaryData>(
+        ["clientSummary", id],
+        (prev) =>
+          prev && { ...prev, client: { ...prev.client, notes: notesDraft } },
       );
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2500);

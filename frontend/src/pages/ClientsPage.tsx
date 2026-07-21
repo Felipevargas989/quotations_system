@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
@@ -55,8 +56,20 @@ const TYPE_FILTER_KEY = (userId: string | number) =>
 export default function ClientsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Lista de clientes vía React Query (Etapa 1, 21-07-2026): al volver
+  // a esta pantalla se pinta AL INSTANTE con lo último conocido y se
+  // revalida en segundo plano. Tras cada guardado se invalida.
+  const { data: clients = [], isPending: loading } = useQuery({
+    queryKey: ["clients"],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await getClients();
+      return data as Client[];
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -86,23 +99,28 @@ export default function ClientsPage() {
   // ---- Tipos de cliente dinámicos (tabla client_types) ----
   // TODA la gestión (crear, ordenar con flechas, eliminar) vive en el
   // panel "Gestionar tipos" (decisión Felipe 21-07-2026); el desplegable
-  // solo selecciona.
-  const [clientTypes, setClientTypes] = useState<ClientTypeItem[]>([]);
+  // solo selecciona. Caché compartido con la ficha 360° (misma
+  // queryKey); respaldo con los 6 estándar si el catálogo no responde.
+  const { data: clientTypes = [] } = useQuery({
+    queryKey: ["clientTypes"],
+    enabled: !!user,
+    queryFn: async (): Promise<ClientTypeItem[]> => {
+      try {
+        return await getClientTypes();
+      } catch {
+        return CLIENT_TYPES.map((name, i) => ({ id: -(i + 1), name }));
+      }
+    },
+  });
+  const invalidateTypes = () =>
+    queryClient.invalidateQueries({ queryKey: ["clientTypes"] });
+
   const [newTypeName, setNewTypeName] = useState("");
   const [savingType, setSavingType] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [managingTypes, setManagingTypes] = useState(false); // panel de gestión
   const [confirmTypeDelId, setConfirmTypeDelId] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
-
-  const loadClientTypes = async () => {
-    try {
-      setClientTypes(await getClientTypes());
-    } catch {
-      // Respaldo: si el catálogo no responde, se usan los 6 estándar.
-      setClientTypes(CLIENT_TYPES.map((name, i) => ({ id: -(i + 1), name })));
-    }
-  };
 
   const handleCreateType = async () => {
     const name = newTypeName.trim();
@@ -111,7 +129,7 @@ export default function ClientsPage() {
     setTypeError(null);
     try {
       await createClientType(name);
-      await loadClientTypes();
+      await invalidateTypes();
       setNewTypeName("");
     } catch (error: any) {
       setTypeError(
@@ -122,19 +140,19 @@ export default function ClientsPage() {
     }
   };
 
-  // Subir/bajar un tipo: reordena en pantalla al instante y persiste.
+  // Subir/bajar un tipo: reordena en pantalla al instante (caché) y
+  // persiste; si el servidor rechaza, se recarga el orden real.
   const moveType = async (index: number, dir: -1 | 1) => {
     const target = index + dir;
     if (target < 0 || target >= clientTypes.length || reordering) return;
     const next = [...clientTypes];
     [next[index], next[target]] = [next[target], next[index]];
-    setClientTypes(next);
+    queryClient.setQueryData(["clientTypes"], next);
     setReordering(true);
     try {
       await reorderClientTypes(next.map((t) => t.id));
     } catch {
-      // Si falla la persistencia, se recarga el orden real.
-      await loadClientTypes();
+      await invalidateTypes();
     } finally {
       setReordering(false);
     }
@@ -145,7 +163,7 @@ export default function ClientsPage() {
     try {
       await deleteClientType(id);
       setConfirmTypeDelId(null);
-      await loadClientTypes();
+      await invalidateTypes();
     } catch (error: any) {
       setTypeError(
         error?.response?.data?.message || "No se pudo eliminar el tipo",
@@ -179,11 +197,8 @@ export default function ClientsPage() {
   const syncPrimaryName = async (clientId: string, name: string) => {
     try {
       await updateClient({ contact_person: name } as ClientFormData, clientId);
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === clientId ? { ...c, contact_person: name } : c,
-        ),
-      );
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clientSummary", clientId] });
     } catch {
       /* el espejo es best-effort */
     }
@@ -270,10 +285,7 @@ export default function ClientsPage() {
     return validation.isValid;
   };
 
-  useEffect(() => {
-    loadClients();
-    loadClientTypes();
-  }, [user]);
+  // (Clientes y tipos los carga React Query automáticamente.)
 
   // Restaurar el filtro de tipos guardado (por usuario).
   useEffect(() => {
@@ -300,18 +312,10 @@ export default function ClientsPage() {
     }
   }, [typeFilter, user, typeFilterRestored]);
 
-  const loadClients = async () => {
-    if (!user) return;
-
-    try {
-      const { data } = await getClients();
-      setClients(data);
-    } catch (error) {
-      // TODO: handle error
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Tras cualquier guardado que afecte la lista, se invalida el caché y
+  // React Query trae la versión fresca.
+  const loadClients = () =>
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
