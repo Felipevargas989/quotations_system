@@ -9,6 +9,8 @@ export interface NumberInputProps {
   max?: number;
   /** Whether to format the number with thousand separators for display */
   formatThousands?: boolean;
+  /** Money field: range messages show the $ sign (es-CL) */
+  currency?: boolean;
   /** Placeholder text */
   placeholder?: string;
   /** The name attribute for the input */

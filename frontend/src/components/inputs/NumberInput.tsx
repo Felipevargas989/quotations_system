@@ -30,6 +30,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       min,
       max,
       formatThousands = false,
+      currency = false,
       placeholder,
       name,
       id,
@@ -146,13 +147,14 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         setError(null);
         return;
       }
+      const pref = currency ? "$" : "";
       if (max !== undefined && num > max) {
-        setError(`El máximo es ${fmtCL(max)}`);
+        setError(`El máximo es ${pref}${fmtCL(max)}`);
         triggerShake();
         return;
       }
       if (min !== undefined && num < min) {
-        setError(`El mínimo es ${fmtCL(min)}`);
+        setError(`El mínimo es ${pref}${fmtCL(min)}`);
         triggerShake();
         return;
       }

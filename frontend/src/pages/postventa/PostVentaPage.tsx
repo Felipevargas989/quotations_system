@@ -964,8 +964,11 @@ function EventModal({
                             {pay.payment_number}
                           </div>
                           <div>
-                            <div className="font-semibold text-gray-900">
-                              {clp(pay.amount)}
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-gray-900">
+                                {clp(pay.amount)}
+                              </div>
+                              {statusBadge(cuotaStatus(pay))}
                             </div>
                             <div
                               className="text-xs text-gray-500 truncate max-w-md"
@@ -976,20 +979,16 @@ function EventModal({
                               }
                             >
                               {pay.status === "pagado"
-                                ? `Pagado · ${fmtDate(pay.last_payment_date)}`
+                                ? fmtDate(pay.last_payment_date)
                                 : `Vence ${fmtDate(pay.due_date)}`}
                               {cp > 0 && cp < 100
                                 ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
                                 : ""}
-                              {txs.length === 1 && txs[0].notes ? (
-                                <span className="text-gray-400">
-                                  {" "}
-                                  · {txs[0].notes}
-                                </span>
-                              ) : null}
+                              {txs.length === 1 && txs[0].notes
+                                ? ` · ${txs[0].notes}`
+                                : ""}
                             </div>
                           </div>
-                          {statusBadge(cuotaStatus(pay))}
                         </div>
                         {txs.length === 1 && (
                           <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -1014,12 +1013,7 @@ function EventModal({
                                 <span className="font-semibold text-gray-800">
                                   {clp(t.amount)}
                                 </span>
-                                {t.notes ? (
-                                  <span className="text-gray-400">
-                                    {" "}
-                                    · {t.notes}
-                                  </span>
-                                ) : null}
+                                {t.notes ? ` · ${t.notes}` : ""}
                               </span>
                               {txActions(t)}
                             </div>
@@ -1690,6 +1684,7 @@ function ServiciosTab({
                 min={0}
                 max={discType === "%" ? 100 : undefined}
                 formatThousands
+                currency={discType === "$"}
                 placeholder="0"
                 className="text-right"
               />
@@ -1891,6 +1886,7 @@ function RegistrarPagoPanel({
                 min={0}
                 max={maxAmount}
                 formatThousands
+                currency
                 placeholder="0"
                 className="text-right"
               />
@@ -2110,6 +2106,7 @@ function EditRegistroModal({
               onChange={(v) => setAmount(v || 0)}
               min={0}
               formatThousands
+              currency
               placeholder="0"
               className="text-right"
             />
