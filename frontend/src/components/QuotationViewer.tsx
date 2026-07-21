@@ -236,7 +236,6 @@ export default function QuotationViewer({
     .qv-val .der { text-align:right; white-space:nowrap; font-weight:600; color:#111827; }
     .qv-val .calc { color:#6b7280; font-weight:400; }
     .qv-val td:first-child { width:100%; }
-    .qv-val .dia { color:#6b7280; white-space:nowrap; }
     .qv-val .per { text-align:right; white-space:nowrap; }
     .qv-val .unit { text-align:right; white-space:nowrap; color:#6b7280; font-weight:400; }
     .qv-val tr.sub td { font-weight:800; color:#111827; background:${brandS || "#f9fafb"}; }
@@ -310,25 +309,21 @@ export default function QuotationViewer({
         .join("")
     : `<table class="qv-prog">${sortedGroups.map(progRow).join("")}</table>`;
 
-  // Tabla de valores en columnas alineadas: Concepto | Día | Personas |
-  // Valor | Monto. En eventos de un día la columna Día no existe. Las
-  // filas de valor por persona cubren todo el evento: su celda Día va
-  // con "—".
-  const valCols = multiDay ? 5 : 4;
-  const diaCell = (txt: string) =>
-    multiDay ? `<td class="dia">${txt}</td>` : "";
+  // Tabla de valores en columnas alineadas: Concepto | Personas | Valor |
+  // Monto. El "cuándo" (día de cada servicio) vive en el programa del
+  // evento, no aquí (decisión de Felipe, 20-07-2026).
   const valoresRows = [
     adults > 0 && perAdulto > 0
-      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td>${diaCell("—")}<td class="per">${adults.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perAdulto)}</td><td class="der">${clp(perAdulto * adults)}</td></tr>`
+      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td><td class="per">${adults.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perAdulto)}</td><td class="der">${clp(perAdulto * adults)}</td></tr>`
       : "",
     kids > 0 && perNino > 0
-      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td>${diaCell("—")}<td class="per">${kids.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perNino)}</td><td class="der">${clp(perNino * kids)}</td></tr>`
+      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td><td class="per">${kids.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perNino)}</td><td class="der">${clp(perNino * kids)}</td></tr>`
       : "",
     ...partials.map(
       (g) =>
-        `<tr><td>${esc(g.category || "Servicio")}</td>${diaCell(`Día ${Math.min(g.day || 1, daysCount)}`)}<td class="per">${groupPeople(g).toLocaleString("es-CL")} personas</td><td class="unit">${clp(groupPerPerson(g))}</td><td class="der">${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
+        `<tr><td>${esc(g.category || "Servicio")}</td><td class="per">${groupPeople(g).toLocaleString("es-CL")} personas</td><td class="unit">${clp(groupPerPerson(g))}</td><td class="der">${clp(groupPerPerson(g) * groupPeople(g))}</td></tr>`,
     ),
-    `<tr class="sub"><td colspan="${valCols - 1}">Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
+    `<tr class="sub"><td colspan="3">Subtotal alimentación</td><td class="der">${clp(variableTotal)}</td></tr>`,
   ].join("");
 
   const fijosRows =
