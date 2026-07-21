@@ -373,53 +373,53 @@ export default function ClientsPage() {
               {/* La empresa no tiene correo/teléfono propios: esos datos
                   viven en las personas de contacto. Particulares sí. */}
               {!isEmpresa && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => {
-                    const email = e.target.value;
-                    setFormData((prev) => ({ ...prev, email }));
-                    setErrors((prev) => ({
-                      ...prev,
-                      email: validateEmail(email),
-                    }));
-                  }}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? "border-red-500" : ""}`}
-                  placeholder="correo@ejemplo.com"
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                )}
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      setFormData((prev) => ({ ...prev, email }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        email: validateEmail(email),
+                      }));
+                    }}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? "border-red-500" : ""}`}
+                    placeholder="correo@ejemplo.com"
+                  />
+                  {errors.email && (
+                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                  )}
+                </div>
               )}
 
               {!isEmpresa && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => {
-                    const phone = e.target.value;
-                    setFormData((prev) => ({ ...prev, phone }));
-                    setErrors((prev) => ({
-                      ...prev,
-                      phone: validatePhone(phone),
-                    }));
-                  }}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phone ? "border-red-500" : ""}`}
-                  placeholder="+569XXXXXXXX"
-                />
-                {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                )}
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      const phone = e.target.value;
+                      setFormData((prev) => ({ ...prev, phone }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        phone: validatePhone(phone),
+                      }));
+                    }}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phone ? "border-red-500" : ""}`}
+                    placeholder="+569XXXXXXXX"
+                  />
+                  {errors.phone && (
+                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                  )}
+                </div>
               )}
 
               <div>
@@ -508,7 +508,9 @@ export default function ClientsPage() {
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              disabled={savingContact || !contactDraft.name.trim()}
+                              disabled={
+                                savingContact || !contactDraft.name.trim()
+                              }
                               onClick={() => saveContactDraft(editingClient)}
                               className="p-1.5 text-green-600 hover:text-green-800 disabled:opacity-40"
                               title="Guardar"
@@ -541,17 +543,14 @@ export default function ClientsPage() {
                               {c.name}
                             </span>
                             <span className="ml-2 text-xs text-gray-400">
-                              {[c.email, c.phone]
-                                .filter(Boolean)
-                                .join(" · ")}
+                              {[c.email, c.phone].filter(Boolean).join(" · ")}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={() =>
-                                !c.is_primary &&
-                                makePrimary(editingClient, c)
+                                !c.is_primary && makePrimary(editingClient, c)
                               }
                               className={
                                 c.is_primary
@@ -632,7 +631,9 @@ export default function ClientsPage() {
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            disabled={savingContact || !contactDraft.name.trim()}
+                            disabled={
+                              savingContact || !contactDraft.name.trim()
+                            }
                             onClick={() => saveContactDraft(editingClient)}
                             className="p-1.5 text-green-600 hover:text-green-800 disabled:opacity-40"
                             title="Guardar"
@@ -740,7 +741,10 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
-          Gestión de Clientes
+          Gestión de Clientes{" "}
+          <span className="text-base font-medium text-gray-400">
+            · {clients.length.toLocaleString("es-CL")} en total
+          </span>
         </h1>
         <button
           onClick={() => {
@@ -887,45 +891,51 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Total Clientes
+      {/* Estadísticas: una tarjeta por tipo de cliente, ordenadas por
+          cantidad. Máximo 6: si existieran más tipos, el excedente se
+          agrupa en "Otros" para que ningún cliente quede fuera del
+          resumen. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {(() => {
+          const counts = new Map<string, number>();
+          clients.forEach((c) => {
+            const t = (c.client_type || "").trim() || "Sin tipo";
+            counts.set(t, (counts.get(t) || 0) + 1);
+          });
+          const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+          const MAX = 6;
+          const cards =
+            sorted.length <= MAX
+              ? sorted
+              : ([
+                  ...sorted.slice(0, MAX - 1),
+                  [
+                    "Otros",
+                    sorted.slice(MAX - 1).reduce((s2, [, n]) => s2 + n, 0),
+                  ],
+                ] as [string, number][]);
+          const colors = [
+            "text-blue-600",
+            "text-green-600",
+            "text-purple-600",
+            "text-amber-600",
+            "text-rose-600",
+            "text-teal-600",
+          ];
+          return cards.map(([label, n], i) => (
+            <div key={label} className="bg-white p-4 rounded-lg shadow">
+              <p
+                className="text-xs font-medium text-gray-600 truncate"
+                title={label}
+              >
+                {label}
               </p>
-              <p className="text-2xl font-bold text-blue-600">
-                {clients.length}
+              <p className={`text-2xl font-bold ${colors[i % colors.length]}`}>
+                {n.toLocaleString("es-CL")}
               </p>
             </div>
-            <Building className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Empresas</p>
-              <p className="text-2xl font-bold text-green-600">
-                {clients.filter((c) => c.client_type === "Empresas").length}
-              </p>
-            </div>
-            <Building className="h-8 w-8 text-green-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Particulares</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {clients.filter((c) => c.client_type === "Particulares").length}
-              </p>
-            </div>
-            <Building className="h-8 w-8 text-purple-600" />
-          </div>
-        </div>
+          ));
+        })()}
       </div>
     </div>
   );
