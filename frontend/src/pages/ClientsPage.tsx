@@ -897,24 +897,11 @@ export default function ClientsPage() {
                       {new Date(client.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {confirmDeleteId === client.id ? (
-                        <div>
-                          <ConfirmInline
-                            question="¿Eliminar cliente?"
-                            busy={deletingClient}
-                            onYes={() => handleDelete(client.id)}
-                            onNo={() => {
-                              setConfirmDeleteId(null);
-                              setDeleteError(null);
-                            }}
-                          />
-                          {deleteError && (
-                            <p className="text-xs text-red-600 mt-1">
-                              {deleteError}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
+                      {/* La celda SIEMPRE mide lo de los dos iconos; la
+                          confirmación flota anclada a la derecha y crece
+                          hacia la izquierda sobre la fila, sin mover la
+                          tabla (principio anti-salto de layout). */}
+                      <div className="relative">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(client)}
@@ -944,7 +931,25 @@ export default function ClientsPage() {
                             </button>
                           )}
                         </div>
-                      )}
+                        {confirmDeleteId === client.id && (
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 whitespace-nowrap">
+                            <ConfirmInline
+                              question="¿Eliminar cliente?"
+                              busy={deletingClient}
+                              onYes={() => handleDelete(client.id)}
+                              onNo={() => {
+                                setConfirmDeleteId(null);
+                                setDeleteError(null);
+                              }}
+                            />
+                            {deleteError && (
+                              <p className="text-xs text-red-600 mt-1">
+                                {deleteError}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
