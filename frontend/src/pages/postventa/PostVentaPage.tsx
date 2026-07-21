@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   DollarSign,
@@ -157,8 +158,7 @@ const statusBadge = (st: string) => {
 
 export default function PostVentaPage() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<EventRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [filterRestored, setFilterRestored] = useState(false);
@@ -166,10 +166,6 @@ export default function PostVentaPage() {
   const [tab, setTab] = useState<
     "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
   >("pagos");
-
-  useEffect(() => {
-    loadEvents();
-  }, []);
 
   // Restaurar el filtro persistido (por usuario) al entrar a la página.
   useEffect(() => {
@@ -274,29 +270,35 @@ export default function PostVentaPage() {
     return events;
   };
 
-  const loadEvents = async () => {
-    setLoading(true);
-    try {
-      setRows(await fetchEvents());
-    } catch (error) {
-      console.error("Error cargando eventos de post-venta", error);
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ---- Post-Venta vía React Query (Etapa 4) — PANTALLA DE PLATA ----
+  // staleTime 0: aquí la frescura manda. Cada vez que entras (o vuelves
+  // a la pestaña) se revalida contra el servidor; el caché solo evita
+  // la pantalla en blanco mientras llega la versión fresca.
+  const eventsQuery = useQuery({
+    queryKey: ["postventa", "events"],
+    staleTime: 0,
+    queryFn: fetchEvents,
+  });
+  const rows = eventsQuery.data ?? [];
+  const loading = eventsQuery.isPending;
 
-  // Refresca tras guardar sin el spinner de pantalla completa, y actualiza el
-  // evento abierto en el modal (saldo, progreso, cuotas).
+  // El evento abierto en el modal se re-sincroniza con CADA versión
+  // fresca de la lista (saldo, progreso, cuotas al día).
+  useEffect(() => {
+    setSelected((cur) =>
+      cur ? rows.find((e) => e.quotationId === cur.quotationId) || cur : cur,
+    );
+  }, [rows]);
+
+  // Refresca tras guardar sin el spinner de pantalla completa. Un pago
+  // cruza módulos: se invalidan también cotizaciones, fichas 360° de
+  // clientes (saldo pendiente) y la cotización individual (Servicios).
   const refreshAfterSave = async () => {
     try {
-      const events = await fetchEvents();
-      setRows(events);
-      setSelected((cur) =>
-        cur
-          ? events.find((e) => e.quotationId === cur.quotationId) || cur
-          : cur,
-      );
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["clientSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["quotation"] });
+      await queryClient.invalidateQueries({ queryKey: ["postventa"] });
     } catch (error) {
       console.error("Error refrescando post-venta", error);
     }
@@ -578,24 +580,19 @@ function EventModal({
   const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
 
   // Load the full quotation (items, personas, discount, comments) for the
-  // Servicios tab.
-  const [quote, setQuote] = useState<Quotation | null>(null);
-  const [qLoading, setQLoading] = useState(true);
-  useEffect(() => {
-    let alive = true;
-    setQLoading(true);
-    getQuotationById(event.quotationId)
-      .then(({ data }) => {
-        if (alive) setQuote(data || null);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (alive) setQLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [event.quotationId]);
+  // Servicios tab. Vía React Query con frescura inmediata (plata): la
+  // misma key ["quotation", id] que usa el visor, invalidada por
+  // refreshAfterSave tras cada guardado.
+  const quoteQuery = useQuery({
+    queryKey: ["quotation", event.quotationId],
+    staleTime: 0,
+    queryFn: async (): Promise<Quotation | null> => {
+      const { data } = await getQuotationById(event.quotationId);
+      return data || null;
+    },
+  });
+  const quote = quoteQuery.data ?? null;
+  const qLoading = quoteQuery.isPending;
 
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     { key: "pagos", label: "Pagos" },
@@ -2196,18 +2193,22 @@ function ReembolsosManager({
   readonly quotationId: string;
   readonly onChanged: () => void;
 }) {
-  const [refunds, setRefunds] = useState<Refund[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Reembolsos (plata): frescura inmediata; el prefijo ["postventa"]
+  // hace que refreshAfterSave también los refresque.
+  const queryClient = useQueryClient();
+  const refundsQuery = useQuery({
+    queryKey: ["postventa", "refunds", quotationId],
+    staleTime: 0,
+    queryFn: () => getRefundsByQuotation(quotationId),
+  });
+  const refunds = refundsQuery.data ?? [];
+  const loading = refundsQuery.isPending;
 
   const load = () => {
-    setLoading(true);
-    getRefundsByQuotation(quotationId)
-      .then(setRefunds)
-      .finally(() => setLoading(false));
+    queryClient.invalidateQueries({
+      queryKey: ["postventa", "refunds", quotationId],
+    });
   };
-  useEffect(() => {
-    load();
-  }, [quotationId]);
 
   // Tras registrar: recarga la lista y refresca el evento (saldo / KPIs).
   const afterRefund = () => {
@@ -2415,20 +2416,24 @@ function RefundRow({
 
 // ---- Documentos del evento por categoría (con Supabase Storage) ----
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
-  const [docs, setDocs] = useState<EventDocument[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Documentos del evento vía React Query (frescura inmediata: son
+  // archivos que sube/borra el equipo).
+  const queryClient = useQueryClient();
+  const docsQuery = useQuery({
+    queryKey: ["postventa", "docs", quotationId],
+    staleTime: 0,
+    queryFn: () => getDocumentsByQuotation(quotationId),
+  });
+  const docs = docsQuery.data ?? [];
+  const loading = docsQuery.isPending;
   const [busyCat, setBusyCat] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
-    setLoading(true);
-    getDocumentsByQuotation(quotationId)
-      .then(setDocs)
-      .finally(() => setLoading(false));
+    queryClient.invalidateQueries({
+      queryKey: ["postventa", "docs", quotationId],
+    });
   };
-  useEffect(() => {
-    load();
-  }, [quotationId]);
 
   const onUpload = async (category: string, file?: File) => {
     if (!file) return;
