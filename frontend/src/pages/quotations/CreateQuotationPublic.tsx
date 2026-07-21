@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Save, CheckCircle } from "lucide-react";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
+import { getClientTypesPublic } from "../../services/clientTypes.service";
 import { getCompany } from "../../services/companies.service";
 import {
   EventType,
@@ -31,6 +32,11 @@ export default function CreateQuotationPublic() {
   const [submitted, setSubmitted] = useState(false);
   const [company, setCompany] = useState<Company | null>(null);
   const [companyLoading, setCompanyLoading] = useState(true);
+  // Tipos de cliente de la empresa (incluye los creados por ella);
+  // respaldo: los 6 estándar si el catálogo no responde.
+  const [clientTypesList, setClientTypesList] = useState<string[]>([
+    ...CLIENT_TYPES,
+  ]);
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -88,6 +94,11 @@ export default function CreateQuotationPublic() {
     };
 
     fetchCompany();
+    if (company_id) {
+      getClientTypesPublic(company_id)
+        .then((types) => setClientTypesList(types.map((t) => t.name)))
+        .catch(() => setClientTypesList([...CLIENT_TYPES]));
+    }
   }, [company_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -378,7 +389,7 @@ export default function CreateQuotationPublic() {
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {CLIENT_TYPES.map((type) => (
+                  {clientTypesList.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>

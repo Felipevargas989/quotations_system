@@ -20,6 +20,7 @@ import { ServiceGroupCollection } from "../../types/serviceGroupCollections.type
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
+import { getClientTypes } from "../../services/clientTypes.service";
 import {
   createQuotation,
   getQuotationById,
@@ -188,6 +189,10 @@ export default function QuotationForm() {
     contact_person: "",
     client_type: DEFAULT_CLIENT_TYPE,
   });
+  // Tipos de cliente por empresa (dinámicos, con los estándar de respaldo)
+  const [clientTypesList, setClientTypesList] = useState<string[]>([
+    ...CLIENT_TYPES,
+  ]);
   const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
@@ -358,6 +363,11 @@ export default function QuotationForm() {
 
   useEffect(() => {
     loadClients();
+    // Tipos de cliente dinámicos (catálogo por empresa); si falla la
+    // carga se usan los 6 estándar como respaldo.
+    getClientTypes()
+      .then((types) => setClientTypesList(types.map((t) => t.name)))
+      .catch(() => setClientTypesList([...CLIENT_TYPES]));
   }, []);
 
   // Update form validity when client form data changes
@@ -1447,12 +1457,12 @@ export default function QuotationForm() {
                   onChange={(e) =>
                     setClientFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value as typeof DEFAULT_CLIENT_TYPE,
+                      client_type: e.target.value,
                     }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {CLIENT_TYPES.map((type) => (
+                  {clientTypesList.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>

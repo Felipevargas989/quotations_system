@@ -26,6 +26,12 @@ import {
   getClients,
   updateClient,
 } from "../services/clients.service";
+import {
+  ClientTypeItem,
+  createClientType,
+  deleteClientType,
+  getClientTypes,
+} from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
 import {
   ClientContact,
@@ -61,6 +67,63 @@ export default function ClientsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingClient, setDeletingClient] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ---- Tipos de cliente dinámicos (tabla client_types) ----
+  const [clientTypes, setClientTypes] = useState<ClientTypeItem[]>([]);
+  const [creatingType, setCreatingType] = useState(false); // campo "nuevo tipo" visible
+  const [newTypeName, setNewTypeName] = useState("");
+  const [savingType, setSavingType] = useState(false);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  const [managingTypes, setManagingTypes] = useState(false); // panel de gestión
+  const [confirmTypeDelId, setConfirmTypeDelId] = useState<number | null>(null);
+
+  const loadClientTypes = async () => {
+    try {
+      setClientTypes(await getClientTypes());
+    } catch {
+      // Respaldo: si el catálogo no responde, se usan los 6 estándar.
+      setClientTypes(CLIENT_TYPES.map((name, i) => ({ id: -(i + 1), name })));
+    }
+  };
+
+  const handleCreateType = async () => {
+    const name = newTypeName.trim();
+    if (!name) return;
+    setSavingType(true);
+    setTypeError(null);
+    try {
+      const created = await createClientType(name);
+      await loadClientTypes();
+      // El tipo recién creado queda seleccionado en el formulario.
+      setFormData((prev) => ({ ...prev, client_type: created.name }));
+      setCreatingType(false);
+      setNewTypeName("");
+    } catch (error: any) {
+      setTypeError(
+        error?.response?.data?.message || "No se pudo crear el tipo",
+      );
+    } finally {
+      setSavingType(false);
+    }
+  };
+
+  const handleDeleteType = async (id: number) => {
+    setTypeError(null);
+    try {
+      await deleteClientType(id);
+      setConfirmTypeDelId(null);
+      await loadClientTypes();
+    } catch (error: any) {
+      setTypeError(
+        error?.response?.data?.message || "No se pudo eliminar el tipo",
+      );
+      setConfirmTypeDelId(null);
+    }
+  };
+
+  // Cuántos clientes usan cada tipo (para bloquear el borrado en uso).
+  const typeUsage = (name: string) =>
+    clients.filter((c) => (c.client_type || "").trim() === name).length;
 
   // ----- Personas de contacto del cliente en edición (multi-contactos) -----
   const [contacts, setContacts] = useState<ClientContact[]>([]);
@@ -176,6 +239,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadClients();
+    loadClientTypes();
   }, [user]);
 
   const loadClients = async () => {
@@ -310,7 +374,21 @@ export default function ClientsPage() {
       Iglesias: "bg-yellow-100 text-yellow-800",
       "Empresas Publicas": "bg-red-100 text-red-800",
     };
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
+    const known = colors[type as keyof typeof colors];
+    if (known) return known;
+    // Tipos creados por la empresa: color automático ESTABLE (el mismo
+    // nombre siempre recibe el mismo color, en cualquier sesión).
+    const palette = [
+      "bg-teal-100 text-teal-800",
+      "bg-rose-100 text-rose-800",
+      "bg-indigo-100 text-indigo-800",
+      "bg-lime-100 text-lime-800",
+      "bg-cyan-100 text-cyan-800",
+      "bg-fuchsia-100 text-fuchsia-800",
+    ];
+    let hash = 0;
+    for (const ch of type) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return palette[hash % palette.length];
   };
 
   if (showForm) {
@@ -370,20 +448,143 @@ export default function ClientsPage() {
                 <select
                   required
                   value={formData.client_type}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    if (e.target.value === "__nuevo__") {
+                      setCreatingType(true);
+                      setTypeError(null);
+                      return; // el valor seleccionado no cambia
+                    }
                     setFormData((prev) => ({
                       ...prev,
                       client_type: e.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {CLIENT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
+                  {clientTypes.map((type) => (
+                    <option key={type.id} value={type.name}>
+                      {type.name}
                     </option>
                   ))}
+                  {/* Si el cliente en edición tiene un tipo que ya no
+                      existe en el catálogo, se muestra igual. */}
+                  {formData.client_type &&
+                    !clientTypes.some(
+                      (t) => t.name === formData.client_type,
+                    ) && (
+                      <option value={formData.client_type}>
+                        {formData.client_type}
+                      </option>
+                    )}
+                  <option value="__nuevo__">+ Crear nuevo tipo…</option>
                 </select>
+
+                {creatingType && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newTypeName}
+                      onChange={(e) => setNewTypeName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCreateType();
+                        }
+                        if (e.key === "Escape") {
+                          setCreatingType(false);
+                          setNewTypeName("");
+                        }
+                      }}
+                      placeholder="Ej: Club Adulto Mayor"
+                      maxLength={60}
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      disabled={savingType || !newTypeName.trim()}
+                      onClick={handleCreateType}
+                      className="shrink-0 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingType ? "…" : "Crear"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingType(false);
+                        setNewTypeName("");
+                        setTypeError(null);
+                      }}
+                      className="shrink-0 px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg font-semibold hover:bg-gray-200"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManagingTypes((v) => !v);
+                    setTypeError(null);
+                    setConfirmTypeDelId(null);
+                  }}
+                  className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  {managingTypes ? "Ocultar tipos" : "Gestionar tipos…"}
+                </button>
+
+                {managingTypes && (
+                  <div className="mt-1 border border-gray-200 rounded-lg divide-y divide-gray-100">
+                    {clientTypes.map((type) => {
+                      const inUse = typeUsage(type.name);
+                      return (
+                        <div
+                          key={type.id}
+                          className="flex items-center justify-between px-3 py-1.5 text-sm"
+                        >
+                          {confirmTypeDelId === type.id ? (
+                            <ConfirmInline
+                              question={`¿Eliminar "${type.name}"?`}
+                              onYes={() => handleDeleteType(type.id)}
+                              onNo={() => setConfirmTypeDelId(null)}
+                            />
+                          ) : (
+                            <>
+                              <span className="text-gray-800">
+                                {type.name}
+                                <span className="text-gray-400 ml-2 text-xs">
+                                  {inUse} cliente{inUse === 1 ? "" : "s"}
+                                </span>
+                              </span>
+                              {inUse > 0 ? (
+                                <span
+                                  title={`No se puede eliminar: ${inUse} cliente${inUse === 1 ? "" : "s"} usa${inUse === 1 ? "" : "n"} este tipo`}
+                                  className="text-gray-300 cursor-not-allowed"
+                                >
+                                  <Trash2 size={14} />
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmTypeDelId(type.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Eliminar tipo (sin clientes)"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {typeError && (
+                  <p className="text-xs text-red-600 mt-1">{typeError}</p>
+                )}
               </div>
 
               {/* La empresa no tiene correo/teléfono propios: esos datos
@@ -959,10 +1160,9 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Estadísticas: una tarjeta por tipo de cliente, ordenadas por
-          cantidad. Máximo 6: si existieran más tipos, el excedente se
-          agrupa en "Otros" para que ningún cliente quede fuera del
-          resumen. */}
+      {/* Estadísticas: una tarjeta por CADA tipo de cliente existente,
+          ordenadas por cantidad (decisión Felipe 21-07-2026: sin tope;
+          con tipos ilimitados el resumen puede ocupar varias filas). */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {(() => {
           const counts = new Map<string, number>();
@@ -970,18 +1170,7 @@ export default function ClientsPage() {
             const t = (c.client_type || "").trim() || "Sin tipo";
             counts.set(t, (counts.get(t) || 0) + 1);
           });
-          const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-          const MAX = 6;
-          const cards =
-            sorted.length <= MAX
-              ? sorted
-              : ([
-                  ...sorted.slice(0, MAX - 1),
-                  [
-                    "Otros",
-                    sorted.slice(MAX - 1).reduce((s2, [, n]) => s2 + n, 0),
-                  ],
-                ] as [string, number][]);
+          const cards = [...counts.entries()].sort((a, b) => b[1] - a[1]);
           const colors = [
             "text-blue-600",
             "text-green-600",

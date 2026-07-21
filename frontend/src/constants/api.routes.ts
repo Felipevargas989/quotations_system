@@ -8,6 +8,8 @@ export const API_ROUTES = {
 
   // clients
   CLIENTS: "/clients",
+  CLIENT_TYPES: "/clients/types",
+  CLIENT_TYPES_PUBLIC: "/clients/types/public",
 
   // payments
   PAYMENTS: "/payments",

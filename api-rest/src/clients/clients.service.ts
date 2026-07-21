@@ -64,4 +64,17 @@ export class ClientsService {
     this.logger.info(`remove client with id ${id}`);
     return this.clientsRepository.remove(id, companyId);
   }
+
+  // ---- Tipos de cliente ----
+  findTypes(companyId: number) {
+    return this.clientsRepository.findTypes(companyId);
+  }
+
+  createType(companyId: number, name: string) {
+    return this.clientsRepository.createType(companyId, name);
+  }
+
+  removeType(id: number, companyId: number) {
+    return this.clientsRepository.removeType(id, companyId);
+  }
 }

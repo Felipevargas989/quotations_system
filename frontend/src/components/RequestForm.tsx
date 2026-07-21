@@ -5,6 +5,7 @@ import { validateCompleteClientForm } from "../utils/validation";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import { getClients } from "../services/clients.service";
 import { createClient } from "../services/clients.service";
+import { getClientTypes } from "../services/clientTypes.service";
 
 import { ClientFormData } from "../types/clients.types";
 import {
@@ -45,8 +46,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     email: "",
     phone: "",
     contact_person: "",
-    client_type: DEFAULT_CLIENT_TYPE,
+    client_type: DEFAULT_CLIENT_TYPE as string,
   });
+  // Tipos de cliente por empresa (dinámicos, con los estándar de respaldo)
+  const [clientTypesList, setClientTypesList] = useState<string[]>([
+    ...CLIENT_TYPES,
+  ]);
   const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
@@ -79,6 +84,11 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   useEffect(() => {
     loadClients();
+    // Tipos de cliente dinámicos (catálogo por empresa); respaldo: los
+    // 6 estándar si el catálogo no responde.
+    getClientTypes()
+      .then((types) => setClientTypesList(types.map((t) => t.name)))
+      .catch(() => setClientTypesList([...CLIENT_TYPES]));
     if (request) {
       const requestData: QuotationFormData = {
         request_type: request.request_type,
@@ -387,12 +397,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                   onChange={(e) =>
                     setClientFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value as typeof DEFAULT_CLIENT_TYPE,
+                      client_type: e.target.value,
                     }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {CLIENT_TYPES.map((type) => (
+                  {clientTypesList.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
