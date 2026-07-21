@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
+import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
 import {
   validateEmail,
   validatePhone,
@@ -42,6 +43,11 @@ import {
   updateClientContact,
 } from "../services/clientContacts.service";
 
+// Persistencia por usuario del filtro de tipos (mismo patrón que el
+// filtro de estados de Cotizaciones): la selección sobrevive recargas.
+const TYPE_FILTER_KEY = (userId: string | number) =>
+  `eventia_clients_type_filter_${userId}`;
+
 export default function ClientsPage() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -67,6 +73,10 @@ export default function ClientsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingClient, setDeletingClient] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ---- Filtro múltiple por tipo (vacío = todos), guardado por usuario ----
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [typeFilterRestored, setTypeFilterRestored] = useState(false);
 
   // ---- Tipos de cliente dinámicos (tabla client_types) ----
   const [clientTypes, setClientTypes] = useState<ClientTypeItem[]>([]);
@@ -242,6 +252,31 @@ export default function ClientsPage() {
     loadClientTypes();
   }, [user]);
 
+  // Restaurar el filtro de tipos guardado (por usuario).
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(TYPE_FILTER_KEY(user.id));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setTypeFilter(parsed);
+      }
+    } catch {
+      /* almacenamiento no disponible o corrupto: se parte sin filtro */
+    }
+    setTypeFilterRestored(true);
+  }, [user]);
+
+  // Guardar el filtro de tipos en cada cambio (después de restaurar).
+  useEffect(() => {
+    if (!user || !typeFilterRestored) return;
+    try {
+      localStorage.setItem(TYPE_FILTER_KEY(user.id), JSON.stringify(typeFilter));
+    } catch {
+      /* sin espacio o deshabilitado: el filtro sigue funcionando en memoria */
+    }
+  }, [typeFilter, user, typeFilterRestored]);
+
   const loadClients = async () => {
     if (!user) return;
 
@@ -357,13 +392,29 @@ export default function ClientsPage() {
     }
   };
 
-  const filteredClients = clients.filter(
-    (client) =>
+  // Opciones del filtro: unión del catálogo y los tipos presentes en la
+  // base (por si un cliente conserva un tipo antiguo fuera del catálogo).
+  const typeFilterOptions: MultiSelectOption[] = [
+    ...new Set([
+      ...clientTypes.map((t) => t.name),
+      ...clients.map((c) => (c.client_type || "").trim()).filter(Boolean),
+    ]),
+  ]
+    .sort((a, b) => a.localeCompare(b, "es"))
+    .map((name) => ({ value: name, label: name }));
+
+  // Buscador y filtro de tipos se aplican JUNTOS (vacío = todos).
+  const filteredClients = clients.filter((client) => {
+    const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.client_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email &&
-        client.email.toLowerCase().includes(searchTerm.toLowerCase())),
-  );
+        client.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType =
+      typeFilter.length === 0 ||
+      typeFilter.includes((client.client_type || "").trim());
+    return matchesSearch && matchesType;
+  });
 
   const getClientTypeColor = (type: string) => {
     const colors = {
@@ -993,18 +1044,29 @@ export default function ClientsPage() {
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder="Buscar clientes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Buscar clientes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="min-w-[220px]">
+              <MultiSelect
+                options={typeFilterOptions}
+                value={typeFilter}
+                onChange={setTypeFilter}
+                placeholder="Filtrar por tipo"
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
 
