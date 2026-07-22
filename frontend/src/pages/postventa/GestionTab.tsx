@@ -167,6 +167,7 @@ export default function GestionTab({
         item: ctx.furnById.get(itemId) as FurnitureItem,
         total: Math.ceil(p.total),
         peakService: p.peakService,
+        preassembled: p.preassembled,
         others: othersNeed.get(itemId) || 0,
       }))
       .filter((m) => m.item)
@@ -474,10 +475,16 @@ export default function GestionTab({
                                   <span className="text-gray-900">
                                     {m.item.name}
                                   </span>
-                                  {m.peakService && (
+                                  {m.preassembled ? (
                                     <div className="text-[11px] text-gray-400">
-                                      peak en {m.peakService}
+                                      se anticipa · suma entre servicios
                                     </div>
+                                  ) : (
+                                    m.peakService && (
+                                      <div className="text-[11px] text-gray-400">
+                                        peak en {m.peakService}
+                                      </div>
+                                    )
                                   )}
                                 </div>
                               </div>

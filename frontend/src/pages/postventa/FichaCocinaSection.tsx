@@ -460,6 +460,29 @@ export default function FichaCocinaSection({
         .join("");
     };
 
+    // Resumen de mobiliario (hermano de bodega): cada mueble con su
+    // necesidad total. Reutilizable → máximo simultáneo entre servicios;
+    // preparación anticipada → suma (regla del catálogo de Mobiliario).
+    const mobiliarioDe = (snapshot: EventItemsSnapshot) => {
+      const acc = newAccumulator();
+      const r = consolidateEvent(snapshot, personas, ctx, acc);
+      return [...r.furnPeak.entries()]
+        .map(([itemId, p]) => ({ item: ctx.furnById.get(itemId), p }))
+        .filter((x): x is { item: FurnitureItem; p: typeof x.p } => !!x.item)
+        .sort((a, b) => a.item.name.localeCompare(b.item.name))
+        .map(
+          ({ item, p }) =>
+            `<tr><td>${esc(item.name)}${
+              p.preassembled
+                ? ` <span class="manota">se prepara con anticipación · suma entre servicios</span>`
+                : p.peakService
+                  ? ` <span class="manota">peak en ${esc(p.peakService)}</span>`
+                  : ""
+            }</td><td class="qty">${Math.ceil(p.total).toLocaleString("es-CL")} u</td></tr>`,
+        )
+        .join("");
+    };
+
     const notasDe = (list: KitchenNote[]) =>
       list.map((n) => `<li>${esc(n.note)}</li>`).join("");
 
@@ -530,6 +553,8 @@ export default function FichaCocinaSection({
       tituloBodega: string,
       notas: string,
       fijos: string,
+      mobiliario: string,
+      tituloMob: string,
     ) => `<div class="hoja pagina">
   <div class="encabezado">
     <div><div class="marca">EVENTIA</div><h1>FICHA DE COCINA</h1></div>
@@ -543,6 +568,11 @@ export default function FichaCocinaSection({
   ${
     bodega
       ? `<div class="seccion"><h2>${esc(tituloBodega)}</h2><table class="bodega">${bodega}</table></div>`
+      : ""
+  }
+  ${
+    mobiliario
+      ? `<div class="seccion"><h2>${esc(tituloMob)}</h2><table class="bodega">${mobiliario}</table></div>`
       : ""
   }
   ${
@@ -574,6 +604,8 @@ export default function FichaCocinaSection({
         "Retiro de bodega — totales del evento",
         notasDe(notes),
         fijosDe(fixedList, false),
+        mobiliarioDe(quote.items as EventItemsSnapshot),
+        "Mobiliario — totales del evento",
       );
     } else {
       // Días a imprimir: los marcados; sin marcar ninguno = todos.
@@ -596,6 +628,8 @@ export default function FichaCocinaSection({
             `Retiro de bodega — día ${n}`,
             notasDe(notesForDay(n)),
             fijosDe(fixedForDay(n), true),
+            mobiliarioDe(snapshot),
+            `Mobiliario — día ${n}`,
           );
         })
         .join("");
@@ -631,6 +665,7 @@ export default function FichaCocinaSection({
   .seccion { margin-top:24px; page-break-inside:avoid; }
   .seccion > h2 { font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid #1e3a8a; color:#1e3a8a; padding-bottom:4px; margin-bottom:8px; }
   .bodega td:first-child { font-weight:600; }
+  .manota { font-weight:400; font-size:10.5px; color:#888; }
   .notas > h2 { border-bottom-color:#d97706; color:#92400e; }
   .notas ul { list-style:none; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; }
   .notas li { font-size:13.5px; padding:5px 0 5px 22px; border-bottom:1px dotted #ccc; position:relative; }

@@ -134,8 +134,12 @@ const resolveId = (
 // Consolida UN evento dentro del acumulador (compartido entre varios eventos)
 // y devuelve el costo estimado de ese evento en particular.
 export interface FurniturePeak {
-  total: number; // necesidad del evento = MÁXIMO simultáneo entre servicios
-  peakService: string; // servicio donde ocurre el peak
+  // Necesidad del evento. Reutilizable (default): MÁXIMO simultáneo entre
+  // servicios (se lava y vuelve al circuito). Preparación anticipada
+  // (item.preassembled): SUMA entre servicios — ya está montado, no vuelve.
+  total: number;
+  peakService: string; // servicio del peak ("" si es suma entre servicios)
+  preassembled: boolean;
 }
 
 export const consolidateEvent = (
@@ -234,24 +238,31 @@ export const consolidateEvent = (
     costoFijos += (fijo + porPersona * personas) * (it.quantity || 1);
   });
 
-  // Peak de mobiliario del evento (máximo simultáneo entre servicios) y
-  // acumulación en el consolidado compartido.
+  // Necesidad de mobiliario del evento y acumulación en el consolidado
+  // compartido. Reutilizable → peak entre servicios; anticipado → suma.
   const furnPeak = new Map<number, FurniturePeak>();
   furnByService.forEach((perService, itemId) => {
-    let peak = 0;
-    let peakService = "";
-    perService.forEach((qty, service) => {
-      if (qty > peak) {
-        peak = qty;
-        peakService = service;
-      }
-    });
-    furnPeak.set(itemId, { total: peak, peakService });
     const item = ctx.furnById.get(itemId);
+    const preassembled = !!item?.preassembled;
+    let total = 0;
+    let peakService = "";
+    if (preassembled) {
+      perService.forEach((qty) => {
+        total += qty;
+      });
+    } else {
+      perService.forEach((qty, service) => {
+        if (qty > total) {
+          total = qty;
+          peakService = service;
+        }
+      });
+    }
+    furnPeak.set(itemId, { total, peakService, preassembled });
     if (item) {
       const cur = acc.furnTotals.get(itemId);
-      if (cur) cur.total += peak;
-      else acc.furnTotals.set(itemId, { item, total: peak });
+      if (cur) cur.total += total;
+      else acc.furnTotals.set(itemId, { item, total });
     }
   });
 

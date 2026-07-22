@@ -61,6 +61,7 @@ export default function MobiliarioTab({
   const [name, setName] = useState("");
   const [category, setCategory] = useState<FurnitureCategory>("otro");
   const [stock, setStock] = useState<number>(0);
+  const [preassembled, setPreassembled] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -217,6 +218,7 @@ export default function MobiliarioTab({
     setName(f?.name || "");
     setCategory(f?.category || "otro");
     setStock(f?.stock || 0);
+    setPreassembled(f?.preassembled || false);
     setPhotoFile(null);
     setErr(null);
     setShowModal(true);
@@ -232,6 +234,7 @@ export default function MobiliarioTab({
         name: name.trim(),
         category,
         stock: stock || 0,
+        preassembled,
       });
       if (error) {
         setSaving(false);
@@ -244,6 +247,7 @@ export default function MobiliarioTab({
         name: name.trim(),
         category,
         stock: stock || 0,
+        preassembled,
       });
       if (error || !data) {
         setSaving(false);
@@ -432,6 +436,14 @@ export default function MobiliarioTab({
                         <span className="font-medium text-gray-900">
                           {f.name}
                         </span>
+                        {f.preassembled && (
+                          <span
+                            className="shrink-0 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"
+                            title="Se prepara con anticipación: las cantidades se suman entre servicios"
+                          >
+                            se anticipa
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-2 text-gray-600">
@@ -555,7 +567,8 @@ export default function MobiliarioTab({
         <p className="text-xs text-gray-400 mb-3">
           Fechas futuras donde los eventos del día superan el stock. La
           necesidad de cada evento es su máximo simultáneo entre servicios (el
-          mobiliario se lava y reutiliza; se libera al día siguiente).
+          mobiliario se lava y reutiliza; se libera al día siguiente). Los
+          ítems de preparación anticipada se suman entre servicios.
         </p>
         {!availData.loaded ? (
           <div className="py-4 flex justify-center">
@@ -664,6 +677,24 @@ export default function MobiliarioTab({
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+              <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-gray-200 px-3 py-2.5 hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={preassembled}
+                  onChange={(e) => setPreassembled(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-blue-600"
+                />
+                <span className="text-xs">
+                  <span className="font-semibold text-gray-700">
+                    Se prepara con anticipación
+                  </span>
+                  <span className="block text-gray-400 mt-0.5">
+                    No se reutiliza entre servicios: las cantidades se suman
+                    (ej: vasos de cóctel ya montados). Sin marcar, se lava y
+                    reutiliza → se toma el máximo simultáneo.
+                  </span>
+                </span>
+              </label>
               <div>
                 <label className="text-xs font-semibold text-gray-600">
                   Foto de referencia (opcional)

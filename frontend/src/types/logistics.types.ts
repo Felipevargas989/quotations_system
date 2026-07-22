@@ -89,6 +89,10 @@ export interface FurnitureItem {
   stock: number; // unidades disponibles (fluctúa por temporada)
   photo_url: string | null; // foto de referencia (popup, no descarga)
   is_active: boolean;
+  // Se prepara con ANTICIPACIÓN (ej: vasos de cóctel ya montados): no
+  // vuelve al circuito entre servicios → las cantidades se SUMAN.
+  // false (default) = se lava y reutiliza → máximo simultáneo (peak).
+  preassembled: boolean;
   created_at: string;
 }
 

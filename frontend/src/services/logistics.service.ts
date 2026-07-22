@@ -273,6 +273,7 @@ export const createFurnitureItem = async (fields: {
   category?: FurnitureItem["category"];
   stock?: number;
   photo_url?: string | null;
+  preassembled?: boolean;
 }) => {
   const { data, error } = await supabase
     .from("furniture_items")
@@ -287,7 +288,7 @@ export const updateFurnitureItem = async (
   fields: Partial<
     Pick<
       FurnitureItem,
-      "name" | "is_active" | "category" | "stock" | "photo_url"
+      "name" | "is_active" | "category" | "stock" | "photo_url" | "preassembled"
     >
   >,
 ) => {
