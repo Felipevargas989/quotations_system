@@ -369,7 +369,12 @@ export default function FichaCocinaSection({
       slotList
         .map(({ group: g, key, label }) => {
           const hora = times[key] || "";
-          const furnTotals = new Map<string, number>();
+          // mueble → cantidad total y de QUÉ platos proviene, para que la
+          // línea Montar diga "200 vasos de vidrio de 50ml (Pie de limón)".
+          const furnTotals = new Map<
+            string,
+            { qty: number; platos: string[] }
+          >();
           // Personas de ESTE servicio (audiencia niños/adultos o ajuste
           // manual del cotizador); cotizaciones antiguas = total del evento.
           const groupPeople = (g as { people?: number }).people ?? personas;
@@ -406,11 +411,15 @@ export default function FichaCocinaSection({
                 ) {
                   const f = ctx.furnById.get(line.furniture_id);
                   if (!f) return;
-                  furnTotals.set(
-                    f.name,
-                    (furnTotals.get(f.name) || 0) +
-                      line.qty_per_person * porciones,
-                  );
+                  const cur = furnTotals.get(f.name) || {
+                    qty: 0,
+                    platos: [],
+                  };
+                  cur.qty += line.qty_per_person * porciones;
+                  // Nombre del plato sin el prefijo de orden ("02 - ").
+                  const plato = it.nombre.replace(/^\s*\d+\s*-\s*/, "");
+                  if (!cur.platos.includes(plato)) cur.platos.push(plato);
+                  furnTotals.set(f.name, cur);
                 }
               });
               receta = parts.join(" · ");
@@ -432,8 +441,12 @@ export default function FichaCocinaSection({
             .join("");
           const montar = [...furnTotals.entries()]
             .map(
-              ([name, q]) =>
-                `${Math.ceil(q).toLocaleString("es-CL")} ${esc(name.toLowerCase())}`,
+              ([name, d]) =>
+                `${Math.ceil(d.qty).toLocaleString("es-CL")} ${esc(name.toLowerCase())}${
+                  d.platos.length > 0
+                    ? ` <span class="mplato">(${d.platos.map(esc).join(" · ")})</span>`
+                    : ""
+                }`,
             )
             .join(" · ");
           return `<div class="servicio">
@@ -629,6 +642,7 @@ export default function FichaCocinaSection({
   .preparar .subseccion td { font-size:10.5px; font-weight:800; letter-spacing:1.5px; color:#1e3a8a; text-transform:uppercase; padding:10px 6px 1px; border-bottom:1.5px solid #1e3a8a; }
   .mobiliario { padding:8px 14px; background:#eff6ff; border-top:1px solid #dbeafe; font-size:12.5px; color:#1e3a8a; }
   .mobiliario b { text-transform:uppercase; font-size:11px; letter-spacing:.5px; }
+  .mobiliario .mplato { color:#3b82f6; }
   .seccion { margin-top:24px; page-break-inside:avoid; }
   .seccion > h2 { font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid #1e3a8a; color:#1e3a8a; padding-bottom:4px; margin-bottom:8px; }
   .bodega td:first-child { font-weight:600; }
