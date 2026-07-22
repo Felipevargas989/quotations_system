@@ -369,12 +369,6 @@ export default function FichaCocinaSection({
       slotList
         .map(({ group: g, key, label }) => {
           const hora = times[key] || "";
-          // mueble → cantidad total y de QUÉ platos proviene, para que la
-          // línea Montar diga "200 vasos de vidrio de 50ml (Pie de limón)".
-          const furnTotals = new Map<
-            string,
-            { qty: number; platos: string[] }
-          >();
           // Personas de ESTE servicio (audiencia niños/adultos o ajuste
           // manual del cotizador); cotizaciones antiguas = total del evento.
           const groupPeople = (g as { people?: number }).people ?? personas;
@@ -390,8 +384,10 @@ export default function FichaCocinaSection({
                 : undefined;
             const porciones = groupPeople * (it.quantity || 1);
             let receta = "";
+            let montar = "";
             if (lines?.length) {
               const parts: string[] = [];
+              const furn: string[] = [];
               lines.forEach((line) => {
                 if (line.item_kind === "insumo" && line.supply_id) {
                   const sup = ctx.supplyById.get(line.supply_id);
@@ -411,22 +407,23 @@ export default function FichaCocinaSection({
                 ) {
                   const f = ctx.furnById.get(line.furniture_id);
                   if (!f) return;
-                  const cur = furnTotals.get(f.name) || {
-                    qty: 0,
-                    platos: [],
-                  };
-                  cur.qty += line.qty_per_person * porciones;
-                  // Nombre del plato sin el prefijo de orden ("02 - ").
-                  const plato = it.nombre.replace(/^\s*\d+\s*-\s*/, "");
-                  if (!cur.platos.includes(plato)) cur.platos.push(plato);
-                  furnTotals.set(f.name, cur);
+                  furn.push(
+                    `${Math.ceil(line.qty_per_person * porciones).toLocaleString("es-CL")} ${esc(f.name.toLowerCase())}`,
+                  );
                 }
               });
               receta = parts.join(" · ");
+              montar = furn.join(" · ");
             }
+            // El mobiliario del plato va en su propia línea azul bajo la
+            // receta; la última línea del plato lleva el borde separador.
             return `<tr><td class="plato">${esc(it.nombre)}</td><td class="qty">×${porciones.toLocaleString("es-CL")}</td></tr>${
               receta
-                ? `<tr class="receta"><td colspan="2">Receta: ${receta}</td></tr>`
+                ? `<tr class="receta${montar ? " sinborde" : ""}"><td colspan="2">Receta: ${receta}</td></tr>`
+                : ""
+            }${
+              montar
+                ? `<tr class="rmontar"><td colspan="2">Montar: ${montar}</td></tr>`
                 : ""
             }`;
           };
@@ -439,20 +436,9 @@ export default function FichaCocinaSection({
                   : "") + og.items.map(itemRow).join(""),
             )
             .join("");
-          const montar = [...furnTotals.entries()]
-            .map(
-              ([name, d]) =>
-                `${Math.ceil(d.qty).toLocaleString("es-CL")} ${esc(name.toLowerCase())}${
-                  d.platos.length > 0
-                    ? ` <span class="mplato">(${d.platos.map(esc).join(" · ")})</span>`
-                    : ""
-                }`,
-            )
-            .join(" · ");
           return `<div class="servicio">
           <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(label)}</h2><span class="svc-pers">${groupPeople.toLocaleString("es-CL")} personas</span></div>
           <div class="platillo"><table class="preparar">${rows}</table></div>
-          ${montar ? `<div class="mobiliario"><b>Montar:</b> ${montar}</div>` : ""}
         </div>`;
         })
         .join("");
@@ -639,10 +625,9 @@ export default function FichaCocinaSection({
   .preparar .plato { font-size:16px; font-weight:800; padding:7px 6px 2px; border-bottom:none; }
   .preparar .qty { font-size:16px; vertical-align:bottom; border-bottom:none; }
   .preparar .receta td { font-size:11.5px; color:#777; padding:0 6px 7px; border-bottom:1px solid #e5e5e5; }
+  .preparar .receta.sinborde td { border-bottom:none; padding-bottom:2px; }
+  .preparar .rmontar td { font-size:11.5px; color:#1e3a8a; font-weight:600; padding:0 6px 7px; border-bottom:1px solid #e5e5e5; }
   .preparar .subseccion td { font-size:10.5px; font-weight:800; letter-spacing:1.5px; color:#1e3a8a; text-transform:uppercase; padding:10px 6px 1px; border-bottom:1.5px solid #1e3a8a; }
-  .mobiliario { padding:8px 14px; background:#eff6ff; border-top:1px solid #dbeafe; font-size:12.5px; color:#1e3a8a; }
-  .mobiliario b { text-transform:uppercase; font-size:11px; letter-spacing:.5px; }
-  .mobiliario .mplato { color:#3b82f6; }
   .seccion { margin-top:24px; page-break-inside:avoid; }
   .seccion > h2 { font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid #1e3a8a; color:#1e3a8a; padding-bottom:4px; margin-bottom:8px; }
   .bodega td:first-child { font-weight:600; }
@@ -652,7 +637,7 @@ export default function FichaCocinaSection({
   .notas li:last-child { border-bottom:none; }
   .notas li::before { content:"\\25A0"; position:absolute; left:2px; color:#d97706; font-size:10px; top:8px; }
   .fijos .fnombre { font-weight:700; font-size:13.5px; }
-  .fijos .fmontar td { font-size:11.5px; color:#777; padding:0 6px 6px; border-bottom:1px solid #e5e5e5; }
+  .fijos .fmontar td { font-size:11.5px; color:#1e3a8a; font-weight:600; padding:0 6px 6px; border-bottom:1px solid #e5e5e5; }
   .pie { margin-top:26px; display:flex; justify-content:space-between; font-size:10.5px; color:#888; border-top:1px solid #ddd; padding-top:8px; }
   .pagina { page-break-after:always; margin-bottom:26px; }
   .pagina:last-child { page-break-after:auto; margin-bottom:0; }
