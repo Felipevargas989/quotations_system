@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { canonicalServiceName } from "../utils/searchMatch";
 import {
   FixedServiceCostItem,
   FurnitureItem,
@@ -324,7 +325,10 @@ export const getCatalogServiceNameIds = async (
   variable: Record<string, number>;
   fixed: Record<string, number>;
 }> => {
-  const norm = (s: string) => s.trim().toLowerCase();
+  // Claves canónicas (sin tildes, sin prefijo "02 - ", espacios
+  // flexibles): las fotos de items de cotizaciones antiguas encuentran
+  // su servicio aunque el catálogo haya sido renombrado.
+  const norm = canonicalServiceName;
   const [v, f] = await Promise.all([
     supabase
       .from("variable_services")

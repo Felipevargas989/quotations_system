@@ -5,6 +5,7 @@ import {
   grossQty,
   toBaseQty,
 } from "../types/logistics.types";
+import { canonicalServiceName } from "./searchMatch";
 
 // Consolidación de insumos/mobiliario de eventos a partir de las recetas del
 // catálogo. Lo usan la pestaña Gestión del evento y Compras multi-evento.
@@ -126,7 +127,7 @@ const resolveId = (
   ) {
     return numericId;
   }
-  const idByName = ctx.nameIds[serviceType][nombre.trim().toLowerCase()];
+  const idByName = ctx.nameIds[serviceType][canonicalServiceName(nombre)];
   if (idByName !== undefined) return idByName;
   return Number.isFinite(numericId) ? numericId : undefined;
 };

@@ -33,6 +33,7 @@ import {
   consolidateEvent,
   newAccumulator,
 } from "../../utils/eventConsolidation";
+import { canonicalServiceName } from "../../utils/searchMatch";
 import { getMenuOrder } from "../../services/sections.service";
 import {
   CategorySection,
@@ -283,7 +284,7 @@ export default function FichaCocinaSection({
     ) {
       return numericId;
     }
-    return nameIds.variable[nombre.trim().toLowerCase()];
+    return nameIds.variable[canonicalServiceName(nombre)];
   };
 
   // ---------- Orden "como la carta": secciones de cada categoría ----------
@@ -300,7 +301,7 @@ export default function FichaCocinaSection({
   const serviceIdOf = (codigo: string, nombre: string) => {
     const n = Number(codigo);
     if (Number.isFinite(n) && String(codigo).trim() !== "") return n;
-    return nameIds.variable[nombre.trim().toLowerCase()];
+    return nameIds.variable[canonicalServiceName(nombre)];
   };
 
   type SnapItem = { codigo: string; nombre: string; quantity?: number };
@@ -497,7 +498,7 @@ export default function FichaCocinaSection({
             Number.isFinite(numericId) &&
             ctx.byService.get(`fixed-${numericId}`)
               ? numericId
-              : nameIds.fixed[it.nombre.trim().toLowerCase()];
+              : nameIds.fixed[canonicalServiceName(it.nombre)];
           if (id === undefined && Number.isFinite(numericId)) id = numericId;
           const lines =
             id !== undefined ? ctx.byService.get(`fixed-${id}`) : undefined;
