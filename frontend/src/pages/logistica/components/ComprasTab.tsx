@@ -2,12 +2,18 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Download,
+  FileText,
   PackageCheck,
   RotateCcw,
+  Search,
   ShoppingCart,
   Truck,
 } from "lucide-react";
+import { useAuth } from "../../../contexts/AuthContext";
+import { matchesSearch } from "../../../utils/searchMatch";
 import {
   EventSupplyProvision,
   PurchasingEvent,
@@ -61,8 +67,23 @@ const fmtQty = (n: number) =>
 
 const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
+// SIEMPRE en UTC: las fechas de evento se guardan a medianoche UTC y el
+// reloj chileno (UTC-4) las corría un día hacia atrás (bug 22-07).
 const fmtDate = (d: string | null) =>
-  d ? new Date(d).toLocaleDateString("es-CL") : "—";
+  d ? new Date(d).toLocaleDateString("es-CL", { timeZone: "UTC" }) : "—";
+
+// Días del evento (1 = un solo día).
+const daysOf = (e: PurchasingEvent) => {
+  if (!e.event_date || !e.event_end_date) return 1;
+  const d0 = new Date(e.event_date.slice(0, 10) + "T00:00:00Z").getTime();
+  const d1 = new Date(e.event_end_date.slice(0, 10) + "T00:00:00Z").getTime();
+  return d1 > d0 ? Math.round((d1 - d0) / 86400000) + 1 : 1;
+};
+
+const hoyLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export default function ComprasTab({
   companyId,
@@ -70,8 +91,24 @@ export default function ComprasTab({
   readonly companyId: number;
 }) {
   const queryClient = useQueryClient();
-  const [desde, setDesde] = useState("");
+  const { company } = useAuth();
+  // "Desde hoy" por defecto: Compras trabaja con lo que viene.
+  const [desde, setDesde] = useState(hoyLocal);
   const [hasta, setHasta] = useState("");
+  const [search, setSearch] = useState("");
+  // Estados de evento visibles (default: pendientes y parciales).
+  const [kindChips, setKindChips] = useState<Set<"none" | "partial" | "full">>(
+    () => new Set(["none", "partial"] as const),
+  );
+  // Filtro de la lista de compra (default: lo que falta pedir).
+  const [supFilter, setSupFilter] = useState<
+    "faltantes" | "provisionados" | "todos"
+  >("faltantes");
+  // Plegado por proveedor: sin toque manual, los grupos 100% provisionados
+  // parten plegados y el resto abiertos.
+  const [toggledOpen, setToggledOpen] = useState<Map<number | 0, boolean>>(
+    new Map(),
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [checkedSupplies, setCheckedSupplies] = useState<Set<number>>(
     new Set(),
@@ -147,16 +184,19 @@ export default function ComprasTab({
     return m;
   }, [provisions]);
 
-  // Eventos visibles según el rango de fecha del evento.
+  // Eventos según rango de fecha + búsqueda (N° exacto o cliente).
   const filtered = useMemo(() => {
+    const q = search.trim();
     return events.filter((e) => {
+      if (q && String(e.quotation_number) !== q && !matchesSearch(q, e.client_name))
+        return false;
       if (!e.event_date) return !desde && !hasta;
       const d = e.event_date.slice(0, 10);
       if (desde && d < desde) return false;
       if (hasta && d > hasta) return false;
       return true;
     });
-  }, [events, desde, hasta]);
+  }, [events, desde, hasta, search]);
 
   // Análisis por evento (insumos que usa + costos), para estados y fotos.
   const perEvent = useMemo(() => {
@@ -202,6 +242,14 @@ export default function ComprasTab({
     return { label: "Pendiente", kind: "none" };
   };
 
+  // Los chips solo filtran la TABLA; la selección/consolidación sigue
+  // operando sobre todos los eventos del rango.
+  const visibleEvents = useMemo(
+    () => filtered.filter((e) => kindChips.has(eventStatus(e).kind)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, kindChips, perEvent, provByEvent],
+  );
+
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
     [filtered, selected],
@@ -220,9 +268,9 @@ export default function ComprasTab({
   const toggleAll = () => {
     setConfirmAction("");
     setSelected((prev) =>
-      prev.size === filtered.length
+      prev.size === visibleEvents.length
         ? new Set()
-        : new Set(filtered.map((e) => e.id)),
+        : new Set(visibleEvents.map((e) => e.id)),
     );
   };
 
@@ -285,6 +333,36 @@ export default function ComprasTab({
     };
   }, [selectedEvents, recipes, supplies, furniture, suppliers, nameIds, fixedCosts]);
 
+  // Resumen ejecutivo: cuánto falta por comprar vs ya provisionado,
+  // par (evento, insumo) por par, con costo de catálogo.
+  const resumen = useMemo(() => {
+    const supplyById = new Map(supplies.map((sp) => [sp.id, sp]));
+    let faltante = 0;
+    let provisionado = 0;
+    const faltIds = new Set<number>();
+    const provIds = new Set<number>();
+    selectedEvents.forEach((ev) => {
+      const a = perEvent.get(ev.id);
+      if (!a) return;
+      a.supplyUse.forEach((base, sid) => {
+        const cost = base * (supplyById.get(sid)?.price || 0);
+        if (provByEvent.get(ev.id)?.has(sid)) {
+          provisionado += cost;
+          provIds.add(sid);
+        } else {
+          faltante += cost;
+          faltIds.add(sid);
+        }
+      });
+    });
+    return {
+      faltante,
+      provisionado,
+      nFalt: faltIds.size,
+      nProv: provIds.size,
+    };
+  }, [selectedEvents, perEvent, provByEvent, supplies]);
+
   // Estado de provisión de UN insumo entre los eventos seleccionados.
   const supplyStatus = (supplyId: number) => {
     let used = 0;
@@ -308,11 +386,10 @@ export default function ComprasTab({
     });
   };
 
-  const toggleGroup = (g: SupplierGroup) => {
+  const toggleGroup = (ids: number[]) => {
     setConfirmAction("");
     setCheckedSupplies((prev) => {
       const next = new Set(prev);
-      const ids = g.rows.map((r) => r.supply.id);
       const allIn = ids.every((id) => next.has(id));
       ids.forEach((id) => (allIn ? next.delete(id) : next.add(id)));
       return next;
@@ -475,6 +552,151 @@ export default function ComprasTab({
     setSaving(false);
   };
 
+  // PDF de la lista de compra: una página por proveedor (orden de pedido
+  // lista para imprimir o mandar), con el lenguaje gráfico de la ficha.
+  const downloadPDF = () => {
+    const esc = (t: string) =>
+      String(t || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const hexOk = (c?: string) =>
+      c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+    const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
+    const onBrandP = (() => {
+      const n = parseInt(brandP.slice(1), 16);
+      const lum =
+        (0.299 * ((n >> 16) & 255) +
+          0.587 * ((n >> 8) & 255) +
+          0.114 * (n & 255)) /
+        255;
+      return lum > 0.6 ? "#111827" : "#fff";
+    })();
+    const logoHtml = company?.logo_url
+      ? `<img src="${esc(company.logo_url)}" alt="logo">`
+      : esc(
+          (company?.name || "E")
+            .split(/\s+/)
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase(),
+        );
+    const eventosTxt = selectedEvents
+      .map((e) => `#${e.quotation_number}`)
+      .join(" · ");
+    const filtroTxt =
+      supFilter === "faltantes"
+        ? "Solo insumos FALTANTES"
+        : supFilter === "provisionados"
+          ? "Solo insumos provisionados"
+          : "Lista completa";
+    const generada = new Date().toLocaleString("es-CL");
+
+    const paginas = consolidation.groups
+      .map((g) => {
+        const rows = g.rows.filter((c) => {
+          const st = supplyStatus(c.supply.id);
+          const full = st.used > 0 && st.prov === st.used;
+          if (supFilter === "faltantes") return !full;
+          if (supFilter === "provisionados") return full;
+          return true;
+        });
+        if (rows.length === 0) return "";
+        const sub = rows.reduce(
+          (t, c) => t + c.totalBase * (c.supply.price || 0),
+          0,
+        );
+        const sinPrecio = rows.filter((c) => !c.supply.price).length;
+        const filas = rows
+          .map((c) => {
+            const formato =
+              c.supply.package_qty &&
+              c.supply.package_qty > 0 &&
+              (c.supply.package_name || c.supply.package_qty !== 1)
+                ? `${Math.ceil(c.totalBase / c.supply.package_qty).toLocaleString("es-CL")} × ${
+                    c.supply.package_name || "formato"
+                  } de ${Number(c.supply.package_qty).toLocaleString("es-CL")} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
+                : "";
+            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}${
+              formato ? `<div class="nota">→ ${esc(formato)}</div>` : ""
+            }</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="der">${
+              c.supply.price ? fmtMoney(c.totalBase * c.supply.price) : "—"
+            }</td></tr>`;
+          })
+          .join("");
+        return `<div class="hoja pagina">
+  <div class="head">
+    <div class="marca"><div class="logo">${logoHtml}</div><div><h1>${esc(company?.name || "Eventia")}</h1><div class="sub">Documento operativo — orden de compra</div></div></div>
+    <div class="folio"><div class="tipo">Orden de Compra</div><div class="num">${esc(g.supplier ? g.supplier.name : "Sin proveedor")}</div><div class="fecha">${esc(filtroTxt)}</div></div>
+  </div>
+  <div class="datos">
+    <div class="dato"><div class="k">Contacto</div><div class="v">${esc(g.supplier?.contact_name || "—")}</div></div>
+    <div class="dato"><div class="k">Teléfono</div><div class="v">${esc(g.supplier?.phone || "—")}</div></div>
+    <div class="dato"><div class="k">Eventos</div><div class="v">${esc(eventosTxt || "—")}</div></div>
+    <div class="dato"><div class="k">Ítems</div><div class="v big">${rows.length}</div></div>
+  </div>
+  <h2 class="seccion">Insumos a pedir</h2>
+  <table class="tabla">${filas}
+    <tr class="total"><td></td><td class="der" style="text-align:right;font-size:10.5px;font-weight:800;color:#6b7280;text-transform:uppercase;">Subtotal estimado${sinPrecio ? ` · ${sinPrecio} sin precio` : ""}</td><td></td><td class="der">${fmtMoney(sub)}</td></tr>
+  </table>
+  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades brutas (incluyen merma) · precios estimados de catálogo</span></div>
+</div>`;
+      })
+      .join("");
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Orden de Compra — ${selectedEvents.length} evento(s)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#e5e7eb; padding:24px; color:#111827; }
+  .hoja { max-width:800px; margin:0 auto; background:#fff; padding:44px 52px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:16px; }
+  .marca { display:flex; gap:12px; align-items:center; }
+  .logo { width:64px; height:64px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; overflow:hidden; }
+  .logo img { width:100%; height:100%; object-fit:cover; }
+  .marca h1 { font-size:17px; }
+  .marca .sub { font-size:10.5px; color:#6b7280; margin-top:1px; }
+  .folio { text-align:right; }
+  .folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
+  .folio .num { font-size:20px; font-weight:800; }
+  .folio .fecha { font-size:11px; color:#6b7280; margin-top:2px; }
+  .datos { display:grid; grid-template-columns:1.2fr 1fr 1.4fr .5fr; gap:12px 22px; padding:14px 0; border-bottom:1px solid #e5e7eb; }
+  .dato .k { font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9ca3af; text-transform:uppercase; }
+  .dato .v { font-size:13px; font-weight:600; margin-top:1px; }
+  .dato .v.big { font-size:16px; font-weight:800; color:${brandP}; }
+  h2.seccion { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:${brandP}; margin:22px 0 8px; display:flex; align-items:center; gap:8px; }
+  h2.seccion::after { content:""; flex:1; border-top:1px solid #e5e7eb; }
+  .chk { width:26px; }
+  .chk span { display:inline-block; width:13px; height:13px; border:1.5px solid #9ca3af; border-radius:3px; vertical-align:middle; }
+  .tabla { width:100%; border-collapse:collapse; }
+  .tabla td { font-size:12.5px; padding:6px 10px 6px 0; border-bottom:1px solid #f3f4f6; }
+  .tabla td.chk { padding-left:2px; }
+  .tabla td:nth-child(2) { font-weight:600; }
+  .tabla .der { text-align:right; white-space:nowrap; font-weight:700; }
+  .tabla .nota { font-weight:400; font-size:10.5px; color:#9ca3af; }
+  .tabla .total td { border-bottom:none; background:#f9fafb; }
+  .pie { margin-top:26px; border-top:1px solid #e5e7eb; padding-top:10px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
+  .pagina { page-break-after:always; margin-bottom:26px; }
+  .pagina:last-child { page-break-after:auto; margin-bottom:0; }
+  .btn-imprimir { position:fixed; top:14px; right:14px; background:${brandP}; color:${onBrandP}; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+  .hoja, .hoja * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @media print {
+    @page { margin:12mm; }
+    body { background:#fff; padding:0; }
+    .hoja { box-shadow:none; padding:0; max-width:none; }
+    .btn-imprimir { display:none; }
+  }
+</style></head><body>
+<button class="btn-imprimir" onclick="window.print()">Imprimir / PDF</button>
+${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay insumos que coincidan con el filtro actual.</p>'}
+</body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+  };
+
   const downloadExcel = () => {
     const lines: string[] = [];
     lines.push(`Lista de compras;${selectedEvents.length} evento(s)`);
@@ -558,7 +780,20 @@ export default function ComprasTab({
             insumo o por proveedor) y provisiona por partes o todo de una vez.
           </p>
         </div>
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="relative">
+            <Search
+              className="absolute left-2.5 bottom-2.5 text-gray-400"
+              size={14}
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="N° o cliente…"
+              className="w-44 pl-8 pr-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+              aria-label="Buscar evento por número o cliente"
+            />
+          </div>
           <div>
             <label
               htmlFor="compras-desde"
@@ -598,8 +833,39 @@ export default function ComprasTab({
         </div>
       )}
 
+      {/* Chips de estado de los eventos (default: pendientes y parciales) */}
+      <div className="flex items-center gap-1.5 -mb-3">
+        {(
+          [
+            ["none", "Pendientes"],
+            ["partial", "Parciales"],
+            ["full", "Completos"],
+          ] as const
+        ).map(([kind, label]) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() =>
+              setKindChips((prev) => {
+                const next = new Set(prev);
+                if (next.has(kind)) next.delete(kind);
+                else next.add(kind);
+                return next;
+              })
+            }
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+              kindChips.has(kind)
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* ---------- Lista de eventos ---------- */}
-      {filtered.length === 0 ? (
+      {visibleEvents.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
           <ShoppingCart className="mx-auto mb-3 text-gray-300" size={34} />
           <p className="font-medium">Sin eventos cerrados en este rango</p>
@@ -616,7 +882,8 @@ export default function ComprasTab({
                   <input
                     type="checkbox"
                     checked={
-                      filtered.length > 0 && selected.size === filtered.length
+                      visibleEvents.length > 0 &&
+                      selected.size === visibleEvents.length
                     }
                     onChange={toggleAll}
                     className="rounded"
@@ -641,8 +908,9 @@ export default function ComprasTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((e) => {
+              {visibleEvents.map((e) => {
                 const st = eventStatus(e);
+                const dias = daysOf(e);
                 return (
                   <tr
                     key={e.id}
@@ -669,6 +937,11 @@ export default function ComprasTab({
                     </td>
                     <td className="px-3 py-2 text-gray-700">
                       {fmtDate(e.event_date)}
+                      {dias > 1 && (
+                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+                          {dias} días
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right text-gray-700">
                       {e.people_count}
@@ -715,8 +988,48 @@ export default function ComprasTab({
                 Costo insumos estimado: {fmtMoney(consolidation.costoTotal)}{" "}
                 (según catálogo)
               </p>
+              {/* Resumen ejecutivo: el número que quien compra mira primero */}
+              <p className="text-xs mt-1">
+                <span className="font-bold text-red-600">
+                  Faltante por comprar: {fmtMoney(resumen.faltante)} (
+                  {resumen.nFalt} insumo{resumen.nFalt === 1 ? "" : "s"})
+                </span>
+                <span className="text-gray-400"> · </span>
+                <span className="font-semibold text-green-600">
+                  Provisionado: {fmtMoney(resumen.provisionado)} ({resumen.nProv}
+                  )
+                </span>
+              </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {(
+                [
+                  ["faltantes", "Faltantes"],
+                  ["provisionados", "Provisionados"],
+                  ["todos", "Todos"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setSupFilter(k)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                    supFilter === k
+                      ? "bg-gray-900 border-gray-900 text-white"
+                      : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={downloadPDF}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800"
+                title="Orden de compra en PDF: una página por proveedor"
+              >
+                <FileText size={15} /> PDF
+              </button>
               <button
                 type="button"
                 onClick={downloadExcel}
@@ -770,17 +1083,54 @@ export default function ComprasTab({
           </div>
 
           {consolidation.groups.map((g) => {
-            const groupIds = g.rows.map((r) => r.supply.id);
-            const allChecked = groupIds.every((id) =>
+            const key = g.supplier?.id || 0;
+            // Filtro faltantes/provisionados aplicado a las filas del grupo.
+            const rowsShown = g.rows.filter((c) => {
+              const st = supplyStatus(c.supply.id);
+              const full = st.used > 0 && st.prov === st.used;
+              if (supFilter === "faltantes") return !full;
+              if (supFilter === "provisionados") return full;
+              return true;
+            });
+            if (rowsShown.length === 0) return null;
+            const shownIds = rowsShown.map((r) => r.supply.id);
+            const allChecked = shownIds.every((id) =>
               checkedSupplies.has(id),
             );
+            const groupFull = g.rows.every((c) => {
+              const st = supplyStatus(c.supply.id);
+              return st.used > 0 && st.prov === st.used;
+            });
+            const sinPrecio = rowsShown.filter((c) => !c.supply.price).length;
+            const subShown = rowsShown.reduce(
+              (t, c) => t + c.totalBase * (c.supply.price || 0),
+              0,
+            );
+            // Sin toque manual: los grupos completos parten plegados.
+            const isOpen = toggledOpen.get(key) ?? !groupFull;
             return (
-              <div key={g.supplier?.id || 0}>
-                <div className="flex items-center gap-2 mb-1.5">
+              <div key={key}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setToggledOpen((prev) => {
+                      const next = new Map(prev);
+                      next.set(key, !isOpen);
+                      return next;
+                    })
+                  }
+                  className="w-full flex items-center gap-2 mb-1.5 py-1 px-1 rounded-md hover:bg-gray-50 text-left"
+                >
+                  {isOpen ? (
+                    <ChevronDown size={15} className="text-gray-500" />
+                  ) : (
+                    <ChevronRight size={15} className="text-gray-500" />
+                  )}
                   <input
                     type="checkbox"
                     checked={allChecked}
-                    onChange={() => toggleGroup(g)}
+                    onChange={() => toggleGroup(shownIds)}
+                    onClick={(ev) => ev.stopPropagation()}
                     className="rounded"
                     aria-label={`Seleccionar grupo ${
                       g.supplier?.name || "sin proveedor"
@@ -797,11 +1147,29 @@ export default function ComprasTab({
                         .join(" · ")}
                     </span>
                   )}
-                </div>
+                  <span className="text-[11px] text-gray-400">
+                    · {rowsShown.length} ítem
+                    {rowsShown.length === 1 ? "" : "s"}
+                  </span>
+                  {sinPrecio > 0 && (
+                    <span className="text-[11px] font-semibold text-amber-600">
+                      · {sinPrecio} sin precio
+                    </span>
+                  )}
+                  {groupFull && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+                      ✓ completo
+                    </span>
+                  )}
+                  <span className="ml-auto text-sm font-bold text-gray-900">
+                    {fmtMoney(subShown)}
+                  </span>
+                </button>
+                {isOpen && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="min-w-full text-sm">
                     <tbody className="divide-y divide-gray-100">
-                      {g.rows.map((c) => {
+                      {rowsShown.map((c) => {
                         const st = supplyStatus(c.supply.id);
                         const full = st.used > 0 && st.prov === st.used;
                         return (
@@ -881,12 +1249,13 @@ export default function ComprasTab({
                         </td>
                         <td />
                         <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
-                          {fmtMoney(g.subtotal)}
+                          {fmtMoney(subShown)}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+                )}
               </div>
             );
           })}
