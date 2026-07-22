@@ -13,6 +13,11 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       configService.get('FRONTEND_URL'), // React dev server
+      // Dominio productivo y alias Netlify: ambos aceptados SIEMPRE para
+      // que el switchover de DNS (Plan B) no corte a nadie a mitad de
+      // camino, apunte donde apunte FRONTEND_URL.
+      'https://www.eventi-app.com',
+      'https://eventia-dev.netlify.app',
       'http://localhost:5173', // Vite dev server
       'http://localhost:4173', // Vite preview
       'http://127.0.0.1:5173', // Alternative localhost
