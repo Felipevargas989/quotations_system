@@ -2857,121 +2857,6 @@ export default function QuotationForm() {
             </div>
           </div>
 
-          {/* Descuento */}
-          {userRole && getMaxDiscountForRole() > 0 && (
-            <div className="bg-white rounded-xl shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Descuento
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descuento
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
-                      {(["%", "$"] as const).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setDiscType(t)}
-                          disabled={isRestrictedEditing}
-                          className={`px-3 py-2 text-sm font-bold ${
-                            discType === t
-                              ? "bg-blue-600 text-white"
-                              : "bg-white text-gray-500 hover:bg-gray-50"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex-1">
-                      {discType === "%" ? (
-                        <NumberInput
-                          id="discount_percentage"
-                          name="discount_percentage"
-                          value={formData.discount_percentage}
-                          onChange={(value) => {
-                            // @ts-ignore
-                            setFormData((prev) => ({
-                              ...prev,
-                              discount_percentage: value
-                                ? Number(value)
-                                : undefined,
-                            }));
-                          }}
-                          min={0}
-                          max={getMaxDiscountForRole()}
-                          disabled={isRestrictedEditing}
-                        />
-                      ) : (
-                        <NumberInput
-                          id="discount_amount"
-                          name="discount_amount"
-                          value={formData.discount_amount || undefined}
-                          onChange={(value) => {
-                            // @ts-ignore
-                            setFormData((prev) => ({
-                              ...prev,
-                              discount_amount: value ? Number(value) : 0,
-                            }));
-                          }}
-                          min={0}
-                          max={getMaxDiscountAmount()}
-                          formatThousands
-                          placeholder="0"
-                          disabled={isRestrictedEditing}
-                        />
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {discType === "%"
-                      ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
-                      : `Máximo: $${getMaxDiscountAmount().toLocaleString("es-CL")} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto del Descuento
-                  </label>
-                  <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
-                    <span className="text-red-600 font-medium">
-                      -${discountAmountUI.toLocaleString("es-CL")}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Total con Descuento
-                  </label>
-                  <div className="px-3 py-2 bg-green-50 border border-green-300 rounded-lg">
-                    <span className="text-green-700 font-bold">
-                      ${formData.total_amount.toLocaleString("es-CL")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {hasDiscount && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center">
-                    <span className="text-yellow-800 text-sm">
-                      💡 <strong>Descuento aplicado:</strong>{" "}
-                      {discType === "%"
-                        ? `${formData.discount_percentage || 0}% ($${discountAmountUI.toLocaleString("es-CL")} de descuento)`
-                        : `$${discountAmountUI.toLocaleString("es-CL")} (monto cerrado)`}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Servicios fijos del evento (editable; el resumen los lista) */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -3082,25 +2967,6 @@ export default function QuotationForm() {
             </div>
           </div>
 
-          {/* Observaciones */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Observaciones
-            </h3>
-            <textarea
-              value={formData.observations}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  observations: e.target.value,
-                }))
-              }
-              rows={4}
-              disabled={isRestrictedEditing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-              placeholder="Detalles adicionales, requerimientos especiales, etc."
-            />
-          </div>
         </div>
 
         {/* Columna lateral - Resúmenes */}
@@ -3332,6 +3198,100 @@ export default function QuotationForm() {
                 </>
               );
             })()}
+          </div>
+
+          {/* Descuento — columna comercial (orden acordado con Felipe el
+              22-07: Resumen → Descuento → Observaciones). Compacto: el
+              monto descontado y el total viven en el Resumen de arriba. */}
+          {userRole && getMaxDiscountForRole() > 0 && (
+            <div className="bg-white rounded-xl shadow p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Descuento
+              </h3>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
+                  {(["%", "$"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setDiscType(t)}
+                      disabled={isRestrictedEditing}
+                      className={`px-3 py-2 text-sm font-bold ${
+                        discType === t
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex-1">
+                  {discType === "%" ? (
+                    <NumberInput
+                      id="discount_percentage"
+                      name="discount_percentage"
+                      value={formData.discount_percentage}
+                      onChange={(value) => {
+                        // @ts-ignore
+                        setFormData((prev) => ({
+                          ...prev,
+                          discount_percentage: value
+                            ? Number(value)
+                            : undefined,
+                        }));
+                      }}
+                      min={0}
+                      max={getMaxDiscountForRole()}
+                      disabled={isRestrictedEditing}
+                    />
+                  ) : (
+                    <NumberInput
+                      id="discount_amount"
+                      name="discount_amount"
+                      value={formData.discount_amount || undefined}
+                      onChange={(value) => {
+                        // @ts-ignore
+                        setFormData((prev) => ({
+                          ...prev,
+                          discount_amount: value ? Number(value) : 0,
+                        }));
+                      }}
+                      min={0}
+                      max={getMaxDiscountAmount()}
+                      formatThousands
+                      placeholder="0"
+                      disabled={isRestrictedEditing}
+                    />
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {discType === "%"
+                  ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
+                  : `Máximo: $${getMaxDiscountAmount().toLocaleString("es-CL")} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
+              </p>
+            </div>
+          )}
+
+          {/* Observaciones — al pie de la columna comercial */}
+          <div className="bg-white rounded-xl shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Observaciones
+            </h3>
+            <textarea
+              value={formData.observations}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  observations: e.target.value,
+                }))
+              }
+              rows={4}
+              disabled={isRestrictedEditing}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              placeholder="Detalles adicionales, requerimientos especiales, etc."
+            />
           </div>
         </div>
       </div>
