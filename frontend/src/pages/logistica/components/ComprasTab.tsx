@@ -658,9 +658,9 @@ export default function ComprasTab({
                     c.supply.package_name || "formato"
                   } de ${Number(c.supply.package_qty).toLocaleString("es-CL")} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
                 : "";
-            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}${
-              formato ? `<div class="nota">→ ${esc(formato)}</div>` : ""
-            }</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="der">${
+            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}${
+              formato ? ` <span class="nota">· ${esc(formato)}</span>` : ""
+            }</td><td class="der">${
               c.supply.price ? fmtMoney(c.totalBase * c.supply.price) : "—"
             }</td></tr>`;
           })
@@ -714,7 +714,7 @@ export default function ComprasTab({
   .chk { width:26px; }
   .chk span { display:inline-block; width:13px; height:13px; border:1.5px solid #9ca3af; border-radius:3px; vertical-align:middle; }
   .tabla { width:100%; border-collapse:collapse; margin-top:2px; }
-  .tabla td { font-size:12.5px; padding:6px 10px 6px 0; border-bottom:1px solid #f3f4f6; }
+  .tabla td { font-size:12.5px; padding:4px 10px 4px 0; border-bottom:1px solid #f3f4f6; }
   .tabla td.chk { padding-left:2px; }
   .tabla td:nth-child(2) { font-weight:600; }
   .tabla .der { text-align:right; white-space:nowrap; font-weight:700; }
@@ -1361,7 +1361,7 @@ export default function ComprasTab({
                                 : ""
                             }
                           >
-                            <td className="px-3 py-2 w-8">
+                            <td className="px-3 py-1.5 w-8">
                               <input
                                 type="checkbox"
                                 checked={checkedSupplies.has(c.supply.id)}
@@ -1370,7 +1370,7 @@ export default function ComprasTab({
                                 aria-label={`Seleccionar ${c.supply.name}`}
                               />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-1.5">
                               <span className="text-gray-900">
                                 {c.supply.name}
                               </span>
@@ -1390,17 +1390,18 @@ export default function ComprasTab({
                                 </span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                            <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}
                               {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                              {/* Equivalencia en formato de compra (informativa,
-                                  redondeada hacia arriba). El costo es lineal. */}
+                              {/* Equivalencia en formato de compra EN LA MISMA
+                                  línea (filas a media altura, pedido 22-07).
+                                  El costo es lineal. */}
                               {c.supply.package_qty &&
                                 c.supply.package_qty > 0 &&
                                 (c.supply.package_name ||
                                   c.supply.package_qty !== 1) && (
-                                  <div className="text-[11px] font-normal text-gray-400">
-                                    →{" "}
+                                  <span className="ml-1.5 text-[11px] font-normal text-gray-400">
+                                    ·{" "}
                                     {Math.ceil(
                                       c.totalBase / c.supply.package_qty,
                                     ).toLocaleString("es-CL")}{" "}
@@ -1409,10 +1410,10 @@ export default function ComprasTab({
                                       c.supply.package_qty,
                                     ).toLocaleString("es-CL")}{" "}
                                     {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                                  </div>
+                                  </span>
                                 )}
                             </td>
-                            <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+                            <td className="px-3 py-1.5 text-right text-gray-700 whitespace-nowrap">
                               {c.supply.price
                                 ? fmtMoney(c.totalBase * c.supply.price)
                                 : "—"}
