@@ -1627,8 +1627,9 @@ function ServiciosTab({
                 {audOf(g) === "ninos" ? "NIÑOS" : "ADULTOS"}
               </span>
               <span className="text-gray-500">·</span>
-              {/* Personas del grupo, editable como en el cotizador. El
-                  "de N" va ANCLADO (absoluto): la fila no se mueve. */}
+              {/* Personas del grupo, editable como en el cotizador. Sin
+                  el "de N" (pedido de Felipe 22-07: solo en el cotizador);
+                  el ajuste manual se distingue por la casilla ámbar. */}
               <span className="relative">
                 <input
                   type="text"
@@ -1646,11 +1647,6 @@ function ServiciosTab({
                   }`}
                   aria-label={`Personas de ${g.category}`}
                 />
-                {typeof g.people === "number" && (
-                  <span className="absolute right-0 top-full mt-0.5 text-[10px] font-semibold normal-case text-amber-700 whitespace-nowrap">
-                    de {audCount(g).toLocaleString("es-CL")}
-                  </span>
-                )}
               </span>
               <span className="text-gray-500">
                 personas
