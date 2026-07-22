@@ -296,18 +296,30 @@ export default function RecipeTab({
                 className="!px-2 text-sm text-right"
               />
             </span>
-            <select
-              value={addUnit}
-              onChange={(e) => setAddUnit(e.target.value as RecipeUnit)}
-              disabled={!selectedSupply}
-              className="border border-gray-300 rounded-lg px-2 py-2 text-sm disabled:bg-gray-50 w-18"
+            {/* Píldoras de unidad (sin desplegable nativo), mismo
+                lenguaje que el formulario de insumos. */}
+            <div
+              className={`flex rounded-lg border border-gray-300 overflow-hidden shrink-0 ${
+                !selectedSupply ? "opacity-50 pointer-events-none" : ""
+              }`}
             >
-              {(unitOptions.length ? unitOptions : ["kg"]).map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
+              {((unitOptions.length ? unitOptions : ["kg"]) as RecipeUnit[]).map(
+                (u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setAddUnit(u)}
+                    className={`px-3 py-2 text-sm font-semibold transition-colors ${
+                      addUnit === u
+                        ? "bg-blue-50 text-blue-700"
+                        : "bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ),
+              )}
+            </div>
             <button
               type="button"
               onClick={addIngredient}

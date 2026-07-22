@@ -555,19 +555,24 @@ export default function InsumosTab({
                         className="text-sm text-right"
                         placeholder="0"
                       />
-                      <select
-                        value={pkgUnit}
-                        onChange={(e) =>
-                          setPkgUnit(e.target.value as RecipeUnit)
-                        }
-                        className="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
-                      >
+                      {/* Píldoras de unidad (sin desplegable nativo),
+                          mismo lenguaje del selector de familia. */}
+                      <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
                         {UNITS_BY_FAMILY[family].map((u) => (
-                          <option key={u} value={u}>
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setPkgUnit(u)}
+                            className={`px-3 py-2 text-sm font-semibold transition-colors ${
+                              pkgUnit === u
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-white text-gray-500 hover:bg-gray-50"
+                            }`}
+                          >
                             {u}
-                          </option>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   </div>
                 </div>
