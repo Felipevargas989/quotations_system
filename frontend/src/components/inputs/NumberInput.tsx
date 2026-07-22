@@ -18,10 +18,10 @@ import { NumberInputProps } from "./types";
 //   puntos. Cualquier punto que escriba el usuario se IGNORA (por eso
 //   "1.500.000" por costumbre funciona, y el "1.00.000" que una vez se
 //   leyó como $1 no puede existir).
-// - La coma es el único decimal ("1,5" = uno y medio). Al teclear un
-//   punto aparece un avisito suave de 2,5s — "El punto se ignora: usa
-//   coma para decimales" — una vez por visita al campo, sin vibrar ni
-//   bloquear (el teclado educa en el momento exacto).
+// - La coma es el único decimal ("1,5" = uno y medio). El punto que
+//   se teclee simplemente no aparece — sin mensajes (decisión Felipe
+//   22-07: capacita él al equipo; un aviso bajo el campo movía el
+//   layout).
 // - La pantalla y el valor interno son SIEMPRE el mismo número: onChange
 //   se dispara con cada tecla, incluso si el valor viola min/max.
 // - Violación de min/max: vibración + borde rojo + mensaje formateado.
@@ -57,12 +57,9 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     const [displayValue, setDisplayValue] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [shaking, setShaking] = useState(false);
-    const [dotHint, setDotHint] = useState(false);
     const isFocusedRef = useRef(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const pendingCaretRef = useRef<number | null>(null);
-    const hintShownRef = useRef(false); // una vez por visita al campo
-    const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const setRefs = (el: HTMLInputElement | null) => {
       inputRef.current = el;
@@ -134,26 +131,9 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       }
     }, [displayValue]);
 
-    // Limpieza del timer del avisito
-    useEffect(
-      () => () => {
-        if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-      },
-      [],
-    );
-
     const triggerShake = () => {
       setShaking(false);
       requestAnimationFrame(() => setShaking(true));
-    };
-
-    // Avisito suave al teclear un punto: educa la regla sin castigar.
-    const showDotHint = () => {
-      if (hintShownRef.current) return;
-      hintShownRef.current = true;
-      setDotHint(true);
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = setTimeout(() => setDotHint(false), 2500);
     };
 
     // Chequeo de rango: avisa (vibración + mensaje formateado) pero NUNCA
@@ -187,16 +167,6 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       const raw = event.target.value;
       const caret = event.target.selectionStart ?? raw.length;
 
-      // ¿La edición recién hecha metió UN punto? (tecla, no pegado):
-      // el texto creció en 1 y el carácter previo al cursor es ".".
-      if (
-        raw.length === displayValue.length + 1 &&
-        caret > 0 &&
-        raw[caret - 1] === "."
-      ) {
-        showDotHint();
-      }
-
       const sig = countSig(raw.slice(0, caret));
       const { display, clean } = normalizeLive(raw);
       setDisplayValue(display);
@@ -208,14 +178,12 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
     const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
       isFocusedRef.current = true;
-      hintShownRef.current = false; // el avisito puede volver a salir
       // Seleccionar todo al entrar: escribir reemplaza sin tener que borrar.
       event.target.select();
     };
 
     const handleBlur = () => {
       isFocusedRef.current = false;
-      setDotHint(false);
       // Al salir, la pantalla muestra el número real formateado (el mismo
       // que viajó por onChange). El aviso de rango se conserva visible.
       let parsed: number | undefined;
@@ -260,11 +228,6 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           {...props}
         />
         {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-        {!error && dotHint && (
-          <p className="text-blue-500 text-xs mt-1 whitespace-nowrap">
-            Usa coma para decimales
-          </p>
-        )}
       </div>
     );
   },
