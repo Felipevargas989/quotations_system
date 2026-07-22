@@ -725,7 +725,7 @@ export default function ComprasTab({
   .btn-imprimir { position:fixed; top:14px; right:14px; background:${brandP}; color:${onBrandP}; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   .hoja, .hoja * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @media print {
-    @page { margin:12mm; }
+    @page { size:A4 portrait; margin:12mm; }
     body { background:#fff; padding:0; }
     .hoja { box-shadow:none; padding:0; max-width:none; }
     .btn-imprimir { display:none; }

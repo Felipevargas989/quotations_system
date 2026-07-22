@@ -760,7 +760,7 @@ export default function FichaCocinaSection({
      los fondos en modo ahorro de tinta y la ficha sale lavada). */
   .hoja, .hoja * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @media print {
-    @page { margin:12mm; }
+    @page { size:A4 portrait; margin:12mm; }
     body { background:#fff; padding:0; }
     .hoja { box-shadow:none; padding:0; max-width:none; }
     .btn-imprimir { display:none; }
