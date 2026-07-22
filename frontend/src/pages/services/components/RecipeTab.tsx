@@ -22,7 +22,7 @@ import {
   grossQty,
   toBaseQty,
 } from "../../../types/logistics.types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import PhotoPopup from "../../../components/PhotoPopup";
@@ -53,10 +53,6 @@ export default function RecipeTab({
     queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
   };
 
-  const [items, setItems] = useState<RecipeItem[]>([]);
-  const [supplies, setSupplies] = useState<Supply[]>([]);
-  const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [photoView, setPhotoView] = useState<{
     url: string;
@@ -78,21 +74,26 @@ export default function RecipeTab({
 
   const showIngredients = serviceType === "variable";
 
-  const load = () => {
-    setLoading(true);
-    Promise.all([
-      getRecipeItems(companyId, serviceType, serviceId),
-      getSupplies(companyId),
-      getFurnitureItems(companyId),
-    ])
-      .then(([r, s, f]) => {
-        setItems(r);
-        setSupplies(s);
-        setFurniture(f);
-      })
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, [companyId, serviceType, serviceId]);
+  // Vía React Query (22-07-2026, fin del pestañeo): spinner SOLO la
+  // primera carga; las recargas tras agregar/editar/quitar reemplazan
+  // los datos en su lugar, sin desmontar la pestaña.
+  const recetaKey = ["receta", companyId, serviceType, serviceId] as const;
+  const recetaQuery = useQuery({
+    queryKey: recetaKey,
+    queryFn: async () => {
+      const [r, s, f] = await Promise.all([
+        getRecipeItems(companyId, serviceType, serviceId),
+        getSupplies(companyId),
+        getFurnitureItems(companyId),
+      ]);
+      return { items: r, supplies: s, furniture: f };
+    },
+  });
+  const items = recetaQuery.data?.items ?? [];
+  const supplies = recetaQuery.data?.supplies ?? [];
+  const furniture = recetaQuery.data?.furniture ?? [];
+  const loading = recetaQuery.isPending;
+  const load = () => queryClient.invalidateQueries({ queryKey: recetaKey });
 
   const supplyById = useMemo(
     () => new Map(supplies.map((s) => [s.id, s])),
@@ -219,7 +220,11 @@ export default function RecipeTab({
       setErr("No se pudo crear el insumo (¿nombre repetido?).");
       return;
     }
-    setSupplies((prev) => [...prev, data]);
+    queryClient.setQueryData(
+      recetaKey,
+      (prev: { items: RecipeItem[]; supplies: Supply[]; furniture: FurnitureItem[] } | undefined) =>
+        prev && { ...prev, supplies: [...prev.supplies, data] },
+    );
     setAddSupplyId(String(data.id));
     setAddUnit(UNITS_BY_FAMILY[data.unit_family][0]);
     setNewSupplyOpen(false);
@@ -237,7 +242,11 @@ export default function RecipeTab({
       setErr("No se pudo crear el ítem (¿nombre repetido?).");
       return;
     }
-    setFurniture((prev) => [...prev, data]);
+    queryClient.setQueryData(
+      recetaKey,
+      (prev: { items: RecipeItem[]; supplies: Supply[]; furniture: FurnitureItem[] } | undefined) =>
+        prev && { ...prev, furniture: [...prev.furniture, data] },
+    );
     setNewFurnOpen(false);
     setNfName("");
     // Recién creado → directo a la receta.
