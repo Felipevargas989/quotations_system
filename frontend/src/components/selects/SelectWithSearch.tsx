@@ -17,8 +17,22 @@ export default function SelectWithSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  // Drop-up inteligente: si abajo no hay espacio para la lista, se
+  // abre hacia ARRIBA (caso típico: campo al fondo de una ventana con
+  // scroll interno, ej. Proveedor en Nuevo insumo). 22-07-2026.
+  const [openUp, setOpenUp] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Alto estimado de la lista desplegada (buscador + max-h-60).
+  const LIST_HEIGHT = 320;
+
+  useEffect(() => {
+    if (!isOpen || !dropdownRef.current) return;
+    const rect = dropdownRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setOpenUp(spaceBelow < LIST_HEIGHT && rect.top > spaceBelow);
+  }, [isOpen]);
 
   // Búsqueda inteligente del sistema: sin tildes, por palabras en
   // cualquier orden (utils/searchMatch).
@@ -164,9 +178,13 @@ export default function SelectWithSearch({
         </div>
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown (hacia abajo, o hacia arriba si abajo no cabe) */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div
+          className={`absolute z-50 w-full bg-white border border-gray-300 rounded-lg shadow-lg ${
+            openUp ? "bottom-full mb-1" : "mt-1"
+          }`}
+        >
           {/* Search input */}
           <div className="p-2 border-b border-gray-200">
             <div className="relative">
