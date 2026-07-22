@@ -39,7 +39,7 @@ import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import { matchesSearch } from "../../utils/searchMatch";
+import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 import GestionTab from "./GestionTab";
 import CocinaTab from "./CocinaTab";
 import { getQuotationProvisioning } from "../../services/logistics.service";
@@ -243,6 +243,27 @@ export default function PostVentaPage() {
         event_date?: string | null;
         event_end_date?: string | null;
       };
+
+      // Contacto mostrado: el MANDANTE de la cotización (quien encargó
+      // ESTE evento), con su propio teléfono buscado entre los contactos
+      // del cliente. Sin mandante guardado (cotizaciones antiguas) → el
+      // contacto principal del cliente, como antes. Si el mandante no
+      // tiene fono registrado, no se muestra el de otra persona.
+      const qExtra = q as unknown as {
+        contact_name?: string | null;
+        clients?: { client_contacts?: { name: string; phone?: string }[] };
+      };
+      const mandante = qExtra?.contact_name?.trim();
+      let contactPerson = client?.contact_person;
+      let phone = client?.phone;
+      if (mandante) {
+        contactPerson = mandante;
+        const match = (qExtra?.clients?.client_contacts || []).find(
+          (c) => normalizeText(c.name) === normalizeText(mandante),
+        );
+        phone = match?.phone || undefined;
+      }
+
       events.push({
         quotationId,
         cancelled: qStatus === "cancelada",
@@ -252,8 +273,8 @@ export default function PostVentaPage() {
         quotationNumber: q?.quotation_number ?? 0,
         clientName: q?.clients?.name || "—",
         clientType: client?.client_type,
-        contactPerson: client?.contact_person,
-        phone: client?.phone,
+        contactPerson,
+        phone,
         requiresInvoice: q?.requires_invoice,
         hasContract: q?.has_contract,
         total,

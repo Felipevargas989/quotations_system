@@ -93,9 +93,14 @@ export class PaymentsRepository {
       total_amount,
       requires_invoice,
       has_contract,
+      contact_name,
       clients!inner (
         name,
-        email
+        email,
+        client_contacts (
+          name,
+          phone
+        )
       ),
       companies!inner (
         name
