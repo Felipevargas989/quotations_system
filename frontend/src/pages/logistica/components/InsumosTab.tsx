@@ -535,10 +535,14 @@ export default function InsumosTab({
                 <label className="text-xs font-semibold text-gray-600">
                   Merma (%)
                 </label>
+                {/* Tope 99: el campo vibra y avisa (regla del sistema:
+                    nunca ajustar en silencio); el botón Guardar se
+                    bloquea mientras el valor sea inválido. */}
                 <NumberInput
                   value={waste || undefined}
-                  onChange={(v) => setWaste(Math.min(v || 0, 99))}
+                  onChange={(v) => setWaste(v || 0)}
                   min={0}
+                  max={99}
                   placeholder="0"
                 />
                 <p className="mt-1 text-xs text-gray-400">
@@ -573,7 +577,12 @@ export default function InsumosTab({
                 <button
                   onClick={save}
                   disabled={
-                    saving || !name.trim() || pkgQtyBase <= 0 || !pkgPrice
+                    saving ||
+                    !name.trim() ||
+                    pkgQtyBase <= 0 ||
+                    !pkgPrice ||
+                    waste < 0 ||
+                    waste > 99
                   }
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                 >
