@@ -626,7 +626,12 @@ export default function ComprasTab({
           : "Lista completa";
     const generada = new Date().toLocaleString("es-CL");
 
-    const paginas = consolidation.groups
+    // PDF CONTINUO (pedido de Felipe 22-07): un solo documento, cada
+    // proveedor como sección que fluye — nada de una hoja por proveedor.
+    // Único cuidado: no cortar un proveedor por la mitad si cabe entero.
+    let totalShown = 0;
+    let itemsShown = 0;
+    const secciones = consolidation.groups
       .map((g) => {
         const rows = g.rows.filter((c) => {
           const st = supplyStatus(c.supply.id);
@@ -640,6 +645,8 @@ export default function ComprasTab({
           (t, c) => t + c.totalBase * (c.supply.price || 0),
           0,
         );
+        totalShown += sub;
+        itemsShown += rows.length;
         const sinPrecio = rows.filter((c) => !c.supply.price).length;
         const filas = rows
           .map((c) => {
@@ -658,22 +665,21 @@ export default function ComprasTab({
             }</td></tr>`;
           })
           .join("");
-        return `<div class="hoja pagina">
-  <div class="head">
-    <div class="marca"><div class="logo">${logoHtml}</div><div><h1>${esc(company?.name || "Eventia")}</h1><div class="sub">Documento operativo — orden de compra</div></div></div>
-    <div class="folio"><div class="tipo">Orden de Compra</div><div class="num">${esc(g.supplier ? g.supplier.name : "Sin proveedor")}</div><div class="fecha">${esc(filtroTxt)}</div></div>
+        return `<div class="prov">
+  <div class="prov-head">
+    <span class="prov-nombre">${esc(g.supplier ? g.supplier.name : "Sin proveedor asignado")}</span>
+    ${
+      g.supplier?.contact_name || g.supplier?.phone
+        ? `<span class="prov-contacto">${esc(
+            [g.supplier?.contact_name, g.supplier?.phone]
+              .filter(Boolean)
+              .join(" · "),
+          )}</span>`
+        : ""
+    }
+    <span class="prov-sub">${fmtMoney(sub)}${sinPrecio ? ` <small>· ${sinPrecio} sin precio</small>` : ""}</span>
   </div>
-  <div class="datos">
-    <div class="dato"><div class="k">Contacto</div><div class="v">${esc(g.supplier?.contact_name || "—")}</div></div>
-    <div class="dato"><div class="k">Teléfono</div><div class="v">${esc(g.supplier?.phone || "—")}</div></div>
-    <div class="dato"><div class="k">Eventos</div><div class="v">${esc(eventosTxt || "—")}</div></div>
-    <div class="dato"><div class="k">Ítems</div><div class="v big">${rows.length}</div></div>
-  </div>
-  <h2 class="seccion">Insumos a pedir</h2>
-  <table class="tabla">${filas}
-    <tr class="total"><td></td><td class="der" style="text-align:right;font-size:10.5px;font-weight:800;color:#6b7280;text-transform:uppercase;">Subtotal estimado${sinPrecio ? ` · ${sinPrecio} sin precio` : ""}</td><td></td><td class="der">${fmtMoney(sub)}</td></tr>
-  </table>
-  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades brutas (incluyen merma) · precios estimados de catálogo</span></div>
+  <table class="tabla">${filas}</table>
 </div>`;
       })
       .join("");
@@ -694,24 +700,28 @@ export default function ComprasTab({
   .folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
   .folio .num { font-size:20px; font-weight:800; }
   .folio .fecha { font-size:11px; color:#6b7280; margin-top:2px; }
-  .datos { display:grid; grid-template-columns:1.2fr 1fr 1.4fr .5fr; gap:12px 22px; padding:14px 0; border-bottom:1px solid #e5e7eb; }
+  .datos { display:grid; grid-template-columns:1.6fr 1fr .6fr .8fr; gap:12px 22px; padding:14px 0; border-bottom:1px solid #e5e7eb; }
   .dato .k { font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9ca3af; text-transform:uppercase; }
   .dato .v { font-size:13px; font-weight:600; margin-top:1px; }
   .dato .v.big { font-size:16px; font-weight:800; color:${brandP}; }
-  h2.seccion { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:${brandP}; margin:22px 0 8px; display:flex; align-items:center; gap:8px; }
-  h2.seccion::after { content:""; flex:1; border-top:1px solid #e5e7eb; }
+  /* Sección por proveedor: franja suave, fluye una tras otra */
+  .prov { margin-top:18px; page-break-inside:avoid; }
+  .prov-head { display:flex; align-items:baseline; gap:10px; background:#f3f4f6; border-radius:8px; padding:6px 12px; }
+  .prov-nombre { font-size:12px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:${brandP}; }
+  .prov-contacto { font-size:11px; color:#6b7280; }
+  .prov-sub { margin-left:auto; font-size:12.5px; font-weight:800; }
+  .prov-sub small { font-weight:600; font-size:10px; color:#b45309; }
   .chk { width:26px; }
   .chk span { display:inline-block; width:13px; height:13px; border:1.5px solid #9ca3af; border-radius:3px; vertical-align:middle; }
-  .tabla { width:100%; border-collapse:collapse; }
+  .tabla { width:100%; border-collapse:collapse; margin-top:2px; }
   .tabla td { font-size:12.5px; padding:6px 10px 6px 0; border-bottom:1px solid #f3f4f6; }
   .tabla td.chk { padding-left:2px; }
   .tabla td:nth-child(2) { font-weight:600; }
   .tabla .der { text-align:right; white-space:nowrap; font-weight:700; }
   .tabla .nota { font-weight:400; font-size:10.5px; color:#9ca3af; }
-  .tabla .total td { border-bottom:none; background:#f9fafb; }
+  .tabla tr:last-child td { border-bottom:none; }
+  .total-final { display:flex; justify-content:flex-end; gap:14px; margin-top:16px; padding:8px 12px; background:${brandP}; color:${onBrandP}; border-radius:8px; font-size:13px; font-weight:800; }
   .pie { margin-top:26px; border-top:1px solid #e5e7eb; padding-top:10px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
-  .pagina { page-break-after:always; margin-bottom:26px; }
-  .pagina:last-child { page-break-after:auto; margin-bottom:0; }
   .btn-imprimir { position:fixed; top:14px; right:14px; background:${brandP}; color:${onBrandP}; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   .hoja, .hoja * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @media print {
@@ -722,7 +732,21 @@ export default function ComprasTab({
   }
 </style></head><body>
 <button class="btn-imprimir" onclick="window.print()">Imprimir / PDF</button>
-${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay insumos que coincidan con el filtro actual.</p>'}
+<div class="hoja">
+  <div class="head">
+    <div class="marca"><div class="logo">${logoHtml}</div><div><h1>${esc(company?.name || "Eventia")}</h1><div class="sub">Documento operativo — orden de compra</div></div></div>
+    <div class="folio"><div class="tipo">Orden de Compra</div><div class="num">${selectedEvents.length} evento${selectedEvents.length === 1 ? "" : "s"}</div><div class="fecha">${esc(generada)}</div></div>
+  </div>
+  <div class="datos">
+    <div class="dato"><div class="k">Eventos</div><div class="v">${esc(eventosTxt || "—")}</div></div>
+    <div class="dato"><div class="k">Filtro</div><div class="v">${esc(filtroTxt)}</div></div>
+    <div class="dato"><div class="k">Ítems</div><div class="v big">${itemsShown}</div></div>
+    <div class="dato"><div class="k">Total estimado</div><div class="v big">${fmtMoney(totalShown)}</div></div>
+  </div>
+  ${secciones || '<p style="text-align:center;color:#6b7280;margin-top:30px">No hay insumos que coincidan con el filtro actual.</p>'}
+  ${secciones ? `<div class="total-final"><span>Total estimado</span><span>${fmtMoney(totalShown)}</span></div>` : ""}
+  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades brutas (incluyen merma) · precios estimados de catálogo</span></div>
+</div>
 </body></html>`;
     const win = window.open("", "_blank");
     if (!win) return;
@@ -1177,7 +1201,7 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
                             PDF orden de compra
                           </span>
                           <span className="block text-[11px] text-gray-400">
-                            una página por proveedor · según filtro
+                            continuo, secciones por proveedor · según filtro
                           </span>
                         </span>
                       </button>
