@@ -7,24 +7,26 @@ import React, {
 } from "react";
 import { NumberInputProps } from "./types";
 
-// Campo numérico con la norma es-CL — UN SOLO FORMATO DECIMAL EN TODO
-// EL SISTEMA (regla de Felipe, 21-07-2026): la COMA es el único
-// decimal; el punto nunca es ambiguo.
+// Campo numérico con la norma es-CL — LA REGLA ÚNICA DEL SISTEMA
+// (definida con Felipe el 22-07-2026, tras iterar juntos):
 //
-// - formatThousands (campos de PLATA): el usuario teclea DÍGITOS y el
-//   campo pone los puntos de miles EN VIVO; los puntos que escriba el
-//   usuario se IGNORAN (el "1.00.000" que se leía como $1 no puede
-//   existir). La coma queda reservada para decimales.
-// - modo clásico (personas, porcentajes, contenido, cantidades): si el
-//   usuario escribe un PUNTO se convierte en COMA al instante
-//   ("1.5" → "1,5"); solo vale el primer separador. Estos campos NUNCA
-//   agrupan miles, así "1.500" ya no puede significar mil quinientos:
-//   es 1,5 (adiós al parseo ambiguo antiguo).
+//   «La coma es EL decimal. El punto NUNCA es decimal.
+//    Los puntos de miles se ponen solos.»
+//
+// Una sola regla para las 31 cajas numéricas, sin excepciones:
+// - El usuario teclea DÍGITOS y el campo agrupa los miles EN VIVO con
+//   puntos. Cualquier punto que escriba el usuario se IGNORA (por eso
+//   "1.500.000" por costumbre funciona, y el "1.00.000" que una vez se
+//   leyó como $1 no puede existir).
+// - La coma es el único decimal ("1,5" = uno y medio). Al teclear un
+//   punto aparece un avisito suave de 2,5s — "El punto se ignora: usa
+//   coma para decimales" — una vez por visita al campo, sin vibrar ni
+//   bloquear (el teclado educa en el momento exacto).
 // - La pantalla y el valor interno son SIEMPRE el mismo número: onChange
 //   se dispara con cada tecla, incluso si el valor viola min/max.
-// - Violación de min/max: el campo vibra + borde rojo + mensaje
-//   formateado. NO se ajusta solo ni se congela: el usuario corrige, y
-//   es el formulario padre quien bloquea su botón mientras tanto.
+// - Violación de min/max: vibración + borde rojo + mensaje formateado.
+//   NO se ajusta solo ni se congela: el usuario corrige, y es el
+//   formulario padre quien bloquea su botón mientras tanto.
 // - onCommit: entrega el número final al salir del campo (celdas con
 //   autoguardado onBlur, ej. cantidades de recetas).
 
@@ -48,12 +50,19 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     },
     ref,
   ) => {
+    // formatThousands se conserva por compatibilidad con los llamadores,
+    // pero ya no cambia el comportamiento: TODOS los campos agrupan.
+    void formatThousands;
+
     const [displayValue, setDisplayValue] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [shaking, setShaking] = useState(false);
+    const [dotHint, setDotHint] = useState(false);
     const isFocusedRef = useRef(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const pendingCaretRef = useRef<number | null>(null);
+    const hintShownRef = useRef(false); // una vez por visita al campo
+    const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const setRefs = (el: HTMLInputElement | null) => {
       inputRef.current = el;
@@ -61,28 +70,15 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       else if (ref) ref.current = el;
     };
 
-    // Formato de pantalla: plata con puntos de miles; clásico SIN
-    // agrupación (un "1.500" nunca vuelve a ser ambiguo en pantalla).
     const fmtCL = (num: number): string => {
       if (isNaN(num)) return "";
-      return num.toLocaleString("es-CL", {
-        maximumFractionDigits: 6,
-        useGrouping: formatThousands,
-      });
+      return num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
     };
 
-    // Mensajes de rango: siempre con miles (son montos legibles).
-    const fmtMsg = (num: number): string =>
-      isNaN(num)
-        ? ""
-        : num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
-
-    // ---- formatThousands (plata): normalización en vivo ----
+    // ---- Normalización en vivo (la regla única) ----
     // Conserva dígitos y la primera coma; agrupa el entero de a 3 con
-    // puntos. Los puntos ESCRITOS se ignoran.
-    const normalizeLiveMiles = (
-      raw: string,
-    ): { display: string; clean: string } => {
+    // puntos. Los puntos ESCRITOS se ignoran siempre.
+    const normalizeLive = (raw: string): { display: string; clean: string } => {
       let digitsAndComma = "";
       let commaSeen = false;
       for (const ch of raw) {
@@ -100,53 +96,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       return { display, clean: digitsAndComma === "" ? "" : clean };
     };
 
-    // ---- modo clásico: normalización en vivo ----
-    // Dígitos + el PRIMER separador ('.' o ',') mostrado como coma;
-    // separadores posteriores se ignoran. Sin agrupación de miles.
-    const normalizeLiveClassic = (
-      raw: string,
-    ): { display: string; clean: string } => {
-      let digitsAndComma = "";
-      let sepSeen = false;
-      for (const ch of raw) {
-        if (/\d/.test(ch)) digitsAndComma += ch;
-        else if ((ch === "," || ch === ".") && !sepSeen) {
-          digitsAndComma += ",";
-          sepSeen = true;
-        }
-      }
-      const [intRaw, decRaw = ""] = digitsAndComma.split(",");
-      const intPart = intRaw.replace(/^0+(?=\d)/, "");
-      const display = sepSeen ? `${intPart},${decRaw}` : intPart;
-      const clean = (intPart || "0") + (sepSeen ? `.${decRaw}` : "");
-      return { display, clean: digitsAndComma === "" ? "" : clean };
-    };
-
-    const normalizeLive = formatThousands
-      ? normalizeLiveMiles
-      : normalizeLiveClassic;
-
-    // Caracteres "significativos" para reponer el cursor tras el
-    // reformateo. En clásico el punto escrito cuenta (sobrevive como
-    // coma); en plata el punto escrito se ignora y no cuenta.
-    const sigRe = formatThousands ? /[\d,]/ : /[\d,.]/;
-    const countSig = (s: string) => {
-      let n = 0;
-      let sepSeen = false;
-      for (const ch of s) {
-        if (/\d/.test(ch)) n++;
-        else if (sigRe.test(ch)) {
-          // separadores: en clásico solo el PRIMERO sobrevive
-          if (formatThousands) {
-            if (ch === ",") n++;
-          } else if (!sepSeen) {
-            n++;
-            sepSeen = true;
-          }
-        }
-      }
-      return n;
-    };
+    const countSig = (s: string) => (s.match(/[\d,]/g) || []).length;
     const posAfterSig = (s: string, n: number) => {
       if (n <= 0) return 0;
       let seen = 0;
@@ -167,7 +117,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       } else {
         setDisplayValue("");
       }
-    }, [value, formatThousands]);
+    }, [value]);
 
     // Reponer el cursor tras el reformateo en vivo
     useLayoutEffect(() => {
@@ -184,9 +134,26 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       }
     }, [displayValue]);
 
+    // Limpieza del timer del avisito
+    useEffect(
+      () => () => {
+        if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+      },
+      [],
+    );
+
     const triggerShake = () => {
       setShaking(false);
       requestAnimationFrame(() => setShaking(true));
+    };
+
+    // Avisito suave al teclear un punto: educa la regla sin castigar.
+    const showDotHint = () => {
+      if (hintShownRef.current) return;
+      hintShownRef.current = true;
+      setDotHint(true);
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = setTimeout(() => setDotHint(false), 2500);
     };
 
     // Chequeo de rango: avisa (vibración + mensaje formateado) pero NUNCA
@@ -198,12 +165,12 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       }
       const pref = currency ? "$" : "";
       if (max !== undefined && num > max) {
-        setError(`El máximo es ${pref}${fmtMsg(max)}`);
+        setError(`El máximo es ${pref}${fmtCL(max)}`);
         triggerShake();
         return;
       }
       if (min !== undefined && num < min) {
-        setError(`El mínimo es ${pref}${fmtMsg(min)}`);
+        setError(`El mínimo es ${pref}${fmtCL(min)}`);
         triggerShake();
         return;
       }
@@ -219,8 +186,18 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const raw = event.target.value;
       const caret = event.target.selectionStart ?? raw.length;
-      const sig = countSig(raw.slice(0, caret));
 
+      // ¿La edición recién hecha metió UN punto? (tecla, no pegado):
+      // el texto creció en 1 y el carácter previo al cursor es ".".
+      if (
+        raw.length === displayValue.length + 1 &&
+        caret > 0 &&
+        raw[caret - 1] === "."
+      ) {
+        showDotHint();
+      }
+
+      const sig = countSig(raw.slice(0, caret));
       const { display, clean } = normalizeLive(raw);
       setDisplayValue(display);
       pendingCaretRef.current = posAfterSig(display, sig);
@@ -231,12 +208,14 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
     const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
       isFocusedRef.current = true;
+      hintShownRef.current = false; // el avisito puede volver a salir
       // Seleccionar todo al entrar: escribir reemplaza sin tener que borrar.
       event.target.select();
     };
 
     const handleBlur = () => {
       isFocusedRef.current = false;
+      setDotHint(false);
       // Al salir, la pantalla muestra el número real formateado (el mismo
       // que viajó por onChange). El aviso de rango se conserva visible.
       let parsed: number | undefined;
@@ -281,6 +260,11 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           {...props}
         />
         {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        {!error && dotHint && (
+          <p className="text-blue-500 text-xs mt-1">
+            El punto se ignora — usa coma para decimales
+          </p>
+        )}
       </div>
     );
   },

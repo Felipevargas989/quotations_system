@@ -7,7 +7,8 @@ export interface NumberInputProps {
   min?: number;
   /** The maximum value allowed */
   max?: number;
-  /** Whether to format the number with thousand separators for display */
+  /** OBSOLETO (22-07-2026): la regla única del sistema agrupa miles en
+   *  TODOS los campos; se conserva solo por compatibilidad. */
   formatThousands?: boolean;
   /** Money field: range messages show the $ sign (es-CL) */
   currency?: boolean;
