@@ -133,7 +133,7 @@ export type QuotationPublicFormData = Pick<
   Pick<
     Quotation,
     "event_type" | "people_count" | "observations" | "event_date"
-  >;
+  > & { children_count?: number };
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
 

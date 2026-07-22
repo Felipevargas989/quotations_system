@@ -247,6 +247,33 @@ export class ClientsRepository {
     };
   }
 
+  // Match ROBUSTO para el formulario público (anti-duplicados, 22-07):
+  // correo sin mayúsculas/espacios O teléfono comparado solo por dígitos
+  // (los últimos 9) — "9 1234 5678", "+56912345678" y "912345678" son la
+  // misma persona. Devuelve el primer cliente que calce, o null.
+  async findMatch(
+    company_id: number,
+    email?: string,
+    phone?: string,
+  ): Promise<Client | null> {
+    const normEmail = email?.trim().toLowerCase() || '';
+    const digits = (v?: string | null) => (v || '').replace(/\D/g, '');
+    const normPhone = digits(phone).slice(-9);
+    if (!normEmail && !normPhone) return null;
+    const { data } = await this.supabase.client
+      .from('clients')
+      .select('*')
+      .eq('company_id', company_id);
+    const rows = (data || []) as Client[];
+    return (
+      rows.find(
+        (c) =>
+          (normEmail && (c.email || '').trim().toLowerCase() === normEmail) ||
+          (normPhone.length >= 8 && digits(c.phone).slice(-9) === normPhone),
+      ) || null
+    );
+  }
+
   findOne(company_id: number, id?: number, email?: string, phone?: string) {
     this.logger.info(
       `findOne client with company_id ${company_id} and id ${id} and email ${email} and phone ${phone}`,

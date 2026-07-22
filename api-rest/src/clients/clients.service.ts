@@ -33,6 +33,10 @@ export class ClientsService {
     return this.clientsRepository.findAll(companyId);
   }
 
+  findMatch(company_id: number, email?: string, phone?: string) {
+    return this.clientsRepository.findMatch(company_id, email, phone);
+  }
+
   async findOne(
     company_id: number,
     id?: number,

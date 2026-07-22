@@ -116,10 +116,11 @@ export class QuotationsService {
     this.logger.info(
       `createPublic quotation with createQuotationPublicDto ${JSON.stringify(createQuotationPublicDto)}`,
     );
-    // check if client exists (try to get a client with the same email or phone)
-    const { data: existingClient } = await this.clientsService.findOne(
+    // Anti-duplicados (22-07): match robusto por correo (sin mayúsculas)
+    // O teléfono (solo dígitos) — la solicitud se engancha al cliente
+    // existente en vez de fabricar uno nuevo.
+    const existingClient = await this.clientsService.findMatch(
       company_id,
-      undefined,
       createQuotationPublicDto.email,
       createQuotationPublicDto.phone,
     );
@@ -127,7 +128,6 @@ export class QuotationsService {
     // if not client, create a new one
     let clientId: string;
     if (existingClient) {
-      // throw new Error('Client already exists');
       clientId = (existingClient as Client).id;
     } else {
       // throw new Error('Client does not exists');
@@ -148,6 +148,10 @@ export class QuotationsService {
       client_id: clientId,
       event_type: createQuotationPublicDto.event_type,
       people_count: createQuotationPublicDto.people_count,
+      // Niños del evento (audiencias del Cotizador 2.0) y MANDANTE: quien
+      // llenó el formulario queda como contacto de ESTA cotización.
+      children_count: createQuotationPublicDto.children_count || 0,
+      contact_name: createQuotationPublicDto.name,
       observations: `[Desde formulario publico] --- ${createQuotationPublicDto.observations}`,
       event_date: createQuotationPublicDto.event_date,
       quotation_status: QuotationStatus.SOLICITADA,
