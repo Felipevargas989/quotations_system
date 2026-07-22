@@ -424,6 +424,25 @@ export default function EventResourcesSection({
         </div>
       )}
 
+      {/* Fijos del evento SIN costo en el catálogo: la advertencia que
+          les corresponde (antes se calculaba y no se mostraba; la marca
+          "sin receta" a fijos se eliminó — era ruido). */}
+      {noCostServices.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <p className="text-xs text-gray-600">
+            <span className="font-bold">
+              Sin costo definido en el catálogo:
+            </span>{" "}
+            {noCostServices.map((s) => s.nombre).join(" · ")}
+            <span className="text-gray-400">
+              {" "}
+              — se define en Servicios → ficha del servicio fijo → pestaña
+              Costo.
+            </span>
+          </p>
+        </div>
+      )}
+
       <SelectWithSearch
         options={options}
         value=""

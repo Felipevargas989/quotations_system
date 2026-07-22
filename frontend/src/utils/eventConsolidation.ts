@@ -181,7 +181,11 @@ export const consolidateEvent = (
         ? ctx.byService.get(`${serviceType}-${serviceId}`)
         : undefined;
     if (!lines || lines.length === 0) {
-      acc.noRecipe.push(nombre);
+      // "Sin receta" solo aplica a VARIABLES: su costo nace de la receta.
+      // Los fijos son arriendos/tercerizados costeados por RECURSOS — su
+      // advertencia correcta vive en el bloque Recursos del evento
+      // (acordado con Felipe el 22-07: la marca a fijos era puro ruido).
+      if (serviceType === "variable") acc.noRecipe.push(nombre);
       return;
     }
     lines.forEach((line) => {
