@@ -389,14 +389,18 @@ export default function FixedCostSection({
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        defaultValue={it.quantity}
-                        onBlur={(e) => changeQty(it, e.target.value)}
-                        className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                      />
+                      {/* Campo del sistema (coma decimal, punto→coma);
+                          guarda al salir vía onCommit. */}
+                      <span className="inline-block w-16 align-middle">
+                        <NumberInput
+                          value={it.quantity}
+                          min={0}
+                          onCommit={(n) =>
+                            changeQty(it, n === undefined ? "" : String(n))
+                          }
+                          className="!px-2 !py-1 text-sm text-right"
+                        />
+                      </span>
                     </td>
                     <td className="px-3 py-2 text-right font-medium">
                       {lineFixed(it) > 0 ? clp(lineFixed(it)) : "—"}

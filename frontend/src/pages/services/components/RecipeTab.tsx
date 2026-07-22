@@ -55,7 +55,7 @@ export default function RecipeTab({
 
   // Alta de ingrediente
   const [addSupplyId, setAddSupplyId] = useState("");
-  const [addQty, setAddQty] = useState("");
+  const [addQty, setAddQty] = useState<number | undefined>(undefined);
   const [addUnit, setAddUnit] = useState<RecipeUnit>("kg");
   // Mini-forms de creación al vuelo (inline, sin modal anidado)
   const [newSupplyOpen, setNewSupplyOpen] = useState(false);
@@ -127,7 +127,7 @@ export default function RecipeTab({
   const margin = (servicePrice || 0) - costPerPerson;
 
   const addIngredient = async () => {
-    const qty = parseNum(addQty);
+    const qty = addQty;
     if (!addSupplyId || !qty || qty <= 0) return;
     setErr(null);
     const { error } = await addRecipeItem({
@@ -148,7 +148,7 @@ export default function RecipeTab({
       return;
     }
     setAddSupplyId("");
-    setAddQty("");
+    setAddQty(undefined);
     flashSaved();
     load();
   };
@@ -286,14 +286,16 @@ export default function RecipeTab({
                 noResultsText="Sin resultados"
               />
             </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={addQty}
-              onChange={(e) => setAddQty(e.target.value)}
-              placeholder="Cant."
-              className={qtyInputCls + " py-2"}
-            />
+            <span className="inline-block w-20 align-middle">
+              {/* Campo del sistema: coma decimal, punto→coma */}
+              <NumberInput
+                value={addQty}
+                min={0}
+                onChange={setAddQty}
+                placeholder="Cant."
+                className="!px-2 text-sm text-right"
+              />
+            </span>
             <select
               value={addUnit}
               onChange={(e) => setAddUnit(e.target.value as RecipeUnit)}
@@ -309,7 +311,7 @@ export default function RecipeTab({
             <button
               type="button"
               onClick={addIngredient}
-              disabled={!addSupplyId || !parseNum(addQty)}
+              disabled={!addSupplyId || !addQty || addQty <= 0}
               className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
             >
               <Plus size={16} />
@@ -555,14 +557,18 @@ export default function RecipeTab({
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          defaultValue={it.qty_per_person}
-                          onBlur={(e) => changeQty(it, e.target.value)}
-                          className={qtyInputCls}
-                        />{" "}
+                        {/* Campo del sistema (coma decimal, punto→coma);
+                            guarda al salir vía onCommit. */}
+                        <span className="inline-block w-20 align-middle">
+                          <NumberInput
+                            value={it.qty_per_person}
+                            min={0}
+                            onCommit={(n) =>
+                              changeQty(it, n === undefined ? "" : String(n))
+                            }
+                            className="!px-2 !py-1.5 text-sm text-right"
+                          />
+                        </span>{" "}
                         <span className="text-gray-500">/ persona</span>
                       </td>
                       <td className="w-10 px-2 py-2 text-center">

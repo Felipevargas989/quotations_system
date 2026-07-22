@@ -23,4 +23,7 @@ export interface NumberInputProps {
   disabled?: boolean;
   /** Whether the input is required */
   required?: boolean;
+  /** Se dispara al salir del campo con el número final ya parseado
+   *  (para celdas con autoguardado onBlur, ej. cantidades de recetas) */
+  onCommit?: (value: number | undefined) => void;
 }

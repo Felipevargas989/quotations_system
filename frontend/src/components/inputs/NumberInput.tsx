@@ -7,20 +7,26 @@ import React, {
 } from "react";
 import { NumberInputProps } from "./types";
 
-// Campo numérico con la norma es-CL (rediseño 21-07-2026, definido con
-// Felipe tras el bug del "$1"):
+// Campo numérico con la norma es-CL — UN SOLO FORMATO DECIMAL EN TODO
+// EL SISTEMA (regla de Felipe, 21-07-2026): la COMA es el único
+// decimal; el punto nunca es ambiguo.
 //
-// - formatThousands: el usuario teclea DÍGITOS y el campo pone los puntos
-//   de miles EN VIVO; los puntos que escriba el usuario se ignoran (el
-//   "1.00.000" que se leía como $1 ya no puede existir). La coma queda
-//   reservada para decimales.
+// - formatThousands (campos de PLATA): el usuario teclea DÍGITOS y el
+//   campo pone los puntos de miles EN VIVO; los puntos que escriba el
+//   usuario se IGNORAN (el "1.00.000" que se leía como $1 no puede
+//   existir). La coma queda reservada para decimales.
+// - modo clásico (personas, porcentajes, contenido, cantidades): si el
+//   usuario escribe un PUNTO se convierte en COMA al instante
+//   ("1.5" → "1,5"); solo vale el primer separador. Estos campos NUNCA
+//   agrupan miles, así "1.500" ya no puede significar mil quinientos:
+//   es 1,5 (adiós al parseo ambiguo antiguo).
 // - La pantalla y el valor interno son SIEMPRE el mismo número: onChange
 //   se dispara con cada tecla, incluso si el valor viola min/max.
 // - Violación de min/max: el campo vibra + borde rojo + mensaje
 //   formateado. NO se ajusta solo ni se congela: el usuario corrige, y
 //   es el formulario padre quien bloquea su botón mientras tanto.
-// - Sin formatThousands (campos chicos: contenido 1,5, porcentajes) se
-//   mantiene el parseo clásico: coma o punto decimal, "1.500" = miles.
+// - onCommit: entrega el número final al salir del campo (celdas con
+//   autoguardado onBlur, ej. cantidades de recetas).
 
 const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   (
@@ -37,6 +43,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       className = "",
       disabled = false,
       required = false,
+      onCommit,
       ...props
     },
     ref,
@@ -54,15 +61,28 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       else if (ref) ref.current = el;
     };
 
+    // Formato de pantalla: plata con puntos de miles; clásico SIN
+    // agrupación (un "1.500" nunca vuelve a ser ambiguo en pantalla).
     const fmtCL = (num: number): string => {
       if (isNaN(num)) return "";
-      return num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
+      return num.toLocaleString("es-CL", {
+        maximumFractionDigits: 6,
+        useGrouping: formatThousands,
+      });
     };
 
-    // ---- formatThousands: normalización en vivo ----
+    // Mensajes de rango: siempre con miles (son montos legibles).
+    const fmtMsg = (num: number): string =>
+      isNaN(num)
+        ? ""
+        : num.toLocaleString("es-CL", { maximumFractionDigits: 6 });
+
+    // ---- formatThousands (plata): normalización en vivo ----
     // Conserva dígitos y la primera coma; agrupa el entero de a 3 con
-    // puntos. Devuelve el texto a mostrar y el número limpio a parsear.
-    const normalizeLive = (raw: string): { display: string; clean: string } => {
+    // puntos. Los puntos ESCRITOS se ignoran.
+    const normalizeLiveMiles = (
+      raw: string,
+    ): { display: string; clean: string } => {
       let digitsAndComma = "";
       let commaSeen = false;
       for (const ch of raw) {
@@ -80,7 +100,53 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       return { display, clean: digitsAndComma === "" ? "" : clean };
     };
 
-    const countSig = (s: string) => (s.match(/[\d,]/g) || []).length;
+    // ---- modo clásico: normalización en vivo ----
+    // Dígitos + el PRIMER separador ('.' o ',') mostrado como coma;
+    // separadores posteriores se ignoran. Sin agrupación de miles.
+    const normalizeLiveClassic = (
+      raw: string,
+    ): { display: string; clean: string } => {
+      let digitsAndComma = "";
+      let sepSeen = false;
+      for (const ch of raw) {
+        if (/\d/.test(ch)) digitsAndComma += ch;
+        else if ((ch === "," || ch === ".") && !sepSeen) {
+          digitsAndComma += ",";
+          sepSeen = true;
+        }
+      }
+      const [intRaw, decRaw = ""] = digitsAndComma.split(",");
+      const intPart = intRaw.replace(/^0+(?=\d)/, "");
+      const display = sepSeen ? `${intPart},${decRaw}` : intPart;
+      const clean = (intPart || "0") + (sepSeen ? `.${decRaw}` : "");
+      return { display, clean: digitsAndComma === "" ? "" : clean };
+    };
+
+    const normalizeLive = formatThousands
+      ? normalizeLiveMiles
+      : normalizeLiveClassic;
+
+    // Caracteres "significativos" para reponer el cursor tras el
+    // reformateo. En clásico el punto escrito cuenta (sobrevive como
+    // coma); en plata el punto escrito se ignora y no cuenta.
+    const sigRe = formatThousands ? /[\d,]/ : /[\d,.]/;
+    const countSig = (s: string) => {
+      let n = 0;
+      let sepSeen = false;
+      for (const ch of s) {
+        if (/\d/.test(ch)) n++;
+        else if (sigRe.test(ch)) {
+          // separadores: en clásico solo el PRIMERO sobrevive
+          if (formatThousands) {
+            if (ch === ",") n++;
+          } else if (!sepSeen) {
+            n++;
+            sepSeen = true;
+          }
+        }
+      }
+      return n;
+    };
     const posAfterSig = (s: string, n: number) => {
       if (n <= 0) return 0;
       let seen = 0;
@@ -91,23 +157,6 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         }
       }
       return s.length;
-    };
-
-    // ---- parseo clásico (campos sin formatThousands) ----
-    const parseClassic = (displayVal: string): number | undefined => {
-      const raw = displayVal.trim();
-      if (!raw) return undefined;
-      let clean = raw;
-      if (clean.includes(",")) {
-        clean = clean.replace(/\./g, "").replace(",", ".");
-      } else {
-        const parts = clean.split(".");
-        const isGrouping =
-          parts.length > 1 && parts.slice(1).every((p) => p.length === 3);
-        if (isGrouping) clean = parts.join("");
-      }
-      const num = parseFloat(clean);
-      return isNaN(num) ? undefined : num;
     };
 
     // Sincronizar desde el valor externo (solo sin foco)
@@ -149,36 +198,33 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       }
       const pref = currency ? "$" : "";
       if (max !== undefined && num > max) {
-        setError(`El máximo es ${pref}${fmtCL(max)}`);
+        setError(`El máximo es ${pref}${fmtMsg(max)}`);
         triggerShake();
         return;
       }
       if (min !== undefined && num < min) {
-        setError(`El mínimo es ${pref}${fmtCL(min)}`);
+        setError(`El mínimo es ${pref}${fmtMsg(min)}`);
         triggerShake();
         return;
       }
       setError(null);
     };
 
+    const parseClean = (clean: string): number | undefined => {
+      if (clean === "") return undefined;
+      const num = parseFloat(clean);
+      return isNaN(num) ? undefined : num;
+    };
+
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const raw = event.target.value;
+      const caret = event.target.selectionStart ?? raw.length;
+      const sig = countSig(raw.slice(0, caret));
 
-      if (formatThousands) {
-        const caret = event.target.selectionStart ?? raw.length;
-        const sig = countSig(raw.slice(0, caret));
-        const { display, clean } = normalizeLive(raw);
-        setDisplayValue(display);
-        pendingCaretRef.current = posAfterSig(display, sig);
-        const num = clean === "" ? undefined : parseFloat(clean);
-        const parsed = num !== undefined && isNaN(num) ? undefined : num;
-        rangeCheck(parsed);
-        onChange?.(parsed);
-        return;
-      }
-
-      setDisplayValue(raw);
-      const parsed = parseClassic(raw);
+      const { display, clean } = normalizeLive(raw);
+      setDisplayValue(display);
+      pendingCaretRef.current = posAfterSig(display, sig);
+      const parsed = parseClean(clean);
       rangeCheck(parsed);
       onChange?.(parsed);
     };
@@ -193,14 +239,14 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       isFocusedRef.current = false;
       // Al salir, la pantalla muestra el número real formateado (el mismo
       // que viajó por onChange). El aviso de rango se conserva visible.
+      let parsed: number | undefined;
       if (displayValue.trim() !== "") {
-        const parsed = formatThousands
-          ? parseFloat(normalizeLive(displayValue).clean || "NaN")
-          : parseClassic(displayValue);
-        if (parsed !== undefined && !isNaN(parsed)) {
+        parsed = parseClean(normalizeLive(displayValue).clean);
+        if (parsed !== undefined) {
           setDisplayValue(fmtCL(parsed));
         }
       }
+      onCommit?.(parsed);
     };
 
     const baseClasses = `
