@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Download, Package, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Package,
+  TrendingUp,
+} from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -58,6 +65,10 @@ export default function GestionTab({
   const { company } = useAuth();
   const companyId = company?.id ? Number(company.id) : null;
   const [costoRecursos, setCostoRecursos] = useState(0);
+  // Secciones plegables (acordado 22-07): parten PLEGADAS mostrando el
+  // resumen en una línea, para que los recursos del evento queden a mano.
+  const [openInsumos, setOpenInsumos] = useState(false);
+  const [openMobiliario, setOpenMobiliario] = useState(false);
   const [photoView, setPhotoView] = useState<{
     url: string;
     title: string;
@@ -187,6 +198,13 @@ export default function GestionTab({
 
   // Si el evento está provisionado, los INSUMOS quedan congelados con la
   // foto de Compras; los recursos del evento son la foto negociada en sí.
+  // Ítems de mobiliario cuya necesidad supera el stock (para que la
+  // advertencia siga visible aunque la sección esté plegada).
+  const mobFaltas = mobiliario.filter((m) => {
+    const stock = m.item.stock || 0;
+    return stock > 0 && m.total + m.others > stock;
+  }).length;
+
   const provisioned = !!prov.provisioned_at;
   const costoBase =
     provisioned && prov.provisioned_cost !== null
@@ -354,9 +372,27 @@ export default function GestionTab({
           <>
             {insumos.length > 0 && (
               <div>
-                <h5 className="text-xs font-bold uppercase text-gray-500 mb-1.5">
-                  Insumos
-                </h5>
+                <button
+                  type="button"
+                  onClick={() => setOpenInsumos((v) => !v)}
+                  className="w-full flex items-center gap-1.5 py-1 mb-1 text-left hover:bg-gray-50 rounded-md px-1"
+                >
+                  {openInsumos ? (
+                    <ChevronDown size={15} className="text-gray-500" />
+                  ) : (
+                    <ChevronRight size={15} className="text-gray-500" />
+                  )}
+                  <span className="text-xs font-bold uppercase text-gray-500">
+                    Insumos
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    · {insumos.length} ítem{insumos.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="ml-auto text-sm font-bold text-gray-900">
+                    {fmtMoney(costoInsumos)}
+                  </span>
+                </button>
+                {openInsumos && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
@@ -417,14 +453,38 @@ export default function GestionTab({
                     </tfoot>
                   </table>
                 </div>
+                )}
               </div>
             )}
 
             {mobiliario.length > 0 && (
               <div>
-                <h5 className="text-xs font-bold uppercase text-gray-500 mb-1.5">
-                  Mobiliario
-                </h5>
+                <button
+                  type="button"
+                  onClick={() => setOpenMobiliario((v) => !v)}
+                  className="w-full flex items-center gap-1.5 py-1 mb-1 text-left hover:bg-gray-50 rounded-md px-1"
+                >
+                  {openMobiliario ? (
+                    <ChevronDown size={15} className="text-gray-500" />
+                  ) : (
+                    <ChevronRight size={15} className="text-gray-500" />
+                  )}
+                  <span className="text-xs font-bold uppercase text-gray-500">
+                    Mobiliario
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    · {mobiliario.length} ítem
+                    {mobiliario.length === 1 ? "" : "s"}
+                  </span>
+                  {/* La falta de stock NO se esconde al plegar */}
+                  {mobFaltas > 0 && (
+                    <span className="ml-auto text-xs font-semibold text-red-600">
+                      ⚠ {mobFaltas} con falta
+                    </span>
+                  )}
+                </button>
+                {openMobiliario && (
+                <>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="min-w-full text-sm table-fixed">
                     <thead className="bg-gray-50">
@@ -525,6 +585,8 @@ export default function GestionTab({
                   lava y reutiliza, no se suma). El costo del mobiliario va
                   en los recursos del evento.
                 </p>
+                </>
+                )}
               </div>
             )}
           </>
