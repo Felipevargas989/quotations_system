@@ -324,20 +324,20 @@ export default function InsumosTab({
                   colSpan={5}
                   onClick={() => toggleGroup(g.name)}
                   title={isOpen ? "Plegar" : "Desplegar"}
-                  className="px-4 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-4 py-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
                 >
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-600">
+                  <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
                     {isOpen ? (
-                      <ChevronDown size={14} className="text-gray-400" />
+                      <ChevronDown size={16} className="text-gray-400" />
                     ) : (
-                      <ChevronRight size={14} className="text-gray-400" />
+                      <ChevronRight size={16} className="text-gray-400" />
                     )}
                     {g.name}
-                    <span className="font-medium normal-case tracking-normal text-gray-400">
+                    <span className="text-xs font-medium normal-case tracking-normal text-gray-400">
                       · {g.items.length} insumo{g.items.length === 1 ? "" : "s"}
                     </span>
                     {sinPrecio > 0 && (
-                      <span className="font-semibold normal-case tracking-normal text-amber-600">
+                      <span className="text-xs font-semibold normal-case tracking-normal text-amber-600">
                         · {sinPrecio} sin precio
                       </span>
                     )}
