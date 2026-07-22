@@ -53,6 +53,10 @@ interface Props {
   ) => Promise<void>;
   readonly onDeleteCategory: (id: number) => Promise<void>;
   readonly onReorderCategories: (orderedIds: number[]) => Promise<void>;
+  /** Búsqueda activa en el catálogo: las categorías con coincidencias
+   *  se abren solas y las sin coincidencias se ocultan (el estado de
+   *  pliegues guardado NO se toca). */
+  readonly searchActive?: boolean;
 }
 
 // Variable services grouped by category. Each category box has its own header
@@ -73,6 +77,7 @@ export default function VariableServicesByCategory({
   onToggleCategoryActive,
   onDeleteCategory,
   onReorderCategories,
+  searchActive = false,
 }: Props) {
   // --- Service drag (within a category+sección) ---
   const [dragCategory, setDragCategory] = useState<number | null>(null);
@@ -530,7 +535,10 @@ export default function VariableServicesByCategory({
         const isEditing = editingId === cat.id;
         const isConfirming = confirmDeleteId === cat.id;
         const headerDraggable = !isEditing && !isConfirming;
-        const isOpen = openCats.has(cat.id);
+        // Con búsqueda activa: abiertas si tienen coincidencias,
+        // ocultas si no (sin tocar los pliegues guardados).
+        if (searchActive && ids.length === 0) return null;
+        const isOpen = searchActive || openCats.has(cat.id);
 
         return (
           <div

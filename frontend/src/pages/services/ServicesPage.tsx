@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileSpreadsheet, Pin, Plus, Tag } from "lucide-react";
+import { FileSpreadsheet, Pin, Plus, Search, Tag } from "lucide-react";
+import { matchesSearch } from "../../utils/searchMatch";
 import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -73,6 +74,18 @@ export default function ServicesPage() {
     error,
     reload: loadServices,
   } = useServices();
+
+  // Buscador del catálogo (22-07-2026): filtra AMBAS familias con la
+  // búsqueda inteligente del sistema. Reemplazó al subtítulo redundante
+  // "Servicios Variables".
+  const [svcSearch, setSvcSearch] = useState("");
+  const searchingSvc = svcSearch.trim() !== "";
+  const shownVariableServices = searchingSvc
+    ? variableServices.filter((s) => matchesSearch(svcSearch, s.name))
+    : variableServices;
+  const shownFixedServices = searchingSvc
+    ? fixedServices.filter((s) => matchesSearch(svcSearch, s.name))
+    : fixedServices;
 
   // Costo de insumos por persona de cada servicio variable (desde recetas),
   // para mostrar costo y margen junto al precio en la lista. Vía React
@@ -349,17 +362,30 @@ export default function ServicesPage() {
         onSuccess={handleUploadSuccess}
       />
 
+      {/* Buscador del catálogo (en el lugar del antiguo subtítulo
+          "Servicios Variables"): filtra variables Y fijos a la vez. */}
+      <div className="relative max-w-xs">
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={16}
+        />
+        <input
+          value={svcSearch}
+          onChange={(e) => setSvcSearch(e.target.value)}
+          placeholder="Buscar servicio…"
+          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
       {/* Variable services grouped by category. Each category box header has
           the drag handle (reorder categories) and the ⋮ menu (rename /
           activate-deactivate / delete). Services inside drag to reorder. */}
-      <div className="mb-2 text-sm font-medium text-gray-700">
-        Servicios Variables
-      </div>
       <VariableServicesByCategory
         companyId={company?.id ? Number(company.id) : null}
         orderedCategories={orderedCategories}
-        variableServices={variableServices}
+        variableServices={shownVariableServices}
         categoryLinks={categoryLinks}
+        searchActive={searchingSvc}
         onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
         onEditRecipe={(s) => handleEditRecipe(s, ServiceType.VARIABLE)}
         recipeCosts={recipeCosts}
@@ -376,7 +402,7 @@ export default function ServicesPage() {
       <div className="mt-6">
         <ServicesTable
           variableServices={[]}
-          fixedServices={fixedServices}
+          fixedServices={shownFixedServices}
           onEditService={handleEditService}
           onEditRecipe={handleEditRecipe}
           onDeleteService={handleDeleteService}
