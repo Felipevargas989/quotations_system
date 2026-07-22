@@ -261,8 +261,8 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         />
         {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
         {!error && dotHint && (
-          <p className="text-blue-500 text-xs mt-1">
-            El punto se ignora — usa coma para decimales
+          <p className="text-blue-500 text-xs mt-1 whitespace-nowrap">
+            Usa coma para decimales
           </p>
         )}
       </div>
