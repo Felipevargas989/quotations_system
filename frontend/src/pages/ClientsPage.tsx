@@ -316,13 +316,22 @@ export default function ClientsPage() {
       return;
     }
 
+    // Correo/teléfono vacíos viajan como null (el backend valida el
+    // correo SOLO si viene con contenido — Clientes 2.0: las empresas
+    // no llevan correo propio).
+    const payload = {
+      ...formData,
+      email: formData.email?.trim() ? formData.email.trim() : null,
+      phone: formData.phone?.trim() ? formData.phone.trim() : null,
+    } as typeof formData;
+
     try {
       if (editingClient) {
-        await updateClient(formData, editingClient.id);
+        await updateClient(payload, editingClient.id);
 
         alert("Cliente actualizado exitosamente");
       } else {
-        const { data: created } = await createClient(formData);
+        const { data: created } = await createClient(payload);
         // Sembrar la persona de contacto como contacto PRINCIPAL real
         const createdClient = (created as any)?.data ?? created;
         if (
