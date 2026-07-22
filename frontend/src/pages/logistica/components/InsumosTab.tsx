@@ -82,6 +82,13 @@ export default function InsumosTab({
   const loading = insumosQuery.isPending;
   const load = () =>
     queryClient.invalidateQueries({ queryKey: ["logistica", "insumos"] });
+  // Precio/merma de un insumo cambian costos en cascada: avisar a
+  // Gestión de Post-Venta, Compras y costos del catálogo (22-07-2026).
+  const notifyCostsChanged = () => {
+    queryClient.invalidateQueries({ queryKey: ["postventa"] });
+    queryClient.invalidateQueries({ queryKey: ["logistica", "compras"] });
+    queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
+  };
 
   const doDelete = async (s: Supply) => {
     setDeleting(true);
@@ -169,11 +176,13 @@ export default function InsumosTab({
     }
     setShowModal(false);
     load();
+    notifyCostsChanged();
   };
 
   const toggleActive = async (s: Supply) => {
     await updateSupply(s.id, { is_active: !s.is_active });
     load();
+    notifyCostsChanged();
   };
 
   const q = search.trim();
@@ -349,7 +358,12 @@ export default function InsumosTab({
               return (
                 <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    {s.name}
+                    <span
+                      className="block max-w-[280px] truncate"
+                      title={s.name}
+                    >
+                      {s.name}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
@@ -493,6 +507,7 @@ export default function InsumosTab({
                 </label>
                 <input
                   value={name}
+                  maxLength={60}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   placeholder="Ej: Harina"

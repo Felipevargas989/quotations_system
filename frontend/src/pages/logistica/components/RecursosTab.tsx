@@ -362,6 +362,7 @@ export default function RecursosTab({
                 </label>
                 <input
                   value={name}
+                  maxLength={60}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   placeholder="Ej: Silla arrendada"

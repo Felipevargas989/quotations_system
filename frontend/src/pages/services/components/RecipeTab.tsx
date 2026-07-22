@@ -22,6 +22,7 @@ import {
   grossQty,
   toBaseQty,
 } from "../../../types/logistics.types";
+import { useQueryClient } from "@tanstack/react-query";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import PhotoPopup from "../../../components/PhotoPopup";
@@ -43,6 +44,15 @@ export default function RecipeTab({
   serviceId,
   servicePrice,
 }: RecipeTabProps) {
+  const queryClient = useQueryClient();
+  // Un cambio de receta cambia costos en cascada: se avisa a Gestión de
+  // Post-Venta, a Compras y a los costos del catálogo (22-07-2026).
+  const notifyCostsChanged = () => {
+    queryClient.invalidateQueries({ queryKey: ["postventa"] });
+    queryClient.invalidateQueries({ queryKey: ["logistica", "compras"] });
+    queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
+  };
+
   const [items, setItems] = useState<RecipeItem[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
@@ -96,6 +106,7 @@ export default function RecipeTab({
   const flashSaved = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 1600);
+    notifyCostsChanged();
   };
 
   // Al elegir insumo, ajustar la unidad a la base de su familia.
@@ -344,6 +355,7 @@ export default function RecipeTab({
               <div className="flex gap-2">
                 <input
                   value={nsName}
+                  maxLength={60}
                   onChange={(e) => setNsName(e.target.value)}
                   placeholder="Nombre del insumo…"
                   className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
@@ -435,25 +447,40 @@ export default function RecipeTab({
                     return (
                       <tr key={it.id}>
                         <td className="px-3 py-2 text-gray-900">
-                          {s?.name || "—"}
+                          <span
+                            className="block max-w-[240px] truncate"
+                            title={s?.name || ""}
+                          >
+                            {s?.name || "—"}
+                          </span>
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            defaultValue={it.qty_per_person.toLocaleString(
-                              "es-CL",
-                              { maximumFractionDigits: 6 },
-                            )}
-                            onBlur={(e) => changeQty(it, e.target.value)}
-                            className={qtyInputCls}
-                          />{" "}
-                          <span className="text-gray-500">{it.unit}</span>
+                        <td className="px-3 py-2">
+                          {/* Campo del sistema + unidad SIEMPRE en una
+                              línea (ancho fijo): filas idénticas,
+                              columnas alineadas. */}
+                          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                            <span className="inline-block w-20">
+                              <NumberInput
+                                value={it.qty_per_person}
+                                min={0}
+                                onCommit={(n) =>
+                                  changeQty(
+                                    it,
+                                    n === undefined ? "" : String(n),
+                                  )
+                                }
+                                className="!px-2 !py-1.5 text-sm text-right"
+                              />
+                            </span>
+                            <span className="text-gray-500 w-8 text-left">
+                              {it.unit}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500">
                           {w ? `${w}%` : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right text-gray-500">
+                        <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap">
                           {Number(
                             lineGross(it).toFixed(
                               lineGross(it) < 10 ? 2 : 1,
@@ -512,6 +539,7 @@ export default function RecipeTab({
           <div className="mt-2 border border-blue-200 bg-blue-50 rounded-lg p-3 flex gap-2 items-center">
             <input
               value={nfName}
+                  maxLength={60}
               onChange={(e) => setNfName(e.target.value)}
               placeholder="Ej: Plato de fondo"
               className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
