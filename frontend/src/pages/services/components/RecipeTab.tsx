@@ -646,6 +646,12 @@ export default function RecipeTab({
             <p className="text-xs text-gray-500">Costo de insumos por persona</p>
             <p className="text-xl font-bold text-gray-900">
               {clp(costPerPerson)}
+              {servicePrice !== undefined && servicePrice > 0 && (
+                <span className="text-sm font-semibold text-red-700">
+                  {" "}
+                  · {Math.round((costPerPerson / servicePrice) * 100)}%
+                </span>
+              )}
             </p>
           </div>
           {servicePrice !== undefined && servicePrice > 0 && (
