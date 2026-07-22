@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { matchesSearch } from "../../../utils/searchMatch";
 import {
   createSupply,
@@ -172,6 +182,20 @@ export default function InsumosTab({
     .filter((r) => showInactive || r.is_active)
     .filter((r) => !q || matchesSearch(q, r.name));
 
+  // Grupos PLEGABLES por proveedor (decisión Felipe 21-07-2026: con 170
+  // insumos la tabla plana era impracticable). Parten plegados; el
+  // buscador abre solo los grupos con coincidencias.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(),
+  );
+  const toggleGroup = (name: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
   // Agrupado por proveedor, como Compras: proveedores alfabéticos,
   // "Sin proveedor" al final, insumos alfabéticos dentro de cada grupo.
   const grouped = (() => {
@@ -216,22 +240,40 @@ export default function InsumosTab({
           + Nuevo insumo
         </button>
       </div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <p className="text-xs text-gray-400">
           El precio va por unidad base (kg, L o unidad). Cambiarlo afecta solo
           a eventos futuros; los provisionados mantienen su costo congelado.
         </p>
-        {inactiveCount > 0 && (
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Expandir/plegar todos los grupos de proveedor */}
           <button
             type="button"
-            onClick={() => setShowInactive((v) => !v)}
-            className="text-xs text-blue-600 hover:underline shrink-0"
+            onClick={() =>
+              setExpandedGroups((prev) =>
+                prev.size === grouped.length
+                  ? new Set()
+                  : new Set(grouped.map((g) => g.name)),
+              )
+            }
+            className="text-xs text-blue-600 hover:underline"
           >
-            {showInactive
-              ? "Ocultar inactivos"
-              : `Ver inactivos (${inactiveCount})`}
+            {expandedGroups.size === grouped.length
+              ? "Plegar todo"
+              : "Expandir todo"}
           </button>
-        )}
+          {inactiveCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowInactive((v) => !v)}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              {showInactive
+                ? "Ocultar inactivos"
+                : `Ver inactivos (${inactiveCount})`}
+            </button>
+          )}
+        </div>
       </div>
       {listErr && (
         <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -270,16 +312,39 @@ export default function InsumosTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {grouped.map((g) => [
+            {grouped.map((g) => {
+              // Con búsqueda activa, los grupos con coincidencias se
+              // abren solos (si no, buscarías y no verías nada).
+              const isOpen =
+                search.trim() !== "" || expandedGroups.has(g.name);
+              const sinPrecio = g.items.filter((i) => !i.price).length;
+              return [
               <tr key={`g-${g.name}`}>
                 <td
                   colSpan={5}
-                  className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50"
+                  onClick={() => toggleGroup(g.name)}
+                  title={isOpen ? "Plegar" : "Desplegar"}
+                  className="px-4 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
                 >
-                  {g.name}
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-600">
+                    {isOpen ? (
+                      <ChevronDown size={14} className="text-gray-400" />
+                    ) : (
+                      <ChevronRight size={14} className="text-gray-400" />
+                    )}
+                    {g.name}
+                    <span className="font-medium normal-case tracking-normal text-gray-400">
+                      · {g.items.length} insumo{g.items.length === 1 ? "" : "s"}
+                    </span>
+                    {sinPrecio > 0 && (
+                      <span className="font-semibold normal-case tracking-normal text-amber-600">
+                        · {sinPrecio} sin precio
+                      </span>
+                    )}
+                  </span>
                 </td>
               </tr>,
-              ...g.items.map((s) => {
+              ...(isOpen ? g.items : []).map((s) => {
               const fam = UNIT_FAMILY_INFO[s.unit_family];
               return (
                 <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
@@ -401,7 +466,8 @@ export default function InsumosTab({
                 </tr>
               );
               }),
-            ])}
+            ];
+            })}
           </tbody>
         </table>
       )}
