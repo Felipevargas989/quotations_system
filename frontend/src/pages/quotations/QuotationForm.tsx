@@ -2373,7 +2373,7 @@ export default function QuotationForm() {
                         </div>
                       </div>
                     )}
-                    <div>
+                    <div className="relative">
                       <label
                         className="block text-xs font-medium text-gray-600 mb-1"
                         title="Personas de este servicio (por defecto, toda su audiencia)"
@@ -2411,8 +2411,14 @@ export default function QuotationForm() {
                             : "border-gray-300"
                         }`}
                       />
+                      {/* COMPORTAMIENTO ACORDADO CON FELIPE — NO TOCAR EN
+                          REDISEÑOS: el "de N" va ANCLADO bajo el campo SIN
+                          ocupar espacio en la fila (absoluto). La casilla no
+                          debe moverse ni un pixel al aparecer/desaparecer.
+                          (Se regresionó el 20-07 al reconstruir el mockup;
+                          restaurado el 22-07.) */}
                       {box.people !== undefined && (
-                        <p className="mt-0.5 text-[10px] text-amber-700">
+                        <p className="absolute right-0 top-full mt-0.5 text-[10px] text-amber-700 whitespace-nowrap">
                           de {audienceCount(box)}
                         </p>
                       )}
