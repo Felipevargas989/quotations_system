@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -109,6 +109,7 @@ export default function ComprasTab({
   const [toggledOpen, setToggledOpen] = useState<Map<number | 0, boolean>>(
     new Map(),
   );
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [checkedSupplies, setCheckedSupplies] = useState<Set<number>>(
     new Set(),
@@ -250,6 +251,16 @@ export default function ComprasTab({
     [filtered, kindChips, perEvent, provByEvent],
   );
 
+  // Un evento que el filtro oculta se DES-selecciona solo: el contador de
+  // la lista de compra siempre cuadra con lo que se ve.
+  useEffect(() => {
+    setSelected((prev) => {
+      const visibles = new Set(visibleEvents.map((e) => e.id));
+      const next = new Set([...prev].filter((id) => visibles.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visibleEvents]);
+
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
     [filtered, selected],
@@ -376,6 +387,28 @@ export default function ComprasTab({
     return { used, prov };
   };
 
+  // Lo MARCADO se separa en dos mundos: lo aún no provisionado (acción
+  // Provisionar) y lo ya provisionado (acción Desprovisionar). Los botones
+  // aparecen solo cuando su mundo tiene algo.
+  const checkedFalt = useMemo(
+    () =>
+      [...checkedSupplies].filter((id) => {
+        const st = supplyStatus(id);
+        return !(st.used > 0 && st.prov === st.used);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checkedSupplies, selectedEvents, perEvent, provByEvent],
+  );
+  const checkedProv = useMemo(
+    () =>
+      [...checkedSupplies].filter((id) => {
+        const st = supplyStatus(id);
+        return st.used > 0 && st.prov === st.used;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checkedSupplies, selectedEvents, perEvent, provByEvent],
+  );
+
   const toggleSupply = (id: number) => {
     setConfirmAction("");
     setCheckedSupplies((prev) => {
@@ -467,7 +500,7 @@ export default function ComprasTab({
 
   const provisionChecked = async () => {
     setSaving(true);
-    const rows = buildRows(checkedSupplies);
+    const rows = buildRows(new Set(checkedFalt));
     const { error } = await upsertEventSupplyProvisions(rows);
     if (!error) {
       // recalcular cobertura con las filas recién insertadas
@@ -484,7 +517,7 @@ export default function ComprasTab({
       });
       const completed = await stampCompleted(provMap);
       flashMsg(
-        `✓ ${checkedSupplies.size} insumo(s) provisionado(s) en ${selectedEvents.length} evento(s)` +
+        `✓ ${checkedFalt.length} insumo(s) provisionado(s) en ${selectedEvents.length} evento(s)` +
           (completed ? ` · ${completed} evento(s) completo(s)` : ""),
       );
       setCheckedSupplies(new Set());
@@ -533,7 +566,7 @@ export default function ComprasTab({
     }
     setSaving(true);
     const ids = selectedEvents.map((e) => e.id);
-    const supplyIds = checkedSupplies.size ? [...checkedSupplies] : undefined;
+    const supplyIds = checkedProv.length ? checkedProv : undefined;
     const { error } = await deleteEventSupplyProvisions(ids, supplyIds);
     if (!error) {
       // al quitar insumos, el evento deja de estar "completo"
@@ -698,14 +731,31 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
   };
 
   const downloadExcel = () => {
+    const filtroTxt =
+      supFilter === "faltantes"
+        ? "solo faltantes"
+        : supFilter === "provisionados"
+          ? "solo provisionados"
+          : "lista completa";
     const lines: string[] = [];
-    lines.push(`Lista de compras;${selectedEvents.length} evento(s)`);
+    lines.push(
+      `Lista de compras;${selectedEvents.length} evento(s);${filtroTxt}`,
+    );
     selectedEvents.forEach((e) => {
       lines.push(
         `#${e.quotation_number};${e.client_name};${fmtDate(e.event_date)};${e.people_count} personas`,
       );
     });
     consolidation.groups.forEach((g) => {
+      // Mismo filtro activo de la pantalla (coherente con el PDF).
+      const rowsShown = g.rows.filter((c) => {
+        const st = supplyStatus(c.supply.id);
+        const full = st.used > 0 && st.prov === st.used;
+        if (supFilter === "faltantes") return !full;
+        if (supFilter === "provisionados") return full;
+        return true;
+      });
+      if (rowsShown.length === 0) return;
       lines.push("");
       lines.push(
         `PROVEEDOR;${g.supplier ? g.supplier.name : "Sin proveedor asignado"}${
@@ -713,7 +763,7 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
         }${g.supplier?.phone ? `;${g.supplier.phone}` : ""}`,
       );
       lines.push("Insumo;Cantidad;Unidad;Formato;Costo estimado;Provisión");
-      g.rows.forEach((c) => {
+      rowsShown.forEach((c) => {
         const qty = fmtQty(c.totalBase).replace(".", "");
         const st = supplyStatus(c.supply.id);
         const estado =
@@ -737,7 +787,14 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
           )};${estado}`,
         );
       });
-      lines.push(`Subtotal;;;;${Math.round(g.subtotal)};`);
+      lines.push(
+        `Subtotal;;;;${Math.round(
+          rowsShown.reduce(
+            (t, c) => t + c.totalBase * (c.supply.price || 0),
+            0,
+          ),
+        )};`,
+      );
     });
     lines.push("");
     lines.push("RESUMEN");
@@ -755,7 +812,7 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `compras_${selectedEvents.length}_eventos.csv`;
+    a.download = `compras_${supFilter}_${selectedEvents.length}_eventos.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -827,51 +884,68 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
         </div>
       </div>
 
-      {flash && (
-        <div className="bg-green-50 border border-green-200 text-green-700 text-sm font-semibold rounded-lg px-3 py-2">
-          {flash}
-        </div>
-      )}
-
-      {/* Chips de estado de los eventos (default: pendientes y parciales) */}
-      <div className="flex items-center gap-1.5 -mb-3">
+      {/* Filtro de estado de los eventos: control segmentado del sistema,
+          con contadores (default: pendientes y parciales) */}
+      <div className="flex rounded-lg border border-gray-300 overflow-hidden w-fit -mb-3">
         {(
           [
             ["none", "Pendientes"],
             ["partial", "Parciales"],
             ["full", "Completos"],
           ] as const
-        ).map(([kind, label]) => (
-          <button
-            key={kind}
-            type="button"
-            onClick={() =>
-              setKindChips((prev) => {
-                const next = new Set(prev);
-                if (next.has(kind)) next.delete(kind);
-                else next.add(kind);
-                return next;
-              })
-            }
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-              kindChips.has(kind)
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        ).map(([kind, label]) => {
+          const count = filtered.filter(
+            (e) => eventStatus(e).kind === kind,
+          ).length;
+          const on = kindChips.has(kind);
+          return (
+            <button
+              key={kind}
+              type="button"
+              onClick={() =>
+                setKindChips((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(kind)) next.delete(kind);
+                  else next.add(kind);
+                  return next;
+                })
+              }
+              className={`px-3 py-1.5 text-xs font-bold border-r border-gray-300 last:border-r-0 ${
+                on
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* ---------- Lista de eventos ---------- */}
       {visibleEvents.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
           <ShoppingCart className="mx-auto mb-3 text-gray-300" size={34} />
-          <p className="font-medium">Sin eventos cerrados en este rango</p>
-          <p className="text-sm mt-1">
-            Ajusta el rango de fechas o cierra ventas en Post Venta.
-          </p>
+          {filtered.length > 0 ? (
+            <>
+              <p className="font-medium">
+                No hay eventos con esos estados en este rango
+              </p>
+              <p className="text-sm mt-1">
+                Hay {filtered.length} evento{filtered.length === 1 ? "" : "s"}{" "}
+                oculto{filtered.length === 1 ? "" : "s"} por el filtro de
+                estado — actívalo arriba para verlo
+                {filtered.length === 1 ? "" : "s"}.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">Sin eventos cerrados en este rango</p>
+              <p className="text-sm mt-1">
+                Ajusta el rango de fechas o cierra ventas en Post Venta.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -971,37 +1045,83 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
         </div>
       )}
 
+      {flash && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm font-semibold rounded-lg px-3 py-2">
+          {flash}
+        </div>
+      )}
+
       {/* ---------- Consolidado ---------- */}
       {selectedEvents.length > 0 && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-800">
-                Lista de compra · {selectedEvents.length} evento(s) ·{" "}
-                {selectedEvents.reduce(
-                  (s, e) => s + (e.people_count || 0),
-                  0,
-                )}{" "}
-                personas
+          {/* Encabezado estándar del sistema + Provisionar todo como link */}
+          <div>
+            <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+              <ShoppingCart size={17} className="text-gray-600" />
+              <h3 className="text-base font-bold text-gray-900">
+                Lista de compra
               </h3>
-              <p className="text-xs text-gray-500">
-                Costo insumos estimado: {fmtMoney(consolidation.costoTotal)}{" "}
-                (según catálogo)
-              </p>
-              {/* Resumen ejecutivo: el número que quien compra mira primero */}
-              <p className="text-xs mt-1">
-                <span className="font-bold text-red-600">
-                  Faltante por comprar: {fmtMoney(resumen.faltante)} (
-                  {resumen.nFalt} insumo{resumen.nFalt === 1 ? "" : "s"})
+              <span className="text-sm text-gray-500">
+                · {selectedEvents.length} evento
+                {selectedEvents.length === 1 ? "" : "s"} ·{" "}
+                {selectedEvents
+                  .reduce((t, e) => t + (e.people_count || 0), 0)
+                  .toLocaleString("es-CL")}{" "}
+                personas
+              </span>
+              {confirmAction === "todo" ? (
+                <span className="ml-auto flex items-center gap-2 text-xs">
+                  <span className="font-semibold text-gray-700">
+                    ¿Provisionar TODO ({selectedEvents.length} evento
+                    {selectedEvents.length === 1 ? "" : "s"})?
+                  </span>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={provisionAll}
+                    className="px-2.5 py-1 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {saving ? "Provisionando…" : "Sí, todo"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setConfirmAction("")}
+                    className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200"
+                  >
+                    No
+                  </button>
                 </span>
-                <span className="text-gray-400"> · </span>
-                <span className="font-semibold text-green-600">
-                  Provisionado: {fmtMoney(resumen.provisionado)} ({resumen.nProv}
-                  )
-                </span>
-              </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={provisionAll}
+                  disabled={saving}
+                  className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                >
+                  Provisionar todo
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs mt-2">
+              <span className="font-bold text-red-600">
+                Faltante por comprar: {fmtMoney(resumen.faltante)} (
+                {resumen.nFalt} insumo{resumen.nFalt === 1 ? "" : "s"})
+              </span>
+              <span className="text-gray-400"> · </span>
+              <span className="font-semibold text-green-600">
+                Provisionado: {fmtMoney(resumen.provisionado)} ({resumen.nProv})
+              </span>
+              <span className="text-gray-400">
+                {" "}
+                · Total estimado {fmtMoney(consolidation.costoTotal)} (catálogo)
+              </span>
+            </p>
+          </div>
+
+          {/* Filtro segmentado + Descargar + acciones contextuales */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden w-fit">
               {(
                 [
                   ["faltantes", "Faltantes"],
@@ -1013,72 +1133,108 @@ ${paginas || '<p style="text-align:center;color:#6b7280;margin-top:40px">No hay 
                   key={k}
                   type="button"
                   onClick={() => setSupFilter(k)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                  className={`px-3 py-1.5 text-xs font-bold border-r border-gray-300 last:border-r-0 ${
                     supFilter === k
-                      ? "bg-gray-900 border-gray-900 text-white"
-                      : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                      ? "bg-gray-900 text-white"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
                 >
                   {label}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={downloadPDF}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800"
-                title="Orden de compra en PDF: una página por proveedor"
-              >
-                <FileText size={15} /> PDF
-              </button>
-              <button
-                type="button"
-                onClick={downloadExcel}
-                className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
-              >
-                <Download size={15} /> Excel
-              </button>
-              <button
-                type="button"
-                onClick={provisionChecked}
-                disabled={saving || checkedSupplies.size === 0}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
-              >
-                <CheckCircle2 size={15} />
-                Provisionar seleccionados
-                {checkedSupplies.size > 0 && ` (${checkedSupplies.size})`}
-              </button>
-              <button
-                type="button"
-                onClick={provisionAll}
-                disabled={saving}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 ${
-                  confirmAction === "todo"
-                    ? "bg-orange-600 text-white hover:bg-orange-700"
-                    : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                }`}
-              >
-                <PackageCheck size={15} />
-                {confirmAction === "todo"
-                  ? `¿Confirmar todo (${selectedEvents.length})?`
-                  : "Provisionar todo"}
-              </button>
-              <button
-                type="button"
-                onClick={unprovision}
-                disabled={saving}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 ${
-                  confirmAction === "desprovisionar"
-                    ? "bg-red-600 text-white hover:bg-red-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                <RotateCcw size={15} />
-                {confirmAction === "desprovisionar"
-                  ? checkedSupplies.size
-                    ? `¿Quitar ${checkedSupplies.size} insumo(s)?`
-                    : "¿Desprovisionar eventos?"
-                  : "Desprovisionar"}
-              </button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Un solo botón Descargar: Excel o PDF, según el filtro activo */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"
+                >
+                  <Download size={15} /> Descargar
+                  <ChevronDown size={14} />
+                </button>
+                {downloadOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Cerrar menú"
+                      className="fixed inset-0 z-10 cursor-default"
+                      onClick={() => setDownloadOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-1 z-20 w-64 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDownloadOpen(false);
+                          downloadPDF();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50"
+                      >
+                        <FileText size={15} className="text-gray-500" />
+                        <span>
+                          <span className="font-semibold">
+                            PDF orden de compra
+                          </span>
+                          <span className="block text-[11px] text-gray-400">
+                            una página por proveedor · según filtro
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDownloadOpen(false);
+                          downloadExcel();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50 border-t border-gray-100"
+                      >
+                        <Download size={15} className="text-gray-500" />
+                        <span>
+                          <span className="font-semibold">Excel</span>
+                          <span className="block text-[11px] text-gray-400">
+                            planilla completa · según filtro
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              {/* Acciones CONTEXTUALES: aparecen solo cuando lo marcado
+                  tiene algo que hacer en su mundo */}
+              {checkedFalt.length > 0 && (
+                <button
+                  type="button"
+                  onClick={provisionChecked}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <CheckCircle2 size={15} />
+                  {saving
+                    ? "Provisionando…"
+                    : `Provisionar marcados (${checkedFalt.length})`}
+                </button>
+              )}
+              {checkedProv.length > 0 && (
+                <button
+                  type="button"
+                  onClick={unprovision}
+                  disabled={saving}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 ${
+                    confirmAction === "desprovisionar"
+                      ? "bg-red-600 text-white hover:bg-red-700"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <RotateCcw size={15} />
+                  {saving
+                    ? "Desprovisionando…"
+                    : confirmAction === "desprovisionar"
+                      ? `¿Quitar ${checkedProv.length} insumo(s)?`
+                      : `Desprovisionar marcados (${checkedProv.length})`}
+                </button>
+              )}
             </div>
           </div>
 
