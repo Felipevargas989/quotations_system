@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   KitchenNote,
   addEventKitchenNote,
@@ -66,6 +67,7 @@ export default function FichaCocinaSection({
     fixed: Record<string, number>;
   };
 }) {
+  const { company } = useAuth();
   const quotationId = String(quote.id);
   const [times, setTimes] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<KitchenNote[]>([]);
@@ -420,11 +422,11 @@ export default function FichaCocinaSection({
             // receta; la última línea del plato lleva el borde separador.
             return `<tr><td class="plato">${esc(it.nombre)}</td><td class="qty">×${porciones.toLocaleString("es-CL")}</td></tr>${
               receta
-                ? `<tr class="receta${montar ? " sinborde" : ""}"><td colspan="2">Receta: ${receta}</td></tr>`
+                ? `<tr class="receta${montar ? "" : " soloreceta"}"><td colspan="2">Receta: ${receta}</td></tr>`
                 : ""
             }${
               montar
-                ? `<tr class="rmontar"><td colspan="2">Montar: ${montar}</td></tr>`
+                ? `<tr class="montar"><td colspan="2">Montar: ${montar}</td></tr>`
                 : ""
             }`;
           };
@@ -433,13 +435,13 @@ export default function FichaCocinaSection({
             .map(
               (og) =>
                 (og.name
-                  ? `<tr class="subseccion"><td colspan="2">${esc(og.name)}</td></tr>`
+                  ? `<tr class="subsec"><td colspan="2">${esc(og.name)}</td></tr>`
                   : "") + og.items.map(itemRow).join(""),
             )
             .join("");
           return `<div class="servicio">
-          <div class="servicio-head">${hora ? `<span class="hora">${esc(hora)}</span>` : ""}<h2>${esc(label)}</h2><span class="svc-pers">${groupPeople.toLocaleString("es-CL")} personas</span></div>
-          <div class="platillo"><table class="preparar">${rows}</table></div>
+          <div class="svc-head"><span class="hora">${hora ? esc(hora) : "—"}</span><h3>${esc(label)}</h3><span class="svc-pers">${groupPeople.toLocaleString("es-CL")} personas</span></div>
+          <table class="platos">${rows}</table>
         </div>`;
         })
         .join("");
@@ -456,7 +458,7 @@ export default function FichaCocinaSection({
         )
         .map(
           (c) =>
-            `<tr><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
+            `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
         )
         .join("");
     };
@@ -473,13 +475,13 @@ export default function FichaCocinaSection({
         .sort((a, b) => a.item.name.localeCompare(b.item.name))
         .map(
           ({ item, p }) =>
-            `<tr><td>${esc(item.name)}${
+            `<tr><td class="chk"><span></span></td><td>${esc(item.name)}${
               p.preassembled
-                ? ` <span class="manota">se prepara con anticipación · suma entre servicios</span>`
+                ? ` <span class="nota">se prepara con anticipación · suma</span>`
                 : p.peakService
-                  ? ` <span class="manota">peak en ${esc(p.peakService)}</span>`
+                  ? ` <span class="nota">peak en ${esc(p.peakService)}</span>`
                   : ""
-            }</td><td class="qty">${Math.ceil(p.total).toLocaleString("es-CL")} u</td></tr>`,
+            }</td><td class="der">${Math.ceil(p.total).toLocaleString("es-CL")} u</td></tr>`,
         )
         .join("");
     };
@@ -526,9 +528,9 @@ export default function FichaCocinaSection({
             conTag && fixedDayOf(it) === 0
               ? ` <span class="tageva">todo el evento</span>`
               : "";
-          return `<tr><td class="fnombre">${esc(it.nombre)}${tag}</td><td class="qty">×${qty}</td></tr>${
+          return `<tr><td class="chk"><span></span></td><td>${esc(it.nombre)}${tag}</td><td class="der">×${qty}</td></tr>${
             montar
-              ? `<tr class="fmontar"><td colspan="2">Montar: ${montar}</td></tr>`
+              ? `<tr class="fmontar"><td colspan="3">Montar: ${montar}</td></tr>`
               : ""
           }`;
         })
@@ -536,6 +538,36 @@ export default function FichaCocinaSection({
 
     const clientName =
       (quote as unknown as { clients?: { name?: string } }).clients?.name || "";
+    const mandante =
+      (
+        quote as unknown as { contact_name?: string | null }
+      ).contact_name?.trim() || "";
+
+    // Marca de la empresa (mismo lenguaje del PDF a cliente): colores
+    // configurados y logo; sin logo, iniciales sobre el color primario.
+    const hexOk = (c?: string) =>
+      c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+    const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
+    const brandS = hexOk(company?.colors?.secondary) || "#eef2ff";
+    const onBrandP = (() => {
+      const n = parseInt(brandP.slice(1), 16);
+      const lum =
+        (0.299 * ((n >> 16) & 255) +
+          0.587 * ((n >> 8) & 255) +
+          0.114 * (n & 255)) /
+        255;
+      return lum > 0.6 ? "#111827" : "#fff";
+    })();
+    const logoHtml = company?.logo_url
+      ? `<img src="${esc(company.logo_url)}" alt="logo">`
+      : esc(
+          (company?.name || "E")
+            .split(/\s+/)
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase(),
+        );
     const fmtLarga = (d: Date) =>
       d.toLocaleDateString("es-CL", {
         weekday: "long",
@@ -557,37 +589,54 @@ export default function FichaCocinaSection({
       mobiliario: string,
       tituloMob: string,
     ) => `<div class="hoja pagina">
-  <div class="encabezado">
-    <div><div class="marca">EVENTIA</div><h1>FICHA DE COCINA</h1></div>
-    <div class="evento">
-      <strong>Evento #${quote.quotation_number}${clientName ? ` · ${esc(clientName)}` : ""}</strong><br>
-      ${esc(fechaTxt)}<br>
-      <span class="personas">${personas.toLocaleString("es-CL")} personas${kids > 0 ? ` (${adults.toLocaleString("es-CL")} adultos · ${kids.toLocaleString("es-CL")} niños)` : ""}</span>
+  <div class="head">
+    <div class="marca">
+      <div class="logo">${logoHtml}</div>
+      <div>
+        <h1>${esc(company?.name || "Eventia")}</h1>
+        <div class="sub">Documento operativo — uso interno de cocina</div>
+      </div>
+    </div>
+    <div class="folio">
+      <div class="tipo">Ficha de Cocina</div>
+      <div class="num">Evento #${quote.quotation_number}</div>
+      <div class="fecha">${esc(fechaTxt)}</div>
     </div>
   </div>
-  ${bloques || '<p style="margin-top:20px;color:#888">Sin servicios variables asignados.</p>'}
-  ${
-    bodega
-      ? `<div class="seccion"><h2>${esc(tituloBodega)}</h2><table class="bodega">${bodega}</table></div>`
-      : ""
-  }
-  ${
-    mobiliario
-      ? `<div class="seccion"><h2>${esc(tituloMob)}</h2><table class="bodega">${mobiliario}</table></div>`
-      : ""
-  }
+  <div class="datos">
+    <div class="dato"><div class="k">Cliente</div><div class="v">${esc(clientName || "—")}</div></div>
+    <div class="dato"><div class="k">Contacto</div><div class="v">${esc(mandante || "—")}</div></div>
+    <div class="dato"><div class="k">Personas</div><div class="v big">${personas.toLocaleString("es-CL")}</div></div>
+    <div class="dato"><div class="k">Detalle</div><div class="v">${adults.toLocaleString("es-CL")} adultos<br><small>${kids.toLocaleString("es-CL")} niños</small></div></div>
+  </div>
+  <h2 class="seccion">Servicios del día</h2>
+  ${bloques || '<p style="margin-top:8px;color:#888;font-size:13px">Sin servicios variables asignados.</p>'}
+  <div class="dos-col">
+    <div>${
+      bodega
+        ? `<h2 class="seccion">${esc(tituloBodega)}</h2><table class="tabla">${bodega}</table>`
+        : ""
+    }</div>
+    <div>
+      ${
+        mobiliario
+          ? `<h2 class="seccion">${esc(tituloMob)}</h2><table class="tabla">${mobiliario}</table>`
+          : ""
+      }
+      ${
+        fijos
+          ? `<h2 class="seccion">Servicios fijos</h2><table class="tabla fijos">${fijos}</table>`
+          : ""
+      }
+    </div>
+  </div>
   ${
     notas
-      ? `<div class="seccion notas"><h2>Notas</h2><ul>${notas}</ul></div>`
-      : ""
-  }
-  ${
-    fijos
-      ? `<div class="seccion fijos"><h2>Servicios fijos</h2><table>${fijos}</table></div>`
+      ? `<h2 class="seccion">Notas del evento</h2><div class="notas"><b>Cocina — leer antes de partir</b><ul>${notas}</ul></div>`
       : ""
   }
   <div class="pie">
-    <span>Generada el ${esc(generada)} · Eventia</span>
+    <span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span>
     <span>Si cambian personas, servicios o notas: volver a imprimir — la ficha siempre sale con los datos vigentes</span>
   </div>
 </div>`;
@@ -640,48 +689,80 @@ export default function FichaCocinaSection({
 <title>Ficha de Cocina — Evento #${quote.quotation_number}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#e5e7eb; padding:24px; }
-  .hoja { max-width:800px; margin:0 auto; background:#fff; padding:36px 44px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
-  .encabezado { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a8a; padding-bottom:12px; }
-  .encabezado h1 { font-size:22px; letter-spacing:.5px; }
-  .encabezado .marca { font-size:12px; color:#1e3a8a; font-weight:700; }
-  .evento { text-align:right; font-size:13px; line-height:1.5; }
-  .evento strong { font-size:16px; }
-  .personas { display:inline-block; margin-top:4px; border:2px solid #1e3a8a; color:#1e3a8a; padding:2px 10px; font-size:18px; font-weight:800; }
-  .servicio { margin-top:22px; border:1px solid #bbb; page-break-inside:avoid; }
-  .servicio-head { display:flex; align-items:center; gap:12px; background:#1e3a8a; color:#fff; padding:7px 12px; }
-  .hora { font-size:17px; font-weight:800; background:#fff; color:#1e3a8a; padding:1px 8px; border-radius:3px; }
-  .servicio-head h2 { font-size:15px; text-transform:uppercase; letter-spacing:1px; }
-  .svc-pers { margin-left:auto; font-size:13px; font-weight:700; opacity:.9; }
-  .platillo { padding:6px 14px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  td { padding:2.5px 6px; border-bottom:1px dotted #ccc; }
-  td.qty { text-align:right; font-weight:700; white-space:nowrap; width:110px; }
-  .preparar .plato { font-size:16px; font-weight:800; padding:7px 6px 2px; border-bottom:none; }
-  .preparar .qty { font-size:16px; vertical-align:bottom; border-bottom:none; }
-  .preparar .receta td { font-size:11.5px; color:#777; padding:0 6px 7px; border-bottom:1px solid #e5e5e5; }
-  .preparar .receta.sinborde td { border-bottom:none; padding-bottom:2px; }
-  .preparar .rmontar td { font-size:11.5px; color:#1e3a8a; font-weight:600; padding:0 6px 7px; border-bottom:1px solid #e5e5e5; }
-  .preparar .subseccion td { font-size:10.5px; font-weight:800; letter-spacing:1.5px; color:#1e3a8a; text-transform:uppercase; padding:10px 6px 1px; border-bottom:1.5px solid #1e3a8a; }
-  .seccion { margin-top:24px; page-break-inside:avoid; }
-  .seccion > h2 { font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid #1e3a8a; color:#1e3a8a; padding-bottom:4px; margin-bottom:8px; }
-  .bodega td:first-child { font-weight:600; }
-  .manota { font-weight:400; font-size:10.5px; color:#888; }
-  .notas > h2 { border-bottom-color:#d97706; color:#92400e; }
-  .notas ul { list-style:none; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; }
-  .notas li { font-size:13.5px; padding:5px 0 5px 22px; border-bottom:1px dotted #ccc; position:relative; }
-  .notas li:last-child { border-bottom:none; }
-  .notas li::before { content:"\\25A0"; position:absolute; left:2px; color:#d97706; font-size:10px; top:8px; }
-  .fijos .fnombre { font-weight:700; font-size:13.5px; }
-  .fijos .fmontar td { font-size:11.5px; color:#1e3a8a; font-weight:600; padding:0 6px 6px; border-bottom:1px solid #e5e5e5; }
-  .pie { margin-top:26px; display:flex; justify-content:space-between; font-size:10.5px; color:#888; border-top:1px solid #ddd; padding-top:8px; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#e5e7eb; padding:24px; color:#111827; }
+  .hoja { max-width:800px; margin:0 auto; background:#fff; padding:44px 52px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
+
+  /* ===== Encabezado (mismo lenguaje que el PDF a cliente) ===== */
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:16px; }
+  .marca { display:flex; gap:12px; align-items:center; }
+  .logo { width:64px; height:64px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; overflow:hidden; }
+  .logo img { width:100%; height:100%; object-fit:cover; }
+  .marca h1 { font-size:17px; }
+  .marca .sub { font-size:10.5px; color:#6b7280; margin-top:1px; }
+  .folio { text-align:right; }
+  .folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
+  .folio .num { font-size:24px; font-weight:800; }
+  .folio .fecha { font-size:11px; color:#6b7280; margin-top:2px; }
+
+  /* ===== Datos del evento en grilla ===== */
+  .datos { display:grid; grid-template-columns:1.4fr 1.2fr .8fr .8fr; gap:12px 22px; padding:14px 0; border-bottom:1px solid #e5e7eb; }
+  .dato .k { font-size:9.5px; font-weight:800; letter-spacing:1px; color:#9ca3af; text-transform:uppercase; }
+  .dato .v { font-size:13px; font-weight:600; margin-top:1px; }
+  .dato .v small { font-weight:400; color:#6b7280; }
+  .dato .v.big { font-size:16px; font-weight:800; color:${brandP}; }
+
+  h2.seccion { font-size:11px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:${brandP}; margin:24px 0 8px; display:flex; align-items:center; gap:8px; }
+  h2.seccion::after { content:""; flex:1; border-top:1px solid #e5e7eb; }
+
+  /* ===== Bloque de servicio: franja suave, hora como chip ===== */
+  .servicio { margin-bottom:14px; page-break-inside:avoid; }
+  .svc-head { display:flex; align-items:center; gap:10px; background:${brandS}; border-radius:8px; padding:7px 12px; }
+  .hora { font-size:15px; font-weight:800; background:${brandP}; color:${onBrandP}; padding:2px 10px; border-radius:6px; }
+  .svc-head h3 { font-size:13px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:${brandP}; }
+  .svc-pers { margin-left:auto; font-size:12px; font-weight:700; color:#374151; }
+
+  .platos { width:100%; border-collapse:collapse; margin-top:2px; }
+  .platos td { padding:6px 10px 2px; }
+  .platos .subsec td { font-size:9.5px; font-weight:800; letter-spacing:1.4px; color:#9ca3af; text-transform:uppercase; padding:10px 10px 2px; border-bottom:1px solid #e5e7eb; }
+  .platos .plato { font-size:14.5px; font-weight:700; }
+  .platos .qty { text-align:right; font-size:15px; font-weight:800; white-space:nowrap; width:80px; vertical-align:top; }
+  .platos .receta td { font-size:11px; color:#6b7280; padding:0 10px 2px; }
+  .platos .receta.soloreceta td { padding-bottom:7px; border-bottom:1px solid #f3f4f6; }
+  .platos .montar td { font-size:11px; font-weight:600; color:${brandP}; padding:0 10px 7px; border-bottom:1px solid #f3f4f6; }
+  .platos tr:last-child td { border-bottom:none; }
+
+  /* ===== Bodega / Mobiliario / Fijos: tablas finas con check ===== */
+  .chk { width:26px; }
+  .chk span { display:inline-block; width:13px; height:13px; border:1.5px solid #9ca3af; border-radius:3px; vertical-align:middle; }
+  .tabla { width:100%; border-collapse:collapse; }
+  .tabla td { font-size:12.5px; padding:5px 10px 5px 0; border-bottom:1px solid #f3f4f6; }
+  .tabla td.chk { padding-left:2px; }
+  .tabla td:nth-child(2) { font-weight:600; }
+  .tabla .der { text-align:right; white-space:nowrap; font-weight:700; }
+  .tabla .nota { font-weight:400; font-size:10.5px; color:#9ca3af; }
+  .fijos .fmontar td { font-weight:600; font-size:11px; color:${brandP}; padding:0 10px 7px 28px; border-bottom:1px solid #f3f4f6; }
+  .dos-col { display:grid; grid-template-columns:1fr 1fr; gap:0 28px; align-items:start; }
+
+  /* ===== Notas ===== */
+  .notas { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; }
+  .notas b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#b45309; margin-bottom:4px; }
+  .notas ul { list-style:none; }
+  .notas li { font-size:13px; padding:3px 0 3px 16px; position:relative; }
+  .notas li::before { content:"\\25A0"; position:absolute; left:0; color:#d97706; font-size:9px; top:7px; }
+
+  .tageva { font-size:9.5px; font-weight:800; text-transform:uppercase; color:#6b7280; background:#e5e7eb; border-radius:999px; padding:1px 7px; letter-spacing:.5px; }
+  .pie { margin-top:26px; border-top:1px solid #e5e7eb; padding-top:10px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
   .pagina { page-break-after:always; margin-bottom:26px; }
   .pagina:last-child { page-break-after:auto; margin-bottom:0; }
-  .tageva { font-size:9.5px; font-weight:800; text-transform:uppercase; color:#6b7280; background:#e5e7eb; border-radius:999px; padding:1px 7px; letter-spacing:.5px; }
-  .btn-imprimir { position:fixed; top:14px; right:14px; background:#1e3a8a; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+  .btn-imprimir { position:fixed; top:14px; right:14px; background:${brandP}; color:${onBrandP}; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+
+  /* Los colores se respetan al imprimir/PDF (sin esto el navegador borra
+     los fondos en modo ahorro de tinta y la ficha sale lavada). */
+  .hoja, .hoja * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @media print {
+    @page { margin:12mm; }
     body { background:#fff; padding:0; }
-    .hoja { box-shadow:none; padding:10mm 12mm; max-width:none; }
+    .hoja { box-shadow:none; padding:0; max-width:none; }
     .btn-imprimir { display:none; }
   }
 </style></head><body>
