@@ -31,7 +31,11 @@ export interface EventItemsSnapshot {
 
 export interface ConsolidatedSupply {
   supply: Supply;
-  totalBase: number; // en unidad base (kg / L / u)
+  // REGLA DE MERMA (Felipe, 22-07): la cantidad es SIEMPRE la neta de la
+  // receta (lo que se cocina, retira y compra); la merma —caducidad,
+  // robo, pérdida— solo infla el COSTO. Por eso van separados.
+  totalBase: number; // cantidad NETA en unidad base (kg / L / u)
+  costTotal: number; // costo BRUTO (incluye merma) en pesos
   services: string[]; // de qué servicios proviene
 }
 
@@ -194,22 +198,23 @@ export const consolidateEvent = (
       if (line.item_kind === "insumo" && line.supply_id) {
         const supply = ctx.supplyById.get(line.supply_id);
         if (!supply) return;
-        // La receta viene en NETO (lo servido); se compra y cuesta la BRUTA
-        // (neta + merma del insumo). Costo lineal por unidad base.
-        const base = grossQty(
-          toBaseQty(line.qty_per_person, line.unit) * factor,
-          supply,
-        );
-        costoInsumos += base * (supply.price || 0);
-        supplyUse.set(supply.id, (supplyUse.get(supply.id) || 0) + base);
+        // REGLA DE MERMA (22-07): la CANTIDAD queda en NETO (los gramajes
+        // de la receta ya traen su holgura de cocina); la merma —siempre
+        // caducidad/robo/pérdida— solo infla el COSTO.
+        const neta = toBaseQty(line.qty_per_person, line.unit) * factor;
+        const costo = grossQty(neta, supply) * (supply.price || 0);
+        costoInsumos += costo;
+        supplyUse.set(supply.id, (supplyUse.get(supply.id) || 0) + neta);
         const cur = acc.supplyTotals.get(supply.id);
         if (cur) {
-          cur.totalBase += base;
+          cur.totalBase += neta;
+          cur.costTotal += costo;
           if (!cur.services.includes(nombre)) cur.services.push(nombre);
         } else {
           acc.supplyTotals.set(supply.id, {
             supply,
-            totalBase: base,
+            totalBase: neta,
+            costTotal: costo,
             services: [nombre],
           });
         }

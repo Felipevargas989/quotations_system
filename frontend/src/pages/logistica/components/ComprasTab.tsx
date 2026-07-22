@@ -36,6 +36,7 @@ import {
   Supplier,
   Supply,
   UNIT_FAMILY_INFO,
+  grossQty,
 } from "../../../types/logistics.types";
 import {
   ConsolidatedSupply,
@@ -320,7 +321,7 @@ export default function ComprasTab({
         groupMap.set(key, g);
       }
       g.rows.push(row);
-      g.subtotal += row.totalBase * (row.supply.price || 0);
+      g.subtotal += row.costTotal;
     });
     const groups = [...groupMap.values()]
       .map((g) => ({
@@ -356,7 +357,9 @@ export default function ComprasTab({
       const a = perEvent.get(ev.id);
       if (!a) return;
       a.supplyUse.forEach((base, sid) => {
-        const cost = base * (supplyById.get(sid)?.price || 0);
+        // base es NETA; el dinero siempre lleva la merma encima.
+        const sp = supplyById.get(sid);
+        const cost = sp ? grossQty(base, sp) * (sp.price || 0) : 0;
         if (provByEvent.get(ev.id)?.has(sid)) {
           provisionado += cost;
           provIds.add(sid);
@@ -484,12 +487,13 @@ export default function ComprasTab({
         const supplier = supplyById.get(sid)?.supplier_id
           ? supplierById.get(supplyById.get(sid)!.supplier_id!)
           : undefined;
+        const sp = supplyById.get(sid);
         rows.push({
           company_id: companyId,
           quotation_id: ev.id,
           supply_id: sid,
-          qty_base: base,
-          cost: Math.round(base * (supplyById.get(sid)?.price || 0)),
+          qty_base: base, // NETA (regla de merma 22-07)
+          cost: Math.round(sp ? grossQty(base, sp) * (sp.price || 0) : 0),
           supplier_id: supplier?.id ?? null,
           supplier_name: supplier?.name ?? null,
         });
@@ -641,10 +645,7 @@ export default function ComprasTab({
           return true;
         });
         if (rows.length === 0) return "";
-        const sub = rows.reduce(
-          (t, c) => t + c.totalBase * (c.supply.price || 0),
-          0,
-        );
+        const sub = rows.reduce((t, c) => t + c.costTotal, 0);
         totalShown += sub;
         itemsShown += rows.length;
         const sinPrecio = rows.filter((c) => !c.supply.price).length;
@@ -661,7 +662,7 @@ export default function ComprasTab({
             return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
               formato ? `· ${esc(formato)}` : ""
             }</td><td class="der">${
-              c.supply.price ? fmtMoney(c.totalBase * c.supply.price) : "—"
+              c.supply.price ? fmtMoney(c.costTotal) : "—"
             }</td></tr>`;
           })
           .join("");
@@ -747,7 +748,7 @@ export default function ComprasTab({
   </div>
   ${secciones || '<p style="text-align:center;color:#6b7280;margin-top:30px">No hay insumos que coincidan con el filtro actual.</p>'}
   ${secciones ? `<div class="total-final"><span>Total estimado</span><span>${fmtMoney(totalShown)}</span></div>` : ""}
-  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades brutas (incluyen merma) · precios estimados de catálogo</span></div>
+  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades netas de receta · la merma va incluida solo en el costo</span></div>
 </div>
 </body></html>`;
     const win = window.open("", "_blank");
@@ -809,7 +810,7 @@ export default function ComprasTab({
             : "";
         lines.push(
           `${c.supply.name};${qty};${UNIT_FAMILY_INFO[c.supply.unit_family].base};${formato};${Math.round(
-            c.totalBase * (c.supply.price || 0),
+            c.costTotal,
           )};${estado}`,
         );
       });
@@ -1284,10 +1285,7 @@ export default function ComprasTab({
               return st.used > 0 && st.prov === st.used;
             });
             const sinPrecio = rowsShown.filter((c) => !c.supply.price).length;
-            const subShown = rowsShown.reduce(
-              (t, c) => t + c.totalBase * (c.supply.price || 0),
-              0,
-            );
+            const subShown = rowsShown.reduce((t, c) => t + c.costTotal, 0);
             // Sin toque manual: los grupos completos parten plegados.
             const isOpen = toggledOpen.get(key) ?? !groupFull;
             return (
@@ -1416,9 +1414,7 @@ export default function ComprasTab({
                                 )}
                             </td>
                             <td className="px-3 py-1.5 text-right text-gray-700 whitespace-nowrap">
-                              {c.supply.price
-                                ? fmtMoney(c.totalBase * c.supply.price)
-                                : "—"}
+                              {c.supply.price ? fmtMoney(c.costTotal) : "—"}
                             </td>
                           </tr>
                         );

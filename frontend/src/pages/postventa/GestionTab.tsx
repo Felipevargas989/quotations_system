@@ -270,7 +270,7 @@ export default function GestionTab({
     lines.push("Insumo;Cantidad;Unidad;Costo estimado");
     insumos.forEach((c) => {
       const qty = fmtQty(c.totalBase).replace(".", "");
-      const costo = Math.round(c.totalBase * (c.supply.price || 0));
+      const costo = Math.round(c.costTotal);
       lines.push(
         `${c.supply.name};${qty};${UNIT_FAMILY_INFO[c.supply.unit_family].base};${costo}`,
       );
@@ -433,9 +433,7 @@ export default function GestionTab({
                             {UNIT_FAMILY_INFO[c.supply.unit_family].base}
                           </td>
                           <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                            {c.supply.price
-                              ? fmtMoney(c.totalBase * c.supply.price)
-                              : "—"}
+                            {c.supply.price ? fmtMoney(c.costTotal) : "—"}
                           </td>
                         </tr>
                       ))}

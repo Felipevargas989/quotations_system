@@ -25,7 +25,6 @@ import {
   RecipeItem,
   Supply,
   UNIT_FAMILY_INFO,
-  grossQty,
   toBaseQty,
 } from "../../types/logistics.types";
 import {
@@ -395,12 +394,11 @@ export default function FichaCocinaSection({
                 if (line.item_kind === "insumo" && line.supply_id) {
                   const sup = ctx.supplyById.get(line.supply_id);
                   if (!sup) return;
-                  // Bruta (neta + merma): lo que la cocina saca en crudo,
-                  // coherente con el retiro de bodega y con Compras.
-                  const base = grossQty(
-                    toBaseQty(line.qty_per_person, line.unit) * porciones,
-                    sup,
-                  );
+                  // REGLA DE MERMA (22-07): la cocina retira y prepara la
+                  // cantidad NETA de la receta (los gramajes ya traen su
+                  // holgura); la merma solo existe en los costos.
+                  const base =
+                    toBaseQty(line.qty_per_person, line.unit) * porciones;
                   parts.push(
                     `${esc(sup.name.toLowerCase())} ${fmtQty(base)} ${UNIT_FAMILY_INFO[sup.unit_family].base}`,
                   );
