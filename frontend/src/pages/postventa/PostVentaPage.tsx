@@ -1192,8 +1192,25 @@ function ServiciosTab({
     fixed: any[];
     cats: string[];
   }>({ byCat: {}, fixed: [], cats: [] });
-  const [addCat, setAddCat] = useState("");
-  const [addSvc, setAddSvc] = useState("");
+  // Agregar POR GRUPO (acordado 22-07): cada grupo tiene su propio
+  // "+ Agregar servicio" — así dos categorías gemelas nunca se mezclan.
+  const [addingToGroup, setAddingToGroup] = useState<number | null>(null);
+  const [addingFixed, setAddingFixed] = useState(false);
+  // Categoría nueva: día explícito (multi-día) y audiencia (si hay niños).
+  const [newCatOpen, setNewCatOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDay, setNewCatDay] = useState(1);
+  const [newCatAud, setNewCatAud] = useState<"adultos" | "ninos">("adultos");
+  const daysCount = (() => {
+    if (!multiDia) return 1;
+    const d0 = new Date(
+      String(quote.event_date).slice(0, 10) + "T00:00:00Z",
+    ).getTime();
+    const d1 = new Date(
+      String(quote.event_end_date).slice(0, 10) + "T00:00:00Z",
+    ).getTime();
+    return Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+  })();
 
   useEffect(() => {
     findAllServices()
@@ -1287,37 +1304,63 @@ function ServiciosTab({
   const removeFixed = (i: number) =>
     setFixed((prev) => prev.filter((_, idx) => idx !== i));
 
-  const onAdd = () => {
-    if (!addCat || addSvc === "") return;
-    if (addCat === "Servicios fijos") {
-      const s = catalog.fixed[+addSvc];
-      if (s) setFixed((prev) => [...prev, { ...s, quantity: 1 }]);
-    } else {
-      const s = catalog.byCat[addCat]?.[+addSvc];
-      if (s) {
-        const item = {
-          codigo: s.codigo,
-          nombre: s.nombre,
-          precio: s.precio,
-          categoria: addCat,
-          quantity: 1,
-        };
-        setVarGroups((prev) => {
-          const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
-          const grp = copy.find((g) => g.category === addCat);
-          if (grp) grp.items.push(item);
-          else
-            copy.push({
-              category: addCat,
-              audience: "adultos",
-              day: 1,
-              items: [item],
-            });
-          return copy;
-        });
-      }
-    }
-    setAddSvc("");
+  // Agrega un servicio del catálogo AL GRUPO gi (nunca adivina el grupo).
+  const addToGroup = (gi: number, idx: string) => {
+    const g = varGroups[gi];
+    const s = g ? catalog.byCat[g.category]?.[+idx] : undefined;
+    if (!s) return;
+    const item = {
+      codigo: s.codigo,
+      nombre: s.nombre,
+      precio: s.precio,
+      categoria: g.category,
+      quantity: 1,
+    };
+    setVarGroups((prev) => {
+      const copy = prev.map((x) => ({ ...x, items: [...(x.items || [])] }));
+      copy[gi]?.items.push(item);
+      return copy;
+    });
+    setAddingToGroup(null);
+  };
+
+  const addFixedSvc = (idx: string) => {
+    const s = catalog.fixed[+idx];
+    if (s) setFixed((prev) => [...prev, { ...s, quantity: 1 }]);
+    setAddingFixed(false);
+  };
+
+  // Crea el grupo con día y audiencia EXPLÍCITOS y abre su agregador
+  // (un grupo sin items se descarta solo al guardar).
+  const createGroup = () => {
+    if (!newCatName) return;
+    const newIndex = varGroups.length;
+    setVarGroups((prev) => [
+      ...prev,
+      {
+        category: newCatName,
+        audience: newCatAud,
+        day: multiDia ? newCatDay : 1,
+        items: [],
+      },
+    ]);
+    setNewCatOpen(false);
+    setNewCatName("");
+    setNewCatDay(1);
+    setNewCatAud("adultos");
+    setAddingToGroup(newIndex);
+  };
+
+  // Personas del grupo: igual al cotizador — escribir el número de su
+  // audiencia vuelve a modo automático; otro número = ajuste manual.
+  const setGroupPeople = (gi: number, v?: number) => {
+    setVarGroups((prev) =>
+      prev.map((g, i) =>
+        i === gi
+          ? { ...g, people: !v || v === audCount(g) ? undefined : v }
+          : g,
+      ),
+    );
   };
 
   const save = async () => {
@@ -1463,13 +1506,6 @@ function ServiciosTab({
       </div>
     );
 
-  const svcOptions =
-    addCat === "Servicios fijos"
-      ? catalog.fixed
-      : addCat
-        ? catalog.byCat[addCat] || []
-        : [];
-
   return (
     <div>
       {/* Aviso: evento ya provisionado */}
@@ -1579,10 +1615,10 @@ function ServiciosTab({
       </div>
 
       {varGroups.map((g, gi) => (
-        <div key={g.category || gi}>
+        <div key={`${g.category || "cat"}-${gi}`}>
           <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
             <span>{g.category}</span>
-            <span className="normal-case font-semibold">
+            <span className="normal-case font-semibold flex items-center gap-1.5">
               <span
                 className={
                   audOf(g) === "ninos" ? "text-amber-700" : "text-blue-700"
@@ -1590,9 +1626,34 @@ function ServiciosTab({
               >
                 {audOf(g) === "ninos" ? "NIÑOS" : "ADULTOS"}
               </span>
+              <span className="text-gray-500">·</span>
+              {/* Personas del grupo, editable como en el cotizador. El
+                  "de N" va ANCLADO (absoluto): la fila no se mueve. */}
+              <span className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={gPeople(g) ? gPeople(g).toLocaleString("es-CL") : ""}
+                  onChange={(e) => {
+                    const v =
+                      parseInt(e.target.value.replace(/\./g, ""), 10) || 0;
+                    setGroupPeople(gi, v);
+                  }}
+                  className={`w-16 border rounded-md px-1.5 py-0.5 text-xs text-right font-semibold ${
+                    typeof g.people === "number"
+                      ? "border-amber-400 bg-amber-50 text-amber-900"
+                      : "border-gray-300 bg-white text-gray-700"
+                  }`}
+                  aria-label={`Personas de ${g.category}`}
+                />
+                {typeof g.people === "number" && (
+                  <span className="absolute right-0 top-full mt-0.5 text-[10px] font-semibold normal-case text-amber-700 whitespace-nowrap">
+                    de {audCount(g).toLocaleString("es-CL")}
+                  </span>
+                )}
+              </span>
               <span className="text-gray-500">
-                {" "}
-                · {gPeople(g).toLocaleString("es-CL")} personas
+                personas
                 {multiDia ? ` · Día ${g.day || 1}` : ""}
               </span>
             </span>
@@ -1602,6 +1663,41 @@ function ServiciosTab({
               removeVar(gi, i),
             ),
           )}
+          {/* Agregador DEL grupo: el servicio cae aquí, sin ambigüedad */}
+          <div className="py-1.5 border-t border-gray-100">
+            {addingToGroup === gi ? (
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <SelectWithSearch
+                    options={(catalog.byCat[g.category] || []).map((sv, i) => ({
+                      value: String(i),
+                      label: `${sv.nombre} — ${clp(sv.precio)}`,
+                    }))}
+                    value=""
+                    onChange={(v) => addToGroup(gi, v)}
+                    placeholder={`Buscar servicio de ${g.category}…`}
+                    searchPlaceholder="Buscar…"
+                    noResultsText="Sin resultados"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAddingToGroup(null)}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingToGroup(gi)}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+              >
+                + Agregar servicio
+              </button>
+            )}
+          </div>
         </div>
       ))}
 
@@ -1618,44 +1714,128 @@ function ServiciosTab({
         </div>
       )}
 
-      {/* Agregar servicio: categoría -> servicio del catálogo */}
-      <div className="flex gap-2 mt-4">
-        <select
-          value={addCat}
-          onChange={(e) => {
-            setAddCat(e.target.value);
-            setAddSvc("");
-          }}
-          className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
-        >
-          <option value="">Categoría…</option>
-          {catalog.cats.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-          <option>Servicios fijos</option>
-        </select>
-        <div className="flex-1">
-          <SelectWithSearch
-            options={svcOptions.map((s, i) => ({
-              value: String(i),
-              label: `${s.nombre} — ${clp(s.precio)}`,
-            }))}
-            value={addSvc}
-            onChange={setAddSvc}
-            disabled={!addCat}
-            placeholder={addCat ? "Servicio…" : "Elige categoría primero…"}
-            searchPlaceholder="Buscar servicio…"
-            noResultsText="Sin resultados"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={!addCat || addSvc === ""}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-        >
-          Agregar
-        </button>
+      {/* Agregadores GLOBALES: solo lo que no pertenece a un grupo —
+          categoría nueva (día y audiencia explícitos) y servicios fijos. */}
+      <div className="mt-4">
+        {newCatOpen ? (
+          <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 flex flex-wrap items-end gap-3">
+            <div className="min-w-[180px]">
+              <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                Categoría
+              </label>
+              <select
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              >
+                <option value="">Elegir…</option>
+                {catalog.cats.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            {multiDia && (
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                  Día
+                </label>
+                <select
+                  value={newCatDay}
+                  onChange={(e) => setNewCatDay(Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+                >
+                  {Array.from({ length: daysCount }, (_, i) => i + 1).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        Día {n}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            )}
+            {kidsN > 0 && (
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                  Audiencia
+                </label>
+                <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                  {(["adultos", "ninos"] as const).map((aud) => (
+                    <button
+                      key={aud}
+                      type="button"
+                      onClick={() => setNewCatAud(aud)}
+                      className={`px-3 py-2 text-xs font-bold ${
+                        newCatAud === aud
+                          ? aud === "ninos"
+                            ? "bg-amber-600 text-white"
+                            : "bg-blue-900 text-white"
+                          : "bg-white text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      {aud === "ninos" ? "Niños" : "Adultos"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={createGroup}
+              disabled={!newCatName}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            >
+              Crear
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewCatOpen(false)}
+              className="px-3 py-2 text-sm text-gray-600"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : addingFixed ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SelectWithSearch
+                options={catalog.fixed.map((sv, i) => ({
+                  value: String(i),
+                  label: `${sv.nombre} — ${clp(sv.precio)}`,
+                }))}
+                value=""
+                onChange={addFixedSvc}
+                placeholder="Buscar servicio fijo…"
+                searchPlaceholder="Buscar…"
+                noResultsText="Sin resultados"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setAddingFixed(false)}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={() => setNewCatOpen(true)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+            >
+              + Agregar categoría nueva
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddingFixed(true)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+            >
+              + Agregar servicio fijo
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Totales + descuento editable */}
