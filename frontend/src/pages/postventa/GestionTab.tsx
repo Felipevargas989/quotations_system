@@ -204,6 +204,7 @@ export default function GestionTab({
     const stock = m.item.stock || 0;
     return stock > 0 && m.total + m.others > stock;
   }).length;
+  const mobConStock = mobiliario.filter((m) => (m.item.stock || 0) > 0).length;
 
   const provisioned = !!prov.provisioned_at;
   const costoBase =
@@ -338,25 +339,26 @@ export default function GestionTab({
 
       {/* ---------- Bloque 1: Insumos y equipo ---------- */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-bold text-gray-800">
-              Insumos y equipo
-            </h4>
-            <p className="text-xs text-gray-500">
-              Calculado de las recetas × {personas} personas. Solo lectura.
-            </p>
-          </div>
+        {/* Patrón de encabezado del modal (mismo que Recursos del evento y
+            Ficha de cocina): icono + título text-base + divisoria. */}
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+          <Package size={17} className="text-gray-600" />
+          <h4 className="text-base font-bold text-gray-900">
+            Insumos y equipo
+          </h4>
           {!empty && (
             <button
               type="button"
               onClick={downloadExcel}
-              className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
+              className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
             >
               <Download size={15} /> Excel
             </button>
           )}
         </div>
+        <p className="text-xs text-gray-500 -mt-2">
+          Calculado de las recetas × {personas} personas. Solo lectura.
+        </p>
 
         {empty ? (
           <div className="text-center py-8 text-gray-500">
@@ -477,9 +479,17 @@ export default function GestionTab({
                     {mobiliario.length === 1 ? "" : "s"}
                   </span>
                   {/* La falta de stock NO se esconde al plegar */}
-                  {mobFaltas > 0 && (
+                  {mobFaltas > 0 ? (
                     <span className="ml-auto text-xs font-semibold text-red-600">
                       ⚠ {mobFaltas} con falta
+                    </span>
+                  ) : mobConStock > 0 ? (
+                    <span className="ml-auto text-xs font-semibold text-green-600">
+                      ✓ sin faltas
+                    </span>
+                  ) : (
+                    <span className="ml-auto text-[11px] text-gray-400">
+                      sin stock definido
                     </span>
                   )}
                 </button>
@@ -489,16 +499,16 @@ export default function GestionTab({
                   <table className="min-w-full text-sm table-fixed">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           Ítem
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-28">
+                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase w-28">
                           Necesidad
                         </th>
-                        <th className="px-2 py-1.5 text-right text-[11px] font-medium text-gray-400 uppercase w-24">
+                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase w-24">
                           Stock
                         </th>
-                        <th className="px-3 py-1.5 text-left text-[11px] font-medium text-gray-400 uppercase w-56">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-56">
                           Estado
                         </th>
                       </tr>
@@ -582,8 +592,9 @@ export default function GestionTab({
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1">
                   La necesidad es el máximo simultáneo entre servicios (se
-                  lava y reutiliza, no se suma). El costo del mobiliario va
-                  en los recursos del evento.
+                  lava y reutiliza); los ítems de preparación anticipada se
+                  suman. El costo del mobiliario va en los recursos del
+                  evento.
                 </p>
                 </>
                 )}
@@ -617,9 +628,9 @@ export default function GestionTab({
 
       {/* ---------- Bloque 4: rentabilidad estimada ---------- */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={16} className="text-gray-500" />
-          <h4 className="text-sm font-bold text-gray-800">
+        <div className="flex items-center gap-2 mb-3 border-b border-gray-200 pb-2">
+          <TrendingUp size={17} className="text-gray-600" />
+          <h4 className="text-base font-bold text-gray-900">
             {provisioned ? "Rentabilidad del evento" : "Rentabilidad estimada"}
           </h4>
           {!provisioned && (
