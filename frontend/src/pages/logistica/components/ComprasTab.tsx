@@ -658,8 +658,8 @@ export default function ComprasTab({
                     c.supply.package_name || "formato"
                   } de ${Number(c.supply.package_qty).toLocaleString("es-CL")} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
                 : "";
-            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}${
-              formato ? ` <span class="nota">· ${esc(formato)}</span>` : ""
+            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
+              formato ? `· ${esc(formato)}` : ""
             }</td><td class="der">${
               c.supply.price ? fmtMoney(c.totalBase * c.supply.price) : "—"
             }</td></tr>`;
@@ -717,7 +717,9 @@ export default function ComprasTab({
   .tabla td { font-size:12.5px; padding:4px 10px 4px 0; border-bottom:1px solid #f3f4f6; }
   .tabla td.chk { padding-left:2px; }
   .tabla td:nth-child(2) { font-weight:600; }
-  .tabla .der { text-align:right; white-space:nowrap; font-weight:700; }
+  .tabla .der { text-align:right; white-space:nowrap; font-weight:700; width:90px; }
+  .tabla .qty { text-align:right; white-space:nowrap; font-weight:700; width:90px; }
+  .tabla .fmt { white-space:nowrap; font-weight:400; font-size:10.5px; color:#9ca3af; width:170px; padding-left:8px; }
   .tabla .nota { font-weight:400; font-size:10.5px; color:#9ca3af; }
   .tabla tr:last-child td { border-bottom:none; }
   .total-final { display:flex; justify-content:flex-end; gap:14px; margin-top:16px; padding:8px 12px; background:${brandP}; color:${onBrandP}; border-radius:8px; font-size:13px; font-weight:800; }
