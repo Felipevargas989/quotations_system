@@ -163,7 +163,7 @@ export default function PaymentTransactionModal({
 
     if (formData.amount > maxAmount) {
       alert(
-        `El monto no puede exceder el saldo pendiente: $${maxAmount.toLocaleString()}`,
+        `El monto no puede exceder el saldo pendiente: $${maxAmount.toLocaleString("es-CL")}`,
       );
       return;
     }
@@ -243,13 +243,13 @@ export default function PaymentTransactionModal({
             <div className="flex justify-between items-center mb-1 w-full">
               <span className="text-xs font-medium text-gray-700">Total:</span>
               <span className="text-sm font-bold text-gray-900">
-                ${payment.amount.toLocaleString()}
+                ${payment.amount.toLocaleString("es-CL")}
               </span>
             </div>
             <div className="flex justify-between items-center mb-1 w-full">
               <span className="text-xs font-medium text-gray-700">Pagado:</span>
               <span className="text-xs text-green-600">
-                ${payment.paid_amount.toLocaleString()}
+                ${payment.paid_amount.toLocaleString("es-CL")}
               </span>
             </div>
             <div className="flex justify-between items-center w-full">
@@ -257,7 +257,7 @@ export default function PaymentTransactionModal({
                 Pendiente:
               </span>
               <span className="text-xs font-bold text-red-600">
-                ${remainingAmount.toLocaleString()}
+                ${remainingAmount.toLocaleString("es-CL")}
               </span>
             </div>
             {isEditing && (
@@ -266,7 +266,7 @@ export default function PaymentTransactionModal({
                   Monto actual:
                 </span>
                 <span className="text-xs text-blue-600">
-                  ${transaction!.amount.toLocaleString()}
+                  ${transaction!.amount.toLocaleString("es-CL")}
                 </span>
               </div>
             )}

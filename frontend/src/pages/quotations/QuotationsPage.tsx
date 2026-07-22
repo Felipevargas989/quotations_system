@@ -592,7 +592,7 @@ export default function QuotationsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${quotation.total_amount.toLocaleString()}
+                    ${quotation.total_amount.toLocaleString("es-CL")}
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap">
                     <select

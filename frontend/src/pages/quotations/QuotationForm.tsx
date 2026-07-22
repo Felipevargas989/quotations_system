@@ -2570,7 +2570,7 @@ export default function QuotationForm() {
                                   className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                                 >
                                   {product.nombre} - $
-                                  {product.precio.toLocaleString()}
+                                  {product.precio.toLocaleString("es-CL")}
                                 </button>
                               );
 
@@ -2704,7 +2704,7 @@ export default function QuotationForm() {
                                   </span>
                                   <span className="flex items-center gap-3 shrink-0">
                                     <span className="text-gray-500">
-                                      ${service.precio.toLocaleString()}
+                                      ${service.precio.toLocaleString("es-CL")}
                                     </span>
                                     <QuantitySelector
                                       value={service.quantity}
@@ -2924,7 +2924,7 @@ export default function QuotationForm() {
                   <p className="text-xs text-gray-500 mt-1">
                     {discType === "%"
                       ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
-                      : `Máximo: $${getMaxDiscountAmount().toLocaleString()} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
+                      : `Máximo: $${getMaxDiscountAmount().toLocaleString("es-CL")} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
                   </p>
                 </div>
 
@@ -2934,7 +2934,7 @@ export default function QuotationForm() {
                   </label>
                   <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
                     <span className="text-red-600 font-medium">
-                      -${discountAmountUI.toLocaleString()}
+                      -${discountAmountUI.toLocaleString("es-CL")}
                     </span>
                   </div>
                 </div>
@@ -2945,7 +2945,7 @@ export default function QuotationForm() {
                   </label>
                   <div className="px-3 py-2 bg-green-50 border border-green-300 rounded-lg">
                     <span className="text-green-700 font-bold">
-                      ${formData.total_amount.toLocaleString()}
+                      ${formData.total_amount.toLocaleString("es-CL")}
                     </span>
                   </div>
                 </div>
@@ -2957,8 +2957,8 @@ export default function QuotationForm() {
                     <span className="text-yellow-800 text-sm">
                       💡 <strong>Descuento aplicado:</strong>{" "}
                       {discType === "%"
-                        ? `${formData.discount_percentage || 0}% ($${discountAmountUI.toLocaleString()} de descuento)`
-                        : `$${discountAmountUI.toLocaleString()} (monto cerrado)`}
+                        ? `${formData.discount_percentage || 0}% ($${discountAmountUI.toLocaleString("es-CL")} de descuento)`
+                        : `$${discountAmountUI.toLocaleString("es-CL")} (monto cerrado)`}
                     </span>
                   </div>
                 </div>
@@ -2987,7 +2987,7 @@ export default function QuotationForm() {
                         $
                         {(
                           service.precio_calculado * service.quantity
-                        ).toLocaleString()}
+                        ).toLocaleString("es-CL")}
                       </span>
                       <span>×{service.quantity}</span>
                       {eventDaysCount > 1 && (
@@ -3151,7 +3151,7 @@ export default function QuotationForm() {
                             {box.selectedCategory}
                           </span>
                           <span className="font-medium text-gray-900 whitespace-nowrap">
-                            ${(perPerson * people).toLocaleString()}
+                            ${(perPerson * people).toLocaleString("es-CL")}
                           </span>
                         </div>
                         <p className="text-[11px] text-gray-400">
@@ -3165,7 +3165,7 @@ export default function QuotationForm() {
               <div className="bg-gray-50 px-4 py-2 space-y-0.5 border-t border-gray-200">
                 <div className="flex justify-between text-xs font-semibold text-gray-600">
                   <span>Por adulto (servicios completos)</span>
-                  <span>${formData.value_per_person.toLocaleString()}</span>
+                  <span>${formData.value_per_person.toLocaleString("es-CL")}</span>
                 </div>
                 {childrenCount > 0 && (
                   <div className="flex justify-between text-xs font-semibold text-gray-600">
@@ -3185,7 +3185,7 @@ export default function QuotationForm() {
                             )
                           );
                         }, 0),
-                      ).toLocaleString()}
+                      ).toLocaleString("es-CL")}
                     </span>
                   </div>
                 )}
@@ -3207,7 +3207,7 @@ export default function QuotationForm() {
                         $
                         {(
                           service.precio_calculado * service.quantity
-                        ).toLocaleString()}
+                        ).toLocaleString("es-CL")}
                       </span>
                     </div>
                   ))}
@@ -3221,7 +3221,7 @@ export default function QuotationForm() {
                     Subtotal antes descuento
                   </span>
                   <span className="text-gray-600">
-                    ${formData.subtotal_amount.toLocaleString()}
+                    ${formData.subtotal_amount.toLocaleString("es-CL")}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -3232,7 +3232,7 @@ export default function QuotationForm() {
                       : "(monto cerrado)"}
                   </span>
                   <span className="text-red-600">
-                    -${discountAmountUI.toLocaleString()}
+                    -${discountAmountUI.toLocaleString("es-CL")}
                   </span>
                 </div>
               </div>
@@ -3248,7 +3248,7 @@ export default function QuotationForm() {
                     <div className="flex justify-between px-4 py-1.5 text-sm">
                       <span className="text-gray-500">Neto</span>
                       <span className="text-gray-700">
-                        ${Math.round(totalConIva / 1.19).toLocaleString()}
+                        ${Math.round(totalConIva / 1.19).toLocaleString("es-CL")}
                       </span>
                     </div>
                     <div className="flex justify-between px-4 py-1.5 text-sm">
@@ -3257,7 +3257,7 @@ export default function QuotationForm() {
                         $
                         {Math.round(
                           totalConIva - totalConIva / 1.19,
-                        ).toLocaleString()}
+                        ).toLocaleString("es-CL")}
                       </span>
                     </div>
                   </div>
@@ -3265,7 +3265,7 @@ export default function QuotationForm() {
                   <div className="bg-amber-100 px-4 py-2">
                     <div className="flex justify-between font-bold text-black">
                       <span>Total con IVA</span>
-                      <span>${totalConIva.toLocaleString()}</span>
+                      <span>${totalConIva.toLocaleString("es-CL")}</span>
                     </div>
                   </div>
 
@@ -3305,7 +3305,7 @@ export default function QuotationForm() {
                       </label>
                       {tipEnabled && (
                         <span className="font-bold text-gray-900">
-                          ${tipAmountUI.toLocaleString()}
+                          ${tipAmountUI.toLocaleString("es-CL")}
                         </span>
                       )}
                     </div>
@@ -3320,7 +3320,7 @@ export default function QuotationForm() {
                   <div className="bg-blue-900 px-4 py-2.5">
                     <div className="flex justify-between font-extrabold text-white">
                       <span>TOTAL A PAGAR</span>
-                      <span>${formData.total_amount.toLocaleString()}</span>
+                      <span>${formData.total_amount.toLocaleString("es-CL")}</span>
                     </div>
                   </div>
                 </>
