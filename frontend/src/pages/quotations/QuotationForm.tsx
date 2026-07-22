@@ -23,6 +23,7 @@ import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import {
   createQuotation,
+  deleteQuotation,
   getQuotationById,
   updateQuotation,
 } from "../../services/quotations.service";
@@ -198,6 +199,11 @@ export default function QuotationForm() {
   const [newContactPhone, setNewContactPhone] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
+  // Eliminar cotización (solo admin, solo editando): confirmación INLINE
+  // en la esquina superior — patrón del sistema, cero popups nativos.
+  const [confirmDeleteQ, setConfirmDeleteQ] = useState(false);
+  const [deletingQ, setDeletingQ] = useState(false);
+  const [deleteQError, setDeleteQError] = useState<string | null>(null);
   const [showClientModal, setShowClientModal] = useState(false);
   const [clientFormData, setClientFormData] = useState<ClientFormData>({
     name: "",
@@ -1821,6 +1827,52 @@ export default function QuotationForm() {
           )}
         </div>
         <div className="flex items-center space-x-3">
+          {/* Eliminar (solo admin, solo cotización existente): mismas
+              reglas de siempre, confirmación inline en la esquina. */}
+          {isEditingExisting &&
+            id &&
+            userRole === UserRole.ADMINISTRADOR &&
+            (confirmDeleteQ ? (
+              <ConfirmInline
+                question="¿Eliminar esta cotización? No se puede deshacer."
+                busy={deletingQ}
+                onYes={async () => {
+                  setDeletingQ(true);
+                  try {
+                    await deleteQuotation(id);
+                    queryClientRQ.invalidateQueries({
+                      queryKey: ["quotations"],
+                    });
+                    queryClientRQ.invalidateQueries({
+                      queryKey: ["requirements"],
+                    });
+                    navigate("/quotations");
+                  } catch {
+                    setDeletingQ(false);
+                    setConfirmDeleteQ(false);
+                    setDeleteQError(
+                      "No se pudo eliminar la cotización. Intenta de nuevo.",
+                    );
+                  }
+                }}
+                onNo={() => setConfirmDeleteQ(false)}
+              />
+            ) : (
+              <span className="flex items-center gap-2">
+                {deleteQError && (
+                  <span className="text-xs text-red-600">{deleteQError}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteQ(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg"
+                  title="Eliminar esta cotización (solo administradores)"
+                >
+                  <Trash2 size={15} />
+                  Eliminar
+                </button>
+              </span>
+            ))}
           <div className="relative dropdown-container">
             <button
               type="button"

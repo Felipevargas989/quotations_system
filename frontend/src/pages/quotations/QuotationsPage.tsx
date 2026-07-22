@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Eye, PlusCircle } from "lucide-react";
+import { AlertTriangle, ChevronRight, Plus, Search } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import QuotationViewer from "../../components/QuotationViewer";
 import { ROLE_GROUPS } from "../../constants/permissions";
@@ -17,7 +17,6 @@ import {
   QuotationWithClient,
 } from "../../types/quotations.types";
 import {
-  deleteQuotation,
   getQuotations,
   updateQuotation,
 } from "../../services/quotations.service";
@@ -28,7 +27,7 @@ import {
 import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
-import { matchesSearch } from "../../utils/searchMatch";
+import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 
 // Persist the quotations status filter per user, so the selection survives
 // reloads / navigation instead of resetting to the default each time.
@@ -197,53 +196,25 @@ export default function QuotationsPage() {
     await fetchRequirements();
   };
 
-  const handleDeleteQuotation = async (
-    quotationId: string,
-    quotationNumber: string,
-  ) => {
-    // Security check: Only administrators can delete quotations
-    if (!ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any)) {
-      alert(
-        "No tienes permisos para eliminar cotizaciones. Solo los administradores pueden realizar esta acción.",
+  // Contacto de la fila: el MANDANTE de la cotización con su propio
+  // teléfono (misma regla que Post-Venta); sin mandante guardado → el
+  // contacto principal del cliente.
+  const contactOf = (q: QuotationWithClient) => {
+    const c = q.clients as unknown as {
+      contact_person?: string;
+      phone?: string;
+      client_contacts?: { name: string; phone?: string }[];
+    };
+    const mandante = (
+      q as unknown as { contact_name?: string | null }
+    ).contact_name?.trim();
+    if (mandante) {
+      const match = (c?.client_contacts || []).find(
+        (ct) => normalizeText(ct.name) === normalizeText(mandante),
       );
-      return;
+      return { name: mandante, phone: match?.phone || "" };
     }
-
-    const confirmed = confirm(
-      `¿Estás seguro de que quieres eliminar la cotización #${quotationNumber}?\n\nEsta acción no se puede deshacer.`,
-    );
-
-    if (!confirmed) return;
-
-    try {
-      // Delete the quotation (items are now stored in JSON field)
-      await deleteQuotation(quotationId);
-
-      alert("✅ Cotización eliminada exitosamente");
-      await fetchQuotations(statusFilter);
-      await fetchRequirements();
-    } catch (error) {
-      console.error("Error deleting quotation:", error);
-      alert(
-        `Error al eliminar la cotización: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      );
-    }
-  };
-
-  const handleCreateQuotationFromRequirement = async (
-    requirementId: Quotation["id"],
-  ) => {
-    try {
-      if (!user?.id) {
-        alert("Error: Usuario no autenticado");
-        return;
-      }
-
-      // Navigate to quotation form with requirement ID
-      navigate(`/quotation-form/${requirementId}`);
-    } catch (error) {
-      alert("Error al crear cotización desde requerimiento");
-    }
+    return { name: c?.contact_person || "", phone: c?.phone || "" };
   };
 
   const getStatusColor = (status: string) => {
@@ -415,13 +386,15 @@ export default function QuotationsPage() {
     }
   };
 
-  const handleEditQuotation = (quotation: QuotationWithClient) => {
-    if (!canEditQuotation(quotation)) {
-      alert("No tienes permiso para editar esta cotización.");
-      return;
+  // Fila clickeable (patrón Post-Venta): con permiso → edición; sin
+  // permiso (aceptadas para roles no operativos) → visor de solo lectura.
+  // El click siempre hace algo útil, sin avisos de permiso.
+  const handleRowClick = (quotation: QuotationWithClient) => {
+    if (canEditQuotation(quotation)) {
+      navigate(`/quotation-form/${quotation.id}`);
+    } else {
+      handleViewQuotation(quotation);
     }
-    // Navigate to quotation form with quotation ID
-    navigate(`/quotation-form/${quotation.id}`);
   };
 
   // Número: exacto (decisión 21-07). Nombre: búsqueda inteligente (sin
@@ -437,13 +410,29 @@ export default function QuotationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Cotizaciones</h1>
-        <button
-          onClick={() => navigate("/quotation-form")}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus size={20} />
-          <span>Nueva Cotización</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Requerimientos pendientes: aviso junto al botón (la tabla de
+              abajo se eliminó; la conversión vive en su módulo). */}
+          {requirements.length > 0 && (
+            <button
+              onClick={() => navigate("/requests")}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm font-semibold hover:bg-amber-100"
+              title="Ir al módulo de Requerimientos"
+            >
+              <AlertTriangle size={16} className="text-amber-500" />
+              {requirements.length} requerimiento
+              {requirements.length === 1 ? "" : "s"} pendiente
+              {requirements.length === 1 ? "" : "s"}
+            </button>
+          )}
+          <button
+            onClick={() => navigate("/quotation-form")}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Nueva Cotización</span>
+          </button>
+        </div>
       </div>
 
       {showViewer && viewingQuotation && (
@@ -503,269 +492,181 @@ export default function QuotationsPage() {
         </div>
       </div>
 
-      {/* Lista de cotizaciones */}
-      <div className="bg-white shadow rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors w-20"
-                onClick={() => handleSort("quotation_number")}
-              >
-                <div className="flex items-center space-x-2">
-                  <span>Número</span>
-                  <div className="flex flex-col">
-                    {sortBy === "quotation_number" ? (
-                      <span className="text-blue-600 font-bold text-lg">
-                        {sortOrder === "asc" ? "▲" : "▼"}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 font-semibold text-sm bg-gray-100 px-1 rounded">
-                        ▲▼
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                Tipo
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                Estado
-              </th>
-              <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors w-28"
-                onClick={() => handleSort("event_date")}
-              >
-                <div className="flex items-center space-x-2">
-                  <span>Fecha</span>
-                  <div className="flex flex-col">
-                    {sortBy === "event_date" ? (
-                      <span className="text-blue-600 font-bold text-lg">
-                        {sortOrder === "asc" ? "▲" : "▼"}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 font-semibold text-sm bg-gray-100 px-1 rounded">
-                        ▲▼
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
+      {/* Lista de cotizaciones — mismo esquema visual que Post-Venta
+          (coherencia del sistema, acordado 22-07): fila clickeable con
+          chevron, columna Estado (píldora-selector, click aislado) y
+          "Ver" azul para el visor. Eliminar vive en el formulario. */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-medium text-gray-900">Cotizaciones</h2>
+          <span className="text-sm text-gray-500">
+            {filteredQuotations.length} de {quotations.length}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                  Cargando...
-                </td>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                  onClick={() => handleSort("quotation_number")}
+                >
+                  N° Cot.{" "}
+                  {sortBy === "quotation_number"
+                    ? sortOrder === "asc"
+                      ? "▲"
+                      : "▼"
+                    : ""}
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                  onClick={() => handleSort("event_date")}
+                >
+                  Fecha evento{" "}
+                  {sortBy === "event_date"
+                    ? sortOrder === "asc"
+                      ? "▲"
+                      : "▼"
+                    : ""}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contacto
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Monto
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3" />
+                <th className="px-6 py-3" />
               </tr>
-            ) : filteredQuotations.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                  No se encontraron cotizaciones
-                </td>
-              </tr>
-            ) : (
-              filteredQuotations.map((quotation) => (
-                <tr key={quotation.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {quotation.quotation_number}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quotation.clients.name.slice(0, 40) +
-                      (quotation.clients.name.length > 40 ? "..." : "")}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      📋 Cotización
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${quotation.total_amount.toLocaleString("es-CL")}
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap">
-                    <select
-                      value={quotation.quotation_status}
-                      onChange={(e) =>
-                        handleStatusChange(quotation.id, e.target.value)
-                      }
-                      className={`px-2 py-1 text-xs font-semibold rounded-full border-0 ${getStatusColor(quotation.quotation_status)}`}
-                    >
-                      <option value="solicitada">📋 Solicitada</option>
-                      <option value="enviada">📤 Enviada</option>
-                      <option value="en_negociacion">💬 En Negociación</option>
-                      <option value="aceptada">✅ Aceptada</option>
-                      <option value="rechazada">❌ Rechazada</option>
-                      {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
-                        quotation.quotation_status === "cancelada") && (
-                        <option value="cancelada">🚫 Cancelada</option>
-                      )}
-                      {/* Realizada NO se elige desde aquí: solo el botón de
-                          Post-Venta la declara (y envía la encuesta). La opción
-                          existe únicamente para MOSTRAR el estado actual y
-                          permitir revertirlo a Aceptada si fue un error. */}
-                      {quotation.quotation_status === "realizada" && (
-                        <option value="realizada">🎉 Realizada</option>
-                      )}
-                    </select>
-                  </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatISOUTCDateToString(quotation.event_date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleViewQuotation(quotation)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Ver cotización"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleEditQuotation(quotation);
-                        }}
-                        className={`${
-                          canEditQuotation(quotation)
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-gray-300 cursor-not-allowed"
-                        }`}
-                        title={
-                          canEditQuotation(quotation)
-                            ? "Editar cotización"
-                            : "No tienes permiso para editar cotizaciones en estado 'Aceptada'"
-                        }
-                        disabled={!canEditQuotation(quotation)}
-                      >
-                        <Edit size={16} />
-                      </button>
-                      {ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) && (
-                        <button
-                          onClick={() =>
-                            handleDeleteQuotation(
-                              quotation.id,
-                              quotation.quotation_number.toString(),
-                            )
-                          }
-                          className="text-red-600 hover:text-red-900"
-                          title="Solo administradores pueden eliminar cotizaciones"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    Cargando...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Tabla de Requerimientos para crear cotizaciones */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
-          <h2 className="text-lg font-medium text-yellow-800">
-            Requerimientos Pendientes
-          </h2>
-          <p className="text-sm text-yellow-600">
-            Requerimientos que pueden convertirse en cotizaciones
-          </p>
-        </div>
-        <RequirementsForQuotations
-          onCreateQuotation={handleCreateQuotationFromRequirement}
-          requirements={requirements}
-        />
-      </div>
-    </div>
-  );
-}
-
-// Componente para mostrar requerimientos que pueden convertirse en cotizaciones
-function RequirementsForQuotations({
-  onCreateQuotation,
-  requirements,
-}: {
-  onCreateQuotation: (id: string) => void;
-  requirements: QuotationWithClient[];
-}) {
-  return (
-    <div className="overflow-x-auto max-h-96 overflow-y-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Número
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Cliente
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tipo
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Personas
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Estado
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {requirements.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                No hay requerimientos pendientes para crear cotizaciones
-              </td>
-            </tr>
-          ) : (
-            requirements.map((requirement) => (
-              <tr key={requirement.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {requirement.quotation_number}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {requirement.clients.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {requirement.event_type || "No especificado"}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {requirement.people_count}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                    📋 Solicitada
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => onCreateQuotation(requirement.id)}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
+              ) : filteredQuotations.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-6 py-8 text-center text-gray-500"
                   >
-                    <PlusCircle size={14} />
-                    <span>Crear Cotización</span>
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                    No se encontraron cotizaciones
+                  </td>
+                </tr>
+              ) : (
+                filteredQuotations.map((quotation) => {
+                  const contact = contactOf(quotation);
+                  const clientType = (
+                    quotation.clients as unknown as { client_type?: string }
+                  )?.client_type;
+                  const endDate = (
+                    quotation as unknown as { event_end_date?: string | null }
+                  )?.event_end_date;
+                  return (
+                    <tr
+                      key={quotation.id}
+                      onClick={() => handleRowClick(quotation)}
+                      className="hover:bg-gray-50 cursor-pointer"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                        #{quotation.quotation_number}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatISOUTCDateToString(quotation.event_date)}
+                        </div>
+                        {endDate && String(endDate) !== String(quotation.event_date) && (
+                          <div className="text-xs text-gray-500">
+                            al {formatISOUTCDateToString(endDate)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {quotation.clients.name.slice(0, 40) +
+                            (quotation.clients.name.length > 40 ? "..." : "")}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {clientType || ""}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          {contact.name || "—"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {contact.phone || ""}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        ${quotation.total_amount.toLocaleString("es-CL")}
+                      </td>
+                      {/* Click aislado: cambiar el estado no abre la fila */}
+                      <td
+                        className="px-6 py-4 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <select
+                          value={quotation.quotation_status}
+                          onChange={(e) =>
+                            handleStatusChange(quotation.id, e.target.value)
+                          }
+                          className={`px-2 py-1 text-xs font-semibold rounded-full border-0 ${getStatusColor(quotation.quotation_status)}`}
+                        >
+                          <option value="solicitada">📋 Solicitada</option>
+                          <option value="enviada">📤 Enviada</option>
+                          <option value="en_negociacion">
+                            💬 En Negociación
+                          </option>
+                          <option value="aceptada">✅ Aceptada</option>
+                          <option value="rechazada">❌ Rechazada</option>
+                          {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
+                            quotation.quotation_status === "cancelada") && (
+                            <option value="cancelada">🚫 Cancelada</option>
+                          )}
+                          {/* Realizada NO se elige desde aquí: solo el botón de
+                              Post-Venta la declara (y envía la encuesta). La opción
+                              existe únicamente para MOSTRAR el estado actual y
+                              permitir revertirlo a Aceptada si fue un error. */}
+                          {quotation.quotation_status === "realizada" && (
+                            <option value="realizada">🎉 Realizada</option>
+                          )}
+                        </select>
+                      </td>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => handleViewQuotation(quotation)}
+                          className="text-sm font-semibold text-blue-600 hover:underline"
+                          title="Ver cotización (solo lectura)"
+                        >
+                          Ver
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-gray-300">
+                        <ChevronRight size={18} />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

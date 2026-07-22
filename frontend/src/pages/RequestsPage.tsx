@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
+  PlusCircle,
   Search,
   Filter,
   Edit,
@@ -33,6 +35,7 @@ import { matchesSearch } from "../utils/searchMatch";
 
 export default function RequestsPage() {
   const { user, userRole, company } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] =
@@ -212,13 +215,25 @@ export default function RequestsPage() {
           )}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-2">
+            {/* Convertir en cotización: vivía en la tabla de pendientes
+                del panel de cotizaciones (eliminada el 22-07); ahora la
+                conversión vive aquí, en su casa natural. */}
+            <button
+              onClick={() => navigate(`/quotation-form/${request.id}`)}
+              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
+              title="Crear la cotización a partir de este requerimiento"
+            >
+              <PlusCircle size={14} />
+              <span>Crear Cotización</span>
+            </button>
             <button
               onClick={() => {
                 setEditingRequest(request);
                 setShowForm(true);
               }}
               className="text-gray-600 hover:text-gray-900"
+              title="Editar requerimiento"
             >
               <Edit size={16} />
             </button>

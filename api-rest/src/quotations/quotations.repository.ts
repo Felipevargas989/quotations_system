@@ -43,7 +43,14 @@ export class QuotationsRepository {
       `*,
         clients (
           name,
-          email
+          email,
+          client_type,
+          contact_person,
+          phone,
+          client_contacts (
+            name,
+            phone
+          )
         ),
         companies (
           name
