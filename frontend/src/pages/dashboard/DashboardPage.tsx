@@ -21,7 +21,9 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { getCompleteStats } from "../../services/analytics.service";
+import { getHoyAlerts } from "../../services/hoy.service";
 import {
   getAllRecipeItems,
   getCatalogServiceNameIds,
@@ -144,6 +146,7 @@ type TimeRangeOption = {
 
 export default function DashboardPage() {
   const { user, company, userRole } = useAuth();
+  const navigate = useNavigate();
 
   // Time range options
   const timeRangeOptions: TimeRangeOption[] = [
@@ -517,6 +520,16 @@ export default function DashboardPage() {
       )
     : { ventas: 0, costo: 0, estimado: false };
 
+  // FASE 5: la fila HOY — independiente del período (el hoy no se
+  // filtra). Se refresca sola cada 5 minutos.
+  const hoyQuery = useQuery({
+    queryKey: ["dashboard-hoy", company?.id],
+    enabled: !!user && !!company?.id,
+    refetchInterval: 5 * 60 * 1000,
+    queryFn: async () => getHoyAlerts(company!.id),
+  });
+  const hoy = hoyQuery.data;
+
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
     setCustomRange(null);
@@ -684,6 +697,107 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {/* ================= FILA "HOY" (Fase 5, 23-07) =================
+          Dónde actuar al abrir el sistema. Independiente del período;
+          cada tarjeta navega a su módulo. */}
+      {hoy && (
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-widest text-gray-400 mb-2">
+            Para actuar hoy
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => navigate("/post-venta")}
+              className={`bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 ${
+                hoy.porCobrar.vencido > 0
+                  ? "border-red-500"
+                  : "border-emerald-400"
+              }`}
+              title="Ir a Post-Venta (cobranza)"
+            >
+              <p className="text-sm font-medium text-gray-600">Por cobrar</p>
+              <p className="text-xl font-bold text-gray-900">
+                {formatCurrency(
+                  hoy.porCobrar.pendiente + hoy.porCobrar.vencido,
+                  company?.currency || "CLP",
+                )}
+              </p>
+              <p
+                className={`text-xs mt-0.5 ${
+                  hoy.porCobrar.vencido > 0
+                    ? "text-red-600 font-semibold"
+                    : "text-gray-500"
+                }`}
+              >
+                {hoy.porCobrar.vencido > 0
+                  ? `${formatCurrency(hoy.porCobrar.vencido, company?.currency || "CLP")} VENCIDO`
+                  : "Nada vencido"}
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/calendar")}
+              className="bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 border-blue-400"
+              title="Ir al Calendario"
+            >
+              <p className="text-sm font-medium text-gray-600">
+                Eventos próximos 30 días
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {hoy.proximos.count}
+              </p>
+              <p className="text-xs mt-0.5 text-gray-500">
+                {hoy.proximos.primera
+                  ? `El más cercano: ${new Date(hoy.proximos.primera).toLocaleDateString("es-CL", { timeZone: "UTC", day: "numeric", month: "short" })}`
+                  : "Sin eventos agendados"}
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/requests")}
+              className={`bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 ${
+                hoy.requerimientos.count > 0
+                  ? "border-amber-400"
+                  : "border-gray-200"
+              }`}
+              title="Ir a Requerimientos"
+            >
+              <p className="text-sm font-medium text-gray-600">
+                Requerimientos sin responder
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {hoy.requerimientos.count}
+              </p>
+              <p className="text-xs mt-0.5 text-gray-500">
+                {hoy.requerimientos.count > 0
+                  ? `El más antiguo espera hace ${hoy.requerimientos.oldestDays} día${hoy.requerimientos.oldestDays === 1 ? "" : "s"}`
+                  : "Todo respondido"}
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigate("/quotations")}
+              className={`bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 ${
+                hoy.enviadas.count > 0 ? "border-amber-400" : "border-gray-200"
+              }`}
+              title="Ir a Cotizaciones"
+            >
+              <p className="text-sm font-medium text-gray-600">
+                Enviadas sin respuesta (+7 días)
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {hoy.enviadas.count}
+              </p>
+              <p className="text-xs mt-0.5 text-gray-500">
+                {hoy.enviadas.count > 0
+                  ? `La más fría lleva ${hoy.enviadas.oldestDays} días — llámalos`
+                  : "Ningún lead enfriándose"}
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Time Range Selector */}
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex items-center space-x-2 mb-3">
@@ -742,31 +856,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPIs del período (Fase 5): concretado, conversión y ticket.
+          "Requerimientos" vive en la fila HOY; "Clientes" era un total
+          de vanidad — su análisis está en las tablas de abajo. */}
+      {(() => {
+        const won =
+          (data.quotationsByStatus.find((s) => s.status === "aceptada")
+            ?.count || 0) +
+          (data.quotationsByStatus.find((s) => s.status === "realizada")
+            ?.count || 0);
+        const conversion =
+          data.totalRequests > 0 ? (won * 100) / data.totalRequests : 0;
+        const ticket = won > 0 ? data.totalSales / won : 0;
+        return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">
-                Requerimientos
-              </p>
-              <p className="text-2xl font-bold text-blue-600">
-                {data.totalRequests}
-              </p>
-            </div>
-            <ClipboardList className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Ventas Totales
+                Ventas concretadas
               </p>
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(data.totalSales, company?.currency || "CLP")}
               </p>
+              <p className="text-xs text-gray-500 mt-0.5">del período</p>
             </div>
             <DollarSign className="h-8 w-8 text-green-600" />
           </div>
@@ -775,12 +888,50 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Clientes</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {data.totalClients}
+              <p className="text-sm font-medium text-gray-600">
+                Eventos concretados
+              </p>
+              <p className="text-2xl font-bold text-purple-600">{won}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                de {data.totalRequests} cotizadas
               </p>
             </div>
-            <Building className="h-8 w-8 text-purple-600" />
+            <Calendar className="h-8 w-8 text-purple-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">
+                Tasa de conversión
+              </p>
+              <p className="text-2xl font-bold text-blue-600">
+                {conversion.toLocaleString("es-CL", {
+                  maximumFractionDigits: 1,
+                })}
+                %
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                cotizada → concretada
+              </p>
+            </div>
+            <BarChart3 className="h-8 w-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">
+                Ticket promedio
+              </p>
+              <p className="text-2xl font-bold text-indigo-600">
+                {formatCurrency(ticket, company?.currency || "CLP")}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">por evento</p>
+            </div>
+            <ClipboardList className="h-8 w-8 text-indigo-600" />
           </div>
         </div>
 
@@ -815,6 +966,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Gráficos principales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
