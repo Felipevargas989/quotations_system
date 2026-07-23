@@ -46,12 +46,17 @@ export class AnalyticsService {
       const quotations = await this.quotationsService.findAll({
         companyId,
         request_type: RequestType.COTIZACION,
+        // 23-07: REALIZADA y CANCELADA entran al tablero. "Realizada"
+        // nació después que esta lista y sus eventos desaparecían de
+        // TODO el dashboard (eventos, ventas, caja, contadores).
         statuses: [
           QuotationStatus.SOLICITADA,
           QuotationStatus.ENVIADA,
           QuotationStatus.EN_NEGOCIACION,
           QuotationStatus.ACEPTADA,
           QuotationStatus.RECHAZADA,
+          QuotationStatus.REALIZADA,
+          QuotationStatus.CANCELADA,
         ],
       });
 
@@ -59,8 +64,11 @@ export class AnalyticsService {
       const clients = await this.clientsService.findAll(companyId);
 
       // get all payments
-      // get all quotations_ids
-      const quotations_ids = quotations.map((quotation) => quotation.id);
+      // Caja: pagos de todo lo vivo o concretado; las CANCELADAS quedan
+      // fuera (conservan su historia de pagos, pero no son caja esperada).
+      const quotations_ids = quotations
+        .filter((q) => q.quotation_status !== QuotationStatus.CANCELADA)
+        .map((quotation) => quotation.id);
 
       // add filter by quotation_id in the payments service
       const { data: payments } =
@@ -117,8 +125,11 @@ export class AnalyticsService {
       const totalQuotationsByEventDate: DashboardStatsResponse['totalQuotationsByEventDate'] =
         quotations.reduce(
           (acc, quotation) => {
-            // Only count accepted quotations for events
-            if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+            // Eventos/ventas del mes: concretados = aceptada + realizada
+            if (
+              quotation.quotation_status === QuotationStatus.ACEPTADA ||
+              quotation.quotation_status === QuotationStatus.REALIZADA
+            ) {
               const date = new Date(quotation.event_date);
               const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
               if (!(monthYear in acc)) {
