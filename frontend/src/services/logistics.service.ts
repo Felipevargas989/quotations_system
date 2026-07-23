@@ -632,6 +632,23 @@ export const getEventResources = async (
   return (data || []) as EventResource[];
 };
 
+// Todos los recursos asignados a eventos de la empresa (análisis de
+// proveedores del Dashboard, 23-07): el filtro por período se hace en
+// el front contra el set de eventos concretados.
+export const getAllEventResources = async (
+  companyId: number,
+): Promise<EventResource[]> => {
+  const { data, error } = await supabase
+    .from("event_resources")
+    .select("*")
+    .eq("company_id", companyId);
+  if (error) {
+    console.error("Error cargando recursos de eventos", error);
+    return [];
+  }
+  return (data || []) as EventResource[];
+};
+
 export const addEventResource = async (fields: {
   company_id: number;
   quotation_id: string;

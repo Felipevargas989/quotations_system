@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   DollarSign,
@@ -25,10 +25,13 @@ import { useNavigate } from "react-router-dom";
 import { getCompleteStats } from "../../services/analytics.service";
 import { getHoyAlerts } from "../../services/hoy.service";
 import {
+  getAllEventResources,
   getAllRecipeItems,
   getCatalogServiceNameIds,
+  getEventSupplyProvisions,
   getFixedServiceCostsById,
   getFurnitureItems,
+  getManagementResources,
   getSupplies,
   getSuppliers,
   getWonEventsSince,
@@ -470,14 +473,14 @@ export default function DashboardPage() {
 
   // costo/margen por mes de evento (clave de mes en UTC, igual que el
   // backend que corre en UTC — regla de fechas de eventos del sistema)
-  const marginByMonth = (() => {
+  const marginData = (() => {
     const base = marginBaseQuery.data;
     const events = wonEventsQuery.data || [];
-    const map = new Map<
-      string,
-      { costo: number; estimado: boolean }
-    >();
-    if (!base || events.length === 0) return map;
+    const map = new Map<string, { costo: number; estimado: boolean }>();
+    // Acumulador COMPARTIDO entre los eventos del período: alimenta el
+    // análisis de proveedores e insumos (23-07) sin recorrer dos veces.
+    const acc = newAccumulator();
+    if (!base || events.length === 0) return { byMonth: map, acc };
     const ctx = buildConsolidationContext(
       base.recipes,
       base.supplies,
@@ -488,27 +491,27 @@ export default function DashboardPage() {
     events.forEach((ev) => {
       const d = new Date(ev.event_date || 0);
       const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-      let costo = 0;
-      let estimado = false;
+      const r = consolidateEvent(
+        (ev.items || null) as EventItemsSnapshot | null,
+        Number(ev.people_count) || 0,
+        ctx,
+        acc,
+      );
+      let costo = r.costoInsumos + r.costoFijos;
+      let estimado = true;
       if (ev.provisioned_at && ev.provisioned_cost != null) {
+        // margen: manda la foto congelada de Compras
         costo = Number(ev.provisioned_cost) || 0;
-      } else {
-        const r = consolidateEvent(
-          (ev.items || null) as EventItemsSnapshot | null,
-          Number(ev.people_count) || 0,
-          ctx,
-          newAccumulator(),
-        );
-        costo = r.costoInsumos + r.costoFijos;
-        estimado = true;
+        estimado = false;
       }
       const cur = map.get(key) || { costo: 0, estimado: false };
       cur.costo += costo;
       cur.estimado = cur.estimado || estimado;
       map.set(key, cur);
     });
-    return map;
+    return { byMonth: map, acc };
   })();
+  const marginByMonth = marginData.byMonth;
   const margenTotales = data?.moneyByMonth
     ? data.moneyByMonth.reduce(
         (acc, row) => {
@@ -531,6 +534,139 @@ export default function DashboardPage() {
     queryFn: async () => getHoyAlerts(company!.id),
   });
   const hoy = hoyQuery.data;
+
+  // Análisis de proveedores (23-07): provisiones reales + recursos.
+  const provQuery = useQuery({
+    queryKey: ["dashboard-proveedores", company?.id],
+    enabled: !!user && !!company?.id,
+    queryFn: async () => {
+      const cid = company!.id;
+      const [provisions, resourceDefs, eventResources] = await Promise.all([
+        getEventSupplyProvisions(cid),
+        getManagementResources(cid),
+        getAllEventResources(cid),
+      ]);
+      return { provisions, resourceDefs, eventResources };
+    },
+  });
+
+  // ---------- ANÁLISIS DE PROVEEDORES (23-07, con Felipe) ----------
+  const proveedores = (() => {
+    const base = marginBaseQuery.data;
+    const extra = provQuery.data;
+    if (!base) return null;
+    const supplyById = new Map(base.supplies.map((su) => [su.id, su]));
+    const supplierById = new Map(base.suppliers.map((sp) => [sp.id, sp]));
+    interface FilaProv {
+      id: number;
+      nombre: string;
+      insumos: number;
+      sinPrecio: number;
+      recetas: number;
+      servicios: Set<string>;
+      est: number;
+      real: number;
+      ultima: string | null;
+    }
+    const filas = new Map<number, FilaProv>();
+    const fila = (id: number | null | undefined, nombre?: string) => {
+      const key = id ?? 0;
+      let f = filas.get(key);
+      if (!f) {
+        f = {
+          id: key,
+          nombre:
+            supplierById.get(key)?.name || nombre || "Sin proveedor",
+          insumos: 0,
+          sinPrecio: 0,
+          recetas: 0,
+          servicios: new Set(),
+          est: 0,
+          real: 0,
+          ultima: null,
+        };
+        filas.set(key, f);
+      }
+      return f;
+    };
+    // catálogo: insumos por proveedor y huecos de precio
+    base.supplies.forEach((su) => {
+      const f = fila(su.supplier_id);
+      f.insumos += 1;
+      if (!su.price) f.sinPrecio += 1;
+    });
+    // recetas y servicios donde participa cada proveedor
+    base.recipes.forEach((rc) => {
+      if (rc.item_kind !== "insumo" || !rc.supply_id) return;
+      const su = supplyById.get(rc.supply_id);
+      if (!su) return;
+      const f = fila(su.supplier_id);
+      f.recetas += 1;
+      f.servicios.add(`${rc.service_type}-${rc.service_id}`);
+    });
+    // gasto estimado del período (acumulador compartido del margen)
+    marginData.acc.supplyTotals.forEach((cs) => {
+      fila(cs.supply.supplier_id).est += cs.costTotal;
+    });
+    // compra real (provisiones de eventos del período) + última compra
+    const wonIds = new Set((wonEventsQuery.data || []).map((e) => e.id));
+    (extra?.provisions || []).forEach((pr) => {
+      const sid =
+        pr.supplier_id ?? supplyById.get(pr.supply_id)?.supplier_id ?? null;
+      const f = fila(sid, pr.supplier_name || undefined);
+      if (wonIds.has(pr.quotation_id)) f.real += Number(pr.cost) || 0;
+      if (!f.ultima || pr.provisioned_at > f.ultima)
+        f.ultima = pr.provisioned_at;
+    });
+    const lista = [...filas.values()]
+      .filter((f) => f.est > 0 || f.real > 0 || f.recetas > 0)
+      .sort((a, b) => b.est - a.est);
+    const totalEst = lista.reduce((sum, f) => sum + f.est, 0);
+    const top3Pct =
+      totalEst > 0
+        ? (lista.slice(0, 3).reduce((sum, f) => sum + f.est, 0) * 100) /
+          totalEst
+        : 0;
+    const topInsumos = [...marginData.acc.supplyTotals.values()]
+      .sort((a, b) => b.costTotal - a.costTotal)
+      .slice(0, 10);
+    // recursos del período agrupados por tipo
+    const peopleByQ = new Map(
+      (wonEventsQuery.data || []).map((e) => [e.id, Number(e.people_count) || 0]),
+    );
+    const resById = new Map(
+      (extra?.resourceDefs || []).map((r) => [r.id, r]),
+    );
+    const tipos = new Map<
+      string,
+      {
+        gasto: number;
+        items: Map<number, { nombre: string; gasto: number; eventos: number }>;
+      }
+    >();
+    (extra?.eventResources || []).forEach((er) => {
+      if (!wonIds.has(er.quotation_id)) return;
+      const people = peopleByQ.get(er.quotation_id) || 0;
+      const gasto =
+        ((Number(er.price_fixed) || 0) +
+          (Number(er.price_per_person) || 0) * people) *
+        (Number(er.quantity) || 1);
+      const def = resById.get(er.resource_id);
+      const tipo = def?.type || "otro";
+      const t = tipos.get(tipo) || { gasto: 0, items: new Map() };
+      t.gasto += gasto;
+      const it = t.items.get(er.resource_id) || {
+        nombre: def?.name || `Recurso ${er.resource_id}`,
+        gasto: 0,
+        eventos: 0,
+      };
+      it.gasto += gasto;
+      it.eventos += 1;
+      t.items.set(er.resource_id, it);
+      tipos.set(tipo, t);
+    });
+    return { lista, totalEst, top3Pct, topInsumos, tipos };
+  })();
 
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
@@ -1560,6 +1696,239 @@ export default function DashboardPage() {
               <FixedServicesUsageStatsComponent
                 stats={stats.fixed_services_usage}
               />
+            </div>
+          ),
+        },
+        {
+          key: "proveedores",
+          titulo: "Análisis de proveedores",
+          sub: "Compra estimada, insumos, recursos y dependencia",
+          contenido: proveedores && (
+            <div className="space-y-6">
+              {/* concentración: el riesgo de dependencia en una frase */}
+              {proveedores.totalEst > 0 && (
+                <p className="text-sm text-blue-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 inline-block">
+                  El top 3 de proveedores concentra el{" "}
+                  <span className="font-bold">
+                    {proveedores.top3Pct.toLocaleString("es-CL", {
+                      maximumFractionDigits: 0,
+                    })}
+                    %
+                  </span>{" "}
+                  de la compra estimada del período.
+                </p>
+              )}
+
+              {/* A. tabla maestra */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                      <th className="py-2 pr-2 font-medium">Proveedor</th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Insumos
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Sin precio
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Recetas
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Servicios
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Compra estimada
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        % gasto
+                      </th>
+                      <th className="py-2 px-2 text-right font-medium">
+                        Comprado real
+                      </th>
+                      <th className="py-2 pl-2 text-right font-medium">
+                        Última compra
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {proveedores.lista.map((f) => (
+                      <tr key={f.id} className="hover:bg-gray-50">
+                        <td className="py-1.5 pr-2 font-medium text-gray-800">
+                          {f.nombre}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums">
+                          {f.insumos || "—"}
+                        </td>
+                        <td
+                          className={`py-1.5 px-2 text-right tabular-nums ${
+                            f.sinPrecio > 0
+                              ? "text-amber-700 font-semibold"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {f.sinPrecio || "—"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums">
+                          {f.recetas || "—"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums">
+                          {f.servicios.size || "—"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums font-semibold">
+                          {f.est
+                            ? formatCurrency(f.est, company?.currency || "CLP")
+                            : "—"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">
+                          {proveedores.totalEst > 0 && f.est
+                            ? `${((f.est * 100) / proveedores.totalEst).toLocaleString("es-CL", { maximumFractionDigits: 1 })}%`
+                            : "—"}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-green-700">
+                          {f.real
+                            ? formatCurrency(f.real, company?.currency || "CLP")
+                            : "—"}
+                        </td>
+                        <td className="py-1.5 pl-2 text-right text-gray-500 whitespace-nowrap">
+                          {f.ultima
+                            ? new Date(f.ultima).toLocaleDateString("es-CL")
+                            : "nunca"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[11px] text-gray-400">
+                  Compra estimada: recetas de los eventos concretados del
+                  período (merma incluida en el costo). Comprado real: fotos
+                  de provisión de Compras. Recetas y Servicios miden en
+                  cuántas preparaciones participa cada proveedor — pocos
+                  puntos de contacto = candidato a consolidar.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* B. principales insumos */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    Principales insumos del período
+                  </h4>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                        <th className="py-1.5 pr-2 font-medium w-5">#</th>
+                        <th className="py-1.5 pr-2 font-medium">Insumo</th>
+                        <th className="py-1.5 px-2 font-medium">Proveedor</th>
+                        <th className="py-1.5 pl-2 text-right font-medium">
+                          Costo
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {proveedores.topInsumos.map((cs, i) => (
+                        <tr key={cs.supply.id} className="hover:bg-gray-50">
+                          <td className="py-1.5 pr-2 text-gray-400 tabular-nums">
+                            {i + 1}
+                          </td>
+                          <td className="py-1.5 pr-2 text-gray-800">
+                            {cs.supply.name}
+                          </td>
+                          <td className="py-1.5 px-2 text-gray-500">
+                            {marginBaseQuery.data?.suppliers.find(
+                              (sp) => sp.id === cs.supply.supplier_id,
+                            )?.name || "—"}
+                          </td>
+                          <td className="py-1.5 pl-2 text-right tabular-nums font-semibold">
+                            {formatCurrency(
+                              cs.costTotal,
+                              company?.currency || "CLP",
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {proveedores.topInsumos.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="py-2 text-center text-gray-400"
+                          >
+                            Sin consumos estimables en el período
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* C. gasto en recursos por tipo */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    Gasto en recursos por tipo
+                  </h4>
+                  {proveedores.tipos.size === 0 ? (
+                    <p className="text-xs text-gray-400">
+                      Sin recursos asignados a eventos del período todavía —
+                      esta tabla crece a medida que uses Recursos del evento.
+                    </p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                          <th className="py-1.5 pr-2 font-medium">
+                            Tipo / Recurso
+                          </th>
+                          <th className="py-1.5 px-2 text-right font-medium">
+                            Eventos
+                          </th>
+                          <th className="py-1.5 pl-2 text-right font-medium">
+                            Gasto
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {[...proveedores.tipos.entries()].map(
+                          ([tipo, t]) => (
+                            <React.Fragment key={tipo}>
+                              <tr className="bg-gray-50">
+                                <td className="py-1.5 pr-2 font-bold uppercase text-[11px] text-gray-700">
+                                  {tipo}
+                                </td>
+                                <td className="py-1.5 px-2" />
+                                <td className="py-1.5 pl-2 text-right tabular-nums font-bold">
+                                  {formatCurrency(
+                                    t.gasto,
+                                    company?.currency || "CLP",
+                                  )}
+                                </td>
+                              </tr>
+                              {[...t.items.values()].map((it) => (
+                                <tr
+                                  key={`${tipo}-${it.nombre}`}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <td className="py-1.5 pr-2 pl-4 text-gray-700">
+                                    {it.nombre}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">
+                                    {it.eventos}
+                                  </td>
+                                  <td className="py-1.5 pl-2 text-right tabular-nums">
+                                    {formatCurrency(
+                                      it.gasto,
+                                      company?.currency || "CLP",
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
             </div>
           ),
         },
