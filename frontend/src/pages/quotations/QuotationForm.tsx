@@ -2548,35 +2548,32 @@ export default function QuotationForm() {
                       >
                         Personas
                       </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={boxPeople(box) || ""}
-                        onChange={(e) => {
-                          const v = parseInt(
-                            e.target.value.replace(/\./g, ""),
-                            10,
-                          );
+                      {/* NumberInput (Regla Única, migrado 23-07):
+                          vacío o igual a la audiencia = automático */}
+                      <NumberInput
+                        value={boxPeople(box) || undefined}
+                        onChange={(v) =>
                           setServiceBoxes((prev) =>
                             prev.map((b) =>
                               b.id === box.id
                                 ? {
                                     ...b,
                                     people:
-                                      !Number.isFinite(v) ||
+                                      v === undefined ||
                                       v === audienceCount(b)
                                         ? undefined
                                         : v,
                                   }
                                 : b,
                             ),
-                          );
-                        }}
+                          )
+                        }
+                        min={1}
                         disabled={isRestrictedEditing}
-                        className={`w-24 border rounded-lg px-3 py-2 text-sm text-right font-semibold ${
+                        className={`w-24 text-sm text-right font-semibold ${
                           box.people !== undefined
                             ? "border-amber-400 bg-amber-50 text-amber-900"
-                            : "border-gray-300"
+                            : ""
                         }`}
                       />
                       {/* COMPORTAMIENTO ACORDADO CON FELIPE — NO TOCAR EN
@@ -3327,20 +3324,17 @@ export default function QuotationForm() {
                         <span className="text-gray-700">Propina equipo</span>
                         {tipEnabled && (
                           <span className="flex items-center gap-1">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={tipPct || ""}
+                            {/* NumberInput (Regla Única, 23-07): el
+                                clamp silencioso se fue — fuera de rango
+                                vibra y avisa, no se ajusta solo */}
+                            <NumberInput
+                              value={tipPct || undefined}
                               disabled={isRestrictedEditing}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value, 10);
-                                setTipPct(
-                                  Number.isFinite(v)
-                                    ? Math.min(100, Math.max(0, v))
-                                    : 0,
-                                );
-                              }}
-                              className="w-12 border border-gray-300 rounded-md px-1.5 py-0.5 text-xs text-right"
+                              onChange={(v) => setTipPct(v ?? 0)}
+                              min={0}
+                              max={100}
+                              placeholder="0"
+                              className="w-12 px-1.5 py-0.5 text-xs text-right"
                             />
                             <span className="text-xs text-gray-500">%</span>
                           </span>

@@ -92,7 +92,10 @@ export default function RequestsPage() {
 
   const getPublicQuotationLink = () => {
     if (!company?.id) return "";
-    return `${window.location.origin}/public-quotation/${company.id}`;
+    // SIEMPRE el dominio productivo (Felipe, 23-07): aunque el equipo
+    // entre por el alias de Netlify o localhost, el enlace que se
+    // comparte con clientes lleva la marca eventi-app.com.
+    return `https://www.eventi-app.com/public-quotation/${company.id}`;
   };
 
   const handleCopyLink = async () => {

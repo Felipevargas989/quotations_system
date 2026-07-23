@@ -657,33 +657,29 @@ export default function EventResourcesSection({
                             )}
                           </td>
                           <td className="px-2 py-1.5 text-right">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              defaultValue={l.quantity}
-                              onBlur={(e) => {
-                                const v = parseInput(e.target.value);
-                                if (v > 0 && v !== l.quantity)
+                            <NumberInput
+                              value={l.quantity || undefined}
+                              min={0}
+                              onCommit={(v) => {
+                                if (v && v > 0 && v !== l.quantity)
                                   saveLine(l.id, { quantity: v });
-                                e.target.value = String(v > 0 ? v : l.quantity);
                               }}
-                              className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                              className="w-16 px-2 py-1 text-sm text-right"
                               aria-label="Cantidad"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-right">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              defaultValue={fmtInput(l.price_fixed)}
+                            <NumberInput
+                              value={l.price_fixed || undefined}
                               placeholder="0"
-                              onBlur={(e) => {
-                                const v = parseInput(e.target.value);
-                                if (v !== l.price_fixed)
-                                  saveLine(l.id, { price_fixed: v });
-                                e.target.value = fmtInput(v);
+                              min={0}
+                              currency
+                              onCommit={(v) => {
+                                const val = v || 0;
+                                if (val !== l.price_fixed)
+                                  saveLine(l.id, { price_fixed: val });
                               }}
-                              className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                              className="w-28 px-2 py-1 text-sm text-right"
                               aria-label="Precio fijo"
                             />
                           </td>
@@ -697,18 +693,17 @@ export default function EventResourcesSection({
                                 —
                               </div>
                             ) : (
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                defaultValue={fmtInput(l.price_per_person)}
+                              <NumberInput
+                                value={l.price_per_person || undefined}
                                 placeholder="0"
-                                onBlur={(e) => {
-                                  const v = parseInput(e.target.value);
-                                  if (v !== l.price_per_person)
-                                    saveLine(l.id, { price_per_person: v });
-                                  e.target.value = fmtInput(v);
+                                min={0}
+                                currency
+                                onCommit={(v) => {
+                                  const val = v || 0;
+                                  if (val !== l.price_per_person)
+                                    saveLine(l.id, { price_per_person: val });
                                 }}
-                                className="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                                className="w-28 px-2 py-1 text-sm text-right"
                                 aria-label="Precio por persona"
                               />
                             )}

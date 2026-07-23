@@ -36,6 +36,7 @@ import {
   newAccumulator,
 } from "../../../utils/eventConsolidation";
 import PhotoPopup from "../../../components/PhotoPopup";
+import { NumberInput } from "../../../components/inputs";
 
 // Inventario de mobiliario (Fase 5): stock editable (fluctúa por temporada),
 // categoría fija, y foto de referencia en popup para distinguir ítems
@@ -450,22 +451,14 @@ export default function MobiliarioTab({
                       {FURNITURE_CATEGORY_LABEL[f.category] || "Otro"}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        defaultValue={f.stock || ""}
+                      {/* NumberInput (Regla Única, 23-07): guarda al
+                          salir del campo, como siempre */}
+                      <NumberInput
+                        value={f.stock || undefined}
                         placeholder="0"
-                        onBlur={(e) => {
-                          const v =
-                            parseFloat(
-                              e.target.value.replace(/\./g, ""),
-                            ) || 0;
-                          saveStock(f, v);
-                          e.target.value = v
-                            ? v.toLocaleString("es-CL")
-                            : "";
-                        }}
-                        className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                        min={0}
+                        onCommit={(v) => saveStock(f, v || 0)}
+                        className="w-24 px-2 py-1 text-sm text-right"
                         aria-label={`Stock de ${f.name}`}
                       />
                     </td>
@@ -664,17 +657,12 @@ export default function MobiliarioTab({
                 <label className="text-xs font-semibold text-gray-600">
                   Stock disponible
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={stock ? stock.toLocaleString("es-CL") : ""}
-                  onChange={(e) => {
-                    const v =
-                      parseFloat(e.target.value.replace(/\./g, "")) || 0;
-                    setStock(v);
-                  }}
+                <NumberInput
+                  value={stock || undefined}
+                  onChange={(v) => setStock(v || 0)}
+                  min={0}
                   placeholder="0"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 text-sm"
                 />
               </div>
               <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-gray-200 px-3 py-2.5 hover:bg-gray-50">
