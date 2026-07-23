@@ -51,6 +51,26 @@ export type FixedServiceUsage = {
   usage_count: number;
 };
 
+// Top por N° de cotizaciones (23-07): quién hace trabajar más al equipo,
+// cuántas se concretaron (aceptada/realizada) y la tasa de concreción.
+export type TopClientsByQuotations = {
+  client_id: string;
+  client_name: string;
+  client_type: string;
+  total_quotations: number;
+  won_quotations: number;
+  conversion_rate: number;
+};
+
+// Clientes recurrentes (23-07): 2+ eventos concretados en el período.
+export type RecurringClient = {
+  client_id: string;
+  client_name: string;
+  client_type: string;
+  won_events: number;
+  total_revenue: number;
+};
+
 export type CompleteStatsResponse = {
   quotation_status_stats: QuotationStatusStats[];
   event_type_conversion_stats: EventTypeConversionStats[];
@@ -59,4 +79,6 @@ export type CompleteStatsResponse = {
   top_clients_by_revenue: TopClientsByRevenue[];
   variable_services_usage: VariableServiceUsage[];
   fixed_services_usage: FixedServiceUsage[];
+  top_clients_by_quotations: TopClientsByQuotations[];
+  recurring_clients: RecurringClient[];
 };

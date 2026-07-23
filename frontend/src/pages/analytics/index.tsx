@@ -10,6 +10,8 @@ import RevenueByClientTypeStatsComponent from "./components/RevenueByClientTypeS
 import TopClientsByRevenueStatsComponent from "./components/TopClientsByRevenueStats";
 import VariableServicesUsageStatsComponent from "./components/VariableServicesUsageStats";
 import FixedServicesUsageStatsComponent from "./components/FixedServicesUsageStats";
+import TopClientsByQuotationsStatsComponent from "./components/TopClientsByQuotationsStats";
+import RecurringClientsStatsComponent from "./components/RecurringClientsStats";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function Analytics() {
@@ -239,6 +241,20 @@ export default function Analytics() {
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           <TopClientsByRevenueStatsComponent
             stats={stats.top_clients_by_revenue}
+            currency={company.currency}
+          />
+        </div>
+      )}
+
+      {/* Análisis de cartera (23-07): quién trabaja más al equipo y
+          quién repite. Los nombres llevan a la ficha 360°. */}
+      {company && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TopClientsByQuotationsStatsComponent
+            stats={stats.top_clients_by_quotations || []}
+          />
+          <RecurringClientsStatsComponent
+            stats={stats.recurring_clients || []}
             currency={company.currency}
           />
         </div>

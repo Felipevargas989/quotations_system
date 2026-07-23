@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { TopClientsByRevenue } from "../../../types/analytics.types";
 import { formatCurrency } from "../../../utils/currencies";
 import { Bar } from "react-chartjs-2";
@@ -68,6 +69,7 @@ export default function TopClientsByRevenueStatsComponent({
   stats,
   currency,
 }: TopClientsByRevenueStatsProps) {
+  const navigate = useNavigate();
   // Limit to top 10 clients for better visualization
   const topClients = stats.slice(0, 10);
 
@@ -93,6 +95,16 @@ export default function TopClientsByRevenueStatsComponent({
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    // La barra lleva a la ficha 360° del cliente (análisis → acción).
+    onClick: (_e: any, elements: any[]) => {
+      const idx = elements?.[0]?.index;
+      if (idx !== undefined && topClients[idx])
+        navigate(`/clients/${topClients[idx].client_id}`);
+    },
+    onHover: (e: any, elements: any[]) => {
+      if (e?.native?.target)
+        e.native.target.style.cursor = elements?.length ? "pointer" : "default";
+    },
     plugins: {
       legend: {
         display: false,

@@ -230,13 +230,15 @@ export class AnalyticsService {
       }
 
       // get quotation by event_type stats
+      // (23-07: llevaba company 1 y el año 2025 FIJOS en el código —
+      // ignoraba el filtro de fechas de la pantalla. Corregido.)
       const {
         data: event_type_conversion_stats,
         error: event_type_conversion_stats_error,
       } = await this.supabase.client.rpc('get_event_type_conversion_stats', {
-        p_company_id: 1,
-        p_from_date: '2025-01-01',
-        p_to_date: '2025-12-31',
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
       });
 
       if (event_type_conversion_stats_error) {
@@ -347,6 +349,44 @@ export class AnalyticsService {
         );
       }
 
+      // Análisis de cartera (23-07): top por N° de cotizaciones y
+      // clientes recurrentes (2+ eventos concretados en el período).
+      const {
+        data: top_clients_by_quotations,
+        error: top_clients_by_quotations_error,
+      } = await this.supabase.client.rpc('get_top_clients_by_quotations', {
+        p_company_id: companyId,
+        p_from_date: start_date,
+        p_to_date: end_date,
+      });
+
+      if (top_clients_by_quotations_error) {
+        this.logger.error(
+          `Error getting top clients by quotations: ${top_clients_by_quotations_error.message}`,
+        );
+        throw new HttpException(
+          top_clients_by_quotations_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const { data: recurring_clients, error: recurring_clients_error } =
+        await this.supabase.client.rpc('get_recurring_clients', {
+          p_company_id: companyId,
+          p_from_date: start_date,
+          p_to_date: end_date,
+        });
+
+      if (recurring_clients_error) {
+        this.logger.error(
+          `Error getting recurring clients: ${recurring_clients_error.message}`,
+        );
+        throw new HttpException(
+          recurring_clients_error.message,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
       // 3. return stats
       return {
         quotation_status_stats: quotation_status_stats,
@@ -356,6 +396,8 @@ export class AnalyticsService {
         top_clients_by_revenue: top_clients_by_revenue,
         variable_services_usage: variable_services_usage,
         fixed_services_usage: fixed_services_usage,
+        top_clients_by_quotations: top_clients_by_quotations,
+        recurring_clients: recurring_clients,
       };
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
