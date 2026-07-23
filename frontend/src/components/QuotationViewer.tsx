@@ -91,23 +91,16 @@ export default function QuotationViewer({
     );
   const isFull = (g: VarGroup) => groupPeople(g) === audienceTotal(g);
 
-  // Orden de presentación: por día, luego por el orden de las categorías
-  // en el sistema, y adultos antes que niños. Aplica al programa y a la
+  // Orden de presentación (Felipe, 23-07): manda la MESA DE TRABAJO.
+  // Solo se agrupa por día en eventos multi-día; dentro de cada día se
+  // respeta el orden en que se armaron (y arrastraron) las categorías
+  // en el cotizador. Se eliminaron los criterios antiguos (posición de
+  // la categoría en el catálogo y adultos-primero): re-ordenaban el PDF
+  // a espaldas del usuario. sort() es estable → el empate por día
+  // conserva el orden original del arreglo. Aplica al programa y a la
   // tabla de valores por igual.
-  const catRank = (name?: string) => {
-    if (!menu || !name) return 9999;
-    const i = menu.categories.findIndex((c) => c.name === name);
-    return i === -1 ? 9999 : i;
-  };
   const sortedGroups = [...varGroups].sort(
-    (a, b) =>
-      (a.day || 1) - (b.day || 1) ||
-      catRank(a.category) - catRank(b.category) ||
-      (audienceOf(a) === audienceOf(b)
-        ? 0
-        : audienceOf(a) === "adultos"
-          ? -1
-          : 1),
+    (a, b) => (a.day || 1) - (b.day || 1),
   );
 
   const variableTotal = varGroups.reduce(
