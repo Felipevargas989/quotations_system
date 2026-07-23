@@ -237,19 +237,14 @@ export default function Analytics() {
         </div>
       )}
 
+      {/* Análisis de cartera (23-07): las 3 tablas de clientes (top 10
+          cada una); los nombres llevan a la ficha 360°. */}
       {company && (
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopClientsByRevenueStatsComponent
             stats={stats.top_clients_by_revenue}
             currency={company.currency}
           />
-        </div>
-      )}
-
-      {/* Análisis de cartera (23-07): quién trabaja más al equipo y
-          quién repite. Los nombres llevan a la ficha 360°. */}
-      {company && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopClientsByQuotationsStatsComponent
             stats={stats.top_clients_by_quotations || []}
           />

@@ -1,157 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { TopClientsByRevenue } from "../../../types/analytics.types";
 import { formatCurrency } from "../../../utils/currencies";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
 import { Company } from "../../../types/companies.types";
+import { getClientTypeColor } from "../../../utils/clientTypeColor";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+// Top clientes por ingresos — TABLA, no gráfico (Felipe, 23-07): con
+// nombres largos las barras eran ilegibles; acá se lee el monto exacto
+// y el nombre lleva a la ficha 360°. Solo los 10 principales.
 
 interface TopClientsByRevenueStatsProps {
   readonly stats: TopClientsByRevenue[];
   readonly currency: Company["currency"];
 }
 
-const getClientTypeLabel = (clientType: string) => {
-  switch (clientType) {
-    case "empresa":
-      return "Empresa";
-    case "particular":
-      return "Particular";
-    case "institucion":
-      return "Institución";
-    case "colegio":
-      return "Colegio";
-    case "universidad":
-      return "Universidad";
-    case "gobierno":
-      return "Gobierno";
-    default:
-      return clientType;
-  }
-};
-
-const getClientTypeColor = (clientType: string) => {
-  switch (clientType) {
-    case "empresa":
-      return "#3B82F6"; // blue-500
-    case "particular":
-      return "#10B981"; // green-500
-    case "institucion":
-      return "#8B5CF6"; // purple-500
-    case "colegio":
-      return "#F59E0B"; // yellow-500
-    case "universidad":
-      return "#EF4444"; // red-500
-    case "gobierno":
-      return "#6B7280"; // gray-500
-    default:
-      return "#3B82F6"; // blue-500
-  }
-};
-
 export default function TopClientsByRevenueStatsComponent({
   stats,
   currency,
 }: TopClientsByRevenueStatsProps) {
   const navigate = useNavigate();
-  // Limit to top 10 clients for better visualization
   const topClients = stats.slice(0, 10);
-
-  const chartData = {
-    labels: topClients.map((stat) => stat.client_name),
-    datasets: [
-      {
-        label: "Ingresos (CLP)",
-        data: topClients.map((stat) => stat.total_revenue),
-        backgroundColor: topClients.map((stat) =>
-          getClientTypeColor(stat.client_type),
-        ),
-        borderColor: topClients.map((stat) =>
-          getClientTypeColor(stat.client_type),
-        ),
-        borderWidth: 2,
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    // La barra lleva a la ficha 360° del cliente (análisis → acción).
-    onClick: (_e: any, elements: any[]) => {
-      const idx = elements?.[0]?.index;
-      if (idx !== undefined && topClients[idx])
-        navigate(`/clients/${topClients[idx].client_id}`);
-    },
-    onHover: (e: any, elements: any[]) => {
-      if (e?.native?.target)
-        e.native.target.style.cursor = elements?.length ? "pointer" : "default";
-    },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            const index = context.dataIndex;
-            const stat = topClients[index];
-            return [
-              `Cliente: ${stat.client_name}`,
-              `Tipo: ${getClientTypeLabel(stat.client_type)}`,
-              `Ingresos: ${formatCurrency(stat.total_revenue, currency)}`,
-            ];
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: {
-          maxRotation: 45,
-          minRotation: 45,
-          font: {
-            size: 10,
-          },
-        },
-        grid: {
-          display: false,
-        },
-      },
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function (value: any) {
-            return formatCurrency(value, currency);
-          },
-          font: {
-            size: 11,
-          },
-        },
-        grid: {
-          color: "#F3F4F6",
-        },
-      },
-    },
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -160,18 +27,52 @@ export default function TopClientsByRevenueStatsComponent({
           Top Clientes por Ingresos
         </h3>
         <p className="text-xs text-gray-600">
-          Los clientes que más ingresos han generado
+          Los 10 clientes que más ingresos han generado
         </p>
       </div>
       <div className="p-3">
-        {stats.length === 0 ? (
+        {topClients.length === 0 ? (
           <div className="text-center py-2">
             <p className="text-gray-500 text-sm">No hay datos disponibles</p>
           </div>
         ) : (
-          <div className="h-80">
-            <Bar data={chartData} options={chartOptions} />
-          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-1.5 pr-2 font-medium w-6">#</th>
+                <th className="py-1.5 pr-2 font-medium">Cliente</th>
+                <th className="py-1.5 pl-2 text-right font-medium">
+                  Ingresos
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {topClients.map((c, i) => (
+                <tr key={c.client_id} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2 text-gray-400 tabular-nums">
+                    {i + 1}
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <button
+                      onClick={() => navigate(`/clients/${c.client_id}`)}
+                      className="text-left text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                      title="Ver ficha del cliente"
+                    >
+                      {c.client_name}
+                    </button>
+                    <span
+                      className={`ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${getClientTypeColor(c.client_type)}`}
+                    >
+                      {c.client_type}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pl-2 text-right tabular-nums font-semibold">
+                    {formatCurrency(c.total_revenue, currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
