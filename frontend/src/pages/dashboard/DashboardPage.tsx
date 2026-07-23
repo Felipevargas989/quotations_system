@@ -1016,6 +1016,10 @@ export default function DashboardPage() {
       {(() => {
         const meses = data.moneyByMonth.slice(-12);
         const recortada = data.moneyByMonth.length > meses.length;
+        // Cifras EN MILES (pedido Felipe 23-07): 1.000.000 se lee 1.000.
+        // El monto exacto sigue en el tooltip.
+        const miles = (n: number) =>
+          Math.round(n / 1000).toLocaleString("es-CL");
         const shortMonth = (monthKey: string) => {
           const [year, monthIndex] = monthKey.split("-");
           return `${MONTHS[parseInt(monthIndex)].slice(0, 3)} ${year.slice(2)}`;
@@ -1041,7 +1045,7 @@ export default function DashboardPage() {
           {
             label: "Ventas",
             cell: (r) => ({
-              text: r.ventas ? `$${abrevCifra(r.ventas)}` : "—",
+              text: r.ventas ? miles(r.ventas) : "—",
               title: r.ventas
                 ? formatCurrency(r.ventas, company?.currency || "CLP")
                 : undefined,
@@ -1050,7 +1054,7 @@ export default function DashboardPage() {
             total: () => {
               const t = meses.reduce((sum, r) => sum + r.ventas, 0);
               return {
-                text: `$${abrevCifra(t)}`,
+                text: miles(t),
                 title: formatCurrency(t, company?.currency || "CLP"),
                 cls: "font-bold",
               };
@@ -1063,7 +1067,7 @@ export default function DashboardPage() {
               return {
                 text:
                   m && m.costo > 0
-                    ? `${m.estimado ? "~" : ""}$${abrevCifra(m.costo)}`
+                    ? `${m.estimado ? "~" : ""}${miles(m.costo)}`
                     : "—",
                 title:
                   m && m.costo > 0
@@ -1072,7 +1076,7 @@ export default function DashboardPage() {
               };
             },
             total: () => ({
-              text: `${margenTotales.estimado ? "~" : ""}$${abrevCifra(
+              text: `${margenTotales.estimado ? "~" : ""}${miles(
                 meses.reduce(
                   (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
                   0,
@@ -1082,13 +1086,13 @@ export default function DashboardPage() {
             }),
           },
           {
-            label: "Margen (%)",
+            label: "Margen",
             cell: (r) => {
               const m = marginByMonth.get(r.monthKey);
               if (!m || r.ventas === 0) return { text: "—" };
               const val = r.ventas - m.costo;
               return {
-                text: `$${abrevCifra(val)} (${((val * 100) / r.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`,
+                text: miles(val),
                 title: formatCurrency(val, company?.currency || "CLP"),
                 cls:
                   val >= 0
@@ -1103,10 +1107,39 @@ export default function DashboardPage() {
                 0,
               );
               return {
-                text: v
-                  ? `$${abrevCifra(v - c)} (${(((v - c) * 100) / v).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`
-                  : "—",
+                text: v ? miles(v - c) : "—",
                 title: formatCurrency(v - c, company?.currency || "CLP"),
+                cls:
+                  v - c >= 0
+                    ? "text-emerald-700 font-bold"
+                    : "text-red-600 font-bold",
+              };
+            },
+          },
+          {
+            label: "Margen %",
+            cell: (r) => {
+              const m = marginByMonth.get(r.monthKey);
+              if (!m || r.ventas === 0) return { text: "—" };
+              const val = r.ventas - m.costo;
+              return {
+                text: `${((val * 100) / r.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`,
+                cls:
+                  val >= 0
+                    ? "text-emerald-700"
+                    : "text-red-600 font-semibold",
+              };
+            },
+            total: () => {
+              const v = meses.reduce((sum, r) => sum + r.ventas, 0);
+              const c = meses.reduce(
+                (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
+                0,
+              );
+              return {
+                text: v
+                  ? `${(((v - c) * 100) / v).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`
+                  : "—",
                 cls:
                   v - c >= 0
                     ? "text-emerald-700 font-bold"
@@ -1117,7 +1150,7 @@ export default function DashboardPage() {
           {
             label: "Cobrado",
             cell: (r) => ({
-              text: r.cobrado ? `$${abrevCifra(r.cobrado)}` : "—",
+              text: r.cobrado ? miles(r.cobrado) : "—",
               title: r.cobrado
                 ? formatCurrency(r.cobrado, company?.currency || "CLP")
                 : undefined,
@@ -1126,7 +1159,7 @@ export default function DashboardPage() {
             total: () => {
               const t = meses.reduce((sum, r) => sum + r.cobrado, 0);
               return {
-                text: `$${abrevCifra(t)}`,
+                text: miles(t),
                 title: formatCurrency(t, company?.currency || "CLP"),
                 cls: "text-green-700 font-bold",
               };
@@ -1135,7 +1168,7 @@ export default function DashboardPage() {
           {
             label: "Por cobrar",
             cell: (r) => ({
-              text: r.porCobrar ? `$${abrevCifra(r.porCobrar)}` : "—",
+              text: r.porCobrar ? miles(r.porCobrar) : "—",
               title: r.porCobrar
                 ? formatCurrency(r.porCobrar, company?.currency || "CLP")
                 : undefined,
@@ -1147,7 +1180,7 @@ export default function DashboardPage() {
             total: () => {
               const t = meses.reduce((sum, r) => sum + r.porCobrar, 0);
               return {
-                text: `$${abrevCifra(t)}`,
+                text: miles(t),
                 title: formatCurrency(t, company?.currency || "CLP"),
                 cls: "text-red-700 font-bold",
               };
@@ -1162,9 +1195,8 @@ export default function DashboardPage() {
             Ingresos y Caja por Mes
           </h2>
           <span className="text-sm text-gray-500">
-            {recortada
-              ? "(últimos 12 meses del período)"
-              : "(eventos concretados y pagos del período)"}
+            (en miles de pesos
+            {recortada ? " · últimos 12 meses del período" : ""})
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -1229,10 +1261,11 @@ export default function DashboardPage() {
             </tbody>
           </table>
           <p className="mt-2 text-[11px] text-gray-400">
-            ·f = mes futuro (venta agendada). Costo con ~ = estimado por
-            recetas (evento sin provisionar); sin ~ = congelado al
-            provisionar en Compras. La merma va solo en el costo. Pasa el
-            mouse por una cifra para ver el monto exacto.
+            Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
+            (venta agendada). Costo con ~ = estimado por recetas (evento sin
+            provisionar); sin ~ = congelado al provisionar en Compras. La
+            merma va solo en el costo. Pasa el mouse por una cifra para ver
+            el monto exacto.
           </p>
         </div>
       </div>
