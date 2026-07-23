@@ -1,31 +1,32 @@
 import { QuotationStatusStats } from "../../../types/analytics.types";
-import { Doughnut } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+// Analytics 100% en tablas (Felipe, 23-07): la dona decía menos que
+// estas mismas filas. Punto de color = el color histórico del estado.
 
 interface QuotationStatusStatsProps {
   readonly stats: QuotationStatusStats[];
 }
 
-const getStatusColor = (status: string) => {
+const statusDot = (status: string) => {
   switch (status) {
     case "solicitada":
-      return "#F59E0B"; // yellow-500
+      return "#F59E0B";
     case "enviada":
-      return "#3B82F6"; // blue-500
+      return "#3B82F6";
     case "en_negociacion":
-      return "#8B5CF6"; // purple-500
+      return "#8B5CF6";
     case "aceptada":
-      return "#10B981"; // green-500
+      return "#10B981";
     case "rechazada":
-      return "#EF4444"; // red-500
+      return "#EF4444";
+    case "realizada":
+      return "#0D9488";
     default:
-      return "#6B7280"; // gray-500
+      return "#6B7280";
   }
 };
 
-const getStatusLabel = (status: string) => {
+const statusLabel = (status: string) => {
   switch (status) {
     case "solicitada":
       return "Solicitada";
@@ -37,6 +38,10 @@ const getStatusLabel = (status: string) => {
       return "Aceptada";
     case "rechazada":
       return "Rechazada";
+    case "cancelada":
+      return "Cancelada";
+    case "realizada":
+      return "Realizada";
     default:
       return status;
   }
@@ -45,86 +50,75 @@ const getStatusLabel = (status: string) => {
 export default function QuotationStatusStatsComponent({
   stats,
 }: QuotationStatusStatsProps) {
-  const chartData = {
-    labels: stats.map((stat) => getStatusLabel(stat.quotation_status)),
-    datasets: [
-      {
-        data: stats.map((stat) => stat.total),
-        backgroundColor: stats.map((stat) =>
-          getStatusColor(stat.quotation_status),
-        ),
-        borderColor: stats.map((stat) => getStatusColor(stat.quotation_status)),
-        borderWidth: 2,
-        hoverOffset: 4,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: {
-          padding: 20,
-          usePointStyle: true,
-          font: {
-            size: 12,
-          },
-          generateLabels: function (chart: any) {
-            const data = chart.data;
-            if (data.labels.length && data.datasets.length) {
-              return data.labels.map((label: string, index: number) => {
-                const value = data.datasets[0].data[index];
-                const percentage = stats[index]?.percentage || 0;
-                return {
-                  text: `${label}: ${value} cotizaciones (${percentage.toFixed(1)}%)`,
-                  fillStyle: data.datasets[0].backgroundColor[index],
-                  strokeStyle: data.datasets[0].borderColor[index],
-                  lineWidth: data.datasets[0].borderWidth,
-                  pointStyle: "circle",
-                  hidden: false,
-                  index: index,
-                };
-              });
-            }
-            return [];
-          },
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            const label = context.label || "";
-            const value = context.parsed;
-            const percentage = stats[context.dataIndex]?.percentage || 0;
-            return `${label}: ${value} cotizaciones (${percentage.toFixed(1)}%)`;
-          },
-        },
-      },
-    },
-  };
+  const total = stats.reduce((s, r) => s + Number(r.total || 0), 0);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="p-6 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">
+      <div className="p-3 border-b border-gray-200">
+        <h3 className="text-base font-semibold text-gray-900">
           Estadísticas por Estado
         </h3>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-xs text-gray-600">
           Distribución de cotizaciones por estado
         </p>
       </div>
-      <div className="p-6">
+      <div className="p-3">
         {stats.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No hay datos disponibles</p>
+          <div className="text-center py-2">
+            <p className="text-gray-500 text-sm">No hay datos disponibles</p>
           </div>
         ) : (
-          <div className="h-80">
-            <Doughnut data={chartData} options={chartOptions} />
-          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-1.5 pr-2 font-medium">Estado</th>
+                <th className="py-1.5 px-2 text-right font-medium">
+                  Cotizaciones
+                </th>
+                <th className="py-1.5 pl-2 text-right font-medium">
+                  % del total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {stats.map((r) => (
+                <tr key={r.quotation_status} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: statusDot(r.quotation_status),
+                        }}
+                      />
+                      <span className="font-medium text-gray-800">
+                        {statusLabel(r.quotation_status)}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="py-1.5 px-2 text-right tabular-nums">
+                    {Number(r.total).toLocaleString("es-CL")}
+                  </td>
+                  <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
+                    {Number(r.percentage).toLocaleString("es-CL")}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-200">
+                <td className="py-1.5 pr-2 font-semibold text-gray-900">
+                  Total
+                </td>
+                <td className="py-1.5 px-2 text-right tabular-nums font-semibold text-gray-900">
+                  {total.toLocaleString("es-CL")}
+                </td>
+                <td className="py-1.5 pl-2 text-right tabular-nums text-gray-500">
+                  100%
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         )}
       </div>
     </div>

@@ -1,132 +1,22 @@
 import { EventTypeConversionStats } from "../../../types/analytics.types";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+// Tabla de conversión por tipo de evento (Analytics 100% tablas, 23-07).
+// Mismo semáforo de tasa que el top de clientes por cotizaciones.
 
 interface EventTypeConversionStatsProps {
   readonly stats: EventTypeConversionStats[];
 }
 
-const getEventTypeLabel = (eventType: string) => {
-  switch (eventType) {
-    case "Almuerzo o Cena":
-      return "Almuerzo o Cena";
-    case "Paseo de Curso":
-      return "Paseo de Curso";
-    case "Uso salones":
-      return "Uso salones";
-    case "Estadía y Alimentación":
-      return "Estadía y Alimentación";
-    case "Paseo fin de año":
-      return "Paseo fin de año";
-    case "Celebraciones":
-      return "Celebraciones";
-    case "Matrimonios":
-      return "Matrimonios";
-    case "Graduación":
-      return "Graduación";
-    default:
-      return eventType;
-  }
-};
-
-const getConversionRateColor = (rate: number) => {
-  if (rate >= 70) return "#10B981"; // green-500
-  if (rate >= 50) return "#F59E0B"; // yellow-500
-  return "#EF4444"; // red-500
-};
+const tasaColor = (rate: number) =>
+  rate >= 50
+    ? "text-green-700 bg-green-50"
+    : rate >= 20
+      ? "text-amber-700 bg-amber-50"
+      : "text-red-700 bg-red-50";
 
 export default function EventTypeConversionStatsComponent({
   stats,
 }: EventTypeConversionStatsProps) {
-  const chartData = {
-    labels: stats.map((stat) => getEventTypeLabel(stat.event_type)),
-    datasets: [
-      {
-        label: "Tasa de Conversión (%)",
-        data: stats.map((stat) => stat.conversion_rate_percentage),
-        backgroundColor: stats.map((stat) =>
-          getConversionRateColor(stat.conversion_rate_percentage),
-        ),
-        borderColor: stats.map((stat) =>
-          getConversionRateColor(stat.conversion_rate_percentage),
-        ),
-        borderWidth: 2,
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            const index = context.dataIndex;
-            const stat = stats[index];
-            return [
-              `Tipo: ${getEventTypeLabel(stat.event_type)}`,
-              `Conversión: ${stat.conversion_rate_percentage.toFixed(1)}%`,
-              `Total cotizaciones: ${stat.total_quotations}`,
-              `Aceptadas: ${stat.accepted_quotations}`,
-            ];
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: {
-          maxRotation: 45,
-          minRotation: 45,
-          font: {
-            size: 11,
-          },
-        },
-        grid: {
-          display: false,
-        },
-      },
-      y: {
-        beginAtZero: true,
-        max: 100,
-        ticks: {
-          callback: function (value: any) {
-            return value + "%";
-          },
-          font: {
-            size: 11,
-          },
-        },
-        grid: {
-          color: "#F3F4F6",
-        },
-      },
-    },
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-3 border-b border-gray-200">
@@ -143,9 +33,43 @@ export default function EventTypeConversionStatsComponent({
             <p className="text-gray-500 text-sm">No hay datos disponibles</p>
           </div>
         ) : (
-          <div className="h-80">
-            <Bar data={chartData} options={chartOptions} />
-          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-1.5 pr-2 font-medium">Tipo de evento</th>
+                <th className="py-1.5 px-2 text-right font-medium">Cotiz.</th>
+                <th className="py-1.5 px-2 text-right font-medium">
+                  Concretadas
+                </th>
+                <th className="py-1.5 pl-2 text-right font-medium">Tasa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {stats.map((r) => (
+                <tr key={r.event_type} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2 font-medium text-gray-800">
+                    {r.event_type}
+                  </td>
+                  <td className="py-1.5 px-2 text-right tabular-nums">
+                    {Number(r.total_quotations).toLocaleString("es-CL")}
+                  </td>
+                  <td className="py-1.5 px-2 text-right tabular-nums">
+                    {Number(r.accepted_quotations).toLocaleString("es-CL")}
+                  </td>
+                  <td className="py-1.5 pl-2 text-right">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums ${tasaColor(Number(r.conversion_rate_percentage) || 0)}`}
+                    >
+                      {Number(
+                        r.conversion_rate_percentage || 0,
+                      ).toLocaleString("es-CL")}
+                      %
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
