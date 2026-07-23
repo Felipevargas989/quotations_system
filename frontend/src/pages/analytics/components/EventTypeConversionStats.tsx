@@ -7,13 +7,6 @@ interface EventTypeConversionStatsProps {
   readonly stats: EventTypeConversionStats[];
 }
 
-const tasaColor = (rate: number) =>
-  rate >= 50
-    ? "text-green-700 bg-green-50"
-    : rate >= 20
-      ? "text-amber-700 bg-amber-50"
-      : "text-red-700 bg-red-50";
-
 export default function EventTypeConversionStatsComponent({
   stats,
 }: EventTypeConversionStatsProps) {
@@ -56,15 +49,11 @@ export default function EventTypeConversionStatsComponent({
                   <td className="py-1.5 px-2 text-right tabular-nums">
                     {Number(r.accepted_quotations).toLocaleString("es-CL")}
                   </td>
-                  <td className="py-1.5 pl-2 text-right">
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums ${tasaColor(Number(r.conversion_rate_percentage) || 0)}`}
-                    >
-                      {Number(
-                        r.conversion_rate_percentage || 0,
-                      ).toLocaleString("es-CL")}
-                      %
-                    </span>
+                  <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
+                    {Number(r.conversion_rate_percentage || 0).toLocaleString(
+                      "es-CL",
+                    )}
+                    %
                   </td>
                 </tr>
               ))}
