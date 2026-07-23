@@ -131,13 +131,16 @@ export default function CreateQuotationPublic() {
     setSubmitError(false);
 
     try {
-      const kids = Math.min(
-        Number(formData.children_count || 0),
-        Number(formData.people_count || 1),
-      );
+      // El formulario pide ADULTOS y NIÑOS por separado (Felipe, 23-07);
+      // en la base people_count sigue siendo el TOTAL (convención del
+      // Cotizador 2.0: children_count es un subconjunto de people_count),
+      // así que aquí se suma antes de enviar.
+      const adults = Number(formData.people_count || 1);
+      const kids = Number(formData.children_count || 0);
       const quotationData: QuotationPublicFormData = {
         ...formData,
         phone: normalizePhone(formData.phone || ""),
+        people_count: adults + kids,
         children_count: kids,
         event_date: formData.event_date as any,
       };
@@ -253,7 +256,7 @@ export default function CreateQuotationPublic() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3.5">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center font-extrabold text-2xl overflow-hidden shrink-0"
+                  className="w-[100px] h-[100px] rounded-full flex items-center justify-center font-extrabold text-3xl overflow-hidden shrink-0"
                   style={{ backgroundColor: brandP, color: onBrandP }}
                 >
                   {company?.logo_url ? (
@@ -494,7 +497,7 @@ export default function CreateQuotationPublic() {
                     htmlFor="people_count"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Número de personas *
+                    Adultos *
                   </label>
                   <NumberInput
                     id="people_count"
@@ -516,7 +519,7 @@ export default function CreateQuotationPublic() {
                     htmlFor="children_count"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    ¿Cuántos son niños?
+                    Niños (menores de 12 años)
                   </label>
                   <NumberInput
                     id="children_count"
@@ -529,11 +532,10 @@ export default function CreateQuotationPublic() {
                       }))
                     }
                     min={0}
-                    max={Number(formData.people_count || 1)}
                     placeholder="0"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
-                    Del total de personas. Nos ayuda a preparar el menú.
+                    Se suman a los adultos. Nos ayuda a preparar el menú.
                   </p>
                 </div>
               </div>
