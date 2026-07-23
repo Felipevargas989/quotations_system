@@ -22,6 +22,21 @@ import {
 import { Line } from "react-chartjs-2";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { getCompleteStats } from "../../services/analytics.service";
+import {
+  getAllRecipeItems,
+  getCatalogServiceNameIds,
+  getFixedServiceCostsById,
+  getFurnitureItems,
+  getSupplies,
+  getSuppliers,
+  getWonEventsSince,
+} from "../../services/logistics.service";
+import {
+  EventItemsSnapshot,
+  buildConsolidationContext,
+  consolidateEvent,
+  newAccumulator,
+} from "../../utils/eventConsolidation";
 import { CompleteStatsResponse } from "../../types/analytics.types";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
@@ -407,6 +422,101 @@ export default function DashboardPage() {
   });
   const stats = statsQuery.data || null;
 
+  // ---------- FASE 4 (23-07): MÁRGENES ----------
+  // Costo por evento: CONGELADO si está provisionado (foto de compras),
+  // ESTIMADO por recetas si no — misma consolidación que Compras/Gestión.
+  // La "base" comparte queryKey (y caché) con la pestaña Compras.
+  const marginBaseQuery = useQuery({
+    queryKey: ["logistica", "compras", "base", company?.id],
+    enabled: !!user && !!company?.id,
+    queryFn: async () => {
+      const cid = company!.id;
+      const [r, sup, f, provs, n, fc] = await Promise.all([
+        getAllRecipeItems(cid),
+        getSupplies(cid),
+        getFurnitureItems(cid),
+        getSuppliers(cid),
+        getCatalogServiceNameIds(cid),
+        getFixedServiceCostsById(cid),
+      ]);
+      return {
+        recipes: r,
+        supplies: sup,
+        furniture: f,
+        suppliers: provs,
+        nameIds: n,
+        fixedCosts: fc,
+      };
+    },
+  });
+  const wonEventsQuery = useQuery({
+    queryKey: [
+      "dashboard-margin-events",
+      company?.id,
+      selectedTimeRange,
+      customRange?.start,
+      customRange?.end,
+    ],
+    enabled: !!user && !!company?.id,
+    placeholderData: keepPreviousData,
+    queryFn: async () =>
+      getWonEventsSince(company!.id, resolveRange().start_date),
+  });
+
+  // costo/margen por mes de evento (clave de mes en UTC, igual que el
+  // backend que corre en UTC — regla de fechas de eventos del sistema)
+  const marginByMonth = (() => {
+    const base = marginBaseQuery.data;
+    const events = wonEventsQuery.data || [];
+    const map = new Map<
+      string,
+      { costo: number; estimado: boolean }
+    >();
+    if (!base || events.length === 0) return map;
+    const ctx = buildConsolidationContext(
+      base.recipes,
+      base.supplies,
+      base.furniture,
+      base.nameIds,
+      base.fixedCosts,
+    );
+    events.forEach((ev) => {
+      const d = new Date(ev.event_date || 0);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+      let costo = 0;
+      let estimado = false;
+      if (ev.provisioned_at && ev.provisioned_cost != null) {
+        costo = Number(ev.provisioned_cost) || 0;
+      } else {
+        const r = consolidateEvent(
+          (ev.items || null) as EventItemsSnapshot | null,
+          Number(ev.people_count) || 0,
+          ctx,
+          newAccumulator(),
+        );
+        costo = r.costoInsumos + r.costoFijos;
+        estimado = true;
+      }
+      const cur = map.get(key) || { costo: 0, estimado: false };
+      cur.costo += costo;
+      cur.estimado = cur.estimado || estimado;
+      map.set(key, cur);
+    });
+    return map;
+  })();
+  const margenTotales = data?.moneyByMonth
+    ? data.moneyByMonth.reduce(
+        (acc, row) => {
+          const m = marginByMonth.get(row.monthKey);
+          acc.ventas += row.ventas;
+          acc.costo += m?.costo || 0;
+          acc.estimado = acc.estimado || !!m?.estimado;
+          return acc;
+        },
+        { ventas: 0, costo: 0, estimado: false },
+      )
+    : { ventas: 0, costo: 0, estimado: false };
+
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
     setCustomRange(null);
@@ -633,7 +743,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -671,6 +781,37 @@ export default function DashboardPage() {
               </p>
             </div>
             <Building className="h-8 w-8 text-purple-600" />
+          </div>
+        </div>
+
+        {/* FASE 4: margen del período (ventas − costos). "~" = incluye
+            costos estimados por recetas (eventos aún sin provisionar). */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">
+                Margen del período
+              </p>
+              <p
+                className={`text-2xl font-bold ${
+                  margenTotales.ventas - margenTotales.costo >= 0
+                    ? "text-emerald-600"
+                    : "text-red-600"
+                }`}
+              >
+                {margenTotales.estimado ? "~" : ""}
+                {formatCurrency(
+                  margenTotales.ventas - margenTotales.costo,
+                  company?.currency || "CLP",
+                )}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {margenTotales.ventas > 0
+                  ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta`
+                  : "Sin ventas en el período"}
+              </p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-emerald-600" />
           </div>
         </div>
       </div>
@@ -728,6 +869,10 @@ export default function DashboardPage() {
                 <th className="py-2 pr-2 font-medium">Mes</th>
                 <th className="py-2 px-2 text-right font-medium">Eventos</th>
                 <th className="py-2 px-2 text-right font-medium">Ventas</th>
+                <th className="py-2 px-2 text-right font-medium">Costo</th>
+                <th className="py-2 px-2 text-right font-medium">
+                  Margen (%)
+                </th>
                 <th className="py-2 px-2 text-right font-medium">Cobrado</th>
                 <th className="py-2 pl-2 text-right font-medium">
                   Por cobrar
@@ -737,6 +882,9 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-gray-100">
               {data.moneyByMonth.map((row) => {
                 const futuro = isMonthInFuture(row.monthKey);
+                const margen = marginByMonth.get(row.monthKey);
+                const margenVal =
+                  margen !== undefined ? row.ventas - margen.costo : null;
                 return (
                   <tr
                     key={row.monthKey}
@@ -756,6 +904,24 @@ export default function DashboardPage() {
                     <td className="py-1.5 px-2 text-right tabular-nums">
                       {row.ventas
                         ? formatCurrency(row.ventas, company?.currency || "CLP")
+                        : "—"}
+                    </td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">
+                      {margen && margen.costo > 0
+                        ? `${margen.estimado ? "~" : ""}${formatCurrency(margen.costo, company?.currency || "CLP")}`
+                        : "—"}
+                    </td>
+                    <td
+                      className={`py-1.5 px-2 text-right tabular-nums ${
+                        margenVal === null || row.ventas === 0
+                          ? ""
+                          : margenVal >= 0
+                            ? "text-emerald-700"
+                            : "text-red-600 font-semibold"
+                      }`}
+                    >
+                      {margenVal !== null && row.ventas > 0
+                        ? `${formatCurrency(margenVal, company?.currency || "CLP")} (${((margenVal * 100) / row.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`
                         : "—"}
                     </td>
                     <td className="py-1.5 px-2 text-right tabular-nums text-green-700">
@@ -796,6 +962,21 @@ export default function DashboardPage() {
                     company?.currency || "CLP",
                   )}
                 </td>
+                <td className="py-2 px-2 text-right tabular-nums">
+                  {margenTotales.estimado ? "~" : ""}
+                  {formatCurrency(
+                    margenTotales.costo,
+                    company?.currency || "CLP",
+                  )}
+                </td>
+                <td className="py-2 px-2 text-right tabular-nums text-emerald-700">
+                  {formatCurrency(
+                    margenTotales.ventas - margenTotales.costo,
+                    company?.currency || "CLP",
+                  )}
+                  {margenTotales.ventas > 0 &&
+                    ` (${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`}
+                </td>
                 <td className="py-2 px-2 text-right tabular-nums text-green-700">
                   {formatCurrency(
                     data.moneyByMonth.reduce((sum, r) => sum + r.cobrado, 0),
@@ -811,6 +992,11 @@ export default function DashboardPage() {
               </tr>
             </tfoot>
           </table>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Costo con ~ = estimado por recetas (evento aún sin provisionar);
+            sin ~ = costo congelado al provisionar en Compras. La merma va
+            incluida solo en el costo.
+          </p>
         </div>
       </div>
 

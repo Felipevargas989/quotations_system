@@ -438,6 +438,33 @@ export const getAcceptedEvents = async (
   }));
 };
 
+// Eventos concretados (aceptada + realizada) con evento desde una fecha:
+// alimenta el cálculo de MÁRGENES del Dashboard (Fase 4, 23-07). Mismos
+// campos que compras; el costo congelado viaja en provisioned_cost.
+export const getWonEventsSince = async (
+  companyId: number,
+  fromISO: string,
+): Promise<PurchasingEvent[]> => {
+  const { data, error } = await supabase
+    .from("quotations")
+    .select(
+      "id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
+    )
+    .eq("company_id", companyId)
+    .in("quotation_status", ["aceptada", "realizada"])
+    .gte("event_date", fromISO)
+    .order("event_date", { ascending: true });
+  if (error) {
+    console.error("Error cargando eventos para márgenes", error);
+    return [];
+  }
+  return (data || []).map((q: Record<string, unknown>) => ({
+    ...(q as unknown as PurchasingEvent),
+    client_name:
+      ((q.clients as { name?: string } | null)?.name as string) || "—",
+  }));
+};
+
 // Marca los eventos como provisionados: fecha + foto del costo estimado,
 // personas y servicios al momento (para advertir cambios posteriores).
 // Re-provisionar está permitido: actualiza la foto completa.
