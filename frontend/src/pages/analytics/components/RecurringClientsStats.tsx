@@ -40,6 +40,7 @@ export default function RecurringClientsStatsComponent({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                <th className="py-1.5 pr-2 font-medium w-6">#</th>
                 <th className="py-1.5 pr-2 font-medium">Cliente</th>
                 <th className="py-1.5 px-2 text-right font-medium">Eventos</th>
                 <th className="py-1.5 pl-2 text-right font-medium">
@@ -48,8 +49,11 @@ export default function RecurringClientsStatsComponent({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {stats.map((c) => (
+              {stats.map((c, i) => (
                 <tr key={c.client_id} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2 text-gray-400 tabular-nums">
+                    {i + 1}
+                  </td>
                   <td className="py-1.5 pr-2">
                     <button
                       onClick={() => navigate(`/clients/${c.client_id}`)}
