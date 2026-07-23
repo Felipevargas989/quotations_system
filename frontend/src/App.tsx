@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./layout/Layout.tsx";
 import PermissionGuard from "./components/PermissionGuard";
@@ -25,7 +25,7 @@ import { initGA } from "./lib/analytics.ts";
 import Plans from "./pages/plans/Plans.tsx";
 import ConfirmationPage from "./pages/plans/ConfirmationPage.tsx";
 import CreateQuotationPublic from "./pages/quotations/CreateQuotationPublic.tsx";
-import Analytics from "./pages/analytics/index.tsx";
+
 import CustomerSatisfactionSurveyPublicPage from "./pages/customerSatisfactionSurveys/PublicSurvey.tsx";
 import CustomerSatisfactionSurveysPage from "./pages/customerSatisfactionSurveys/index.tsx";
 import TemplateView from "./pages/customerSatisfactionSurveys/components/TemplateView.tsx";
@@ -228,14 +228,11 @@ function App() {
               }
             />
 
-            {/* analytics */}
+            {/* analytics vive ahora dentro del Dashboard (Fase 2,
+                23-07); la ruta vieja redirige para no romper marcadores */}
             <Route
               path="analytics"
-              element={
-                <PermissionGuard allowedRoles={SECTION_ROLES.analytics}>
-                  <Analytics />
-                </PermissionGuard>
-              }
+              element={<Navigate to="/dashboard" replace />}
             />
 
             {/* customer satisfaction survey */}

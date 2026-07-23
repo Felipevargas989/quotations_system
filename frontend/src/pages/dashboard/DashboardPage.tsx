@@ -20,6 +20,18 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { getCompleteStats } from "../../services/analytics.service";
+import { CompleteStatsResponse } from "../../types/analytics.types";
+import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
+import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
+import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
+import RevenueByClientTypeStatsComponent from "../analytics/components/RevenueByClientTypeStats";
+import TopClientsByRevenueStatsComponent from "../analytics/components/TopClientsByRevenueStats";
+import TopClientsByQuotationsStatsComponent from "../analytics/components/TopClientsByQuotationsStats";
+import RecurringClientsStatsComponent from "../analytics/components/RecurringClientsStats";
+import VariableServicesUsageStatsComponent from "../analytics/components/VariableServicesUsageStats";
+import FixedServicesUsageStatsComponent from "../analytics/components/FixedServicesUsageStats";
 
 ChartJS.register(
   CategoryScale,
@@ -176,6 +188,35 @@ export default function DashboardPage() {
 
   // Selected time range (default to 1 year)
   const [selectedTimeRange, setSelectedTimeRange] = useState("1_year");
+  // Fechas libres (Fase 2): al tocar cualquiera, el rango personalizado
+  // manda; al elegir un preset, se vuelve a los presets.
+  const [customRange, setCustomRange] = useState<{
+    start: string;
+    end: string;
+  } | null>(null);
+  // Secciones de análisis plegables (ex-Analytics). Comercial parte
+  // abierta; el estado es solo de la sesión.
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(["comercial"]),
+  );
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const resolveRange = () => {
+    if (customRange) {
+      return { start_date: customRange.start, end_date: customRange.end };
+    }
+    const selectedOption = timeRangeOptions.find(
+      (option) => option.value === selectedTimeRange,
+    );
+    return (
+      selectedOption?.getDateRange() || timeRangeOptions[3].getDateRange()
+    );
+  };
 
   const EMPTY_DASHBOARD: DashboardData = {
     totalRequests: 0,
@@ -192,16 +233,17 @@ export default function DashboardPage() {
   // al cambiar el rango se sigue mostrando el anterior mientras llega
   // el nuevo (sin parpadeo), y volver al dashboard es instantáneo.
   const dashboardQuery = useQuery({
-    queryKey: ["dashboard", company?.id, selectedTimeRange],
+    queryKey: [
+      "dashboard",
+      company?.id,
+      selectedTimeRange,
+      customRange?.start,
+      customRange?.end,
+    ],
     enabled: !!user && !!company?.id,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<DashboardData> => {
-      // Get selected time range and its date range
-      const selectedOption = timeRangeOptions.find(
-        (option) => option.value === selectedTimeRange,
-      );
-      const dateRange =
-        selectedOption?.getDateRange() || timeRangeOptions[2].getDateRange(); // fallback to 1 year
+      const dateRange = resolveRange();
 
       // Get dashboard stats from analytics service
       const analyticsData = await getDashboardStats(
@@ -338,8 +380,27 @@ export default function DashboardPage() {
     return colors[status as keyof typeof colors] || "bg-gray-500";
   };
 
+  // Tablas de análisis (ex-Analytics) bajo el MISMO período (Fase 2).
+  const statsQuery = useQuery({
+    queryKey: [
+      "dashboard-complete",
+      company?.id,
+      selectedTimeRange,
+      customRange?.start,
+      customRange?.end,
+    ],
+    enabled: !!user && !!company?.id,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<CompleteStatsResponse | null> => {
+      const dateRange = resolveRange();
+      return getCompleteStats(dateRange.start_date, dateRange.end_date);
+    },
+  });
+  const stats = statsQuery.data || null;
+
   const handleTimeRangeChange = (value: string) => {
     setSelectedTimeRange(value);
+    setCustomRange(null);
   };
 
   // Helper function to format month-year keys (e.g., "2024-0" -> "Enero 2024")
@@ -668,13 +729,13 @@ export default function DashboardPage() {
             Período de Análisis
           </h3>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {timeRangeOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => handleTimeRangeChange(option.value)}
               className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                selectedTimeRange === option.value
+                !customRange && selectedTimeRange === option.value
                   ? "bg-blue-600 text-white border-blue-600"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
               }`}
@@ -682,6 +743,39 @@ export default function DashboardPage() {
               {option.label}
             </button>
           ))}
+          {/* Fechas libres (Fase 2): editar cualquiera activa el rango
+              personalizado; elegir un preset lo apaga. */}
+          <div
+            className={`ml-auto flex items-center gap-2 rounded-lg border px-3 py-1.5 ${
+              customRange
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-300 bg-white"
+            }`}
+          >
+            <input
+              type="date"
+              value={customRange?.start || resolveRange().start_date}
+              onChange={(e) =>
+                setCustomRange({
+                  start: e.target.value,
+                  end: customRange?.end || resolveRange().end_date,
+                })
+              }
+              className="text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
+            />
+            <span className="text-sm text-gray-400">hasta</span>
+            <input
+              type="date"
+              value={customRange?.end || resolveRange().end_date}
+              onChange={(e) =>
+                setCustomRange({
+                  start: customRange?.start || resolveRange().start_date,
+                  end: e.target.value,
+                })
+              }
+              className="text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
+            />
+          </div>
         </div>
       </div>
 
@@ -920,6 +1014,108 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* ================= ANÁLISIS (ex-Analytics, Fase 2) =================
+          Las 9 tablas viven aquí bajo el MISMO período, en secciones
+          plegables. La pestaña Analytics se jubiló: /analytics redirige. */}
+      {[
+        {
+          key: "comercial",
+          titulo: "Análisis comercial",
+          sub: "Estados, conversión e ingresos del período",
+          contenido: stats && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <QuotationStatusStatsComponent
+                stats={stats.quotation_status_stats}
+              />
+              <EventTypeConversionStatsComponent
+                stats={stats.event_type_conversion_stats}
+              />
+              {company && (
+                <EventTypeRevenueStatsComponent
+                  stats={stats.event_type_revenue_stats}
+                  currency={company.currency}
+                />
+              )}
+              {company && (
+                <RevenueByClientTypeStatsComponent
+                  stats={stats.revenue_by_client_type}
+                  currency={company.currency}
+                />
+              )}
+            </div>
+          ),
+        },
+        {
+          key: "clientes",
+          titulo: "Análisis de clientes",
+          sub: "Top 10 por ingresos y cotizaciones, recurrentes",
+          contenido: stats && company && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TopClientsByRevenueStatsComponent
+                stats={stats.top_clients_by_revenue}
+                currency={company.currency}
+              />
+              <TopClientsByQuotationsStatsComponent
+                stats={stats.top_clients_by_quotations || []}
+              />
+              <RecurringClientsStatsComponent
+                stats={stats.recurring_clients || []}
+                currency={company.currency}
+              />
+            </div>
+          ),
+        },
+        {
+          key: "servicios",
+          titulo: "Análisis de servicios",
+          sub: "Los más presentes en eventos concretados",
+          contenido: stats && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VariableServicesUsageStatsComponent
+                stats={stats.variable_services_usage}
+              />
+              <FixedServicesUsageStatsComponent
+                stats={stats.fixed_services_usage}
+              />
+            </div>
+          ),
+        },
+      ].map((sec) => (
+        <div key={sec.key} className="bg-white rounded-lg shadow">
+          <button
+            type="button"
+            onClick={() => toggleSection(sec.key)}
+            className="w-full flex items-center justify-between px-6 py-4 text-left"
+          >
+            <span className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              <span>
+                <span className="block text-lg font-semibold text-gray-900">
+                  {sec.titulo}
+                </span>
+                <span className="block text-xs text-gray-500">{sec.sub}</span>
+              </span>
+            </span>
+            {openSections.has(sec.key) ? (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+          {openSections.has(sec.key) && (
+            <div className="px-6 pb-6">
+              {sec.contenido || (
+                <p className="text-sm text-gray-400">
+                  {statsQuery.isError
+                    ? "No se pudieron cargar estas tablas — reintenta con Actualizar."
+                    : "Cargando análisis…"}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

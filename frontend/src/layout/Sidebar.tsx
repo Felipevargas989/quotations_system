@@ -78,12 +78,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       section: "calendar",
     },
     {
-      name: "Analytics",
-      href: "/analytics",
-      icon: BarChart,
-      section: "analytics",
-    },
-    {
       name: "Encuestas de Satisfacción",
       href: "/customer-satisfaction-survey",
       icon: MessageCircle,
