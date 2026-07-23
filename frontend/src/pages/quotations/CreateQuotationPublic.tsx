@@ -253,7 +253,7 @@ export default function CreateQuotationPublic() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3.5">
                 <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center font-extrabold text-xl overflow-hidden shrink-0"
+                  className="w-20 h-20 rounded-full flex items-center justify-center font-extrabold text-2xl overflow-hidden shrink-0"
                   style={{ backgroundColor: brandP, color: onBrandP }}
                 >
                   {company?.logo_url ? (
