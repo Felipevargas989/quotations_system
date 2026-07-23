@@ -1,11 +1,8 @@
 import { useEffect, useRef } from "react";
 
 // Landing pública de Eventia (rediseño 23-07 con Felipe).
-// El HTML/CSS se construyó y aprobó como maqueta y se porta aquí tal cual;
-// los botones apuntan a los flujos reales: "Prueba gratis" -> /register
-// (crea la empresa), "Acceder" -> /login. La animación de aparición al
-// hacer scroll se monta en un efecto (el <script> de la maqueta no viaja
-// en dangerouslySetInnerHTML).
+// HTML/CSS aprobado como maqueta, portado aquí; botones -> flujos reales:
+// "Prueba gratis" -> /register (crea la empresa), "Acceder" -> /login.
 
 const LANDING_HTML = `<style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -373,7 +370,7 @@ const LANDING_HTML = `<style>
   <div class="wrap" style="text-align:center">
     <span class="eyebrow reveal">Confían en Eventia</span>
     <div class="logos reveal">
-      <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 7v6c0 5 3.5 8 9 9 5.5-1 9-4 9-9V7l-9-5Z"/></svg> Valle del Sol Quillón</span>
+      <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 7v6c0 5 3.5 8 9 9 5.5-1 9-4 9-9V7l-9-5Z"/></svg> Complejo Turístico Valle del Sol</span>
     </div>
     <div class="testi reveal">
       <span class="qm">&ldquo;</span>
@@ -382,7 +379,7 @@ const LANDING_HTML = `<style>
         <span class="tav">FV</span>
         <div style="text-align:left">
           <div class="tn">Felipe Vargas</div>
-          <div class="tr">Fundador · Banquetería Valle del Sol Quillón</div>
+          <div class="tr">Complejo Turístico Valle del Sol · Quillón</div>
         </div>
       </div>
     </div>
@@ -498,7 +495,6 @@ const LANDING_HTML = `<style>
 
 export default function LandingPage() {
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
@@ -519,6 +515,5 @@ export default function LandingPage() {
     });
     return () => io.disconnect();
   }, []);
-
   return <div ref={ref} dangerouslySetInnerHTML={{ __html: LANDING_HTML }} />;
 }
