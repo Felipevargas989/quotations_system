@@ -41,34 +41,49 @@ export class AnalyticsService {
         ? new Date(dateRange.end_date)
         : new Date();
 
-      // 1. get all quotations
-      // TODO: check if add requirmenents
+      // 1. FASE 1 (23-07): el período gobierna TODO el tablero.
+      // Dos lecturas con roles distintos:
+      //   - "quotations": las CREADAS dentro del período → contadores,
+      //     desglose por estado, pipeline y cotizaciones por mes.
+      //   - "concretadas": aceptadas/realizadas con EVENTO desde el
+      //     inicio del período (sin tope: el futuro confirmado se pinta
+      //     punteado) → eventos, ventas y caja.
+      const ALL_STATUSES = [
+        QuotationStatus.SOLICITADA,
+        QuotationStatus.ENVIADA,
+        QuotationStatus.EN_NEGOCIACION,
+        QuotationStatus.ACEPTADA,
+        QuotationStatus.RECHAZADA,
+        QuotationStatus.REALIZADA,
+        QuotationStatus.CANCELADA,
+      ];
       const quotations = await this.quotationsService.findAll({
         companyId,
         request_type: RequestType.COTIZACION,
-        // 23-07: REALIZADA y CANCELADA entran al tablero. "Realizada"
-        // nació después que esta lista y sus eventos desaparecían de
-        // TODO el dashboard (eventos, ventas, caja, contadores).
-        statuses: [
-          QuotationStatus.SOLICITADA,
-          QuotationStatus.ENVIADA,
-          QuotationStatus.EN_NEGOCIACION,
-          QuotationStatus.ACEPTADA,
-          QuotationStatus.RECHAZADA,
-          QuotationStatus.REALIZADA,
-          QuotationStatus.CANCELADA,
-        ],
+        statuses: ALL_STATUSES,
+        dateRange: { start_date, end_date },
+      });
+      const concretadas = await this.quotationsService.findAll({
+        companyId,
+        request_type: RequestType.COTIZACION,
+        statuses: [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
+        eventDateFrom: start_date,
       });
 
       // get all clients
       const clients = await this.clientsService.findAll(companyId);
 
       // get all payments
-      // Caja: pagos de todo lo vivo o concretado; las CANCELADAS quedan
-      // fuera (conservan su historia de pagos, pero no son caja esperada).
-      const quotations_ids = quotations
-        .filter((q) => q.quotation_status !== QuotationStatus.CANCELADA)
-        .map((quotation) => quotation.id);
+      // Caja: pagos de lo creado en el período + lo concretado con evento
+      // en/desde el período; las CANCELADAS quedan fuera (conservan su
+      // historia de pagos, pero no son caja esperada).
+      const quotations_ids = [
+        ...new Set(
+          [...quotations, ...concretadas]
+            .filter((q) => q.quotation_status !== QuotationStatus.CANCELADA)
+            .map((quotation) => quotation.id),
+        ),
+      ];
 
       // add filter by quotation_id in the payments service
       const { data: payments } =
@@ -121,27 +136,29 @@ export class AnalyticsService {
           } as DashboardStatsResponse['totalQuotationsByMonth'],
         );
 
-      // get quotations by event_date (only accepted quotations)
+      // Eventos/ventas por mes de EVENTO (aceptada + realizada). El eje
+      // parte donde parte el período y se extiende hasta el último evento
+      // confirmado a futuro (tramo punteado en el front). Antes esta
+      // serie AGREGABA meses fuera del rango (la "fuga" que hacía que el
+      // filtro pareciera no aplicar) — ahora el eje manda.
+      const maxEventDate = concretadas.reduce((max, q) => {
+        const d = new Date(q.event_date);
+        return d > max ? d : max;
+      }, new Date(end_date));
+      const eventsMonthRange = generateMonthRange(start_date, maxEventDate);
       const totalQuotationsByEventDate: DashboardStatsResponse['totalQuotationsByEventDate'] =
-        quotations.reduce(
+        concretadas.reduce(
           (acc, quotation) => {
-            // Eventos/ventas del mes: concretados = aceptada + realizada
-            if (
-              quotation.quotation_status === QuotationStatus.ACEPTADA ||
-              quotation.quotation_status === QuotationStatus.REALIZADA
-            ) {
-              const date = new Date(quotation.event_date);
-              const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
-              if (!(monthYear in acc)) {
-                acc[monthYear] = { count: 0, amount: 0 };
-              }
+            const date = new Date(quotation.event_date);
+            const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
+            if (monthYear in acc) {
               acc[monthYear].count += 1;
               acc[monthYear].amount += quotation.total_amount;
             }
             return acc;
           },
           Object.fromEntries(
-            Object.keys(monthRange).map((month) => [
+            Object.keys(eventsMonthRange).map((month) => [
               month,
               { count: 0, amount: 0 },
             ]),

@@ -218,9 +218,11 @@ export default function DashboardPage() {
 
       const totalClients = analyticsData.totalClients;
 
-      // Calculate total sales from analytics service
+      // Ventas del período = concretadas (aceptada + realizada),
+      // coherente con las curvas de eventos/ventas (Fase 1, 23-07).
       const totalSales =
-        analyticsData.totalQuotationsByStatus?.aceptada?.amount || 0;
+        (analyticsData.totalQuotationsByStatus?.aceptada?.amount || 0) +
+        (analyticsData.totalQuotationsByStatus?.realizada?.amount || 0);
 
       // Convert totalQuotationsByMonth to requestsByMonth format
       const requestsByMonth = Object.keys(analyticsData.totalQuotationsByMonth)

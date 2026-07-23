@@ -202,6 +202,7 @@ export class QuotationsService {
     dateRange,
     sort_by,
     sort_order,
+    eventDateFrom,
   }: {
     companyId: number;
     request_type?: RequestType;
@@ -209,6 +210,7 @@ export class QuotationsService {
     dateRange?: { start_date: Date; end_date: Date };
     sort_by?: 'quotation_number' | 'event_date' | 'status';
     sort_order?: 'asc' | 'desc';
+    eventDateFrom?: Date;
   }) {
     this.logger.info(
       `findAll quotations with params ${companyId}, ${request_type}, ${JSON.stringify(statuses)}, ${JSON.stringify(dateRange)}`,
@@ -220,6 +222,7 @@ export class QuotationsService {
       dateRange: dateRange,
       sort_by: sort_by || 'quotation_number',
       sort_order: sort_order || 'asc',
+      eventDateFrom: eventDateFrom,
     });
   }
 
