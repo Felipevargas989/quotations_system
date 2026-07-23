@@ -335,9 +335,9 @@ export default function DashboardPage() {
         }));
 
       // Pipeline de ventas (excluye rechazadas)
-      const salesPipeline = quotationsByStatus.filter(
-        (item) => item.status !== QuotationStatus.RECHAZADA,
-      );
+      // Embudo completo (23-07): TODOS los estados — la zona "perdidas"
+      // (rechazada/cancelada) es parte de la lectura del pipeline.
+      const salesPipeline = quotationsByStatus;
 
       // Convert totalPaymentsByMonth to paymentsByMonth format
       // FASE 3: una fila por mes con eventos, ventas, cobrado y por
@@ -402,7 +402,9 @@ export default function DashboardPage() {
       enviada: "bg-blue-500",
       en_negociacion: "bg-purple-500",
       aceptada: "bg-green-500",
+      realizada: "bg-teal-600",
       rechazada: "bg-red-500",
+      cancelada: "bg-gray-400",
     };
     return colors[status as keyof typeof colors] || "bg-gray-500";
   };
@@ -1304,105 +1306,196 @@ export default function DashboardPage() {
         </div>
       </div> */}
 
-      {/* Pipeline de ventas */}
+      {/* Pipeline de Negocio — EMBUDO transpuesto (23-07, con Felipe):
+          estados como columnas en orden de viaje, agrupados en zonas
+          vivas | ganadas | perdidas con sus subtotales (reemplazan al
+          TOTAL mezclado). Cifras en miles; venta viva destacada. */}
+      {(() => {
+        const ORDER = [
+          { key: "solicitada", label: "Solicitada", zone: "viva" },
+          { key: "enviada", label: "Enviada", zone: "viva" },
+          { key: "en_negociacion", label: "En Negociación", zone: "viva" },
+          { key: "aceptada", label: "Aceptada", zone: "ganada" },
+          { key: "realizada", label: "Realizada", zone: "ganada" },
+          { key: "rechazada", label: "Rechazada", zone: "perdida" },
+          { key: "cancelada", label: "Cancelada", zone: "perdida" },
+        ] as const;
+        const by = new Map(data.salesPipeline.map((i) => [i.status, i]));
+        const item = (k: string) =>
+          by.get(k) || { status: k, amount: 0, count: 0 };
+        const zoneSum = (z: string) =>
+          ORDER.filter((o) => o.zone === z).reduce(
+            (acc, o) => {
+              const it = item(o.key);
+              return {
+                count: acc.count + it.count,
+                amount: acc.amount + it.amount,
+              };
+            },
+            { count: 0, amount: 0 },
+          );
+        const vivas = zoneSum("viva");
+        const ganadas = zoneSum("ganada");
+        const perdidas = zoneSum("perdida");
+        const totalCount = vivas.count + ganadas.count + perdidas.count;
+        const milesP = (n: number) =>
+          Math.round(n / 1000).toLocaleString("es-CL");
+        const ventaViva =
+          item("enviada").amount + item("en_negociacion").amount;
+        const zonaCls = (zone: string, sub: boolean) => {
+          const base = sub ? "bg-gray-50 font-bold " : "";
+          if (zone === "ganada") return base + "text-emerald-700";
+          if (zone === "perdida") return base + "text-gray-400";
+          return base + "text-gray-800";
+        };
+        const cols: {
+          key: string;
+          label: string;
+          zone: string;
+          it: { count: number; amount: number };
+          sub: boolean;
+          borde: boolean;
+        }[] = [
+          ...ORDER.map((o, i) => ({
+            key: o.key,
+            label: o.label,
+            zone: o.zone as string,
+            it: item(o.key),
+            sub: false,
+            borde: i > 0 && ORDER[i - 1].zone !== o.zone,
+          })),
+          {
+            key: "z-vivas",
+            label: "VIVAS",
+            zone: "viva",
+            it: vivas,
+            sub: true,
+            borde: true,
+          },
+          {
+            key: "z-ganadas",
+            label: "GANADAS",
+            zone: "ganada",
+            it: ganadas,
+            sub: true,
+            borde: false,
+          },
+          {
+            key: "z-perdidas",
+            label: "PERDIDAS",
+            zone: "perdida",
+            it: perdidas,
+            sub: true,
+            borde: false,
+          },
+        ];
+        const filas = [
+          {
+            label: "Cotizaciones",
+            cell: (it: { count: number; amount: number }) =>
+              it.count ? String(it.count) : "—",
+            title: () => undefined as string | undefined,
+          },
+          {
+            label: "% de cotizaciones",
+            cell: (it: { count: number; amount: number }) =>
+              totalCount && it.count
+                ? `${((it.count * 100) / totalCount).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`
+                : "—",
+            title: () => undefined as string | undefined,
+          },
+          {
+            label: "Monto",
+            cell: (it: { count: number; amount: number }) =>
+              it.amount ? milesP(it.amount) : "—",
+            title: (it: { count: number; amount: number }) =>
+              it.amount
+                ? formatCurrency(it.amount, company?.currency || "CLP")
+                : undefined,
+          },
+          {
+            label: "Ticket promedio",
+            cell: (it: { count: number; amount: number }) =>
+              it.count ? milesP(it.amount / it.count) : "—",
+            title: (it: { count: number; amount: number }) =>
+              it.count
+                ? formatCurrency(
+                    it.amount / it.count,
+                    company?.currency || "CLP",
+                  )
+                : undefined,
+          },
+        ];
+        return (
       <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center space-x-2 mb-6">
-          <TrendingUp className="h-5 w-5 text-orange-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
-            Pipeline de Negocio
-          </h2>
-          {/* <span className="text-sm text-gray-500">(Excluye rechazadas)</span> */}
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <div className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5 text-orange-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              Pipeline de Negocio
+            </h2>
+            <span className="text-sm text-gray-500">(en miles de pesos)</span>
+          </div>
+          {/* EL número del pipeline: lo que puedes ganar si empujas */}
+          <span className="text-sm font-semibold text-blue-900 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
+            Venta viva en juego:{" "}
+            {formatCurrency(ventaViva, company?.currency || "CLP")}
+          </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">
-                  Estado
+              <tr className="text-[10px] uppercase tracking-wider border-b border-gray-200">
+                <th className="py-2 pr-2 text-left font-medium text-gray-500 sticky left-0 bg-white">
+                  Concepto
                 </th>
-                <th className="text-right py-3 px-4 font-medium text-gray-700">
-                  Cantidad
-                </th>
-                <th className="text-right py-3 px-4 font-medium text-gray-700">
-                  Monto Total
-                </th>
-                <th className="text-right py-3 px-4 font-medium text-gray-700">
-                  Promedio
-                </th>
+                {cols.map((c) => (
+                  <th
+                    key={c.key}
+                    className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
+                      c.borde ? "border-l border-gray-200" : ""
+                    } ${zonaCls(c.zone, c.sub)}`}
+                  >
+                    {!c.sub && (
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full mr-1 ${getStatusColor(c.key)}`}
+                      />
+                    )}
+                    {c.label}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {data.salesPipeline.map((item, index) => (
-                <tr
-                  key={index}
-                  className="border-b border-gray-100 hover:bg-gray-50"
-                >
-                  <td className="py-3 px-4">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${getStatusColor(item.status)}`}
-                      ></div>
-                      <span className="font-medium">
-                        {getStatusLabel(item.status)}
-                      </span>
-                    </div>
+            <tbody className="divide-y divide-gray-100">
+              {filas.map((fila) => (
+                <tr key={fila.label} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
+                    {fila.label}
                   </td>
-                  <td className="py-3 px-4 text-right font-semibold">
-                    {item.count}
-                  </td>
-                  <td className="py-3 px-4 text-right font-semibold text-green-600">
-                    {formatCurrency(item.amount, company?.currency || "CLP")}
-                  </td>
-                  <td className="py-3 px-4 text-right text-gray-600">
-                    {item.count > 0
-                      ? formatCurrency(
-                          item.amount / item.count,
-                          company?.currency || "CLP",
-                        )
-                      : formatCurrency(0, company?.currency || "CLP")}
-                  </td>
+                  {cols.map((c) => (
+                    <td
+                      key={c.key}
+                      title={fila.title(c.it)}
+                      className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
+                        c.borde ? "border-l border-gray-200" : ""
+                      } ${zonaCls(c.zone, c.sub)}`}
+                    >
+                      {fila.cell(c.it)}
+                    </td>
+                  ))}
                 </tr>
               ))}
-              <tr className="border-t-2 border-gray-300 bg-gray-50 font-bold">
-                <td className="py-3 px-4">TOTAL PIPELINE</td>
-                <td className="py-3 px-4 text-right">
-                  {data.salesPipeline.reduce(
-                    (sum, item) => sum + item.count,
-                    0,
-                  )}
-                </td>
-                <td className="py-3 px-4 text-right text-green-700">
-                  {formatCurrency(
-                    data.salesPipeline.reduce(
-                      (sum, item) => sum + item.amount,
-                      0,
-                    ),
-                    company?.currency || "CLP",
-                  )}
-                </td>
-                <td className="py-3 px-4 text-right text-gray-700">
-                  {data.salesPipeline.reduce(
-                    (sum, item) => sum + item.count,
-                    0,
-                  ) > 0
-                    ? formatCurrency(
-                        data.salesPipeline.reduce(
-                          (sum, item) => sum + item.amount,
-                          0,
-                        ) /
-                          data.salesPipeline.reduce(
-                            (sum, item) => sum + item.count,
-                            0,
-                          ),
-                        company?.currency || "CLP",
-                      )
-                    : formatCurrency(0, company?.currency || "CLP")}
-                </td>
-              </tr>
             </tbody>
           </table>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Cifras en MILES de pesos. Zonas: vivas (aún en juego) · ganadas
+            (aceptadas y realizadas) · perdidas (rechazadas y canceladas).
+            Del período seleccionado; el monto exacto está en el tooltip.
+          </p>
         </div>
       </div>
+        );
+      })()}
 
       {/* ================= ANÁLISIS (ex-Analytics, Fase 2) =================
           Las 9 tablas viven aquí bajo el MISMO período, en secciones
