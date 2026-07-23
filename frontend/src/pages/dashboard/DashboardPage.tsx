@@ -31,6 +31,51 @@ ChartJS.register(
   Legend,
 );
 
+// Abreviatura chilena de cifras para los gráficos (Felipe, 23-07):
+// 16.000.000 -> "16M", 4.500.000 -> "4,5M", 450.000 -> "450k".
+const abrevCifra = (n: number): string => {
+  const abs = Math.abs(n);
+  const f = (v: number) =>
+    v.toLocaleString("es-CL", {
+      maximumFractionDigits: Math.abs(v) < 10 ? 1 : 0,
+    });
+  if (abs >= 1_000_000) return `${f(n / 1_000_000)}M`;
+  if (abs >= 1_000) return `${f(n / 1_000)}k`;
+  return n.toLocaleString("es-CL");
+};
+
+// Plugin liviano (sin dependencias): pinta la cifra abreviada sobre cada
+// punto de la curva, del color de la serie. El monto exacto sigue en el
+// tooltip. Se activa con `puntoAbrev` (dinero) o `puntoEntero` (conteos)
+// en las options del gráfico.
+const etiquetasDePunto = {
+  id: "etiquetasDePunto",
+  afterDatasetsDraw(chart: any) {
+    const opts: any = chart.options || {};
+    if (!opts.puntoAbrev && !opts.puntoEntero) return;
+    const { ctx } = chart;
+    chart.data.datasets.forEach((ds: any, di: number) => {
+      const meta = chart.getDatasetMeta(di);
+      if (meta.hidden) return;
+      ctx.save();
+      ctx.font = "bold 10px system-ui, sans-serif";
+      ctx.fillStyle = ds.borderColor || "#374151";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      meta.data.forEach((pt: any, i: number) => {
+        const v = Number(ds.data[i]);
+        if (!Number.isFinite(v) || v === 0) return;
+        const label = opts.puntoAbrev
+          ? abrevCifra(v)
+          : v.toLocaleString("es-CL");
+        ctx.fillText(label, pt.x, pt.y - 6);
+      });
+      ctx.restore();
+    });
+  },
+};
+
+
 import { useAuth } from "../../contexts/AuthContext";
 import { getDashboardStats } from "../../services/analytics.service";
 import NewAccount from "./components/NewAccount";
@@ -317,6 +362,8 @@ export default function DashboardPage() {
   // Chart configuration for the line chart
   const chartOptions = {
     responsive: true,
+    puntoEntero: true,
+    layout: { padding: { top: 16 } },
     plugins: {
       legend: {
         display: false,
@@ -366,6 +413,8 @@ export default function DashboardPage() {
   // Chart configuration for the events line chart
   const eventsChartOptions = {
     responsive: true,
+    puntoEntero: true,
+    layout: { padding: { top: 16 } },
     plugins: {
       legend: {
         display: false,
@@ -432,6 +481,8 @@ export default function DashboardPage() {
   // Chart configuration for the sales line chart
   const salesChartOptions = {
     responsive: true,
+    puntoAbrev: true,
+    layout: { padding: { top: 16 } },
     plugins: {
       legend: {
         display: false,
@@ -458,8 +509,9 @@ export default function DashboardPage() {
         display: true,
         beginAtZero: true,
         ticks: {
+          // Eje abreviado (16M); el monto completo vive en el tooltip.
           callback: function (value: any) {
-            return formatCurrency(value, company?.currency || "CLP");
+            return "$" + abrevCifra(Number(value));
           },
         },
       },
@@ -507,6 +559,8 @@ export default function DashboardPage() {
   // Chart configuration for the cash flow line chart
   const cashFlowChartOptions = {
     responsive: true,
+    puntoAbrev: true,
+    layout: { padding: { top: 16 } },
     plugins: {
       legend: {
         display: false,
@@ -533,8 +587,9 @@ export default function DashboardPage() {
         display: true,
         beginAtZero: true,
         ticks: {
+          // Eje abreviado (16M); el monto completo vive en el tooltip.
           callback: function (value: any) {
-            return formatCurrency(value, company?.currency || "CLP");
+            return "$" + abrevCifra(Number(value));
           },
         },
       },
@@ -683,7 +738,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">(Todos los estados)</span>
           </div>
           <div className="h-64">
-            <Line data={chartData} options={chartOptions} />
+            <Line data={chartData} options={chartOptions} plugins={[etiquetasDePunto]} />
           </div>
         </div>
 
@@ -697,7 +752,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">(Solo aceptados)</span>
           </div>
           <div className="h-64">
-            <Line data={eventsChartData} options={eventsChartOptions} />
+            <Line data={eventsChartData} options={eventsChartOptions} plugins={[etiquetasDePunto]} />
           </div>
         </div>
 
@@ -713,7 +768,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="h-64">
-            <Line data={salesChartData} options={salesChartOptions} />
+            <Line data={salesChartData} options={salesChartOptions} plugins={[etiquetasDePunto]} />
           </div>
         </div>
 
@@ -727,7 +782,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">(Pagos recibidos)</span>
           </div>
           <div className="h-64">
-            <Line data={cashFlowChartData} options={cashFlowChartOptions} />
+            <Line data={cashFlowChartData} options={cashFlowChartOptions} plugins={[etiquetasDePunto]} />
           </div>
         </div>
       </div>
@@ -756,7 +811,7 @@ export default function DashboardPage() {
                   {item.count}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.amount, company?.currency || "CLP")}
                 </div>
               </div>
             </div>
