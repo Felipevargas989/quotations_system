@@ -10,6 +10,9 @@ import {
   Layers,
   Lock,
   Package,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useServices } from "../../hooks/useServices";
@@ -170,6 +173,12 @@ export default function QuotationForm() {
     SelectedFixedService[]
   >([]);
   const [serviceCategories, setServiceCategories] = useState<string[]>([]);
+  // Mesa de trabajo ordenada (Felipe, 23-07): cada categoría se puede
+  // PLEGAR (resumen en una línea) y ARRASTRAR para reordenar. El orden
+  // se guarda con la cotización (variable_services serializa en orden);
+  // el plegado es solo de la sesión — al abrir, todo parte desplegado.
+  const [collapsedBoxes, setCollapsedBoxes] = useState<Set<string>>(new Set());
+  const [dragBoxId, setDragBoxId] = useState<string | null>(null);
   const [serviceBoxes, setServiceBoxes] = useState<ServiceBox[]>([
     {
       id: "1",
@@ -690,6 +699,27 @@ export default function QuotationForm() {
       services: [],
     };
     setServiceBoxes((prev) => [...prev, newBox]);
+  };
+
+  const toggleBoxCollapsed = (boxId: string) =>
+    setCollapsedBoxes((prev) => {
+      const next = new Set(prev);
+      if (next.has(boxId)) next.delete(boxId);
+      else next.add(boxId);
+      return next;
+    });
+
+  // Reordena arrastrando: la caja arrastrada se inserta donde se suelta.
+  const moveBoxTo = (fromId: string, toId: string) => {
+    setServiceBoxes((prev) => {
+      const from = prev.findIndex((b) => b.id === fromId);
+      const to = prev.findIndex((b) => b.id === toId);
+      if (from < 0 || to < 0 || from === to) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   };
 
   const removeServiceBox = (boxId: string) => {
@@ -2334,18 +2364,104 @@ export default function QuotationForm() {
             </div>
 
             <div className="space-y-4">
-              {serviceBoxes.map((box, index) => (
+              {serviceBoxes.map((box, index) => {
+                const collapsed = collapsedBoxes.has(box.id);
+                const boxItemCount = box.services.filter(
+                  (sv) => sv.quantity > 0,
+                ).length;
+                const boxTotal =
+                  box.services.reduce(
+                    (sum, it) => sum + it.precio * it.quantity,
+                    0,
+                  ) * boxPeople(box);
+                const dragControls = (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span
+                      draggable={!isRestrictedEditing}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", box.id);
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragBoxId(box.id);
+                      }}
+                      onDragEnd={() => setDragBoxId(null)}
+                      className={
+                        isRestrictedEditing
+                          ? "text-gray-200"
+                          : "cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                      }
+                      title="Arrastrar para reordenar"
+                    >
+                      <GripVertical size={15} />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleBoxCollapsed(box.id)}
+                      className="text-gray-400 hover:text-gray-600"
+                      title={collapsed ? "Desplegar" : "Plegar"}
+                    >
+                      {collapsed ? (
+                        <ChevronRight size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </button>
+                  </span>
+                );
+                return (
                 <div
                   key={box.id}
-                  className={`border rounded-lg p-4 ${
+                  onDragOver={(e) => {
+                    if (dragBoxId && dragBoxId !== box.id) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragBoxId && dragBoxId !== box.id)
+                      moveBoxTo(dragBoxId, box.id);
+                    setDragBoxId(null);
+                  }}
+                  className={`border rounded-lg ${collapsed ? "p-3" : "p-4"} ${
+                    dragBoxId === box.id ? "opacity-40 " : ""
+                  }${
                     (box.audience || "adultos") === "ninos"
                       ? "border-amber-300 bg-amber-50/50"
                       : "border-gray-200"
                   }`}
                 >
+                {collapsed ? (
+                  /* Plegada: resumen en una línea (nombre, personas,
+                     ítems y subtotal siempre a la vista) */
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {dragControls}
+                    <span className="text-xs font-bold text-gray-400">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {box.selectedCategory || "Sin categoría"}
+                    </span>
+                    {(box.audience || "adultos") === "ninos" && (
+                      <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">
+                        Niños
+                      </span>
+                    )}
+                    {eventDaysCount > 1 && (
+                      <span className="text-xs font-semibold text-blue-900">
+                        {dayLabel(Math.min(box.day || 1, eventDaysCount))}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      {boxItemCount} ítem{boxItemCount === 1 ? "" : "s"} ·{" "}
+                      {boxPeople(box).toLocaleString("es-CL")} personas
+                    </span>
+                    <span className="ml-auto text-sm font-bold text-gray-900">
+                      ${boxTotal.toLocaleString("es-CL")}
+                    </span>
+                  </div>
+                ) : (
+                <>
                   {/* Cabecera de la caja (mockup): numero + Categoria +
                       Audiencia + Personas + Dia, todo etiquetado en una fila */}
                   <div className="flex items-end gap-3 flex-wrap mb-3">
+                    <span className="pb-2.5">{dragControls}</span>
                     <span className="text-xs font-bold text-gray-400 pb-3">
                       {index + 1}
                     </span>
@@ -2896,8 +3012,11 @@ export default function QuotationForm() {
                       </div>
                     </div>
                   )}
+                </>
+                )}
                 </div>
-              ))}
+                );
+              })}
 
               <button
                 onClick={addServiceBox}
