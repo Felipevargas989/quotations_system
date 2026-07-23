@@ -196,6 +196,31 @@ export class AnalyticsService {
           } as DashboardStatsResponse['totalPaymentsByMonth'],
         ) || {};
 
+      // FASE 3 (23-07): cobrado vs por cobrar por mes para la tabla de
+      // ingresos. Cobrado = pagos 'pagado' (mes del paid_date si existe,
+      // si no el de vencimiento); por cobrar = pendiente/vencido por mes
+      // de vencimiento. Mismo eje extendido de la caja.
+      const totalPaymentsDetailByMonth: DashboardStatsResponse['totalPaymentsDetailByMonth'] =
+        Object.fromEntries(
+          Object.keys(extendedMonthRange).map((m) => [
+            m,
+            { cobrado: 0, porCobrar: 0 },
+          ]),
+        );
+      (payments || []).forEach((payment: any) => {
+        const isPaid = payment.status === 'pagado';
+        const date = new Date(
+          isPaid && payment.paid_date ? payment.paid_date : payment.due_date,
+        );
+        const key = `${date.getFullYear()}-${date.getMonth()}`;
+        if (!(key in totalPaymentsDetailByMonth)) return;
+        if (isPaid) {
+          totalPaymentsDetailByMonth[key].cobrado += payment.amount;
+        } else {
+          totalPaymentsDetailByMonth[key].porCobrar += payment.amount;
+        }
+      });
+
       // 3. return stats
       return {
         totalQuotations,
@@ -204,6 +229,7 @@ export class AnalyticsService {
         totalQuotationsByStatus,
         totalQuotationsByEventDate,
         totalPaymentsByMonth,
+        totalPaymentsDetailByMonth,
       };
     } catch (error) {
       this.logger.error(`Error getting dashboard stats: ${error}`);

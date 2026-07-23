@@ -7,6 +7,12 @@ export type DashboardStatsResponse = {
   totalQuotationsByStatus: Record<string, { count: number; amount: number }>;
   totalQuotationsByEventDate: Record<string, { count: number; amount: number }>;
   totalPaymentsByMonth: Record<string, number>;
+  // FASE 3 (23-07): cobrado vs por cobrar por mes, para la tabla de
+  // ingresos del Dashboard.
+  totalPaymentsDetailByMonth: Record<
+    string,
+    { cobrado: number; porCobrar: number }
+  >;
 };
 
 type QuotationStatusStats = {

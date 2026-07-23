@@ -110,7 +110,15 @@ interface DashboardData {
     monthKey: string;
   }[];
   salesPipeline: { status: string; amount: number; count: number }[];
-  paymentsByMonth: { month: string; amount: number; monthKey: string }[];
+  // FASE 3: la plata se lee en tabla — una fila por mes.
+  moneyByMonth: {
+    month: string;
+    monthKey: string;
+    eventos: number;
+    ventas: number;
+    cobrado: number;
+    porCobrar: number;
+  }[];
 }
 
 type TimeRangeOption = {
@@ -226,7 +234,7 @@ export default function DashboardPage() {
     quotationsByStatus: [],
     eventsByMonth: [],
     salesPipeline: [],
-    paymentsByMonth: [],
+    moneyByMonth: [],
   };
 
   // Dashboard vía React Query (Etapa 5): una clave por rango de tiempo;
@@ -314,21 +322,26 @@ export default function DashboardPage() {
       );
 
       // Convert totalPaymentsByMonth to paymentsByMonth format
-      const paymentsByMonth = Object.keys(
-        analyticsData.totalPaymentsByMonth || {},
-      )
-        .sort((a, b) => {
-          // Sort by year first, then by month
-          const [yearA, monthA] = a.split("-").map(Number);
-          const [yearB, monthB] = b.split("-").map(Number);
-          if (yearA !== yearB) return yearA - yearB;
-          return monthA - monthB;
-        })
-        .map((monthYearKey: string) => ({
-          month: formatMonthYear(monthYearKey),
-          amount: analyticsData.totalPaymentsByMonth[monthYearKey],
-          monthKey: monthYearKey,
-        }));
+      // FASE 3: una fila por mes con eventos, ventas, cobrado y por
+      // cobrar — unión de los ejes de eventos y de pagos.
+      const detail = analyticsData.totalPaymentsDetailByMonth || {};
+      const byEvent = analyticsData.totalQuotationsByEventDate || {};
+      const moneyKeys = [
+        ...new Set([...Object.keys(byEvent), ...Object.keys(detail)]),
+      ].sort((a, b) => {
+        const [yearA, monthA] = a.split("-").map(Number);
+        const [yearB, monthB] = b.split("-").map(Number);
+        if (yearA !== yearB) return yearA - yearB;
+        return monthA - monthB;
+      });
+      const moneyByMonth = moneyKeys.map((monthYearKey: string) => ({
+        month: formatMonthYear(monthYearKey),
+        monthKey: monthYearKey,
+        eventos: byEvent[monthYearKey]?.count || 0,
+        ventas: byEvent[monthYearKey]?.amount || 0,
+        cobrado: detail[monthYearKey]?.cobrado || 0,
+        porCobrar: detail[monthYearKey]?.porCobrar || 0,
+      }));
 
       return {
         totalRequests,
@@ -347,11 +360,7 @@ export default function DashboardPage() {
           monthKey: string;
         }[],
         salesPipeline,
-        paymentsByMonth: paymentsByMonth as {
-          month: string;
-          amount: number;
-          monthKey: string;
-        }[],
+        moneyByMonth,
       };
     },
   });
@@ -541,162 +550,6 @@ export default function DashboardPage() {
     ],
   };
 
-  // Chart configuration for the sales line chart
-  const salesChartOptions = {
-    responsive: true,
-    puntoAbrev: true,
-    layout: { padding: { top: 16 } },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            return `Ventas: ${formatCurrency(context.parsed.y, company?.currency || "CLP")}`;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: false,
-        },
-      },
-      y: {
-        display: true,
-        beginAtZero: true,
-        ticks: {
-          // Eje abreviado (16M); el monto completo vive en el tooltip.
-          callback: function (value: any) {
-            return "$" + abrevCifra(Number(value));
-          },
-        },
-      },
-    },
-    maintainAspectRatio: false,
-  };
-
-  // Prepare chart data for sales
-  const salesChartData = {
-    labels: data.eventsByMonth.map((item) => item.month),
-    datasets: [
-      {
-        label: "Ventas",
-        data: data.eventsByMonth.map((item) => item.amount),
-        borderColor: "rgb(16, 185, 129)", // Green color
-        backgroundColor: "rgba(16, 185, 129, 0.1)",
-        borderWidth: 2,
-        pointBackgroundColor: "rgb(16, 185, 129)",
-        pointBorderColor: "rgb(16, 185, 129)",
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        segment: {
-          borderColor: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.eventsByMonth.length)
-              return "rgb(16, 185, 129)";
-            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
-              ? "rgba(16, 185, 129, 0.3)"
-              : "rgb(16, 185, 129)";
-          },
-          borderDash: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.eventsByMonth.length) return undefined;
-            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
-              ? [5, 5]
-              : undefined;
-          },
-        },
-      },
-    ],
-  };
-
-  // Chart configuration for the cash flow line chart
-  const cashFlowChartOptions = {
-    responsive: true,
-    puntoAbrev: true,
-    layout: { padding: { top: 16 } },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (context: any) {
-            return `Pagos: ${formatCurrency(context.parsed.y, company?.currency || "CLP")}`;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: false,
-        },
-      },
-      y: {
-        display: true,
-        beginAtZero: true,
-        ticks: {
-          // Eje abreviado (16M); el monto completo vive en el tooltip.
-          callback: function (value: any) {
-            return "$" + abrevCifra(Number(value));
-          },
-        },
-      },
-    },
-    maintainAspectRatio: false,
-  };
-
-  // Prepare chart data for cash flow
-  const cashFlowChartData = {
-    labels: data.paymentsByMonth.map((item) => item.month),
-    datasets: [
-      {
-        label: "Flujo de Caja",
-        data: data.paymentsByMonth.map((item) => item.amount),
-        borderColor: "rgb(234, 88, 12)", // Orange color
-        backgroundColor: "rgba(234, 88, 12, 0.1)",
-        borderWidth: 2,
-        pointBackgroundColor: "rgb(234, 88, 12)",
-        pointBorderColor: "rgb(234, 88, 12)",
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        segment: {
-          borderColor: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.paymentsByMonth.length)
-              return "rgb(234, 88, 12)";
-            return isMonthInFuture(data.paymentsByMonth[nextIndex].monthKey)
-              ? "rgba(234, 88, 12, 0.3)"
-              : "rgb(234, 88, 12)";
-          },
-          borderDash: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.paymentsByMonth.length) return undefined;
-            return isMonthInFuture(data.paymentsByMonth[nextIndex].monthKey)
-              ? [5, 5]
-              : undefined;
-          },
-        },
-      },
-    ],
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -852,34 +705,112 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Ventas por mes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <DollarSign className="h-5 w-5 text-green-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Ventas por Mes
-            </h2>
-            <span className="text-sm text-gray-500">
-              (Monto de eventos aceptados)
-            </span>
-          </div>
-          <div className="h-64">
-            <Line data={salesChartData} options={salesChartOptions} plugins={[etiquetasDePunto]} />
-          </div>
-        </div>
+      </div>
 
-        {/* Flujo de Caja por mes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Flujo de Caja por Mes
-            </h2>
-            <span className="text-sm text-gray-500">(Pagos recibidos)</span>
-          </div>
-          <div className="h-64">
-            <Line data={cashFlowChartData} options={cashFlowChartOptions} plugins={[etiquetasDePunto]} />
-          </div>
+      {/* FASE 3 (23-07): la plata se lee en TABLA — reemplaza las curvas
+          de Ventas y Flujo de Caja. Ventas = eventos concretados por mes
+          de evento; Cobrado/Por cobrar = pagos por mes. Meses futuros en
+          gris (venta agendada). */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center space-x-2 mb-4">
+          <DollarSign className="h-5 w-5 text-green-600" />
+          <h2 className="text-lg font-semibold text-gray-900">
+            Ingresos y Caja por Mes
+          </h2>
+          <span className="text-sm text-gray-500">
+            (Eventos concretados y pagos del período)
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                <th className="py-2 pr-2 font-medium">Mes</th>
+                <th className="py-2 px-2 text-right font-medium">Eventos</th>
+                <th className="py-2 px-2 text-right font-medium">Ventas</th>
+                <th className="py-2 px-2 text-right font-medium">Cobrado</th>
+                <th className="py-2 pl-2 text-right font-medium">
+                  Por cobrar
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.moneyByMonth.map((row) => {
+                const futuro = isMonthInFuture(row.monthKey);
+                return (
+                  <tr
+                    key={row.monthKey}
+                    className={`hover:bg-gray-50 ${futuro ? "text-gray-400" : ""}`}
+                  >
+                    <td className="py-1.5 pr-2 font-medium">
+                      {row.month}
+                      {futuro && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wide">
+                          · futuro
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">
+                      {row.eventos || "—"}
+                    </td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">
+                      {row.ventas
+                        ? formatCurrency(row.ventas, company?.currency || "CLP")
+                        : "—"}
+                    </td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-green-700">
+                      {row.cobrado
+                        ? formatCurrency(
+                            row.cobrado,
+                            company?.currency || "CLP",
+                          )
+                        : "—"}
+                    </td>
+                    <td
+                      className={`py-1.5 pl-2 text-right tabular-nums ${
+                        row.porCobrar && !futuro
+                          ? "text-red-600 font-semibold"
+                          : ""
+                      }`}
+                    >
+                      {row.porCobrar
+                        ? formatCurrency(
+                            row.porCobrar,
+                            company?.currency || "CLP",
+                          )
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-300 bg-gray-50 font-bold">
+                <td className="py-2 pr-2">TOTAL</td>
+                <td className="py-2 px-2 text-right tabular-nums">
+                  {data.moneyByMonth.reduce((sum, r) => sum + r.eventos, 0)}
+                </td>
+                <td className="py-2 px-2 text-right tabular-nums">
+                  {formatCurrency(
+                    data.moneyByMonth.reduce((sum, r) => sum + r.ventas, 0),
+                    company?.currency || "CLP",
+                  )}
+                </td>
+                <td className="py-2 px-2 text-right tabular-nums text-green-700">
+                  {formatCurrency(
+                    data.moneyByMonth.reduce((sum, r) => sum + r.cobrado, 0),
+                    company?.currency || "CLP",
+                  )}
+                </td>
+                <td className="py-2 pl-2 text-right tabular-nums text-red-700">
+                  {formatCurrency(
+                    data.moneyByMonth.reduce((sum, r) => sum + r.porCobrar, 0),
+                    company?.currency || "CLP",
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
