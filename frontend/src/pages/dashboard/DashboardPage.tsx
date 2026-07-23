@@ -798,61 +798,68 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Time Range Selector */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center space-x-2 mb-3">
-          <Clock className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            Período de Análisis
-          </h3>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {timeRangeOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleTimeRangeChange(option.value)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                !customRange && selectedTimeRange === option.value
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-          {/* Fechas libres (Fase 2): editar cualquiera activa el rango
-              personalizado; elegir un preset lo apaga. */}
-          <div
-            className={`ml-auto flex items-center gap-2 rounded-lg border px-3 py-1.5 ${
-              customRange
-                ? "border-blue-400 bg-blue-50"
-                : "border-gray-300 bg-white"
+      {/* Período: barra delgada (rediseño 23-07). Chips + fechas
+          desde/hasta; editar una fecha activa el modo personalizado
+          (pintado azul) y la × vuelve al preset. */}
+      <div className="bg-white px-4 py-2.5 rounded-lg shadow flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mr-1">
+          <Clock className="h-4 w-4 text-blue-600" />
+          Período:
+        </span>
+        {timeRangeOptions.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => handleTimeRangeChange(option.value)}
+            className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
+              !customRange && selectedTimeRange === option.value
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
             }`}
           >
-            <input
-              type="date"
-              value={customRange?.start || resolveRange().start_date}
-              onChange={(e) =>
-                setCustomRange({
-                  start: e.target.value,
-                  end: customRange?.end || resolveRange().end_date,
-                })
-              }
-              className="text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
-            />
-            <span className="text-sm text-gray-400">hasta</span>
-            <input
-              type="date"
-              value={customRange?.end || resolveRange().end_date}
-              onChange={(e) =>
-                setCustomRange({
-                  start: customRange?.start || resolveRange().start_date,
-                  end: e.target.value,
-                })
-              }
-              className="text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
-            />
-          </div>
+            {option.label}
+          </button>
+        ))}
+        <span className="mx-1 h-5 border-l border-gray-200 hidden sm:block" />
+        <div
+          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+            customRange
+              ? "border-blue-500 bg-blue-50 text-blue-900"
+              : "border-gray-200 text-gray-500"
+          }`}
+        >
+          <span className="font-medium">desde</span>
+          <input
+            type="date"
+            value={customRange?.start || resolveRange().start_date}
+            onChange={(e) =>
+              setCustomRange({
+                start: e.target.value,
+                end: customRange?.end || resolveRange().end_date,
+              })
+            }
+            className="bg-transparent border-0 p-0 text-xs focus:ring-0 w-[110px]"
+          />
+          <span className="font-medium">hasta</span>
+          <input
+            type="date"
+            value={customRange?.end || resolveRange().end_date}
+            onChange={(e) =>
+              setCustomRange({
+                start: customRange?.start || resolveRange().start_date,
+                end: e.target.value,
+              })
+            }
+            className="bg-transparent border-0 p-0 text-xs focus:ring-0 w-[110px]"
+          />
+          {customRange && (
+            <button
+              onClick={() => setCustomRange(null)}
+              className="ml-0.5 text-blue-700 hover:text-blue-900 font-bold"
+              title="Volver a los presets"
+            >
+              ×
+            </button>
+          )}
         </div>
       </div>
 
@@ -1001,10 +1008,153 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* FASE 3 (23-07): la plata se lee en TABLA — reemplaza las curvas
-          de Ventas y Flujo de Caja. Ventas = eventos concretados por mes
-          de evento; Cobrado/Por cobrar = pagos por mes. Meses futuros en
-          gris (venta agendada). */}
+      {/* Ingresos y Caja por Mes — TRANSPUESTA (23-07, pedido Felipe):
+          los MESES son columnas (máx 12, los más recientes del período,
+          futuros incluidos) y los CONCEPTOS son filas, como un estado de
+          resultados. Cifras abreviadas (16M) con el monto exacto en el
+          tooltip; columna TOTAL de los meses visibles. */}
+      {(() => {
+        const meses = data.moneyByMonth.slice(-12);
+        const recortada = data.moneyByMonth.length > meses.length;
+        const shortMonth = (monthKey: string) => {
+          const [year, monthIndex] = monthKey.split("-");
+          return `${MONTHS[parseInt(monthIndex)].slice(0, 3)} ${year.slice(2)}`;
+        };
+        const filas: {
+          label: string;
+          cell: (r: (typeof meses)[number]) => {
+            text: string;
+            title?: string;
+            cls?: string;
+          };
+          total: () => { text: string; title?: string; cls?: string };
+        }[] = [
+          {
+            label: "Eventos",
+            cell: (r) => ({
+              text: r.eventos ? String(r.eventos) : "—",
+            }),
+            total: () => ({
+              text: String(meses.reduce((sum, r) => sum + r.eventos, 0)),
+            }),
+          },
+          {
+            label: "Ventas",
+            cell: (r) => ({
+              text: r.ventas ? `$${abrevCifra(r.ventas)}` : "—",
+              title: r.ventas
+                ? formatCurrency(r.ventas, company?.currency || "CLP")
+                : undefined,
+              cls: "font-semibold",
+            }),
+            total: () => {
+              const t = meses.reduce((sum, r) => sum + r.ventas, 0);
+              return {
+                text: `$${abrevCifra(t)}`,
+                title: formatCurrency(t, company?.currency || "CLP"),
+                cls: "font-bold",
+              };
+            },
+          },
+          {
+            label: "Costo",
+            cell: (r) => {
+              const m = marginByMonth.get(r.monthKey);
+              return {
+                text:
+                  m && m.costo > 0
+                    ? `${m.estimado ? "~" : ""}$${abrevCifra(m.costo)}`
+                    : "—",
+                title:
+                  m && m.costo > 0
+                    ? formatCurrency(m.costo, company?.currency || "CLP")
+                    : undefined,
+              };
+            },
+            total: () => ({
+              text: `${margenTotales.estimado ? "~" : ""}$${abrevCifra(
+                meses.reduce(
+                  (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
+                  0,
+                ),
+              )}`,
+              cls: "font-bold",
+            }),
+          },
+          {
+            label: "Margen (%)",
+            cell: (r) => {
+              const m = marginByMonth.get(r.monthKey);
+              if (!m || r.ventas === 0) return { text: "—" };
+              const val = r.ventas - m.costo;
+              return {
+                text: `$${abrevCifra(val)} (${((val * 100) / r.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`,
+                title: formatCurrency(val, company?.currency || "CLP"),
+                cls:
+                  val >= 0
+                    ? "text-emerald-700 font-semibold"
+                    : "text-red-600 font-semibold",
+              };
+            },
+            total: () => {
+              const v = meses.reduce((sum, r) => sum + r.ventas, 0);
+              const c = meses.reduce(
+                (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
+                0,
+              );
+              return {
+                text: v
+                  ? `$${abrevCifra(v - c)} (${(((v - c) * 100) / v).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`
+                  : "—",
+                title: formatCurrency(v - c, company?.currency || "CLP"),
+                cls:
+                  v - c >= 0
+                    ? "text-emerald-700 font-bold"
+                    : "text-red-600 font-bold",
+              };
+            },
+          },
+          {
+            label: "Cobrado",
+            cell: (r) => ({
+              text: r.cobrado ? `$${abrevCifra(r.cobrado)}` : "—",
+              title: r.cobrado
+                ? formatCurrency(r.cobrado, company?.currency || "CLP")
+                : undefined,
+              cls: "text-green-700",
+            }),
+            total: () => {
+              const t = meses.reduce((sum, r) => sum + r.cobrado, 0);
+              return {
+                text: `$${abrevCifra(t)}`,
+                title: formatCurrency(t, company?.currency || "CLP"),
+                cls: "text-green-700 font-bold",
+              };
+            },
+          },
+          {
+            label: "Por cobrar",
+            cell: (r) => ({
+              text: r.porCobrar ? `$${abrevCifra(r.porCobrar)}` : "—",
+              title: r.porCobrar
+                ? formatCurrency(r.porCobrar, company?.currency || "CLP")
+                : undefined,
+              cls:
+                r.porCobrar && !isMonthInFuture(r.monthKey)
+                  ? "text-red-600 font-semibold"
+                  : "",
+            }),
+            total: () => {
+              const t = meses.reduce((sum, r) => sum + r.porCobrar, 0);
+              return {
+                text: `$${abrevCifra(t)}`,
+                title: formatCurrency(t, company?.currency || "CLP"),
+                cls: "text-red-700 font-bold",
+              };
+            },
+          },
+        ];
+        return (
       <div className="bg-white p-6 rounded-lg shadow">
         <div className="flex items-center space-x-2 mb-4">
           <DollarSign className="h-5 w-5 text-green-600" />
@@ -1012,146 +1162,82 @@ export default function DashboardPage() {
             Ingresos y Caja por Mes
           </h2>
           <span className="text-sm text-gray-500">
-            (Eventos concretados y pagos del período)
+            {recortada
+              ? "(últimos 12 meses del período)"
+              : "(eventos concretados y pagos del período)"}
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-2 font-medium">Mes</th>
-                <th className="py-2 px-2 text-right font-medium">Eventos</th>
-                <th className="py-2 px-2 text-right font-medium">Ventas</th>
-                <th className="py-2 px-2 text-right font-medium">Costo</th>
-                <th className="py-2 px-2 text-right font-medium">
-                  Margen (%)
+              <tr className="text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                <th className="py-2 pr-2 text-left font-medium sticky left-0 bg-white">
+                  Concepto
                 </th>
-                <th className="py-2 px-2 text-right font-medium">Cobrado</th>
-                <th className="py-2 pl-2 text-right font-medium">
-                  Por cobrar
+                {meses.map((r) => (
+                  <th
+                    key={r.monthKey}
+                    className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
+                      isMonthInFuture(r.monthKey) ? "text-gray-300" : ""
+                    }`}
+                    title={r.month}
+                  >
+                    {shortMonth(r.monthKey)}
+                    {isMonthInFuture(r.monthKey) ? " ·f" : ""}
+                  </th>
+                ))}
+                <th className="py-2 pl-2 text-right font-bold text-gray-700 border-l border-gray-200">
+                  TOTAL
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.moneyByMonth.map((row) => {
-                const futuro = isMonthInFuture(row.monthKey);
-                const margen = marginByMonth.get(row.monthKey);
-                const margenVal =
-                  margen !== undefined ? row.ventas - margen.costo : null;
-                return (
-                  <tr
-                    key={row.monthKey}
-                    className={`hover:bg-gray-50 ${futuro ? "text-gray-400" : ""}`}
-                  >
-                    <td className="py-1.5 pr-2 font-medium">
-                      {row.month}
-                      {futuro && (
-                        <span className="ml-1.5 text-[10px] uppercase tracking-wide">
-                          · futuro
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
-                      {row.eventos || "—"}
-                    </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
-                      {row.ventas
-                        ? formatCurrency(row.ventas, company?.currency || "CLP")
-                        : "—"}
-                    </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
-                      {margen && margen.costo > 0
-                        ? `${margen.estimado ? "~" : ""}${formatCurrency(margen.costo, company?.currency || "CLP")}`
-                        : "—"}
-                    </td>
-                    <td
-                      className={`py-1.5 px-2 text-right tabular-nums ${
-                        margenVal === null || row.ventas === 0
-                          ? ""
-                          : margenVal >= 0
-                            ? "text-emerald-700"
-                            : "text-red-600 font-semibold"
-                      }`}
-                    >
-                      {margenVal !== null && row.ventas > 0
-                        ? `${formatCurrency(margenVal, company?.currency || "CLP")} (${((margenVal * 100) / row.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`
-                        : "—"}
-                    </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-green-700">
-                      {row.cobrado
-                        ? formatCurrency(
-                            row.cobrado,
-                            company?.currency || "CLP",
-                          )
-                        : "—"}
-                    </td>
-                    <td
-                      className={`py-1.5 pl-2 text-right tabular-nums ${
-                        row.porCobrar && !futuro
-                          ? "text-red-600 font-semibold"
-                          : ""
-                      }`}
-                    >
-                      {row.porCobrar
-                        ? formatCurrency(
-                            row.porCobrar,
-                            company?.currency || "CLP",
-                          )
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
+              {filas.map((fila) => (
+                <tr key={fila.label} className="hover:bg-gray-50">
+                  <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
+                    {fila.label}
+                  </td>
+                  {meses.map((r) => {
+                    const c = fila.cell(r);
+                    return (
+                      <td
+                        key={r.monthKey}
+                        title={c.title}
+                        className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
+                          isMonthInFuture(r.monthKey)
+                            ? "text-gray-400"
+                            : c.cls || ""
+                        }`}
+                      >
+                        {c.text}
+                      </td>
+                    );
+                  })}
+                  {(() => {
+                    const t = fila.total();
+                    return (
+                      <td
+                        title={t.title}
+                        className={`py-1.5 pl-2 text-right tabular-nums whitespace-nowrap border-l border-gray-200 bg-gray-50 ${t.cls || ""}`}
+                      >
+                        {t.text}
+                      </td>
+                    );
+                  })()}
+                </tr>
+              ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-300 bg-gray-50 font-bold">
-                <td className="py-2 pr-2">TOTAL</td>
-                <td className="py-2 px-2 text-right tabular-nums">
-                  {data.moneyByMonth.reduce((sum, r) => sum + r.eventos, 0)}
-                </td>
-                <td className="py-2 px-2 text-right tabular-nums">
-                  {formatCurrency(
-                    data.moneyByMonth.reduce((sum, r) => sum + r.ventas, 0),
-                    company?.currency || "CLP",
-                  )}
-                </td>
-                <td className="py-2 px-2 text-right tabular-nums">
-                  {margenTotales.estimado ? "~" : ""}
-                  {formatCurrency(
-                    margenTotales.costo,
-                    company?.currency || "CLP",
-                  )}
-                </td>
-                <td className="py-2 px-2 text-right tabular-nums text-emerald-700">
-                  {formatCurrency(
-                    margenTotales.ventas - margenTotales.costo,
-                    company?.currency || "CLP",
-                  )}
-                  {margenTotales.ventas > 0 &&
-                    ` (${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%)`}
-                </td>
-                <td className="py-2 px-2 text-right tabular-nums text-green-700">
-                  {formatCurrency(
-                    data.moneyByMonth.reduce((sum, r) => sum + r.cobrado, 0),
-                    company?.currency || "CLP",
-                  )}
-                </td>
-                <td className="py-2 pl-2 text-right tabular-nums text-red-700">
-                  {formatCurrency(
-                    data.moneyByMonth.reduce((sum, r) => sum + r.porCobrar, 0),
-                    company?.currency || "CLP",
-                  )}
-                </td>
-              </tr>
-            </tfoot>
           </table>
           <p className="mt-2 text-[11px] text-gray-400">
-            Costo con ~ = estimado por recetas (evento aún sin provisionar);
-            sin ~ = costo congelado al provisionar en Compras. La merma va
-            incluida solo en el costo.
+            ·f = mes futuro (venta agendada). Costo con ~ = estimado por
+            recetas (evento sin provisionar); sin ~ = congelado al
+            provisionar en Compras. La merma va solo en el costo. Pasa el
+            mouse por una cifra para ver el monto exacto.
           </p>
         </div>
       </div>
+        );
+      })()}
 
       {/* Cotizaciones por estado */}
       {/* <div className="bg-white p-6 rounded-lg shadow">
