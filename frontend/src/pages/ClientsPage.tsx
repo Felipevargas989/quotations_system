@@ -92,6 +92,11 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [typeFilterRestored, setTypeFilterRestored] = useState(false);
 
+  // ---- Filtro por segmento comercial (vacío = todos). A propósito NO se
+  // persiste: un segmento dejado activo esconde clientes en silencio y a la
+  // vuelta parecería que "faltan"; cada visita parte mostrando todo. ----
+  const [segmentFilter, setSegmentFilter] = useState<string>("");
+
   // ---- Tipos de cliente dinámicos (tabla client_types) ----
   // TODA la gestión (crear, ordenar con flechas, eliminar) vive en el
   // panel "Gestionar tipos" (decisión Felipe 21-07-2026); el desplegable
@@ -433,7 +438,48 @@ export default function ClientsPage() {
     ...extraNames,
   ].map((name) => ({ value: name, label: name }));
 
-  // Buscador y filtro de tipos se aplican JUNTOS (vacío = todos).
+  // ---- Segmento comercial (Felipe, 23-07): cada cliente cae en UNO ----
+  // No se filtra por estado crudo (un cliente puede tener rechazadas Y una
+  // aceptada); se segmenta a nivel de cliente:
+  //   efectivos       ≥1 aceptada o realizada (compró alguna vez)
+  //   en_proceso      nada aceptado aún, pero hay algo vivo
+  //   sin_concretar   cotizó y todo murió (rechazada/cancelada) → reactivar
+  //   sin_cotizaciones nunca ha cotizado
+  // OJO: vale lo que valga la disciplina de estados — una cotización muerta
+  // dejada en "enviada" mantiene al cliente en "en proceso".
+  const clientSegment = (c: Client): string => {
+    const sts = c.quotation_statuses || [];
+    if (sts.length === 0) return "sin_cotizaciones";
+    if (sts.some((s) => s === "aceptada" || s === "realizada"))
+      return "efectivos";
+    if (
+      sts.some(
+        (s) => s === "solicitada" || s === "enviada" || s === "en_negociacion",
+      )
+    )
+      return "en_proceso";
+    return "sin_concretar";
+  };
+  const segmentCount = (seg: string) =>
+    clients.filter((c) => clientSegment(c) === seg).length;
+  const SEGMENT_OPTIONS: { value: string; label: string }[] = [
+    { value: "", label: `Todos los clientes (${clients.length})` },
+    { value: "efectivos", label: `Efectivos (${segmentCount("efectivos")})` },
+    {
+      value: "en_proceso",
+      label: `En proceso (${segmentCount("en_proceso")})`,
+    },
+    {
+      value: "sin_concretar",
+      label: `Cotizaron sin concretar (${segmentCount("sin_concretar")})`,
+    },
+    {
+      value: "sin_cotizaciones",
+      label: `Sin cotizaciones (${segmentCount("sin_cotizaciones")})`,
+    },
+  ];
+
+  // Buscador, filtro de tipos y segmento se aplican JUNTOS (vacío = todos).
   // Búsqueda inteligente: sin tildes, por palabras en cualquier orden.
   const filteredClients = clients.filter((client) => {
     const matchesText = matchesSearch(
@@ -446,7 +492,9 @@ export default function ClientsPage() {
     const matchesType =
       typeFilter.length === 0 ||
       typeFilter.includes((client.client_type || "").trim());
-    return matchesText && matchesType;
+    const matchesSegment =
+      !segmentFilter || clientSegment(client) === segmentFilter;
+    return matchesText && matchesType && matchesSegment;
   });
 
   // (getClientTypeColor vive ahora en utils/clientTypeColor.ts, compartido
@@ -1076,6 +1124,25 @@ export default function ClientsPage() {
                 placeholder="Filtrar por tipo"
                 className="w-full"
               />
+            </div>
+            {/* Segmento comercial: quién compró, quién quedó en el camino */}
+            <div className="min-w-[230px]">
+              <select
+                value={segmentFilter}
+                onChange={(e) => setSegmentFilter(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                  segmentFilter
+                    ? "border-blue-400 bg-blue-50 text-blue-900 font-medium"
+                    : "border-gray-300 text-gray-700"
+                }`}
+                title="Segmento según sus cotizaciones: efectivos compraron alguna vez; 'sin concretar' cotizaron y todo se rechazó o canceló"
+              >
+                {SEGMENT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

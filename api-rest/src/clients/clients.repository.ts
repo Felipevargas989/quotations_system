@@ -32,21 +32,26 @@ export class ClientsRepository {
 
   async findAll(companyId: number) {
     this.logger.info(`findAll clients with companyId ${companyId}`);
-    // quotations(id) embeds only the ids of linked quotations, so the
-    // frontend can know how many exist (a client with quotations must
-    // not be deletable) without loading the heavy quotation payloads.
+    // quotations(id, quotation_status) embeds only ids + statuses of the
+    // linked quotations, so the frontend can know how many exist (a client
+    // with quotations must not be deletable) and segment the client book
+    // (efectivos / cotizaron sin concretar / en proceso / sin cotizaciones)
+    // without loading the heavy quotation payloads.
     const { data, error } = await this.supabase.client
       .from('clients')
-      .select('*, quotations(id)')
+      .select('*, quotations(id, quotation_status)')
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return (data as unknown as (Client & { quotations?: { id: string }[] })[]).map(
-      ({ quotations, ...client }) => ({
-        ...client,
-        quotation_count: quotations?.length ?? 0,
-      }),
-    ) as unknown as Client[];
+    return (
+      data as unknown as (Client & {
+        quotations?: { id: string; quotation_status: string }[];
+      })[]
+    ).map(({ quotations, ...client }) => ({
+      ...client,
+      quotation_count: quotations?.length ?? 0,
+      quotation_statuses: (quotations || []).map((q) => q.quotation_status),
+    })) as unknown as Client[];
   }
 
   async update(id: string, updateClient: UpdateClient, companyId: number) {

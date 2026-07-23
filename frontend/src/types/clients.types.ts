@@ -15,10 +15,18 @@ export interface Client {
   /** Cotizaciones vinculadas (lo entrega el backend). Un cliente con
    *  cotizaciones NO se puede eliminar. */
   quotation_count?: number;
+  /** Estados de esas cotizaciones (mismo orden que el embed del backend).
+   *  Alimenta el filtro de segmentos comerciales de Gestión de Clientes. */
+  quotation_statuses?: string[];
 }
 
 export interface ClientFormData
   extends Omit<
     Client,
-    "id" | "created_at" | "updated_at" | "company_id" | "quotation_count"
+    | "id"
+    | "created_at"
+    | "updated_at"
+    | "company_id"
+    | "quotation_count"
+    | "quotation_statuses"
   > {}
