@@ -53,7 +53,7 @@ export default function EventTypeRevenueStatsComponent({
                     {formatCurrency(r.total_revenue, currency)}
                   </td>
                   <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
-                    {Number(r.revenue_percentage || 0).toLocaleString("es-CL")}
+                    {Number(r.revenue_percentage || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     %
                   </td>
                 </tr>

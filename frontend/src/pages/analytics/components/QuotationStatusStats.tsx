@@ -100,7 +100,7 @@ export default function QuotationStatusStatsComponent({
                     {Number(r.total).toLocaleString("es-CL")}
                   </td>
                   <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
-                    {Number(r.percentage).toLocaleString("es-CL")}%
+                    {Number(r.percentage).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                   </td>
                 </tr>
               ))}
@@ -114,7 +114,7 @@ export default function QuotationStatusStatsComponent({
                   {total.toLocaleString("es-CL")}
                 </td>
                 <td className="py-1.5 pl-2 text-right tabular-nums text-gray-500">
-                  100%
+                  100,00%
                 </td>
               </tr>
             </tfoot>

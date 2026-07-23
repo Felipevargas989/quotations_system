@@ -81,7 +81,7 @@ export default function TopClientsByQuotationsStatsComponent({
                     <span
                       className={`px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums ${tasaColor(Number(c.conversion_rate) || 0)}`}
                     >
-                      {Number(c.conversion_rate || 0).toLocaleString("es-CL")}%
+                      {Number(c.conversion_rate || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                     </span>
                   </td>
                 </tr>

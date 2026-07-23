@@ -50,9 +50,7 @@ export default function EventTypeConversionStatsComponent({
                     {Number(r.accepted_quotations).toLocaleString("es-CL")}
                   </td>
                   <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
-                    {Number(r.conversion_rate_percentage || 0).toLocaleString(
-                      "es-CL",
-                    )}
+                    {Number(r.conversion_rate_percentage || 0).toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     %
                   </td>
                 </tr>
