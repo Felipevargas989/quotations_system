@@ -204,6 +204,22 @@ const LANDING_HTML = `<style>
 
   footer{border-top:1px solid var(--line);padding:38px 0;color:var(--muted);font-size:14px}
   .foot-in{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+
+  /* ===== AJUSTES MÓVIL (24-07) — header y titulares sin desborde en el teléfono.
+     Todo vive dentro de <=560px: el desktop NO cambia una coma. ===== */
+  @media(max-width:560px){
+    .nav-in{height:60px}
+    .logo{font-size:17px;gap:8px}
+    .logo svg{width:30px;height:30px}
+    .nav-cta{gap:8px}
+    .nav-cta .btn{padding:9px 14px;font-size:13px;white-space:nowrap}
+    .hero{padding:52px 0 30px}
+    .hero h1{font-size:33px}
+    .hero h1 .hl{white-space:normal}
+    .hero p.lead{font-size:17px}
+    h2.title{font-size:29px}
+    .strip-in{gap:12px 22px;padding:16px 0}
+  }
 </style>
 <!-- NAV -->
 <nav>
