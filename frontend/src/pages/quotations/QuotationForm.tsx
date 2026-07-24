@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Save,
@@ -58,6 +58,22 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { matchesSearch } from "../../utils/searchMatch";
 import { UserRole } from "../../constants/users";
 import { humanizeApiError } from "../../utils/apiErrors";
+// Margen en el cotizador (24-07): misma máquina de consolidación que usa
+// Post-venta → Gestión y la pestaña Compras.
+import {
+  getAllRecipeItems,
+  getCatalogServiceNameIds,
+  getFixedServiceCostsById,
+  getFurnitureItems,
+  getSupplies,
+  getSuppliers,
+} from "../../services/logistics.service";
+import {
+  buildConsolidationContext,
+  consolidateEvent,
+  newAccumulator,
+  type EventItemsSnapshot,
+} from "../../utils/eventConsolidation";
 
 // TODO: use already defined types
 interface SelectedService {
@@ -690,6 +706,110 @@ export default function QuotationForm() {
         );
   const hasDiscount = discountAmountUI > 0;
 
+  // ---------- MARGEN EN EL COTIZADOR (24-07, con Felipe) ----------
+  // La foto de servicios que se guarda en la cotización. ANTES vivía
+  // dentro de handleSubmit; se sacó acá SIN cambiarle nada para que el
+  // cálculo de margen pueda armarla en cada tecla. La usan los dos: el
+  // guardado (igual que siempre) y el cuadro de margen.
+  const buildItemsSnapshot = (): QuotationFormData["items"] => ({
+    variable_services: serviceBoxes
+      .filter((box) => box.selectedCategory && box.services.length > 0)
+      .map((box) => ({
+        category: box.selectedCategory,
+        day: Math.min(box.day || 1, eventDaysCount),
+        // Audiencia y personas RESUELTAS del servicio: la foto queda
+        // completa aunque después cambien los contadores del evento.
+        audience: box.audience || "adultos",
+        people: boxPeople(box),
+        items: box.services.map((service) => ({
+          codigo: service.codigo,
+          nombre: service.nombre,
+          precio: service.precio,
+          categoria: service.categoria,
+          quantity: service.quantity,
+        })),
+      })),
+    fixed_services: selectedFixedServices.map((service) => ({
+      codigo: service.codigo,
+      nombre: service.nombre,
+      day: Math.min(service.day || 0, eventDaysCount),
+      precio: service.precio_calculado,
+      categoria: service.categoria,
+      quantity: service.quantity,
+      tipo_calculo: service.tipo_calculo || "fijo",
+      min_precio: service.min_precio || 0,
+      max_precio: service.max_precio || 0,
+      precio_por_persona: service.precio_por_persona || 0,
+    })),
+  });
+
+  // Solo operaciones y administrador ven el costo (decisión de Felipe).
+  // El vendedor sigue pudiendo descontar, pero sin ver el margen.
+  const puedeVerMargen =
+    userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES;
+
+  // Misma llave que Compras y el Dashboard: si otra pantalla ya la pidió,
+  // sale de caché y no cuesta nada.
+  const marginBaseQuery = useQuery({
+    queryKey: ["logistica", "compras", "base", company?.id],
+    enabled: !!user && !!company?.id && puedeVerMargen,
+    queryFn: async () => {
+      const cid = Number(company!.id);
+      const [r, sup, f, provs, n, fc] = await Promise.all([
+        getAllRecipeItems(cid),
+        getSupplies(cid),
+        getFurnitureItems(cid),
+        getSuppliers(cid),
+        getCatalogServiceNameIds(cid),
+        getFixedServiceCostsById(cid),
+      ]);
+      return {
+        recipes: r,
+        supplies: sup,
+        furniture: f,
+        suppliers: provs,
+        nameIds: n,
+        fixedCosts: fc,
+      };
+    },
+  });
+
+  // Costo ESTIMADO DE CATÁLOGO: recetas → insumos, más los costos fijos
+  // del catálogo. Ojo: acá los costos fijos SÍ van del catálogo, al revés
+  // del dashboard, porque el evento todavía no existe y no tiene recursos
+  // asignados con precio negociado. Es una estimación previa a propósito.
+  const margenCotizador = useMemo(() => {
+    const base = marginBaseQuery.data;
+    if (!base) return null;
+    const ctx = buildConsolidationContext(
+      base.recipes,
+      base.supplies,
+      base.furniture,
+      base.nameIds,
+      base.fixedCosts,
+    );
+    const acc = newAccumulator();
+    const r = consolidateEvent(
+      buildItemsSnapshot() as EventItemsSnapshot,
+      Number(formData.people_count) || 0,
+      ctx,
+      acc,
+    );
+    return {
+      costo: r.costoInsumos + r.costoFijos,
+      sinReceta: [...new Set(acc.noRecipe)],
+    };
+    // buildItemsSnapshot se rearma sola cuando cambia cualquiera de estos
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    marginBaseQuery.data,
+    serviceBoxes,
+    selectedFixedServices,
+    formData.people_count,
+    childrenCount,
+    eventDaysCount,
+  ]);
+
   const addServiceBox = () => {
     const newBox: ServiceBox = {
       id: Date.now().toString(),
@@ -1253,37 +1373,9 @@ export default function QuotationForm() {
 
     try {
       // Prepare items JSON structure - each service box is saved as a separate entity
-      const itemsData: QuotationFormData["items"] = {
-        variable_services: serviceBoxes
-          .filter((box) => box.selectedCategory && box.services.length > 0)
-          .map((box) => ({
-            category: box.selectedCategory,
-            day: Math.min(box.day || 1, eventDaysCount),
-            // Audiencia y personas RESUELTAS del servicio: la foto queda
-            // completa aunque después cambien los contadores del evento.
-            audience: box.audience || "adultos",
-            people: boxPeople(box),
-            items: box.services.map((service) => ({
-              codigo: service.codigo,
-              nombre: service.nombre,
-              precio: service.precio,
-              categoria: service.categoria,
-              quantity: service.quantity,
-            })),
-          })),
-        fixed_services: selectedFixedServices.map((service) => ({
-          codigo: service.codigo,
-          nombre: service.nombre,
-          day: Math.min(service.day || 0, eventDaysCount),
-          precio: service.precio_calculado,
-          categoria: service.categoria,
-          quantity: service.quantity,
-          tipo_calculo: service.tipo_calculo || "fijo",
-          min_precio: service.min_precio || 0,
-          max_precio: service.max_precio || 0,
-          precio_por_persona: service.precio_por_persona || 0,
-        })),
-      };
+      // (24-07: el armado se movió a buildItemsSnapshot, arriba, para que
+      // el cuadro de margen use exactamente la misma foto. Sin cambios.)
+      const itemsData: QuotationFormData["items"] = buildItemsSnapshot();
 
       const quotationData = {
         ...formData,
@@ -3436,6 +3528,94 @@ export default function QuotationForm() {
                   ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
                   : `Máximo: $${getMaxDiscountAmount().toLocaleString("es-CL")} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
               </p>
+            </div>
+          )}
+
+          {/* Margen y costos (24-07) — debajo del Descuento, para verlo
+              ANTES de ofrecerlo. Solo operaciones y administrador. */}
+          {puedeVerMargen && (
+            <div className="bg-white rounded-xl shadow p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Margen y costos
+              </h3>
+              {!margenCotizador ? (
+                <p className="text-xs text-gray-500">Calculando…</p>
+              ) : (
+                (() => {
+                  const venta = formData.total_amount - tipAmountUI;
+                  const ventaSinDesc = venta + discountAmountUI;
+                  const costo = margenCotizador.costo;
+                  const margen = venta - costo;
+                  const pct = venta > 0 ? (margen / venta) * 100 : 0;
+                  const margenSinDesc = ventaSinDesc - costo;
+                  const pctSinDesc =
+                    ventaSinDesc > 0 ? (margenSinDesc / ventaSinDesc) * 100 : 0;
+                  const money = (n: number) =>
+                    `$${Math.round(n).toLocaleString("es-CL")}`;
+                  if (costo <= 0) {
+                    return (
+                      <p className="text-xs text-gray-500">
+                        Todavía no hay costos: los servicios cotizados no
+                        tienen receta cargada.
+                      </p>
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Monto cotizado</span>
+                          <span className="text-gray-900">{money(venta)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Costo estimado
+                          </span>
+                          <span className="text-gray-900">{money(costo)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1 font-semibold">
+                          <span className="text-gray-700">Margen</span>
+                          <span
+                            className={
+                              margen >= 0 ? "text-emerald-600" : "text-red-600"
+                            }
+                          >
+                            {money(margen)} ({pct.toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+                      {hasDiscount && (
+                        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                          <div className="flex justify-between text-gray-600">
+                            <span>Margen sin descuento</span>
+                            <span>
+                              {money(margenSinDesc)} ({pctSinDesc.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-red-600">
+                            <span>El descuento te cuesta</span>
+                            <span>−{money(discountAmountUI)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {margenCotizador.sinReceta.length > 0 && (
+                        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          ⚠ {margenCotizador.sinReceta.length} servicio
+                          {margenCotizador.sinReceta.length > 1 ? "s" : ""} sin
+                          receta, no suma
+                          {margenCotizador.sinReceta.length > 1 ? "n" : ""} al
+                          costo: el margen se ve mejor de lo que es.
+                        </p>
+                      )}
+                      <p className="mt-2 text-[11px] text-gray-400">
+                        Estimación de catálogo (recetas + costos fijos), no el
+                        costo real de compra. La propina no entra en el
+                        cálculo.
+                      </p>
+                    </>
+                  );
+                })()
+              )}
             </div>
           )}
 
