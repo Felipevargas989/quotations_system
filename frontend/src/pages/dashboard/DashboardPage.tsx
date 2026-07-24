@@ -1137,7 +1137,10 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-900">
               Eventos por Mes
             </h2>
-            <span className="text-sm text-gray-500">(Solo aceptados)</span>
+            {/* 24-07: la leyenda decía "(Solo aceptados)" desde noviembre y ya
+                no era cierta: desde el 23-07 el gráfico trae aceptadas Y
+                realizadas. El dato siempre estuvo bien; el letrero mentía. */}
+            <span className="text-sm text-gray-500">(eventos concretados)</span>
           </div>
           <div className="h-64">
             <Line data={eventsChartData} options={eventsChartOptions} plugins={[etiquetasDePunto]} />
