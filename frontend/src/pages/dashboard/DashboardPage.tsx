@@ -431,8 +431,9 @@ export default function DashboardPage() {
   const stats = statsQuery.data || null;
 
   // ---------- FASE 4 (23-07): MÁRGENES ----------
-  // Costo por evento: CONGELADO si está provisionado (foto de compras),
-  // ESTIMADO por recetas si no — misma consolidación que Compras/Gestión.
+  // Costo por evento = insumos + recursos asignados (igual que Gestión).
+  // Insumos: CONGELADOS si el evento está provisionado (foto de compras),
+  // ESTIMADOS por recetas si no — misma consolidación que Compras/Gestión.
   // La "base" comparte queryKey (y caché) con la pestaña Compras.
   const marginBaseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", company?.id],
@@ -471,6 +472,23 @@ export default function DashboardPage() {
       getWonEventsSince(company!.id, resolveRange().start_date),
   });
 
+  // Análisis de proveedores (23-07): provisiones reales + recursos.
+  // 24-07: subido de más abajo, sin tocarle nada, porque el cálculo de
+  // márgenes necesita los recursos y se ejecuta antes que esta línea.
+  const provQuery = useQuery({
+    queryKey: ["dashboard-proveedores", company?.id],
+    enabled: !!user && !!company?.id,
+    queryFn: async () => {
+      const cid = company!.id;
+      const [provisions, resourceDefs, eventResources] = await Promise.all([
+        getEventSupplyProvisions(cid),
+        getManagementResources(cid),
+        getAllEventResources(cid),
+      ]);
+      return { provisions, resourceDefs, eventResources };
+    },
+  });
+
   // costo/margen por mes de evento (clave de mes en UTC, igual que el
   // backend que corre en UTC — regla de fechas de eventos del sistema)
   const marginData = (() => {
@@ -480,7 +498,10 @@ export default function DashboardPage() {
     // Acumulador COMPARTIDO entre los eventos del período: alimenta el
     // análisis de proveedores e insumos (23-07) sin recorrer dos veces.
     const acc = newAccumulator();
-    if (!base || events.length === 0) return { byMonth: map, acc };
+    // 24-07: se espera también a los recursos. Si se calculara sin ellos
+    // se vería medio segundo el margen viejo (inflado) antes de corregirse.
+    if (!base || !provQuery.data || events.length === 0)
+      return { byMonth: map, acc };
     const ctx = buildConsolidationContext(
       base.recipes,
       base.supplies,
@@ -488,6 +509,32 @@ export default function DashboardPage() {
       base.nameIds,
       base.fixedCosts,
     );
+    // 24-07 (lo pilló Felipe): el costo del evento se arma como en
+    // Post-venta → Gestión, insumos + RECURSOS ASIGNADOS. Antes eran
+    // insumos + costos fijos de catálogo, y los recursos no entraban
+    // nunca: el margen del dashboard salía inflado.
+    // Los recursos ya llevan adentro los servicios fijos importados, con
+    // el precio realmente negociado; por eso REEMPLAZAN a costoFijos en
+    // vez de sumarse encima (si no, se contaría dos veces). Evento sin
+    // recursos cargados: sigue mandando costoFijos.
+    const personasPorEvento = new Map<string, number>();
+    events.forEach((ev) =>
+      personasPorEvento.set(ev.id, Number(ev.people_count) || 0),
+    );
+    const recursosPorEvento = new Map<string, number>();
+    (provQuery.data?.eventResources || []).forEach((er) => {
+      const personas = personasPorEvento.get(er.quotation_id);
+      if (personas === undefined) return; // evento fuera del período
+      const gasto =
+        ((Number(er.price_fixed) || 0) +
+          (Number(er.price_per_person) || 0) * personas) *
+        (Number(er.quantity) || 1);
+      recursosPorEvento.set(
+        er.quotation_id,
+        (recursosPorEvento.get(er.quotation_id) || 0) + gasto,
+      );
+    });
+
     events.forEach((ev) => {
       const d = new Date(ev.event_date || 0);
       const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
@@ -497,13 +544,18 @@ export default function DashboardPage() {
         ctx,
         acc,
       );
-      let costo = r.costoInsumos + r.costoFijos;
-      let estimado = true;
-      if (ev.provisioned_at && ev.provisioned_cost != null) {
-        // margen: manda la foto congelada de Compras
-        costo = Number(ev.provisioned_cost) || 0;
-        estimado = false;
-      }
+      // insumos: la foto congelada de Compras si el evento está
+      // provisionado (ojo: congela SOLO insumos), estimados si no
+      const provisionado = !!ev.provisioned_at && ev.provisioned_cost != null;
+      const costoInsumos = provisionado
+        ? Number(ev.provisioned_cost) || 0
+        : r.costoInsumos;
+      const recursos = recursosPorEvento.get(ev.id);
+      const costo =
+        costoInsumos + (recursos !== undefined ? recursos : r.costoFijos);
+      // "~" = el costo todavía no está cerrado: o los insumos son
+      // estimación de receta, o el evento no tiene recursos cargados
+      const estimado = !provisionado || recursos === undefined;
       const cur = map.get(key) || { costo: 0, estimado: false };
       cur.costo += costo;
       cur.estimado = cur.estimado || estimado;
@@ -534,21 +586,6 @@ export default function DashboardPage() {
     queryFn: async () => getHoyAlerts(company!.id),
   });
   const hoy = hoyQuery.data;
-
-  // Análisis de proveedores (23-07): provisiones reales + recursos.
-  const provQuery = useQuery({
-    queryKey: ["dashboard-proveedores", company?.id],
-    enabled: !!user && !!company?.id,
-    queryFn: async () => {
-      const cid = company!.id;
-      const [provisions, resourceDefs, eventResources] = await Promise.all([
-        getEventSupplyProvisions(cid),
-        getManagementResources(cid),
-        getAllEventResources(cid),
-      ]);
-      return { provisions, resourceDefs, eventResources };
-    },
-  });
 
   // ---------- ANÁLISIS DE PROVEEDORES (23-07, con Felipe) ----------
   const proveedores = (() => {
@@ -1080,8 +1117,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* FASE 4: margen del período (ventas − costos). "~" = incluye
-            costos estimados por recetas (eventos aún sin provisionar). */}
+        {/* FASE 4: margen del período (ventas − costos = insumos +
+            recursos asignados). "~" = algún costo todavía no está
+            cerrado: evento sin provisionar o sin recursos cargados. */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -1403,10 +1441,12 @@ export default function DashboardPage() {
           </table>
           <p className="mt-2 text-[11px] text-gray-400">
             Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
-            (venta agendada). Costo con ~ = estimado por recetas (evento sin
-            provisionar); sin ~ = congelado al provisionar en Compras. La
-            merma va solo en el costo. Pasa el mouse por una cifra para ver
-            el monto exacto.
+            (venta agendada). El costo son los insumos más los recursos
+            asignados al evento. Costo con ~ = todavía no está cerrado
+            (evento sin provisionar en Compras, o sin recursos cargados en
+            Post-venta); sin ~ = insumos congelados y recursos ya
+            asignados. La merma va solo en el costo. Pasa el mouse por una
+            cifra para ver el monto exacto.
           </p>
         </div>
       </div>
