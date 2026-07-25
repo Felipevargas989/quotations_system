@@ -1301,7 +1301,27 @@ export default function QuotationForm() {
     ]);
   };
 
-  const calculateTotals = () => {
+  // EL CÁLCULO DEVUELVE, NO GUARDA (25-07-2026).
+  //
+  // Antes toda esta cuenta vivía dentro de calculateTotals() y su único
+  // resultado era escribir formData desde un useEffect — o sea, DESPUÉS
+  // de pintar la pantalla. El porcentaje que el usuario escribía quedaba
+  // al tiro en formData, pero el total recién se actualizaba un ciclo
+  // más tarde. Si alguien tecleaba el descuento y apretaba Guardar en
+  // ese hueco, se guardaba el PORCENTAJE NUEVO con el TOTAL VIEJO: una
+  // cotización que dice "5% de descuento" y tiene el total sin descontar
+  // (le pasó a la 248 de Valle del Sol, y a otras tres).
+  //
+  // La regla ahora: los números se calculan acá y se DEVUELVEN. La
+  // pantalla los guarda en formData como siempre (calculateTotals, más
+  // abajo), pero handleSubmit los vuelve a pedir en el momento de
+  // guardar. Lo que se persiste ya no depende de que un efecto haya
+  // alcanzado a correr.
+  //
+  // Si mañana se agrega otro número al total (otro recargo, otro
+  // impuesto), va ACÁ ADENTRO y sale por el return. Calcularlo aparte en
+  // handleSubmit es exactamente el bug que esto vino a cerrar.
+  const computeTotals = () => {
     // Cotizador 2.0: cada caja multiplica por SU audiencia (adultos o
     // niños) o por su ajuste manual de personas — ya no por el total.
     const variableGrandTotal = Math.round(
@@ -1336,9 +1356,6 @@ export default function QuotationForm() {
 
     const subtotalAmount = Math.round(variableGrandTotal + fixedTotal);
 
-    // Calcular subtotal antes del descuento para UI
-    setSubtotalBeforeDiscount(subtotalAmount);
-
     // Aplicar descuento: por % o por monto cerrado, según el toggle
     const discountAmount =
       discType === "$"
@@ -1354,14 +1371,31 @@ export default function QuotationForm() {
     const tipAmount = tipEnabled
       ? Math.round(variableGrandTotal * (Math.min(tipPct || 0, 100) / 100))
       : 0;
-    setTipAmountUI(tipAmount);
+
+    return {
+      valuePerPerson,
+      fixedTotal,
+      subtotalAmount,
+      discountAmount,
+      tipAmount,
+      totalAmount: finalTotal + tipAmount,
+    };
+  };
+
+  // Lo que ve la pantalla. Misma cuenta de arriba, guardada en estado.
+  const calculateTotals = () => {
+    const t = computeTotals();
+
+    // Subtotal antes del descuento, para la UI
+    setSubtotalBeforeDiscount(t.subtotalAmount);
+    setTipAmountUI(t.tipAmount);
 
     setFormData((prev) => ({
       ...prev,
-      value_per_person: valuePerPerson,
-      fixed_value: fixedTotal,
-      subtotal_amount: subtotalAmount,
-      total_amount: finalTotal + tipAmount,
+      value_per_person: t.valuePerPerson,
+      fixed_value: t.fixedTotal,
+      subtotal_amount: t.subtotalAmount,
+      total_amount: t.totalAmount,
     }));
   };
 
@@ -1377,6 +1411,16 @@ export default function QuotationForm() {
       // el cuadro de margen use exactamente la misma foto. Sin cambios.)
       const itemsData: QuotationFormData["items"] = buildItemsSnapshot();
 
+      // LOS TOTALES SE CALCULAN ACÁ, NO SE LEEN DE formData (25-07-2026).
+      //
+      // formData recién trae los totales buenos después de que corre el
+      // useEffect que llama a calculateTotals. Si el usuario cambia el
+      // descuento o la propina y guarda antes de eso, formData todavía
+      // tiene el total anterior — y se guardaba el % nuevo con el total
+      // viejo. Pidiéndolos de nuevo acá, el número que se persiste sale
+      // siempre de la misma pasada que el porcentaje que lo acompaña.
+      const t = computeTotals();
+
       const quotationData = {
         ...formData,
         event_type: formData.event_type,
@@ -1384,23 +1428,25 @@ export default function QuotationForm() {
         event_end_date: formData.event_end_date || null,
         children_count: childrenCount,
         tip_percentage: tipEnabled ? tipPct || 0 : null,
-        // El MONTO de la propina se guarda (migración 37). Va tipAmountUI
-        // y no un cálculo nuevo a propósito: es exactamente el mismo
-        // número que ya está sumado dentro de total_amount, salido de la
-        // misma pasada de calculateTotals. Así no pueden discrepar.
-        tip_amount: tipEnabled ? Math.round(tipAmountUI) : 0,
+        // El MONTO de la propina se guarda (migración 37). Sale del mismo
+        // computeTotals que armó total_amount, así que es exactamente el
+        // número que ya está sumado adentro. Con la propina apagada,
+        // computeTotals ya devuelve 0: no hace falta preguntarlo dos veces.
+        tip_amount: Math.round(t.tipAmount),
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
-        // Solo el modo activo del descuento viaja con valor; el otro va en 0
+        // Solo el modo activo del descuento viaja con valor; el otro va en 0.
+        // El MONTO sale de computeTotals porque ahí viene topado al
+        // subtotal: así subtotal − descuento siempre da el total guardado,
+        // aunque alguien escriba un descuento más grande que la cotización.
         discount_percentage:
           discType === "%" ? formData.discount_percentage || 0 : 0,
-        discount_amount:
-          discType === "$" ? Math.round(formData.discount_amount || 0) : 0,
-        value_per_person: Math.round(formData.value_per_person),
-        fixed_value: Math.round(formData.fixed_value),
-        subtotal_amount: Math.round(formData.subtotal_amount),
-        total_amount: Math.round(formData.total_amount),
+        discount_amount: discType === "$" ? Math.round(t.discountAmount) : 0,
+        value_per_person: Math.round(t.valuePerPerson),
+        fixed_value: Math.round(t.fixedTotal),
+        subtotal_amount: Math.round(t.subtotalAmount),
+        total_amount: Math.round(t.totalAmount),
         items: itemsData,
         quotation_status: isFromRequirement
           ? QuotationStatus.ENVIADA
