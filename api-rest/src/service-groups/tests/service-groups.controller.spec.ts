@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { ClientsController } from '../clients.controller';
-import { ClientsService } from '../clients.service';
+import { ServiceGroupsController } from '../service-groups.controller';
+import { ServiceGroupsService } from '../service-groups.service';
 
-describe('ClientsController', () => {
-  let controller: ClientsController;
-  let serviceMock: jest.Mocked<ClientsService>;
+describe('ServiceGroupsController', () => {
+  let controller: ServiceGroupsController;
+  let serviceMock: jest.Mocked<ServiceGroupsService>;
   let loggerMock: jest.Mocked<PinoLogger>;
 
   const user = { id: 10, company_id: 1 } as any;
@@ -14,7 +14,6 @@ describe('ClientsController', () => {
     serviceMock = {
       create: jest.fn(),
       findAll: jest.fn(),
-      update: jest.fn(),
       remove: jest.fn(),
     } as any;
 
@@ -25,14 +24,14 @@ describe('ClientsController', () => {
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ClientsController],
+      controllers: [ServiceGroupsController],
       providers: [
-        { provide: ClientsService, useValue: serviceMock },
+        { provide: ServiceGroupsService, useValue: serviceMock },
         { provide: PinoLogger, useValue: loggerMock },
       ],
     }).compile();
 
-    controller = module.get<ClientsController>(ClientsController);
+    controller = module.get<ServiceGroupsController>(ServiceGroupsController);
   });
 
   afterEach(() => {
@@ -44,11 +43,7 @@ describe('ClientsController', () => {
   });
 
   it('create forwards the dto and the user company id', () => {
-    const dto = {
-      name: 'Acme',
-      email: 'a@b.com',
-      client_type: 'empresa',
-    } as any;
+    const dto = { name: 'g', category: 'c', items: [] } as any;
     controller.create(dto, user);
     expect(serviceMock.create).toHaveBeenCalledWith(dto, user.company_id);
   });
@@ -58,14 +53,8 @@ describe('ClientsController', () => {
     expect(serviceMock.findAll).toHaveBeenCalledWith(user.company_id);
   });
 
-  it('update forwards the id, dto and user company id', () => {
-    const dto = { name: 'New' } as any;
-    controller.update('c1', dto, user);
-    expect(serviceMock.update).toHaveBeenCalledWith('c1', dto, user.company_id);
-  });
-
-  it('remove forwards the id and user company id', () => {
-    controller.remove('c1', user);
-    expect(serviceMock.remove).toHaveBeenCalledWith('c1', user.company_id);
+  it('remove coerces the id to a number', () => {
+    controller.remove('8' as any);
+    expect(serviceMock.remove).toHaveBeenCalledWith(8);
   });
 });

@@ -1,0 +1,40 @@
+# Continuous integration — runs on every PR to `main` (and on pushes to `main`).
+#
+# This is the pre-merge gate: it runs the backend Jest unit test suite. The tests
+# are pure unit tests (all dependencies mocked — Supabase, Resend, etc.), so they
+# need no secrets, no database and no network. Keep it that way so CI stays fast
+# and deterministic.
+#
+# The release pipeline (release.yml) also runs this same suite as a gate before
+# deploying, so a direct push to `main` can never deploy failing code.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A newer commit on the same branch/PR cancels the older in-progress CI run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api-rest/package-lock.json
+      - name: Install dependencies
+        working-directory: api-rest
+        run: npm ci
+      - name: Run unit tests
+        working-directory: api-rest
+        run: npm test -- --ci
