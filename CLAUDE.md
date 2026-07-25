@@ -39,8 +39,25 @@ Run from `startApi.sh` / `startFront.sh` at the root, or directly in each subdir
 - There is no frontend test suite.
 
 **Pre-commit** (`.pre-commit-config.yaml`) only runs Prettier `format` on each subdir plus
-basic file hygiene. ESLint/type-check/test hooks are intentionally commented out, so CI does
-not enforce them — run lint/tests manually before committing.
+basic file hygiene. ESLint/type-check hooks are intentionally commented out, so those are not
+enforced — run lint/type-check manually before committing. **The backend unit tests, however,
+ARE enforced in CI** (see the release pipeline and _Testing_ below): they run on every PR to
+`main` and must pass before a merge, so run `npm test` in `api-rest/` before pushing.
+
+### Testing
+
+The backend is covered by Jest unit tests — one `*.spec.ts` per source file, under each
+module's `tests/` folder. They are **pure unit tests**: the class under test is built with
+`Test.createTestingModule` and **every dependency is mocked** (`jest.Mocked` + `useValue`) —
+repositories, sibling services, `PinoLogger`, `SupabaseService` (a chainable query-builder
+mock), `ConfigService`, `Reflector`; the `resend` and `@supabase/supabase-js` packages are
+`jest.mock`'d. No real database, network, or secrets are ever touched. Reference examples:
+`src/services/tests/*` and `src/quotations/tests/unit/quotations.service.spec.ts`.
+
+- **When you touch backend code, add or update its unit tests in the same change.** A new or
+  modified controller/service/repository/cron service must have a matching `*.spec.ts` that
+  covers the new behavior (happy path, `company_id` scoping, error branches, delegation).
+- Keep the suite green — `npm test` (in `api-rest/`) must pass. CI enforces this before merge.
 
 ## Backend architecture
 
@@ -124,14 +141,23 @@ in both apps.
   - **Automatically on release** via the pipeline below (the normal path). Either way, never
     edit a migration after it has been applied — add a new numbered one instead.
 
+### CI (`.github/workflows/ci.yml`)
+
+Runs on every **PR to `main`** (and pushes to `main`): installs `api-rest/` deps and runs the
+backend Jest suite (`npm test`). It needs no secrets/DB/network (all deps are mocked). `main` is
+protected by a branch ruleset that **requires this `Backend unit tests` check to pass — plus one
+review — before a PR can merge**, so a red suite blocks the merge.
+
 ### Automated release pipeline (`.github/workflows/release.yml`)
 
 When a PR is merged into `main`, an ordered GitHub Actions pipeline releases the whole system:
 
+0. **test** — runs the backend Jest suite (`npm test` in `api-rest/`). Every later step
+   `needs` it, so a failing suite blocks the migration and both deploys, even on a direct push.
 1. **migrate** — `docs/migrations/run-migrations.mjs` applies pending `docs/migrations/*.sql`
    to Supabase, tracking applied files in a `public.schema_migrations` table (idempotent; runs
    each file once, inside a transaction; migration runs before its `.backfill.sql`;
-   `0_initial_models.sql` is skipped).
+   `0_initial_models.sql` is skipped). Only if step 0 succeeded.
 2. **backend** — deploys `api-rest/` to Railway via `railway up` (only if step 1 succeeded).
 3. **frontend** — deploys `frontend/` to Railway via `railway up` (only if step 2 succeeded).
 
@@ -163,3 +189,7 @@ Operational requirements (one-time setup, see the header of `release.yml`):
   If a commit spans multiple areas, prefer splitting it; otherwise list the areas.
 - When a feature is ready, **open a PR from the feature branch targeting `main`** (follow common
   PR conventions). Merging into `main` always goes through a PR — direct merges are not allowed.
+- **A PR can only merge once the `Backend unit tests` CI check passes and it has one approving
+  review** — enforced by the `main` branch ruleset. So any change that touches the backend must
+  include passing unit tests for it (see _Testing_). If a PR predates the CI workflow, update its
+  branch with `main` so the check can run.
