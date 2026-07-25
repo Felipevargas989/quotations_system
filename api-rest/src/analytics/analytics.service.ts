@@ -12,6 +12,9 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
 import { CompleteStatsResponse, DashboardStatsResponse } from './types';
 import { generateMonthRange } from './utils';
+// La propina no es venta ni margen (24-07, Felipe): ver el porqué y la
+// fórmula en quotations/utils/tip.ts.
+import { saleWithoutTip } from 'src/quotations/utils/tip';
 
 @Injectable()
 export class AnalyticsService {
@@ -111,7 +114,9 @@ export class AnalyticsService {
 
             acc[status].count += 1;
 
-            acc[status].amount += quotation.total_amount;
+            // 24-07: SIN propina. Esto alimenta el embudo del pipeline,
+            // la venta viva y el KPI "Ventas concretadas".
+            acc[status].amount += saleWithoutTip(quotation);
             return acc;
           },
           {} as DashboardStatsResponse['totalQuotationsByStatus'],
@@ -153,7 +158,9 @@ export class AnalyticsService {
             const monthYear = `${date.getFullYear()}-${date.getMonth()}`;
             if (monthYear in acc) {
               acc[monthYear].count += 1;
-              acc[monthYear].amount += quotation.total_amount;
+              // 24-07: SIN propina. Esta es la columna "Ventas" del
+              // Dashboard y la base del margen del período.
+              acc[monthYear].amount += saleWithoutTip(quotation);
             }
             return acc;
           },

@@ -1061,7 +1061,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(data.totalSales, company?.currency || "CLP")}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">del período</p>
+              {/* 24-07: sin propina, igual que el margen. La propina va
+                  entera al equipo, no es venta. */}
+              <p className="text-xs text-gray-500 mt-0.5">
+                del período, sin propina
+              </p>
             </div>
             <DollarSign className="h-8 w-8 text-green-600" />
           </div>
@@ -1119,7 +1123,10 @@ export default function DashboardPage() {
 
         {/* FASE 4: margen del período (ventas − costos = insumos +
             recursos asignados). "~" = algún costo todavía no está
-            cerrado: evento sin provisionar o sin recursos cargados. */}
+            cerrado: evento sin provisionar o sin recursos cargados.
+            24-07: las ventas vienen SIN propina desde el backend
+            (analytics.service.ts usa saleWithoutTip), así que este
+            margen ya es sin propina y aquí no hay nada que restar. */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -1141,7 +1148,7 @@ export default function DashboardPage() {
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 {margenTotales.ventas > 0
-                  ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta`
+                  ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta (sin propina)`
                   : "Sin ventas en el período"}
               </p>
             </div>
@@ -1441,12 +1448,15 @@ export default function DashboardPage() {
           </table>
           <p className="mt-2 text-[11px] text-gray-400">
             Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
-            (venta agendada). El costo son los insumos más los recursos
-            asignados al evento. Costo con ~ = todavía no está cerrado
-            (evento sin provisionar en Compras, o sin recursos cargados en
-            Post-venta); sin ~ = insumos congelados y recursos ya
-            asignados. La merma va solo en el costo. Pasa el mouse por una
-            cifra para ver el monto exacto.
+            (venta agendada). Ventas y Margen van SIN propina: la propina la
+            paga el cliente pero va entera al equipo, no es venta ni margen.
+            Cobrado y Por cobrar sí la incluyen, porque es plata que se
+            factura; por eso Ventas y Cobrado no calzan al peso. El costo son
+            los insumos más los recursos asignados al evento. Costo con ~ =
+            todavía no está cerrado (evento sin provisionar en Compras, o sin
+            recursos cargados en Post-venta); sin ~ = insumos congelados y
+            recursos ya asignados. La merma va solo en el costo. Pasa el
+            mouse por una cifra para ver el monto exacto.
           </p>
         </div>
       </div>

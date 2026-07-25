@@ -33,6 +33,9 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../utils/eventConsolidation";
+// La propina no es venta ni margen (24-07, Felipe): el porqué y la
+// fórmula, en un solo lugar, están en utils/quotationMoney.
+import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
@@ -212,7 +215,11 @@ export default function GestionTab({
       ? prov.provisioned_cost
       : costoInsumos;
   const costoTotal = costoBase + costoRecursos;
-  const montoTotal = quote.total_amount || 0;
+  // 24-07: la venta que se mide es SIN propina. La propina la paga el
+  // cliente y pasa por la empresa, pero va entera al equipo: no es
+  // margen. Antes se usaba total_amount pelado y el margen salía inflado.
+  const propina = tipAmountOf(quote);
+  const montoTotal = saleWithoutTip(quote);
   const margen = montoTotal - costoTotal;
   const margenPct = montoTotal > 0 ? (margen / montoTotal) * 100 : 0;
   const hayCostos = costoTotal > 0;
@@ -285,7 +292,12 @@ export default function GestionTab({
     });
     lines.push("");
     lines.push("RESUMEN");
-    lines.push(`Monto cotizado;${Math.round(montoTotal)}`);
+    // 24-07: el margen se mide sin propina. La propina se lista aparte
+    // para que el Excel cuadre con lo que efectivamente paga el cliente.
+    lines.push(`Venta sin propina;${Math.round(montoTotal)}`);
+    if (propina > 0) {
+      lines.push(`Propina (va al equipo, no es margen);${Math.round(propina)}`);
+    }
     lines.push(
       `Costo (insumos${provisioned ? " congelados" : ""} + recursos);${Math.round(costoTotal)}`,
     );
@@ -648,11 +660,16 @@ export default function GestionTab({
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <p className="text-[11px] uppercase text-gray-500 font-semibold">
-                  Monto cotizado
+                  {propina > 0 ? "Venta sin propina" : "Monto cotizado"}
                 </p>
                 <p className="text-lg font-bold text-gray-900">
                   {fmtMoney(montoTotal)}
                 </p>
+                {propina > 0 && (
+                  <p className="text-[11px] text-gray-400">
+                    + propina {fmtMoney(propina)} (va al equipo, no es margen)
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-[11px] uppercase text-gray-500 font-semibold">
@@ -689,6 +706,8 @@ export default function GestionTab({
               {provisioned
                 ? "Insumos congelados al provisionar; los recursos del evento son la foto negociada de este evento."
                 : "Insumos estimados con precios de catálogo (se congelan al provisionar en Logística → Compras) + recursos del evento."}
+              {propina > 0 &&
+                " El margen se mide sobre la venta sin propina: la propina la paga el cliente pero va entera al equipo."}
             </p>
           </>
         ) : (
