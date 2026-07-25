@@ -81,6 +81,9 @@ export interface Quotation {
   children_count?: number;
   // Propina % sobre variables, DESPUÉS del IVA (null/ausente = sin propina).
   tip_percentage?: number | null;
+  // Monto de la propina en pesos (migración 37). El porcentaje es la
+  // regla; esto es el hecho, y queda fijo. Ver utils/quotationMoney.
+  tip_amount?: number | null;
   // Persona de contacto del evento (texto libre; puente a Etapa 4).
   contact_name?: string | null;
   value_per_person: number;
@@ -123,6 +126,9 @@ export interface QuotationFormData
   // Cotizador 2.0: niños dentro del total y propina opcional post-IVA.
   children_count?: number;
   tip_percentage?: number | null;
+  // El monto de la propina viaja junto al %: es el que ya está sumado
+  // dentro de total_amount, y se guarda tal cual (migración 37).
+  tip_amount?: number | null;
   contact_name?: string | null;
 }
 

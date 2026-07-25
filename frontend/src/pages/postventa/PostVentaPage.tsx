@@ -1420,6 +1420,12 @@ function ServiciosTab({
           fixed_value: Math.round(fixedValue),
           subtotal_amount: Math.round(subtotal),
           total_amount: Math.round(total),
+          // El monto de la propina se guarda junto al total (migración 37).
+          // Acá sí se recalcula, y corresponde: al editar los servicios
+          // cambia la base variable, así que la propina que efectivamente
+          // se le cobra al cliente cambia con ella. Va el MISMO tipAmount
+          // que ya está sumado dentro de total, para que no discrepen.
+          tip_amount: Math.round(tipAmount),
           observations: obs,
           items: itemsPayload,
         } as any,

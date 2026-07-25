@@ -54,6 +54,15 @@ export class CreateQuotationDto {
   @Min(0)
   tip_percentage?: number | null;
 
+  // Monto de la propina en pesos (migración 37). El porcentaje es la
+  // regla con la que se llegó al número; esto es el hecho, y queda fijo.
+  // Lo calcula quien cotiza (es el mismo monto que ya viene sumado dentro
+  // de total_amount), por eso viaja en vez de recalcularse aquí.
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  tip_amount?: number | null;
+
   // Persona de contacto del evento (texto libre; puente a la Etapa 4).
   @IsString()
   @IsOptional()

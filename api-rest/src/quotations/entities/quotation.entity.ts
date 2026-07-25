@@ -48,6 +48,9 @@ export interface Quotation {
   children_count?: number;
   // Propina % sobre variables, post-IVA (null = sin propina).
   tip_percentage?: number | null;
+  // Monto de la propina en pesos (migración 37). El porcentaje es la
+  // regla; esto es el hecho, y queda fijo. Ver quotations/utils/tip.ts.
+  tip_amount?: number | null;
   // Persona de contacto del evento (texto libre).
   contact_name?: string | null;
   value_per_person: number;

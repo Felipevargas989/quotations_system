@@ -82,6 +82,9 @@ export class QuotationsService {
       // si faltan en el insert, se botan en silencio (bug del 19-07).
       children_count: createQuotationDto.children_count || 0,
       tip_percentage: createQuotationDto.tip_percentage ?? null,
+      // El MONTO de la propina, no solo el % (migración 37). Mismo aviso
+      // de arriba: si falta aquí, se bota en silencio.
+      tip_amount: Math.max(0, Math.round(createQuotationDto.tip_amount || 0)),
       contact_name: createQuotationDto.contact_name || null,
       observations: createQuotationDto.observations,
       event_date: eventDateUtc,

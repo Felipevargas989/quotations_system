@@ -1384,6 +1384,11 @@ export default function QuotationForm() {
         event_end_date: formData.event_end_date || null,
         children_count: childrenCount,
         tip_percentage: tipEnabled ? tipPct || 0 : null,
+        // El MONTO de la propina se guarda (migración 37). Va tipAmountUI
+        // y no un cálculo nuevo a propósito: es exactamente el mismo
+        // número que ya está sumado dentro de total_amount, salido de la
+        // misma pasada de calculateTotals. Así no pueden discrepar.
+        tip_amount: tipEnabled ? Math.round(tipAmountUI) : 0,
         request_type: isFromRequirement
           ? QuotationRequestType.COTIZACION
           : formData.request_type,
@@ -1424,6 +1429,9 @@ export default function QuotationForm() {
         observations: quotationData.observations,
         children_count: quotationData.children_count,
         tip_percentage: quotationData.tip_percentage,
+        // El monto de la propina viaja por los dos caminos, igual que el %:
+        // si faltara acá, editar una cotización la dejaría en 0 (migración 37).
+        tip_amount: quotationData.tip_amount,
         contact_name: quotationData.contact_name,
       };
 
