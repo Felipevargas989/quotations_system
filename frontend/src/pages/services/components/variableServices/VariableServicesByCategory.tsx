@@ -179,8 +179,7 @@ export default function VariableServicesByCategory({
     }
     const clash = orderedCategories.some(
       (c) =>
-        c.id !== cat.id &&
-        c.name.trim().toLowerCase() === name.toLowerCase(),
+        c.id !== cat.id && c.name.trim().toLowerCase() === name.toLowerCase(),
     );
     if (clash) {
       setError(`Ya existe una categoría llamada "${name}".`);
@@ -204,7 +203,9 @@ export default function VariableServicesByCategory({
     try {
       await onToggleCategoryActive(cat.id, cat.is_active === false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cambiar el estado.");
+      setError(
+        e instanceof Error ? e.message : "No se pudo cambiar el estado.",
+      );
     } finally {
       setBusy(false);
     }

@@ -16,6 +16,12 @@ describe('ServicesController', () => {
       createServicesBulk: jest.fn(),
       findAll: jest.fn(),
       updateServiceCategory: jest.fn(),
+      reorderServicesInCategory: jest.fn(),
+      reorderCategories: jest.fn(),
+      createCategoryForCompany: jest.fn(),
+      renameOrUpdateCategory: jest.fn(),
+      deleteCategoryForCompany: jest.fn(),
+      setServiceCategories: jest.fn(),
       updateVariableService: jest.fn(),
       updateFixedService: jest.fn(),
       createVariableService: jest.fn(),
@@ -72,10 +78,68 @@ describe('ServicesController', () => {
     );
   });
 
-  it('updateVariableService forwards the id and dto', () => {
-    const dto = { name: 'x' } as any;
-    controller.updateVariableService(3, dto);
-    expect(serviceMock.updateVariableService).toHaveBeenCalledWith(3, dto);
+  it('reorderServicesInCategory forwards company id, category id and service ids', () => {
+    const dto = { category_id: 2, service_ids: [3, 1] } as any;
+    controller.reorderServicesInCategory(dto, user);
+    expect(serviceMock.reorderServicesInCategory).toHaveBeenCalledWith(
+      user.company_id,
+      2,
+      [3, 1],
+    );
+  });
+
+  it('reorderCategories forwards company id and category ids', () => {
+    const dto = { category_ids: [5, 2] } as any;
+    controller.reorderCategories(dto, user);
+    expect(serviceMock.reorderCategories).toHaveBeenCalledWith(
+      user.company_id,
+      [5, 2],
+    );
+  });
+
+  it('createCategory forwards company id and the category name', () => {
+    controller.createCategory({ name: 'Nueva' } as any, user);
+    expect(serviceMock.createCategoryForCompany).toHaveBeenCalledWith(
+      user.company_id,
+      'Nueva',
+    );
+  });
+
+  it('updateCategoryById coerces the id and forwards the dto', () => {
+    const dto = { name: 'X', is_active: false } as any;
+    controller.updateCategoryById('7', dto, user);
+    expect(serviceMock.renameOrUpdateCategory).toHaveBeenCalledWith(
+      user.company_id,
+      7,
+      dto,
+    );
+  });
+
+  it('deleteCategoryById coerces the id and forwards the company id', () => {
+    controller.deleteCategoryById('8', user);
+    expect(serviceMock.deleteCategoryForCompany).toHaveBeenCalledWith(
+      user.company_id,
+      8,
+    );
+  });
+
+  it('setServiceCategories coerces the id and forwards the category ids', () => {
+    controller.setServiceCategories('4' as any, { category_ids: [1, 2] }, user);
+    expect(serviceMock.setServiceCategories).toHaveBeenCalledWith(
+      user.company_id,
+      4,
+      [1, 2],
+    );
+  });
+
+  it('updateVariableService forwards the id, dto and user company id', () => {
+    const dto = { name: 'x', category_ids: [1] } as any;
+    controller.updateVariableService(3, dto, user);
+    expect(serviceMock.updateVariableService).toHaveBeenCalledWith(
+      3,
+      dto,
+      user.company_id,
+    );
   });
 
   it('updateFixedService forwards the id and dto', () => {
@@ -85,7 +149,7 @@ describe('ServicesController', () => {
   });
 
   it('createVariableService forwards the dto and user company id', () => {
-    const dto = { name: 'v' } as any;
+    const dto = { name: 'v', category_ids: [1] } as any;
     controller.createVariableService(dto, user);
     expect(serviceMock.createVariableService).toHaveBeenCalledWith(
       dto,

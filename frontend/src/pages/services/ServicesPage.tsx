@@ -142,7 +142,9 @@ export default function ServicesPage() {
       await loadServices();
     } catch (err) {
       const data = (
-        err as { response?: { data?: { message?: string; service_ids?: number[] } } }
+        err as {
+          response?: { data?: { message?: string; service_ids?: number[] } };
+        }
       )?.response?.data;
       if (data?.service_ids?.length) {
         const names = data.service_ids

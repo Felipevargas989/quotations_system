@@ -4,9 +4,11 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import { ServicesRepository } from '../services.repository';
 
 /**
- * Builds a chainable Supabase query-builder mock. Every builder method returns
- * the same object so calls like `.from().select().eq()` work, and each method is
- * a jest.fn so the exact table/columns/filters can be asserted.
+ * Chainable Supabase query-builder mock. Every builder method returns the same
+ * object so `.from().select().eq()` works and each call can be asserted. The
+ * builder is also thenable — some repository methods `await` the query chain
+ * internally — resolving to the next value queued via `setResults(...)` (or a
+ * default `{ data: null }`).
  */
 const createQueryBuilder = () => {
   const builder: any = {};
@@ -17,10 +19,20 @@ const createQueryBuilder = () => {
     'update',
     'delete',
     'eq',
+    'in',
+    'ilike',
+    'order',
+    'limit',
     'single',
   ]) {
     builder[method] = jest.fn(() => builder);
   }
+  const queue: any[] = [];
+  builder.setResults = (...vals: any[]) => queue.push(...vals);
+  builder.then = (onFulfilled: any, onRejected: any) => {
+    const value = queue.length ? queue.shift() : { data: null, error: null };
+    return Promise.resolve(value).then(onFulfilled, onRejected);
+  };
   return builder;
 };
 
@@ -60,6 +72,8 @@ describe('ServicesRepository', () => {
   it('should be defined', () => {
     expect(repository).toBeDefined();
   });
+
+  // ---- variable / fixed services ----
 
   it('createVariableServices upserts into variable_services ignoring duplicates', () => {
     const services = [{ name: 'v', company_id: companyId }] as any;
@@ -101,13 +115,6 @@ describe('ServicesRepository', () => {
     expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
   });
 
-  it('findAllFixedServices scopes the query by company_id', () => {
-    repository.findAllFixedServices(companyId);
-
-    expect(fromMock).toHaveBeenCalledWith('fixed_services');
-    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
-  });
-
   it('updateVariableService updates the row matching the id', () => {
     const dto = { name: 'v2' } as any;
     repository.updateVariableService(3, dto);
@@ -117,36 +124,12 @@ describe('ServicesRepository', () => {
     expect(builder.eq).toHaveBeenCalledWith('id', 3);
   });
 
-  it('updateFixedService updates the row matching the id', () => {
-    const dto = { name: 'f2' } as any;
-    repository.updateFixedService(4, dto);
-
-    expect(fromMock).toHaveBeenCalledWith('fixed_services');
-    expect(builder.update).toHaveBeenCalledWith(dto);
-    expect(builder.eq).toHaveBeenCalledWith('id', 4);
-  });
-
   it('removeVariableService deletes the row matching the id', () => {
     repository.removeVariableService(5);
 
     expect(fromMock).toHaveBeenCalledWith('variable_services');
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith('id', 5);
-  });
-
-  it('removeFixedService deletes the row matching the id', () => {
-    repository.removeFixedService(6);
-
-    expect(fromMock).toHaveBeenCalledWith('fixed_services');
-    expect(builder.delete).toHaveBeenCalled();
-    expect(builder.eq).toHaveBeenCalledWith('id', 6);
-  });
-
-  it('findAllServiceCategories scopes the query by company_id', () => {
-    repository.findAllServiceCategories(companyId);
-
-    expect(fromMock).toHaveBeenCalledWith('service_categories');
-    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
   });
 
   it('upsertServiceCategory upserts on the company_id,name conflict target', () => {
@@ -158,5 +141,158 @@ describe('ServicesRepository', () => {
       { onConflict: 'company_id,name' },
     );
     expect(builder.single).toHaveBeenCalled();
+  });
+
+  // ---- multi-category: service <-> category links ----
+
+  it('findAllServiceCategoryLinks reads the link table scoped by company_id', () => {
+    repository.findAllServiceCategoryLinks(companyId);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.select).toHaveBeenCalledWith('*');
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+  });
+
+  it('getLinksForService filters links by the service id', () => {
+    repository.getLinksForService(42);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.eq).toHaveBeenCalledWith('variable_service_id', 42);
+  });
+
+  it('getMaxServiceSortOrder returns the highest sort order in a category', async () => {
+    builder.setResults({ data: [{ sort_order: 7 }] });
+
+    const result = await repository.getMaxServiceSortOrder(companyId, 3);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+    expect(builder.eq).toHaveBeenCalledWith('category_id', 3);
+    expect(builder.order).toHaveBeenCalledWith('sort_order', {
+      ascending: false,
+    });
+    expect(result).toBe(7);
+  });
+
+  it('getMaxServiceSortOrder returns 0 when there are no links', async () => {
+    builder.setResults({ data: [] });
+    expect(await repository.getMaxServiceSortOrder(companyId, 3)).toBe(0);
+  });
+
+  it('insertServiceCategoryLink inserts a fully-scoped link row', () => {
+    repository.insertServiceCategoryLink(companyId, 5, 10, 2);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.insert).toHaveBeenCalledWith({
+      company_id: companyId,
+      variable_service_id: 5,
+      category_id: 10,
+      sort_order: 2,
+    });
+  });
+
+  it('deleteServiceCategoryLink deletes the matching service/category link', () => {
+    repository.deleteServiceCategoryLink(5, 10);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.delete).toHaveBeenCalled();
+    expect(builder.eq).toHaveBeenCalledWith('variable_service_id', 5);
+    expect(builder.eq).toHaveBeenCalledWith('category_id', 10);
+  });
+
+  it('updateLinkSortOrder updates the sort order of one link', () => {
+    repository.updateLinkSortOrder(5, 10, 4);
+
+    expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+    expect(builder.update).toHaveBeenCalledWith({ sort_order: 4 });
+    expect(builder.eq).toHaveBeenCalledWith('variable_service_id', 5);
+    expect(builder.eq).toHaveBeenCalledWith('category_id', 10);
+  });
+
+  // ---- category management ----
+
+  it('findCategoryByName does a case-insensitive lookup scoped by company_id', () => {
+    repository.findCategoryByName(companyId, 'Bebidas');
+
+    expect(fromMock).toHaveBeenCalledWith('service_categories');
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+    expect(builder.ilike).toHaveBeenCalledWith('name', 'Bebidas');
+    expect(builder.limit).toHaveBeenCalledWith(1);
+  });
+
+  it('getMaxCategorySortOrder returns the highest category sort order', async () => {
+    builder.setResults({ data: [{ sort_order: 4 }] });
+
+    const result = await repository.getMaxCategorySortOrder(companyId);
+
+    expect(fromMock).toHaveBeenCalledWith('service_categories');
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+    expect(result).toBe(4);
+  });
+
+  it('createCategory inserts an active category at the given sort order', () => {
+    repository.createCategory(companyId, 'Nueva', 3);
+
+    expect(fromMock).toHaveBeenCalledWith('service_categories');
+    expect(builder.insert).toHaveBeenCalledWith({
+      company_id: companyId,
+      name: 'Nueva',
+      is_active: true,
+      sort_order: 3,
+    });
+    expect(builder.single).toHaveBeenCalled();
+  });
+
+  it('updateCategory updates the fields scoped by company_id and id', () => {
+    repository.updateCategory(companyId, 9, { name: 'X' });
+
+    expect(fromMock).toHaveBeenCalledWith('service_categories');
+    expect(builder.update).toHaveBeenCalledWith({ name: 'X' });
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+    expect(builder.eq).toHaveBeenCalledWith('id', 9);
+    expect(builder.single).toHaveBeenCalled();
+  });
+
+  it('deleteCategory deletes the category scoped by company_id and id', () => {
+    repository.deleteCategory(companyId, 9);
+
+    expect(fromMock).toHaveBeenCalledWith('service_categories');
+    expect(builder.delete).toHaveBeenCalled();
+    expect(builder.eq).toHaveBeenCalledWith('company_id', companyId);
+    expect(builder.eq).toHaveBeenCalledWith('id', 9);
+  });
+
+  describe('getServicesOnlyInCategory', () => {
+    it('returns services whose only link is the given category', async () => {
+      // 1st query: services linked to category 3
+      builder.setResults({
+        data: [{ variable_service_id: 1 }, { variable_service_id: 2 }],
+      });
+      // 2nd query: all links for those services (service 1 only in cat 3;
+      // service 2 also in cat 4 -> not orphaned)
+      builder.setResults({
+        data: [
+          { variable_service_id: 1, category_id: 3 },
+          { variable_service_id: 2, category_id: 3 },
+          { variable_service_id: 2, category_id: 4 },
+        ],
+      });
+
+      const result = await repository.getServicesOnlyInCategory(companyId, 3);
+
+      expect(fromMock).toHaveBeenCalledWith('variable_service_categories');
+      expect(builder.in).toHaveBeenCalledWith('variable_service_id', [1, 2]);
+      expect(result).toEqual([1]);
+    });
+
+    it('short-circuits to an empty array when no service is in the category', async () => {
+      builder.setResults({ data: [] });
+
+      const result = await repository.getServicesOnlyInCategory(companyId, 3);
+
+      expect(result).toEqual([]);
+      // second query never runs
+      expect(builder.in).not.toHaveBeenCalled();
+    });
   });
 });

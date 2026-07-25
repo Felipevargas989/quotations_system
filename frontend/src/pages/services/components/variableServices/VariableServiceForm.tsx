@@ -50,11 +50,13 @@ export default function VariableServiceForm({
     const load = async () => {
       try {
         const data = await findAllServices();
-        const cats = (data?.categories ?? []).slice().sort(
-          (a, b) =>
-            (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-            (b.sort_order ?? Number.MAX_SAFE_INTEGER),
-        );
+        const cats = (data?.categories ?? [])
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+              (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+          );
         setCategories(cats);
 
         if (isEditing && service) {

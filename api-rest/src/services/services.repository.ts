@@ -259,7 +259,10 @@ export class ServicesRepository {
   }
 
   // Services whose ONLY category is the given one (would be orphaned on delete).
-  async getServicesOnlyInCategory(companyId: Company['id'], categoryId: number) {
+  async getServicesOnlyInCategory(
+    companyId: Company['id'],
+    categoryId: number,
+  ) {
     const { data: inCat } = await this.supabase.client
       .from('variable_service_categories')
       .select('variable_service_id')
