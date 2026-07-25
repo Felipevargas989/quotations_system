@@ -31,7 +31,6 @@ export default function FixedServiceForm({
   isEditing = false,
 }: FixedServiceFormProps) {
   const defaultFormData: CreateFixedService = {
-    code: "",
     name: "",
     price: undefined,
     calculation_type: "" as CalculationType,
@@ -49,7 +48,6 @@ export default function FixedServiceForm({
   useEffect(() => {
     if (isEditing && service) {
       setFormData({
-        code: service.code || "",
         name: service.name,
         price: service.price,
         calculation_type: service.calculation_type,
@@ -82,7 +80,6 @@ export default function FixedServiceForm({
       // validate and format service data
       const payload = {
         name: formData.name,
-        code: formData.code,
         price:
           formData.calculation_type === CalculationType.FIJO ||
           formData.calculation_type === CalculationType.FIJO_VARIABLE
@@ -159,43 +156,23 @@ export default function FixedServiceForm({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="code"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Código
-              </label>
-              <input
-                type="text"
-                id="code"
-                name="code"
-                value={formData.code}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ej: SERV001"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Nombre *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nombre del servicio"
-              />
-            </div>
+          <div>
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Nombre *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nombre del servicio"
+            />
           </div>
 
           <div>

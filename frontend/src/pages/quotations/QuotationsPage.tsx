@@ -24,6 +24,11 @@ import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 
+// Persist the quotations status filter per user, so the selection survives
+// reloads / navigation instead of resetting to the default each time.
+const STATUS_FILTER_KEY = (userId: string | number) =>
+  `eventia_quotations_status_filter_${userId}`;
+
 export default function QuotationsPage() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
@@ -38,6 +43,9 @@ export default function QuotationsPage() {
   ];
   const [statusFilter, setStatusFilter] =
     useState<string[]>(initialStatusFilter);
+  // Guards the persisted-filter restore so we don't fetch (or overwrite
+  // storage) before we've loaded the user's saved selection.
+  const [filterRestored, setFilterRestored] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
@@ -60,24 +68,49 @@ export default function QuotationsPage() {
     { value: QuotationStatus.RECHAZADA, label: "❌ Rechazada" },
   ];
 
+  // Restore the persisted status filter (per user) before the first fetch.
   useEffect(() => {
-    fetchQuotations(statusFilter);
-    fetchRequirements();
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(STATUS_FILTER_KEY(user.id));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setStatusFilter(parsed);
+        }
+      }
+    } catch {
+      /* ignore malformed / unavailable storage */
+    }
+    setFilterRestored(true);
   }, [user]);
 
-  // Refetch quotations when status filter changes
+  // Persist the status filter whenever it changes (after restore).
   useEffect(() => {
-    if (user) {
-      fetchQuotations(statusFilter);
+    if (!user || !filterRestored) return;
+    try {
+      localStorage.setItem(
+        STATUS_FILTER_KEY(user.id),
+        JSON.stringify(statusFilter),
+      );
+    } catch {
+      /* ignore quota / disabled storage */
     }
-  }, [statusFilter]);
+  }, [statusFilter, user, filterRestored]);
 
-  // Refetch quotations when sorting changes
   useEffect(() => {
     if (user) {
+      fetchRequirements();
+    }
+  }, [user]);
+
+  // Fetch quotations once the persisted filter is restored, and thereafter on
+  // any filter or sort change.
+  useEffect(() => {
+    if (user && filterRestored) {
       fetchQuotations(statusFilter);
     }
-  }, [sortBy, sortOrder]);
+  }, [user, filterRestored, statusFilter, sortBy, sortOrder]);
 
   // Handle column sorting
   const handleSort = (column: "quotation_number" | "event_date") => {

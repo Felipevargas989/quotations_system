@@ -1,0 +1,15 @@
+{
+  "name": "eventia-migrations",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone runner that applies docs/migrations/*.sql to the Supabase DB in order.",
+  "scripts": {
+    "migrate": "node run-migrations.mjs",
+    "migrate:dry-run": "node run-migrations.mjs --dry-run",
+    "migrate:baseline": "node run-migrations.mjs --baseline"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
