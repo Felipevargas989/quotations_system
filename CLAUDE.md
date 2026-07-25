@@ -13,7 +13,7 @@ The codebase and UI are largely in Spanish.
 Two independently-deployed apps in one repo:
 
 - `api-rest/` — NestJS 11 REST API (the backend).
-- `frontend/` — React 18 + Vite + TypeScript SPA, deployed on Netlify.
+- `frontend/` — React 18 + Vite + TypeScript SPA, deployed on Railway.
 
 There is **no shared package**; the two apps communicate only over HTTP and share a Supabase
 (Postgres) database.
@@ -117,10 +117,42 @@ in both apps.
   alongside the migration whenever it is necessary. Keep it in the same `docs/migrations/`
   folder (e.g. `5_add-discount-column.backfill.sql`) so the schema change and its data fix
   travel together.
-- Migrations are **NOT run by this repo or by the app** — they must be executed manually in the
-  external DB provider (Supabase). After creating a migration, **explicitly tell the user (or
-  the AI running the task) that they must run the SQL command in the DB provider.** Never assume
-  a migration has been applied.
+- Migrations can be applied two ways:
+  - **Manually** in Supabase (SQL editor) — still valid for hotfixes/local checks. When you add
+    a migration this way, **explicitly tell the user they must run the SQL in the DB provider.**
+    Never assume a migration has been applied.
+  - **Automatically on release** via the pipeline below (the normal path). Either way, never
+    edit a migration after it has been applied — add a new numbered one instead.
+
+### Automated release pipeline (`.github/workflows/release.yml`)
+
+When a PR is merged into `main`, an ordered GitHub Actions pipeline releases the whole system:
+
+1. **migrate** — `docs/migrations/run-migrations.mjs` applies pending `docs/migrations/*.sql`
+   to Supabase, tracking applied files in a `public.schema_migrations` table (idempotent; runs
+   each file once, inside a transaction; migration runs before its `.backfill.sql`;
+   `0_initial_models.sql` is skipped).
+2. **backend** — deploys `api-rest/` to Railway via `railway up` (only if step 1 succeeded).
+3. **frontend** — deploys `frontend/` to Railway via `railway up` (only if step 2 succeeded).
+
+Both apps run on Railway. This pipeline **replaces Railway's "deploy on push" trigger** — it
+pushes the code itself so it can sequence DB → backend → frontend. If you leave Railway's
+auto-deploy on, Railway will deploy the code in parallel with (or before) the migration and the
+ordering is lost.
+
+Because the DB is migrated **before** the new code runs, migrations must stay
+**backward-compatible** with the currently-deployed code for the window between steps 1 and 3.
+Use expand/contract: add columns/tables first; drop or rename in a *later* release after the
+code no longer uses them.
+
+Operational requirements (one-time setup, see the header of `release.yml`):
+- Repo secrets: `SUPABASE_DB_URL`, `RAILWAY_TOKEN` (the Railway service IDs are non-secret and
+  hardcoded as `env` in `release.yml`).
+- **Turn OFF Railway's automatic GitHub deploy on both services** so the pipeline controls
+  ordering instead of Railway racing the migration step.
+- On a DB whose existing migrations were applied by hand, run the runner once with `--baseline`
+  (`npm run migrate:baseline` in `docs/migrations/`) to mark them applied without re-executing.
+- To apply migrations manually / preview: `cd docs/migrations && npm ci && SUPABASE_DB_URL=... npm run migrate` (or `migrate:dry-run`).
 
 ## Git & PR workflow
 

@@ -1,0 +1,117 @@
+# Ordered release pipeline.
+#
+# Runs when a PR is merged into `main` (i.e. a push to main). It releases the
+# whole system in a strict, gated order, all on Railway:
+#
+#   1. migrate  → apply pending docs/migrations/*.sql to the Supabase database
+#   2. backend  → deploy the NestJS API (api-rest) to Railway   (needs: migrate)
+#   3. frontend → deploy the SPA (frontend) to Railway          (needs: backend)
+#
+# Because the DB is migrated BEFORE the new code runs, migrations must stay
+# backward-compatible with the currently-deployed code for the short window
+# between step 1 and step 3 (expand/contract — add first, remove in a later
+# release). If step 1 fails, no code is deployed.
+#
+# IMPORTANT — this workflow REPLACES Railway's "deploy on push" trigger. For the
+# ordering to hold you MUST turn OFF the automatic GitHub deploy on BOTH Railway
+# services, otherwise Railway will deploy the code in parallel with (and possibly
+# before) the migration step. This pipeline pushes the code itself via `railway up`.
+#
+# Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL   Supabase Postgres URI (Project Settings → Database →
+#                     Connection string → URI). Use the pooler URI.
+#   RAILWAY_TOKEN     Railway token used by the CLI (project or account token).
+#
+# Railway service IDs are not secret, so they are set as `env` below:
+#   api-rest → dcd607b3-af2f-41fb-8773-6610765022da
+#   frontend → a8344863-63a6-4a64-b4a5-d91f7e492bc0
+
+name: release
+
+env:
+  RAILWAY_BACKEND_SERVICE: dcd607b3-af2f-41fb-8773-6610765022da  # api-rest
+  RAILWAY_FRONTEND_SERVICE: a8344863-63a6-4a64-b4a5-d91f7e492bc0 # frontend
+
+on:
+  push:
+    branches: [main]
+
+# Never run two releases at once; let an in-progress one finish.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: 0 · Backend unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api-rest/package-lock.json
+      - name: Install dependencies
+        working-directory: api-rest
+        run: npm ci
+      - name: Run unit tests
+        working-directory: api-rest
+        run: npm test -- --ci
+
+  migrate:
+    name: 1 · Apply DB migrations
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/migrations/package-lock.json
+      - name: Install migration runner deps
+        working-directory: docs/migrations
+        run: npm ci
+      - name: Apply pending migrations
+        working-directory: docs/migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run migrate
+
+  backend:
+    name: 2 · Deploy backend (Railway)
+    needs: migrate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      # Upload the whole repo from the root; Railway applies the service's
+      # configured Root Directory (api-rest) to pick the subfolder to build,
+      # matching how its GitHub integration deploys this monorepo.
+      - name: Deploy api-rest
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service "${{ env.RAILWAY_BACKEND_SERVICE }}" --ci
+
+  frontend:
+    name: 3 · Deploy frontend (Railway)
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      # Upload the whole repo from the root; Railway applies the service's
+      # configured Root Directory (frontend) to pick the subfolder to build.
+      - name: Deploy frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service "${{ env.RAILWAY_FRONTEND_SERVICE }}" --ci

@@ -424,7 +424,7 @@ export default function QuotationForm() {
     const services: SelectedService[] = (group.items || [])
       .filter((item) => item.service)
       .map((item) => ({
-        codigo: item.service.code || item.service.id.toString(),
+        codigo: item.service.id.toString(),
         nombre: item.service.name,
         precio: item.service.price,
         categoria: item.service.category,
@@ -459,11 +459,15 @@ export default function QuotationForm() {
     const box = serviceBoxes.find((b) => b.id === groupModalBoxId);
     if (!box) return;
 
-    // Map each box item (keyed by codigo) back to its variable_services row id
+    // Map each box item (keyed by codigo) back to its variable_services row id.
+    // New items are keyed by id; older saved items may still carry a legacy
+    // `code`, so we match by id first and fall back to code for compatibility.
     const items = box.services
       .map((service) => {
         const match = variableServices.find(
-          (vs) => (vs.code || vs.id.toString()) === service.codigo,
+          (vs) =>
+            vs.id.toString() === service.codigo ||
+            (vs.code && vs.code === service.codigo),
         );
         return match
           ? { variable_service_id: match.id, quantity: service.quantity }
