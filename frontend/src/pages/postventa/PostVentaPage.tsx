@@ -122,56 +122,56 @@ export default function PostVentaPage() {
         getPaidRefundsByQuotation(),
       ]);
 
-      const clientByName = new Map<string, any>(
-        (clients || []).map((c: any) => [c.name, c]),
-      );
+    const clientByName = new Map<string, any>(
+      (clients || []).map((c: any) => [c.name, c]),
+    );
 
-      const byQuotation = new Map<string, PaymentWithTransactions[]>();
-      (payments || []).forEach((p) => {
-        if (!p.quotation_id) return;
-        const arr = byQuotation.get(p.quotation_id) || [];
-        arr.push(p);
-        byQuotation.set(p.quotation_id, arr);
+    const byQuotation = new Map<string, PaymentWithTransactions[]>();
+    (payments || []).forEach((p) => {
+      if (!p.quotation_id) return;
+      const arr = byQuotation.get(p.quotation_id) || [];
+      arr.push(p);
+      byQuotation.set(p.quotation_id, arr);
+    });
+
+    const events: EventRow[] = [];
+    byQuotation.forEach((ps, quotationId) => {
+      const q = ps[0].quotations;
+      const total =
+        q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
+      const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
+      const refunded = refundsPaid[quotationId] || 0;
+      const client = q?.clients?.name
+        ? clientByName.get(q.clients.name)
+        : undefined;
+
+      // Saldo neto: lo pagado menos lo ya devuelto al cliente.
+      const saldo = total - (paid - refunded);
+      let status: EventRow["status"] = "pendiente";
+      if (saldo <= 0) status = "pagado";
+      else if (ps.some((p) => p.status === "vencido")) status = "vencido";
+
+      events.push({
+        quotationId,
+        quotationNumber: q?.quotation_number ?? 0,
+        clientName: q?.clients?.name || "—",
+        clientType: client?.client_type,
+        contactPerson: client?.contact_person,
+        phone: client?.phone,
+        requiresInvoice: q?.requires_invoice,
+        hasContract: q?.has_contract,
+        total,
+        paid,
+        refunded,
+        cuotas: ps.length,
+        status,
+        payments: ps
+          .slice()
+          .sort((a, b) => a.payment_number - b.payment_number),
       });
+    });
 
-      const events: EventRow[] = [];
-      byQuotation.forEach((ps, quotationId) => {
-        const q = ps[0].quotations;
-        const total =
-          q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
-        const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
-        const refunded = refundsPaid[quotationId] || 0;
-        const client = q?.clients?.name
-          ? clientByName.get(q.clients.name)
-          : undefined;
-
-        // Saldo neto: lo pagado menos lo ya devuelto al cliente.
-        const saldo = total - (paid - refunded);
-        let status: EventRow["status"] = "pendiente";
-        if (saldo <= 0) status = "pagado";
-        else if (ps.some((p) => p.status === "vencido")) status = "vencido";
-
-        events.push({
-          quotationId,
-          quotationNumber: q?.quotation_number ?? 0,
-          clientName: q?.clients?.name || "—",
-          clientType: client?.client_type,
-          contactPerson: client?.contact_person,
-          phone: client?.phone,
-          requiresInvoice: q?.requires_invoice,
-          hasContract: q?.has_contract,
-          total,
-          paid,
-          refunded,
-          cuotas: ps.length,
-          status,
-          payments: ps
-            .slice()
-            .sort((a, b) => a.payment_number - b.payment_number),
-        });
-      });
-
-      events.sort((a, b) => b.quotationNumber - a.quotationNumber);
+    events.sort((a, b) => b.quotationNumber - a.quotationNumber);
     return events;
   };
 
@@ -252,7 +252,12 @@ export default function PostVentaPage() {
     { l: "Pendiente", v: totals.pend, c: "text-yellow-600", Icon: Clock },
     { l: "Pagado", v: totals.pag, c: "text-green-600", Icon: CheckCircle },
     { l: "Vencido", v: totals.venc, c: "text-red-600", Icon: AlertTriangle },
-    { l: "Total general", v: totals.total, c: "text-blue-600", Icon: DollarSign },
+    {
+      l: "Total general",
+      v: totals.total,
+      c: "text-blue-600",
+      Icon: DollarSign,
+    },
   ];
 
   return (
@@ -309,7 +314,9 @@ export default function PostVentaPage() {
       {/* Events list */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">Eventos cerrados</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Eventos cerrados
+          </h2>
           <span className="text-sm text-gray-500">
             {filtered.length} de {rows.length}
           </span>
@@ -318,16 +325,21 @@ export default function PostVentaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {["N° Cot.", "Cliente", "Contacto", "Monto", "Estado de pago", ""].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {[
+                  "N° Cot.",
+                  "Cliente",
+                  "Contacto",
+                  "Monto",
+                  "Estado de pago",
+                  "",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -381,9 +393,7 @@ export default function PostVentaPage() {
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           {p}% pagado · {clp(net)}
-                          {r.refunded > 0
-                            ? ` · reemb. ${clp(r.refunded)}`
-                            : ""}
+                          {r.refunded > 0 ? ` · reemb. ${clp(r.refunded)}` : ""}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-300">
@@ -569,40 +579,40 @@ function EventModal({
             <div className="space-y-6">
               <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
               <div className="space-y-3">
-              <h4 className="text-sm font-bold text-gray-800">
-                Calendario de pagos
-              </h4>
-              {event.payments.map((pay) => {
-                const cp = pay.amount
-                  ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
-                  : 0;
-                return (
-                  <div
-                    key={pay.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
-                        {pay.payment_number}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {clp(pay.amount)}
+                <h4 className="text-sm font-bold text-gray-800">
+                  Calendario de pagos
+                </h4>
+                {event.payments.map((pay) => {
+                  const cp = pay.amount
+                    ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
+                    : 0;
+                  return (
+                    <div
+                      key={pay.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
+                          {pay.payment_number}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {pay.status === "pagado"
-                            ? `Pagado · ${fmtDate(pay.last_payment_date)}`
-                            : `Vence ${fmtDate(pay.due_date)}`}
-                          {cp > 0 && cp < 100
-                            ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
-                            : ""}
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {clp(pay.amount)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {pay.status === "pagado"
+                              ? `Pagado · ${fmtDate(pay.last_payment_date)}`
+                              : `Vence ${fmtDate(pay.due_date)}`}
+                            {cp > 0 && cp < 100
+                              ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
+                              : ""}
+                          </div>
                         </div>
+                        {statusBadge(pay.status)}
                       </div>
-                      {statusBadge(pay.status)}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
               <ReembolsosManager
                 quotationId={event.quotationId}
@@ -738,7 +748,8 @@ function ServiciosTab({
   // cotización). value_per_person = suma de esos; fixed_value = fijos × cant.
   const ppp = (it: any) => (it.precio || 0) * (it.quantity || 1);
   const valuePerPerson = varGroups.reduce(
-    (t, g) => t + (g.items || []).reduce((tt: number, it: any) => tt + ppp(it), 0),
+    (t, g) =>
+      t + (g.items || []).reduce((tt: number, it: any) => tt + ppp(it), 0),
     0,
   );
   const fixedValue = fixed.reduce(
@@ -917,7 +928,11 @@ function ServiciosTab({
           }`}
         >
           <span className="text-lg leading-none mt-0.5">
-            {notice.tone === "refund" ? "↩️" : notice.tone === "down" ? "📉" : "📈"}
+            {notice.tone === "refund"
+              ? "↩️"
+              : notice.tone === "down"
+                ? "📉"
+                : "📈"}
           </span>
           <div className="flex-1">
             <p

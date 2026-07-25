@@ -139,9 +139,7 @@ export const uploadEventDocument = async (
 };
 
 // Elimina un archivo del bucket a partir de su URL pública.
-export const deleteStorageFileByUrl = async (
-  url: string,
-): Promise<boolean> => {
+export const deleteStorageFileByUrl = async (url: string): Promise<boolean> => {
   try {
     const marker = `/public/${BUCKET}/`;
     const idx = url.indexOf(marker);

@@ -16,6 +16,7 @@ describe('PaymentsController', () => {
       findAllPaymentsFromQuotation: jest.fn(),
       findAllPaymentsWithTransactions: jest.fn(),
       createPaymentTransaction: jest.fn(),
+      createOverflowPaymentTransaction: jest.fn(),
       updatePaymentTransaction: jest.fn(),
       removePayment: jest.fn(),
       removePaymentTransaction: jest.fn(),
@@ -74,6 +75,20 @@ describe('PaymentsController', () => {
     const dto = { payment_id: 'p1', amount: 10 } as any;
     controller.createPaymentTransaction(dto, user);
     expect(serviceMock.createPaymentTransaction).toHaveBeenCalledWith(
+      dto,
+      user.company_id,
+    );
+  });
+
+  it('createOverflowPaymentTransaction forwards the dto and the user company id', () => {
+    const dto = {
+      quotation_id: 'q1',
+      amount: 100,
+      payment_method: 'transferencia',
+      transaction_date: '2026-01-01',
+    } as any;
+    controller.createOverflowPaymentTransaction(dto, user);
+    expect(serviceMock.createOverflowPaymentTransaction).toHaveBeenCalledWith(
       dto,
       user.company_id,
     );

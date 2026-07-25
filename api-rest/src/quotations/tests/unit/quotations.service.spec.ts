@@ -256,6 +256,61 @@ describe('QuotationsService', () => {
         );
       });
 
+      it('when total_amount is reduced and payments exist, it reduces from the LAST (furthest-due) installment first', async () => {
+        const quotation_id = '1';
+        const company_id = 1;
+
+        const originalAmount = 100;
+        const newTotalAmount = 50; // amountToReduce = 50
+
+        const params: UpdateQuotationDto = {
+          total_amount: newTotalAmount,
+        };
+
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: originalAmount,
+          },
+          error: null,
+        });
+
+        // two pending installments; nothing paid yet
+        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
+          data: [
+            {
+              id: 'pay1',
+              payment_number: 1,
+              amount: 100,
+              payment_transactions: [],
+            },
+            {
+              id: 'pay2',
+              payment_number: 2,
+              amount: 100,
+              payment_transactions: [],
+            },
+          ],
+          error: null,
+        });
+
+        await service.update(quotation_id, params, company_id);
+
+        // the LAST installment (pay2) absorbs the reduction, not the first
+        expect(paymentsServiceMock.update).toHaveBeenCalledTimes(1);
+        expect(paymentsServiceMock.update).toHaveBeenCalledWith('pay2', {
+          amount: 50,
+        });
+        // reduction fully absorbed -> no refund created
+        expect(refundsServiceMock.create).toHaveBeenCalledTimes(0);
+        // quotation itself is updated
+        expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(
+          quotation_id,
+          params,
+          company_id,
+        );
+      });
+
       it('when new quotation total_amount is greather than the original and not payments are created, it should creates a new payment and update the quotation', async () => {
         const quotation_id = '1';
         const company_id = 1;

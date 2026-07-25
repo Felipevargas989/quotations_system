@@ -504,4 +504,232 @@ describe('PaymentsService', () => {
       });
     });
   });
+
+  describe('createOverflowPaymentTransaction()', () => {
+    const baseDto = {
+      quotation_id: 'q1',
+      amount: 150,
+      payment_method: 'transferencia',
+      transaction_date: '2026-01-01',
+      notes: 'nota',
+      receipt_photo_url: 'http://receipt',
+    } as any;
+
+    const quotationWithEmail = {
+      data: {
+        clients: { email: 'client@x.com', name: 'Cliente' },
+        companies: { name: 'Empresa' },
+      },
+    } as any;
+
+    it('cascades the amount across installments, marking filled ones as PAGADO', async () => {
+      // two pending installments of 100 each, nothing paid yet
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            payment_number: 1,
+            amount: 100,
+            payment_transactions: [],
+          },
+          {
+            id: 'p2',
+            payment_number: 2,
+            amount: 100,
+            payment_transactions: [],
+          },
+        ],
+      } as any);
+      paymentsRepositoryMock.createPaymentTransaction.mockResolvedValue({
+        error: null,
+      } as any);
+      paymentsRepositoryMock.updatePayment.mockResolvedValue({
+        error: null,
+      } as any);
+      quotationsServiceMock.findOne.mockResolvedValue(quotationWithEmail);
+
+      const result = await service.createOverflowPaymentTransaction(
+        baseDto,
+        companyId,
+      );
+
+      // queried the pending/overdue installments for this quotation + company
+      expect(
+        paymentsRepositoryMock.findAllPaymentsFromQuotation,
+      ).toHaveBeenCalledWith(['q1'], companyId, [
+        PaymentStatus.PENDIENTE,
+        PaymentStatus.VENCIDO,
+      ]);
+
+      // first installment fully covered (100), second partially (50)
+      expect(
+        paymentsRepositoryMock.createPaymentTransaction,
+      ).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ payment_id: 'p1', amount: 100 }),
+      );
+      expect(
+        paymentsRepositoryMock.createPaymentTransaction,
+      ).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ payment_id: 'p2', amount: 50 }),
+      );
+      // only the fully-covered installment is marked PAGADO
+      expect(paymentsRepositoryMock.updatePayment).toHaveBeenCalledTimes(1);
+      expect(paymentsRepositoryMock.updatePayment).toHaveBeenCalledWith('p1', {
+        status: PaymentStatus.PAGADO,
+      });
+
+      expect(result).toEqual({
+        total: 150,
+        distribution: [
+          {
+            payment_id: 'p1',
+            payment_number: 1,
+            amount: 100,
+            fully_paid: true,
+          },
+          {
+            payment_id: 'p2',
+            payment_number: 2,
+            amount: 50,
+            fully_paid: false,
+          },
+        ],
+      });
+    });
+
+    it('accounts for amounts already paid on an installment (remaining balance)', async () => {
+      // installment of 100 with 30 already paid -> remaining 70
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            payment_number: 1,
+            amount: 100,
+            payment_transactions: [{ amount: 30 }],
+          },
+        ],
+      } as any);
+      paymentsRepositoryMock.createPaymentTransaction.mockResolvedValue({
+        error: null,
+      } as any);
+      paymentsRepositoryMock.updatePayment.mockResolvedValue({
+        error: null,
+      } as any);
+      quotationsServiceMock.findOne.mockResolvedValue({ data: null } as any);
+
+      const result = await service.createOverflowPaymentTransaction(
+        { ...baseDto, amount: 70 },
+        companyId,
+      );
+
+      expect(
+        paymentsRepositoryMock.createPaymentTransaction,
+      ).toHaveBeenCalledWith(expect.objectContaining({ amount: 70 }));
+      expect(paymentsRepositoryMock.updatePayment).toHaveBeenCalledWith('p1', {
+        status: PaymentStatus.PAGADO,
+      });
+      expect(result.distribution[0].fully_paid).toBe(true);
+    });
+
+    it('sends a single email to the client with the total amount', async () => {
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            payment_number: 1,
+            amount: 200,
+            payment_transactions: [],
+          },
+        ],
+      } as any);
+      paymentsRepositoryMock.createPaymentTransaction.mockResolvedValue({
+        error: null,
+      } as any);
+      quotationsServiceMock.findOne.mockResolvedValue(quotationWithEmail);
+
+      await service.createOverflowPaymentTransaction(baseDto, companyId);
+
+      expect(emailServiceMock.sendEmail).toHaveBeenCalledTimes(1);
+      expect(emailServiceMock.sendEmail).toHaveBeenCalledWith(
+        'client@x.com',
+        EmailStructure.PAYMENT_RECEIVED,
+        expect.objectContaining({ amount: 150 }),
+        companyId,
+      );
+    });
+
+    it('throws when the amount exceeds the total remaining balance', async () => {
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            payment_number: 1,
+            amount: 100,
+            payment_transactions: [],
+          },
+        ],
+      } as any);
+
+      await expect(
+        service.createOverflowPaymentTransaction(
+          { ...baseDto, amount: 150 },
+          companyId,
+        ),
+      ).rejects.toThrow();
+      expect(
+        paymentsRepositoryMock.createPaymentTransaction,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('throws when there are no pending installments', async () => {
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [],
+      } as any);
+
+      await expect(
+        service.createOverflowPaymentTransaction(baseDto, companyId),
+      ).rejects.toThrow();
+    });
+
+    it('propagates a repository lookup error', async () => {
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: null,
+        error: new Error('db down'),
+      } as any);
+
+      await expect(
+        service.createOverflowPaymentTransaction(baseDto, companyId),
+      ).rejects.toThrow();
+    });
+
+    it('still succeeds when sending the confirmation email fails', async () => {
+      paymentsRepositoryMock.findAllPaymentsFromQuotation.mockResolvedValue({
+        data: [
+          {
+            id: 'p1',
+            payment_number: 1,
+            amount: 200,
+            payment_transactions: [],
+          },
+        ],
+      } as any);
+      paymentsRepositoryMock.createPaymentTransaction.mockResolvedValue({
+        error: null,
+      } as any);
+      // email lookup throws -> caught, must not fail the payment
+      quotationsServiceMock.findOne.mockRejectedValue(new Error('email boom'));
+
+      const result = await service.createOverflowPaymentTransaction(
+        baseDto,
+        companyId,
+      );
+
+      expect(result.total).toBe(150);
+      expect(
+        paymentsRepositoryMock.createPaymentTransaction,
+      ).toHaveBeenCalled();
+    });
+  });
 });
