@@ -1,0 +1,83 @@
+name: Database Backup
+
+# Nightly logical backup of the Supabase (Postgres) database.
+# - Runs every day at 07:00 UTC (03:00 América/Santiago).
+# - Can also be triggered manually from the Actions tab (workflow_dispatch).
+# - Produces two files per run, stored as workflow artifacts (90-day retention):
+#     * eventia_YYYY-MM-DD_HHMM.dump  -> full backup (schema + data, pg_dump custom format, compressed)
+#     * schema_YYYY-MM-DD_HHMM.sql    -> schema-only, human-readable (handy for diffs/reviews)
+#
+# Required repository secret (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_DB_URL: the "Session pooler" connection string from
+#   Supabase -> Project Settings -> Database -> Connection string.
+#   IMPORTANT: use the *Session pooler* URI (aws-0-<region>.pooler.supabase.com:5432),
+#   NOT the direct db.<ref>.supabase.co host — GitHub runners are IPv4-only and
+#   the direct host resolves to IPv6 on Supabase.
+#
+# Restore examples:
+#   pg_restore --no-owner --no-privileges -d "$TARGET_DB_URL" eventia_YYYY-MM-DD_HHMM.dump
+#   (or for a single table: pg_restore -t variable_services ...)
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          pg_dump --version
+
+      - name: Check secret is configured
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not configured (Settings -> Secrets and variables -> Actions)."
+            exit 1
+          fi
+
+      - name: Dump database (full + schema-only)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          STAMP="$(date -u +%Y-%m-%d_%H%M)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # Full backup: schema + data, custom format (compressed, restorable with pg_restore)
+          pg_dump "$DB_URL" --no-owner --no-privileges -Fc -f "eventia_${STAMP}.dump"
+          # Schema-only, plain SQL (readable, useful to diff schema changes over time)
+          pg_dump "$DB_URL" --no-owner --no-privileges --schema-only -f "schema_${STAMP}.sql"
+          ls -lh eventia_${STAMP}.dump schema_${STAMP}.sql
+
+      - name: Sanity-check dump is restorable (list contents)
+        run: |
+          # pg_restore -l fails if the dump file is corrupt/empty -> fails the job
+          pg_restore -l "eventia_${STAMP}.dump" | head -20
+          TABLES=$(pg_restore -l "eventia_${STAMP}.dump" | grep -c "TABLE DATA" || true)
+          echo "Tables with data in dump: $TABLES"
+          if [ "$TABLES" -lt 10 ]; then
+            echo "::error::Dump contains fewer tables than expected ($TABLES < 10) — investigate before trusting this backup."
+            exit 1
+          fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eventia-db-backup-${{ env.STAMP }}
+          path: |
+            eventia_*.dump
+            schema_*.sql
+          retention-days: 90
+          if-no-files-found: error

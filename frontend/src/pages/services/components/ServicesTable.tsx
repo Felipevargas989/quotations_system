@@ -206,9 +206,6 @@ export default function ServicesTable({
                   Nombre
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo de Cálculo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Precio Base
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -216,9 +213,6 @@ export default function ServicesTable({
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Precio por Persona
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
@@ -229,7 +223,7 @@ export default function ServicesTable({
               {fixedServices.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={6}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     No hay servicios fijos registrados
@@ -255,13 +249,6 @@ export default function ServicesTable({
                       >
                         {service.name}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800`}
-                      >
-                        {service.calculation_type}
-                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900">
@@ -291,11 +278,27 @@ export default function ServicesTable({
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {renderActiveToggle(service, ServiceType.FIXED)}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
+                        {onToggleActive && (
+                          <button
+                            onClick={() =>
+                              onToggleActive(service, ServiceType.FIXED)
+                            }
+                            className="text-gray-400 hover:text-gray-700"
+                            title={
+                              isServiceActive(service)
+                                ? "Desactivar servicio"
+                                : "Activar servicio"
+                            }
+                          >
+                            {isServiceActive(service) ? (
+                              <Eye size={16} />
+                            ) : (
+                              <EyeOff size={16} />
+                            )}
+                          </button>
+                        )}
                         {onEditService && (
                           <button
                             onClick={() =>
