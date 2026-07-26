@@ -2023,11 +2023,18 @@ export default function QuotationForm() {
                       queryKey: ["requirements"],
                     });
                     navigate("/quotations");
-                  } catch {
+                  } catch (error: any) {
                     setDeletingQ(false);
                     setConfirmDeleteQ(false);
+                    // El backend sabe POR QUÉ no se pudo (plan de pagos,
+                    // dinero registrado, reembolsos) y lo dice con la
+                    // salida concreta. Mostrarlo tal cual. El texto de
+                    // abajo es solo para cuando no llega respuesta:
+                    // "intenta de nuevo" únicamente sirve si el problema
+                    // de verdad puede desaparecer al reintentar.
                     setDeleteQError(
-                      "No se pudo eliminar la cotización. Intenta de nuevo.",
+                      error?.response?.data?.message ||
+                        "No se pudo eliminar la cotización. Revisa tu conexión e intenta de nuevo.",
                     );
                   }
                 }}
@@ -2035,8 +2042,13 @@ export default function QuotationForm() {
               />
             ) : (
               <span className="flex items-center gap-2">
+                {/* El motivo puede ser una frase entera (viene del
+                    backend con la salida concreta), así que se le da
+                    ancho y se deja envolver en vez de estirar la fila. */}
                 {deleteQError && (
-                  <span className="text-xs text-red-600">{deleteQError}</span>
+                  <span className="text-xs text-red-600 max-w-xs text-right leading-snug">
+                    {deleteQError}
+                  </span>
                 )}
                 <button
                   type="button"
