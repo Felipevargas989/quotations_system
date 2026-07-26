@@ -93,13 +93,14 @@ Netlify sí lo puedo hacer yo directamente, y por eso el paso 2 queda de mi lado
   antes y después es la misma.
 - **El código está commiteado** (`9c2b771`) y está en tu Mac.
 
-Lo que falta son **cuatro commits** que existen en tu Mac pero no en producción:
+Lo que falta son **cinco commits** que existen en tu Mac pero no en producción:
 
 ```
 13a61f6  Propina: mismo criterio en todo el sistema
 7a86421  Guardar el MONTO de la propina (migración 37)
 9c2b771  El total se calcula al guardar, no se lee de la pantalla
 9c9c3b4  Decir POR QUÉ no se puede eliminar una cotización
+b40ca2d  Teléfonos con formato chileno y fijos habilitados (26-07)
 ```
 
 El tercero es el que arregla el bug del descuento — el que hacía que se guardara
@@ -112,6 +113,14 @@ nuevo"* que nunca iba a funcionar. Ahora te dice el motivo real y la salida:
 si tiene pagos registrados, anularla desde Post-Venta; si solo tiene el plan,
 devolverla a un estado de pre-venta y ahí sí se puede eliminar. La regla no
 cambió — cambió lo que la pantalla te cuenta.
+
+El quinto es el de los teléfonos, del 26-07. Es **solo frontend**: no agrega
+nada al paso 1, viaja entero en el paso 2. Por eso, mientras no subamos, en la
+web vas a seguir viendo `+56932084213` de corrido en vez de `+56 9 3208 4213`,
+y los fijos van a seguir sin poder anotarse. No está roto: está escrito y
+esperando turno. Lo único de ese trabajo que ya está surtiendo efecto es lo que
+va por el lado de la base y no del código — los 299 teléfonos guardados quedaron
+todos en la misma forma.
 
 ## Sobre la compilación del frontend
 
