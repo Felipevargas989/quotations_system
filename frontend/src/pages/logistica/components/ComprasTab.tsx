@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { matchesSearch } from "../../../utils/searchMatch";
+import { formatPhone } from "../../../utils/phone";
 import {
   EventSupplyProvision,
   PurchasingEvent,
@@ -672,7 +673,7 @@ export default function ComprasTab({
     ${
       g.supplier?.contact_name || g.supplier?.phone
         ? `<span class="prov-contacto">${esc(
-            [g.supplier?.contact_name, g.supplier?.phone]
+            [g.supplier?.contact_name, formatPhone(g.supplier?.phone)]
               .filter(Boolean)
               .join(" · "),
           )}</span>`
@@ -787,7 +788,7 @@ export default function ComprasTab({
       lines.push(
         `PROVEEDOR;${g.supplier ? g.supplier.name : "Sin proveedor asignado"}${
           g.supplier?.contact_name ? `;${g.supplier.contact_name}` : ""
-        }${g.supplier?.phone ? `;${g.supplier.phone}` : ""}`,
+        }${g.supplier?.phone ? `;${formatPhone(g.supplier.phone)}` : ""}`,
       );
       lines.push("Insumo;Cantidad;Unidad;Formato;Costo estimado;Provisión");
       rowsShown.forEach((c) => {
@@ -1322,7 +1323,7 @@ export default function ComprasTab({
                   </h5>
                   {(g.supplier?.contact_name || g.supplier?.phone) && (
                     <span className="text-[11px] text-gray-400">
-                      {[g.supplier.contact_name, g.supplier.phone]
+                      {[g.supplier.contact_name, formatPhone(g.supplier.phone)]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>

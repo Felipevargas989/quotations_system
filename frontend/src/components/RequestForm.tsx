@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Save, RotateCcw, Plus, X, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
+import { normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import { clientsQueryOptions } from "../services/clients.service";
 import { createClient } from "../services/clients.service";
@@ -341,11 +342,17 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                     const phone = e.target.value;
                     setClientFormData((prev) => ({ ...prev, phone }));
                   }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, phone: true }))
-                  }
+                  onBlur={() => {
+                    // Al salir del recuadro el número queda ordenado y a la
+                    // vista, para que se note que quedó bien guardado.
+                    setClientFormData((prev) => ({
+                      ...prev,
+                      phone: normalizePhone(prev.phone || ""),
+                    }));
+                    setTouchedFields((prev) => ({ ...prev, phone: true }));
+                  }}
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
-                  placeholder="+569XXXXXXXX"
+                  placeholder={PHONE_PLACEHOLDER}
                 />
                 {shouldShowError("phone") && (
                   <p className="text-red-500 text-sm mt-1">

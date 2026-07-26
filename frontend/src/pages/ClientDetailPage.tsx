@@ -28,6 +28,7 @@ import {
 } from "../services/clientContacts.service";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
+import { formatPhone, normalizePhone, telHref } from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
@@ -611,10 +612,10 @@ export default function ClientDetailPage() {
                   )}
                   {c.phone && (
                     <a
-                      href={`tel:${c.phone}`}
+                      href={telHref(c.phone)}
                       className="flex items-center gap-1 text-blue-600 hover:underline"
                     >
-                      <Phone size={13} /> {c.phone}
+                      <Phone size={13} /> {formatPhone(c.phone)}
                     </a>
                   )}
                 </>
@@ -649,6 +650,11 @@ export default function ClientDetailPage() {
                 value={contactDraft.phone}
                 onChange={(e) =>
                   setContactDraft((p) => p && { ...p, phone: e.target.value })
+                }
+                onBlur={() =>
+                  setContactDraft(
+                    (p) => p && { ...p, phone: normalizePhone(p.phone) },
+                  )
                 }
                 placeholder="Teléfono (opcional)"
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -695,10 +701,10 @@ export default function ClientDetailPage() {
               )}
               {client.phone && (
                 <a
-                  href={`tel:${client.phone}`}
+                  href={telHref(client.phone)}
                   className="flex items-center gap-1 text-blue-600 hover:underline"
                 >
-                  <Phone size={13} /> {client.phone}
+                  <Phone size={13} /> {formatPhone(client.phone)}
                 </a>
               )}
               {client.address && (

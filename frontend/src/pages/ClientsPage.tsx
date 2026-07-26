@@ -25,6 +25,7 @@ import {
   validatePhone,
   validateClientForm,
 } from "../utils/validation";
+import { formatPhone, normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
 import { CLIENT_TYPES } from "../constants/clientTypes";
 import {
   clientsQueryOptions,
@@ -739,8 +740,16 @@ export default function ClientsPage() {
                         phone: validatePhone(phone),
                       }));
                     }}
+                    onBlur={() => {
+                      // Al salir del recuadro el número queda ordenado y a la
+                      // vista, para que se note que quedó bien guardado.
+                      setFormData((prev) => ({
+                        ...prev,
+                        phone: normalizePhone(prev.phone || ""),
+                      }));
+                    }}
                     className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phone ? "border-red-500" : ""}`}
-                    placeholder="+569XXXXXXXX"
+                    placeholder={PHONE_PLACEHOLDER}
                   />
                   {errors.phone && (
                     <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
@@ -781,6 +790,9 @@ export default function ClientsPage() {
                           type="tel"
                           value={newContactPhone}
                           onChange={(e) => setNewContactPhone(e.target.value)}
+                          onBlur={() =>
+                            setNewContactPhone((p) => normalizePhone(p || ""))
+                          }
                           className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
                           placeholder="Teléfono de la persona"
                         />
@@ -828,6 +840,11 @@ export default function ClientsPage() {
                                 d ? { ...d, phone: e.target.value } : d,
                               )
                             }
+                            onBlur={() =>
+                              setContactDraft((d) =>
+                                d ? { ...d, phone: normalizePhone(d.phone) } : d,
+                              )
+                            }
                             placeholder="Teléfono"
                             className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
                           />
@@ -869,7 +886,9 @@ export default function ClientsPage() {
                               {c.name}
                             </span>
                             <span className="ml-2 text-xs text-gray-400">
-                              {[c.email, c.phone].filter(Boolean).join(" · ")}
+                              {[c.email, formatPhone(c.phone)]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -962,6 +981,11 @@ export default function ClientsPage() {
                           onChange={(e) =>
                             setContactDraft((d) =>
                               d ? { ...d, phone: e.target.value } : d,
+                            )
+                          }
+                          onBlur={() =>
+                            setContactDraft((d) =>
+                              d ? { ...d, phone: normalizePhone(d.phone) } : d,
                             )
                           }
                           placeholder="Teléfono"
@@ -1237,7 +1261,7 @@ export default function ClientsPage() {
                         {client.phone && (
                           <div className="flex items-center text-sm text-gray-900">
                             <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                            {client.phone}
+                            {formatPhone(client.phone)}
                           </div>
                         )}
                       </div>

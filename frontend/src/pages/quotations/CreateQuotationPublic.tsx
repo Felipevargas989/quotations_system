@@ -11,13 +11,15 @@ import {
 } from "../../types/quotations.types";
 import { Company } from "../../types/companies.types";
 import { NumberInput } from "../../components/inputs";
+import { normalizePhone } from "../../utils/phone";
 
 // Formulario público de solicitud (rediseño 22-07, aprobado por Felipe):
 // - Lenguaje visual de los documentos de la empresa (logo redondo, folio
 //   en color de marca, secciones con línea) en vez del degradado genérico.
 // - Teléfono chileno NORMALIZADO automáticamente ("9 1234 5678",
 //   "912345678" y "+56912345678" son lo mismo) — la tarea es del sistema,
-//   no del cliente.
+//   no del cliente. Desde el 26-07 esa normalización vive en utils/phone.ts
+//   y la comparten los seis formularios; acá también entran los fijos.
 // - Errores HONESTOS: si el envío falla, se dice y se ofrece reintentar
 //   (antes mostraba éxito aunque fallara → leads perdidos en silencio).
 // - Campo niños (audiencias del Cotizador 2.0). Cero popups nativos.
@@ -71,19 +73,14 @@ export default function CreateQuotationPublic() {
     return "";
   };
 
-  // El sistema normaliza el celular chileno: acepta "9 1234 5678",
-  // "912345678", "56912345678" o "+56912345678" y los deja en +569XXXXXXXX.
-  const normalizePhone = (raw: string): string => {
-    const d = (raw || "").replace(/\D/g, "");
-    if (d.length === 9 && d.startsWith("9")) return "+56" + d;
-    if (d.length === 11 && d.startsWith("569")) return "+" + d;
-    return raw.trim();
-  };
-
+  // La normalización vive en utils/phone.ts, junto con la del resto del
+  // sistema (26-07-2026). Antes había una copia acá que solo entendía
+  // celulares; ahora acepta también fijos, porque si alguien solo tiene fijo
+  // no corresponde dejarlo afuera de pedir una cotización.
   const validatePhone = (phone: string | undefined) => {
-    if (!phone?.trim()) return "Necesitamos un celular para contactarte";
-    if (!/^\+569\d{8}$/.test(normalizePhone(phone)))
-      return "Escribe un celular chileno de 9 dígitos (ej: 9 1234 5678)";
+    if (!phone?.trim()) return "Necesitamos un teléfono para contactarte";
+    if (!/^\+56\d{9}$/.test(normalizePhone(phone)))
+      return "Escribe un teléfono chileno de 9 dígitos (ej: 9 1234 5678)";
     return "";
   };
 
@@ -372,7 +369,7 @@ export default function CreateQuotationPublic() {
                     htmlFor="phone"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Celular *
+                    Teléfono *
                   </label>
                   <input
                     id="phone"

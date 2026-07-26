@@ -3,6 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, EyeOff, Pencil, Search, Trash2, X } from "lucide-react";
 import { matchesSearch } from "../../../utils/searchMatch";
 import {
+  formatPhone,
+  normalizePhone,
+  PHONE_PLACEHOLDER,
+} from "../../../utils/phone";
+import {
   createSupplier,
   deleteSupplier,
   getSuppliers,
@@ -206,7 +211,7 @@ export default function ProveedoresTab({
                   {s.contact_name || "—"}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
-                  {s.phone || "—"}
+                  {formatPhone(s.phone) || "—"}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {s.notes || "—"}
@@ -374,8 +379,9 @@ export default function ProveedoresTab({
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone((p) => normalizePhone(p || ""))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="+56 9 …"
+                  placeholder={PHONE_PLACEHOLDER}
                 />
               </div>
               <div>

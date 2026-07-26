@@ -40,6 +40,7 @@ import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
+import { formatPhone } from "../../utils/phone";
 import GestionTab from "./GestionTab";
 import CocinaTab from "./CocinaTab";
 import { getQuotationProvisioning } from "../../services/logistics.service";
@@ -521,7 +522,7 @@ export default function PostVentaPage() {
                           {r.contactPerson || "—"}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {r.phone || ""}
+                          {formatPhone(r.phone)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
@@ -731,7 +732,7 @@ function EventModal({
             <p className="text-sm text-gray-500 mt-1">
               Cotización #{event.quotationNumber}
               {event.contactPerson ? ` · Contacto ${event.contactPerson}` : ""}
-              {event.phone ? ` · ${event.phone}` : ""}
+              {event.phone ? ` · ${formatPhone(event.phone)}` : ""}
               {event.hasContract ? " · 📄 con contrato" : ""}
               {event.requiresInvoice ? " · 🧾 requiere factura" : ""}
             </p>

@@ -16,6 +16,7 @@ import {
 } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
 import { QuotationStatsResponse } from "../../types/superAdmin.types";
+import { formatPhone } from "../../utils/phone";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -410,7 +411,7 @@ export default function SuperAdminPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="font-medium">{user.email}</div>
                         <div className="text-xs text-gray-500">
-                          {user.phone}
+                          {formatPhone(user.phone)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

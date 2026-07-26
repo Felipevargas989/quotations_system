@@ -22,6 +22,7 @@ import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
+import { normalizePhone, PHONE_PLACEHOLDER } from "../../utils/phone";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import {
@@ -1648,11 +1649,17 @@ export default function QuotationForm() {
                     const phone = e.target.value;
                     setClientFormData((prev) => ({ ...prev, phone }));
                   }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, phone: true }))
-                  }
+                  onBlur={() => {
+                    // Al salir del recuadro el número queda ordenado y a la
+                    // vista, para que se note que quedó bien guardado.
+                    setClientFormData((prev) => ({
+                      ...prev,
+                      phone: normalizePhone(prev.phone || ""),
+                    }));
+                    setTouchedFields((prev) => ({ ...prev, phone: true }));
+                  }}
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
-                  placeholder="+569XXXXXXXX"
+                  placeholder={PHONE_PLACEHOLDER}
                 />
                 {shouldShowError("phone") && (
                   <p className="text-red-500 text-sm mt-1">
@@ -1965,8 +1972,11 @@ export default function QuotationForm() {
                     <input
                       value={newContactPhone}
                       onChange={(e) => setNewContactPhone(e.target.value)}
+                      onBlur={() =>
+                        setNewContactPhone((p) => normalizePhone(p || ""))
+                      }
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                      placeholder="+56 9 ..."
+                      placeholder={PHONE_PLACEHOLDER}
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-1">

@@ -28,6 +28,7 @@ import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
+import { formatPhone } from "../../utils/phone";
 
 // Persist the quotations status filter per user, so the selection survives
 // reloads / navigation instead of resetting to the default each time.
@@ -606,7 +607,7 @@ export default function QuotationsPage() {
                           {contact.name || "—"}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {contact.phone || ""}
+                          {formatPhone(contact.phone)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
