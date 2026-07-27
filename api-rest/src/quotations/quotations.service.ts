@@ -102,17 +102,13 @@ export class QuotationsService {
       },
     );
 
-    // set quotation number as the last quotation number + 1
-    // get all quotations from the same company
-    const quotations = await this.quotationsRepository.findAll({
-      company_id: companyId,
-      sort_by: 'quotation_number',
-      sort_order: 'asc',
-    });
-    let quotationNumber = 1;
-    if (quotations.length > 0) {
-      quotationNumber = quotations[quotations.length - 1].quotation_number + 1;
-    }
+    // El número lo asigna LA BASE de forma atómica (migración 38): dos
+    // creaciones simultáneas reciben números distintos sí o sí, y la
+    // restricción única (company_id, quotation_number) lo garantiza
+    // incluso si este código cambia. Antes era "último + 1" leído aparte,
+    // con carrera conocida (Fase 1 punto 3 del plan de corrección).
+    const quotationNumber =
+      await this.quotationsRepository.nextQuotationNumber(companyId);
     const defaultItems: QuotationItem = {
       fixed_services: [],
       variable_services: [],

@@ -120,6 +120,24 @@ export class QuotationsRepository {
       .single();
   }
 
+  // Fase 1 punto 3 (migración 38): el número lo entrega LA BASE, de a uno
+  // por empresa (función next_quotation_number, atómica por fila de
+  // contador). Nada de "último + 1" leído aparte: eso dejaba que dos
+  // cotizaciones simultáneas quedaran con el mismo número. Y aunque este
+  // código cambie, la restricción UNIQUE (company_id, quotation_number)
+  // impide el repetido desde la base.
+  async nextQuotationNumber(companyId: Company['id']): Promise<number> {
+    const { data, error } = await this.supabase.client.rpc(
+      'next_quotation_number',
+      { p_company_id: companyId },
+    );
+    if (error) {
+      this.logger.error(error);
+      throw error;
+    }
+    return Number(data);
+  }
+
   async create(createQuotation: CreateQuotation) {
     this.logger.info(
       `create quotation with createQuotationDto ${JSON.stringify(createQuotation)}`,
