@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { computeMoney } from "@dinero";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Save,
@@ -1322,66 +1323,23 @@ export default function QuotationForm() {
   // Si mañana se agrega otro número al total (otro recargo, otro
   // impuesto), va ACÁ ADENTRO y sale por el return. Calcularlo aparte en
   // handleSubmit es exactamente el bug que esto vino a cerrar.
-  const computeTotals = () => {
-    // Cotizador 2.0: cada caja multiplica por SU audiencia (adultos o
-    // niños) o por su ajuste manual de personas — ya no por el total.
-    const variableGrandTotal = Math.round(
-      serviceBoxes.reduce((sum, box) => {
-        const perPerson = box.services.reduce(
-          (boxSum, service) => boxSum + service.precio * service.quantity,
-          0,
-        );
-        return sum + perPerson * boxPeople(box);
-      }, 0),
-    );
-
-    const fixedTotal = Math.round(
-      selectedFixedServices.reduce(
-        (sum, service) => sum + service.precio_calculado * service.quantity,
-        0,
-      ),
-    );
-
-    // value_per_person (columna histórica) = valor por ADULTO de los
-    // servicios que cubren a todos los adultos.
-    const valuePerPerson = Math.round(
-      serviceBoxes.reduce((sum, box) => {
-        if ((box.audience || "adultos") !== "adultos") return sum;
-        if (boxPeople(box) !== adultsCount) return sum;
-        return (
-          sum +
-          box.services.reduce((boxSum, s) => boxSum + s.precio * s.quantity, 0)
-        );
-      }, 0),
-    );
-
-    const subtotalAmount = Math.round(variableGrandTotal + fixedTotal);
-
-    // Aplicar descuento: por % o por monto cerrado, según el toggle
-    const discountAmount =
-      discType === "$"
-        ? Math.min(subtotalAmount, Math.round(formData.discount_amount || 0))
-        : Math.round(
-            subtotalAmount *
-              (Math.min(formData.discount_percentage || 0, 100) / 100),
-          );
-    const finalTotal = Math.round(subtotalAmount - discountAmount);
-
-    // Propina: % sobre los servicios variables, DESPUÉS del IVA (no
-    // lleva IVA). Se suma al total a pagar.
-    const tipAmount = tipEnabled
-      ? Math.round(variableGrandTotal * (Math.min(tipPct || 0, 100) / 100))
-      : 0;
-
-    return {
-      valuePerPerson,
-      fixedTotal,
-      subtotalAmount,
-      discountAmount,
-      tipAmount,
-      totalAmount: finalTotal + tipAmount,
-    };
-  };
+  const computeTotals = () =>
+    // FASE 1.2 (27-07-2026): la cuenta es UNA y vive en @dinero
+    // (api-rest/src/quotations/utils/money.ts) — la misma que usa el
+    // backend para verificar el guardado. Se calcula SOBRE LA FOTO de
+    // los ítems (buildItemsSnapshot), que es exactamente lo que se
+    // guarda: pantalla, payload y verificación no pueden discrepar.
+    computeMoney({
+      items: buildItemsSnapshot(),
+      people_count: Number(formData.people_count || 0),
+      children_count: childrenCount,
+      // Solo el modo activo del descuento entra a la cuenta (igual que
+      // en el payload: el otro viaja en 0).
+      discount_percentage:
+        discType === "%" ? formData.discount_percentage || 0 : 0,
+      discount_amount: discType === "$" ? formData.discount_amount || 0 : 0,
+      tip_percentage: tipEnabled ? tipPct || 0 : null,
+    });
 
   // Lo que ve la pantalla. Misma cuenta de arriba, guardada en estado.
   const calculateTotals = () => {

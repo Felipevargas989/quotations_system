@@ -67,6 +67,35 @@ const n = (v: number | null | undefined): number => Number(v) || 0;
 // Cantidad ausente o en 0 vale 1 (misma regla de Post-Venta: `quantity || 1`).
 const qty = (v: number | null | undefined): number => n(v) || 1;
 
+// Regla del catálogo para el precio de un servicio fijo según su tipo de
+// cálculo (espejo exacto de useServices.calculateFixedServicePrice). Se usa
+// al AGREGAR un fijo — cotizador y Post-Venta — para que el precio quede
+// RESUELTO en la foto; de ahí en adelante es un hecho guardado.
+export const resolveFixedServicePrice = (
+  s: {
+    precio?: number | null;
+    tipo_calculo?: string | null;
+    precio_por_persona?: number | null;
+    min_precio?: number | null;
+    max_precio?: number | null;
+  },
+  peopleCount: number,
+): number => {
+  const ppp = n(s.precio_por_persona);
+  switch (s.tipo_calculo) {
+    case 'variable_con_limites': {
+      let p = ppp * n(peopleCount);
+      if (n(s.min_precio) && p < n(s.min_precio)) p = n(s.min_precio);
+      if (n(s.max_precio) && p > n(s.max_precio)) p = n(s.max_precio);
+      return Math.round(p);
+    }
+    case 'fijo_variable':
+      return Math.round(n(s.precio) + ppp * n(peopleCount));
+    default:
+      return Math.round(n(s.precio));
+  }
+};
+
 export const computeMoney = (input: MoneyInput): MoneyTotals => {
   const items = input.items || {};
   const boxes = items.variable_services || [];

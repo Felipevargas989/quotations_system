@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -1259,41 +1260,65 @@ function ServiciosTab({
   }, []);
 
   // Precio por persona de un ítem variable = precio × cantidad (igual que la
-  // cotización). value_per_person = suma de esos; fixed_value = fijos × cant.
+  // cotización). Se usa para las filas en pantalla.
   const ppp = (it: any) => (it.precio || 0) * (it.quantity || 1);
-  // Matemática del Cotizador 2.0: cada grupo multiplica por SUS personas
-  // (su audiencia, o su ajuste manual), no por el total del evento.
+  // Audiencia y personas de cada grupo (Cotizador 2.0).
   const audOf = (g: any) => (g.audience === "ninos" ? "ninos" : "adultos");
   const audCount = (g: any) => (audOf(g) === "ninos" ? kidsN : adultsN);
   const gPeople = (g: any) =>
     typeof g.people === "number" ? g.people : audCount(g);
-  const gPP = (g: any) =>
-    (g.items || []).reduce((t: number, it: any) => t + ppp(it), 0);
-  const variableTotal = varGroups.reduce((t, g) => t + gPP(g) * gPeople(g), 0);
-  // value_per_person (columna histórica) = valor por ADULTO de los grupos
-  // que cubren a todos los adultos (misma definición del cotizador).
-  const valuePerPerson = varGroups.reduce(
-    (t, g) =>
-      audOf(g) === "adultos" && gPeople(g) === adultsN ? t + gPP(g) : t,
-    0,
-  );
-  const fixedValue = fixed.reduce(
-    (t, f) => t + (f.precio || 0) * (f.quantity || 1),
-    0,
-  );
-  const subtotal = variableTotal + fixedValue;
-  const descAmount =
-    discType === "%"
-      ? Math.round((subtotal * Math.min(discVal || 0, 100)) / 100)
-      : Math.min(subtotal, discVal || 0);
-  // Propina post-IVA de la cotización (no editable aquí): % sobre los
-  // servicios variables, sumada después del descuento.
+
+  // FASE 1.2 (27-07-2026): la foto de los ítems se arma UNA vez y de ahí
+  // salen la pantalla, lo guardado y lo que el backend verifica — misma
+  // fórmula compartida (@dinero = api-rest/src/quotations/utils/money.ts).
+  const buildItemsSnapshot = () => ({
+    variable_services: varGroups
+      .filter((g) => (g.items || []).length > 0)
+      .map((g) => ({
+        category: g.category,
+        day: g.day || 1,
+        audience: audOf(g),
+        people: gPeople(g),
+        items: (g.items || []).map((it: any) => ({
+          codigo: it.codigo,
+          nombre: it.nombre,
+          precio: it.precio,
+          categoria: it.categoria || g.category,
+          quantity: it.quantity || 1,
+        })),
+      })),
+    fixed_services: fixed.map((f) => ({
+      codigo: f.codigo,
+      nombre: f.nombre,
+      precio: f.precio,
+      categoria: f.categoria || "General",
+      quantity: f.quantity || 1,
+      tipo_calculo: f.tipo_calculo || "fijo",
+      min_precio: f.min_precio || 0,
+      max_precio: f.max_precio || 0,
+      precio_por_persona: f.precio_por_persona || 0,
+    })),
+  });
+
+  const money = computeMoney({
+    items: buildItemsSnapshot(),
+    people_count: personas,
+    children_count: kidsN,
+    // Solo el modo activo del descuento entra a la cuenta.
+    discount_percentage: discType === "%" ? discVal || 0 : 0,
+    discount_amount: discType === "$" ? discVal || 0 : 0,
+    // La propina no se edita acá: viaja el % de la cotización.
+    tip_percentage: quote.tip_percentage ?? null,
+  });
+  const variableTotal = money.variableGrandTotal;
+  // El % de la propina se sigue leyendo para la línea en pantalla.
   const tipPct = quote.tip_percentage;
-  const tipAmount =
-    tipPct != null && tipPct > 0
-      ? Math.round(variableTotal * (tipPct / 100))
-      : 0;
-  const total = subtotal - descAmount + tipAmount;
+  const valuePerPerson = money.valuePerPerson;
+  const fixedValue = money.fixedTotal;
+  const subtotal = money.subtotalAmount;
+  const descAmount = money.discountAmount;
+  const tipAmount = money.tipAmount;
+  const total = money.totalAmount;
 
   const removeVar = (gi: number, ii: number) => {
     setVarGroups((prev) => {
@@ -1327,7 +1352,13 @@ function ServiciosTab({
 
   const addFixedSvc = (idx: string) => {
     const s = catalog.fixed[+idx];
-    if (s) setFixed((prev) => [...prev, { ...s, quantity: 1 }]);
+    // El precio queda RESUELTO al agregarlo (regla del catálogo en
+    // @dinero): un fijo "por persona" ya no entra con precio 0.
+    if (s)
+      setFixed((prev) => [
+        ...prev,
+        { ...s, precio: resolveFixedServicePrice(s, personas), quantity: 1 },
+      ]);
     setAddingFixed(false);
   };
 
@@ -1383,40 +1414,16 @@ function ServiciosTab({
     const prevTotal = quote.total_amount || 0;
     const newTotal = Math.round(total);
     try {
-      const itemsPayload = {
-        variable_services: varGroups
-          .filter((g) => (g.items || []).length > 0)
-          .map((g) => ({
-            category: g.category,
-            day: g.day || 1,
-            audience: audOf(g),
-            people: gPeople(g),
-            items: (g.items || []).map((it: any) => ({
-              codigo: it.codigo,
-              nombre: it.nombre,
-              precio: it.precio,
-              categoria: it.categoria || g.category,
-              quantity: it.quantity || 1,
-            })),
-          })),
-        fixed_services: fixed.map((f) => ({
-          codigo: f.codigo,
-          nombre: f.nombre,
-          precio: f.precio,
-          categoria: f.categoria || "General",
-          quantity: f.quantity || 1,
-          tipo_calculo: f.tipo_calculo || "fijo",
-          min_precio: f.min_precio || 0,
-          max_precio: f.max_precio || 0,
-          precio_por_persona: f.precio_por_persona || 0,
-        })),
-      };
+      // La MISMA foto que alimentó la cuenta de pantalla (Fase 1.2).
+      const itemsPayload = buildItemsSnapshot();
       const { error } = await updateQuotation(
         {
           people_count: personas,
           children_count: kidsN,
           discount_percentage: discType === "%" ? discVal || 0 : 0,
-          discount_amount: discType === "$" ? discVal || 0 : 0,
+          // El MONTO sale de la cuenta compartida porque ahí viene topado
+          // al subtotal: subtotal − descuento siempre da el total guardado.
+          discount_amount: discType === "$" ? Math.round(descAmount) : 0,
           value_per_person: Math.round(valuePerPerson),
           fixed_value: Math.round(fixedValue),
           subtotal_amount: Math.round(subtotal),

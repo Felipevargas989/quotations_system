@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { findAllServices } from "../services/services.service";
 import {
@@ -172,29 +173,13 @@ export function useServices() {
     [query.data],
   );
 
-  // Calculate price for fixed services based on calculation type and people count
+  // FASE 1.2 (27-07-2026): la regla del precio de un fijo es UNA y vive
+  // en @dinero (api-rest/src/quotations/utils/money.ts), junto al resto
+  // de la cuenta. Acá solo se delega.
   const calculateFixedServicePrice = (
     service: FixedServiceFormatted,
     peopleCount: number,
-  ): number => {
-    switch (service.tipo_calculo) {
-      case CalculationType.VARIABLE_CON_LIMITES: {
-        const calculatedPrice = service.precio_por_persona * peopleCount;
-        if (service.min_precio && calculatedPrice < service.min_precio)
-          return service.min_precio;
-        if (service.max_precio && calculatedPrice > service.max_precio)
-          return service.max_precio;
-        return calculatedPrice;
-      }
-      case CalculationType.FIJO_VARIABLE: {
-        return service.precio + service.precio_por_persona * peopleCount;
-      }
-      case CalculationType.FIJO:
-      default: {
-        return service.precio;
-      }
-    }
-  };
+  ): number => resolveFixedServicePrice(service, peopleCount);
 
   const reload = () =>
     queryClient.invalidateQueries({ queryKey: ["services"] });
