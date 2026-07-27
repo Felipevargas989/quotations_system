@@ -5,6 +5,7 @@ import { matchesSearch } from "../../utils/searchMatch";
 import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  getAllFixedServiceCostItems,
   getAllIngredientRecipeItems,
   getSupplies,
 } from "../../services/logistics.service";
@@ -18,6 +19,9 @@ import {
   updateFixedService,
   updateVariableService,
 } from "../../services/services.service";
+import MultiSelect, {
+  MultiSelectOption,
+} from "../../components/MultiSelect";
 import ExcelUpload from "./components/ExcelUpload";
 import ServicesTable from "./components/ServicesTable";
 import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
@@ -80,12 +84,12 @@ export default function ServicesPage() {
   // "Servicios Variables".
   const [svcSearch, setSvcSearch] = useState("");
   const searchingSvc = svcSearch.trim() !== "";
-  const shownVariableServices = searchingSvc
-    ? variableServices.filter((s) => matchesSearch(svcSearch, s.name))
-    : variableServices;
-  const shownFixedServices = searchingSvc
-    ? fixedServices.filter((s) => matchesSearch(svcSearch, s.name))
-    : fixedServices;
+
+  // Filtro por receta/costos (26-07-2026). Vacío = todos. Se aplica DENTRO de
+  // cada familia: los variables siguen en sus categorías y los fijos en su
+  // tabla; nunca se mezclan.
+  const [recipeFilter, setRecipeFilter] = useState<string[]>([]);
+  const recipeFilterActive = recipeFilter.length > 0;
 
   // Costo de insumos por persona de cada servicio variable (desde recetas),
   // para mostrar costo y margen junto al precio en la lista. Vía React
@@ -115,6 +119,52 @@ export default function ServicesPage() {
     },
     retry: 0,
   });
+
+  // Qué servicios FIJOS tienen costos cargados. Silencioso: si falla, el
+  // filtro simplemente los trata como "sin costos".
+  const { data: fixedCostIds = new Set<number>() } = useQuery({
+    queryKey: ["fixedCostIds", company?.id],
+    enabled: !!company?.id,
+    queryFn: async (): Promise<Set<number>> => {
+      const items = await getAllFixedServiceCostItems(Number(company!.id));
+      return new Set(items.map((it) => it.fixed_service_id));
+    },
+    retry: 0,
+  });
+
+  // "Tiene receta/costos": para variables, que exista costo calculado desde su
+  // receta; para fijos, que tenga al menos una línea de costo.
+  const variableHasRecipe = (s: VariableService) =>
+    recipeCosts[s.id] !== undefined;
+  const fixedHasCosts = (s: FixedService) => fixedCostIds.has(s.id);
+
+  const passesRecipeFilter = (has: boolean) =>
+    !recipeFilterActive ||
+    (has && recipeFilter.includes("con")) ||
+    (!has && recipeFilter.includes("sin"));
+
+  const searchedVariables = searchingSvc
+    ? variableServices.filter((s) => matchesSearch(svcSearch, s.name))
+    : variableServices;
+  const searchedFixed = searchingSvc
+    ? fixedServices.filter((s) => matchesSearch(svcSearch, s.name))
+    : fixedServices;
+
+  const shownVariableServices = searchedVariables.filter((s) =>
+    passesRecipeFilter(variableHasRecipe(s)),
+  );
+  const shownFixedServices = searchedFixed.filter((s) =>
+    passesRecipeFilter(fixedHasCosts(s)),
+  );
+
+  const conCount =
+    variableServices.filter(variableHasRecipe).length +
+    fixedServices.filter(fixedHasCosts).length;
+  const totalCount = variableServices.length + fixedServices.length;
+  const RECIPE_FILTER_OPTIONS: MultiSelectOption[] = [
+    { value: "con", label: `Con receta / costos (${conCount})` },
+    { value: "sin", label: `Sin receta / costos (${totalCount - conCount})` },
+  ];
 
   const loadRecipeCosts = async () => {
     await queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
@@ -364,7 +414,8 @@ export default function ServicesPage() {
 
       {/* Buscador del catálogo (en el lugar del antiguo subtítulo
           "Servicios Variables"): filtra variables Y fijos a la vez. */}
-      <div className="relative max-w-xs">
+      <div className="flex flex-wrap items-center gap-3">
+      <div className="relative max-w-xs flex-1 min-w-[220px]">
         <Search
           className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           size={16}
@@ -376,6 +427,22 @@ export default function ServicesPage() {
           className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
+        <div className="min-w-[240px]">
+          <MultiSelect
+            options={RECIPE_FILTER_OPTIONS}
+            value={recipeFilter}
+            onChange={setRecipeFilter}
+            placeholder="Filtrar por receta / costos"
+            className="w-full"
+          />
+        </div>
+        {recipeFilterActive && (
+          <span className="text-sm text-gray-600">
+            Mostrando {shownVariableServices.length + shownFixedServices.length}{" "}
+            de {totalCount}
+          </span>
+        )}
+      </div>
 
       {/* Variable services grouped by category. Each category box header has
           the drag handle (reorder categories) and the ⋮ menu (rename /
@@ -385,7 +452,7 @@ export default function ServicesPage() {
         orderedCategories={orderedCategories}
         variableServices={shownVariableServices}
         categoryLinks={categoryLinks}
-        searchActive={searchingSvc}
+        searchActive={searchingSvc || recipeFilterActive}
         onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
         onEditRecipe={(s) => handleEditRecipe(s, ServiceType.VARIABLE)}
         recipeCosts={recipeCosts}
@@ -398,8 +465,15 @@ export default function ServicesPage() {
         onReorderCategories={handleReorderCategories}
       />
 
-      {/* Fixed services table (unchanged) */}
+      {/* Fixed services table. Con filtro activo y sin coincidencias se avisa,
+          en vez de dejar una tabla vacía que parece un error. */}
       <div className="mt-6">
+        {(searchingSvc || recipeFilterActive) &&
+        shownFixedServices.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">
+            Ningún servicio fijo coincide con el filtro.
+          </p>
+        ) : (
         <ServicesTable
           variableServices={[]}
           fixedServices={shownFixedServices}
@@ -409,6 +483,7 @@ export default function ServicesPage() {
           onToggleActive={handleToggleActive}
           hideVariable
         />
+        )}
       </div>
 
       <FixedServiceForm
