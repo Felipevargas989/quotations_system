@@ -196,6 +196,9 @@ describe('QuotationsService', () => {
           data: {
             quotation_status: QuotationStatus.ACEPTADA,
             total_amount: 100,
+            subtotal_amount: 100,
+            fixed_value: 100,
+            items: { fixed_services: [{ precio: 100, quantity: 1 }] },
           },
           error: null,
         });
@@ -224,12 +227,16 @@ describe('QuotationsService', () => {
 
         const params: UpdateQuotationDto = {
           total_amount: newTotalAmount,
+          discount_amount: 10,
         };
 
         quotationsRepositoryMock.findOne.mockResolvedValue({
           data: {
             quotation_status: QuotationStatus.ACEPTADA,
             total_amount: originalAmount,
+            subtotal_amount: 100,
+            fixed_value: 100,
+            items: { fixed_services: [{ precio: 100, quantity: 1 }] },
           },
           error: null,
         });
@@ -265,7 +272,14 @@ describe('QuotationsService', () => {
 
         const params: UpdateQuotationDto = {
           total_amount: newTotalAmount,
+          subtotal_amount: 100,
+          fixed_value: 100,
+          items: { fixed_services: [], variable_services: [] } as never,
         };
+        params.items = {
+          fixed_services: [{ precio: 100, quantity: 1 }],
+          variable_services: [],
+        } as never;
 
         quotationsRepositoryMock.findOne.mockResolvedValue({
           data: {
@@ -316,7 +330,14 @@ describe('QuotationsService', () => {
 
         const params: UpdateQuotationDto = {
           total_amount: newTotalAmount,
+          subtotal_amount: 100,
+          fixed_value: 100,
+          items: { fixed_services: [], variable_services: [] } as never,
         };
+        params.items = {
+          fixed_services: [{ precio: 100, quantity: 1 }],
+          variable_services: [],
+        } as never;
 
         quotationsRepositoryMock.findOne.mockResolvedValue({
           data: {

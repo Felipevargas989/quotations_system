@@ -30,6 +30,12 @@ import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
 import { QuotationsRepository } from './quotations.repository';
+import {
+  DeclaredMoney,
+  MoneyInput,
+  hasMoneyToVerify,
+  verifyMoney,
+} from './utils/money';
 
 @Injectable()
 export class QuotationsService {
@@ -46,6 +52,25 @@ export class QuotationsService {
   ) {
     this.logger.setContext(QuotationsService.name);
   }
+
+  // ---------- FASE 1: LA CUENTA LA HACE LA CASA (27-07-2026) ----------
+  // El backend rehace los totales desde los ítems (utils/money.ts, misma
+  // fórmula del cotizador) y rechaza el guardado si lo declarado no calza
+  // al peso. Una solicitud sin ítems y sin montos pasa igual que siempre.
+  private assertMoneyMatches(declared: DeclaredMoney, input: MoneyInput) {
+    if (!hasMoneyToVerify(declared, input.items)) return;
+    const mismatches = verifyMoney(declared, input);
+    if (mismatches.length === 0) return;
+    const detalle = mismatches
+      .map((m) => `${m.campo}: enviado ${m.enviado}, calculado ${m.calculado}`)
+      .join('; ');
+    this.logger.error(`Totales rechazados por no calzar: ${detalle}`);
+    throw new BadRequestException(
+      `Los totales enviados no calzan con los ítems de la cotización (${detalle}). ` +
+        'Actualiza la página e intenta guardar de nuevo; si el problema persiste, avisa al administrador.',
+    );
+  }
+
   async create(
     createQuotationDto: CreateQuotationDto,
     companyId: number,
@@ -54,6 +79,29 @@ export class QuotationsService {
     this.logger.info(
       `create quotation with createQuotationDto ${JSON.stringify(createQuotationDto)}`,
     );
+
+    // FASE 1: verificar la plata antes de cualquier otra cosa.
+    this.assertMoneyMatches(
+      {
+        fixed_value: createQuotationDto.fixed_value || 0,
+        value_per_person: createQuotationDto.value_per_person || 0,
+        subtotal_amount: createQuotationDto.subtotal_amount || 0,
+        discount_percentage: createQuotationDto.discount_percentage || 0,
+        discount_amount: createQuotationDto.discount_amount || 0,
+        tip_percentage: createQuotationDto.tip_percentage ?? null,
+        tip_amount: createQuotationDto.tip_amount || 0,
+        total_amount: createQuotationDto.total_amount || 0,
+      },
+      {
+        items: createQuotationDto.items,
+        people_count: createQuotationDto.people_count,
+        children_count: createQuotationDto.children_count || 0,
+        discount_percentage: createQuotationDto.discount_percentage || 0,
+        discount_amount: createQuotationDto.discount_amount || 0,
+        tip_percentage: createQuotationDto.tip_percentage ?? null,
+      },
+    );
+
     // set quotation number as the last quotation number + 1
     // get all quotations from the same company
     const quotations = await this.quotationsRepository.findAll({
@@ -339,6 +387,80 @@ export class QuotationsService {
 
       if (!quotation) {
         throw new Error('Quotation not found');
+      }
+
+      // FASE 1: si el parche toca la plata, la cuenta se rehace ANTES de
+      // mover pagos o reembolsos. Lo que no viene en el parche conserva su
+      // valor guardado (un cambio de estado puro no gatilla nada).
+      const d = updateQuotationDto;
+      if (
+        d.items !== undefined ||
+        d.total_amount !== undefined ||
+        d.subtotal_amount !== undefined ||
+        d.fixed_value !== undefined ||
+        d.value_per_person !== undefined ||
+        d.discount_percentage !== undefined ||
+        d.discount_amount !== undefined ||
+        d.tip_percentage !== undefined ||
+        d.tip_amount !== undefined ||
+        d.people_count !== undefined ||
+        d.children_count !== undefined
+      ) {
+        this.assertMoneyMatches(
+          {
+            fixed_value:
+              d.fixed_value !== undefined ? d.fixed_value : quotation.fixed_value,
+            value_per_person:
+              d.value_per_person !== undefined
+                ? d.value_per_person
+                : quotation.value_per_person,
+            subtotal_amount:
+              d.subtotal_amount !== undefined
+                ? d.subtotal_amount
+                : quotation.subtotal_amount,
+            discount_percentage:
+              d.discount_percentage !== undefined
+                ? d.discount_percentage
+                : quotation.discount_percentage,
+            discount_amount:
+              d.discount_amount !== undefined
+                ? d.discount_amount
+                : quotation.discount_amount,
+            tip_percentage:
+              d.tip_percentage !== undefined
+                ? d.tip_percentage
+                : quotation.tip_percentage,
+            tip_amount:
+              d.tip_amount !== undefined ? d.tip_amount : quotation.tip_amount,
+            total_amount:
+              d.total_amount !== undefined
+                ? d.total_amount
+                : quotation.total_amount,
+          },
+          {
+            items: d.items !== undefined ? d.items : quotation.items,
+            people_count:
+              d.people_count !== undefined
+                ? d.people_count
+                : quotation.people_count,
+            children_count:
+              d.children_count !== undefined
+                ? d.children_count
+                : quotation.children_count,
+            discount_percentage:
+              d.discount_percentage !== undefined
+                ? d.discount_percentage
+                : quotation.discount_percentage,
+            discount_amount:
+              d.discount_amount !== undefined
+                ? d.discount_amount
+                : quotation.discount_amount,
+            tip_percentage:
+              d.tip_percentage !== undefined
+                ? d.tip_percentage
+                : quotation.tip_percentage,
+          },
+        );
       }
 
       // GUARDIA DE ESTADOS: abandonar un estado de post-venta (aceptada /
