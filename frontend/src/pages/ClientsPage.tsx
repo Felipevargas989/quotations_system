@@ -53,6 +53,8 @@ import {
 // filtro de estados de Cotizaciones): la selección sobrevive recargas.
 const TYPE_FILTER_KEY = (userId: string | number) =>
   `eventia_clients_type_filter_${userId}`;
+const SEGMENT_FILTER_KEY = (userId: string | number) =>
+  `eventia_clients_segment_filter_${userId}`;
 
 export default function ClientsPage() {
   const { user } = useAuth();
@@ -93,10 +95,11 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [typeFilterRestored, setTypeFilterRestored] = useState(false);
 
-  // ---- Filtro por segmento comercial (vacío = todos). A propósito NO se
-  // persiste: un segmento dejado activo esconde clientes en silencio y a la
-  // vuelta parecería que "faltan"; cada visita parte mostrando todo. ----
-  const [segmentFilter, setSegmentFilter] = useState<string>("");
+  // ---- Filtro múltiple por segmento comercial (vacío = todos), guardado
+  // por usuario, igual que el de tipo. El MultiSelect deja las selecciones
+  // a la vista, así que un segmento activo no esconde clientes en silencio. ----
+  const [segmentFilter, setSegmentFilter] = useState<string[]>([]);
+  const [segmentFilterRestored, setSegmentFilterRestored] = useState(false);
 
   // ---- Tipos de cliente dinámicos (tabla client_types) ----
   // TODA la gestión (crear, ordenar con flechas, eliminar) vive en el
@@ -307,6 +310,34 @@ export default function ClientsPage() {
     }
   }, [typeFilter, user, typeFilterRestored]);
 
+  // Restaurar el filtro de segmentos guardado (por usuario).
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(SEGMENT_FILTER_KEY(user.id));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setSegmentFilter(parsed);
+      }
+    } catch {
+      /* almacenamiento no disponible o corrupto: se parte sin filtro */
+    }
+    setSegmentFilterRestored(true);
+  }, [user]);
+
+  // Guardar el filtro de segmentos en cada cambio (después de restaurar).
+  useEffect(() => {
+    if (!user || !segmentFilterRestored) return;
+    try {
+      localStorage.setItem(
+        SEGMENT_FILTER_KEY(user.id),
+        JSON.stringify(segmentFilter),
+      );
+    } catch {
+      /* sin espacio o deshabilitado: el filtro sigue funcionando en memoria */
+    }
+  }, [segmentFilter, user, segmentFilterRestored]);
+
   // Tras cualquier guardado que afecte la lista, se invalida el caché y
   // React Query trae la versión fresca.
   const loadClients = () =>
@@ -463,8 +494,7 @@ export default function ClientsPage() {
   };
   const segmentCount = (seg: string) =>
     clients.filter((c) => clientSegment(c) === seg).length;
-  const SEGMENT_OPTIONS: { value: string; label: string }[] = [
-    { value: "", label: `Todos los clientes (${clients.length})` },
+  const SEGMENT_OPTIONS: MultiSelectOption[] = [
     { value: "efectivos", label: `Efectivos (${segmentCount("efectivos")})` },
     {
       value: "en_proceso",
@@ -494,7 +524,8 @@ export default function ClientsPage() {
       typeFilter.length === 0 ||
       typeFilter.includes((client.client_type || "").trim());
     const matchesSegment =
-      !segmentFilter || clientSegment(client) === segmentFilter;
+      segmentFilter.length === 0 ||
+      segmentFilter.includes(clientSegment(client));
     return matchesText && matchesType && matchesSegment;
   });
 
@@ -1151,22 +1182,13 @@ export default function ClientsPage() {
             </div>
             {/* Segmento comercial: quién compró, quién quedó en el camino */}
             <div className="min-w-[230px]">
-              <select
+              <MultiSelect
+                options={SEGMENT_OPTIONS}
                 value={segmentFilter}
-                onChange={(e) => setSegmentFilter(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                  segmentFilter
-                    ? "border-blue-400 bg-blue-50 text-blue-900 font-medium"
-                    : "border-gray-300 text-gray-700"
-                }`}
-                title="Segmento según sus cotizaciones: efectivos compraron alguna vez; 'sin concretar' cotizaron y todo se rechazó o canceló"
-              >
-                {SEGMENT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setSegmentFilter}
+                placeholder="Filtrar por segmento"
+                className="w-full"
+              />
             </div>
           </div>
         </div>
