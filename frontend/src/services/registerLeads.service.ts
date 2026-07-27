@@ -18,8 +18,7 @@ export const registerLead = async (
           personas_empresa: leadData.personas_empresa,
           ventas_anuales: leadData.ventas_anuales,
         },
-      ])
-      .select();
+      ]);
 
     if (error) {
       console.error("Error registering lead:", error);
