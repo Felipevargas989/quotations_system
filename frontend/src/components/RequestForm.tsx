@@ -146,7 +146,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         }));
         setIsExistingClient(true);
       } else {
-        console.log("Client not found in list");
       }
     } else {
       setFormData((prev) => ({
@@ -214,8 +213,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
     try {
       if (request?.id) {
-        console.log("formData", formData);
-        console.log("request.id", request.id);
 
         const { error } = await updateQuotation(formData, request.id);
 

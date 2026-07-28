@@ -65,7 +65,6 @@ export default function NewUserRegisterForm() {
 
     try {
       // Log the payload
-      console.log("Form submitted with payload:", formData);
 
       // Map form data to LeadData interface
       const leadData: LeadData = {
