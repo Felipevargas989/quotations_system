@@ -1,14 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RefundsController } from '../refunds.controller';
+import { PinoLogger } from 'nestjs-pino';
 import { RefundsService } from '../refunds.service';
+import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { RefundsController } from '../refunds.controller';
 
+// Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
+// sus servicios mockeados — nunca instanciar servicios reales acá.
 describe('RefundsController', () => {
   let controller: RefundsController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RefundsController],
-      providers: [RefundsService],
+      providers: [
+        provideMock(RefundsService),
+        { provide: PinoLogger, useValue: mockPinoLogger() },
+      ],
     }).compile();
 
     controller = module.get<RefundsController>(RefundsController);

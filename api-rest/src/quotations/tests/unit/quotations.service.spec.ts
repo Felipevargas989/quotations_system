@@ -36,6 +36,11 @@ describe('QuotationsService', () => {
 
     refundsServiceMock = {
       create: jest.fn(),
+      // Tarea #42 (compensación): update() consulta los reembolsos
+      // pendientes antes de crear deuda nueva. Sin reembolsos (lista
+      // vacía), el comportamiento es el de siempre — que es justo lo
+      // que estas pruebas verifican.
+      findPendingByQuotation: jest.fn().mockResolvedValue([]),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
