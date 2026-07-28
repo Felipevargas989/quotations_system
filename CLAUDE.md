@@ -92,12 +92,13 @@ Backend env (`api-rest/.env`, see `.env.example`): `SUPABASE_URL`,
   `Sidebar`). Some pages are public (landing page, public quotation creation, password
   recovery, public satisfaction survey).
 - **Styling**: Tailwind CSS. Icons via `lucide-react`. Charts via `chart.js`/`react-chartjs-2`.
-- **External data**: services pull product/service catalogs from Google Sheets
-  (`googleSheetsService.ts`, `useGoogleSheets`) and read/write `.xlsx` via `xlsx`.
+- **External data**: bulk service import reads `.xlsx` via `xlsx` (the old Google
+  Sheets integration was removed 2026-07-28 — it was dead code).
+- **Route-level code splitting**: pages behind login are `React.lazy` in `App.tsx`
+  (Suspense fallback `PageLoader`). New authenticated pages must be lazy too.
 
 Frontend env (`frontend/.env`, see `.env.example`, all `VITE_` prefixed): `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_ANON_KEY`, `VITE_EVENTIA_API_REST` (backend base URL), plus the
-`VITE_GOOGLE_*` Sheets keys.
+`VITE_SUPABASE_ANON_KEY`, `VITE_EVENTIA_API_REST` (backend base URL).
 
 ## Database & migrations
 
