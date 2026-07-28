@@ -832,10 +832,21 @@ export default function DashboardPage() {
     ],
   };
 
-  if (loading) {
+  // Esqueleto SOLO en la primera visita de la sesión (sin datos aún);
+  // después, la pantalla nunca se borra: muestra lo último y refresca.
+  if (loading && !dashboardQuery.data) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-28 bg-gray-200 rounded-xl"></div>
+          ))}
+        </div>
+        <div className="h-72 bg-gray-200 rounded-xl"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64 bg-gray-200 rounded-xl"></div>
+          <div className="h-64 bg-gray-200 rounded-xl"></div>
+        </div>
       </div>
     );
   }

@@ -92,7 +92,10 @@ export default function Analytics() {
     fetchStats();
   };
 
-  if (loading) {
+  // VELOCIDAD 2.0 (28-07): el esqueleto solo la PRIMERA vez; al cambiar
+  // el filtro se conservan los gráficos anteriores mientras llegan los
+  // nuevos (antes la pantalla entera volvía a gris).
+  if (loading && !stats) {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-3">
