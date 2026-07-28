@@ -11,6 +11,7 @@ import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
+import { RegisterLeadDto } from './dto/register-lead.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { SuperAdminRepository } from './super-admin.repository';
 import { logSafe } from '../logging/log-safe';
@@ -208,6 +209,23 @@ export class SuperAdminService {
       this.logger.error(`Error in getStatsLastMonth service: ${errorMessage}`);
       throw error;
     }
+  }
+
+  // Mudanza #1 de "una sola puerta" (28-07): guardar el lead Y avisar
+  // a los super-admins en UNA llamada. El aviso que falle no bota el
+  // registro (el lead vale más que el correo).
+  async registerLead(dto: RegisterLeadDto) {
+    const lead = await this.superAdminRepository.registerLead(dto);
+    try {
+      await this.notifySuperAdmins({
+        content: 'Nuevo lead desde el formulario de la pagina',
+      });
+    } catch (error) {
+      this.logger.error(
+        `El lead quedó guardado pero el aviso falló: ${error instanceof Error ? error.message : 'error desconocido'}`,
+      );
+    }
+    return { success: true, id: lead.id };
   }
 
   async notifySuperAdmins({ content }: NotifySuperAdminDto) {

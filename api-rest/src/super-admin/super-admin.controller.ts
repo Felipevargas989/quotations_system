@@ -6,6 +6,7 @@ import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { SuperAdminService } from './super-admin.service';
 import { Throttle } from '@nestjs/throttler';
 import { logSafe } from '../logging/log-safe';
+import { RegisterLeadDto } from './dto/register-lead.dto';
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -30,6 +31,17 @@ export class SuperAdminController {
   getStatsLastMonth() {
     this.logger.info(`GET /super-admin/stats/last-month`);
     return this.superAdminService.getStatsLastMonth();
+  }
+
+  // Mudanza #1 de "una sola puerta" (28-07): la landing registra el
+  // lead POR ACÁ (validado + guardado + aviso en una llamada), ya no
+  // directo a Supabase desde el navegador.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Public()
+  @Post('lead')
+  registerLead(@Body() registerLeadDto: RegisterLeadDto) {
+    this.logger.info('POST /super-admin/lead (campos personales redactados)');
+    return this.superAdminService.registerLead(registerLeadDto);
   }
 
   // Techo estricto: acceso público de escritura (Fase 3).

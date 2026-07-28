@@ -250,4 +250,28 @@ export class SuperAdminRepository {
       };
     }
   }
+
+  // Mudanza #1 de "una sola puerta" (28-07): el lead de la landing se
+  // inserta ACÁ con la llave de servicio, ya no directo desde el
+  // navegador con la llave anónima.
+  async registerLead(lead: {
+    nombre: string;
+    telefono: string;
+    email: string;
+    nombre_empresa?: string;
+    personas_empresa?: string;
+    ventas_anuales?: string;
+  }) {
+    this.logger.info('registerLead (campos personales redactados)');
+    const { data, error } = await this.supabase.client
+      .from('leads')
+      .insert([lead])
+      .select()
+      .single();
+    if (error) {
+      this.logger.error(`registerLead error: ${error.message}`);
+      throw error;
+    }
+    return data as { id: string };
+  }
 }

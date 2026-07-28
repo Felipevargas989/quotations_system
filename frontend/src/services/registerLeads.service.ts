@@ -1,55 +1,26 @@
 import { API_ROUTES } from "../constants/api.routes";
-import { supabase } from "../lib/supabase";
 import { LeadData, RegisterLeadResponse } from "../types/leads.types";
 import { apiRequest } from "./api";
 
+// Mudanza #1 de "una sola puerta" (28-07): antes este servicio escribía
+// DIRECTO a la tabla leads con la llave anónima y después hacía una
+// segunda llamada para avisar. Ahora es UNA llamada al backend, que
+// valida, guarda con la llave de servicio y avisa — todo junto.
 export const registerLead = async (
   leadData: LeadData,
 ): Promise<RegisterLeadResponse> => {
   try {
-    const { data, error } = await supabase
-      .from("leads")
-      .insert([
-        {
-          nombre: leadData.nombre,
-          telefono: leadData.telefono,
-          email: leadData.email,
-          nombre_empresa: leadData.nombre_empresa,
-          personas_empresa: leadData.personas_empresa,
-          ventas_anuales: leadData.ventas_anuales,
-        },
-      ]);
-
-    if (error) {
-      console.error("Error registering lead:", error);
-      return {
-        success: false,
-        error: error.message || "Error al registrar el lead",
-      };
-    }
-
-    console.log("Lead registered successfully:", data);
-
-    try {
-      await apiRequest(`${API_ROUTES.SUPER_ADMIN_NEW_LEAD}`, "POST", {
-        content: "Nuevo lead desde el formulario de la pagina",
-      });
-    } catch (notifyError) {
-      console.error(
-        "Error notifying super-admins about the new lead:",
-        notifyError,
-      );
-    }
-
-    return {
-      success: true,
-      data: data,
-    };
+    const data = await apiRequest(
+      API_ROUTES.SUPER_ADMIN_LEAD,
+      "POST",
+      leadData,
+    );
+    return { success: true, data };
   } catch (error) {
-    console.error("Unexpected error registering lead:", error);
     return {
       success: false,
-      error: "Error inesperado al registrar el lead",
+      error:
+        error instanceof Error ? error.message : "Error al registrar el lead",
     };
   }
 };

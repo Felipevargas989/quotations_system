@@ -5,6 +5,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyService } from './service';
 import { Throttle } from '@nestjs/throttler';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { logSafe } from '../logging/log-safe';
 
 @Controller('customer-satisfaction-survey')
@@ -16,9 +17,10 @@ export class CustomerSatisfactionSurveyController {
     this.logger.setContext(CustomerSatisfactionSurveyController.name);
   }
 
-  // Techo estricto: acceso público de escritura (Fase 3).
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Public()
+  // Cerrado el 28-07 (Fase 3, cabos sueltos): esta puerta era @Public
+  // y NADIE del frontend la llama (medido con grep) — era una escritura
+  // abierta a internet sin uso. Ahora exige sesión de administrador.
+  @Roles(...ADMIN_ONLY)
   @Post('template')
   createTemplate(@Query('companyId') companyId: number) {
     this.logger.info(
