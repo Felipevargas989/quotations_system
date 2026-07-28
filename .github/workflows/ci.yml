@@ -1,0 +1,62 @@
+# Fase 2 Bloque D — el revisor automático.
+#
+# Corre en cada push y en cada PR: construye y prueba backend y
+# frontend. Con la protección de la rama main, NADA con esto en rojo
+# puede llegar a producción (main = despliegue automático del backend
+# en Railway).
+#
+# Los dos trabajos se llaman "backend" y "frontend": esos nombres son
+# los que la protección de main exige en verde. Si se renombran acá,
+# hay que renombrarlos también en la protección.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-rest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api-rest/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Compilar
+        run: npm run build
+      - name: Pruebas (29 suites)
+        run: npx jest --silent
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Valores de forma para que el build compile; las llaves REALES
+      # se inyectan solo al construir para publicar (03_COMO_PUBLICAR).
+      VITE_EVENTIA_API_REST: https://ci.invalid
+      VITE_SUPABASE_URL: https://ci.invalid
+      VITE_SUPABASE_ANON_KEY: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Tipos + construcción (tsc + vite)
+        run: npm run build
+      - name: Pruebas (vitest)
+        run: npm run test
