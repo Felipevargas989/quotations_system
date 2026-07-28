@@ -99,67 +99,51 @@ export const deleteSupplier = async (id: number) => {
 // Referencias de cada recurso de gestión (costos de servicios fijos +
 // recursos asignados a eventos). Con cualquiera, no se elimina: la
 // eliminación arrastraría esa historia en cascada.
+// MUDANZA #5 (28-07): recursos por el backend (/logistics/resources).
 export const getResourcesUsage = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<Record<number, { costLines: number; events: number }>> => {
-  const usage: Record<number, { costLines: number; events: number }> = {};
-  const [cost, ev] = await Promise.all([
-    supabase
-      .from("fixed_service_cost_items")
-      .select("resource_id")
-      .eq("company_id", companyId),
-    supabase
-      .from("event_resources")
-      .select("resource_id")
-      .eq("company_id", companyId),
-  ]);
-  (cost.data || []).forEach((r) => {
-    const id = r.resource_id as number;
-    usage[id] = usage[id] || { costLines: 0, events: 0 };
-    usage[id].costLines += 1;
-  });
-  (ev.data || []).forEach((r) => {
-    const id = r.resource_id as number;
-    usage[id] = usage[id] || { costLines: 0, events: 0 };
-    usage[id].events += 1;
-  });
-  return usage;
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_RESOURCES_USAGE, "GET");
+    return (data || {}) as Record<
+      number,
+      { costLines: number; events: number }
+    >;
+  } catch {
+    return {};
+  }
 };
 
 export const deleteManagementResource = async (id: number) => {
-  const { error } = await supabase
-    .from("management_resources")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_RESOURCES}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
+// MUDANZA #4 (28-07): mobiliario por el backend (/logistics/furniture).
 // Recetas que usan cada item de mobiliario. Con cualquiera, no se
-// elimina (la eliminación borraría esas líneas de receta en cascada).
+// elimina (la regla ahora también vive en el servidor).
 export const getFurnitureUsage = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<Record<number, { recipes: number }>> => {
-  const usage: Record<number, { recipes: number }> = {};
-  const { data } = await supabase
-    .from("service_recipe_items")
-    .select("furniture_id")
-    .eq("company_id", companyId)
-    .eq("item_kind", "mobiliario")
-    .not("furniture_id", "is", null);
-  (data || []).forEach((r) => {
-    const id = r.furniture_id as number;
-    usage[id] = usage[id] || { recipes: 0 };
-    usage[id].recipes += 1;
-  });
-  return usage;
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_FURNITURE_USAGE, "GET");
+    return (data || {}) as Record<number, { recipes: number }>;
+  } catch {
+    return {};
+  }
 };
 
 export const deleteFurnitureItem = async (id: number) => {
-  const { error } = await supabase
-    .from("furniture_items")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_FURNITURE}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Insumos ----------
@@ -255,18 +239,14 @@ export const deleteSupply = async (id: number) => {
 
 // ---------- Mobiliario (mini-catálogo; la Fase 5 lo extiende) ----------
 export const getFurnitureItems = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<FurnitureItem[]> => {
-  const { data, error } = await supabase
-    .from("furniture_items")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("name");
-  if (error) {
-    console.error("Error cargando mobiliario", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_FURNITURE, "GET");
+    return (data || []) as FurnitureItem[];
+  } catch {
     return [];
   }
-  return (data || []) as FurnitureItem[];
 };
 
 export const createFurnitureItem = async (fields: {
@@ -277,12 +257,17 @@ export const createFurnitureItem = async (fields: {
   photo_url?: string | null;
   preassembled?: boolean;
 }) => {
-  const { data, error } = await supabase
-    .from("furniture_items")
-    .insert(fields)
-    .select()
-    .single();
-  return { data: data as FurnitureItem | null, error };
+  try {
+    const { company_id: _omitido, ...datos } = fields;
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_FURNITURE,
+      "POST",
+      datos,
+    );
+    return { data: data as FurnitureItem | null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 };
 
 export const updateFurnitureItem = async (
@@ -294,11 +279,16 @@ export const updateFurnitureItem = async (
     >
   >,
 ) => {
-  const { error } = await supabase
-    .from("furniture_items")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_FURNITURE}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Todas las líneas de ingredientes de la empresa (para calcular el costo por
@@ -912,19 +902,16 @@ export const updateFixedServiceCosts = async (
 };
 
 // ---------- Recursos de gestión ----------
+// MUDANZA #5 (28-07): por el backend, firmas idénticas.
 export const getManagementResources = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<ManagementResource[]> => {
-  const { data, error } = await supabase
-    .from("management_resources")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("name");
-  if (error) {
-    console.error("Error cargando recursos", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_RESOURCES, "GET");
+    return (data || []) as ManagementResource[];
+  } catch {
     return [];
   }
-  return (data || []) as ManagementResource[];
 };
 
 export const createManagementResource = async (fields: {
@@ -935,12 +922,17 @@ export const createManagementResource = async (fields: {
   list_price_fixed?: number | null;
   list_price_per_person?: number | null;
 }) => {
-  const { data, error } = await supabase
-    .from("management_resources")
-    .insert(fields)
-    .select()
-    .single();
-  return { data: data as ManagementResource | null, error };
+  try {
+    const { company_id: _omitido, ...datos } = fields;
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_RESOURCES,
+      "POST",
+      datos,
+    );
+    return { data: data as ManagementResource | null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 };
 
 export const updateManagementResource = async (
@@ -958,11 +950,16 @@ export const updateManagementResource = async (
     >
   >,
 ) => {
-  const { error } = await supabase
-    .from("management_resources")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_RESOURCES}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Líneas de costo de un servicio fijo (referencias a recursos) ----

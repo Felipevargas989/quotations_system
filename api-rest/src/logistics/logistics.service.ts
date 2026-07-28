@@ -2,6 +2,12 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
 import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
+import {
+  CreateFurnitureItemDto,
+  CreateManagementResourceDto,
+  UpdateFurnitureItemDto,
+  UpdateManagementResourceDto,
+} from './dto/create-catalog-items.dto';
 import { LogisticsRepository } from './logistics.repository';
 
 // Mudanza #2 de "una sola puerta" (28-07): módulo Logística en el
@@ -30,6 +36,69 @@ export class LogisticsService {
 
   updateSupplier(companyId: number, id: number, dto: UpdateSupplierDto) {
     return this.logisticsRepository.updateSupplier(companyId, id, dto);
+  }
+
+  // ---------- Mobiliario (mudanza #4) ----------
+
+  findAllFurniture(companyId: number) {
+    return this.logisticsRepository.findAllFurniture(companyId);
+  }
+
+  furnitureUsage(companyId: number) {
+    return this.logisticsRepository.furnitureUsage(companyId);
+  }
+
+  createFurniture(companyId: number, dto: CreateFurnitureItemDto) {
+    return this.logisticsRepository.createFurniture(companyId, dto);
+  }
+
+  updateFurniture(companyId: number, id: number, dto: UpdateFurnitureItemDto) {
+    return this.logisticsRepository.updateFurniture(companyId, id, dto);
+  }
+
+  // En recetas no se elimina (borraría líneas de receta en cascada).
+  async deleteFurniture(companyId: number, id: number) {
+    const usage = await this.logisticsRepository.furnitureUsage(companyId);
+    if (usage[id] && usage[id].recipes > 0) {
+      throw new ConflictException(
+        'Este mobiliario aparece en recetas: desactívalo en vez de eliminarlo.',
+      );
+    }
+    return this.logisticsRepository.deleteFurniture(companyId, id);
+  }
+
+  // ---------- Recursos de gestión (mudanza #5) ----------
+
+  findAllResources(companyId: number) {
+    return this.logisticsRepository.findAllResources(companyId);
+  }
+
+  resourcesUsage(companyId: number) {
+    return this.logisticsRepository.resourcesUsage(companyId);
+  }
+
+  createResource(companyId: number, dto: CreateManagementResourceDto) {
+    return this.logisticsRepository.createResource(companyId, dto);
+  }
+
+  updateResource(
+    companyId: number,
+    id: number,
+    dto: UpdateManagementResourceDto,
+  ) {
+    return this.logisticsRepository.updateResource(companyId, id, dto);
+  }
+
+  // Con líneas de costo o eventos asignados, no se elimina.
+  async deleteResource(companyId: number, id: number) {
+    const usage = await this.logisticsRepository.resourcesUsage(companyId);
+    const refs = usage[id];
+    if (refs && (refs.costLines > 0 || refs.events > 0)) {
+      throw new ConflictException(
+        'Este recurso tiene costos o eventos asociados: no se puede eliminar.',
+      );
+    }
+    return this.logisticsRepository.deleteResource(companyId, id);
   }
 
   // ---------- Insumos (mudanza #3) ----------

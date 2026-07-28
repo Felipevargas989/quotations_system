@@ -19,6 +19,12 @@ import {
 import type { User } from 'src/users/entities/user.entity';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
 import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
+import {
+  CreateFurnitureItemDto,
+  CreateManagementResourceDto,
+  UpdateFurnitureItemDto,
+  UpdateManagementResourceDto,
+} from './dto/create-catalog-items.dto';
 import { LogisticsService } from './logistics.service';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES por el backend.
@@ -152,5 +158,105 @@ export class LogisticsController {
       `DELETE /logistics/supplies/${id} company ${user.company_id}`,
     );
     return this.logisticsService.deleteSupply(user.company_id, id);
+  }
+
+  // ---------- Mobiliario (mudanza #4, 28-07) ----------
+
+  // El mobiliario lo leen 7 pantallas, cotizador incluido → vendedor+.
+  @Roles(...SALES_AND_UP)
+  @Get('furniture')
+  findAllFurniture(@CurrentUser() user: User) {
+    this.logger.info(`GET /logistics/furniture company ${user.company_id}`);
+    return this.logisticsService.findAllFurniture(user.company_id);
+  }
+
+  @Get('furniture/usage')
+  furnitureUsage(@CurrentUser() user: User) {
+    this.logger.info(
+      `GET /logistics/furniture/usage company ${user.company_id}`,
+    );
+    return this.logisticsService.furnitureUsage(user.company_id);
+  }
+
+  @Post('furniture')
+  createFurniture(
+    @Body() dto: CreateFurnitureItemDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /logistics/furniture company ${user.company_id}`);
+    return this.logisticsService.createFurniture(user.company_id, dto);
+  }
+
+  @Patch('furniture/:id')
+  updateFurniture(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFurnitureItemDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `PATCH /logistics/furniture/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.updateFurniture(user.company_id, id, dto);
+  }
+
+  @Delete('furniture/:id')
+  deleteFurniture(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `DELETE /logistics/furniture/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.deleteFurniture(user.company_id, id);
+  }
+
+  // ---------- Recursos de gestión (mudanza #5, 28-07) ----------
+  // Solo pantallas de operaciones/admin los usan: hereda la regla del
+  // controller (OPERATIONS_AND_UP) en lecturas y escrituras.
+
+  @Get('resources')
+  findAllResources(@CurrentUser() user: User) {
+    this.logger.info(`GET /logistics/resources company ${user.company_id}`);
+    return this.logisticsService.findAllResources(user.company_id);
+  }
+
+  @Get('resources/usage')
+  resourcesUsage(@CurrentUser() user: User) {
+    this.logger.info(
+      `GET /logistics/resources/usage company ${user.company_id}`,
+    );
+    return this.logisticsService.resourcesUsage(user.company_id);
+  }
+
+  @Post('resources')
+  createResource(
+    @Body() dto: CreateManagementResourceDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /logistics/resources company ${user.company_id}`);
+    return this.logisticsService.createResource(user.company_id, dto);
+  }
+
+  @Patch('resources/:id')
+  updateResource(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateManagementResourceDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `PATCH /logistics/resources/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.updateResource(user.company_id, id, dto);
+  }
+
+  @Delete('resources/:id')
+  deleteResource(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `DELETE /logistics/resources/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.deleteResource(user.company_id, id);
   }
 }

@@ -3,6 +3,12 @@ import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
 import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
+import {
+  CreateFurnitureItemDto,
+  CreateManagementResourceDto,
+  UpdateFurnitureItemDto,
+  UpdateManagementResourceDto,
+} from './dto/create-catalog-items.dto';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES.
 //
@@ -67,6 +73,160 @@ export class LogisticsRepository {
       .eq('company_id', companyId);
     if (error) throw error;
     return { deleted: true };
+  }
+
+  // ---------- Mobiliario (mudanza #4, 28-07) ----------
+
+  async findAllFurniture(companyId: number) {
+    this.logger.info(`findAllFurniture company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('furniture_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createFurniture(companyId: number, dto: CreateFurnitureItemDto) {
+    this.logger.info(`createFurniture company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('furniture_items')
+      .insert([{ ...dto, company_id: companyId }])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateFurniture(
+    companyId: number,
+    id: number,
+    dto: UpdateFurnitureItemDto,
+  ) {
+    this.logger.info(`updateFurniture ${id} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('furniture_items')
+      .update(dto)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteFurniture(companyId: number, id: number) {
+    this.logger.info(`deleteFurniture ${id} company ${companyId}`);
+    const { error } = await this.supabase.client
+      .from('furniture_items')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return { deleted: true };
+  }
+
+  // Recetas que usan cada item de mobiliario (misma cuenta que hacía
+  // la pantalla).
+  async furnitureUsage(companyId: number) {
+    this.logger.info(`furnitureUsage company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('service_recipe_items')
+      .select('furniture_id')
+      .eq('company_id', companyId)
+      .eq('item_kind', 'mobiliario')
+      .not('furniture_id', 'is', null);
+    if (error) throw error;
+    const usage: Record<number, { recipes: number }> = {};
+    for (const r of data || []) {
+      const id = r.furniture_id as number;
+      usage[id] = usage[id] || { recipes: 0 };
+      usage[id].recipes += 1;
+    }
+    return usage;
+  }
+
+  // ---------- Recursos de gestión (mudanza #5, 28-07) ----------
+
+  async findAllResources(companyId: number) {
+    this.logger.info(`findAllResources company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('management_resources')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createResource(companyId: number, dto: CreateManagementResourceDto) {
+    this.logger.info(`createResource company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('management_resources')
+      .insert([{ ...dto, company_id: companyId }])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateResource(
+    companyId: number,
+    id: number,
+    dto: UpdateManagementResourceDto,
+  ) {
+    this.logger.info(`updateResource ${id} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('management_resources')
+      .update(dto)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteResource(companyId: number, id: number) {
+    this.logger.info(`deleteResource ${id} company ${companyId}`);
+    const { error } = await this.supabase.client
+      .from('management_resources')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return { deleted: true };
+  }
+
+  // Referencias de cada recurso: líneas de costo de servicios fijos +
+  // asignaciones a eventos. Con cualquiera, no se elimina.
+  async resourcesUsage(companyId: number) {
+    this.logger.info(`resourcesUsage company ${companyId}`);
+    const [cost, ev] = await Promise.all([
+      this.supabase.client
+        .from('fixed_service_cost_items')
+        .select('resource_id')
+        .eq('company_id', companyId),
+      this.supabase.client
+        .from('event_resources')
+        .select('resource_id')
+        .eq('company_id', companyId),
+    ]);
+    if (cost.error) throw cost.error;
+    if (ev.error) throw ev.error;
+    const usage: Record<number, { costLines: number; events: number }> = {};
+    for (const r of cost.data || []) {
+      const id = r.resource_id as number;
+      usage[id] = usage[id] || { costLines: 0, events: 0 };
+      usage[id].costLines += 1;
+    }
+    for (const r of ev.data || []) {
+      const id = r.resource_id as number;
+      usage[id] = usage[id] || { costLines: 0, events: 0 };
+      usage[id].events += 1;
+    }
+    return usage;
   }
 
   // ---------- Insumos (mudanza #3, 28-07) ----------

@@ -35,6 +35,10 @@ export const API_ROUTES = {
   LOGISTICS_SUPPLIERS_USAGE: "/logistics/suppliers/usage",
   LOGISTICS_SUPPLIES: "/logistics/supplies",
   LOGISTICS_SUPPLIES_USAGE: "/logistics/supplies/usage",
+  LOGISTICS_FURNITURE: "/logistics/furniture",
+  LOGISTICS_FURNITURE_USAGE: "/logistics/furniture/usage",
+  LOGISTICS_RESOURCES: "/logistics/resources",
+  LOGISTICS_RESOURCES_USAGE: "/logistics/resources/usage",
 
   // super admin
   SUPER_ADMIN: "/super-admin",
