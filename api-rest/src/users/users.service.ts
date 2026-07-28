@@ -9,6 +9,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
 import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class UsersService {
@@ -62,7 +63,7 @@ export class UsersService {
 
   update(id: User['id'], updateUserDto: UpdateUserDto) {
     this.logger.info(
-      `update user with id ${id} and updateUserDto ${JSON.stringify(updateUserDto)}`,
+      `update user with id ${id} and updateUserDto ${logSafe(updateUserDto)}`,
     );
     return this.usersRepository.update(id, updateUserDto);
   }
@@ -116,7 +117,7 @@ export class UsersService {
   }
 
   async signup(signupDto: SignupDto) {
-    this.logger.info(`signup with signupDto ${JSON.stringify(signupDto)}`);
+    this.logger.info(`signup with signupDto ${logSafe(signupDto)}`);
 
     return this.superAdminService.createSuscription(signupDto);
   }

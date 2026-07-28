@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthGuard } from './auth';
@@ -35,6 +36,12 @@ import { UsersModule } from './users/users.module';
     }),
     LoggerModule.forRoot({
       pinoHttp: {
+        // Fase 3 (28-07): el token de sesión completo quedaba escrito
+        // en el log de CADA petición. Redactado de raíz.
+        redact: {
+          paths: ['req.headers.authorization', 'req.headers.cookie'],
+          censor: '[REDACTADO]',
+        },
         transport: {
           target: 'pino-pretty',
           options: {
@@ -43,6 +50,11 @@ import { UsersModule } from './users/users.module';
         },
       },
     }),
+    // Fase 3 (28-07): protección contra consultas masivas. Techo
+    // general holgado por IP (el uso normal de la app queda lejos);
+    // los accesos PÚBLICOS llevan techos más estrictos con @Throttle
+    // en sus controllers.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuthModule,
     ConfigModule,
     SupabaseModule,
@@ -68,6 +80,12 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    // El portero de frecuencia corre para TODAS las rutas (incluidas
+    // las @Public): demasiadas peticiones desde una IP → 429.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

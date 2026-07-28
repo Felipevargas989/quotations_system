@@ -7,6 +7,7 @@ import {
   QuotationDayStats,
   UserLastSignInStats,
 } from './dto/quotation-stats.dto';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class SuperAdminRepository {
@@ -19,7 +20,7 @@ export class SuperAdminRepository {
 
   createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
     this.logger.info(
-      `createSuscription with createSuscriptionDto ${JSON.stringify(createSuscriptionDto)}`,
+      `createSuscription with createSuscriptionDto ${logSafe(createSuscriptionDto)}`,
     );
   }
 

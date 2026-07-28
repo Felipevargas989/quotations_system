@@ -6,6 +6,7 @@ import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CustomerSatisfactionSurveyResponse } from './entities/customer_satisfaction_survey_response.entity';
 import { CustomerSatisfactionSurveyTemplate } from './entities/customer_satisfaction_survey_template.entity';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class CustomerSatisfactionSurveyRepository {
@@ -51,7 +52,7 @@ export class CustomerSatisfactionSurveyRepository {
     error: PostgrestError | null;
   }> {
     this.logger.info(
-      `createAnswer with quotationId ${quotationId}, templateId ${templateId}, answers ${JSON.stringify(answers)}`,
+      `createAnswer with quotationId ${quotationId}, templateId ${templateId}, answers ${logSafe(answers)}`,
     );
 
     const answerData = {

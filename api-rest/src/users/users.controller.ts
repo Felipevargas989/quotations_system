@@ -16,6 +16,7 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
+import { logSafe } from '../logging/log-safe';
 
 @Controller(API_ROUTES.USERS)
 export class UsersController {
@@ -29,7 +30,7 @@ export class UsersController {
   @Post()
   create(@Body() createUserDto: CreateUserDto, @CurrentUser() user: User) {
     this.logger.info(
-      `POST /users with createUserDto ${JSON.stringify(createUserDto)}`,
+      `POST /users with createUserDto ${logSafe(createUserDto)}`,
     );
     return this.usersService.create(createUserDto, user.company_id);
   }
@@ -58,7 +59,7 @@ export class UsersController {
   @Patch(':id')
   update(@Param('id') id: User['id'], @Body() updateUserDto: UpdateUserDto) {
     this.logger.info(
-      `PATCH /users/${id} with updateUserDto ${JSON.stringify(updateUserDto)}`,
+      `PATCH /users/${id} with updateUserDto ${logSafe(updateUserDto)}`,
     );
     return this.usersService.update(id, updateUserDto);
   }
@@ -73,7 +74,7 @@ export class UsersController {
   @Post('signup')
   signup(@Body() signupDto: SignupDto) {
     this.logger.info(
-      `POST /users/signup with signupDto ${JSON.stringify(signupDto)}`,
+      `POST /users/signup with signupDto ${logSafe(signupDto)}`,
     );
     return this.usersService.signup(signupDto);
   }

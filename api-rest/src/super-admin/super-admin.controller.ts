@@ -4,6 +4,8 @@ import { Public } from 'src/auth';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { SuperAdminService } from './super-admin.service';
+import { Throttle } from '@nestjs/throttler';
+import { logSafe } from '../logging/log-safe';
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -12,11 +14,13 @@ export class SuperAdminController {
     private readonly logger: PinoLogger,
   ) {}
 
+  // Techo estricto: acceso público de escritura (Fase 3).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('suscription')
   createSuscription(@Body() createSuscriptionDto: CreateSuscriptionDto) {
     this.logger.info(
-      `POST /super-admin/suscription with createSuscriptionDto ${JSON.stringify(createSuscriptionDto)}`,
+      `POST /super-admin/suscription with createSuscriptionDto ${logSafe(createSuscriptionDto)}`,
     );
     return this.superAdminService.createSuscription(createSuscriptionDto);
   }
@@ -28,11 +32,13 @@ export class SuperAdminController {
     return this.superAdminService.getStatsLastMonth();
   }
 
+  // Techo estricto: acceso público de escritura (Fase 3).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('new-lead')
   notifySuperAdmins(@Body() notifySuperAdminDto: NotifySuperAdminDto) {
     this.logger.info(
-      `POST /super-admin/new-lead with body ${JSON.stringify(notifySuperAdminDto)}`,
+      `POST /super-admin/new-lead with body ${logSafe(notifySuperAdminDto)}`,
     );
     return this.superAdminService.notifySuperAdmins(notifySuperAdminDto);
   }

@@ -15,6 +15,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
 import { ReorderClientTypesDto } from './dto/reorder-client-types.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { logSafe } from '../logging/log-safe';
 
 @Controller('clients')
 export class ClientsController {
@@ -78,7 +79,7 @@ export class ClientsController {
   @Post()
   create(@Body() createClientDto: CreateClientDto, @CurrentUser() user: User) {
     this.logger.info(
-      `POST /clients with createClientDto ${JSON.stringify(createClientDto)}`,
+      `POST /clients with createClientDto ${logSafe(createClientDto)}`,
     );
     return this.clientsService.create(createClientDto, user.company_id);
   }
@@ -108,7 +109,7 @@ export class ClientsController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(
-      `PATCH /clients/${id} with updateClientDto ${JSON.stringify(updateClientDto)}`,
+      `PATCH /clients/${id} with updateClientDto ${logSafe(updateClientDto)}`,
     );
     return this.clientsService.update(id, updateClientDto, user.company_id);
   }

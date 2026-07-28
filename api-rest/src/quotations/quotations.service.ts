@@ -36,6 +36,7 @@ import {
   hasMoneyToVerify,
   verifyMoney,
 } from './utils/money';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class QuotationsService {
@@ -77,7 +78,7 @@ export class QuotationsService {
     userId: string | undefined,
   ) {
     this.logger.info(
-      `create quotation with createQuotationDto ${JSON.stringify(createQuotationDto)}`,
+      `create quotation with createQuotationDto ${logSafe(createQuotationDto)}`,
     );
 
     // FASE 1: verificar la plata antes de cualquier otra cosa.
@@ -161,7 +162,7 @@ export class QuotationsService {
     company_id: Company['id'],
   ) {
     this.logger.info(
-      `createPublic quotation with createQuotationPublicDto ${JSON.stringify(createQuotationPublicDto)}`,
+      `createPublic quotation with createQuotationPublicDto ${logSafe(createQuotationPublicDto)}`,
     );
     // Anti-duplicados (22-07): match robusto por correo (sin mayúsculas)
     // O teléfono (solo dígitos) — la solicitud se engancha al cliente

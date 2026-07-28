@@ -13,6 +13,7 @@ import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { SuperAdminRepository } from './super-admin.repository';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class SuperAdminService {
@@ -30,7 +31,7 @@ export class SuperAdminService {
 
   async createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
     this.logger.info(
-      `createSuscription with createSuscriptionDto ${JSON.stringify(createSuscriptionDto)}`,
+      `createSuscription with createSuscriptionDto ${logSafe(createSuscriptionDto)}`,
     );
 
     try {

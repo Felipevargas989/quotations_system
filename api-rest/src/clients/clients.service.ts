@@ -4,6 +4,7 @@ import { ClientsRepository } from './clients.repository';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateClient } from './interfaces/clients.interfaces';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class ClientsService {
@@ -15,7 +16,7 @@ export class ClientsService {
   }
   async create(createClientDto: CreateClientDto, companyId: number) {
     this.logger.info(
-      `create client with createClientDto ${JSON.stringify(createClientDto)}`,
+      `create client with createClientDto ${logSafe(createClientDto)}`,
     );
 
     // create new client object
@@ -59,7 +60,7 @@ export class ClientsService {
 
   update(id: string, updateClientDto: UpdateClientDto, companyId: number) {
     this.logger.info(
-      `update client with id ${id} and updateClientDto ${JSON.stringify(updateClientDto)}`,
+      `update client with id ${id} and updateClientDto ${logSafe(updateClientDto)}`,
     );
     return this.clientsRepository.update(id, updateClientDto, companyId);
   }

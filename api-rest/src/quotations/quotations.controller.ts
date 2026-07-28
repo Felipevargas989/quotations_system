@@ -18,6 +18,8 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
+import { Throttle } from '@nestjs/throttler';
+import { logSafe } from '../logging/log-safe';
 
 @Controller('quotations')
 export class QuotationsController {
@@ -34,7 +36,7 @@ export class QuotationsController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(
-      `POST /quotations with createQuotationDto ${JSON.stringify(createQuotationDto)}`,
+      `POST /quotations with createQuotationDto ${logSafe(createQuotationDto)}`,
     );
     return this.quotationsService.create(
       createQuotationDto,
@@ -43,6 +45,8 @@ export class QuotationsController {
     );
   }
 
+  // Techo estricto: acceso público de escritura (Fase 3).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('public/:company_id')
   createPublic(
@@ -50,7 +54,7 @@ export class QuotationsController {
     @Param('company_id') company_id: Company['id'],
   ) {
     this.logger.info(
-      `POST /quotations with createQuotationDto ${JSON.stringify(createQuotationPublicDto)}`,
+      `POST /quotations with createQuotationDto ${logSafe(createQuotationPublicDto)}`,
     );
     return this.quotationsService.createPublic(
       createQuotationPublicDto,

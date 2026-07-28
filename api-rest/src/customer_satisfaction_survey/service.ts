@@ -9,6 +9,7 @@ import { UsersService } from 'src/users/users.service';
 import { CUSTOMER_SATISFACTION_SURVEY_QUESTIONS } from './constants/questions';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyRepository } from './repository';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class CustomerSatisfactionSurveyService {
@@ -50,7 +51,7 @@ export class CustomerSatisfactionSurveyService {
 
   async createAnswer(createAnswerDto: CreateAnswerDto) {
     this.logger.info(
-      `createAnswer with createAnswerDto ${JSON.stringify(createAnswerDto)}`,
+      `createAnswer with createAnswerDto ${logSafe(createAnswerDto)}`,
     );
 
     try {

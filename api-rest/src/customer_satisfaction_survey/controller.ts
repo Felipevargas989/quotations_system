@@ -4,6 +4,8 @@ import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyService } from './service';
+import { Throttle } from '@nestjs/throttler';
+import { logSafe } from '../logging/log-safe';
 
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
@@ -14,6 +16,8 @@ export class CustomerSatisfactionSurveyController {
     this.logger.setContext(CustomerSatisfactionSurveyController.name);
   }
 
+  // Techo estricto: acceso público de escritura (Fase 3).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('template')
   createTemplate(@Query('companyId') companyId: number) {
@@ -32,11 +36,13 @@ export class CustomerSatisfactionSurveyController {
     return this.customerSatisfactionSurveyService.getTemplate(companyId);
   }
 
+  // Techo estricto: acceso público de escritura (Fase 3).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('answer')
   createAnswer(@Body() createAnswerDto: CreateAnswerDto) {
     this.logger.info(
-      `POST /customer-satisfaction-survey/answer with createAnswerDto ${JSON.stringify(createAnswerDto)}`,
+      `POST /customer-satisfaction-survey/answer with createAnswerDto ${logSafe(createAnswerDto)}`,
     );
     return this.customerSatisfactionSurveyService.createAnswer(createAnswerDto);
   }

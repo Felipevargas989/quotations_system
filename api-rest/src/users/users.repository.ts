@@ -7,6 +7,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
 import { CreateUser, UserWithCompany } from './types';
+import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class UsersRepository {
@@ -57,7 +58,7 @@ export class UsersRepository {
 
   async createAuthUser(createUserDto: CreateUserDto): Promise<AuthResponse> {
     this.logger.info(
-      `createAuthUser with createUserDto ${JSON.stringify(createUserDto)}`,
+      `createAuthUser with createUserDto ${logSafe(createUserDto)}`,
     );
     return await this.supabase.client.auth.signUp({
       email: createUserDto.email,
@@ -69,7 +70,7 @@ export class UsersRepository {
     createUser: CreateUser,
   ): Promise<{ data: User | null; error: PostgrestError | null }> {
     this.logger.info(
-      `createUser with createUser ${JSON.stringify(createUser)}`,
+      `createUser with createUser ${logSafe(createUser)}`,
     );
     return await this.supabase.client
       .from('user_profiles')
@@ -80,7 +81,7 @@ export class UsersRepository {
 
   async update(id: User['id'], updateUserDto: UpdateUserDto) {
     this.logger.info(
-      `update user with id ${id} and updateUserDto ${JSON.stringify(updateUserDto)}`,
+      `update user with id ${id} and updateUserDto ${logSafe(updateUserDto)}`,
     );
     return await this.supabase.client
       .from('user_profiles')
