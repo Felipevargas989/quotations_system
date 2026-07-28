@@ -43,8 +43,22 @@ export class QuotationsRepository {
     eventDateFrom?: Date;
   }): Promise<QuotationWithClientAndCompany[]> {
     this.logger.info(`findAll quotations with company_id ${company_id}`);
+    // FASE VELOCIDAD Etapa 3 (28-07): la LISTA viaja sin sus dos campos
+    // gordos (items y provisioned_services, JSON de miles de líneas) —
+    // 93 KB → ~15 KB. Quien necesita el detalle pide la cotización por
+    // id (findOne, que sigue trayendo todo). OJO: columna nueva en la
+    // tabla ⇒ agregarla acá.
+    const COLUMNAS_LISTA =
+      'id, quotation_number, user_id, total_amount, people_count, ' +
+      'quotation_status, observations, created_at, client_id, event_type, ' +
+      'event_date, value_per_person, fixed_value, request_type, updated_at, ' +
+      'requires_invoice, has_contract, payment_plan_type, ' +
+      'discount_percentage, subtotal_amount, company_id, discount_amount, ' +
+      'provisioned_at, provisioned_cost, provisioned_people, ' +
+      'survey_sent_at, event_end_date, children_count, tip_percentage, ' +
+      'contact_name, tip_amount';
     const query = this.supabase.client.from('quotations').select(
-      `*,
+      `${COLUMNAS_LISTA},
         clients (
           name,
           email,
@@ -91,7 +105,7 @@ export class QuotationsRepository {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data as QuotationWithClientAndCompany[];
+    return data as unknown as QuotationWithClientAndCompany[];
   }
 
   async findOne(id: string): Promise<{

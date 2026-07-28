@@ -129,6 +129,7 @@ export default function ComprasTab({
   // sin recargar la base completa.
   const baseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", companyId],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const [r, s, f, sup, n, fc] = await Promise.all([
         getAllRecipeItems(companyId),

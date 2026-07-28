@@ -1,3 +1,4 @@
+import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import { useEffect, useState } from "react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
@@ -25,32 +26,18 @@ export default function CocinaTab({
 }) {
   const { company } = useAuth();
   const companyId = company?.id ? Number(company.id) : null;
-  const [recipes, setRecipes] = useState<RecipeItem[]>([]);
-  const [supplies, setSupplies] = useState<Supply[]>([]);
-  const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
-  const [nameIds, setNameIds] = useState<{
+  // FASE VELOCIDAD (28-07): el catálogo sale de la despensa compartida
+  // (useBaseLogistica) — antes esta pestaña re-pedía las mismas 4
+  // listas en cada cambio de pestaña, sin caché alguna.
+  const base = useBaseLogistica(companyId);
+  const recipes: RecipeItem[] = base.data?.recipes ?? [];
+  const supplies: Supply[] = base.data?.supplies ?? [];
+  const furniture: FurnitureItem[] = base.data?.furniture ?? [];
+  const nameIds: {
     variable: Record<string, number>;
     fixed: Record<string, number>;
-  }>({ variable: {}, fixed: {} });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (companyId === null) return;
-    setLoading(true);
-    Promise.all([
-      getAllRecipeItems(companyId),
-      getSupplies(companyId),
-      getFurnitureItems(companyId),
-      getCatalogServiceNameIds(companyId),
-    ])
-      .then(([r, s, f, n]) => {
-        setRecipes(r);
-        setSupplies(s);
-        setFurniture(f);
-        setNameIds(n);
-      })
-      .finally(() => setLoading(false));
-  }, [companyId]);
+  } = base.data?.nameIds ?? { variable: {}, fixed: {} };
+  const loading = base.isPending;
 
   if (companyId === null) return null;
   if (loading) {

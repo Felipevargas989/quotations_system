@@ -437,6 +437,7 @@ export default function DashboardPage() {
   // La "base" comparte queryKey (y caché) con la pestaña Compras.
   const marginBaseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", company?.id],
+    staleTime: 5 * 60 * 1000,
     enabled: !!user && !!company?.id,
     queryFn: async () => {
       const cid = company!.id;
