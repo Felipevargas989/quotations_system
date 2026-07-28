@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronDown,
   Search,
   DollarSign,
   Clock,
@@ -347,6 +348,7 @@ export default function PostVentaPage() {
   // lo que viene primero, arriba; lo ya pasado, al final (y además se
   // puede filtrar con "Realizado"). "Número" conserva el orden clásico.
   const [orden, setOrden] = useState<"proximo" | "numero">("proximo");
+  const [ordenOpen, setOrdenOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim();
@@ -446,15 +448,57 @@ export default function PostVentaPage() {
               className="w-full"
             />
           </div>
-          <select
-            value={orden}
-            onChange={(e) => setOrden(e.target.value as "proximo" | "numero")}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            title="Orden de la lista"
-          >
-            <option value="proximo">Orden: próximo evento</option>
-            <option value="numero">Orden: número</option>
-          </select>
+          {/* Desplegable custom (no nativo), estilo de la casa. */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOrdenOpen((v) => !v)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white flex items-center gap-2 hover:border-gray-400"
+              title="Orden de la lista"
+            >
+              <span>
+                {orden === "proximo"
+                  ? "Orden: próximo evento"
+                  : "Orden: número de cotización"}
+              </span>
+              <ChevronDown size={14} className="text-gray-400" />
+            </button>
+            {ordenOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setOrdenOpen(false)}
+                  tabIndex={-1}
+                ></button>
+                <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+                  {(
+                    [
+                      ["proximo", "Orden: próximo evento"],
+                      ["numero", "Orden: número de cotización"],
+                    ] as const
+                  ).map(([valor, etiqueta]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      onClick={() => {
+                        setOrden(valor);
+                        setOrdenOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 ${
+                        orden === valor
+                          ? "font-semibold text-blue-700"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
