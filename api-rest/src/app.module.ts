@@ -15,6 +15,7 @@ import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey
 import { EmailModule } from './email/email.module';
 import { BackupModule } from './backup/backup.module';
 import { HealthController } from './health/health.controller';
+import { LogisticsModule } from './logistics/logistics.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -75,6 +76,7 @@ import { UsersModule } from './users/users.module';
     EmailModule,
     CustomerSatisfactionSurveyModule,
     BackupModule,
+    LogisticsModule,
   ],
   controllers: [HealthController],
   providers: [
