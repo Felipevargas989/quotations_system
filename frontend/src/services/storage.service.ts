@@ -1,4 +1,10 @@
-import { supabase } from "../lib/supabase";
+// MISIÓN STORAGE (28-07): los archivos también pasan por UNA SOLA
+// PUERTA. Este servicio ya no toca Supabase Storage: manda el archivo
+// al backend, que valida, arma la ruta con la empresa de la sesión y
+// guarda con su propia llave. Para VER un comprobante (balde privado)
+// se pide un enlace firmado que caduca en minutos: resolveStorageUrl().
+// Las firmas públicas de este archivo son las mismas de siempre.
+import { api, apiRequest } from "./api";
 
 export interface UploadResult {
   success: boolean;
@@ -6,175 +12,119 @@ export interface UploadResult {
   error?: string;
 }
 
+const subir = async (
+  file: File,
+  campos: Record<string, string>,
+): Promise<UploadResult> => {
+  try {
+    const check = validateImageFile(file);
+    if (!check.valid) throw new Error(check.error);
+    const form = new FormData();
+    form.append("file", file);
+    Object.entries(campos).forEach(([k, v]) => form.append(k, v));
+    const { data } = await api.request({
+      url: "/storage/upload",
+      method: "POST",
+      data: form,
+      headers: { "Content-Type": undefined },
+    });
+    return { success: true, url: (data as { url: string }).url };
+  } catch (error) {
+    const mensaje =
+      (error as { response?: { data?: { message?: string } } })?.response?.data
+        ?.message ||
+      (error instanceof Error ? error.message : "Error al subir el archivo");
+    return { success: false, error: String(mensaje) };
+  }
+};
+
 export const uploadPaymentReceipt = async (
   file: File,
   quotationId: string,
   paymentId: string,
   transactionId?: number,
-): Promise<UploadResult> => {
-  try {
-    // Validate file
-    if (!file) {
-      throw new Error("No file provided");
-    }
-
-    // Validate file type
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error(
-        "Tipo de archivo no válido. Solo se permiten imágenes (JPG, PNG, WebP) y PDF",
-      );
-    }
-
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      throw new Error("El archivo es demasiado grande. Máximo 5MB");
-    }
-
-    // Generate unique filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileExtension = file.name.split(".").pop();
-    const filename = transactionId
-      ? `${transactionId}_${timestamp}.${fileExtension}`
-      : `receipt_${timestamp}.${fileExtension}`;
-
-    // Create file path
-    const filePath = `payment-receipts/${quotationId}/${paymentId}/${filename}`;
-
-    // Upload file to Supabase Storage
-    const { error } = await supabase.storage
-      .from("payment-receipts")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) {
-      console.error("Storage upload error:", error);
-      throw new Error(`Error al subir el archivo: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("payment-receipts")
-      .getPublicUrl(filePath);
-
-    return {
-      success: true,
-      url: urlData.publicUrl,
-    };
-  } catch (error) {
-    console.error("Upload error:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Error desconocido al subir el archivo",
-    };
-  }
-};
-
-const BUCKET = "payment-receipts";
-
-const sanitize = (name: string) =>
-  name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "_");
-
-const uploadToBucket = async (
-  file: File,
-  filePath: string,
-): Promise<UploadResult> => {
-  try {
-    const check = validateImageFile(file);
-    if (!check.valid) throw new Error(check.error);
-
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(filePath, file, { cacheControl: "3600", upsert: false });
-    if (error) throw new Error(`Error al subir el archivo: ${error.message}`);
-
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
-    return { success: true, url: data.publicUrl };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Error al subir",
-    };
-  }
-};
+): Promise<UploadResult> =>
+  subir(file, {
+    kind: "payment-receipt",
+    quotation_id: quotationId,
+    payment_id: paymentId,
+    ...(transactionId ? { transaction_id: String(transactionId) } : {}),
+  });
 
 // Comprobante de un reembolso (misma bucket, prefijo distinto).
 export const uploadRefundReceipt = async (
   file: File,
   quotationId: string,
   refundId: string | number,
-): Promise<UploadResult> => {
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const ext = file.name.split(".").pop();
-  const path = `refund-receipts/${quotationId}/${refundId}_${ts}.${ext}`;
-  return uploadToBucket(file, path);
-};
+): Promise<UploadResult> =>
+  subir(file, {
+    kind: "refund-receipt",
+    quotation_id: quotationId,
+    refund_id: String(refundId),
+  });
 
 // Documento del evento por categoría.
 export const uploadEventDocument = async (
   file: File,
   quotationId: string,
   category: string,
-): Promise<UploadResult> => {
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const path = `event-documents/${quotationId}/${category}/${ts}_${sanitize(
-    file.name,
-  )}`;
-  return uploadToBucket(file, path);
+): Promise<UploadResult> =>
+  subir(file, {
+    kind: "event-document",
+    quotation_id: quotationId,
+    category,
+  });
+
+export const uploadCompanyLogo = async (
+  _companyId: string,
+  file: File,
+): Promise<UploadResult> => subir(file, { kind: "company-logo" });
+
+// Foto de referencia de un ítem de inventario (mobiliario). Bucket público
+// furniture-photos; se muestra en un popup, nunca como descarga.
+export const uploadFurniturePhoto = async (
+  file: File,
+  _companyId: number,
+  itemId: number,
+): Promise<UploadResult> =>
+  subir(file, { kind: "furniture-photo", item_id: String(itemId) });
+
+// ¿Este valor guardado apunta al balde PRIVADO de comprobantes?
+// (ruta nueva c<empresa>/..., prefijo viejo, o URL pública vieja)
+const esArchivoPrivado = (src: string): boolean => {
+  if (!src) return false;
+  if (src.includes("/object/public/payment-receipts/")) return true;
+  if (src.startsWith("http") || src.startsWith("blob:")) return false;
+  return /^(c\d+|payment-receipts|refund-receipts|event-documents)\//.test(src);
 };
 
-// Elimina un archivo del bucket a partir de su URL pública.
+// Cambia lo guardado en la base (ruta o URL vieja) por un enlace firmado
+// de pocos minutos. Lo que NO es del balde privado se devuelve tal cual
+// (logos, fotos de mobiliario, blobs locales).
+export const resolveStorageUrl = async (src: string): Promise<string> => {
+  if (!esArchivoPrivado(src)) return src;
+  const data = (await apiRequest("/storage/signed-url", "GET", undefined, {
+    src,
+  })) as { url: string };
+  return data.url;
+};
+
+// Elimina un archivo del balde privado a partir de lo guardado en la base.
 export const deleteStorageFileByUrl = async (
   url: string,
 ): Promise<boolean> => {
   try {
-    const marker = `/public/${BUCKET}/`;
-    const idx = url.indexOf(marker);
-    if (idx === -1) return false;
-    const path = decodeURIComponent(url.slice(idx + marker.length));
-    const { error } = await supabase.storage.from(BUCKET).remove([path]);
-    return !error;
+    const data = (await apiRequest("/storage/delete", "POST", {
+      src: url,
+    })) as { deleted: boolean };
+    return !!data.deleted;
   } catch {
     return false;
   }
 };
 
-export const deletePaymentReceipt = async (url: string): Promise<boolean> => {
-  try {
-    // Extract file path from URL
-    const urlParts = url.split("/");
-    const filePath = urlParts.slice(-4).join("/"); // Get last 4 parts: payment-receipts/quotationId/paymentId/filename
-
-    const { error } = await supabase.storage
-      .from("payment-receipts")
-      .remove([filePath]);
-
-    if (error) {
-      console.error("Delete error:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Delete error:", error);
-    return false;
-  }
-};
+export const deletePaymentReceipt = async (url: string): Promise<boolean> =>
+  deleteStorageFileByUrl(url);
 
 export const validateImageFile = (
   file: File,
@@ -205,76 +155,4 @@ export const validateImageFile = (
   }
 
   return { valid: true };
-};
-
-export const uploadCompanyLogo = async (
-  companyId: string,
-  file: File,
-): Promise<UploadResult> => {
-  try {
-    const filename = `${companyId}_logo.${file.name.split(".").pop()}`;
-
-    const { error } = await supabase.storage
-      .from("company-logos")
-      .upload(filename, file, {
-        cacheControl: "3600",
-        upsert: true, // Allow overwriting existing logo
-      });
-
-    if (error) {
-      throw new Error(`Error al subir el archivo: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("company-logos")
-      .getPublicUrl(filename);
-
-    return {
-      success: true,
-      url: urlData.publicUrl,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Error al subir el archivo",
-    };
-  }
-};
-
-// Foto de referencia de un ítem de inventario (mobiliario). Bucket público
-// furniture-photos; se muestra en un popup, nunca como descarga.
-export const uploadFurniturePhoto = async (
-  file: File,
-  companyId: number,
-  itemId: number,
-): Promise<UploadResult> => {
-  try {
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error("Solo se permiten imágenes (JPG, PNG, WebP)");
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error("La imagen es demasiado grande. Máximo 5MB");
-    }
-    const ext = file.name.split(".").pop();
-    const filePath = `${companyId}/${itemId}_${new Date().getTime()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("furniture-photos")
-      .upload(filePath, file, { cacheControl: "3600", upsert: true });
-    if (error) {
-      throw new Error(`Error al subir la foto: ${error.message}`);
-    }
-    const { data } = supabase.storage
-      .from("furniture-photos")
-      .getPublicUrl(filePath);
-    return { success: true, url: data.publicUrl };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Error al subir la foto",
-    };
-  }
 };

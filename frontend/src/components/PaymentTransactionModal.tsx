@@ -15,6 +15,7 @@ import {
   updatePaymentTransaction,
 } from "../services/paymentTransactions.service";
 import {
+  resolveStorageUrl,
   uploadPaymentReceipt,
   validateImageFile,
 } from "../services/storage.service";
@@ -48,7 +49,24 @@ export default function PaymentTransactionModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  // Misión storage (28-07): photoUrl guarda la RUTA (balde privado);
+  // para mostrar se pide un enlace firmado de pocos minutos.
+  const [photoView, setPhotoView] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    if (!photoUrl) {
+      setPhotoView(null);
+      return;
+    }
+    resolveStorageUrl(photoUrl)
+      .then((u) => vivo && setPhotoView(u))
+      .catch(() => vivo && setPhotoView(null));
+    return () => {
+      vivo = false;
+    };
+  }, [photoUrl]);
 
   const paymentMethods = [
     "Efectivo",
@@ -494,7 +512,7 @@ export default function PaymentTransactionModal({
                         />
                         <p className="text-xs text-gray-600">Comprobante PDF</p>
                         <a
-                          href={photoUrl}
+                          href={photoView ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:underline"
@@ -505,7 +523,7 @@ export default function PaymentTransactionModal({
                     </div>
                   ) : (
                     <img
-                      src={photoUrl}
+                      src={photoView ?? undefined}
                       alt="Receipt"
                       className="w-full h-32 object-cover rounded-lg border border-gray-300"
                     />
