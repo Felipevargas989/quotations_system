@@ -5,6 +5,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
 import { ServiceGroup } from './entities/service-group.entity';
 import { ServiceGroupsService } from './service-groups.service';
+import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('service-groups')
 export class ServiceGroupsController {
@@ -15,6 +16,7 @@ export class ServiceGroupsController {
     this.logger.setContext(ServiceGroupsController.name);
   }
 
+  @Roles(...SALES_AND_UP)
   @Post()
   create(
     @Body() createServiceGroupDto: CreateServiceGroupDto,
@@ -35,6 +37,7 @@ export class ServiceGroupsController {
     return this.serviceGroupsService.findAll(user.company_id);
   }
 
+  @Roles(...SALES_AND_UP)
   @Delete(':id')
   remove(@Param('id') id: ServiceGroup['id']) {
     this.logger.info(`remove service group with id ${id}`);

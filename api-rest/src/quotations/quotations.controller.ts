@@ -20,6 +20,7 @@ import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
 import { Throttle } from '@nestjs/throttler';
 import { logSafe } from '../logging/log-safe';
+import { Roles, OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('quotations')
 export class QuotationsController {
@@ -105,6 +106,7 @@ export class QuotationsController {
 
   // Declara el evento REALIZADO y dispara la encuesta de satisfacción al
   // cliente (una sola vez; ver QuotationsService.markEventDone).
+  @Roles(...OPERATIONS_AND_UP)
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);

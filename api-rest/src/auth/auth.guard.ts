@@ -43,14 +43,17 @@ export class AuthGuard implements CanActivate {
       // Fetch the full user data including company_id from the database
       const { data: fullUser } = await this.usersRepository.findOne(user.id);
 
-      // Attach the full user with company_id to request object
+      // Attach the full user with company_id AND role to request object.
+      // El cargo viaja para que RolesGuard (Fase 3, 28-07) pueda
+      // aplicarlo: antes el backend solo comprobaba que hubiera sesión.
       (
         request as Request & {
-          user: Pick<UserAuth, 'id'> & { company_id: number };
+          user: Pick<UserAuth, 'id'> & { company_id: number; role?: string };
         }
       ).user = {
         id: user.id,
         company_id: fullUser!.company_id,
+        role: fullUser!.role,
       };
 
       return true;

@@ -22,6 +22,7 @@ import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesService } from './services.service';
+import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller('services')
 export class ServicesController {
@@ -32,6 +33,7 @@ export class ServicesController {
     this.logger.setContext(ServicesController.name);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post('bulk')
   createServicesBulk(
     @Body() createServicesBulkDto: CreateServicesBulkDto,
@@ -57,6 +59,7 @@ export class ServicesController {
   //   return this.servicesService.findOne(+id);
   // }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('categories')
   updateServiceCategory(
     @Body() updateServiceCategoryDto: UpdateServiceCategoryDto,
@@ -73,6 +76,7 @@ export class ServicesController {
 
   // ---- Multi-category endpoints (declared before variable/:id) ----
 
+  @Roles(...ADMIN_ONLY)
   @Patch('reorder-services')
   reorderServicesInCategory(
     @Body() dto: ReorderServicesInCategoryDto,
@@ -85,6 +89,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('reorder-categories')
   reorderCategories(
     @Body() dto: ReorderCategoriesDto,
@@ -96,6 +101,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post('categories/new')
   createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() user: User) {
     return this.servicesService.createCategoryForCompany(
@@ -104,6 +110,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('categories/:id')
   updateCategoryById(
     @Param('id') id: string,
@@ -117,11 +124,13 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Delete('categories/:id')
   deleteCategoryById(@Param('id') id: string, @CurrentUser() user: User) {
     return this.servicesService.deleteCategoryForCompany(user.company_id, +id);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('variable/:id/categories')
   setServiceCategories(
     @Param('id') id: VariableService['id'],
@@ -135,6 +144,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('variable/:id')
   updateVariableService(
     @Param('id') id: VariableService['id'],
@@ -151,6 +161,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch('fixed/:id')
   updateFixedService(
     @Param('id') id: FixedService['id'],
@@ -162,6 +173,7 @@ export class ServicesController {
     return this.servicesService.updateFixedService(id, updateFixedServiceDto);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post('variable')
   createVariableService(
     @Body()
@@ -177,6 +189,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post('fixed')
   createFixedService(
     @Body()

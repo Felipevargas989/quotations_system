@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthGuard } from './auth';
+import { RolesGuard } from './auth/roles.guard';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
@@ -86,6 +87,12 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Fase 3: el cargo se aplica en el backend. DEBE ir después de
+    // AuthGuard (que deja request.user con el cargo).
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

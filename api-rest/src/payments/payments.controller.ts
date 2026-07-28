@@ -18,6 +18,7 @@ import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dt
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
+import { Roles, OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('payments')
 export class PaymentsController {
@@ -26,6 +27,7 @@ export class PaymentsController {
     private readonly logger: PinoLogger,
   ) {}
 
+  @Roles(...OPERATIONS_AND_UP)
   @Post('plan')
   createPaymentPlan(
     @Body() createPaymentPlanDto: CreatePaymentPlanDto,
@@ -57,6 +59,7 @@ export class PaymentsController {
     );
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Post('transactions')
   createPaymentTransaction(
     @Body() createPaymentTransactionDto: CreatePaymentTransactionDto,
@@ -69,6 +72,7 @@ export class PaymentsController {
     );
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Post('transactions/overflow')
   createOverflowPaymentTransaction(
     @Body() createOverflowTransactionDto: CreateOverflowTransactionDto,
@@ -83,6 +87,7 @@ export class PaymentsController {
     );
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Patch('transactions/:id')
   updatePaymentTransaction(
     @Param('id') paymentTransactionId: PaymentTransaction['id'],
@@ -108,12 +113,14 @@ export class PaymentsController {
   //   return this.paymentsService.update(+id, updatePaymentDto);
   // }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Delete(':id')
   removePayment(@Param('id') id: Payment['id']) {
     this.logger.info(`DELETE /payments/${id}`);
     return this.paymentsService.removePayment(id);
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Delete('transactions/:id')
   removePaymentTransaction(
     @Param('id') id: number,

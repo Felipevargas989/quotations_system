@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { logSafe } from '../logging/log-safe';
+import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller(API_ROUTES.USERS)
 export class UsersController {
@@ -27,6 +28,7 @@ export class UsersController {
     this.logger.setContext(UsersController.name);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post()
   create(@Body() createUserDto: CreateUserDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -56,6 +58,7 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch(':id')
   update(@Param('id') id: User['id'], @Body() updateUserDto: UpdateUserDto) {
     this.logger.info(
@@ -64,6 +67,7 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Delete(':id')
   remove(@Param('id') id: User['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /users/${id} with user ${user.id}`);

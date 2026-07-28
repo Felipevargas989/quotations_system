@@ -4,6 +4,7 @@ import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { CompaniesService } from './companies.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller('companies')
 export class CompaniesController {
@@ -29,6 +30,7 @@ export class CompaniesController {
     return this.companiesService.findOne(+id);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch()
   update(
     @CurrentUser() user: User,
