@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
+import { cacheTokens, HORA_MS } from 'src/cache/memoria';
 import { UserAuth } from 'src/users/entities/user.entity';
 
 @Injectable()
@@ -32,6 +34,14 @@ export class AuthService {
   }
 
   async validateToken(token: string): Promise<Pick<UserAuth, 'id'>> {
+    // FASE VELOCIDAD (28-07): un pase YA verificado se recuerda hasta
+    // que expira solo (Supabase los emite con 1 hora de vida). Antes,
+    // CADA petición viajaba a Supabase a preguntar por el mismo pase —
+    // era el mayor costo fijo de todas las pantallas. Solo se recuerdan
+    // pases que Supabase aprobó; uno alterado jamás entra a la memoria.
+    const huella = createHash('sha256').update(token).digest('hex');
+    const recordado = cacheTokens.get(huella);
+    if (recordado) return recordado;
     try {
       const {
         data: { user },
@@ -42,13 +52,29 @@ export class AuthService {
         throw new UnauthorizedException('Invalid token');
       }
 
-      return {
+      const identidad = {
         id: user.id,
         ...user.user_metadata,
       };
+      cacheTokens.set(huella, identidad, this.vidaRestante(token));
+      return identidad;
     } catch (error) {
       this.logger.error({ err: error }, 'Token validation failed');
       throw new UnauthorizedException('Token validation failed');
+    }
+  }
+
+  // Cuánta vida le queda al pase según su propio vencimiento (campo
+  // exp del JWT), con tope de 1 hora. Si no se puede leer, 5 minutos.
+  private vidaRestante(token: string): number {
+    try {
+      const cuerpo = JSON.parse(
+        Buffer.from(token.split('.')[1], 'base64url').toString(),
+      ) as { exp?: number };
+      if (!cuerpo.exp) return 5 * 60 * 1000;
+      return Math.max(0, Math.min(cuerpo.exp * 1000 - Date.now(), HORA_MS));
+    } catch {
+      return 5 * 60 * 1000;
     }
   }
 

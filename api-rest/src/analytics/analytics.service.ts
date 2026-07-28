@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { HORA_MS, cachePanel } from 'src/cache/memoria';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
 import { PaymentsService } from 'src/payments/payments.service';
@@ -44,6 +45,13 @@ export class AnalyticsService {
         ? new Date(dateRange.end_date)
         : new Date();
 
+      // FASE VELOCIDAD (28-07): panel con memoria de 1 hora. Cualquier
+      // cambio de cotización/pago/reembolso la borra al instante
+      // (invalidarPanelEmpresa), así que nunca muestra números viejos.
+      const clavePanel = `${companyId}:dash:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}`;
+      const enMemoria = cachePanel.get(clavePanel);
+      if (enMemoria) return enMemoria as DashboardStatsResponse;
+
       // 1. FASE 1 (23-07): el período gobierna TODO el tablero.
       // Dos lecturas con roles distintos:
       //   - "quotations": las CREADAS dentro del período → contadores,
@@ -60,21 +68,23 @@ export class AnalyticsService {
         QuotationStatus.REALIZADA,
         QuotationStatus.CANCELADA,
       ];
-      const quotations = await this.quotationsService.findAll({
-        companyId,
-        request_type: RequestType.COTIZACION,
-        statuses: ALL_STATUSES,
-        dateRange: { start_date, end_date },
-      });
-      const concretadas = await this.quotationsService.findAll({
-        companyId,
-        request_type: RequestType.COTIZACION,
-        statuses: [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
-        eventDateFrom: start_date,
-      });
-
-      // get all clients
-      const clients = await this.clientsService.findAll(companyId);
+      // FASE VELOCIDAD: las tres lecturas no dependen entre sí — van
+      // en paralelo en vez de en fila india.
+      const [quotations, concretadas, clients] = await Promise.all([
+        this.quotationsService.findAll({
+          companyId,
+          request_type: RequestType.COTIZACION,
+          statuses: ALL_STATUSES,
+          dateRange: { start_date, end_date },
+        }),
+        this.quotationsService.findAll({
+          companyId,
+          request_type: RequestType.COTIZACION,
+          statuses: [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
+          eventDateFrom: start_date,
+        }),
+        this.clientsService.findAll(companyId),
+      ]);
 
       // get all payments
       // Caja: pagos de lo creado en el período + lo concretado con evento
@@ -237,7 +247,7 @@ export class AnalyticsService {
       });
 
       // 3. return stats
-      return {
+      const respuesta: DashboardStatsResponse = {
         totalQuotations,
         totalClients,
         totalQuotationsByMonth,
@@ -246,6 +256,8 @@ export class AnalyticsService {
         totalPaymentsByMonth,
         totalPaymentsDetailByMonth,
       };
+      cachePanel.set(clavePanel, respuesta, HORA_MS);
+      return respuesta;
     } catch (error) {
       this.logger.error(`Error getting dashboard stats: ${error}`);
       if (error instanceof Error) {
@@ -278,186 +290,55 @@ export class AnalyticsService {
         ? new Date(getCompleteStatsDto.end_date)
         : new Date();
 
-      // get quotation status stats
-      const {
-        data: quotation_status_stats,
-        error: quotation_status_stats_error,
-      } = await this.supabase.client.rpc('get_quotation_status_stats', {
+      // FASE VELOCIDAD (28-07): memoria de 1 hora (se borra sola con
+      // cualquier cambio de plata/cotizaciones) y las 9 consultas en
+      // PARALELO en vez de en fila india (era el costo principal).
+      const claveStats = `${companyId}:stats:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}`;
+      const statsEnMemoria = cachePanel.get(claveStats);
+      if (statsEnMemoria) return statsEnMemoria as CompleteStatsResponse;
+
+      const params = {
         p_company_id: companyId,
         p_from_date: start_date,
         p_to_date: end_date,
+      };
+      const CONSULTAS = [
+        'get_quotation_status_stats',
+        'get_event_type_conversion_stats',
+        'get_event_type_revenue_stats',
+        'get_revenue_by_client_type',
+        'get_top_clients_by_revenue',
+        'get_variable_services_usage',
+        'get_fixed_services_usage',
+        'get_top_clients_by_quotations',
+        'get_recurring_clients',
+      ] as const;
+      const resultados = await Promise.all(
+        CONSULTAS.map((fn) => this.supabase.client.rpc(fn, params)),
+      );
+      resultados.forEach((r, i) => {
+        if (r.error) {
+          this.logger.error(`Error en ${CONSULTAS[i]}: ${r.error.message}`);
+          throw new HttpException(
+            r.error.message,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
       });
-
-      if (quotation_status_stats_error) {
-        this.logger.error(
-          `Error getting quotation status stats: ${quotation_status_stats_error.message}`,
-        );
-        throw new HttpException(
-          quotation_status_stats_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get quotation by event_type stats
-      // (23-07: llevaba company 1 y el año 2025 FIJOS en el código —
-      // ignoraba el filtro de fechas de la pantalla. Corregido.)
-      const {
-        data: event_type_conversion_stats,
-        error: event_type_conversion_stats_error,
-      } = await this.supabase.client.rpc('get_event_type_conversion_stats', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (event_type_conversion_stats_error) {
-        this.logger.error(
-          `Error getting event type conversion stats: ${event_type_conversion_stats_error.message}`,
-        );
-        throw new HttpException(
-          event_type_conversion_stats_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get event type revenue stats
-      const {
-        data: event_type_revenue_stats,
-        error: event_type_revenue_stats_error,
-      } = await this.supabase.client.rpc('get_event_type_revenue_stats', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (event_type_revenue_stats_error) {
-        this.logger.error(
-          `Error getting event type revenue stats: ${event_type_revenue_stats_error.message}`,
-        );
-        throw new HttpException(
-          event_type_revenue_stats_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get revenue by client type stats
-      const {
-        data: revenue_by_client_type_stats,
-        error: revenue_by_client_type_stats_error,
-      } = await this.supabase.client.rpc('get_revenue_by_client_type', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (revenue_by_client_type_stats_error) {
-        this.logger.error(
-          `Error getting revenue by client type stats: ${revenue_by_client_type_stats_error.message}`,
-        );
-        throw new HttpException(
-          revenue_by_client_type_stats_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get top 10 clients by revenue
-      const {
-        data: top_clients_by_revenue,
-        error: top_clients_by_revenue_error,
-      } = await this.supabase.client.rpc('get_top_clients_by_revenue', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (top_clients_by_revenue_error) {
-        this.logger.error(
-          `Error getting top clients by revenue: ${top_clients_by_revenue_error.message}`,
-        );
-        throw new HttpException(
-          top_clients_by_revenue_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get variable service stats get_variable_services_usage
-      const {
-        data: variable_services_usage,
-        error: variable_services_usage_error,
-      } = await this.supabase.client.rpc('get_variable_services_usage', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (variable_services_usage_error) {
-        this.logger.error(
-          `Error getting variable services usage: ${variable_services_usage_error.message}`,
-        );
-        throw new HttpException(
-          variable_services_usage_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // get fixed services usage
-      const { data: fixed_services_usage, error: fixed_services_usage_error } =
-        await this.supabase.client.rpc('get_fixed_services_usage', {
-          p_company_id: companyId,
-          p_from_date: start_date,
-          p_to_date: end_date,
-        });
-
-      if (fixed_services_usage_error) {
-        this.logger.error(
-          `Error getting fixed services usage: ${fixed_services_usage_error.message}`,
-        );
-        throw new HttpException(
-          fixed_services_usage_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // Análisis de cartera (23-07): top por N° de cotizaciones y
-      // clientes recurrentes (2+ eventos concretados en el período).
-      const {
-        data: top_clients_by_quotations,
-        error: top_clients_by_quotations_error,
-      } = await this.supabase.client.rpc('get_top_clients_by_quotations', {
-        p_company_id: companyId,
-        p_from_date: start_date,
-        p_to_date: end_date,
-      });
-
-      if (top_clients_by_quotations_error) {
-        this.logger.error(
-          `Error getting top clients by quotations: ${top_clients_by_quotations_error.message}`,
-        );
-        throw new HttpException(
-          top_clients_by_quotations_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      const { data: recurring_clients, error: recurring_clients_error } =
-        await this.supabase.client.rpc('get_recurring_clients', {
-          p_company_id: companyId,
-          p_from_date: start_date,
-          p_to_date: end_date,
-        });
-
-      if (recurring_clients_error) {
-        this.logger.error(
-          `Error getting recurring clients: ${recurring_clients_error.message}`,
-        );
-        throw new HttpException(
-          recurring_clients_error.message,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      const [
+        quotation_status_stats,
+        event_type_conversion_stats,
+        event_type_revenue_stats,
+        revenue_by_client_type_stats,
+        top_clients_by_revenue,
+        variable_services_usage,
+        fixed_services_usage,
+        top_clients_by_quotations,
+        recurring_clients,
+      ] = resultados.map((r) => r.data as unknown[]);
 
       // 3. return stats
-      return {
+      const respuestaStats = {
         quotation_status_stats: quotation_status_stats,
         event_type_conversion_stats: event_type_conversion_stats,
         event_type_revenue_stats: event_type_revenue_stats,
@@ -467,7 +348,9 @@ export class AnalyticsService {
         fixed_services_usage: fixed_services_usage,
         top_clients_by_quotations: top_clients_by_quotations,
         recurring_clients: recurring_clients,
-      };
+      } as unknown as CompleteStatsResponse;
+      cachePanel.set(claveStats, respuestaStats, HORA_MS);
+      return respuestaStats;
     } catch (error) {
       this.logger.error(`Error getting complete stats: ${error}`);
       if (error instanceof Error) {
