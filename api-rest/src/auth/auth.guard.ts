@@ -48,12 +48,19 @@ export class AuthGuard implements CanActivate {
       // aplicarlo: antes el backend solo comprobaba que hubiera sesión.
       (
         request as Request & {
-          user: Pick<UserAuth, 'id'> & { company_id: number; role?: string };
+          user: Pick<UserAuth, 'id'> & {
+            company_id: number;
+            role?: string;
+            email?: string;
+          };
         }
       ).user = {
         id: user.id,
         company_id: fullUser!.company_id,
         role: fullUser!.role,
+        // El correo viaja para el guardián de super-admin (allowlist
+        // SUPER_ADMIN_EMAILS) — mudanza #7, 28-07.
+        email: fullUser!.email,
       };
 
       return true;

@@ -251,6 +251,40 @@ export class SuperAdminRepository {
     }
   }
 
+  // Mudanza #7 (28-07): empresas del área super-admin por el backend.
+  async listCompanies() {
+    this.logger.info('listCompanies (super-admin)');
+    const { data, error } = await this.supabase.client
+      .from('companies')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createCompanyOnly(name: string) {
+    this.logger.info('createCompanyOnly (super-admin)');
+    const { data, error } = await this.supabase.client
+      .from('companies')
+      .insert({ name })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateCompanyById(id: number, fields: Record<string, unknown>) {
+    this.logger.info(`updateCompanyById ${id} (super-admin)`);
+    const { data, error } = await this.supabase.client
+      .from('companies')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   // Mudanza #1 de "una sola puerta" (28-07): el lead de la landing se
   // inserta ACÁ con la llave de servicio, ya no directo desde el
   // navegador con la llave anónima.

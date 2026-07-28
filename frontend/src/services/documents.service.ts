@@ -1,4 +1,8 @@
-import { supabase } from "../lib/supabase";
+import { API_ROUTES } from "../constants/api.routes";
+import { apiRequest } from "./api";
+
+// MUDANZA #7 (28-07): documentos del evento por el backend (la
+// pertenencia a la empresa se verifica vía la cotización).
 
 export interface EventDocument {
   id: number;
@@ -20,16 +24,17 @@ export const DOCUMENT_CATEGORIES: { key: string; label: string }[] = [
 export const getDocumentsByQuotation = async (
   quotationId: string,
 ): Promise<EventDocument[]> => {
-  const { data, error } = await supabase
-    .from("event_documents")
-    .select("*")
-    .eq("quotation_id", quotationId)
-    .order("uploaded_at", { ascending: false });
-  if (error) {
-    console.error("Error cargando documentos", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.EVENT_DOCUMENTS,
+      "GET",
+      undefined,
+      { quotationId },
+    );
+    return (data || []) as EventDocument[];
+  } catch {
     return [];
   }
-  return (data || []) as EventDocument[];
 };
 
 export const addDocument = async (doc: {
@@ -38,16 +43,21 @@ export const addDocument = async (doc: {
   file_name: string;
   file_url: string;
 }): Promise<{ error: unknown }> => {
-  const { error } = await supabase.from("event_documents").insert(doc);
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.EVENT_DOCUMENTS, "POST", doc);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteDocument = async (
   id: number,
 ): Promise<{ error: unknown }> => {
-  const { error } = await supabase
-    .from("event_documents")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.EVENT_DOCUMENTS}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };

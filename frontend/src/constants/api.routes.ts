@@ -58,6 +58,16 @@ export const API_ROUTES = {
   LOGISTICS_FIXED_COSTS: "/logistics/fixed-costs",
   LOGISTICS_FIXED_COST_ITEMS: "/logistics/fixed-cost-items",
 
+  // mudanza #7: los 6 servicios chicos
+  REFUNDS_BY_QUOTATION: "/refunds/by-quotation",
+  REFUNDS_PAID_MAP: "/refunds/paid-map",
+  EVENT_DOCUMENTS: "/event-documents",
+  ANALYTICS_HOY: "/analytics/hoy",
+  CLIENT_CONTACTS: "/client-contacts",
+  SECTIONS: "/sections",
+  SECTIONS_MENU_ORDER: "/sections/menu-order",
+  SUPER_ADMIN_COMPANIES: "/super-admin/companies",
+
   // super admin
   SUPER_ADMIN: "/super-admin",
   SUPER_ADMIN_STATS_LAST_MONTH: "/super-admin/stats/last-month",

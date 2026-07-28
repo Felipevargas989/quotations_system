@@ -51,6 +51,70 @@ export class RefundsRepository {
     return this.supabase.client.from('refunds').delete().eq('id', id);
   }
 
+  // ---------- Mudanza #7 (28-07): Post-Venta por el backend ----------
+
+  // Reembolsos de una cotización, acotados a la EMPRESA (el frontend
+  // consultaba solo por quotation_id).
+  async findByQuotation(companyId: Company['id'], quotationId: string) {
+    this.logger.info(`findByQuotation refunds ${quotationId}`);
+    const { data, error } = await this.supabase.client
+      .from('refunds')
+      .select('*, quotations!inner(company_id)')
+      .eq('quotation_id', quotationId)
+      .eq('quotations.company_id', companyId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Suma de reembolsos YA PAGADOS por cotización — SOLO de la empresa
+  // (la versión directa sumaba las devoluciones de TODAS las empresas).
+  async paidMapByCompany(companyId: Company['id']) {
+    this.logger.info(`paidMapByCompany company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('refunds')
+      .select('quotation_id, amount, quotations!inner(company_id)')
+      .eq('is_paid', true)
+      .eq('quotations.company_id', companyId);
+    if (error) throw error;
+    const map: Record<string, number> = {};
+    for (const r of data || []) {
+      const qid = r.quotation_id as string;
+      map[qid] = (map[qid] || 0) + (Number(r.amount) || 0);
+    }
+    return map;
+  }
+
+  // Completa (registra) un reembolso: fecha, medio, monto y comprobante.
+  async registerPaid(
+    companyId: Company['id'],
+    id: string,
+    fields: {
+      amount: number;
+      refund_date: string;
+      payment_method: string;
+      receipt_url?: string | null;
+    },
+  ) {
+    this.logger.info(`registerPaid refund ${id} company ${companyId}`);
+    // El refund no tiene company_id propio: se verifica vía su cotización.
+    const { data: propio, error: errPropio } = await this.supabase.client
+      .from('refunds')
+      .select('id, quotations!inner(company_id)')
+      .eq('id', id)
+      .eq('quotations.company_id', companyId)
+      .single();
+    if (errPropio || !propio) {
+      throw errPropio || new Error('Reembolso no encontrado');
+    }
+    const { error } = await this.supabase.client
+      .from('refunds')
+      .update({ ...fields, is_paid: true })
+      .eq('id', id);
+    if (error) throw error;
+    return { registered: true };
+  }
+
   findAll(companyId: Company['id']) {
     this.logger.info(`findAll refunds with companyId ${companyId}`);
     return this.supabase.client

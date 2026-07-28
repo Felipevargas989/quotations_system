@@ -1,4 +1,9 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  forwardRef,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { CompaniesRepository } from 'src/companies/companies.repository';
@@ -209,6 +214,30 @@ export class SuperAdminService {
       this.logger.error(`Error in getStatsLastMonth service: ${errorMessage}`);
       throw error;
     }
+  }
+
+  // Mudanza #7 (28-07): el área super-admin EXIGE estar en la
+  // allowlist SUPER_ADMIN_EMAILS — antes bastaba cualquier sesión.
+  assertSuperAdmin(email?: string) {
+    const lista = (this.configService.get<string>('SUPER_ADMIN_EMAILS') || '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    if (!email || !lista.includes(email.toLowerCase())) {
+      throw new ForbiddenException('Solo super-administradores.');
+    }
+  }
+
+  listCompanies() {
+    return this.superAdminRepository.listCompanies();
+  }
+
+  createCompanyOnly(name: string) {
+    return this.superAdminRepository.createCompanyOnly(name);
+  }
+
+  updateCompanyById(id: number, fields: Record<string, unknown>) {
+    return this.superAdminRepository.updateCompanyById(id, fields);
   }
 
   // Mudanza #1 de "una sola puerta" (28-07): guardar el lead Y avisar

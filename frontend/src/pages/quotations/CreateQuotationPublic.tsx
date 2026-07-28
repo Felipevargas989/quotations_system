@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle, Send } from "lucide-react";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
-import { getCompany } from "../../services/companies.service";
+import { getCompanyPublic } from "../../services/companies.service";
 import {
   EventType,
   QuotationPublicFormData,
@@ -89,7 +89,7 @@ export default function CreateQuotationPublic() {
       if (!company_id) return;
       setCompanyLoading(true);
       try {
-        const { data, error } = await getCompany(company_id);
+        const { data, error } = await getCompanyPublic(company_id);
         if (error) console.error("Error fetching company:", error);
         else if (data) setCompany(data);
       } catch (error) {

@@ -23,7 +23,26 @@ export class CompaniesController {
   //   return this.companiesService.findAll();
   // }
 
+  // Mudanza #7 (28-07): la puerta PÚBLICA entrega solo la cara visible
+  // de la empresa (nombre, logo, colores, moneda) — antes entregaba la
+  // ficha completa, configuración de notificaciones incluida.
   @Public()
+  @Get('public/:id')
+  async findOnePublic(@Param('id') id: string) {
+    this.logger.info(`GET /companies/public/${id}`);
+    const { data, error } = await this.companiesService.findOne(+id);
+    if (error || !data) return { data: null, error: 'No encontrada' };
+    const { id: cid, name, logo_url, colors, currency } = data as unknown as {
+      id: number;
+      name: string;
+      logo_url?: string | null;
+      colors?: unknown;
+      currency?: string | null;
+    };
+    return { data: { id: cid, name, logo_url, colors, currency }, error: null };
+  }
+
+  // La ficha completa exige sesión (la usa Configuración de Empresa).
   @Get(':id')
   findOne(@Param('id') id: string) {
     this.logger.info(`GET /companies/${id}`);

@@ -7,6 +7,7 @@ import { UsersModule } from 'src/users/users.module';
 import { AnalyticsCronService } from './analyitics-cront.service';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
+import { HoyController, HoyRepository } from './hoy.controller';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { AnalyticsService } from './analytics.service';
     UsersModule,
     EmailModule,
   ],
-  controllers: [AnalyticsController],
-  providers: [AnalyticsService, AnalyticsCronService],
+  controllers: [AnalyticsController, HoyController],
+  providers: [AnalyticsService, AnalyticsCronService, HoyRepository],
 })
 export class AnalyticsModule {}

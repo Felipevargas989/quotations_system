@@ -1,12 +1,24 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { Public } from 'src/auth';
+import { CurrentUser, Public } from 'src/auth';
+import type { User } from 'src/users/entities/user.entity';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { SuperAdminService } from './super-admin.service';
 import { Throttle } from '@nestjs/throttler';
 import { logSafe } from '../logging/log-safe';
 import { RegisterLeadDto } from './dto/register-lead.dto';
+
+// El AuthGuard adjunta también el correo (para la allowlist).
+type UserConCorreo = User & { email?: string };
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -27,8 +39,37 @@ export class SuperAdminController {
   }
 
   @Public()
+  // ---------- Mudanza #7 (28-07): empresas del área super-admin ----------
+  // Todas exigen estar en SUPER_ADMIN_EMAILS (antes bastaba la sesión).
+
+  @Get('companies')
+  listCompanies(@CurrentUser() user: UserConCorreo) {
+    this.superAdminService.assertSuperAdmin(user.email);
+    return this.superAdminService.listCompanies();
+  }
+
+  @Post('companies')
+  createCompany(
+    @Body() body: { name: string },
+    @CurrentUser() user: UserConCorreo,
+  ) {
+    this.superAdminService.assertSuperAdmin(user.email);
+    return this.superAdminService.createCompanyOnly(body.name);
+  }
+
+  @Patch('companies/:id')
+  updateCompany(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { name?: string; is_active?: boolean },
+    @CurrentUser() user: UserConCorreo,
+  ) {
+    this.superAdminService.assertSuperAdmin(user.email);
+    return this.superAdminService.updateCompanyById(id, body);
+  }
+
   @Get('stats/last-month')
-  getStatsLastMonth() {
+  getStatsLastMonth(@CurrentUser() user: UserConCorreo) {
+    this.superAdminService.assertSuperAdmin(user.email);
     this.logger.info(`GET /super-admin/stats/last-month`);
     return this.superAdminService.getStatsLastMonth();
   }

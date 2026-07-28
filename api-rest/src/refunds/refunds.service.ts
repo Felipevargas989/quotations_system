@@ -38,6 +38,28 @@ export class RefundsService {
     }
   }
 
+  // ---------- Mudanza #7 (28-07): Post-Venta por el backend ----------
+  findByQuotation(companyId: Company['id'], quotationId: string) {
+    return this.refundsRepository.findByQuotation(companyId, quotationId);
+  }
+
+  paidMapByCompany(companyId: Company['id']) {
+    return this.refundsRepository.paidMapByCompany(companyId);
+  }
+
+  registerPaid(
+    companyId: Company['id'],
+    id: string,
+    fields: {
+      amount: number;
+      refund_date: string;
+      payment_method: string;
+      receipt_url?: string | null;
+    },
+  ) {
+    return this.refundsRepository.registerPaid(companyId, id, fields);
+  }
+
   // Compensación (tarea #42): los usa QuotationsService cuando el total de
   // un evento aceptado SUBE — la deuda nueva consume primero los reembolsos
   // pendientes, para que nunca convivan "te debo" y "me debes".

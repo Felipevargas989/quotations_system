@@ -1,31 +1,17 @@
 import { API_ROUTES } from "../constants/api.routes";
-import { supabase } from "../lib/supabase";
 import { CompaniesResponse } from "../types/companies.types";
 import { QuotationStatsResponse } from "../types/superAdmin.types";
 import { apiRequest } from "./api";
+import { getCompanyPublic } from "./companies.service";
 
-/**
- * Get all companies from the database
- * @returns Promise<CompaniesResponse> - Array of companies or error message
- */
+// MUDANZA #7 (28-07): el área super-admin por el backend, que además
+// ahora EXIGE estar en la allowlist SUPER_ADMIN_EMAILS (antes cualquier
+// sesión podía llamar estas funciones con herramientas técnicas).
+
 export const getAllCompanies = async (): Promise<CompaniesResponse> => {
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return {
-        data: null,
-        error: error.message,
-      };
-    }
-
-    return {
-      data: data || [],
-      error: null,
-    };
+    const data = await apiRequest(API_ROUTES.SUPER_ADMIN_COMPANIES, "GET");
+    return { data: data || [], error: null };
   } catch (error) {
     return {
       data: null,
@@ -35,32 +21,15 @@ export const getAllCompanies = async (): Promise<CompaniesResponse> => {
   }
 };
 
-/**
- * Get a specific company by ID
- * @param companyId - The ID of the company to fetch
- * @returns Promise<CompaniesResponse> - Company data or error message
- */
+// La cara pública de una empresa (nombre, logo, colores) — la usa la
+// encuesta de satisfacción, que corre sin sesión.
 export const getCompanyById = async (
   companyId: number,
 ): Promise<CompaniesResponse> => {
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .select("*")
-      .eq("id", companyId)
-      .single();
-
-    if (error) {
-      return {
-        data: null,
-        error: error.message,
-      };
-    }
-
-    return {
-      data: data ? [data] : [],
-      error: null,
-    };
+    const { data, error } = await getCompanyPublic(companyId);
+    if (error) return { data: null, error: String(error) };
+    return { data: data ? [data] : [], error: null };
   } catch (error) {
     return {
       data: null,
@@ -70,32 +39,14 @@ export const getCompanyById = async (
   }
 };
 
-/**
- * Create a new company
- * @param name - The name of the company
- * @returns Promise<CompaniesResponse> - Created company data or error message
- */
 export const createCompany = async (
   name: string,
 ): Promise<CompaniesResponse> => {
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .insert([{ name }])
-      .select()
-      .single();
-
-    if (error) {
-      return {
-        data: null,
-        error: error.message,
-      };
-    }
-
-    return {
-      data: data ? [data] : [],
-      error: null,
-    };
+    const data = await apiRequest(API_ROUTES.SUPER_ADMIN_COMPANIES, "POST", {
+      name,
+    });
+    return { data: data ? [data] : [], error: null };
   } catch (error) {
     return {
       data: null,
@@ -105,35 +56,17 @@ export const createCompany = async (
   }
 };
 
-/**
- * Update an existing company
- * @param companyId - The ID of the company to update
- * @param name - The new name for the company
- * @returns Promise<CompaniesResponse> - Updated company data or error message
- */
 export const updateCompany = async (
   companyId: number,
   name: string,
 ): Promise<CompaniesResponse> => {
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .update({ name })
-      .eq("id", companyId)
-      .select()
-      .single();
-
-    if (error) {
-      return {
-        data: null,
-        error: error.message,
-      };
-    }
-
-    return {
-      data: data ? [data] : [],
-      error: null,
-    };
+    const data = await apiRequest(
+      `${API_ROUTES.SUPER_ADMIN_COMPANIES}/${companyId}`,
+      "PATCH",
+      { name },
+    );
+    return { data: data ? [data] : [], error: null };
   } catch (error) {
     return {
       data: null,
@@ -154,6 +87,5 @@ export const getStatsLastMonth =
     } catch (error) {
       console.error(error);
       return null;
-      // return { data: null, error: error.message };
     }
   };
