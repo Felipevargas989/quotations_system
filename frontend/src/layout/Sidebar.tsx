@@ -4,6 +4,7 @@ import {
   Home,
   Users,
   ClipboardList,
+  LibraryBig,
   Settings,
   Calendar,
   BarChart,
@@ -60,9 +61,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       section: "payments",
     },
     {
-      name: "Servicios",
+      // 28-07 (pedido de Felipe): "Catálogo" describe mejor lo que hay
+      // adentro, y el libro le queda mejor que la tuerca. La dirección
+      // interna (/services) NO cambia para no romper enlaces guardados.
+      name: "Catálogo",
       href: "/services",
-      icon: Settings,
+      icon: LibraryBig,
       section: "services",
     },
     {

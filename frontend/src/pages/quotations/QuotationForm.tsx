@@ -69,6 +69,7 @@ import {
   getFurnitureItems,
   getSupplies,
   getSuppliers,
+  getBaseCatalogo,
 } from "../../services/logistics.service";
 import {
   buildConsolidationContext,
@@ -771,25 +772,7 @@ export default function QuotationForm() {
     queryKey: ["logistica", "compras", "base", company?.id],
     staleTime: 5 * 60 * 1000,
     enabled: !!user && !!company?.id && puedeVerMargen,
-    queryFn: async () => {
-      const cid = Number(company!.id);
-      const [r, sup, f, provs, n, fc] = await Promise.all([
-        getAllRecipeItems(cid),
-        getSupplies(cid),
-        getFurnitureItems(cid),
-        getSuppliers(cid),
-        getCatalogServiceNameIds(cid),
-        getFixedServiceCostsById(cid),
-      ]);
-      return {
-        recipes: r,
-        supplies: sup,
-        furniture: f,
-        suppliers: provs,
-        nameIds: n,
-        fixedCosts: fc,
-      };
-    },
+    queryFn: getBaseCatalogo,
   });
 
   // Costo ESTIMADO DE CATÁLOGO: recetas → insumos, más los costos fijos
