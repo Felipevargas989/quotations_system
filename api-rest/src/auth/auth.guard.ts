@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { HORA_MS, cachePerfiles } from 'src/cache/memoria';
 import { UserAuth } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { AuthService } from './auth.service';
@@ -40,8 +41,18 @@ export class AuthGuard implements CanActivate {
       const user: Pick<UserAuth, 'id'> =
         await this.authService.validateToken(token);
 
-      // Fetch the full user data including company_id from the database
-      const { data: fullUser } = await this.usersRepository.findOne(user.id);
+      // Fetch the full user data including company_id from the database.
+      // FASE VELOCIDAD (28-07): el perfil se recuerda 1 hora — editar
+      // un usuario lo hace olvidar AL INSTANTE (users.service llama
+      // olvidarPerfil), así que un cambio de cargo rige de inmediato.
+      let fullUser = cachePerfiles.get(user.id) as
+        | Awaited<ReturnType<UsersRepository['findOne']>>['data']
+        | undefined;
+      if (!fullUser) {
+        const { data } = await this.usersRepository.findOne(user.id);
+        fullUser = data;
+        if (fullUser) cachePerfiles.set(user.id, fullUser, HORA_MS);
+      }
 
       // Attach the full user with company_id AND role to request object.
       // El cargo viaja para que RolesGuard (Fase 3, 28-07) pueda

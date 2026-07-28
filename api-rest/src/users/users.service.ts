@@ -1,5 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { olvidarPerfil } from 'src/cache/memoria';
 import { Company } from 'src/companies/entities/company.entity';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
 import { logSafe } from '../logging/log-safe';
@@ -69,6 +70,8 @@ export class UsersService {
   }
 
   async remove(id: User['id'], companyId: Company['id']) {
+    // El guardián recuerda perfiles 1 hora: al eliminar, se olvida YA.
+    olvidarPerfil(id);
     this.logger.info(`remove user with id ${id} and companyId ${companyId}`);
 
     // 1. remove user from public.user_profiles table

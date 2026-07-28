@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
@@ -9,6 +9,7 @@ import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
+import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -82,6 +83,11 @@ import { UsersModule } from './users/users.module';
   ],
   controllers: [HealthController],
   providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: PanelInvalidationInterceptor,
+    },
+
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
