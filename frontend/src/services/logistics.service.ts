@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase";
+import { API_ROUTES } from "../constants/api.routes";
+import { apiRequest } from "./api";
 import { canonicalServiceName } from "../utils/searchMatch";
 import {
   FixedServiceCostItem,
@@ -15,17 +17,22 @@ import {
 // es el único punto a cambiar.
 
 // ---------- Proveedores ----------
-export const getSuppliers = async (companyId: number): Promise<Supplier[]> => {
-  const { data, error } = await supabase
-    .from("suppliers")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("name");
-  if (error) {
-    console.error("Error cargando proveedores", error);
+// MUDANZA #2 de "una sola puerta" (28-07): esta sección ya NO va
+// directo a Supabase — pasa por el backend (/logistics/suppliers), que
+// exige el cargo, acota por empresa desde la sesión y aplica la regla
+// "con referencias no se elimina" en el servidor. Las firmas quedaron
+// idénticas: las 8 pantallas que llaman esto no notan la diferencia.
+// (companyId se mantiene en la firma por compatibilidad; el backend usa
+// SIEMPRE la empresa de la sesión.)
+export const getSuppliers = async (
+  _companyId: number,
+): Promise<Supplier[]> => {
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLIERS, "GET");
+    return (data || []) as Supplier[];
+  } catch {
     return [];
   }
-  return (data || []) as Supplier[];
 };
 
 export const createSupplier = async (fields: {
@@ -35,8 +42,14 @@ export const createSupplier = async (fields: {
   phone?: string | null;
   notes?: string | null;
 }) => {
-  const { error } = await supabase.from("suppliers").insert(fields);
-  return { error };
+  try {
+    // company_id no viaja: el backend usa el de la sesión.
+    const { company_id: _omitido, ...datos } = fields;
+    await apiRequest(API_ROUTES.LOGISTICS_SUPPLIERS, "POST", datos);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const updateSupplier = async (
@@ -45,48 +58,42 @@ export const updateSupplier = async (
     Pick<Supplier, "name" | "contact_name" | "phone" | "notes" | "is_active">
   >,
 ) => {
-  const { error } = await supabase
-    .from("suppliers")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_SUPPLIERS}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Cuántos insumos y recursos apuntan a cada proveedor. Con cualquier
 // referencia el proveedor no se puede eliminar (las compras se generan a
-// su nombre); sin ninguna, sí.
+// su nombre); sin ninguna, sí. El conteo lo hace el backend.
 export const getSuppliersUsage = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<Record<number, { supplies: number; resources: number }>> => {
-  const usage: Record<number, { supplies: number; resources: number }> = {};
-  const [sup, res] = await Promise.all([
-    supabase
-      .from("supplies")
-      .select("supplier_id")
-      .eq("company_id", companyId)
-      .not("supplier_id", "is", null),
-    supabase
-      .from("management_resources")
-      .select("supplier_id")
-      .eq("company_id", companyId)
-      .not("supplier_id", "is", null),
-  ]);
-  (sup.data || []).forEach((r) => {
-    const id = r.supplier_id as number;
-    usage[id] = usage[id] || { supplies: 0, resources: 0 };
-    usage[id].supplies += 1;
-  });
-  (res.data || []).forEach((r) => {
-    const id = r.supplier_id as number;
-    usage[id] = usage[id] || { supplies: 0, resources: 0 };
-    usage[id].resources += 1;
-  });
-  return usage;
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLIERS_USAGE, "GET");
+    return (data || {}) as Record<
+      number,
+      { supplies: number; resources: number }
+    >;
+  } catch {
+    return {};
+  }
 };
 
 export const deleteSupplier = async (id: number) => {
-  const { error } = await supabase.from("suppliers").delete().eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_SUPPLIERS}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Referencias de cada recurso de gestión (costos de servicios fijos +

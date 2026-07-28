@@ -10,7 +10,11 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import {
+  OPERATIONS_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
 import { LogisticsService } from './logistics.service';
@@ -29,6 +33,11 @@ export class LogisticsController {
     this.logger.setContext(LogisticsController.name);
   }
 
+  // LEER proveedores es más amplio que la sección Logística: lo usan
+  // el cotizador (vendedores), el Dashboard y Post-Venta — medido en 8
+  // pantallas (28-07). Por eso vendedor+; las ESCRITURAS siguen con la
+  // regla del controller (operaciones y administración).
+  @Roles(...SALES_AND_UP)
   @Get('suppliers')
   findAllSuppliers(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/suppliers company ${user.company_id}`);
