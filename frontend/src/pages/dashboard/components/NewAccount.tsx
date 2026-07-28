@@ -34,7 +34,25 @@ export default function NewAccount() {
   });
   const [loading, setLoading] = useState(true);
 
+  // PERCEPCIÓN DE CARGA (28-07, hallazgo de Felipe): esta guía de
+  // bienvenida revisaba servicios+clientes+cotizaciones EN CADA visita
+  // al Dashboard (3 llamadas pesadas) solo para concluir "cuenta ya
+  // configurada, no muestro nada" — pintando un círculo sobre el
+  // título mientras tanto. Ahora el veredicto se recuerda: una cuenta
+  // configurada no vuelve a revisarse en este navegador.
+  const YA_CONFIGURADA = `eventia_cuenta_configurada_${company?.id ?? ""}`;
+
   useEffect(() => {
+    if (localStorage.getItem(YA_CONFIGURADA) === "1") {
+      setEmptyStates({
+        hasServices: false,
+        hasClients: false,
+        hasQuotations: false,
+        hasCompanyLogo: false,
+      });
+      setLoading(false);
+      return;
+    }
     checkEmptyStates();
   }, [company?.logo_url]);
 
@@ -42,23 +60,22 @@ export default function NewAccount() {
     try {
       setLoading(true);
 
-      // Check services
-      const servicesResponse = await findAllServices();
+      // Las tres revisiones en PARALELO (antes iban en fila india).
+      const [servicesResponse, clientsResponse, requestsResponse] =
+        await Promise.all([
+          findAllServices(),
+          getClients(),
+          getQuotations(undefined, [
+            QuotationStatus.SOLICITADA,
+            QuotationStatus.ENVIADA,
+            QuotationStatus.EN_NEGOCIACION,
+            QuotationStatus.ACEPTADA,
+          ]),
+        ]);
       const hasServices =
         servicesResponse.variableServices?.length > 0 ||
         servicesResponse.fixedServices?.length > 0;
-
-      // Check clients
-      const clientsResponse = await getClients();
       const hasClients = clientsResponse.data?.length > 0;
-
-      // Check quotations (both requests and quotations)
-      const requestsResponse = await getQuotations(undefined, [
-        QuotationStatus.SOLICITADA,
-        QuotationStatus.ENVIADA,
-        QuotationStatus.EN_NEGOCIACION,
-        QuotationStatus.ACEPTADA,
-      ]);
       const hasQuotations = requestsResponse.data?.length > 0;
       setEmptyStates({
         hasServices: !hasServices,
@@ -66,6 +83,10 @@ export default function NewAccount() {
         hasQuotations: !hasQuotations,
         hasCompanyLogo: !company?.logo_url,
       });
+      // Cuenta completa: recordarlo y no volver a revisar nunca más.
+      if (hasServices && hasClients && hasQuotations && company?.logo_url) {
+        localStorage.setItem(YA_CONFIGURADA, "1");
+      }
     } catch (error) {
       console.error("Error checking empty states:", error);
     } finally {
@@ -73,12 +94,11 @@ export default function NewAccount() {
     }
   };
 
+  // Mientras revisa: NADA (ni círculo ni espacio). La guía de
+  // bienvenida no es crítica — si la cuenta es nueva de verdad,
+  // aparece un segundo después sin estorbar al Dashboard.
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-32">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return null;
   }
 
   // If all resources exist, don't show the component
