@@ -48,8 +48,16 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState(getDefaultDates());
 
   useEffect(() => {
-    // Update date range when URL params change
-    setDateRange(getDefaultDates());
+    // FASE VELOCIDAD (28-07): antes esto creaba un objeto NUEVO en cada
+    // cambio de searchParams aunque las fechas fueran las mismas → el
+    // efecto de abajo veía "otro" dateRange y pedía las estadísticas
+    // DOS VECES por visita. Ahora solo cambia si cambian las fechas.
+    const nuevas = getDefaultDates();
+    setDateRange((prev) =>
+      prev.startDate === nuevas.startDate && prev.endDate === nuevas.endDate
+        ? prev
+        : nuevas,
+    );
   }, [searchParams]);
 
   useEffect(() => {

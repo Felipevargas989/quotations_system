@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import {
   AlertTriangle,
   ChevronDown,
@@ -79,33 +80,30 @@ export default function GestionTab({
 
   // Gestión (lectura de aprovisionamiento) vía React Query (Etapa 5,
   // frescura inmediata bajo el prefijo ["postventa"]).
+  // FASE VELOCIDAD (28-07): el catálogo sale de la despensa compartida
+  // (useBaseLogistica, misma clave que Compras/Dashboard/cotizador) —
+  // antes esta pestaña re-pedía las mismas 4 listas con clave propia.
+  // Acá solo se pide lo propio del evento (aprovisionamiento + eventos).
+  const base = useBaseLogistica(companyId);
   const gestionQuery = useQuery({
     queryKey: ["postventa", "gestion", companyId, quote.id],
     enabled: companyId !== null,
     staleTime: 0,
     queryFn: async () => {
-      const [r, s, f, n, pr, ev] = await Promise.all([
-        getAllRecipeItems(companyId!),
-        getSupplies(companyId!),
-        getFurnitureItems(companyId!),
-        getCatalogServiceNameIds(companyId!),
+      const [pr, ev] = await Promise.all([
         getQuotationProvisioning(String(quote.id)),
         getAcceptedEvents(companyId!),
       ]);
       return {
-        recipes: r,
-        supplies: s,
-        furniture: f,
-        nameIds: n,
         prov: pr,
         allEvents: ev,
       };
     },
   });
-  const recipes = gestionQuery.data?.recipes ?? [];
-  const supplies = gestionQuery.data?.supplies ?? [];
-  const furniture = gestionQuery.data?.furniture ?? [];
-  const nameIds = gestionQuery.data?.nameIds ?? { variable: {}, fixed: {} };
+  const recipes = base.data?.recipes ?? [];
+  const supplies = base.data?.supplies ?? [];
+  const furniture = base.data?.furniture ?? [];
+  const nameIds = base.data?.nameIds ?? { variable: {}, fixed: {} };
   const prov: QuotationProvisioning = gestionQuery.data?.prov ?? {
     provisioned_at: null,
     provisioned_cost: null,
@@ -113,7 +111,8 @@ export default function GestionTab({
     provisioned_services: null,
   };
   const allEvents = gestionQuery.data?.allEvents ?? [];
-  const loading = gestionQuery.isPending && companyId !== null;
+  const loading =
+    (gestionQuery.isPending || base.isPending) && companyId !== null;
 
   const personas = quote.people_count || 0;
 

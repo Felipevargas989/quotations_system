@@ -17,6 +17,7 @@ import {
   QuotationWithClient,
 } from "../../types/quotations.types";
 import {
+  getQuotationById,
   getQuotations,
   updateQuotation,
 } from "../../services/quotations.service";
@@ -377,8 +378,15 @@ export default function QuotationsPage() {
 
   const handleViewQuotation = async (quotation: QuotationWithClient) => {
     try {
-      // Items are now stored in the JSON field, no need to fetch from quotation_items
-      const quotationWithItems = { ...quotation, items: quotation.items || [] };
+      // FASE VELOCIDAD Etapa 3 (28-07): la lista ya no viaja con los
+      // items (dieta de 93→15 KB) — el visor pide la cotización
+      // completa recién cuando alguien la abre.
+      const { data } = await getQuotationById(String(quotation.id));
+      const quotationWithItems = {
+        ...quotation,
+        ...(data || {}),
+        items: data?.items || [],
+      };
       setViewingQuotation(quotationWithItems);
       setShowViewer(true);
     } catch (error) {

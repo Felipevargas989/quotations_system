@@ -483,9 +483,24 @@ export default function QuotationForm() {
       setIsEditingExisting(!!quotation.id);
 
       // SIEMPRE cargar items desde la base de datos si tiene ID (o desde
-      // la cotización origen cuando se está duplicando)
+      // la cotización origen cuando se está duplicando).
+      // FASE VELOCIDAD (28-07): al EDITAR, la cotización recién traída
+      // YA viene con sus items — volver a pedirla a la base era una
+      // segunda llamada idéntica. Solo se viaja a la base al DUPLICAR
+      // (los items vienen de otra cotización).
       const itemsSourceId = quotation.id || __items_source_id;
-      if (itemsSourceId) {
+      if (itemsSourceId === quotation.id && quotation.id) {
+        if (quotation.items) {
+          const kids = Number(quotation.children_count || 0);
+          const adults = Math.max(
+            0,
+            Number(quotation.people_count || 0) - kids,
+          );
+          loadExistingItemsFromJSON(quotation.items, adults, kids);
+        } else {
+          setSelectedFixedServices([]);
+        }
+      } else if (itemsSourceId) {
         loadItemsFromDatabase(itemsSourceId);
       }
 
@@ -754,6 +769,7 @@ export default function QuotationForm() {
   // sale de caché y no cuesta nada.
   const marginBaseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", company?.id],
+    staleTime: 5 * 60 * 1000,
     enabled: !!user && !!company?.id && puedeVerMargen,
     queryFn: async () => {
       const cid = Number(company!.id);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useBaseLogistica } from "../../../hooks/useBaseLogistica";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -117,16 +118,21 @@ export default function MobiliarioTab({
   };
 
   // Radar: consolida los eventos futuros y busca fechas en conflicto.
+  // FASE VELOCIDAD (28-07): el catálogo sale de la despensa compartida
+  // (useBaseLogistica) y los eventos de su propia consulta con caché —
+  // antes este radar disparaba 5 llamadas propias (una de ellas,
+  // mobiliario, DUPLICADA con la consulta principal de la pestaña).
+  const baseRadar = useBaseLogistica(companyId);
+  const eventosRadar = useQuery({
+    queryKey: ["logistica", "eventos-aceptados", companyId],
+    staleTime: 60 * 1000,
+    queryFn: () => getAcceptedEvents(companyId),
+  });
   useEffect(() => {
-    let alive = true;
-    Promise.all([
-      getAcceptedEvents(companyId),
-      getAllRecipeItems(companyId),
-      getSupplies(companyId),
-      getFurnitureItems(companyId),
-      getCatalogServiceNameIds(companyId),
-    ]).then(([events, recipes, supplies, furniture, nameIds]) => {
-      if (!alive) return;
+    if (!baseRadar.data || !eventosRadar.data) return;
+    const { recipes, supplies, furniture, nameIds } = baseRadar.data;
+    const events = eventosRadar.data;
+    {
       const ctx = buildConsolidationContext(
         recipes,
         supplies,
@@ -208,11 +214,8 @@ export default function MobiliarioTab({
           }
         });
       setAvailData({ conflicts, loaded: true });
-    });
-    return () => {
-      alive = false;
-    };
-  }, [companyId, rows]);
+    }
+  }, [companyId, rows, baseRadar.data, eventosRadar.data]);
 
   const open = (f?: FurnitureItem) => {
     setEditing(f || null);
