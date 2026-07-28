@@ -453,7 +453,7 @@ export default function PostVentaPage() {
             <button
               type="button"
               onClick={() => setOrdenOpen((v) => !v)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white flex items-center gap-2 hover:border-gray-400"
+              className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white flex items-center justify-between gap-2 hover:border-gray-400"
               title="Orden de la lista"
             >
               <span>
