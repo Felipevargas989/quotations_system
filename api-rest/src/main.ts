@@ -27,6 +27,9 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       configService.get('FRONTEND_URL'), // React dev server
+      // Eventia MÓVIL (28-07): la app de teléfono es otro origen; su
+      // URL viaja en la variable MOVIL_URL (vacía = sin efecto).
+      configService.get('MOVIL_URL'),
       // Dominio productivo y alias Netlify: ambos aceptados SIEMPRE para
       // que el switchover de DNS (Plan B) no corte a nadie a mitad de
       // camino, apunte donde apunte FRONTEND_URL.
