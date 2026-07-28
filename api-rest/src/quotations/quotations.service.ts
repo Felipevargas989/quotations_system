@@ -601,7 +601,10 @@ export class QuotationsService {
           // nace deuda. Así nunca conviven "te debo" y "me debes".
           // Los reembolsos YA PAGADOS no se tocan: esa plata ya salió.
           const pendingRefunds =
-            await this.refundsService.findPendingByQuotation(id);
+            (await this.refundsService.findPendingByQuotation(id)) as {
+              id: string;
+              amount: number;
+            }[];
 
           for (const refund of pendingRefunds) {
             if (amountToCharge <= 0) break;

@@ -220,10 +220,12 @@ export class AnalyticsService {
         due_date: string | null;
         amount: number;
       };
-      ((payments || []) as FilaPago[]).forEach((payment) => {
+      ((payments || []) as unknown as FilaPago[]).forEach((payment) => {
         const isPaid = payment.status === 'pagado';
         const date = new Date(
-          isPaid && payment.paid_date ? payment.paid_date : payment.due_date,
+          (isPaid && payment.paid_date
+            ? payment.paid_date
+            : payment.due_date) as string,
         );
         const key = `${date.getFullYear()}-${date.getMonth()}`;
         if (!(key in totalPaymentsDetailByMonth)) return;

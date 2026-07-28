@@ -158,9 +158,7 @@ export class ClientsRepository {
       .select('id')
       .eq('company_id', companyId);
     if (ownError) throw ownError;
-    const ownIds = new Set(
-      ((own ?? []) as { id: number }[]).map((t) => t.id),
-    );
+    const ownIds = new Set(((own ?? []) as { id: number }[]).map((t) => t.id));
     const valid = ids.filter((i) => ownIds.has(i));
     for (let i = 0; i < valid.length; i++) {
       const { error } = await this.supabase.client
