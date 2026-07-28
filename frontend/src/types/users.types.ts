@@ -13,9 +13,11 @@ export type User = {
   company_id: Company["id"];
 };
 
+// company_id NO viaja desde el navegador: el backend lo saca de la
+// sesión del usuario que crea/edita (aislamiento por empresa).
 export type CreateUser = Omit<
   User,
-  "id" | "user_id" | "created_at" | "updated_at"
+  "id" | "user_id" | "created_at" | "updated_at" | "company_id"
 >;
 
 export type UpdateUser = Omit<CreateUser, "password" | "email">;

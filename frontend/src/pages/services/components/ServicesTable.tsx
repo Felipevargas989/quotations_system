@@ -177,7 +177,7 @@ export default function ServicesTable({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900">
-                        {formatPrice(service.price)}
+                        {formatPrice(service.price ?? 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -300,7 +300,7 @@ export default function ServicesTable({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900">
-                        {formatPrice(service.price)}
+                        {formatPrice(service.price ?? 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

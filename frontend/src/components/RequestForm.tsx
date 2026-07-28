@@ -16,7 +16,8 @@ import {
 } from "../services/quotations.service";
 import { useDateAvailability } from "../hooks/useDateAvailability";
 import {
-  QuotationFormData,
+  EventType,
+  QuotationCreateData,
   QuotationRequestType,
   QuotationStatus,
 } from "../types/quotations.types";
@@ -30,10 +31,14 @@ interface RequestFormProps {
 
 export default function RequestForm({ request, onSave }: RequestFormProps) {
   const { user } = useAuth();
+  // Un requerimiento maneja solo el esqueleto del evento (sin montos):
+  // QuotationCreateData refleja eso (Fase 2 Bloque C). El "" inicial de
+  // event_type existe hasta que el usuario elige (el select es
+  // obligatorio), por eso el cast.
   const [formData, setFormData] = useState<
-    Omit<QuotationFormData, "request_type" | "quotation_status">
+    Omit<QuotationCreateData, "request_type" | "quotation_status">
   >({
-    event_type: "",
+    event_type: "" as EventType,
     event_date: "",
     people_count: 1,
     observations: "",
@@ -90,9 +95,13 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   useEffect(() => {
     // (Clientes y tipos los carga React Query automáticamente.)
     if (request) {
-      const requestData: QuotationFormData = {
-        request_type: request.request_type,
-        quotation_status: request.quotation_status,
+      // Solo lo que el estado maneja. request_type y quotation_status
+      // no viven en el formulario: al actualizar, el backend conserva
+      // los valores guardados (PATCH parcial).
+      const requestData: Omit<
+        QuotationCreateData,
+        "request_type" | "quotation_status"
+      > = {
         event_type: request.event_type,
         event_date: request.event_date.split("T")[0],
         people_count: request.people_count,
@@ -233,7 +242,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   const handleClear = () => {
     setFormData({
-      event_type: "",
+      event_type: "" as EventType,
       event_date: "",
       people_count: 1,
       observations: "",
@@ -541,7 +550,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
               required
               value={formData.event_type}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, event_type: e.target.value }))
+                setFormData((prev) => ({
+                  ...prev,
+                  // Las opciones del select salen de EventType, así que
+                  // el valor siempre es uno válido (o "" mientras elige).
+                  event_type: e.target.value as EventType,
+                }))
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >

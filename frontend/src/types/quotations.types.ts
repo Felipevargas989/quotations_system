@@ -119,9 +119,11 @@ export interface QuotationFormData
   > {
   has_contract?: Quotation["has_contract"];
   requires_invoice?: Quotation["requires_invoice"];
-  event_date: Quotation["event_date"] | undefined;
-  // En el formulario la fecha viaja como string yyyy-mm-dd (igual que
-  // event_date en la práctica); null = evento de un día.
+  // En el formulario las fechas viajan como string yyyy-mm-dd (así las
+  // entrega <input type="date">); el backend las convierte a UTC.
+  // Antes decía Date y era mentira — Fase 2 Bloque C.
+  event_date: string | undefined;
+  // null = evento de un día.
   event_end_date?: string | null;
   // Cotizador 2.0: niños dentro del total y propina opcional post-IVA.
   children_count?: number;
@@ -136,10 +138,24 @@ export type QuotationPublicFormData = Pick<
   Client,
   "name" | "email" | "phone" | "client_type"
 > &
+  Pick<Quotation, "event_type" | "people_count" | "observations"> & {
+    // string yyyy-mm-dd, igual que en el formulario interno.
+    event_date: string;
+    children_count?: number;
+  };
+
+// Lo que viaja al backend al CREAR una cotización autenticada: un
+// requerimiento va sin montos (el backend los deja en 0); el cotizador
+// va completo. Por eso lo obligatorio es solo el esqueleto del evento.
+export type QuotationCreateData = Partial<QuotationFormData> &
   Pick<
-    Quotation,
-    "event_type" | "people_count" | "observations" | "event_date"
-  > & { children_count?: number };
+    QuotationFormData,
+    | "client_id"
+    | "event_type"
+    | "people_count"
+    | "request_type"
+    | "quotation_status"
+  >;
 
 export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
 

@@ -32,6 +32,9 @@ export interface FixedServiceFormatted {
   min_precio: number;
   max_precio: number;
   precio_por_persona: number;
+  // Presente solo cuando la fuente lo trae; QuotationForm usa
+  // "General" como respaldo (Fase 2 Bloque C).
+  categoria?: string;
 }
 
 interface ServicesData {
@@ -100,7 +103,9 @@ const transformFixedServiceToFormatted = (
   // Use the database id as the unique selection identifier (see note above).
   codigo: service.id.toString(),
   nombre: service.name,
-  precio: service.price,
+  // El precio puede venir vacío del catálogo; 0 sigue la convención de
+  // min/max de abajo, y resolveFixedServicePrice decide el valor real.
+  precio: service.price ?? 0,
   tipo_calculo: service.calculation_type,
   min_precio: service.min_price || 0,
   max_precio: service.max_price || 0,

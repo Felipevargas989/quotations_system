@@ -1,6 +1,7 @@
 import { API_ROUTES } from "../constants/api.routes";
 import {
   Quotation,
+  QuotationCreateData,
   QuotationFormDataUpdate,
   QuotationPublicFormData,
   QuotationRequestType,
@@ -54,7 +55,10 @@ export const deleteQuotation = async (quotationId: string) => {
   return { error: response.error };
 };
 
-export const createQuotation = async (quotation: QuotationPublicFormData) => {
+// Crear autenticado (POST /quotations). El tipo correcto es el del
+// formulario INTERNO (Fase 2 Bloque C): antes decía por error
+// QuotationPublicFormData, que es el del formulario público sin sesión.
+export const createQuotation = async (quotation: QuotationCreateData) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}`,
     "POST",

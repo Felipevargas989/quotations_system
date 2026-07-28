@@ -65,11 +65,13 @@ export const validateClientData = (email: string, phone: string) => {
  * @returns Object with validation results and error messages
  */
 export const validateClientForm = (formData: {
-  email: string;
-  phone: string;
+  // Opcionales porque en Client ambos lo son (Fase 2 Bloque C);
+  // ausentes se validan como vacíos, igual que antes.
+  email?: string;
+  phone?: string;
 }) => {
-  const emailError = validateEmail(formData.email);
-  const phoneError = validatePhone(formData.phone);
+  const emailError = validateEmail(formData.email ?? "");
+  const phoneError = validatePhone(formData.phone ?? "");
 
   return {
     errors: {

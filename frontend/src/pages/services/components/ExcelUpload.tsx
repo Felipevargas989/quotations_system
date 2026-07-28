@@ -159,7 +159,9 @@ export default function ExcelUpload({
           code: String(row[0]).trim(),
           name: String(row[1]).trim(),
           price: Number(row[2]),
-          calculation_type: String(row[3]).trim(),
+          // El Excel trae texto libre; aguas abajo se valida contra los
+          // valores del catálogo (Fase 2 Bloque C).
+          calculation_type: String(row[3]).trim() as CalculationType,
           min_price: row[4] ? Number(row[4]) : undefined,
           max_price: row[5] ? Number(row[5]) : undefined,
           price_per_person: row[6] ? Number(row[6]) : undefined,
