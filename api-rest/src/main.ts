@@ -3,11 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { validateEnv } from './config/validate-env';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
+  // Fase 2: sin configuración crítica el servidor NO parte (lanza acá,
+  // con mensaje claro en el log del deploy). Las importantes-no-vitales
+  // solo se advierten, más abajo, cuando el logger ya existe.
+  const faltantes = validateEnv();
   const configService = app.get(ConfigService);
   // Enable CORS
   app.enableCors({
@@ -36,6 +41,13 @@ async function bootstrap() {
   });
 
   app.useLogger(app.get(Logger));
+  if (faltantes.length > 0) {
+    app
+      .get(Logger)
+      .warn(
+        `⚠️ CONFIGURACIÓN INCOMPLETA (el servidor parte igual, pero algo va a fallar): faltan ${faltantes.join(', ')}`,
+      );
+  }
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

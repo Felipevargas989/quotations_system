@@ -12,6 +12,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey/module';
 import { EmailModule } from './email/email.module';
 import { BackupModule } from './backup/backup.module';
+import { HealthController } from './health/health.controller';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -62,7 +63,7 @@ import { UsersModule } from './users/users.module';
     CustomerSatisfactionSurveyModule,
     BackupModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
