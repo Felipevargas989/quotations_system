@@ -383,12 +383,14 @@ export class EmailService {
       case EmailStructure.SUPER_ADMIN_NOTIFICATION:
         subject = EMAIL_SUBJECTS[EmailStructure.SUPER_ADMIN_NOTIFICATION];
         sendTo = to as string[];
-        if (!params?.content) {
+        if (!(params as { content?: string })?.content) {
           throw new Error(
             'Content is required for SUPER_ADMIN_NOTIFICATION template',
           );
         }
-        html = superAdminNotificationTemplate(params.content as string);
+        html = superAdminNotificationTemplate(
+          (params as { content: string }).content,
+        );
         break;
 
       default:

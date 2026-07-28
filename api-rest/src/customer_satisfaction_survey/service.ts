@@ -6,10 +6,10 @@ import { EmailStructure } from 'src/email/types';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { logSafe } from '../logging/log-safe';
 import { CUSTOMER_SATISFACTION_SURVEY_QUESTIONS } from './constants/questions';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyRepository } from './repository';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class CustomerSatisfactionSurveyService {

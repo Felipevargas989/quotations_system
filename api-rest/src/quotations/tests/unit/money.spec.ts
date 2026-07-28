@@ -1,11 +1,7 @@
 // Pruebas de la cuenta del dinero en el backend (Fase 1, 27-07-2026).
 // La referencia es computeTotals del cotizador: misma fórmula, mismos
 // redondeos. Cada caso replica un guardado real del frontend.
-import {
-  computeMoney,
-  verifyMoney,
-  hasMoneyToVerify,
-} from '../../utils/money';
+import { computeMoney, hasMoneyToVerify, verifyMoney } from '../../utils/money';
 
 // Caja de variables como la arma buildItemsSnapshot
 const box = (

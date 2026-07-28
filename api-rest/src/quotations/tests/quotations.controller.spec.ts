@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { QuotationsService } from '../quotations.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { QuotationsController } from '../quotations.controller';
+import { QuotationsService } from '../quotations.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.

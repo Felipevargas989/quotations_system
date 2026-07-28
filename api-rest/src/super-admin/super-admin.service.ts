@@ -14,12 +14,12 @@ import { EmailStructure } from 'src/email/types/index';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
-import { RegisterLeadDto } from './dto/register-lead.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
+import { RegisterLeadDto } from './dto/register-lead.dto';
 import { SuperAdminRepository } from './super-admin.repository';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class SuperAdminService {

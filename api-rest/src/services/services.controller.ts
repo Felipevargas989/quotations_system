@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
@@ -22,7 +23,6 @@ import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
 import { FixedService, VariableService } from './entities/service.entity';
 import { ServicesService } from './services.service';
-import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller('services')
 export class ServicesController {

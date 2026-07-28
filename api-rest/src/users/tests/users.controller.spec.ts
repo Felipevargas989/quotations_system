@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { UsersService } from '../users.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { UsersController } from '../users.controller';
+import { UsersService } from '../users.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.

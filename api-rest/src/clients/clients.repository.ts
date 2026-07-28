@@ -128,13 +128,17 @@ export class ClientsRepository {
       .select('id, name, sort_order')
       .eq('company_id', companyId);
     if (exError) throw exError;
-    const match = (existing ?? []).find(
+    type TipoCliente = { id: number; name: string; sort_order: number | null };
+    const match = ((existing ?? []) as TipoCliente[]).find(
       (t) => t.name.trim().toLowerCase() === clean.toLowerCase(),
     );
     if (match) return match;
     // El tipo nuevo entra al final del orden manual.
     const nextOrder =
-      Math.max(0, ...(existing ?? []).map((t) => t.sort_order ?? 0)) + 1;
+      Math.max(
+        0,
+        ...((existing ?? []) as TipoCliente[]).map((t) => t.sort_order ?? 0),
+      ) + 1;
     const { data, error } = await this.supabase.client
       .from('client_types')
       .insert([{ company_id: companyId, name: clean, sort_order: nextOrder }])
@@ -146,13 +150,17 @@ export class ClientsRepository {
 
   // Reordenar tipos: recibe los ids en el orden final y persiste 1..N.
   async reorderTypes(companyId: number, ids: number[]) {
-    this.logger.info(`reorderTypes companyId ${companyId} ids ${ids}`);
+    this.logger.info(
+      `reorderTypes companyId ${companyId} ids ${ids.join(',')}`,
+    );
     const { data: own, error: ownError } = await this.supabase.client
       .from('client_types')
       .select('id')
       .eq('company_id', companyId);
     if (ownError) throw ownError;
-    const ownIds = new Set((own ?? []).map((t) => t.id));
+    const ownIds = new Set(
+      ((own ?? []) as { id: number }[]).map((t) => t.id),
+    );
     const valid = ids.filter((i) => ownIds.has(i));
     for (let i = 0; i < valid.length; i++) {
       const { error } = await this.supabase.client
@@ -219,7 +227,7 @@ export class ClientsRepository {
       .order('event_date', { ascending: false });
     if (qError) throw qError;
 
-    const qIds = (quotations ?? []).map((q) => q.id);
+    const qIds = ((quotations ?? []) as { id: string }[]).map((q) => q.id);
     let pendingPayments: {
       quotation_id: string;
       amount: number;

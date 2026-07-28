@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { RefundsService } from '../refunds.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { RefundsController } from '../refunds.controller';
+import { RefundsService } from '../refunds.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.

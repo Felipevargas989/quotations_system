@@ -2,9 +2,9 @@ import { PinoLogger } from 'nestjs-pino';
 import { EmailService } from 'src/email/email.service';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { UsersService } from 'src/users/users.service';
+import { mockPinoLogger } from '../../testing/mocks';
 import { CustomerSatisfactionSurveyRepository } from '../repository';
 import { CustomerSatisfactionSurveyService } from '../service';
-import { mockPinoLogger } from '../../testing/mocks';
 
 // Esqueleto reparado (Fase 2 Bloque B). Construcción directa: las
 // importaciones circulares de este módulo dejan el token de

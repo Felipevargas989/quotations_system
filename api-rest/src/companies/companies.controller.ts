@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CompaniesService } from './companies.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
-import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller('companies')
 export class CompaniesController {
@@ -32,7 +32,13 @@ export class CompaniesController {
     this.logger.info(`GET /companies/public/${id}`);
     const { data, error } = await this.companiesService.findOne(+id);
     if (error || !data) return { data: null, error: 'No encontrada' };
-    const { id: cid, name, logo_url, colors, currency } = data as unknown as {
+    const {
+      id: cid,
+      name,
+      logo_url,
+      colors,
+      currency,
+    } = data as unknown as {
       id: number;
       name: string;
       logo_url?: string | null;

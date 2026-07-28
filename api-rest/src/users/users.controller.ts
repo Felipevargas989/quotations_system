@@ -9,15 +9,15 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { API_ROUTES } from 'src/constants/api.routes';
+import { logSafe } from '../logging/log-safe';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
 import { UsersService } from './users.service';
-import { logSafe } from '../logging/log-safe';
-import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 @Controller(API_ROUTES.USERS)
 export class UsersController {
@@ -77,9 +77,7 @@ export class UsersController {
   @Public()
   @Post('signup')
   signup(@Body() signupDto: SignupDto) {
-    this.logger.info(
-      `POST /users/signup with signupDto ${logSafe(signupDto)}`,
-    );
+    this.logger.info(`POST /users/signup with signupDto ${logSafe(signupDto)}`);
     return this.usersService.signup(signupDto);
   }
 }

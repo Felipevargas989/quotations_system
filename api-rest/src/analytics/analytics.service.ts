@@ -214,7 +214,13 @@ export class AnalyticsService {
             { cobrado: 0, porCobrar: 0 },
           ]),
         );
-      (payments || []).forEach((payment: any) => {
+      type FilaPago = {
+        status: string;
+        paid_date: string | null;
+        due_date: string | null;
+        amount: number;
+      };
+      ((payments || []) as FilaPago[]).forEach((payment) => {
         const isPaid = payment.status === 'pagado';
         const date = new Date(
           isPaid && payment.paid_date ? payment.paid_date : payment.due_date,

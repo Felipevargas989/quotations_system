@@ -1,8 +1,8 @@
 import { PinoLogger } from 'nestjs-pino';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
+import { mockPinoLogger } from '../../testing/mocks';
 import { UsersRepository } from '../users.repository';
 import { UsersService } from '../users.service';
-import { mockPinoLogger } from '../../testing/mocks';
 
 // Esqueleto reparado (Fase 2 Bloque B). Construcción directa porque la
 // dependencia de SuperAdminService es circular (forwardRef) y el módulo

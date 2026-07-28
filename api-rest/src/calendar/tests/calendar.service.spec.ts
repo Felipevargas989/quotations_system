@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CalendarRepository } from '../calendar.repository';
 import { PinoLogger } from 'nestjs-pino';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { CalendarRepository } from '../calendar.repository';
 import { CalendarService } from '../calendar.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): arma el módulo con las

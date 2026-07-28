@@ -1,7 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { CompaniesRepository } from 'src/companies/companies.repository';
 import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
+import { CompaniesRepository } from 'src/companies/companies.repository';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { EmailService } from '../email.service';
 

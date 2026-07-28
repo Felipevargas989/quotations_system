@@ -8,7 +8,12 @@ import { Quotation } from '../entities/quotation.entity';
 
 export type CreateQuotation = Omit<
   Quotation,
-  'id' | 'created_at' | 'updated_at' | 'event_date' | 'event_end_date' | 'user_id'
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'event_date'
+  | 'event_end_date'
+  | 'user_id'
 > & {
   event_date: string;
   // Último día del evento (null = un solo día), como ISO UTC igual que

@@ -9,11 +9,14 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { Company } from 'src/companies/entities/company.entity';
-import { UserRole } from 'src/users/entities/user.entity';
 import type { User } from 'src/users/entities/user.entity';
+import { UserRole } from 'src/users/entities/user.entity';
+import { logSafe } from '../logging/log-safe';
 import { RequestType } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
@@ -21,9 +24,6 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
-import { Throttle } from '@nestjs/throttler';
-import { logSafe } from '../logging/log-safe';
-import { Roles, OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('quotations')
 export class QuotationsController {

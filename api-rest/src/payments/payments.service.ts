@@ -168,10 +168,7 @@ export class PaymentsService {
   // Elimina el plan de pagos completo de una cotización. Solo se usa cuando
   // NO hay dinero registrado (guardia de estados en QuotationsService.update):
   // volver una cotización a pre-venta no debe dejar cuotas huérfanas.
-  deletePaymentPlan(
-    quotationId: Quotation['id'],
-    companyId: Company['id'],
-  ) {
+  deletePaymentPlan(quotationId: Quotation['id'], companyId: Company['id']) {
     this.logger.info(
       `deletePaymentPlan for quotation ${quotationId} (state guard)`,
     );

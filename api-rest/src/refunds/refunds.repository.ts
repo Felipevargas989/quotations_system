@@ -40,10 +40,7 @@ export class RefundsRepository {
 
   updateAmount(id: string, amount: number) {
     this.logger.info(`updateAmount refund ${id} -> ${amount}`);
-    return this.supabase.client
-      .from('refunds')
-      .update({ amount })
-      .eq('id', id);
+    return this.supabase.client.from('refunds').update({ amount }).eq('id', id);
   }
 
   remove(id: string) {
@@ -64,7 +61,7 @@ export class RefundsRepository {
       .eq('quotations.company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   // Suma de reembolsos YA PAGADOS por cotización — SOLO de la empresa

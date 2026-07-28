@@ -2,6 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
+import { logSafe } from '../logging/log-safe';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -9,7 +10,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
 import { CreateUser } from './types';
 import { UsersRepository } from './users.repository';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class UsersService {

@@ -10,12 +10,12 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
+import { logSafe } from '../logging/log-safe';
 import { ClientsService } from './clients.service';
-import { CreateClientDto } from './dto/create-client.dto';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
+import { CreateClientDto } from './dto/create-client.dto';
 import { ReorderClientTypesDto } from './dto/reorder-client-types.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
-import { logSafe } from '../logging/log-safe';
 
 @Controller('clients')
 export class ClientsController {
@@ -72,7 +72,9 @@ export class ClientsController {
     @Body() reorderDto: ReorderClientTypesDto,
     @CurrentUser() user: User,
   ) {
-    this.logger.info(`PATCH /clients/types/reorder ${reorderDto.ids}`);
+    this.logger.info(
+      `PATCH /clients/types/reorder ${reorderDto.ids.join(',')}`,
+    );
     return this.clientsService.reorderTypes(user.company_id, reorderDto.ids);
   }
 

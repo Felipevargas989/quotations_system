@@ -1,6 +1,5 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ExecutionContext } from '@nestjs/common';
 import { UserRole } from 'src/users/entities/user.entity';
 import { RolesGuard } from '../roles.guard';
 
@@ -30,9 +29,7 @@ describe('RolesGuard', () => {
 
   it('una ruta sin @Roles solo exige sesión (compatibilidad)', () => {
     expect(
-      guardia(false, undefined).canActivate(
-        contexto({ role: 'recepcion' }),
-      ),
+      guardia(false, undefined).canActivate(contexto({ role: 'recepcion' })),
     ).toBe(true);
   });
 

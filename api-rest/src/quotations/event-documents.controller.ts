@@ -65,7 +65,7 @@ export class EventDocumentsRepository {
       .eq('quotation_id', quotationId)
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async add(companyId: number, dto: AddDocumentDto) {

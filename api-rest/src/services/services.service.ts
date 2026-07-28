@@ -213,8 +213,10 @@ export class ServicesService {
   // reintroducing duplicated categories through typos.
   private async findOrCreateCategory(companyId: Company['id'], name: string) {
     const trimmed = name.trim();
-    const { data: existing } =
-      await this.servicesRepository.findCategoryByName(companyId, trimmed);
+    const { data: existing } = await this.servicesRepository.findCategoryByName(
+      companyId,
+      trimmed,
+    );
     if (existing && existing.length) return existing[0];
     const nextOrder =
       (await this.servicesRepository.getMaxCategorySortOrder(companyId)) + 1;
@@ -223,7 +225,7 @@ export class ServicesService {
       trimmed,
       nextOrder,
     );
-    return data;
+    return data as Record<string, unknown>;
   }
 
   // Replace a service's category links with the given set (append new at the
@@ -318,13 +320,15 @@ export class ServicesService {
       id,
       clean,
     );
-    return data;
+    return data as Record<string, unknown>;
   }
 
   // Delete a category, but block if any service depends solely on it.
   async deleteCategoryForCompany(companyId: Company['id'], id: number) {
-    const orphans =
-      await this.servicesRepository.getServicesOnlyInCategory(companyId, id);
+    const orphans = await this.servicesRepository.getServicesOnlyInCategory(
+      companyId,
+      id,
+    );
     if (orphans.length > 0) {
       throw new HttpException(
         {

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
-import { Client } from 'src/clients/entities/client.entity';
 import { Company } from 'src/companies/entities/company.entity';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types/index';
@@ -17,6 +16,7 @@ import { PaymentsService } from 'src/payments/payments.service';
 import { RefundsService } from 'src/refunds/refunds.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { logSafe } from '../logging/log-safe';
 import { getEventDateUtc } from '../utils/dates';
 import {
   PaymentPlanType,
@@ -36,7 +36,6 @@ import {
   hasMoneyToVerify,
   verifyMoney,
 } from './utils/money';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class QuotationsService {
@@ -176,7 +175,7 @@ export class QuotationsService {
     // if not client, create a new one
     let clientId: string;
     if (existingClient) {
-      clientId = (existingClient as Client).id;
+      clientId = existingClient.id;
     } else {
       // throw new Error('Client does not exists');
       const newClient = await this.clientsService.create(
@@ -294,8 +293,11 @@ export class QuotationsService {
   }): Promise<{ email: string; name: string } | null> {
     const contactName = (quotation.contact_name || '').trim();
     if (contactName) {
-      const { data: contact } = await this.quotationsRepository
-        .findContactByName(quotation.client_id, contactName);
+      const { data: contact } =
+        await this.quotationsRepository.findContactByName(
+          quotation.client_id,
+          contactName,
+        );
       if (contact?.email) {
         return { email: contact.email, name: contact.name };
       }
@@ -406,7 +408,9 @@ export class QuotationsService {
         this.assertMoneyMatches(
           {
             fixed_value:
-              d.fixed_value !== undefined ? d.fixed_value : quotation.fixed_value,
+              d.fixed_value !== undefined
+                ? d.fixed_value
+                : quotation.fixed_value,
             value_per_person:
               d.value_per_person !== undefined
                 ? d.value_per_person

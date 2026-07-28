@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
-import { gzipSync } from 'zlib';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { gzipSync } from 'zlib';
 
 /**
  * RESPALDO AUTOMÁTICO DIARIO (23-07-2026, pedido por Felipe).

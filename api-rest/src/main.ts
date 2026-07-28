@@ -16,7 +16,11 @@ async function bootstrap() {
   // Railway pone un proxy adelante: sin esto, todas las peticiones
   // parecerían venir de LA MISMA IP y el límite de frecuencia (Fase 3)
   // castigaría a todos los usuarios juntos.
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  (
+    app.getHttpAdapter().getInstance() as {
+      set: (k: string, v: number) => void;
+    }
+  ).set('trust proxy', 1);
   const configService = app.get(ConfigService);
   // Enable CORS
   app.enableCors({
@@ -61,4 +65,4 @@ async function bootstrap() {
   );
   await app.listen(configService.get('PORT')!);
 }
-bootstrap();
+void bootstrap();

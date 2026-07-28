@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AnalyticsService } from '../analytics.service';
 import { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { AnalyticsController } from '../analytics.controller';
+import { AnalyticsService } from '../analytics.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.

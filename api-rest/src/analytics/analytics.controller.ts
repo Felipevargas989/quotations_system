@@ -1,11 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { AnalyticsService } from './analytics.service';
 import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
 import { GetDashboardStatsDto } from './dto/get-dashboard-stats.dto';
-import { Roles, ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 // Sección de administrador (Fase 3): el cargo se exige acá.
 @Roles(...ADMIN_ONLY)

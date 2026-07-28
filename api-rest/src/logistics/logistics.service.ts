@@ -1,13 +1,16 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
-import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   CreateFurnitureItemDto,
   CreateManagementResourceDto,
   UpdateFurnitureItemDto,
   UpdateManagementResourceDto,
 } from './dto/create-catalog-items.dto';
+import {
+  CreateSupplierDto,
+  UpdateSupplierDto,
+} from './dto/create-supplier.dto';
+import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   AddCostItemDto,
   AddEventResourcesDto,

@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from '../auth.service';
 import { Reflector } from '@nestjs/core';
+import { Test, TestingModule } from '@nestjs/testing';
 import { UsersRepository } from 'src/users/users.repository';
-import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { provideMock } from '../../testing/mocks';
 import { AuthGuard } from '../auth.guard';
+import { AuthService } from '../auth.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): arma el módulo con las
 // dependencias REALES de la clase, todas mockeadas. Verifica que la

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
@@ -18,7 +19,6 @@ import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dt
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
-import { Roles, OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('payments')
 export class PaymentsController {
@@ -122,14 +122,8 @@ export class PaymentsController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Delete('transactions/:id')
-  removePaymentTransaction(
-    @Param('id') id: number,
-    @CurrentUser() user: User,
-  ) {
+  removePaymentTransaction(@Param('id') id: number, @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/transactions/${id}`);
-    return this.paymentsService.removePaymentTransaction(
-      +id,
-      user.company_id,
-    );
+    return this.paymentsService.removePaymentTransaction(+id, user.company_id);
   }
 }

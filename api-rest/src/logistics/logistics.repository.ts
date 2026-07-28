@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
-import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   CreateFurnitureItemDto,
   CreateManagementResourceDto,
   UpdateFurnitureItemDto,
   UpdateManagementResourceDto,
 } from './dto/create-catalog-items.dto';
+import {
+  CreateSupplierDto,
+  UpdateSupplierDto,
+} from './dto/create-supplier.dto';
+import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   AddCostItemDto,
   AddEventResourcesDto,
@@ -46,7 +49,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async createSupplier(companyId: number, dto: CreateSupplierDto) {
@@ -57,14 +60,10 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
-  async updateSupplier(
-    companyId: number,
-    id: number,
-    dto: UpdateSupplierDto,
-  ) {
+  async updateSupplier(companyId: number, id: number, dto: UpdateSupplierDto) {
     this.logger.info(`updateSupplier ${id} company ${companyId}`);
     const { data, error } = await this.supabase.client
       .from('suppliers')
@@ -74,7 +73,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async deleteSupplier(companyId: number, id: number) {
@@ -101,11 +100,13 @@ export class LogisticsRepository {
       .eq('quotation_status', 'aceptada')
       .order('event_date', { ascending: true });
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async findWonEventsSince(companyId: number, fromISO: string) {
-    this.logger.info(`findWonEventsSince company ${companyId} desde ${fromISO}`);
+    this.logger.info(
+      `findWonEventsSince company ${companyId} desde ${fromISO}`,
+    );
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
@@ -116,7 +117,7 @@ export class LogisticsRepository {
       .gte('event_date', fromISO)
       .order('event_date', { ascending: true });
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async markProvisioned(companyId: number, dto: MarkProvisionedDto) {
@@ -170,7 +171,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   // ---------- Provisión por insumo ----------
@@ -182,7 +183,7 @@ export class LogisticsRepository {
       .select('*')
       .eq('company_id', companyId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async upsertSupplyProvisions(
@@ -239,7 +240,7 @@ export class LogisticsRepository {
       .eq('quotation_id', quotationId)
       .order('created_at');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async findAllEventResources(companyId: number) {
@@ -249,7 +250,7 @@ export class LogisticsRepository {
       .select('*')
       .eq('company_id', companyId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async addEventResources(companyId: number, dto: AddEventResourcesDto) {
@@ -300,7 +301,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .eq('quotation_id', quotationId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async setServiceTime(companyId: number, dto: SetServiceTimeDto) {
@@ -324,7 +325,7 @@ export class LogisticsRepository {
       .eq('quotation_id', quotationId)
       .order('created_at');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async addKitchenNote(companyId: number, dto: AddKitchenNoteDto) {
@@ -360,22 +361,28 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .eq('quotation_id', quotationId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
-  async markDaysPrinted(companyId: number, quotationId: string, days: number[]) {
+  async markDaysPrinted(
+    companyId: number,
+    quotationId: string,
+    days: number[],
+  ) {
     this.logger.info(`markDaysPrinted ${quotationId} (${days.length} días)`);
     if (!days.length) return { marked: 0 };
     const now = new Date().toISOString();
-    const { error } = await this.supabase.client.from('event_day_prints').upsert(
-      days.map((day) => ({
-        company_id: companyId,
-        quotation_id: quotationId,
-        day,
-        printed_at: now,
-      })),
-      { onConflict: 'quotation_id,day' },
-    );
+    const { error } = await this.supabase.client
+      .from('event_day_prints')
+      .upsert(
+        days.map((day) => ({
+          company_id: companyId,
+          quotation_id: quotationId,
+          day,
+          printed_at: now,
+        })),
+        { onConflict: 'quotation_id,day' },
+      );
     if (error) throw error;
     return { marked: days.length };
   }
@@ -396,7 +403,7 @@ export class LogisticsRepository {
       .eq('service_id', serviceId)
       .order('created_at');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async findAllRecipeItems(companyId: number) {
@@ -406,7 +413,7 @@ export class LogisticsRepository {
       .select('*')
       .eq('company_id', companyId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async addRecipeItem(companyId: number, dto: AddRecipeItemDto) {
@@ -470,7 +477,7 @@ export class LogisticsRepository {
       .select('id, cost_fixed, cost_per_person')
       .eq('company_id', companyId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async updateFixedServiceCosts(
@@ -499,7 +506,7 @@ export class LogisticsRepository {
     if (fixedServiceId) q = q.eq('fixed_service_id', fixedServiceId);
     const { data, error } = await q.order('created_at');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async addCostItem(companyId: number, dto: AddCostItemDto) {
@@ -543,7 +550,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async createFurniture(companyId: number, dto: CreateFurnitureItemDto) {
@@ -554,7 +561,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async updateFurniture(
@@ -571,7 +578,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async deleteFurniture(companyId: number, id: number) {
@@ -615,7 +622,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async createResource(companyId: number, dto: CreateManagementResourceDto) {
@@ -626,7 +633,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async updateResource(
@@ -643,7 +650,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async deleteResource(companyId: number, id: number) {
@@ -697,7 +704,7 @@ export class LogisticsRepository {
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async createSupply(companyId: number, dto: CreateSupplyDto) {
@@ -708,7 +715,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async updateSupply(companyId: number, id: number, dto: UpdateSupplyDto) {
@@ -721,7 +728,7 @@ export class LogisticsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async deleteSupply(companyId: number, id: number) {

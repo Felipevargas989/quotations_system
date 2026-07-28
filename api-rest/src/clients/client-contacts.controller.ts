@@ -42,7 +42,7 @@ export class ClientContactsRepository {
       .order('is_primary', { ascending: false })
       .order('name');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async create(companyId: number, dto: CreateClientContactDto) {
@@ -53,7 +53,7 @@ export class ClientContactsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async update(companyId: number, id: number, dto: UpdateClientContactDto) {

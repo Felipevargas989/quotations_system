@@ -1,12 +1,14 @@
 import { ConflictException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { mockPinoLogger } from '../../testing/mocks';
 import { LogisticsRepository } from '../logistics.repository';
 import { LogisticsService } from '../logistics.service';
-import { mockPinoLogger } from '../../testing/mocks';
 
 // Mudanza #2 (proveedores): pruebas del servicio nuevo.
 describe('LogisticsService', () => {
-  const armar = (usage: Record<number, { supplies: number; resources: number }>) => {
+  const armar = (
+    usage: Record<number, { supplies: number; resources: number }>,
+  ) => {
     const repo = {
       findAllSuppliers: jest.fn().mockResolvedValue([]),
       suppliersUsage: jest.fn().mockResolvedValue(usage),

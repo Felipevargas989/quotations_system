@@ -3,11 +3,11 @@ import { AuthResponse, PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { logSafe } from '../logging/log-safe';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
 import { CreateUser, UserWithCompany } from './types';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class UsersRepository {
@@ -69,9 +69,7 @@ export class UsersRepository {
   async createUser(
     createUser: CreateUser,
   ): Promise<{ data: User | null; error: PostgrestError | null }> {
-    this.logger.info(
-      `createUser with createUser ${logSafe(createUser)}`,
-    );
+    this.logger.info(`createUser with createUser ${logSafe(createUser)}`);
     return await this.supabase.client
       .from('user_profiles')
       .insert([createUser])

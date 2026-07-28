@@ -11,11 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import {
-  ADMIN_ONLY,
-  Roles,
-  SALES_AND_UP,
-} from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -45,7 +41,7 @@ export class SectionsRepository {
       .eq('company_id', companyId)
       .order('sort_order');
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async menuOrder(companyId: number) {
@@ -81,7 +77,7 @@ export class SectionsRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async rename(companyId: number, id: number, name: string) {

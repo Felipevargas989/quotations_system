@@ -7,15 +7,15 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
+import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
-import { SuperAdminService } from './super-admin.service';
-import { Throttle } from '@nestjs/throttler';
-import { logSafe } from '../logging/log-safe';
 import { RegisterLeadDto } from './dto/register-lead.dto';
+import { SuperAdminService } from './super-admin.service';
 
 // El AuthGuard adjunta también el correo (para la allowlist).
 type UserConCorreo = User & { email?: string };
@@ -41,7 +41,6 @@ export class SuperAdminController {
   @Public()
   // ---------- Mudanza #7 (28-07): empresas del área super-admin ----------
   // Todas exigen estar en SUPER_ADMIN_EMAILS (antes bastaba la sesión).
-
   @Get('companies')
   listCompanies(@CurrentUser() user: UserConCorreo) {
     this.superAdminService.assertSuperAdmin(user.email);

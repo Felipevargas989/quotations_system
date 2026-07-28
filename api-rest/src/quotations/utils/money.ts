@@ -211,7 +211,11 @@ export const verifyMoney = (
     ['fixed_value', n(declared.fixed_value), t.fixedTotal],
     ['value_per_person', n(declared.value_per_person), t.valuePerPerson],
     ['subtotal_amount', n(declared.subtotal_amount), t.subtotalAmount],
-    ['discount_amount', n(declared.discount_amount), pctMode ? 0 : t.discountAmount],
+    [
+      'discount_amount',
+      n(declared.discount_amount),
+      pctMode ? 0 : t.discountAmount,
+    ],
     ['tip_amount', n(declared.tip_amount), t.tipAmount],
     ['total_amount', n(declared.total_amount), t.totalAmount],
   ];

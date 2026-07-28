@@ -67,7 +67,7 @@ export class RefundsService {
     const { data, error } =
       await this.refundsRepository.findPendingByQuotation(quotationId);
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async updateAmount(id: string, amount: number) {

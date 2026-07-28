@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { PlansRepository } from '../plans.repository';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { PlansRepository } from '../plans.repository';
 import { PlansService } from '../plans.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): arma el módulo con las

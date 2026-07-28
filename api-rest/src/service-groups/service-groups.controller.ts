@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
 import { ServiceGroup } from './entities/service-group.entity';
 import { ServiceGroupsService } from './service-groups.service';
-import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 
 @Controller('service-groups')
 export class ServiceGroupsController {

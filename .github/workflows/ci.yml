@@ -35,6 +35,16 @@ jobs:
         run: npm run build
       - name: Pruebas (29 suites)
         run: npx jest --silent
+      # Fase 2 cierre (28-07): de 237 avisos quedaron 20 (deuda tipada
+      # del patrón {data,error} en 4 módulos antiguos; se paga "al
+      # tocar"). Este techo impide que VUELVA a crecer: si un cambio
+      # agrega avisos nuevos, el candado lo rechaza.
+      - name: Lint (techo 20 — la deuda solo baja)
+        run: |
+          ERRORES=$(npx eslint "src/**/*.ts" 2>/dev/null | grep -oE '[0-9]+ problems' | grep -oE '^[0-9]+' | head -1)
+          ERRORES=${ERRORES:-0}
+          echo "avisos de lint: $ERRORES (techo: 20)"
+          test "$ERRORES" -le 20
 
   frontend:
     runs-on: ubuntu-latest

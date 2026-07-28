@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { logSafe } from '../logging/log-safe';
 import { ClientsRepository } from './clients.repository';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateClient } from './interfaces/clients.interfaces';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class ClientsService {

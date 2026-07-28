@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { PaymentsService } from 'src/payments/payments.service';
-import { PinoLogger } from 'nestjs-pino';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';

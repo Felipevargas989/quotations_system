@@ -16,10 +16,7 @@ export class HealthController {
   check() {
     return {
       status: 'ok',
-      version: (process.env.RAILWAY_GIT_COMMIT_SHA || 'desarrollo').slice(
-        0,
-        7,
-      ),
+      version: (process.env.RAILWAY_GIT_COMMIT_SHA || 'desarrollo').slice(0, 7),
       uptime_seconds: Math.round((Date.now() - STARTED_AT) / 1000),
       timestamp: new Date().toISOString(),
     };

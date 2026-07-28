@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
-import { SuperAdminService } from '../super-admin.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { SuperAdminController } from '../super-admin.controller';
+import { SuperAdminService } from '../super-admin.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.

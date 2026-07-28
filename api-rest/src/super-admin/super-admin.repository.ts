@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { AuthError, PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import {
   QuotationDayStats,
   UserLastSignInStats,
 } from './dto/quotation-stats.dto';
-import { logSafe } from '../logging/log-safe';
 
 @Injectable()
 export class SuperAdminRepository {
@@ -259,7 +259,7 @@ export class SuperAdminRepository {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []) as Record<string, unknown>[];
   }
 
   async createCompanyOnly(name: string) {
@@ -270,7 +270,7 @@ export class SuperAdminRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async updateCompanyById(id: number, fields: Record<string, unknown>) {
@@ -282,7 +282,7 @@ export class SuperAdminRepository {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Record<string, unknown>;
   }
 
   // Mudanza #1 de "una sola puerta" (28-07): el lead de la landing se

@@ -12,19 +12,23 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import {
+  ADMIN_ONLY,
   OPERATIONS_AND_UP,
   Roles,
   SALES_AND_UP,
 } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
-import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
-import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   CreateFurnitureItemDto,
   CreateManagementResourceDto,
   UpdateFurnitureItemDto,
   UpdateManagementResourceDto,
 } from './dto/create-catalog-items.dto';
+import {
+  CreateSupplierDto,
+  UpdateSupplierDto,
+} from './dto/create-supplier.dto';
+import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import {
   AddCostItemDto,
   AddEventResourcesDto,
@@ -42,7 +46,6 @@ import {
   UpsertSupplyProvisionsDto,
 } from './dto/event-operations.dto';
 import { LogisticsService } from './logistics.service';
-import { ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES por el backend.
 // La regla que antes era de pantalla acá es de servidor: logística es
@@ -131,7 +134,9 @@ export class LogisticsController {
   // ids separados por coma: /logistics/supplies/usage?ids=1,2,3
   @Get('supplies/usage')
   suppliesUsage(@Query('ids') ids: string, @CurrentUser() user: User) {
-    this.logger.info(`GET /logistics/supplies/usage company ${user.company_id}`);
+    this.logger.info(
+      `GET /logistics/supplies/usage company ${user.company_id}`,
+    );
     const lista = (ids || '')
       .split(',')
       .map((s) => parseInt(s.trim(), 10))
