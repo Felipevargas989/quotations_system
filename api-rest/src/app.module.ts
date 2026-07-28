@@ -23,6 +23,7 @@ import { RefundsModule } from './refunds/refunds.module';
 import { ServiceGroupCollectionsModule } from './service-group-collections/service-group-collections.module';
 import { ServiceGroupsModule } from './service-groups/service-groups.module';
 import { ServicesModule } from './services/services.module';
+import { StorageModule } from './storage/storage.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
 import { UsersModule } from './users/users.module';
@@ -60,6 +61,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     ConfigModule,
     SupabaseModule,
+    StorageModule,
     CompaniesModule,
     UsersModule,
     ClientsModule,
