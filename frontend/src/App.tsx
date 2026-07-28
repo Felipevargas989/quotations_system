@@ -21,6 +21,7 @@ import { initGA } from "./lib/analytics.ts";
 //    visita (lazy). Las visitas siguientes salen del caché.
 //
 // Regla para pantallas nuevas: si vive detrás del login, va lazy.
+import PageSkeleton from "./components/PageSkeleton";
 import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
@@ -86,19 +87,7 @@ const AnswersView = lazy(
 // PERCEPCIÓN DE CARGA (28-07): antes era un círculo girando y los
 // esqueletos de datos eran grises — DOS texturas = el ojo contaba dos
 // esperas. Ahora todo el "preparando" es UNA sola textura de esqueleto.
-const PageLoader = () => (
-  <div className="min-h-screen bg-gray-50 p-6">
-    <div className="space-y-6 animate-pulse max-w-7xl mx-auto">
-      <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-28 bg-gray-200 rounded-xl"></div>
-        ))}
-      </div>
-      <div className="h-72 bg-gray-200 rounded-xl"></div>
-    </div>
-  </div>
-);
+const PageLoader = () => <PageSkeleton />;
 
 function App() {
   // Initialize Google Analytics
