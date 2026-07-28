@@ -119,8 +119,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               {/* 28-07 (pedido de Felipe): el MISMO logo de la landing
                   nueva, para coherencia visual en todo el producto. */}
               <svg
-                width="28"
-                height="28"
+                width="34"
+                height="34"
                 viewBox="0 0 64 64"
                 fill="none"
                 aria-label="Eventia"
@@ -135,7 +135,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span className="text-lg font-extrabold tracking-tight text-gray-900">
+              <span className="text-xl font-extrabold tracking-tight text-gray-900">
                 Eventia
               </span>
             </div>
