@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { validateEnv } from './config/validate-env';
@@ -63,6 +64,27 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Fase 4.4 — documentación automática: /docs muestra todas las rutas
+  // con lo que reciben y devuelven, generado DESDE el código (siempre al
+  // día). Solo describe la forma de la API — nunca datos ni llaves — y
+  // cada ruta protegida sigue exigiendo sesión igual que siempre.
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Eventia API')
+    .setDescription(
+      'API del sistema de cotizaciones y eventos. Las rutas con candado ' +
+        'exigen sesión (token Bearer de Supabase Auth); las públicas ' +
+        'están marcadas y tienen límite de frecuencia.',
+    )
+    .setVersion(process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev')
+    .addBearerAuth()
+    .build();
+  SwaggerModule.setup(
+    'docs',
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
+
   await app.listen(configService.get('PORT')!);
 }
 void bootstrap();
