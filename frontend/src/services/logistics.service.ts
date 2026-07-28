@@ -1,4 +1,6 @@
-import { supabase } from "../lib/supabase";
+// 28-07-2026: este archivo ya NO importa supabase — logística COMPLETA
+// pasa por el backend (/logistics/*). Fue el más grande de los accesos
+// directos (1.012 líneas); hoy es solo un traductor de llamadas.
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 import { canonicalServiceName } from "../utils/searchMatch";
@@ -291,21 +293,14 @@ export const updateFurnitureItem = async (
   }
 };
 
-// Todas las líneas de ingredientes de la empresa (para calcular el costo por
-// persona de cada servicio en la lista de Gestión de Servicios).
+// MUDANZA #6 (28-07): de aquí hacia abajo, TODO por el backend.
+// Todas las líneas de ingredientes de la empresa (misma lectura general
+// de recetas, filtrada acá por insumo — resultado idéntico).
 export const getAllIngredientRecipeItems = async (
   companyId: number,
 ): Promise<RecipeItem[]> => {
-  const { data, error } = await supabase
-    .from("service_recipe_items")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("item_kind", "insumo");
-  if (error) {
-    console.error("Error cargando recetas", error);
-    return [];
-  }
-  return (data || []) as RecipeItem[];
+  const todas = await getAllRecipeItems(companyId);
+  return todas.filter((r) => r.item_kind === "insumo");
 };
 
 // Mapa nombre → id de los servicios del catálogo (variables y fijos), para
@@ -320,25 +315,20 @@ export const getCatalogServiceNameIds = async (
   // flexibles): las fotos de items de cotizaciones antiguas encuentran
   // su servicio aunque el catálogo haya sido renombrado.
   const norm = canonicalServiceName;
-  const [v, f] = await Promise.all([
-    supabase
-      .from("variable_services")
-      .select("id, name")
-      .eq("company_id", companyId),
-    supabase
-      .from("fixed_services")
-      .select("id, name")
-      .eq("company_id", companyId),
-  ]);
-  const variable: Record<string, number> = {};
-  (v.data || []).forEach((s: { id: number; name: string }) => {
-    variable[norm(s.name)] = s.id;
-  });
-  const fixed: Record<string, number> = {};
-  (f.data || []).forEach((s: { id: number; name: string }) => {
-    fixed[norm(s.name)] = s.id;
-  });
-  return { variable, fixed };
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_CATALOG_NAMES, "GET");
+    const variable: Record<string, number> = {};
+    (data?.variable || []).forEach((s: { id: number; name: string }) => {
+      variable[norm(s.name)] = s.id;
+    });
+    const fixed: Record<string, number> = {};
+    (data?.fixed || []).forEach((s: { id: number; name: string }) => {
+      fixed[norm(s.name)] = s.id;
+    });
+    return { variable, fixed };
+  } catch {
+    return { variable: {}, fixed: {} };
+  }
 };
 
 // Costos cacheados de los servicios fijos (componente fijo + por persona),
@@ -348,47 +338,44 @@ export const getFixedServiceCostsById = async (
 ): Promise<
   Record<number, { cost_fixed: number | null; cost_per_person: number | null }>
 > => {
-  const { data, error } = await supabase
-    .from("fixed_services")
-    .select("id, cost_fixed, cost_per_person")
-    .eq("company_id", companyId);
-  if (error) {
-    console.error("Error cargando costos de servicios fijos", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_CATALOG_FIXED_COSTS,
+      "GET",
+    );
+    const map: Record<
+      number,
+      { cost_fixed: number | null; cost_per_person: number | null }
+    > = {};
+    (data || []).forEach(
+      (r: {
+        id: number;
+        cost_fixed: number | null;
+        cost_per_person: number | null;
+      }) => {
+        map[r.id] = {
+          cost_fixed: r.cost_fixed,
+          cost_per_person: r.cost_per_person,
+        };
+      },
+    );
+    return map;
+  } catch {
     return {};
   }
-  const map: Record<
-    number,
-    { cost_fixed: number | null; cost_per_person: number | null }
-  > = {};
-  (data || []).forEach(
-    (r: {
-      id: number;
-      cost_fixed: number | null;
-      cost_per_person: number | null;
-    }) => {
-      map[r.id] = {
-        cost_fixed: r.cost_fixed,
-        cost_per_person: r.cost_per_person,
-      };
-    },
-  );
-  return map;
 };
 
 // Todas las líneas de receta de la empresa (insumos + mobiliario), para la
 // consolidación logística del evento.
 export const getAllRecipeItems = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<RecipeItem[]> => {
-  const { data, error } = await supabase
-    .from("service_recipe_items")
-    .select("*")
-    .eq("company_id", companyId);
-  if (error) {
-    console.error("Error cargando recetas", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_RECIPES_ALL, "GET");
+    return (data || []) as RecipeItem[];
+  } catch {
     return [];
   }
-  return (data || []) as RecipeItem[];
 };
 
 // ---------- Compras multi-evento (Fase 3) ----------
@@ -408,52 +395,42 @@ export interface PurchasingEvent {
 
 // Eventos cerrados (cotizaciones aceptadas), los mismos de Post Venta.
 export const getAcceptedEvents = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<PurchasingEvent[]> => {
-  const { data, error } = await supabase
-    .from("quotations")
-    .select(
-      "id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
-    )
-    .eq("company_id", companyId)
-    .eq("quotation_status", "aceptada")
-    .order("event_date", { ascending: true });
-  if (error) {
-    console.error("Error cargando eventos para compras", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_ACCEPTED_EVENTS, "GET");
+    return (data || []).map((q: Record<string, unknown>) => ({
+      ...(q as unknown as PurchasingEvent),
+      client_name:
+        ((q.clients as { name?: string } | null)?.name as string) || "—",
+    }));
+  } catch {
     return [];
   }
-  return (data || []).map((q: Record<string, unknown>) => ({
-    ...(q as unknown as PurchasingEvent),
-    client_name:
-      ((q.clients as { name?: string } | null)?.name as string) || "—",
-  }));
 };
 
 // Eventos concretados (aceptada + realizada) con evento desde una fecha:
 // alimenta el cálculo de MÁRGENES del Dashboard (Fase 4, 23-07). Mismos
 // campos que compras; el costo congelado viaja en provisioned_cost.
 export const getWonEventsSince = async (
-  companyId: number,
+  _companyId: number,
   fromISO: string,
 ): Promise<PurchasingEvent[]> => {
-  const { data, error } = await supabase
-    .from("quotations")
-    .select(
-      "id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)",
-    )
-    .eq("company_id", companyId)
-    .in("quotation_status", ["aceptada", "realizada"])
-    .gte("event_date", fromISO)
-    .order("event_date", { ascending: true });
-  if (error) {
-    console.error("Error cargando eventos para márgenes", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_WON_EVENTS,
+      "GET",
+      undefined,
+      { from: fromISO },
+    );
+    return (data || []).map((q: Record<string, unknown>) => ({
+      ...(q as unknown as PurchasingEvent),
+      client_name:
+        ((q.clients as { name?: string } | null)?.name as string) || "—",
+    }));
+  } catch {
     return [];
   }
-  return (data || []).map((q: Record<string, unknown>) => ({
-    ...(q as unknown as PurchasingEvent),
-    client_name:
-      ((q.clients as { name?: string } | null)?.name as string) || "—",
-  }));
 };
 
 // Marca los eventos como provisionados: fecha + foto del costo estimado,
@@ -467,36 +444,25 @@ export const markQuotationsProvisioned = async (
     services: { nombre: string; quantity: number }[];
   }[],
 ) => {
-  const now = new Date().toISOString();
-  const results = await Promise.all(
-    entries.map((e) =>
-      supabase
-        .from("quotations")
-        .update({
-          provisioned_at: now,
-          provisioned_cost: Math.round(e.cost),
-          provisioned_people: e.people,
-          provisioned_services: e.services,
-        })
-        .eq("id", e.id),
-    ),
-  );
-  return { error: results.find((r) => r.error)?.error || null };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_MARK_PROVISIONED, "POST", {
+      entries,
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Quita la marca de "evento completo" (desprovisionar / provisión parcial).
 export const clearQuotationsProvisioned = async (ids: string[]) => {
   if (!ids.length) return { error: null };
-  const { error } = await supabase
-    .from("quotations")
-    .update({
-      provisioned_at: null,
-      provisioned_cost: null,
-      provisioned_people: null,
-      provisioned_services: null,
-    })
-    .in("id", ids);
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_CLEAR_PROVISIONED, "POST", { ids });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Provisión por insumo (evento × insumo) ----------
@@ -515,17 +481,14 @@ export interface EventSupplyProvision {
 }
 
 export const getEventSupplyProvisions = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<EventSupplyProvision[]> => {
-  const { data, error } = await supabase
-    .from("event_supply_provisions")
-    .select("*")
-    .eq("company_id", companyId);
-  if (error) {
-    console.error("Error cargando provisiones por insumo", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLY_PROVISIONS, "GET");
+    return (data || []) as EventSupplyProvision[];
+  } catch {
     return [];
   }
-  return (data || []) as EventSupplyProvision[];
 };
 
 // Upsert: re-provisionar un insumo actualiza su foto (cantidad + costo).
@@ -541,14 +504,15 @@ export const upsertEventSupplyProvisions = async (
   }[],
 ) => {
   if (!rows.length) return { error: null };
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("event_supply_provisions")
-    .upsert(
-      rows.map((r) => ({ ...r, provisioned_at: now })),
-      { onConflict: "quotation_id,supply_id" },
-    );
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_SUPPLY_PROVISIONS, "POST", {
+      // company_id no viaja: el backend usa el de la sesión.
+      rows: rows.map(({ company_id: _omitido, ...r }) => r),
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteEventSupplyProvisions = async (
@@ -556,13 +520,15 @@ export const deleteEventSupplyProvisions = async (
   supplyIds?: number[], // sin supplyIds = borra todas las del evento
 ) => {
   if (!quotationIds.length) return { error: null };
-  let q = supabase
-    .from("event_supply_provisions")
-    .delete()
-    .in("quotation_id", quotationIds);
-  if (supplyIds && supplyIds.length) q = q.in("supply_id", supplyIds);
-  const { error } = await q;
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_SUPPLY_PROVISIONS_DELETE, "POST", {
+      quotationIds,
+      ...(supplyIds && supplyIds.length ? { supplyIds } : {}),
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Estado de provisión de una cotización (badge + advertencias en Gestión).
@@ -576,13 +542,15 @@ export interface QuotationProvisioning {
 export const getQuotationProvisioning = async (
   quotationId: string,
 ): Promise<QuotationProvisioning> => {
-  const { data } = await supabase
-    .from("quotations")
-    .select(
-      "provisioned_at, provisioned_cost, provisioned_people, provisioned_services",
-    )
-    .eq("id", quotationId)
-    .single();
+  let data: Record<string, unknown> | null = null;
+  try {
+    data = await apiRequest(
+      `${API_ROUTES.LOGISTICS_PROVISIONING}/${quotationId}`,
+      "GET",
+    );
+  } catch {
+    data = null;
+  }
   return {
     provisioned_at: (data?.provisioned_at as string | null) || null,
     provisioned_cost: (data?.provisioned_cost as number | null) ?? null,
@@ -607,37 +575,34 @@ export interface EventResource {
 }
 
 export const getEventResources = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
 ): Promise<EventResource[]> => {
-  const { data, error } = await supabase
-    .from("event_resources")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("quotation_id", quotationId)
-    .order("created_at");
-  if (error) {
-    console.error("Error cargando recursos del evento", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_EVENT_RESOURCES,
+      "GET",
+      undefined,
+      { quotationId },
+    );
+    return (data || []) as EventResource[];
+  } catch {
     return [];
   }
-  return (data || []) as EventResource[];
 };
 
 // Todos los recursos asignados a eventos de la empresa (análisis de
 // proveedores del Dashboard, 23-07): el filtro por período se hace en
 // el front contra el set de eventos concretados.
 export const getAllEventResources = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<EventResource[]> => {
-  const { data, error } = await supabase
-    .from("event_resources")
-    .select("*")
-    .eq("company_id", companyId);
-  if (error) {
-    console.error("Error cargando recursos de eventos", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_EVENT_RESOURCES, "GET");
+    return (data || []) as EventResource[];
+  } catch {
     return [];
   }
-  return (data || []) as EventResource[];
 };
 
 export const addEventResource = async (fields: {
@@ -649,8 +614,15 @@ export const addEventResource = async (fields: {
   price_per_person: number;
   origin_fixed_service_id?: number | null;
 }) => {
-  const { error } = await supabase.from("event_resources").insert(fields);
-  return { error };
+  try {
+    const { company_id: _omitido, ...r } = fields;
+    await apiRequest(API_ROUTES.LOGISTICS_EVENT_RESOURCES, "POST", {
+      rows: [r],
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const addEventResources = async (
@@ -665,24 +637,27 @@ export const addEventResources = async (
   }[],
 ) => {
   if (!rows.length) return { error: null };
-  const { error } = await supabase.from("event_resources").insert(rows);
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_EVENT_RESOURCES, "POST", {
+      rows: rows.map(({ company_id: _omitido, ...r }) => r),
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Todas las líneas de costo de servicios fijos de la empresa (para importar
 // los recursos de los fijos de un evento).
 export const getAllFixedServiceCostItems = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<FixedServiceCostItem[]> => {
-  const { data, error } = await supabase
-    .from("fixed_service_cost_items")
-    .select("*")
-    .eq("company_id", companyId);
-  if (error) {
-    console.error("Error cargando costos de servicios fijos", error);
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_FIXED_COST_ITEMS, "GET");
+    return (data || []) as FixedServiceCostItem[];
+  } catch {
     return [];
   }
-  return (data || []) as FixedServiceCostItem[];
 };
 
 export const updateEventResource = async (
@@ -691,60 +666,65 @@ export const updateEventResource = async (
     Pick<EventResource, "quantity" | "price_fixed" | "price_per_person">
   >,
 ) => {
-  const { error } = await supabase
-    .from("event_resources")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_EVENT_RESOURCES}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteEventResource = async (id: number) => {
-  const { error } = await supabase
-    .from("event_resources")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_EVENT_RESOURCES}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Ficha de cocina: horarios y notas del evento ----------
 export const getEventServiceTimes = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
 ): Promise<Record<string, string>> => {
-  const { data, error } = await supabase
-    .from("event_service_times")
-    .select("service_name, start_time")
-    .eq("company_id", companyId)
-    .eq("quotation_id", quotationId);
-  if (error) {
-    console.error("Error cargando horarios", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_KITCHEN_TIMES,
+      "GET",
+      undefined,
+      { quotationId },
+    );
+    const map: Record<string, string> = {};
+    (data || []).forEach((r: { service_name: string; start_time: string }) => {
+      map[r.service_name] = r.start_time;
+    });
+    return map;
+  } catch {
     return {};
   }
-  const map: Record<string, string> = {};
-  (data || []).forEach(
-    (r: { service_name: string; start_time: string }) => {
-      map[r.service_name] = r.start_time;
-    },
-  );
-  return map;
 };
 
 export const setEventServiceTime = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
   serviceName: string,
   startTime: string,
 ) => {
-  const { error } = await supabase.from("event_service_times").upsert(
-    {
-      company_id: companyId,
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_KITCHEN_TIMES, "POST", {
       quotation_id: quotationId,
       service_name: serviceName,
       start_time: startTime,
-    },
-    { onConflict: "quotation_id,service_name" },
-  );
-  return { error };
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export interface KitchenNote {
@@ -755,35 +735,38 @@ export interface KitchenNote {
 }
 
 export const getEventKitchenNotes = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
 ): Promise<KitchenNote[]> => {
-  const { data, error } = await supabase
-    .from("event_kitchen_notes")
-    .select("id, note, day")
-    .eq("company_id", companyId)
-    .eq("quotation_id", quotationId)
-    .order("created_at");
-  if (error) {
-    console.error("Error cargando notas de cocina", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_KITCHEN_NOTES,
+      "GET",
+      undefined,
+      { quotationId },
+    );
+    return (data || []) as KitchenNote[];
+  } catch {
     return [];
   }
-  return (data || []) as KitchenNote[];
 };
 
 export const addEventKitchenNote = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
   note: string,
   day?: number,
 ) => {
-  const { error } = await supabase.from("event_kitchen_notes").insert({
-    company_id: companyId,
-    quotation_id: quotationId,
-    note,
-    day: day ?? null,
-  });
-  return { error };
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_KITCHEN_NOTES, "POST", {
+      quotation_id: quotationId,
+      note,
+      ...(day !== undefined ? { day } : {}),
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Fichas impresas por día ----------
@@ -791,69 +774,69 @@ export const addEventKitchenNote = async (
 // desplegable del día se pinta verde suave. Día pasado sin registro =
 // operó sin ficha.
 export const getEventDayPrints = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
 ): Promise<Record<number, string>> => {
-  const { data, error } = await supabase
-    .from("event_day_prints")
-    .select("day, printed_at")
-    .eq("company_id", companyId)
-    .eq("quotation_id", quotationId);
-  if (error) {
-    console.error("Error cargando fichas impresas", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_KITCHEN_DAY_PRINTS,
+      "GET",
+      undefined,
+      { quotationId },
+    );
+    const map: Record<number, string> = {};
+    (data || []).forEach((r: { day: number; printed_at: string }) => {
+      map[r.day] = r.printed_at;
+    });
+    return map;
+  } catch {
     return {};
   }
-  const map: Record<number, string> = {};
-  (data || []).forEach((r: { day: number; printed_at: string }) => {
-    map[r.day] = r.printed_at;
-  });
-  return map;
 };
 
 export const markEventDaysPrinted = async (
-  companyId: number,
+  _companyId: number,
   quotationId: string,
   days: number[],
 ) => {
   if (!days.length) return { error: null };
-  const { error } = await supabase.from("event_day_prints").upsert(
-    days.map((day) => ({
-      company_id: companyId,
+  try {
+    await apiRequest(API_ROUTES.LOGISTICS_KITCHEN_DAY_PRINTS, "POST", {
       quotation_id: quotationId,
-      day,
-      printed_at: new Date().toISOString(),
-    })),
-    { onConflict: "quotation_id,day" },
-  );
-  return { error };
+      days,
+    });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteEventKitchenNote = async (id: number) => {
-  const { error } = await supabase
-    .from("event_kitchen_notes")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_KITCHEN_NOTES}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Recetas por servicio ----------
 export const getRecipeItems = async (
-  companyId: number,
+  _companyId: number,
   serviceType: RecipeServiceType,
   serviceId: number,
 ): Promise<RecipeItem[]> => {
-  const { data, error } = await supabase
-    .from("service_recipe_items")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("service_type", serviceType)
-    .eq("service_id", serviceId)
-    .order("created_at");
-  if (error) {
-    console.error("Error cargando receta", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_RECIPES,
+      "GET",
+      undefined,
+      { serviceType, serviceId },
+    );
+    return (data || []) as RecipeItem[];
+  } catch {
     return [];
   }
-  return (data || []) as RecipeItem[];
 };
 
 export const addRecipeItem = async (fields: {
@@ -866,27 +849,34 @@ export const addRecipeItem = async (fields: {
   qty_per_person: number;
   unit: RecipeItem["unit"];
 }) => {
-  const { error } = await supabase.from("service_recipe_items").insert(fields);
-  return { error };
+  try {
+    const { company_id: _omitido, ...datos } = fields;
+    await apiRequest(API_ROUTES.LOGISTICS_RECIPES, "POST", datos);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const updateRecipeItem = async (
   id: number,
   fields: Partial<Pick<RecipeItem, "qty_per_person" | "unit">>,
 ) => {
-  const { error } = await supabase
-    .from("service_recipe_items")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_RECIPES}/${id}`, "PATCH", fields);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteRecipeItem = async (id: number) => {
-  const { error } = await supabase
-    .from("service_recipe_items")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_RECIPES}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Costo de servicios fijos (tercerización / por persona) ----------
@@ -894,11 +884,16 @@ export const updateFixedServiceCosts = async (
   id: number,
   fields: { cost_fixed: number; cost_per_person: number },
 ) => {
-  const { error } = await supabase
-    .from("fixed_services")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_FIXED_COSTS}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Recursos de gestión ----------
@@ -964,20 +959,20 @@ export const updateManagementResource = async (
 
 // ---------- Líneas de costo de un servicio fijo (referencias a recursos) ----
 export const getFixedServiceCostItems = async (
-  companyId: number,
+  _companyId: number,
   fixedServiceId: number,
 ): Promise<FixedServiceCostItem[]> => {
-  const { data, error } = await supabase
-    .from("fixed_service_cost_items")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("fixed_service_id", fixedServiceId)
-    .order("created_at");
-  if (error) {
-    console.error("Error cargando costos del servicio", error);
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_FIXED_COST_ITEMS,
+      "GET",
+      undefined,
+      { fixedServiceId },
+    );
+    return (data || []) as FixedServiceCostItem[];
+  } catch {
     return [];
   }
-  return (data || []) as FixedServiceCostItem[];
 };
 
 export const addFixedServiceCostItem = async (fields: {
@@ -986,27 +981,39 @@ export const addFixedServiceCostItem = async (fields: {
   resource_id: number;
   quantity: number;
 }) => {
-  const { error } = await supabase
-    .from("fixed_service_cost_items")
-    .insert(fields);
-  return { error };
+  try {
+    const { company_id: _omitido, ...datos } = fields;
+    await apiRequest(API_ROUTES.LOGISTICS_FIXED_COST_ITEMS, "POST", datos);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const updateFixedServiceCostItem = async (
   id: number,
   fields: Partial<Pick<FixedServiceCostItem, "quantity">>,
 ) => {
-  const { error } = await supabase
-    .from("fixed_service_cost_items")
-    .update(fields)
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_FIXED_COST_ITEMS}/${id}`,
+      "PATCH",
+      fields,
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const deleteFixedServiceCostItem = async (id: number) => {
-  const { error } = await supabase
-    .from("fixed_service_cost_items")
-    .delete()
-    .eq("id", id);
-  return { error };
+  try {
+    await apiRequest(
+      `${API_ROUTES.LOGISTICS_FIXED_COST_ITEMS}/${id}`,
+      "DELETE",
+    );
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };

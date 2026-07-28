@@ -8,6 +8,19 @@ import {
   UpdateFurnitureItemDto,
   UpdateManagementResourceDto,
 } from './dto/create-catalog-items.dto';
+import {
+  AddCostItemDto,
+  AddEventResourcesDto,
+  AddKitchenNoteDto,
+  AddRecipeItemDto,
+  MarkProvisionedDto,
+  SetServiceTimeDto,
+  UpdateCostItemDto,
+  UpdateEventResourceDto,
+  UpdateFixedCostsDto,
+  UpdateRecipeItemDto,
+  UpsertSupplyProvisionsDto,
+} from './dto/event-operations.dto';
 import { LogisticsRepository } from './logistics.repository';
 
 // Mudanza #2 de "una sola puerta" (28-07): módulo Logística en el
@@ -36,6 +49,138 @@ export class LogisticsService {
 
   updateSupplier(companyId: number, id: number, dto: UpdateSupplierDto) {
     return this.logisticsRepository.updateSupplier(companyId, id, dto);
+  }
+
+  // ---------- Compras, eventos, cocina, recetas y costos (mudanza #6) ----------
+  // Pasadas directas: la lógica vive en el repositorio (consultas) y las
+  // reglas de negocio de estas pantallas viven en el flujo de las
+  // pantallas mismas (paridad exacta con el comportamiento anterior).
+
+  findAcceptedEvents(companyId: number) {
+    return this.logisticsRepository.findAcceptedEvents(companyId);
+  }
+  findWonEventsSince(companyId: number, fromISO: string) {
+    return this.logisticsRepository.findWonEventsSince(companyId, fromISO);
+  }
+  markProvisioned(companyId: number, dto: MarkProvisionedDto) {
+    return this.logisticsRepository.markProvisioned(companyId, dto);
+  }
+  clearProvisioned(companyId: number, ids: string[]) {
+    return this.logisticsRepository.clearProvisioned(companyId, ids);
+  }
+  quotationProvisioning(companyId: number, quotationId: string) {
+    return this.logisticsRepository.quotationProvisioning(
+      companyId,
+      quotationId,
+    );
+  }
+  findSupplyProvisions(companyId: number) {
+    return this.logisticsRepository.findSupplyProvisions(companyId);
+  }
+  upsertSupplyProvisions(companyId: number, dto: UpsertSupplyProvisionsDto) {
+    return this.logisticsRepository.upsertSupplyProvisions(companyId, dto);
+  }
+  deleteSupplyProvisions(
+    companyId: number,
+    quotationIds: string[],
+    supplyIds?: number[],
+  ) {
+    return this.logisticsRepository.deleteSupplyProvisions(
+      companyId,
+      quotationIds,
+      supplyIds,
+    );
+  }
+  findEventResources(companyId: number, quotationId: string) {
+    return this.logisticsRepository.findEventResources(companyId, quotationId);
+  }
+  findAllEventResources(companyId: number) {
+    return this.logisticsRepository.findAllEventResources(companyId);
+  }
+  addEventResources(companyId: number, dto: AddEventResourcesDto) {
+    return this.logisticsRepository.addEventResources(companyId, dto);
+  }
+  updateEventResource(
+    companyId: number,
+    id: number,
+    dto: UpdateEventResourceDto,
+  ) {
+    return this.logisticsRepository.updateEventResource(companyId, id, dto);
+  }
+  deleteEventResource(companyId: number, id: number) {
+    return this.logisticsRepository.deleteEventResource(companyId, id);
+  }
+  findServiceTimes(companyId: number, quotationId: string) {
+    return this.logisticsRepository.findServiceTimes(companyId, quotationId);
+  }
+  setServiceTime(companyId: number, dto: SetServiceTimeDto) {
+    return this.logisticsRepository.setServiceTime(companyId, dto);
+  }
+  findKitchenNotes(companyId: number, quotationId: string) {
+    return this.logisticsRepository.findKitchenNotes(companyId, quotationId);
+  }
+  addKitchenNote(companyId: number, dto: AddKitchenNoteDto) {
+    return this.logisticsRepository.addKitchenNote(companyId, dto);
+  }
+  deleteKitchenNote(companyId: number, id: number) {
+    return this.logisticsRepository.deleteKitchenNote(companyId, id);
+  }
+  findDayPrints(companyId: number, quotationId: string) {
+    return this.logisticsRepository.findDayPrints(companyId, quotationId);
+  }
+  markDaysPrinted(companyId: number, quotationId: string, days: number[]) {
+    return this.logisticsRepository.markDaysPrinted(
+      companyId,
+      quotationId,
+      days,
+    );
+  }
+  findRecipeItems(companyId: number, serviceType: string, serviceId: number) {
+    return this.logisticsRepository.findRecipeItems(
+      companyId,
+      serviceType,
+      serviceId,
+    );
+  }
+  findAllRecipeItems(companyId: number) {
+    return this.logisticsRepository.findAllRecipeItems(companyId);
+  }
+  addRecipeItem(companyId: number, dto: AddRecipeItemDto) {
+    return this.logisticsRepository.addRecipeItem(companyId, dto);
+  }
+  updateRecipeItem(companyId: number, id: number, dto: UpdateRecipeItemDto) {
+    return this.logisticsRepository.updateRecipeItem(companyId, id, dto);
+  }
+  deleteRecipeItem(companyId: number, id: number) {
+    return this.logisticsRepository.deleteRecipeItem(companyId, id);
+  }
+  catalogServiceNames(companyId: number) {
+    return this.logisticsRepository.catalogServiceNames(companyId);
+  }
+  fixedServiceCosts(companyId: number) {
+    return this.logisticsRepository.fixedServiceCosts(companyId);
+  }
+  updateFixedServiceCosts(
+    companyId: number,
+    id: number,
+    dto: UpdateFixedCostsDto,
+  ) {
+    return this.logisticsRepository.updateFixedServiceCosts(companyId, id, dto);
+  }
+  findFixedServiceCostItems(companyId: number, fixedServiceId?: number) {
+    return this.logisticsRepository.findFixedServiceCostItems(
+      companyId,
+      fixedServiceId,
+    );
+  }
+  addCostItem(companyId: number, dto: AddCostItemDto) {
+    return this.logisticsRepository.addCostItem(companyId, dto);
+  }
+  updateCostItem(companyId: number, id: number, dto: UpdateCostItemDto) {
+    return this.logisticsRepository.updateCostItem(companyId, id, dto);
+  }
+  deleteCostItem(companyId: number, id: number) {
+    return this.logisticsRepository.deleteCostItem(companyId, id);
   }
 
   // ---------- Mobiliario (mudanza #4) ----------

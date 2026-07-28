@@ -25,7 +25,24 @@ import {
   UpdateFurnitureItemDto,
   UpdateManagementResourceDto,
 } from './dto/create-catalog-items.dto';
+import {
+  AddCostItemDto,
+  AddEventResourcesDto,
+  AddKitchenNoteDto,
+  AddRecipeItemDto,
+  ClearProvisionedDto,
+  DeleteSupplyProvisionsDto,
+  MarkDaysPrintedDto,
+  MarkProvisionedDto,
+  SetServiceTimeDto,
+  UpdateCostItemDto,
+  UpdateEventResourceDto,
+  UpdateFixedCostsDto,
+  UpdateRecipeItemDto,
+  UpsertSupplyProvisionsDto,
+} from './dto/event-operations.dto';
 import { LogisticsService } from './logistics.service';
+import { ADMIN_ONLY } from 'src/auth/roles.decorator';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES por el backend.
 // La regla que antes era de pantalla acá es de servidor: logística es
@@ -258,5 +275,271 @@ export class LogisticsController {
       `DELETE /logistics/resources/${id} company ${user.company_id}`,
     );
     return this.logisticsService.deleteResource(user.company_id, id);
+  }
+
+  // ---------- Compras multi-evento (mudanza #6) — operaciones+ ----------
+
+  @Get('purchasing/accepted-events')
+  acceptedEvents(@CurrentUser() user: User) {
+    return this.logisticsService.findAcceptedEvents(user.company_id);
+  }
+
+  @Get('purchasing/won-events')
+  wonEvents(@Query('from') from: string, @CurrentUser() user: User) {
+    return this.logisticsService.findWonEventsSince(user.company_id, from);
+  }
+
+  @Post('purchasing/mark-provisioned')
+  markProvisioned(@Body() dto: MarkProvisionedDto, @CurrentUser() user: User) {
+    return this.logisticsService.markProvisioned(user.company_id, dto);
+  }
+
+  @Post('purchasing/clear-provisioned')
+  clearProvisioned(
+    @Body() dto: ClearProvisionedDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.clearProvisioned(user.company_id, dto.ids);
+  }
+
+  @Get('purchasing/provisioning/:quotationId')
+  quotationProvisioning(
+    @Param('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.quotationProvisioning(
+      user.company_id,
+      quotationId,
+    );
+  }
+
+  @Get('purchasing/supply-provisions')
+  supplyProvisions(@CurrentUser() user: User) {
+    return this.logisticsService.findSupplyProvisions(user.company_id);
+  }
+
+  @Post('purchasing/supply-provisions')
+  upsertSupplyProvisions(
+    @Body() dto: UpsertSupplyProvisionsDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.upsertSupplyProvisions(user.company_id, dto);
+  }
+
+  @Post('purchasing/supply-provisions/delete')
+  deleteSupplyProvisions(
+    @Body() dto: DeleteSupplyProvisionsDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.deleteSupplyProvisions(
+      user.company_id,
+      dto.quotationIds,
+      dto.supplyIds,
+    );
+  }
+
+  // ---------- Recursos de un evento — operaciones+ ----------
+
+  @Get('event-resources')
+  eventResources(
+    @Query('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return quotationId
+      ? this.logisticsService.findEventResources(user.company_id, quotationId)
+      : this.logisticsService.findAllEventResources(user.company_id);
+  }
+
+  @Post('event-resources')
+  addEventResources(
+    @Body() dto: AddEventResourcesDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.addEventResources(user.company_id, dto);
+  }
+
+  @Patch('event-resources/:id')
+  updateEventResource(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEventResourceDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.updateEventResource(user.company_id, id, dto);
+  }
+
+  @Delete('event-resources/:id')
+  deleteEventResource(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.deleteEventResource(user.company_id, id);
+  }
+
+  // ---------- Ficha de cocina — operaciones+ ----------
+
+  @Get('kitchen/times')
+  serviceTimes(
+    @Query('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.findServiceTimes(user.company_id, quotationId);
+  }
+
+  @Post('kitchen/times')
+  setServiceTime(@Body() dto: SetServiceTimeDto, @CurrentUser() user: User) {
+    return this.logisticsService.setServiceTime(user.company_id, dto);
+  }
+
+  @Get('kitchen/notes')
+  kitchenNotes(
+    @Query('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.findKitchenNotes(user.company_id, quotationId);
+  }
+
+  @Post('kitchen/notes')
+  addKitchenNote(@Body() dto: AddKitchenNoteDto, @CurrentUser() user: User) {
+    return this.logisticsService.addKitchenNote(user.company_id, dto);
+  }
+
+  @Delete('kitchen/notes/:id')
+  deleteKitchenNote(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.deleteKitchenNote(user.company_id, id);
+  }
+
+  @Get('kitchen/day-prints')
+  dayPrints(
+    @Query('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.findDayPrints(user.company_id, quotationId);
+  }
+
+  @Post('kitchen/day-prints')
+  markDaysPrinted(@Body() dto: MarkDaysPrintedDto, @CurrentUser() user: User) {
+    return this.logisticsService.markDaysPrinted(
+      user.company_id,
+      dto.quotation_id,
+      dto.days,
+    );
+  }
+
+  // ---------- Recetas y costos — reglas medidas 28-07 ----------
+
+  // Lecturas que usa el COTIZADOR (vendedor+): catálogo de nombres,
+  // costos cacheados de fijos y todas las líneas de receta.
+  @Roles(...SALES_AND_UP)
+  @Get('catalog/service-names')
+  catalogServiceNames(@CurrentUser() user: User) {
+    return this.logisticsService.catalogServiceNames(user.company_id);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Get('catalog/fixed-costs')
+  fixedServiceCosts(@CurrentUser() user: User) {
+    return this.logisticsService.fixedServiceCosts(user.company_id);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Get('recipes/all')
+  allRecipeItems(@CurrentUser() user: User) {
+    return this.logisticsService.findAllRecipeItems(user.company_id);
+  }
+
+  // La edición de recetas y costos vive en el Catálogo (administrador).
+  @Roles(...ADMIN_ONLY)
+  @Get('recipes')
+  recipeItems(
+    @Query('serviceType') serviceType: string,
+    @Query('serviceId', ParseIntPipe) serviceId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.findRecipeItems(
+      user.company_id,
+      serviceType,
+      serviceId,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Post('recipes')
+  addRecipeItem(@Body() dto: AddRecipeItemDto, @CurrentUser() user: User) {
+    return this.logisticsService.addRecipeItem(user.company_id, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('recipes/:id')
+  updateRecipeItem(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRecipeItemDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.updateRecipeItem(user.company_id, id, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Delete('recipes/:id')
+  deleteRecipeItem(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.deleteRecipeItem(user.company_id, id);
+  }
+
+  // Líneas de costo: las lee Post-Venta (operaciones+, regla del
+  // controller); las escrituras y el caché de costos son del Catálogo.
+  @Get('fixed-cost-items')
+  fixedServiceCostItems(
+    @Query('fixedServiceId') fixedServiceId: string,
+    @CurrentUser() user: User,
+  ) {
+    const id = fixedServiceId ? parseInt(fixedServiceId, 10) : undefined;
+    return this.logisticsService.findFixedServiceCostItems(
+      user.company_id,
+      Number.isInteger(id) ? id : undefined,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('fixed-costs/:id')
+  updateFixedServiceCosts(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFixedCostsDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.updateFixedServiceCosts(
+      user.company_id,
+      id,
+      dto,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Post('fixed-cost-items')
+  addCostItem(@Body() dto: AddCostItemDto, @CurrentUser() user: User) {
+    return this.logisticsService.addCostItem(user.company_id, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('fixed-cost-items/:id')
+  updateCostItem(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCostItemDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.updateCostItem(user.company_id, id, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Delete('fixed-cost-items/:id')
+  deleteCostItem(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.logisticsService.deleteCostItem(user.company_id, id);
   }
 }
