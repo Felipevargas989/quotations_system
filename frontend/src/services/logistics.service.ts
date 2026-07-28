@@ -163,17 +163,16 @@ export const deleteFurnitureItem = async (id: number) => {
 };
 
 // ---------- Insumos ----------
-export const getSupplies = async (companyId: number): Promise<Supply[]> => {
-  const { data, error } = await supabase
-    .from("supplies")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("name");
-  if (error) {
-    console.error("Error cargando insumos", error);
+// MUDANZA #3 (28-07): insumos por el backend (/logistics/supplies).
+// Mismas firmas; company_id de la sesión; regla "en uso no se elimina"
+// ahora en el servidor.
+export const getSupplies = async (_companyId: number): Promise<Supply[]> => {
+  try {
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLIES, "GET");
+    return (data || []) as Supply[];
+  } catch {
     return [];
   }
-  return (data || []) as Supply[];
 };
 
 export const createSupply = async (fields: {
@@ -187,12 +186,13 @@ export const createSupply = async (fields: {
   package_qty?: number | null;
   package_price?: number | null;
 }) => {
-  const { data, error } = await supabase
-    .from("supplies")
-    .insert(fields)
-    .select()
-    .single();
-  return { data: data as Supply | null, error };
+  try {
+    const { company_id: _omitido, ...datos } = fields;
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLIES, "POST", datos);
+    return { data: data as Supply | null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 };
 
 export const updateSupply = async (
@@ -212,8 +212,12 @@ export const updateSupply = async (
     >
   >,
 ) => {
-  const { error } = await supabase.from("supplies").update(fields).eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_SUPPLIES}/${id}`, "PATCH", fields);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // Uso de cada insumo: en cuántos servicios aparece su receta y si tiene
@@ -223,40 +227,30 @@ export const updateSupply = async (
 export const getSupplyUsage = async (
   supplyIds: number[],
 ): Promise<Record<number, { recipes: number; provisions: number }>> => {
-  const usage: Record<number, { recipes: number; provisions: number }> = {};
-  if (!supplyIds.length) return usage;
-  supplyIds.forEach((id) => {
-    usage[id] = { recipes: 0, provisions: 0 };
-  });
-  const [rec, prov] = await Promise.all([
-    supabase
-      .from("service_recipe_items")
-      .select("supply_id, service_id")
-      .in("supply_id", supplyIds),
-    supabase
-      .from("event_supply_provisions")
-      .select("supply_id")
-      .in("supply_id", supplyIds),
-  ]);
-  const seen = new Set<string>();
-  (rec.data || []).forEach((r) => {
-    const sid = r.supply_id as number;
-    const key = `${sid}-${r.service_id}`;
-    if (usage[sid] && !seen.has(key)) {
-      seen.add(key);
-      usage[sid].recipes += 1;
-    }
-  });
-  (prov.data || []).forEach((r) => {
-    const sid = r.supply_id as number;
-    if (usage[sid]) usage[sid].provisions += 1;
-  });
-  return usage;
+  if (!supplyIds.length) return {};
+  try {
+    const data = await apiRequest(
+      API_ROUTES.LOGISTICS_SUPPLIES_USAGE,
+      "GET",
+      undefined,
+      { ids: supplyIds.join(",") },
+    );
+    return (data || {}) as Record<
+      number,
+      { recipes: number; provisions: number }
+    >;
+  } catch {
+    return {};
+  }
 };
 
 export const deleteSupply = async (id: number) => {
-  const { error } = await supabase.from("supplies").delete().eq("id", id);
-  return { error };
+  try {
+    await apiRequest(`${API_ROUTES.LOGISTICS_SUPPLIES}/${id}`, "DELETE");
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
 };
 
 // ---------- Mobiliario (mini-catálogo; la Fase 5 lo extiende) ----------

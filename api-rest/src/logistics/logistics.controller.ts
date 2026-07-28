@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
@@ -17,6 +18,7 @@ import {
 } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
+import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 import { LogisticsService } from './logistics.service';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES por el backend.
@@ -91,5 +93,64 @@ export class LogisticsController {
       `DELETE /logistics/suppliers/${id} company ${user.company_id}`,
     );
     return this.logisticsService.deleteSupplier(user.company_id, id);
+  }
+
+  // ---------- Insumos (mudanza #3, 28-07) ----------
+
+  // Los insumos los leen 9 pantallas, incluido el cotizador → vendedor+.
+  @Roles(...SALES_AND_UP)
+  @Get('supplies')
+  findAllSupplies(@CurrentUser() user: User) {
+    this.logger.info(`GET /logistics/supplies company ${user.company_id}`);
+    return this.logisticsService.findAllSupplies(user.company_id);
+  }
+
+  // ids separados por coma: /logistics/supplies/usage?ids=1,2,3
+  @Get('supplies/usage')
+  suppliesUsage(@Query('ids') ids: string, @CurrentUser() user: User) {
+    this.logger.info(`GET /logistics/supplies/usage company ${user.company_id}`);
+    const lista = (ids || '')
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isInteger(n));
+    return this.logisticsService.suppliesUsage(user.company_id, lista);
+  }
+
+  @Post('supplies')
+  createSupply(
+    @Body() createSupplyDto: CreateSupplyDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /logistics/supplies company ${user.company_id} (datos redactados)`,
+    );
+    return this.logisticsService.createSupply(user.company_id, createSupplyDto);
+  }
+
+  @Patch('supplies/:id')
+  updateSupply(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateSupplyDto: UpdateSupplyDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `PATCH /logistics/supplies/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.updateSupply(
+      user.company_id,
+      id,
+      updateSupplyDto,
+    );
+  }
+
+  @Delete('supplies/:id')
+  deleteSupply(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `DELETE /logistics/supplies/${id} company ${user.company_id}`,
+    );
+    return this.logisticsService.deleteSupply(user.company_id, id);
   }
 }

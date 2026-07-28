@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/create-supplier.dto';
+import { CreateSupplyDto, UpdateSupplyDto } from './dto/create-supply.dto';
 
 // Mudanza #2 de "una sola puerta" (28-07): PROVEEDORES.
 //
@@ -66,6 +67,106 @@ export class LogisticsRepository {
       .eq('company_id', companyId);
     if (error) throw error;
     return { deleted: true };
+  }
+
+  // ---------- Insumos (mudanza #3, 28-07) ----------
+
+  async findAllSupplies(companyId: number) {
+    this.logger.info(`findAllSupplies company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('supplies')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createSupply(companyId: number, dto: CreateSupplyDto) {
+    this.logger.info(`createSupply company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('supplies')
+      .insert([{ ...dto, company_id: companyId }])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateSupply(companyId: number, id: number, dto: UpdateSupplyDto) {
+    this.logger.info(`updateSupply ${id} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('supplies')
+      .update(dto)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteSupply(companyId: number, id: number) {
+    this.logger.info(`deleteSupply ${id} company ${companyId}`);
+    const { error } = await this.supabase.client
+      .from('supplies')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return { deleted: true };
+  }
+
+  // Uso de cada insumo: en cuántos servicios aparece su receta (servicios
+  // DISTINTOS) y cuántas compras registradas tiene. Misma cuenta que
+  // hacía el frontend, con una mejora: los ids se acotan primero a la
+  // empresa de la sesión (no se puede preguntar por insumos ajenos).
+  async suppliesUsage(companyId: number, supplyIds: number[]) {
+    this.logger.info(
+      `suppliesUsage company ${companyId} (${supplyIds.length} ids)`,
+    );
+    const usage: Record<number, { recipes: number; provisions: number }> = {};
+    if (!supplyIds.length) return usage;
+
+    const { data: propios, error: errPropios } = await this.supabase.client
+      .from('supplies')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('id', supplyIds);
+    if (errPropios) throw errPropios;
+    const ids = (propios || []).map((s) => s.id as number);
+    if (!ids.length) return usage;
+    ids.forEach((id) => {
+      usage[id] = { recipes: 0, provisions: 0 };
+    });
+
+    const [rec, prov] = await Promise.all([
+      this.supabase.client
+        .from('service_recipe_items')
+        .select('supply_id, service_id')
+        .in('supply_id', ids),
+      this.supabase.client
+        .from('event_supply_provisions')
+        .select('supply_id')
+        .in('supply_id', ids),
+    ]);
+    if (rec.error) throw rec.error;
+    if (prov.error) throw prov.error;
+
+    const vistos = new Set<string>();
+    for (const r of rec.data || []) {
+      const sid = r.supply_id as number;
+      const clave = `${sid}-${r.service_id}`;
+      if (usage[sid] && !vistos.has(clave)) {
+        vistos.add(clave);
+        usage[sid].recipes += 1;
+      }
+    }
+    for (const r of prov.data || []) {
+      const sid = r.supply_id as number;
+      if (usage[sid]) usage[sid].provisions += 1;
+    }
+    return usage;
   }
 
   // Cuántos insumos y recursos apuntan a cada proveedor (con cualquier

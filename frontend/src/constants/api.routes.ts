@@ -30,9 +30,11 @@ export const API_ROUTES = {
   // service group collections (paquetes)
   SERVICE_GROUP_COLLECTIONS: "/service-group-collections",
 
-  // logística ("una sola puerta", mudanza #2)
+  // logística ("una sola puerta", mudanzas #2 y #3)
   LOGISTICS_SUPPLIERS: "/logistics/suppliers",
   LOGISTICS_SUPPLIERS_USAGE: "/logistics/suppliers/usage",
+  LOGISTICS_SUPPLIES: "/logistics/supplies",
+  LOGISTICS_SUPPLIES_USAGE: "/logistics/supplies/usage",
 
   // super admin
   SUPER_ADMIN: "/super-admin",
