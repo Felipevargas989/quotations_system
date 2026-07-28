@@ -2594,33 +2594,75 @@ export default function QuotationForm() {
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Categoría
                       </label>
-                      <select
-                        value={box.selectedCategory}
-                        onChange={(e) =>
-                          updateServiceBox(
-                            box.id,
-                            "selectedCategory",
-                            e.target.value,
-                          )
-                        }
-                        disabled={
-                          box.selectedCategory !== "" || isRestrictedEditing
-                        }
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Seleccionar categoría</option>
-                        {serviceCategories
-                          .filter(
-                            (category) =>
-                              !inactiveCategorySet.has(category) ||
-                              category === box.selectedCategory,
-                          )
-                          .map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                      </select>
+                      {/* 28-07 (pedido de Felipe): antes era un <select>
+                          nativo del navegador y desentonaba con los demás
+                          desplegables. Mismo patrón custom de la casa. */}
+                      <div className="relative dropdown-container">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenDropdown(
+                              openDropdown === `cat-${box.id}`
+                                ? null
+                                : `cat-${box.id}`,
+                            )
+                          }
+                          disabled={
+                            box.selectedCategory !== "" || isRestrictedEditing
+                          }
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
+                        >
+                          <span
+                            className={
+                              box.selectedCategory
+                                ? "text-gray-900"
+                                : "text-gray-500"
+                            }
+                          >
+                            {box.selectedCategory || "Seleccionar categoría"}
+                          </span>
+                          <svg
+                            className="w-4 h-4 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                        {openDropdown === `cat-${box.id}` && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                            {serviceCategories
+                              .filter(
+                                (category) =>
+                                  !inactiveCategorySet.has(category) ||
+                                  category === box.selectedCategory,
+                              )
+                              .map((category) => (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  onClick={() => {
+                                    updateServiceBox(
+                                      box.id,
+                                      "selectedCategory",
+                                      category,
+                                    );
+                                    setOpenDropdown(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
+                                >
+                                  {category}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {childrenCount > 0 && (
                       <div>
@@ -2803,7 +2845,7 @@ export default function QuotationForm() {
                         </button>
 
                         {openDropdown === box.id && box.selectedCategory && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
                             {/* In-memory search to filter items by name */}
                             <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
                               <input

@@ -21,24 +21,39 @@ import { initGA } from "./lib/analytics.ts";
 //    visita (lazy). Las visitas siguientes salen del caché.
 //
 // Regla para pantallas nuevas: si vive detrás del login, va lazy.
+import PageSkeleton from "./components/PageSkeleton";
 import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage.tsx";
 
-const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage.tsx"));
-const RequestsPage = lazy(() => import("./pages/RequestsPage"));
-const QuotationsPage = lazy(() => import("./pages/quotations/QuotationsPage"));
-const QuotationForm = lazy(() => import("./pages/quotations/QuotationForm"));
-const ClientsPage = lazy(() => import("./pages/ClientsPage"));
+// PERCEPCIÓN DE CARGA (28-07): las piezas más usadas se PRECARGAN en
+// segundo plano apenas la app abre (ver useEffect en App) — así el
+// "Cargando..." entre pantallas casi nunca aparece. Los import quedan
+// en funciones nombradas para poder dispararlos anticipadamente.
+const importDashboard = () => import("./pages/dashboard/DashboardPage.tsx");
+const importRequests = () => import("./pages/RequestsPage");
+const importQuotations = () => import("./pages/quotations/QuotationsPage");
+const importQuotationForm = () => import("./pages/quotations/QuotationForm");
+const importClients = () => import("./pages/ClientsPage");
+const importPostVenta = () => import("./pages/postventa/PostVentaPage");
+const importLogistica = () => import("./pages/logistica/LogisticaPage");
+const importServices = () => import("./pages/services");
+const importCalendar = () => import("./pages/calendar/Calendar.tsx");
+
+const DashboardPage = lazy(importDashboard);
+const RequestsPage = lazy(importRequests);
+const QuotationsPage = lazy(importQuotations);
+const QuotationForm = lazy(importQuotationForm);
+const ClientsPage = lazy(importClients);
 const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
-const PostVentaPage = lazy(() => import("./pages/postventa/PostVentaPage"));
-const LogisticaPage = lazy(() => import("./pages/logistica/LogisticaPage"));
+const PostVentaPage = lazy(importPostVenta);
+const LogisticaPage = lazy(importLogistica);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
-  import("./pages/services").then((m) => ({ default: m.ServicesPage })),
+  importServices().then((m) => ({ default: m.ServicesPage })),
 );
 const ConfigurationPage = lazy(
   () => import("./pages/configuration/ConfigurationPage"),
@@ -49,7 +64,7 @@ const CompanyConfiguration = lazy(
       "./pages/configuration/companyConfiguration/CompanyConfiguration.tsx"
     ),
 );
-const Calendar = lazy(() => import("./pages/calendar/Calendar.tsx"));
+const Calendar = lazy(importCalendar);
 const Plans = lazy(() => import("./pages/plans/Plans.tsx"));
 const ConfirmationPage = lazy(() => import("./pages/plans/ConfirmationPage.tsx"));
 const CreateQuotationPublic = lazy(
@@ -69,20 +84,39 @@ const AnswersView = lazy(
 );
 
 // Lo que se ve el instante entre pedir una pantalla y que llegue.
-// Mismo lenguaje visual que PermissionGuard.
-const PageLoader = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-      <p className="text-gray-600">Cargando...</p>
-    </div>
-  </div>
-);
+// PERCEPCIÓN DE CARGA (28-07): antes era un círculo girando y los
+// esqueletos de datos eran grises — DOS texturas = el ojo contaba dos
+// esperas. Ahora todo el "preparando" es UNA sola textura de esqueleto.
+const PageLoader = () => <PageSkeleton />;
 
 function App() {
   // Initialize Google Analytics
   useEffect(() => {
     initGA();
+  }, []);
+
+  // PERCEPCIÓN DE CARGA (28-07): precarga silenciosa de las pantallas
+  // más usadas cuando el navegador está desocupado — navegar después
+  // es instantáneo (la pieza ya está). Si algo falla, no pasa nada:
+  // la pantalla se descarga normal al visitarla.
+  useEffect(() => {
+    const precargar = () => {
+      [
+        importDashboard,
+        importQuotations,
+        importPostVenta,
+        importLogistica,
+        importClients,
+        importQuotationForm,
+        importServices,
+        importCalendar,
+        importRequests,
+      ].forEach((imp) => {
+        imp().catch(() => {});
+      });
+    };
+    const t = window.setTimeout(precargar, 2500);
+    return () => window.clearTimeout(t);
   }, []);
 
   return (

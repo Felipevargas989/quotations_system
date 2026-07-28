@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronDown,
   Search,
   DollarSign,
   Clock,
@@ -343,6 +344,12 @@ export default function PostVentaPage() {
     return { pend, venc, pag, total: pend + venc + pag };
   }, [rows]);
 
+  // 28-07 (pedido de Felipe): orden por PRÓXIMO EVENTO por defecto —
+  // lo que viene primero, arriba; lo ya pasado, al final (y además se
+  // puede filtrar con "Realizado"). "Número" conserva el orden clásico.
+  const [orden, setOrden] = useState<"proximo" | "numero">("proximo");
+  const [ordenOpen, setOrdenOpen] = useState(false);
+
   const filtered = useMemo(() => {
     const q = search.trim();
     return rows.filter((r) => {
@@ -364,6 +371,21 @@ export default function PostVentaPage() {
       return matchStatus && matchSearch;
     });
   }, [rows, search, statusFilter]);
+
+  const ordered = useMemo(() => {
+    if (orden === "numero") return filtered;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const valor = (r: (typeof filtered)[number]) =>
+      (r.eventDate ?? "").slice(0, 10);
+    const futuros = filtered
+      .filter((r) => valor(r) >= hoy)
+      .sort((a, b) => valor(a).localeCompare(valor(b)));
+    const pasados = filtered
+      .filter((r) => valor(r) !== "" && valor(r) < hoy)
+      .sort((a, b) => valor(b).localeCompare(valor(a)));
+    const sinFecha = filtered.filter((r) => valor(r) === "");
+    return [...futuros, ...pasados, ...sinFecha];
+  }, [filtered, orden]);
 
   const pct = (paid: number, total: number) =>
     total ? Math.round((paid / total) * 100) : 0;
@@ -426,6 +448,57 @@ export default function PostVentaPage() {
               className="w-full"
             />
           </div>
+          {/* Desplegable custom (no nativo), estilo de la casa. */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOrdenOpen((v) => !v)}
+              className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white flex items-center justify-between gap-2 hover:border-gray-400"
+              title="Orden de la lista"
+            >
+              <span>
+                {orden === "proximo"
+                  ? "Orden: próximo evento"
+                  : "Orden: número de cotización"}
+              </span>
+              <ChevronDown size={14} className="text-gray-400" />
+            </button>
+            {ordenOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setOrdenOpen(false)}
+                  tabIndex={-1}
+                ></button>
+                <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+                  {(
+                    [
+                      ["proximo", "Orden: próximo evento"],
+                      ["numero", "Orden: número de cotización"],
+                    ] as const
+                  ).map(([valor, etiqueta]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      onClick={() => {
+                        setOrden(valor);
+                        setOrdenOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 ${
+                        orden === valor
+                          ? "font-semibold text-blue-700"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -452,7 +525,7 @@ export default function PostVentaPage() {
             Eventos cerrados
           </h2>
           <span className="text-sm text-gray-500">
-            {filtered.length} de {rows.length}
+            {ordered.length} de {rows.length}
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -478,7 +551,7 @@ export default function PostVentaPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filtered.length === 0 ? (
+              {ordered.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -488,7 +561,7 @@ export default function PostVentaPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((r) => {
+                ordered.map((r) => {
                   const net = r.paid - r.refunded;
                   const p = pct(net, r.total);
                   return (

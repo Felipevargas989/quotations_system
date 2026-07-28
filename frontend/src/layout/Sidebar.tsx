@@ -116,11 +116,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-2">
-              <img
-                src="/images/logo.png"
-                alt="Valle del Sol Quillón"
-                className="h-7 w-22"
-              />
+              {/* 28-07 (pedido de Felipe): el MISMO logo de la landing
+                  nueva, para coherencia visual en todo el producto. */}
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 64 64"
+                fill="none"
+                aria-label="Eventia"
+              >
+                <path d="M8 11 H41 L32 21 H8 Z" fill="#1597E5" />
+                <path d="M8 25 H35 L26 35 H8 Z" fill="#1597E5" />
+                <path
+                  d="M11 41 L22 53 L49 24"
+                  stroke="#0B1F33"
+                  strokeWidth="9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="text-xl font-extrabold tracking-tight text-gray-900">
+                Eventia
+              </span>
             </div>
             <button
               onClick={onClose}
