@@ -65,6 +65,42 @@ export class LogisticsController {
   // el cotizador (vendedores), el Dashboard y Post-Venta — medido en 8
   // pantallas (28-07). Por eso vendedor+; las ESCRITURAS siguen con la
   // regla del controller (operaciones y administración).
+  // ------------- VELOCIDAD 2.0 (28-07): paquetes por pantalla -------
+  // Antes el navegador pedía estas listas por separado (6 llamadas el
+  // catálogo, 2 el estado de compras) y hacían fila de a 6 conexiones.
+  // Ahora pide UN paquete y el backend junta todo EN PARALELO al lado
+  // de la base (misma región desde hoy). Mismos permisos que las
+  // lecturas sueltas (vendedor+, medido en pantallas el 28-07).
+  @Roles(...SALES_AND_UP)
+  @Get('base-catalogo')
+  async baseCatalogo(@CurrentUser() user: User) {
+    this.logger.info(`GET /logistics/base-catalogo company ${user.company_id}`);
+    const cid = user.company_id;
+    const [recipes, supplies, furniture, suppliers, nameIds, fixedCosts] =
+      await Promise.all([
+        this.logisticsService.findAllRecipeItems(cid),
+        this.logisticsService.findAllSupplies(cid),
+        this.logisticsService.findAllFurniture(cid),
+        this.logisticsService.findAllSuppliers(cid),
+        this.logisticsService.catalogServiceNames(cid),
+        this.logisticsService.fixedServiceCosts(cid),
+      ]);
+    return { recipes, supplies, furniture, suppliers, nameIds, fixedCosts };
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Get('estado-compras')
+  async estadoCompras(@CurrentUser() user: User) {
+    this.logger.info(
+      `GET /logistics/estado-compras company ${user.company_id}`,
+    );
+    const [events, provisions] = await Promise.all([
+      this.logisticsService.findAcceptedEvents(user.company_id),
+      this.logisticsService.findSupplyProvisions(user.company_id),
+    ]);
+    return { events, provisions };
+  }
+
   @Roles(...SALES_AND_UP)
   @Get('suppliers')
   findAllSuppliers(@CurrentUser() user: User) {

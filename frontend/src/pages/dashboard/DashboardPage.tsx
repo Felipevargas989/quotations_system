@@ -35,6 +35,7 @@ import {
   getSupplies,
   getSuppliers,
   getWonEventsSince,
+  getBaseCatalogo,
 } from "../../services/logistics.service";
 import {
   EventItemsSnapshot,
@@ -439,25 +440,7 @@ export default function DashboardPage() {
     queryKey: ["logistica", "compras", "base", company?.id],
     staleTime: 5 * 60 * 1000,
     enabled: !!user && !!company?.id,
-    queryFn: async () => {
-      const cid = company!.id;
-      const [r, sup, f, provs, n, fc] = await Promise.all([
-        getAllRecipeItems(cid),
-        getSupplies(cid),
-        getFurnitureItems(cid),
-        getSuppliers(cid),
-        getCatalogServiceNameIds(cid),
-        getFixedServiceCostsById(cid),
-      ]);
-      return {
-        recipes: r,
-        supplies: sup,
-        furniture: f,
-        suppliers: provs,
-        nameIds: n,
-        fixedCosts: fc,
-      };
-    },
+    queryFn: getBaseCatalogo,
   });
   const wonEventsQuery = useQuery({
     queryKey: [

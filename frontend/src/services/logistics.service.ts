@@ -1017,3 +1017,79 @@ export const deleteFixedServiceCostItem = async (id: number) => {
     return { error };
   }
 };
+
+// ---------------- VELOCIDAD 2.0 (28-07): paquetes por pantalla -------
+// Un solo viaje para lo que antes eran 6 llamadas (catálogo) o 2
+// (estado de compras). Las transformaciones son LAS MISMAS de las
+// funciones sueltas de arriba — si cambias una, cambia la otra.
+// Sin try/catch tragón a propósito: si el paquete falla, React Query
+// reintenta y avisa (las funciones sueltas tragan errores por historia).
+
+const mapNameIds = (data: {
+  variable?: { id: number; name: string }[];
+  fixed?: { id: number; name: string }[];
+} | null): { variable: Record<string, number>; fixed: Record<string, number> } => {
+  const norm = canonicalServiceName;
+  const variable: Record<string, number> = {};
+  (data?.variable || []).forEach((s) => {
+    variable[norm(s.name)] = s.id;
+  });
+  const fixed: Record<string, number> = {};
+  (data?.fixed || []).forEach((s) => {
+    fixed[norm(s.name)] = s.id;
+  });
+  return { variable, fixed };
+};
+
+const mapFixedCosts = (
+  data:
+    | { id: number; cost_fixed: number | null; cost_per_person: number | null }[]
+    | null,
+): Record<number, { cost_fixed: number | null; cost_per_person: number | null }> => {
+  const map: Record<
+    number,
+    { cost_fixed: number | null; cost_per_person: number | null }
+  > = {};
+  (data || []).forEach((r) => {
+    map[r.id] = { cost_fixed: r.cost_fixed, cost_per_person: r.cost_per_person };
+  });
+  return map;
+};
+
+const mapEvento = (q: Record<string, unknown>): PurchasingEvent => ({
+  ...(q as unknown as PurchasingEvent),
+  client_name: ((q.clients as { name?: string } | null)?.name as string) || "—",
+});
+
+export const getBaseCatalogo = async (): Promise<{
+  recipes: RecipeItem[];
+  supplies: Supply[];
+  furniture: FurnitureItem[];
+  suppliers: Supplier[];
+  nameIds: { variable: Record<string, number>; fixed: Record<string, number> };
+  fixedCosts: Record<
+    number,
+    { cost_fixed: number | null; cost_per_person: number | null }
+  >;
+}> => {
+  const data = await apiRequest("/logistics/base-catalogo", "GET");
+  return {
+    recipes: (data?.recipes || []) as RecipeItem[],
+    supplies: (data?.supplies || []) as Supply[],
+    furniture: (data?.furniture || []) as FurnitureItem[],
+    suppliers: (data?.suppliers || []) as Supplier[],
+    nameIds: mapNameIds(data?.nameIds),
+    fixedCosts: mapFixedCosts(data?.fixedCosts),
+  };
+};
+
+export const getEstadoCompras = async (): Promise<{
+  events: PurchasingEvent[];
+  provisions: EventSupplyProvision[];
+}> => {
+  const data = await apiRequest("/logistics/estado-compras", "GET");
+  return {
+    events: (data?.events || []).map(mapEvento),
+    provisions: (data?.provisions || []) as EventSupplyProvision[],
+  };
+};

@@ -30,6 +30,8 @@ import {
   getSuppliers,
   markQuotationsProvisioned,
   upsertEventSupplyProvisions,
+  getBaseCatalogo,
+  getEstadoCompras,
 } from "../../../services/logistics.service";
 import {
   FurnitureItem,
@@ -130,34 +132,13 @@ export default function ComprasTab({
   const baseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", companyId],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const [r, s, f, sup, n, fc] = await Promise.all([
-        getAllRecipeItems(companyId),
-        getSupplies(companyId),
-        getFurnitureItems(companyId),
-        getSuppliers(companyId),
-        getCatalogServiceNameIds(companyId),
-        getFixedServiceCostsById(companyId),
-      ]);
-      return {
-        recipes: r,
-        supplies: s,
-        furniture: f,
-        suppliers: sup,
-        nameIds: n,
-        fixedCosts: fc,
-      };
-    },
+    // VELOCIDAD 2.0 (28-07): un solo viaje (paquete del backend).
+    queryFn: getBaseCatalogo,
   });
   const estadoQuery = useQuery({
     queryKey: ["logistica", "compras", "estado", companyId],
-    queryFn: async () => {
-      const [ev, pr] = await Promise.all([
-        getAcceptedEvents(companyId),
-        getEventSupplyProvisions(companyId),
-      ]);
-      return { events: ev, provisions: pr };
-    },
+    // VELOCIDAD 2.0 (28-07): un solo viaje (paquete del backend).
+    queryFn: getEstadoCompras,
   });
 
   const events = estadoQuery.data?.events ?? [];

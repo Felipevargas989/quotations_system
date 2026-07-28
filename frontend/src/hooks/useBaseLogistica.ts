@@ -5,37 +5,15 @@
 // esta clave — el primero que llega la trae y el resto la reusa.
 // La clave es la histórica de Compras: ["logistica","compras","base"].
 import { useQuery } from "@tanstack/react-query";
-import {
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
-  getFixedServiceCostsById,
-  getFurnitureItems,
-  getSuppliers,
-  getSupplies,
-} from "../services/logistics.service";
+import { getBaseCatalogo } from "../services/logistics.service";
 
 export const useBaseLogistica = (companyId: number | null) =>
   useQuery({
     queryKey: ["logistica", "compras", "base", companyId],
     enabled: companyId !== null,
-    queryFn: async () => {
-      const [r, s, f, sup, n, fc] = await Promise.all([
-        getAllRecipeItems(companyId!),
-        getSupplies(companyId!),
-        getFurnitureItems(companyId!),
-        getSuppliers(companyId!),
-        getCatalogServiceNameIds(companyId!),
-        getFixedServiceCostsById(companyId!),
-      ]);
-      return {
-        recipes: r,
-        supplies: s,
-        furniture: f,
-        suppliers: sup,
-        nameIds: n,
-        fixedCosts: fc,
-      };
-    },
+    // VELOCIDAD 2.0 (28-07): UN solo viaje — el backend junta las 6
+    // listas en paralelo al lado de la base.
+    queryFn: getBaseCatalogo,
     // El catálogo cambia poco: 5 minutos sin re-pedirlo al navegar.
     staleTime: 5 * 60 * 1000,
   });
