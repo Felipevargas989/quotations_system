@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -11,7 +12,9 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Company } from 'src/companies/entities/company.entity';
+import { UserRole } from 'src/users/entities/user.entity';
 import type { User } from 'src/users/entities/user.entity';
+import { RequestType } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
@@ -39,6 +42,17 @@ export class QuotationsController {
     this.logger.info(
       `POST /quotations with createQuotationDto ${logSafe(createQuotationDto)}`,
     );
+    // Regla de Felipe (28-07): recepción crea REQUERIMIENTOS, no
+    // cotizaciones formales. Mismo endpoint para ambos (los usa la
+    // misma tabla), así que la distinción es por el tipo de solicitud.
+    if (
+      (user as User & { role?: string }).role === UserRole.RECEPCION &&
+      createQuotationDto.request_type !== RequestType.REQUERIMIENTO
+    ) {
+      throw new ForbiddenException(
+        'Recepción puede registrar requerimientos, no crear cotizaciones.',
+      );
+    }
     return this.quotationsService.create(
       createQuotationDto,
       user.company_id,
