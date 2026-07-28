@@ -343,6 +343,11 @@ export default function PostVentaPage() {
     return { pend, venc, pag, total: pend + venc + pag };
   }, [rows]);
 
+  // 28-07 (pedido de Felipe): orden por PRÓXIMO EVENTO por defecto —
+  // lo que viene primero, arriba; lo ya pasado, al final (y además se
+  // puede filtrar con "Realizado"). "Número" conserva el orden clásico.
+  const [orden, setOrden] = useState<"proximo" | "numero">("proximo");
+
   const filtered = useMemo(() => {
     const q = search.trim();
     return rows.filter((r) => {
@@ -364,6 +369,21 @@ export default function PostVentaPage() {
       return matchStatus && matchSearch;
     });
   }, [rows, search, statusFilter]);
+
+  const ordered = useMemo(() => {
+    if (orden === "numero") return filtered;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const valor = (r: (typeof filtered)[number]) =>
+      (r.eventDate ?? "").slice(0, 10);
+    const futuros = filtered
+      .filter((r) => valor(r) >= hoy)
+      .sort((a, b) => valor(a).localeCompare(valor(b)));
+    const pasados = filtered
+      .filter((r) => valor(r) !== "" && valor(r) < hoy)
+      .sort((a, b) => valor(b).localeCompare(valor(a)));
+    const sinFecha = filtered.filter((r) => valor(r) === "");
+    return [...futuros, ...pasados, ...sinFecha];
+  }, [filtered, orden]);
 
   const pct = (paid: number, total: number) =>
     total ? Math.round((paid / total) * 100) : 0;
@@ -426,6 +446,15 @@ export default function PostVentaPage() {
               className="w-full"
             />
           </div>
+          <select
+            value={orden}
+            onChange={(e) => setOrden(e.target.value as "proximo" | "numero")}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            title="Orden de la lista"
+          >
+            <option value="proximo">Orden: próximo evento</option>
+            <option value="numero">Orden: número</option>
+          </select>
         </div>
       </div>
 
@@ -452,7 +481,7 @@ export default function PostVentaPage() {
             Eventos cerrados
           </h2>
           <span className="text-sm text-gray-500">
-            {filtered.length} de {rows.length}
+            {ordered.length} de {rows.length}
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -478,7 +507,7 @@ export default function PostVentaPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filtered.length === 0 ? (
+              {ordered.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -488,7 +517,7 @@ export default function PostVentaPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((r) => {
+                ordered.map((r) => {
                   const net = r.paid - r.refunded;
                   const p = pct(net, r.total);
                   return (
