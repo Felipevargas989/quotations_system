@@ -20,7 +20,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCompleteStats } from "../../services/analytics.service";
 import { getHoyAlerts } from "../../services/hoy.service";
@@ -858,12 +858,18 @@ export default function DashboardPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        {/* Recarga manual discreta (decisión de Felipe 29-07): el
+            Dashboard ya se refresca solo cada 5 min; esto queda para
+            el apuro y como reintento si una carga falla. */}
         <button
           onClick={() => dashboardQuery.refetch()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+          title="Actualizar datos ahora"
         >
-          <TrendingUp size={16} />
-          <span>Actualizar</span>
+          <RefreshCw
+            size={18}
+            className={dashboardQuery.isFetching ? "animate-spin" : ""}
+          />
         </button>
       </div>
 
