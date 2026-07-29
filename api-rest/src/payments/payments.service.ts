@@ -209,7 +209,7 @@ export class PaymentsService {
     const { data: transactions } =
       await this.paymentsRepository.findAllTransactionsByPaymentId(paymentId);
     const hasMoney =
-      payment.status === PaymentStatus.PAGADO ||
+      (payment.status as PaymentStatus) === PaymentStatus.PAGADO ||
       (transactions || []).length > 0;
     if (hasMoney) {
       throw new BadRequestException(
