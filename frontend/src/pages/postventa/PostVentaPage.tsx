@@ -1096,6 +1096,28 @@ function EventModal({
                                 {clp(pay.amount)}
                               </div>
                               {statusBadge(cuotaStatus(pay))}
+                              {txs.length === 0 &&
+                                cuotaStatus(pay) !== "pagado" &&
+                                editCuota?.id !== pay.id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setErrorCuota(null);
+                                      setEditCuota({
+                                        id: pay.id,
+                                        due_date: (pay.due_date || "").slice(
+                                          0,
+                                          10,
+                                        ),
+                                        notes: pay.notes || "",
+                                      });
+                                    }}
+                                    className="text-gray-400 hover:text-blue-600"
+                                    title="Editar fecha de vencimiento y nota de la cuota"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                )}
                             </div>
                             <div
                               className="text-xs text-gray-500 truncate max-w-md"
@@ -1123,25 +1145,6 @@ function EventModal({
                             {txActions(txs[0])}
                           </div>
                         )}
-                        {txs.length === 0 &&
-                          cuotaStatus(pay) !== "pagado" &&
-                          editCuota?.id !== pay.id && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setErrorCuota(null);
-                                setEditCuota({
-                                  id: pay.id,
-                                  due_date: (pay.due_date || "").slice(0, 10),
-                                  notes: pay.notes || "",
-                                });
-                              }}
-                              className="text-gray-400 hover:text-blue-600 shrink-0"
-                              title="Editar fecha de vencimiento y nota de la cuota"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                          )}
                       </div>
                       {editCuota?.id === pay.id && (
                         <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
