@@ -1,4 +1,10 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PostgrestError } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
@@ -14,6 +20,7 @@ import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentScheduleDto } from './dto/update-payment-schedule.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
@@ -21,6 +28,7 @@ import {
   CreatePayment,
   CreatePaymentTransaction,
   PaymentWithTransactionsAndQuotation,
+  UpdatePayment,
   UpdatePaymentTransaction,
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
@@ -176,6 +184,60 @@ export class PaymentsService {
       quotationId,
       companyId,
     );
+  }
+
+  /**
+   * Calendario de pagos, Nivel A: edita SOLO la fecha de vencimiento y
+   * la nota de una cuota. Cuotas con dinero registrado (pagadas o con
+   * abonos) son intocables por esta vía — para eso está rectificar el
+   * registro. Si cambia la fecha, el estado se re-cuadra solo
+   * (pendiente/vencido según el nuevo vencimiento).
+   */
+  async updatePaymentSchedule(
+    paymentId: Payment['id'],
+    dto: UpdatePaymentScheduleDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(`updatePaymentSchedule with paymentId ${paymentId}`);
+
+    const { data: payment, error } =
+      await this.paymentsRepository.findPaymentById(paymentId, companyId);
+    if (error || !payment) {
+      throw new NotFoundException('Cuota no encontrada');
+    }
+
+    const { data: transactions } =
+      await this.paymentsRepository.findAllTransactionsByPaymentId(paymentId);
+    const hasMoney =
+      payment.status === PaymentStatus.PAGADO ||
+      (transactions || []).length > 0;
+    if (hasMoney) {
+      throw new BadRequestException(
+        'Esta cuota ya tiene dinero registrado: su fecha y nota no se pueden editar. Si el registro está mal, rectifícalo desde el calendario de pagos.',
+      );
+    }
+
+    const fields: UpdatePayment = {};
+    if (dto.due_date !== undefined) {
+      fields.due_date = dto.due_date as unknown as Payment['due_date'];
+      const hoy = new Date().toISOString().slice(0, 10);
+      fields.status =
+        dto.due_date < hoy ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE;
+    }
+    if (dto.notes !== undefined) {
+      fields.notes = dto.notes;
+    }
+
+    const { error: updateError } = await this.paymentsRepository.updatePayment(
+      paymentId,
+      fields,
+    );
+    if (updateError) throw updateError;
+
+    return {
+      updated: true,
+      status: fields.status ?? payment.status,
+    };
   }
 
   findAllPaymentsFromQuotation(

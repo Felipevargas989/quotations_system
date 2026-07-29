@@ -16,6 +16,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
+import { UpdatePaymentScheduleDto } from './dto/update-payment-schedule.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
@@ -108,10 +109,18 @@ export class PaymentsController {
   //   return this.paymentsService.findOne(+id);
   // }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
-  //   return this.paymentsService.update(+id, updatePaymentDto);
-  // }
+  // Calendario de pagos, Nivel A: solo fecha y nota, solo cuotas sin
+  // dinero registrado (el servicio lo verifica).
+  @Roles(...OPERATIONS_AND_UP)
+  @Patch(':id')
+  updatePaymentSchedule(
+    @Param('id') id: Payment['id'],
+    @Body() dto: UpdatePaymentScheduleDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /payments/${id} with user ${user.id}`);
+    return this.paymentsService.updatePaymentSchedule(id, dto, user.company_id);
+  }
 
   @Roles(...OPERATIONS_AND_UP)
   @Delete(':id')
