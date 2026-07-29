@@ -31,6 +31,7 @@ import {
   PaymentTransaction,
 } from "../../services/paymentTransactions.service";
 import { getClients } from "../../services/clients.service";
+import { updatePaymentSchedule } from "../../services/payments.service";
 import {
   getQuotationById,
   markEventDone,
@@ -707,6 +708,37 @@ function EventModal({
   const [editTx, setEditTx] = useState<PaymentTransaction | null>(null);
   const [confirmTxId, setConfirmTxId] = useState<number | null>(null);
   const [deletingTx, setDeletingTx] = useState(false);
+  // Nivel A del calendario (29-07): lapiz en la CUOTA (solo sin dinero
+  // registrado) para editar fecha de vencimiento y nota. Distinto del
+  // lapiz del registro de pago de mas abajo.
+  const [editCuota, setEditCuota] = useState<{
+    id: string;
+    due_date: string;
+    notes: string;
+  } | null>(null);
+  const [savingCuota, setSavingCuota] = useState(false);
+  const [errorCuota, setErrorCuota] = useState<string | null>(null);
+  const onSaveCuota = async () => {
+    if (!editCuota || !editCuota.due_date) return;
+    setSavingCuota(true);
+    setErrorCuota(null);
+    const { error } = await updatePaymentSchedule(editCuota.id, {
+      due_date: editCuota.due_date,
+      notes: editCuota.notes.trim(),
+    });
+    setSavingCuota(false);
+    if (error) {
+      const msg =
+        (error as { response?: { data?: { message?: string | string[] } } })
+          .response?.data?.message;
+      setErrorCuota(
+        Array.isArray(msg) ? msg.join(" ") : msg || "No se pudo guardar",
+      );
+      return;
+    }
+    setEditCuota(null);
+    onDataChanged();
+  };
   const onDeleteTx = async (t: PaymentTransaction) => {
     setDeletingTx(true);
     try {
@@ -1091,7 +1123,74 @@ function EventModal({
                             {txActions(txs[0])}
                           </div>
                         )}
+                        {txs.length === 0 &&
+                          cuotaStatus(pay) !== "pagado" &&
+                          editCuota?.id !== pay.id && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setErrorCuota(null);
+                                setEditCuota({
+                                  id: pay.id,
+                                  due_date: (pay.due_date || "").slice(0, 10),
+                                  notes: pay.notes || "",
+                                });
+                              }}
+                              className="text-gray-400 hover:text-blue-600 shrink-0"
+                              title="Editar fecha de vencimiento y nota de la cuota"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
                       </div>
+                      {editCuota?.id === pay.id && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            value={editCuota.due_date}
+                            onChange={(e) =>
+                              setEditCuota(
+                                (p) => p && { ...p, due_date: e.target.value },
+                              )
+                            }
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={editCuota.notes}
+                            onChange={(e) =>
+                              setEditCuota(
+                                (p) => p && { ...p, notes: e.target.value },
+                              )
+                            }
+                            placeholder="Nota (opcional)"
+                            className="flex-1 min-w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <button
+                            type="button"
+                            disabled={savingCuota || !editCuota.due_date}
+                            onClick={onSaveCuota}
+                            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {savingCuota ? "…" : "Guardar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditCuota(null);
+                              setErrorCuota(null);
+                            }}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                          >
+                            Cancelar
+                          </button>
+                          {errorCuota && (
+                            <p className="w-full text-xs text-red-600">
+                              {errorCuota}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       {txs.length > 1 && (
                         <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
                           {txs.map((t) => (
