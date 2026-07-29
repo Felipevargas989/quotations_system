@@ -17,6 +17,7 @@ import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey
 import { EmailModule } from './email/email.module';
 import { HealthController } from './health/health.controller';
 import { LogisticsModule } from './logistics/logistics.module';
+import { MovilModule } from './movil/movil.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -62,6 +63,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     ConfigModule,
     SupabaseModule,
+    MovilModule,
     StorageModule,
     CompaniesModule,
     UsersModule,
