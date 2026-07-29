@@ -658,9 +658,12 @@ export default function PostVentaPage() {
                               </span>
                             )}
                             <div className="w-36 bg-gray-200 rounded-full h-2">
+                              {/* La barra se llena hasta el 100%; si
+                                  pagaron de más (ej. 140%), el exceso
+                                  lo dice el texto, no el largo. */}
                               <div
                                 className={`h-2 rounded-full ${barColor(p)}`}
-                                style={{ width: `${p}%` }}
+                                style={{ width: `${Math.min(p, 100)}%` }}
                               />
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
@@ -1043,7 +1046,7 @@ function EventModal({
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
               className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
-              style={{ width: `${p}%` }}
+              style={{ width: `${Math.min(p, 100)}%` }}
             />
           </div>
           <div className="flex justify-between text-xs text-gray-500 mt-1.5">
