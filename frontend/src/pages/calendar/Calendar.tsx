@@ -14,8 +14,6 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 import {
-  Filter,
-  X,
   Calendar as CalendarIcon,
   CalendarDays,
   ExternalLink,
@@ -26,7 +24,12 @@ import {
   QuotationWithClient,
 } from "../../types/quotations.types";
 import { getQuotations } from "../../services/quotations.service";
+import { useAuth } from "../../contexts/AuthContext";
 // import { findAllEvents } from "../../services/calendar.service";
+
+// El filtro se recuerda por usuario (mismo patrón de Post-Venta).
+const CAL_FILTER_KEY = (userId: string | number) =>
+  `eventia_calendar_status_filter_${userId}`;
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -52,20 +55,23 @@ export default function CalendarPage() {
 
   const initialDate = getInitialDate();
 
-  // Get initial statuses based on filter query parameter
+  // Estados iniciales: la URL manda (?filter=all), después la memoria
+  // del usuario, y al final el defecto Aceptada + Realizada (decisión
+  // de Felipe 29-07: el calendario no debe olvidar los eventos ya
+  // hechos).
   const getInitialStatuses = (): QuotationStatus[] => {
     const filterParam = searchParams.get("filter");
     if (filterParam === "all") {
-      // Return all statuses except RECHAZADA
+      // Todos menos rechazadas y anuladas.
       return [
         QuotationStatus.SOLICITADA,
         QuotationStatus.ENVIADA,
         QuotationStatus.EN_NEGOCIACION,
         QuotationStatus.ACEPTADA,
+        QuotationStatus.REALIZADA,
       ];
     }
-    // Default to only ACEPTADA
-    return [QuotationStatus.ACEPTADA];
+    return [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA];
   };
 
   // Sin día seleccionado por defecto: azul solo cuando el usuario pincha
@@ -78,9 +84,46 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     searchParams.get("date") ? initialDate : null,
   );
-  const [showFilters, setShowFilters] = useState(false);
+  const { user } = useAuth();
   const [selectedStatuses, setSelectedStatuses] =
     useState<QuotationStatus[]>(getInitialStatuses());
+  const [filterRestored, setFilterRestored] = useState(false);
+
+  // Restaurar la memoria del filtro (solo si la URL no manda ?filter).
+  useEffect(() => {
+    if (!user) return;
+    if (!searchParams.get("filter")) {
+      try {
+        const raw = localStorage.getItem(CAL_FILTER_KEY(user.id));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const valid = parsed.filter((v) =>
+              Object.values(QuotationStatus).includes(v),
+            );
+            if (valid.length > 0) setSelectedStatuses(valid);
+          }
+        }
+      } catch {
+        /* storage deshabilitado o valor viejo: usar el defecto */
+      }
+    }
+    setFilterRestored(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Guardar la selección cuando cambia (después de restaurar).
+  useEffect(() => {
+    if (!user || !filterRestored) return;
+    try {
+      localStorage.setItem(
+        CAL_FILTER_KEY(user.id),
+        JSON.stringify(selectedStatuses),
+      );
+    } catch {
+      /* ignorar */
+    }
+  }, [user, filterRestored, selectedStatuses]);
   const [currentMonthEventsCount, setCurrentMonthEventsCount] = useState(0);
 
   const statusOptions = [
@@ -105,9 +148,19 @@ export default function CalendarPage() {
       color: "bg-green-500",
     },
     {
+      value: QuotationStatus.REALIZADA,
+      label: "Realizada",
+      color: "bg-emerald-500",
+    },
+    {
       value: QuotationStatus.RECHAZADA,
       label: "Rechazada",
       color: "bg-red-500",
+    },
+    {
+      value: QuotationStatus.CANCELADA,
+      label: "Anulada",
+      color: "bg-gray-500",
     },
   ];
 
@@ -362,51 +415,31 @@ export default function CalendarPage() {
               <CalendarDays className="h-4 w-4" />
               Hoy
             </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Filter className="h-4 w-4" />
-              Filtros
-            </button>
           </div>
         </div>
 
-        {showFilters && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Filtrar por Estado
-              </h3>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleStatusToggle(option.value)}
-                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                    selectedStatuses.includes(option.value)
-                      ? `${option.color} text-white border-transparent`
-                      : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            {selectedStatuses.length === 0 && (
-              <p className="mt-3 text-sm text-amber-600">
-                Selecciona al menos un estado para ver eventos
-              </p>
-            )}
-          </div>
-        )}
+        {/* Chips siempre visibles (decisión de Felipe 29-07): filtran y
+            a la vez son la leyenda de colores de las bandas. */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => handleStatusToggle(option.value)}
+              className={`px-3 py-1.5 text-sm font-semibold rounded-full border-2 transition-all ${
+                selectedStatuses.includes(option.value)
+                  ? `${option.color} text-white border-transparent`
+                  : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+          {selectedStatuses.length === 0 && (
+            <p className="text-sm text-amber-600">
+              Selecciona al menos un estado para ver eventos
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
