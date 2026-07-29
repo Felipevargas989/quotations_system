@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronDown,
   Search,
   DollarSign,
   Clock,
@@ -373,8 +372,23 @@ export default function PostVentaPage() {
   // 28-07 (pedido de Felipe): orden por PRÓXIMO EVENTO por defecto —
   // lo que viene primero, arriba; lo ya pasado, al final (y además se
   // puede filtrar con "Realizado"). "Número" conserva el orden clásico.
-  const [orden, setOrden] = useState<"proximo" | "numero">("proximo");
-  const [ordenOpen, setOrdenOpen] = useState(false);
+  // Orden por columnas (pedido de Felipe 29-07, fuera el desplegable):
+  // sin flecha activa = "próximos primero" (lo que viene arriba, lo
+  // pasado abajo, sin fecha al final). Clic en N° o Fecha = orden puro
+  // descendente; otro clic lo invierte; un tercero vuelve al orden
+  // inteligente.
+  const [sortCol, setSortCol] = useState<"numero" | "fecha" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (col: "numero" | "fecha") => {
+    if (sortCol !== col) {
+      setSortCol(col);
+      setSortDir("desc");
+    } else if (sortDir === "desc") {
+      setSortDir("asc");
+    } else {
+      setSortCol(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim();
@@ -407,10 +421,23 @@ export default function PostVentaPage() {
   }, [rows, search, eventFilter, moneyFilter]);
 
   const ordered = useMemo(() => {
-    if (orden === "numero") return filtered;
-    const hoy = new Date().toISOString().slice(0, 10);
     const valor = (r: (typeof filtered)[number]) =>
       (r.eventDate ?? "").slice(0, 10);
+    if (sortCol === "numero") {
+      const arr = [...filtered].sort(
+        (a, b) => a.quotationNumber - b.quotationNumber,
+      );
+      return sortDir === "desc" ? arr.reverse() : arr;
+    }
+    if (sortCol === "fecha") {
+      const conFecha = filtered
+        .filter((r) => valor(r) !== "")
+        .sort((a, b) => valor(a).localeCompare(valor(b)));
+      if (sortDir === "desc") conFecha.reverse();
+      return [...conFecha, ...filtered.filter((r) => valor(r) === "")];
+    }
+    // Sin flecha activa: próximos primero.
+    const hoy = new Date().toISOString().slice(0, 10);
     const futuros = filtered
       .filter((r) => valor(r) >= hoy)
       .sort((a, b) => valor(a).localeCompare(valor(b)));
@@ -419,7 +446,7 @@ export default function PostVentaPage() {
       .sort((a, b) => valor(b).localeCompare(valor(a)));
     const sinFecha = filtered.filter((r) => valor(r) === "");
     return [...futuros, ...pasados, ...sinFecha];
-  }, [filtered, orden]);
+  }, [filtered, sortCol, sortDir]);
 
   const pct = (paid: number, total: number) =>
     total ? Math.round((paid / total) * 100) : 0;
@@ -491,57 +518,6 @@ export default function PostVentaPage() {
               className="w-full"
             />
           </div>
-          {/* Desplegable custom (no nativo), estilo de la casa. */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setOrdenOpen((v) => !v)}
-              className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white flex items-center justify-between gap-2 hover:border-gray-400"
-              title="Orden de la lista"
-            >
-              <span>
-                {orden === "proximo"
-                  ? "Orden: próximo evento"
-                  : "Orden: número de cotización"}
-              </span>
-              <ChevronDown size={14} className="text-gray-400" />
-            </button>
-            {ordenOpen && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Cerrar"
-                  className="fixed inset-0 z-10 cursor-default"
-                  onClick={() => setOrdenOpen(false)}
-                  tabIndex={-1}
-                ></button>
-                <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
-                  {(
-                    [
-                      ["proximo", "Orden: próximo evento"],
-                      ["numero", "Orden: número de cotización"],
-                    ] as const
-                  ).map(([valor, etiqueta]) => (
-                    <button
-                      key={valor}
-                      type="button"
-                      onClick={() => {
-                        setOrden(valor);
-                        setOrdenOpen(false);
-                      }}
-                      className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 ${
-                        orden === valor
-                          ? "font-semibold text-blue-700"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      {etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </div>
       </div>
 
@@ -575,22 +551,48 @@ export default function PostVentaPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {[
-                  "N° Cot.",
-                  "Fecha evento",
-                  "Cliente",
-                  "Contacto",
-                  "Monto",
-                  "Estado de pago",
-                  "",
-                ].map((h) => (
+                {/* N° y Fecha ordenan con la flecha clásica; el resto
+                    son encabezados planos. Sin flecha activa, manda el
+                    orden "próximos primero". */}
+                {(
+                  [
+                    ["numero", "N° Cot."],
+                    ["fecha", "Fecha evento"],
+                  ] as const
+                ).map(([col, label]) => (
                   <th
-                    key={h}
+                    key={col}
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
-                    {h}
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col)}
+                      className={`flex items-center gap-1 uppercase tracking-wider hover:text-gray-800 ${
+                        sortCol === col ? "text-gray-800 font-semibold" : ""
+                      }`}
+                      title={`Ordenar por ${label.toLowerCase()} (otro clic invierte; un tercero vuelve a "próximos primero")`}
+                    >
+                      {label}
+                      <span className="w-3 text-[10px]">
+                        {sortCol === col
+                          ? sortDir === "desc"
+                            ? "▼"
+                            : "▲"
+                          : ""}
+                      </span>
+                    </button>
                   </th>
                 ))}
+                {["Cliente", "Contacto", "Monto", "Estado de pago", ""].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
