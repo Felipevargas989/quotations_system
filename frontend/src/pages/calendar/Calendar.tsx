@@ -371,6 +371,9 @@ export default function CalendarPage() {
     const today = new Date();
     setValue(today);
     setSelectedDate(today);
+    // Y el calendario VIAJA a hoy (antes solo seleccionaba la fecha
+    // sin mover el mes visible — pillada de Felipe 29-07).
+    setActiveMonth(today);
   };
 
   const handleNavigateToQuotation = (quotationId: string) => {
