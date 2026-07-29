@@ -29,7 +29,7 @@ import {
 } from "../services/clientContacts.service";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
-import { formatPhone, normalizePhone, telHref } from "../utils/phone";
+import { formatPhone, normalizePhone } from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
@@ -183,6 +183,19 @@ export default function ClientDetailPage() {
     email: string;
     phone: string;
   } | null>(null);
+  // Correos y teléfonos de la tarjeta: pincharlos COPIA (decisión de
+  // Felipe 29-07 — antes eran mailto:/tel: y en el Mac abrían el app de
+  // correo o FaceTime cuando uno solo quería pegar el dato en otro lado).
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyDato = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((p) => (p === key ? null : p)), 2000);
+    } catch {
+      /* sin permiso de portapapeles: no se rompe nada */
+    }
+  };
 
   // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
   // fetchQuery cachea la cotización completa: reabrir el mismo visor
@@ -710,20 +723,30 @@ export default function ClientDetailPage() {
                     </button>
                   </p>
                   {c.email && (
-                    <a
-                      href={`mailto:${c.email}`}
+                    <button
+                      type="button"
+                      onClick={() => copyDato(`c${c.id}-mail`, c.email!)}
+                      title="Copiar correo"
                       className="flex items-center gap-1 text-blue-600 hover:underline"
                     >
                       <Mail size={13} /> {c.email}
-                    </a>
+                      {copiedKey === `c${c.id}-mail` && (
+                        <Check size={13} className="text-green-600" />
+                      )}
+                    </button>
                   )}
                   {c.phone && (
-                    <a
-                      href={telHref(c.phone)}
+                    <button
+                      type="button"
+                      onClick={() => copyDato(`c${c.id}-tel`, c.phone!)}
+                      title="Copiar teléfono"
                       className="flex items-center gap-1 text-blue-600 hover:underline"
                     >
                       <Phone size={13} /> {formatPhone(c.phone)}
-                    </a>
+                      {copiedKey === `c${c.id}-tel` && (
+                        <Check size={13} className="text-green-600" />
+                      )}
+                    </button>
                   )}
                 </>
               )}
@@ -799,20 +822,30 @@ export default function ClientDetailPage() {
           {(client.email || client.phone || client.address) && (
             <div className="pt-3 border-t border-gray-100 text-sm space-y-1">
               {client.email && (
-                <a
-                  href={`mailto:${client.email}`}
+                <button
+                  type="button"
+                  onClick={() => copyDato("cli-mail", client.email!)}
+                  title="Copiar correo"
                   className="flex items-center gap-1 text-blue-600 hover:underline"
                 >
                   <Mail size={13} /> {client.email}
-                </a>
+                  {copiedKey === "cli-mail" && (
+                    <Check size={13} className="text-green-600" />
+                  )}
+                </button>
               )}
               {client.phone && (
-                <a
-                  href={telHref(client.phone)}
+                <button
+                  type="button"
+                  onClick={() => copyDato("cli-tel", client.phone!)}
+                  title="Copiar teléfono"
                   className="flex items-center gap-1 text-blue-600 hover:underline"
                 >
                   <Phone size={13} /> {formatPhone(client.phone)}
-                </a>
+                  {copiedKey === "cli-tel" && (
+                    <Check size={13} className="text-green-600" />
+                  )}
+                </button>
               )}
               {client.address && (
                 <p className="flex items-center gap-1 text-gray-600">
