@@ -25,6 +25,7 @@ import {
   createClientContact,
   deleteClientContact,
   setPrimaryContact,
+  updateClientContact,
 } from "../services/clientContacts.service";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
@@ -173,6 +174,15 @@ export default function ClientDetailPage() {
   const [confirmContactDelId, setConfirmContactDelId] = useState<number | null>(
     null,
   );
+  // Edición en línea de un contacto existente (mismo formulario que
+  // "Agregar contacto", precargado). La mayoría de los contactos
+  // migrados vienen solo con el nombre; aquí se les completa el dato.
+  const [contactEdit, setContactEdit] = useState<{
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+  } | null>(null);
 
   // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
   // fetchQuery cachea la cotización completa: reabrir el mismo visor
@@ -289,6 +299,29 @@ export default function ClientDetailPage() {
     await syncPrimaryMirror(data.client.id, name);
     await invalidateSummary();
     invalidateClients();
+  };
+
+  const saveContactEdit = async () => {
+    if (!data || !contactEdit || !contactEdit.name.trim()) return;
+    setSavingContact(true);
+    try {
+      const edited = (data.client.client_contacts || []).find(
+        (c) => c.id === contactEdit.id,
+      );
+      await updateClientContact(contactEdit.id, {
+        name: contactEdit.name.trim(),
+        email: contactEdit.email.trim() || null,
+        phone: contactEdit.phone.trim() || null,
+      });
+      if (edited?.is_primary && edited.name !== contactEdit.name.trim()) {
+        await syncPrimaryMirror(data.client.id, contactEdit.name.trim());
+      }
+      setContactEdit(null);
+      await invalidateSummary();
+      invalidateClients();
+    } finally {
+      setSavingContact(false);
+    }
   };
 
   const saveNotes = async () => {
@@ -574,6 +607,63 @@ export default function ClientDetailPage() {
                   onYes={() => removeContact(c.id)}
                   onNo={() => setConfirmContactDelId(null)}
                 />
+              ) : contactEdit?.id === c.id ? (
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={contactEdit.name}
+                    onChange={(e) =>
+                      setContactEdit((p) => p && { ...p, name: e.target.value })
+                    }
+                    placeholder="Nombre *"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="email"
+                    value={contactEdit.email}
+                    onChange={(e) =>
+                      setContactEdit(
+                        (p) => p && { ...p, email: e.target.value },
+                      )
+                    }
+                    placeholder="Correo (opcional)"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="tel"
+                    value={contactEdit.phone}
+                    onChange={(e) =>
+                      setContactEdit(
+                        (p) => p && { ...p, phone: e.target.value },
+                      )
+                    }
+                    onBlur={() =>
+                      setContactEdit(
+                        (p) => p && { ...p, phone: normalizePhone(p.phone) },
+                      )
+                    }
+                    placeholder="Teléfono (opcional)"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={savingContact || !contactEdit.name.trim()}
+                      onClick={saveContactEdit}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingContact ? "…" : "Guardar cambios"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContactEdit(null)}
+                      className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <p className="font-medium text-gray-900 flex items-center gap-1">
@@ -595,8 +685,25 @@ export default function ClientDetailPage() {
                     {c.name}
                     <button
                       type="button"
+                      onClick={() => {
+                        setConfirmContactDelId(null);
+                        setContactDraft(null);
+                        setContactEdit({
+                          id: c.id,
+                          name: c.name,
+                          email: c.email || "",
+                          phone: c.phone || "",
+                        });
+                      }}
+                      className="ml-auto text-gray-300 hover:text-blue-600"
+                      title="Editar contacto"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setConfirmContactDelId(c.id)}
-                      className="ml-auto text-gray-300 hover:text-red-600"
+                      className="text-gray-300 hover:text-red-600"
                       title="Eliminar contacto"
                     >
                       <Trash2 size={13} />
