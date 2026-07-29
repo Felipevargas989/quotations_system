@@ -102,24 +102,32 @@ interface EventRow {
 
 // Persistir el filtro de estado por usuario (igual que en Cotizaciones):
 // la selección sobrevive recargas/navegación en vez de volver a "todos".
-const STATUS_FILTER_KEY = (userId: string | number) =>
+// Dos filtros SEPARADOS (decisión de Felipe 29-07): el estado del
+// EVENTO y el estado de la PLATA son dimensiones distintas y se cruzan.
+// Antes iban mezclados en una lista y un realizado con deuda quedaba
+// invisible al filtrar "Pendiente" o "Vencido" — justo el más urgente
+// de cobrar. La clave de storage vieja
+// (eventia_postventa_status_filter_) se migra una vez y se elimina.
+const EVENT_FILTER_KEY = (userId: string | number) =>
+  `eventia_postventa_event_filter_${userId}`;
+const MONEY_FILTER_KEY = (userId: string | number) =>
+  `eventia_postventa_money_filter_${userId}`;
+const LEGACY_FILTER_KEY = (userId: string | number) =>
   `eventia_postventa_status_filter_${userId}`;
-const STATUS_FILTER_VALUES = [
-  "pendiente",
-  "pagado",
-  "vencido",
-  "realizado",
-  "cancelado",
-];
+const EVENT_FILTER_VALUES = ["vigente", "realizado", "cancelado"];
+const MONEY_FILTER_VALUES = ["pendiente", "pagado", "vencido"];
 
-// Opciones del multi-select (se pueden marcar varias; vacío = todos los
-// vigentes — los cancelados solo aparecen marcando su opción).
-const STATUS_OPTIONS: MultiSelectOption[] = [
-  { value: "pendiente", label: "⏳ Pendientes" },
-  { value: "pagado", label: "✅ Pagados" },
-  { value: "vencido", label: "⚠️ Vencidos" },
+// Vacío en Evento = vigentes + realizados (los anulados solo aparecen
+// marcando su opción). Vacío en Plata = todos.
+const EVENT_OPTIONS: MultiSelectOption[] = [
+  { value: "vigente", label: "📅 Vigentes" },
   { value: "realizado", label: "🎉 Realizados" },
-  { value: "cancelado", label: "🚫 Cancelados" },
+  { value: "cancelado", label: "🚫 Anulados" },
+];
+const MONEY_OPTIONS: MultiSelectOption[] = [
+  { value: "pendiente", label: "⏳ Pendientes" },
+  { value: "vencido", label: "⚠️ Vencidos" },
+  { value: "pagado", label: "✅ Pagados" },
 ];
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
@@ -165,24 +173,37 @@ export default function PostVentaPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [eventFilter, setEventFilter] = useState<string[]>([]);
+  const [moneyFilter, setMoneyFilter] = useState<string[]>([]);
   const [filterRestored, setFilterRestored] = useState(false);
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [tab, setTab] = useState<
     "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
   >("pagos");
 
-  // Restaurar el filtro persistido (por usuario) al entrar a la página.
+  // Restaurar los filtros persistidos (por usuario) al entrar. Si solo
+  // existe la clave vieja (una lista mezclada), se reparte una vez entre
+  // las dos familias y se elimina.
   useEffect(() => {
     if (!user) return;
     try {
-      const saved = localStorage.getItem(STATUS_FILTER_KEY(user.id));
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setStatusFilter(
-            parsed.filter((v) => STATUS_FILTER_VALUES.includes(v)),
-          );
+      const leer = (key: string): string[] | null => {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+      };
+      const ev = leer(EVENT_FILTER_KEY(user.id));
+      const mo = leer(MONEY_FILTER_KEY(user.id));
+      if (ev || mo) {
+        setEventFilter((ev || []).filter((v) => EVENT_FILTER_VALUES.includes(v)));
+        setMoneyFilter((mo || []).filter((v) => MONEY_FILTER_VALUES.includes(v)));
+      } else {
+        const legacy = leer(LEGACY_FILTER_KEY(user.id));
+        if (legacy) {
+          setEventFilter(legacy.filter((v) => EVENT_FILTER_VALUES.includes(v)));
+          setMoneyFilter(legacy.filter((v) => MONEY_FILTER_VALUES.includes(v)));
+          localStorage.removeItem(LEGACY_FILTER_KEY(user.id));
         }
       }
     } catch {
@@ -191,18 +212,22 @@ export default function PostVentaPage() {
     setFilterRestored(true);
   }, [user]);
 
-  // Guardar el filtro cada vez que cambia (después de restaurar).
+  // Guardar los filtros cada vez que cambian (después de restaurar).
   useEffect(() => {
     if (!user || !filterRestored) return;
     try {
       localStorage.setItem(
-        STATUS_FILTER_KEY(user.id),
-        JSON.stringify(statusFilter),
+        EVENT_FILTER_KEY(user.id),
+        JSON.stringify(eventFilter),
+      );
+      localStorage.setItem(
+        MONEY_FILTER_KEY(user.id),
+        JSON.stringify(moneyFilter),
       );
     } catch {
       /* ignorar cuota/storage deshabilitado */
     }
-  }, [user, filterRestored, statusFilter]);
+  }, [user, filterRestored, eventFilter, moneyFilter]);
 
   const fetchEvents = async (): Promise<EventRow[]> => {
     const [{ data: payments }, { data: clients }, refundsPaid] =
@@ -354,15 +379,23 @@ export default function PostVentaPage() {
   const filtered = useMemo(() => {
     const q = search.trim();
     return rows.filter((r) => {
-      // Dos familias de estados: pendiente/pagado/vencido filtran los
-      // eventos VIVOS; "Realizado" y "Anulado" son archivos y cada uno
-      // entra SOLO con su propia opción (un realizado pagado ya no se
-      // cuela por "Pagado"). Sin filtros marcados, se ve todo.
-      const matchStatus = r.cancelled
-        ? statusFilter.includes("cancelado")
+      // Dos filtros que se CRUZAN: el del evento (vigente/realizado/
+      // anulado) y el de la plata (pendiente/vencido/pagado). Así un
+      // realizado con cuotas vencidas SÍ aparece al filtrar "Vencidos".
+      // Evento sin marcar = vigentes + realizados (anulados solo con su
+      // opción). Plata sin marcar = todos.
+      const kind = r.cancelled
+        ? "cancelado"
         : r.done
-          ? statusFilter.length === 0 || statusFilter.includes("realizado")
-          : statusFilter.length === 0 || statusFilter.includes(r.status);
+          ? "realizado"
+          : "vigente";
+      const matchEvent =
+        eventFilter.length === 0
+          ? kind !== "cancelado"
+          : eventFilter.includes(kind);
+      const matchMoney =
+        moneyFilter.length === 0 || moneyFilter.includes(r.status);
+      const matchStatus = matchEvent && matchMoney;
       // Número: exacto. Cliente/contacto: búsqueda inteligente (sin
       // tildes, palabras en cualquier orden).
       const matchSearch =
@@ -371,7 +404,7 @@ export default function PostVentaPage() {
         matchesSearch(q, r.clientName, r.contactPerson);
       return matchStatus && matchSearch;
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, eventFilter, moneyFilter]);
 
   const ordered = useMemo(() => {
     if (orden === "numero") return filtered;
@@ -440,12 +473,21 @@ export default function PostVentaPage() {
               className="w-72 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="min-w-[200px]">
+          <div className="min-w-[180px]">
             <MultiSelect
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={setStatusFilter}
-              placeholder="Filtrar por estado"
+              options={EVENT_OPTIONS}
+              value={eventFilter}
+              onChange={setEventFilter}
+              placeholder="Evento"
+              className="w-full"
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <MultiSelect
+              options={MONEY_OPTIONS}
+              value={moneyFilter}
+              onChange={setMoneyFilter}
+              placeholder="Pago"
               className="w-full"
             />
           </div>
