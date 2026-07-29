@@ -101,6 +101,47 @@ export class MovilService {
     }
   }
 
+  // ------- Checklist de cocina (migración 44) -------
+  async marcasCocina(companyId: number, quotationId: string) {
+    const { data } = await this.supabase.client
+      .from('kitchen_checklist_marks')
+      .select('clave, marcado_por, created_at')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId);
+    return { marcas: data ?? [] };
+  }
+
+  async marcarCocina(
+    companyId: number,
+    quotationId: string,
+    clave: string,
+    marcado: boolean,
+    quien: string,
+  ) {
+    if (marcado) {
+      const { error } = await this.supabase.client
+        .from('kitchen_checklist_marks')
+        .upsert(
+          {
+            company_id: companyId,
+            quotation_id: quotationId,
+            clave,
+            marcado_por: quien,
+          },
+          { onConflict: 'quotation_id,clave' },
+        );
+      if (error) throw error;
+    } else {
+      await this.supabase.client
+        .from('kitchen_checklist_marks')
+        .delete()
+        .eq('company_id', companyId)
+        .eq('quotation_id', quotationId)
+        .eq('clave', clave);
+    }
+    return { ok: true };
+  }
+
   async probar(userId: string) {
     if (!this.listo) return { enviados: 0, motivo: 'sin llaves VAPID' };
     const { data } = await this.supabase.client

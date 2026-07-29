@@ -1,9 +1,18 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { MovilService } from './movil.service';
+
+class MarcarDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  clave: string;
+
+  marcado: boolean;
+}
 
 class RegistrarDispositivoDto {
   @IsString()
@@ -44,6 +53,27 @@ export class MovilController {
       user.id,
       user.company_id,
       dto,
+    );
+  }
+
+  // Checklist de cocina (migración 44): marcas por evento.
+  @Get('cocina/:quotationId/marcas')
+  marcas(@Param('quotationId') quotationId: string, @CurrentUser() user: User) {
+    return this.movilService.marcasCocina(user.company_id, quotationId);
+  }
+
+  @Post('cocina/:quotationId/marcas')
+  marcar(
+    @Param('quotationId') quotationId: string,
+    @Body() dto: MarcarDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.movilService.marcarCocina(
+      user.company_id,
+      quotationId,
+      dto.clave,
+      dto.marcado,
+      user.email ?? '',
     );
   }
 
