@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { api, apiRequest } from "../../services/api";
 import { API_ROUTES } from "../../constants/api.routes";
+import { NumberInput } from "../../components/inputs";
 
 // PORTAL DEL MANDANTE (30-07-2026, diseño de Felipe). Página PÚBLICA:
 // el contacto llega por su enlace secreto y ve TODAS sus cotizaciones
@@ -112,7 +113,7 @@ export default function PortalPage() {
   const [verHistorial, setVerHistorial] = useState(false);
   // Fase 2b — "Ya transferí": formulario por cuota.
   const [compCuotaId, setCompCuotaId] = useState<string | null>(null);
-  const [compMonto, setCompMonto] = useState("");
+  const [compMonto, setCompMonto] = useState<number | undefined>(undefined);
   const [compArchivo, setCompArchivo] = useState<File | null>(null);
   const [compEnviando, setCompEnviando] = useState(false);
   const [compError, setCompError] = useState<string | null>(null);
@@ -127,7 +128,7 @@ export default function PortalPage() {
 
   const enviarComprobante = async () => {
     if (!token || !compCuotaId || !compArchivo) return;
-    const monto = Number(compMonto.replace(/\./g, ""));
+    const monto = Math.round(compMonto || 0);
     if (!monto || monto <= 0) {
       setCompError("Indica el monto que transferiste");
       return;
@@ -147,7 +148,7 @@ export default function PortalPage() {
       });
       setCompCuotaId(null);
       setCompArchivo(null);
-      setCompMonto("");
+      setCompMonto(undefined);
       cargar();
     } catch (e) {
       const msg = (e as { response?: { data?: { message?: string } } })
@@ -359,23 +360,42 @@ export default function PortalPage() {
                         <p className="text-xs font-bold text-gray-600">
                           Envíanos tu comprobante y lo confirmamos
                         </p>
-                        <div className="flex flex-wrap gap-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={compMonto}
-                            onChange={(e) => setCompMonto(e.target.value)}
-                            placeholder="Monto transferido"
-                            className="flex-1 min-w-32 px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
-                          />
-                          <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            onChange={(e) =>
-                              setCompArchivo(e.target.files?.[0] || null)
-                            }
-                            className="text-xs text-gray-600"
-                          />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex-1 min-w-36">
+                            <NumberInput
+                              value={compMonto}
+                              onChange={(v) => setCompMonto(v)}
+                              currency
+                              min={1}
+                              placeholder="Monto transferido"
+                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          {/* Selector de archivo estilizado (el nativo
+                              es feo — pedido de Felipe). */}
+                          <label
+                            className="px-3 py-1.5 text-sm font-semibold rounded-lg cursor-pointer border"
+                            style={{
+                              color: primary,
+                              borderColor: mix(primary, 0.4),
+                              background: mix(primary, 0.06),
+                            }}
+                          >
+                            📎{" "}
+                            {compArchivo
+                              ? compArchivo.name.length > 22
+                                ? compArchivo.name.slice(0, 20) + "…"
+                                : compArchivo.name
+                              : "Adjuntar comprobante"}
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                              onChange={(e) =>
+                                setCompArchivo(e.target.files?.[0] || null)
+                              }
+                            />
+                          </label>
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -404,7 +424,7 @@ export default function PortalPage() {
                       <button
                         onClick={() => {
                           setCompCuotaId(c.id);
-                          setCompMonto(String(c.monto - c.abonado));
+                          setCompMonto(c.monto - c.abonado);
                           setCompArchivo(null);
                           setCompError(null);
                         }}
