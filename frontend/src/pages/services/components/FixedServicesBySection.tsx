@@ -267,9 +267,7 @@ export default function FixedServicesBySection({
           ) : (
             <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
           )}
-          <span className="text-sm font-semibold text-gray-800">
-            Servicios fijos
-          </span>
+          <h3 className="font-medium text-gray-900">Servicios fijos</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500 whitespace-nowrap">
