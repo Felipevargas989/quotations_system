@@ -26,6 +26,13 @@ export const emailCategories: EmailCategory[] = [
         icon: "📋",
       },
       {
+        id: EmailStructure.QUOTATION_FOLLOW_UP,
+        name: "Seguimiento",
+        description:
+          "2 recordatorios amables si no responde: a los 7 y 14 días",
+        icon: "🤝",
+      },
+      {
         id: EmailStructure.PAYMENT_PLAN_CREATED,
         name: "Plan de Pagos",
         description: "Cotización aceptada — cuotas y datos para transferir",

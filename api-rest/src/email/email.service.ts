@@ -30,6 +30,8 @@ import {
   PortalReceiptAdminParams,
   portalReceiptAdminTemplate,
 } from './templates/portalReceipt/admin';
+import { quotationFollowUpTemplate } from './templates/quotationFollowUp/template';
+import { QuotationFollowUpParams } from './templates/quotationFollowUp/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/template';
@@ -161,6 +163,20 @@ export class EmailService {
       {
         subject: `[PRUEBA] Recibimos tu solicitud — ${branding.companyName}`,
         html: newPublicQuotationClientTemplate(branding),
+      },
+      {
+        subject: `[PRUEBA] ¿Pudiste revisar tu cotización? — ${branding.companyName}`,
+        html: quotationFollowUpTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            quotationNumber: 463,
+            eventType: 'Celebración',
+            eventDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+            toque: 1,
+          },
+          branding,
+        ),
       },
       {
         subject: `[PRUEBA] Tu cotización de ${branding.companyName} está lista — N° 463`,
@@ -325,6 +341,17 @@ export class EmailService {
     to: string | undefined | null,
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
+    companyId: Company['id'],
+    portalToken?: string | null,
+  ): Promise<void>;
+
+  /**
+   * Sends a commercial follow-up (day 7 / day 14) to single recipient
+   */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.QUOTATION_FOLLOW_UP,
+    params: QuotationFollowUpParams,
     companyId: Company['id'],
     portalToken?: string | null,
   ): Promise<void>;
@@ -537,6 +564,22 @@ export class EmailService {
         subject = `Tu cotización de ${branding.companyName} está lista — N° ${qp.quotationNumber}`;
         sendTo = [to as string];
         html = quotationIsSentTemplate(qp, branding);
+        break;
+      }
+
+      case EmailStructure.QUOTATION_FOLLOW_UP: {
+        if (!params) {
+          throw new Error(
+            'Params are required for QUOTATION_FOLLOW_UP template',
+          );
+        }
+        const fp = params as QuotationFollowUpParams;
+        subject =
+          fp.toque === 1
+            ? `¿Pudiste revisar tu cotización? — ${branding.companyName}`
+            : `Seguimos disponibles para tu evento — ${branding.companyName}`;
+        sendTo = [to as string];
+        html = quotationFollowUpTemplate(fp, branding);
         break;
       }
 

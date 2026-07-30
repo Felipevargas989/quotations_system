@@ -28,6 +28,61 @@ export class QuotationsCronService {
     this.logger.setContext(QuotationsCronService.name);
   }
 
+  // SEGUIMIENTO comercial (diseño de Felipe 30-07): dos toques amables
+  // a las cotizaciones ENVIADAS sin respuesta — día 7 y día 14 exactos
+  // desde el envío (sent_at, migración 51). Solo si el evento aún no
+  // pasa; al MANDANTE con su portal; apagable por empresa
+  // (quotationFollowUp en Notificaciones). Después del día 14,
+  // silencio. Diario 11:00 UTC, junto a la cobranza.
+  @Cron('0 11 * * *')
+  async sendQuotationFollowUps() {
+    this.logger.info('CRON job: seguimiento de cotizaciones (7/14)');
+    try {
+      const hoyUtc = normalizeDateToUtc(new Date());
+      for (const { dias, toque } of [
+        { dias: 7, toque: 1 as const },
+        { dias: 14, toque: 2 as const },
+      ]) {
+        const desde = new Date(hoyUtc);
+        desde.setUTCDate(desde.getUTCDate() - dias);
+        const hasta = new Date(desde);
+        hasta.setUTCDate(hasta.getUTCDate() + 1);
+        const filas = await this.quotationsRepository.findFollowUps(
+          desde.toISOString(),
+          hasta.toISOString(),
+          hoyUtc.toISOString(),
+        );
+        for (const q of filas) {
+          const mandante = await this.quotationsRepository.findContactById(
+            q.client_contact_id,
+          );
+          if (!mandante?.email) {
+            this.logger.warn(
+              `Seguimiento sin destinatario: cotización ${q.quotation_number} sin mandante con correo`,
+            );
+            continue;
+          }
+          await this.emailService.sendEmail(
+            mandante.email,
+            EmailStructure.QUOTATION_FOLLOW_UP,
+            {
+              clientName: mandante.name,
+              companyName: q.companies?.name || '',
+              quotationNumber: q.quotation_number,
+              eventType: q.event_type,
+              eventDate: q.event_date,
+              toque,
+            },
+            q.company_id,
+            mandante.portal_token || null,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
   // Lunes 11:00 UTC = 07:00 de Chile (horario de invierno).
   @Cron('0 11 * * 1')
   async sendWeeklyDigest() {

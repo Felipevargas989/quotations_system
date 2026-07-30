@@ -47,6 +47,16 @@ FROM (
 WHERE q.client_contact_id IS NULL
   AND sub.client_id = q.client_id;
 
+-- Parte 2c (pillada de Felipe en el ensayo): las pantallas muestran el
+-- TEXTO del mandante (contact_name), no el vínculo — sin esto, las
+-- cotizaciones recién vinculadas se ven "vacías" y invitan a asignar
+-- a mano. La etiqueta se rellena desde la persona vinculada.
+UPDATE public.quotations q
+SET contact_name = cc.name
+FROM public.client_contacts cc
+WHERE q.client_contact_id = cc.id
+  AND (q.contact_name IS NULL OR trim(q.contact_name) = '');
+
 -- Parte 3: enlace secreto de portal para toda persona con cotización.
 UPDATE public.client_contacts cc
 SET portal_token = replace(

@@ -8,6 +8,7 @@ export enum EmailStructure {
   PAYMENT_OVERDUE = 'paymentOverdue',
   PAYMENT_OVERDUE_ADMIN = 'paymentOverdueAdmin',
   QUOTATION_IS_SENT = 'quotationIsSent',
+  QUOTATION_FOLLOW_UP = 'quotationFollowUp',
   PAYMENT_PLAN_CREATED = 'paymentPlanCreated',
   PAYMENT_RECEIVED = 'paymentReceived',
   CUSTOMER_SATISFACTION_SURVEY = 'customerSatisfactionSurvey',

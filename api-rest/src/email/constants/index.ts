@@ -32,6 +32,7 @@ export const EMAILS_SEND_TO_CLIENT = [
   EmailStructure.PAYMENT_REMINDER,
   EmailStructure.PAYMENT_OVERDUE,
   EmailStructure.QUOTATION_IS_SENT,
+  EmailStructure.QUOTATION_FOLLOW_UP,
   EmailStructure.PAYMENT_PLAN_CREATED,
   EmailStructure.PAYMENT_RECEIVED,
   EmailStructure.CUSTOMER_SATISFACTION_SURVEY,

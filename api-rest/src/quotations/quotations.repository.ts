@@ -410,6 +410,38 @@ export class QuotationsRepository {
     );
   }
 
+  // SEGUIMIENTO comercial (30-07): cotizaciones ENVIADAS cuyo envío
+  // cayó dentro de la ventana [desde, hasta) y cuyo evento aún no
+  // pasa. El cron pregunta por el día 7 y el día 14 exactos.
+  async findFollowUps(
+    desde: string,
+    hasta: string,
+    eventoDesde: string,
+  ): Promise<
+    {
+      id: string;
+      quotation_number: number;
+      event_type: string | null;
+      event_date: string | null;
+      company_id: number;
+      client_contact_id: number | null;
+      companies: { name: string } | null;
+    }[]
+  > {
+    this.logger.info(`follow-ups enviados entre ${desde} y ${hasta}`);
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select(
+        'id, quotation_number, event_type, event_date, company_id, client_contact_id, companies ( name )',
+      )
+      .eq('quotation_status', 'enviada')
+      .gte('sent_at', desde)
+      .lt('sent_at', hasta)
+      .gte('event_date', eventoDesde);
+    if (error) throw error;
+    return (data || []) as never;
+  }
+
   // El mandante completo por su vínculo REAL (client_contact_id) — lo
   // usan los correos de plata (paso 1 del reordenamiento, 30-07): la
   // correspondencia le escribe a la persona, no a la ficha.

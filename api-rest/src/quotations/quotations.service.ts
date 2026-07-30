@@ -1077,6 +1077,16 @@ export class QuotationsService {
         ).client_contact_id = contactId;
       }
 
+      // Seguimiento comercial (migración 51): al pasar a "enviada" se
+      // sella la fecha de envío — de ella cuentan los días 7 y 14.
+      if (
+        updateQuotationDto.quotation_status === QuotationStatus.ENVIADA &&
+        quotation.quotation_status !== QuotationStatus.ENVIADA
+      ) {
+        (updateQuotationDto as unknown as { sent_at?: string }).sent_at =
+          new Date().toISOString();
+      }
+
       // update quotation
       return this.quotationsRepository.update(
         id,
