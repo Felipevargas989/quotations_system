@@ -873,42 +873,10 @@ export default function ClientDetailPage() {
               <Plus size={13} /> Agregar contacto
             </button>
           )}
-          {/* Datos de la ficha (particulares suelen tenerlos aquí) */}
-          {(client.email || client.phone || client.address) && (
-            <div className="pt-3 border-t border-gray-100 text-sm space-y-1">
-              {client.email && (
-                <button
-                  type="button"
-                  onClick={() => copyDato("cli-mail", client.email!)}
-                  title="Copiar correo"
-                  className="flex items-center gap-1 text-blue-600 hover:underline"
-                >
-                  <Mail size={13} /> {client.email}
-                  {copiedKey === "cli-mail" && (
-                    <Check size={13} className="text-green-600" />
-                  )}
-                </button>
-              )}
-              {client.phone && (
-                <button
-                  type="button"
-                  onClick={() => copyDato("cli-tel", client.phone!)}
-                  title="Copiar teléfono"
-                  className="flex items-center gap-1 text-blue-600 hover:underline"
-                >
-                  <Phone size={13} /> {formatPhone(client.phone)}
-                  {copiedKey === "cli-tel" && (
-                    <Check size={13} className="text-green-600" />
-                  )}
-                </button>
-              )}
-              {client.address && (
-                <p className="flex items-center gap-1 text-gray-600">
-                  <MapPin size={13} /> {client.address}
-                </p>
-              )}
-            </div>
-          )}
+          {/* Los datos sueltos de la ficha ya NO se muestran (migración
+              52, adopción completa): correo y teléfono viven en las
+              personas. El espejo interno sigue bajo el capó para el
+              anti-duplicados del formulario público. */}
 
           <div className="pt-3 border-t border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-1">

@@ -1,5 +1,13 @@
 import { Body, Controller, NotFoundException, Post } from '@nestjs/common';
-import { IsEmail, IsInt, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from 'src/auth';
 import { EmailService } from './email.service';
@@ -12,6 +20,19 @@ class SendEmailPreviewsDto {
   @IsInt()
   @IsNotEmpty()
   company_id: number;
+
+  // Con un token real, el botón "Ingresar a mi portal" de las pruebas
+  // lleva a ESE portal (para validar el circuito completo desde el
+  // correo). Sin token, el botón queda decorativo ('#').
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  portal_token?: string;
+
+  // 'seguimiento' = solo los 2 toques del seguimiento comercial.
+  @IsOptional()
+  @IsIn(['seguimiento'])
+  solo?: 'seguimiento';
 }
 
 /**
@@ -36,6 +57,11 @@ export class EmailPreviewsController {
       throw new NotFoundException();
     }
     this.logger.info(`email previews -> ${dto.to} (company ${dto.company_id})`);
-    return this.emailService.sendPreviewBatch(dto.to, dto.company_id);
+    return this.emailService.sendPreviewBatch(
+      dto.to,
+      dto.company_id,
+      dto.portal_token || null,
+      dto.solo || null,
+    );
   }
 }

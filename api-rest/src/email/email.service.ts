@@ -139,11 +139,20 @@ export class EmailService {
   async sendPreviewBatch(
     to: string,
     companyId: Company['id'],
+    portalToken?: string | null,
+    solo?: 'seguimiento' | null,
   ): Promise<{ sent: number; subjects: string[] }> {
     const branding = await this.getBranding(companyId);
-    // En las pruebas el botón del portal aparece pero no lleva a ningún
-    // portal real (no hay mandante de ejemplo).
-    branding.portalUrl = '#';
+    // Con token real, el botón del portal lleva a ESE portal (validar
+    // el circuito completo); sin token, queda decorativo.
+    if (portalToken) {
+      const base = (
+        this.configService.get<string>('FRONTEND_URL') || ''
+      ).replace(/\/+$/, '');
+      branding.portalUrl = base ? `${base}/portal/${portalToken}` : '#';
+    } else {
+      branding.portalUrl = '#';
+    }
     const resend = new Resend(
       this.configService.get<string>('RESEND_API_KEY') as string,
     );
@@ -174,6 +183,20 @@ export class EmailService {
             eventType: 'Celebración',
             eventDate: new Date(Date.now() + 30 * 86400000).toISOString(),
             toque: 1,
+          },
+          branding,
+        ),
+      },
+      {
+        subject: `[PRUEBA] Seguimos disponibles para tu evento — ${branding.companyName}`,
+        html: quotationFollowUpTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            quotationNumber: 463,
+            eventType: 'Celebración',
+            eventDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+            toque: 2,
           },
           branding,
         ),
@@ -256,8 +279,18 @@ export class EmailService {
       },
     ];
 
+    // solo='seguimiento': únicamente los 2 toques del seguimiento.
+    const lista =
+      solo === 'seguimiento'
+        ? previews.filter(
+            (p) =>
+              p.subject.includes('¿Pudiste revisar') ||
+              p.subject.includes('Seguimos disponibles'),
+          )
+        : previews;
+
     const from = `${branding.companyName} <hola@eventi-app.com>`;
-    for (const p of previews) {
+    for (const p of lista) {
       await resend.emails.send({
         from,
         to: [to],
@@ -265,7 +298,7 @@ export class EmailService {
         html: p.html,
       });
     }
-    return { sent: previews.length, subjects: previews.map((p) => p.subject) };
+    return { sent: lista.length, subjects: lista.map((p) => p.subject) };
   }
 
   /**

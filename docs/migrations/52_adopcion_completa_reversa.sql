@@ -1,0 +1,9 @@
+-- REVERSA migración 52 (aproximada): vuelve a NULL los datos de la
+-- persona principal SOLO donde son idénticos a los de la ficha (es
+-- decir, los adoptados). Datos escritos a mano después quedarían
+-- atrapados si coinciden — usar solo en emergencia inmediata.
+-- UPDATE public.client_contacts cc
+-- SET email = CASE WHEN cc.email = trim(c.email) THEN NULL ELSE cc.email END,
+--     phone = CASE WHEN cc.phone = trim(c.phone) THEN NULL ELSE cc.phone END
+-- FROM public.clients c
+-- WHERE c.id = cc.client_id AND cc.is_primary;
