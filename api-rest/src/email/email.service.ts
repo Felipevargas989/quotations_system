@@ -26,6 +26,10 @@ import {
 } from './templates/paymentReminder/paymentReminder';
 import { paymentReminderAdminTemplate } from './templates/paymentReminder/paymentReminderAmin';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
+import {
+  PortalReceiptAdminParams,
+  portalReceiptAdminTemplate,
+} from './templates/portalReceipt/admin';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
 import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/template';
@@ -359,6 +363,14 @@ export class EmailService {
     params: WeeklyDigestParams,
   ): Promise<void>;
   /**
+   * Notifies admins of a portal receipt awaiting confirmation
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.PORTAL_RECEIPT_ADMIN,
+    params: PortalReceiptAdminParams,
+  ): Promise<void>;
+  /**
    * Sends a notification to super admins
    */
   async sendEmail(
@@ -588,6 +600,19 @@ export class EmailService {
         subject = `Tu semana en ${wd.companyName}: ${wd.eventos.length} evento${wd.eventos.length === 1 ? '' : 's'} · ${wd.pipeline.solicitadas + wd.pipeline.enviadas + wd.pipeline.enNegociacion} cotizaciones en curso`;
         sendTo = to as string[];
         html = weeklyDigestTemplate(wd);
+        break;
+      }
+
+      case EmailStructure.PORTAL_RECEIPT_ADMIN: {
+        if (!params) {
+          throw new Error(
+            'Params are required for PORTAL_RECEIPT_ADMIN template',
+          );
+        }
+        const pr = params as PortalReceiptAdminParams;
+        subject = `💸 Comprobante por confirmar — ${pr.mandante} · cot. N° ${pr.quotationNumber}`;
+        sendTo = to as string[];
+        html = portalReceiptAdminTemplate(pr);
         break;
       }
 

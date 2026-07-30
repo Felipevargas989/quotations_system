@@ -3,11 +3,16 @@ import { ClientsModule } from 'src/clients/clients.module';
 import { EmailModule } from 'src/email/email.module';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { RefundsModule } from 'src/refunds/refunds.module';
+import { StorageModule } from 'src/storage/storage.module';
 import { UsersModule } from 'src/users/users.module';
 import {
   EventDocumentsController,
   EventDocumentsRepository,
 } from './event-documents.controller';
+import {
+  PortalReceiptsController,
+  PortalReceiptsRepository,
+} from './portal-receipts.controller';
 import { PortalController } from './portal.controller';
 import { QuotationsCronService } from './quotations-cron.service';
 import { QuotationsController } from './quotations.controller';
@@ -19,6 +24,7 @@ import { QuotationsService } from './quotations.service';
     RefundsModule,
     ClientsModule,
     EmailModule,
+    StorageModule,
     forwardRef(() => PaymentsModule),
     forwardRef(() => UsersModule),
   ],
@@ -26,12 +32,14 @@ import { QuotationsService } from './quotations.service';
     QuotationsController,
     EventDocumentsController,
     PortalController,
+    PortalReceiptsController,
   ],
   providers: [
     QuotationsService,
     QuotationsRepository,
     QuotationsCronService,
     EventDocumentsRepository,
+    PortalReceiptsRepository,
   ],
   exports: [QuotationsService, QuotationsRepository],
 })

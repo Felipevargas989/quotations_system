@@ -15,5 +15,6 @@ export enum EmailStructure {
   WEEKLY_ANALYTICS = 'weeklyAnalytics',
   QUOTATION_STATUS_CHECK = 'quotationStatusCheck',
   WEEKLY_DIGEST = 'weeklyDigest',
+  PORTAL_RECEIPT_ADMIN = 'portalReceiptAdmin',
   SUPER_ADMIN_NOTIFICATION = 'superAdminNotification',
 }

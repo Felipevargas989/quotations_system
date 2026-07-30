@@ -1,13 +1,41 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import {
+  IsNotEmpty,
+  IsNumberString,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from 'src/auth';
 import { QuotationsService } from './quotations.service';
 
+class SubmitPortalReceiptDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
+  payment_id: string;
+
+  // Llega como texto (multipart); el servicio lo valida como monto.
+  @IsNumberString()
+  @IsNotEmpty()
+  declared_amount: string;
+}
+
 /**
- * Portal del cliente, Fase 2a (30-07-2026): la única puerta PÚBLICA de
- * lectura de una cotización, protegida por su enlace secreto de 64
- * caracteres (migración 47). Token inválido = 404 sin pistas. Los
- * límites de frecuencia globales aplican como en toda ruta pública.
+ * Portal del mandante (Fases 2a y 2b): las únicas puertas PÚBLICAS del
+ * portal, protegidas por el enlace secreto del contacto (migración 48).
+ * Token inválido = 404 sin pistas. Techos de frecuencia estrictos como
+ * en toda escritura pública.
  */
 @Controller('portal')
 export class PortalController {
@@ -23,5 +51,23 @@ export class PortalController {
   getPortal(@Param('token') token: string) {
     this.logger.info('GET /portal (token oculto)');
     return this.quotationsService.getPortalData(token);
+  }
+
+  // Fase 2b: "Ya transferí" — el cliente sube su comprobante. Queda
+  // PENDIENTE hasta que el equipo lo confirme en Post-Venta.
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post(':token/comprobante')
+  @UseInterceptors(FileInterceptor('file'))
+  submitReceipt(
+    @Param('token') token: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: SubmitPortalReceiptDto,
+  ) {
+    this.logger.info('POST /portal/comprobante (token oculto)');
+    return this.quotationsService.submitPortalReceipt(token, file, {
+      payment_id: dto.payment_id,
+      declared_amount: Number(dto.declared_amount),
+    });
   }
 }

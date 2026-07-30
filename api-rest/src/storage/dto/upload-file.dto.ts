@@ -8,6 +8,10 @@ export const KINDS = [
   'event-document',
   'furniture-photo',
   'company-logo',
+  // Comprobante subido por el CLIENTE desde el portal (Fase 2b). No se
+  // sube por /storage/upload (esa ruta exige sesión): lo usa el portal
+  // internamente con el token del mandante ya validado.
+  'portal-receipt',
 ] as const;
 export type UploadKind = (typeof KINDS)[number];
 

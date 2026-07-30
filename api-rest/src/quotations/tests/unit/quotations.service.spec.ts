@@ -8,7 +8,9 @@ import { QuotationStatus } from 'src/quotations/constants/constants';
 import { UpdateQuotationDto } from 'src/quotations/dto/update-quotation.dto';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { RefundsService } from 'src/refunds/refunds.service';
+import { StorageService } from 'src/storage/storage.service';
 import { UsersService } from 'src/users/users.service';
+import { PortalReceiptsRepository } from '../../portal-receipts.controller';
 import { QuotationsService } from '../../quotations.service';
 
 describe('QuotationsService', () => {
@@ -107,6 +109,17 @@ describe('QuotationsService', () => {
         {
           provide: UsersService,
           useValue: usersServiceMock,
+        },
+        {
+          provide: StorageService,
+          useValue: { upload: jest.fn() } as any,
+        },
+        {
+          provide: PortalReceiptsRepository,
+          useValue: {
+            insert: jest.fn(),
+            pendingPaymentIds: jest.fn().mockResolvedValue(new Set()),
+          } as any,
         },
         {
           provide: PinoLogger,

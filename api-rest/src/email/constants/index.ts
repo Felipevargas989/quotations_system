@@ -21,6 +21,8 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
   [EmailStructure.QUOTATION_STATUS_CHECK]: 'Resumen diario de tus cotizaciones',
   [EmailStructure.WEEKLY_DIGEST]: 'Tu semana en Eventia',
+  [EmailStructure.PORTAL_RECEIPT_ADMIN]:
+    'Comprobante recibido por el portal — por confirmar',
   [EmailStructure.SUPER_ADMIN_NOTIFICATION]:
     'Notificación para Super Administradores',
 };

@@ -7,5 +7,8 @@ import { StorageService } from './storage.service';
   imports: [SupabaseModule],
   controllers: [StorageController],
   providers: [StorageService],
+  // El portal del mandante (Fase 2b) sube comprobantes por su propia
+  // puerta pública validada por token — necesita el servicio.
+  exports: [StorageService],
 })
 export class StorageModule {}

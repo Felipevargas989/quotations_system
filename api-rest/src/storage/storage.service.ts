@@ -84,6 +84,13 @@ export class StorageService {
     let publica = false;
 
     switch (dto.kind) {
+      case 'portal-receipt': {
+        const q = soloId(dto.quotation_id, 'quotation_id');
+        path = `c${companyId}/portal-receipts/${q}/${ts}_${sanitize(
+          file.originalname,
+        )}`;
+        break;
+      }
       case 'payment-receipt': {
         const q = soloId(dto.quotation_id, 'quotation_id');
         const p = soloId(dto.payment_id, 'payment_id');

@@ -15,6 +15,8 @@ import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
 import { RefundsService } from 'src/refunds/refunds.service';
+import { UploadFileDto } from 'src/storage/dto/upload-file.dto';
+import { StorageService } from 'src/storage/storage.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
@@ -30,6 +32,7 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
 import { CreateQuotation } from './interfaces/quotations.interface';
+import { PortalReceiptsRepository } from './portal-receipts.controller';
 import { QuotationsRepository } from './quotations.repository';
 import {
   DeclaredMoney,
@@ -49,6 +52,8 @@ export class QuotationsService {
     private readonly emailService: EmailService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
+    private readonly storageService: StorageService,
+    private readonly portalReceiptsRepository: PortalReceiptsRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsService.name);
@@ -416,6 +421,9 @@ export class QuotationsService {
         )
       : { data: [] };
     const refundsMap = await this.refundsService.paidMapByCompany(companyId);
+    // Fase 2b: cuotas con comprobante subido esperando confirmación.
+    const enRevisionSet =
+      await this.portalReceiptsRepository.pendingPaymentIds(confirmadasIds);
 
     const hoy = new Date().toISOString().slice(0, 10);
     const cuotasDe = (quotationId: string) =>
@@ -448,12 +456,14 @@ export class QuotationsService {
                 ) || null
               : null;
           return {
+            id: p.id,
             numero: p.payment_number,
             monto: p.amount,
             vence,
             estado,
             abonado,
             pagadaEl,
+            enRevision: enRevisionSet.has(p.id),
           };
         })
         .sort((a, b) => a.numero - b.numero);
@@ -523,6 +533,97 @@ export class QuotationsService {
       enConversacion,
       historial,
     };
+  }
+
+  /**
+   * Fase 2b — "Ya transferí": el cliente sube su comprobante desde el
+   * portal. Se valida que la cuota sea SUYA (vía el token del
+   * mandante), se guarda el archivo en el balde privado, queda
+   * PENDIENTE de confirmación y se avisa al equipo por correo.
+   */
+  async submitPortalReceipt(
+    token: string,
+    file: Express.Multer.File,
+    dto: { payment_id: string; declared_amount: number },
+  ) {
+    if (!token || token.length < 40) {
+      throw new NotFoundException();
+    }
+    const { data: contacto } =
+      await this.quotationsRepository.findPortalContact(token);
+    const cliente = contacto?.clients;
+    if (!contacto || !cliente) {
+      throw new NotFoundException();
+    }
+    const companyId = cliente.company_id;
+
+    const monto = Math.round(Number(dto.declared_amount));
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException('El monto transferido no es válido');
+    }
+
+    // La cuota debe pertenecer a una cotización DE ESTE mandante.
+    const { data: quotations } =
+      await this.quotationsRepository.findAllByContact(contacto.id);
+    const ids = (quotations || []).map((q) => q.id);
+    const { data: payments } = ids.length
+      ? await this.paymentsService.findAllPaymentsFromQuotation(ids, companyId)
+      : { data: [] };
+    const cuota = (payments || []).find((p) => p.id === dto.payment_id);
+    if (!cuota) {
+      throw new NotFoundException();
+    }
+    if (cuota.status === (PaymentStatus.PAGADO as string)) {
+      throw new BadRequestException('Esta cuota ya está pagada');
+    }
+
+    const { url } = await this.storageService.upload(
+      {
+        kind: 'portal-receipt',
+        quotation_id: cuota.quotation_id,
+      } as UploadFileDto,
+      file,
+      companyId,
+    );
+
+    await this.portalReceiptsRepository.insert({
+      company_id: companyId,
+      quotation_id: cuota.quotation_id,
+      payment_id: cuota.id,
+      client_contact_id: contacto.id,
+      file_url: url,
+      declared_amount: monto,
+    });
+
+    // Aviso al equipo — si el correo falla, el comprobante queda igual.
+    try {
+      const quotation = (quotations || []).find(
+        (q) => q.id === cuota.quotation_id,
+      );
+      const admins = await this.usersService.findAll(
+        companyId,
+        UserRole.ADMINISTRADOR,
+      );
+      const adminEmails = admins.map((a) => a.email);
+      if (adminEmails.length) {
+        await this.emailService.sendEmail(
+          adminEmails,
+          EmailStructure.PORTAL_RECEIPT_ADMIN,
+          {
+            companyName: cliente.companies?.name || 'tu empresa',
+            mandante: contacto.name,
+            clienteEmpresa: cliente.name || '',
+            quotationNumber: quotation?.quotation_number || 0,
+            cuotaNumero: cuota.payment_number,
+            monto,
+          },
+        );
+      }
+    } catch (error) {
+      this.logger.error('portal receipt email failed', error);
+    }
+
+    return { ok: true, enRevision: true };
   }
 
   async update(
