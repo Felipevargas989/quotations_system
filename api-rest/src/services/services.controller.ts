@@ -15,6 +15,12 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
 import { CreateServicesBulkDto } from './dto/create-services-bulk.dto';
 import { CreateVariableServiceDto } from './dto/create-variable-service.dto';
+import {
+  CreateFixedSectionDto,
+  ReorderFixedSectionsDto,
+  ReorderFixedServicesDto,
+  UpdateFixedSectionDto,
+} from './dto/fixed-sections.dto';
 import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 import { ReorderServicesInCategoryDto } from './dto/reorder-services-in-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -58,6 +64,70 @@ export class ServicesController {
   // findOne(@Param('id') id: string) {
   //   return this.servicesService.findOne(+id);
   // }
+
+  // ---- Secciones de servicios FIJOS (migración 53) ----
+
+  @Get('fixed-sections')
+  listFixedSections(@CurrentUser() user: User) {
+    return this.servicesService.listFixedSections(user.company_id);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Post('fixed-sections/new')
+  createFixedSection(
+    @Body() dto: CreateFixedSectionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.servicesService.createFixedSectionForCompany(
+      user.company_id,
+      dto.name,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('fixed-sections/reorder')
+  reorderFixedSections(
+    @Body() dto: ReorderFixedSectionsDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.servicesService.reorderFixedSections(
+      user.company_id,
+      dto.section_ids,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('fixed-sections/:id')
+  updateFixedSection(
+    @Param('id') id: string,
+    @Body() dto: UpdateFixedSectionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.servicesService.updateFixedSectionById(
+      user.company_id,
+      +id,
+      dto,
+    );
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Delete('fixed-sections/:id')
+  deleteFixedSection(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.servicesService.deleteFixedSectionById(user.company_id, +id);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('fixed/reorder')
+  reorderFixedServices(
+    @Body() dto: ReorderFixedServicesDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.servicesService.reorderFixedServices(
+      user.company_id,
+      dto.section_id ?? null,
+      dto.service_ids,
+    );
+  }
 
   @Roles(...ADMIN_ONLY)
   @Patch('categories')

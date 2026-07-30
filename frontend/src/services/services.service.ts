@@ -3,6 +3,7 @@ import {
   CreateFixedService,
   CreateServicesBulkDto,
   CreateVariableService,
+  FixedSection,
   FixedService,
   ServiceCategorySetting,
   UpdateFixedServiceDto,
@@ -154,3 +155,35 @@ export const removeFixedService = async (id: FixedService["id"]) => {
   );
   return response;
 };
+
+// ---- Secciones de servicios fijos (migración 53) ----
+
+export const getFixedSections = async (): Promise<FixedSection[]> => {
+  const data = await apiRequest(`${API_ROUTES.SERVICES}/fixed-sections`, "GET");
+  return (data || []) as FixedSection[];
+};
+
+export const createFixedSection = async (name: string) =>
+  apiRequest(`${API_ROUTES.SERVICES}/fixed-sections/new`, "POST", { name });
+
+export const updateFixedSection = async (
+  id: number,
+  fields: { name?: string; is_active?: boolean },
+) => apiRequest(`${API_ROUTES.SERVICES}/fixed-sections/${id}`, "PATCH", fields);
+
+export const deleteFixedSection = async (id: number) =>
+  apiRequest(`${API_ROUTES.SERVICES}/fixed-sections/${id}`, "DELETE");
+
+export const reorderFixedSections = async (sectionIds: number[]) =>
+  apiRequest(`${API_ROUTES.SERVICES}/fixed-sections/reorder`, "PATCH", {
+    section_ids: sectionIds,
+  });
+
+export const reorderFixedServices = async (
+  sectionId: number | null,
+  serviceIds: number[],
+) =>
+  apiRequest(`${API_ROUTES.SERVICES}/fixed/reorder`, "PATCH", {
+    ...(sectionId !== null ? { section_id: sectionId } : {}),
+    service_ids: serviceIds,
+  });

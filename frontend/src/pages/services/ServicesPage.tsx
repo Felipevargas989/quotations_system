@@ -23,8 +23,8 @@ import MultiSelect, {
   MultiSelectOption,
 } from "../../components/MultiSelect";
 import ExcelUpload from "./components/ExcelUpload";
-import ServicesTable from "./components/ServicesTable";
 import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
+import FixedServicesBySection from "./components/FixedServicesBySection";
 import { useServices } from "../../hooks/useServices";
 import { ServiceType } from "./constants";
 import VariableServiceForm from "./components/variableServices/VariableServiceForm";
@@ -487,24 +487,28 @@ export default function ServicesPage() {
         onReorderCategories={handleReorderCategories}
       />
 
-      {/* Fixed services table. Con filtro activo y sin coincidencias se avisa,
-          en vez de dejar una tabla vacía que parece un error. */}
+      {/* Servicios FIJOS por sección (migración 53): cajas con nombre
+          libre y arrastre, ídem variables. Con filtro activo y sin
+          coincidencias se avisa, en vez de dejar cajas vacías. */}
       <div className="mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Servicios fijos
+        </h2>
         {(searchingSvc || recipeFilterActive) &&
         shownFixedServices.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Ningún servicio fijo coincide con el filtro.
           </p>
         ) : (
-        <ServicesTable
-          variableServices={[]}
-          fixedServices={shownFixedServices}
-          onEditService={handleEditService}
-          onEditRecipe={handleEditRecipe}
-          onDeleteService={handleDeleteService}
-          onToggleActive={handleToggleActive}
-          hideVariable
-        />
+          <FixedServicesBySection
+            fixedServices={shownFixedServices}
+            showInactive={showInactive}
+            onEdit={(s) => handleEditService(s, ServiceType.FIXED)}
+            onEditRecipe={(s) => handleEditRecipe(s, ServiceType.FIXED)}
+            onDelete={(id) => handleDeleteService(id, ServiceType.FIXED)}
+            onToggleActive={(s) => handleToggleActive(s, ServiceType.FIXED)}
+            onServicesChanged={() => void loadServices()}
+          />
         )}
       </div>
 

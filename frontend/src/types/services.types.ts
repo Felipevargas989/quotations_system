@@ -23,6 +23,9 @@ export interface FixedService {
   price_per_person?: number;
   is_active?: boolean;
   company_id: Company["id"];
+  // Secciones de fijos (migración 53): UNA sección por servicio.
+  section_id?: number | null;
+  sort_order?: number | null;
   // Costo del servicio (no excluyentes): fijo por tercerización y/o variable
   // por persona. Costo en un evento = cost_fixed + cost_per_person × personas.
   cost_fixed?: number;
@@ -87,3 +90,13 @@ export type UpdateFixedServiceDto = Partial<
 export type UpdateVariableServiceDto = Partial<
   Omit<VariableService, "id" | "created_at" | "company_id">
 >;
+
+// Sección de servicios fijos (migración 53): caja con nombre libre y
+// orden arrastrable, espejo de las categorías de variables.
+export interface FixedSection {
+  id: number;
+  name: string;
+  is_active: boolean;
+  sort_order: number | null;
+  company_id: Company["id"];
+}

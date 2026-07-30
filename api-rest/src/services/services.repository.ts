@@ -6,7 +6,11 @@ import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
 import { CreateVariableServiceDto } from './dto/create-variable-service.dto';
 import { UpdateFixedServiceDto } from './dto/update-fixed-service.dto';
 import { UpdateVariableServiceDto } from './dto/update-variable-service.dto';
-import { FixedService, VariableService } from './entities/service.entity';
+import {
+  FixedService,
+  FixedServiceSection,
+  VariableService,
+} from './entities/service.entity';
 
 @Injectable()
 export class ServicesRepository {
@@ -282,5 +286,71 @@ export class ServicesRepository {
       );
     });
     return ids.filter((id) => (countByService.get(id) ?? 0) <= 1);
+  }
+
+  // ---- Secciones de servicios fijos (migración 53) ----
+
+  async listFixedSections(companyId: Company['id']) {
+    const { data, error } = await this.supabase.client
+      .from('fixed_service_sections')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true });
+    if (error) throw error;
+    return data as FixedServiceSection[];
+  }
+
+  async createFixedSection(
+    companyId: Company['id'],
+    name: string,
+    sortOrder: number,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('fixed_service_sections')
+      .insert({ company_id: companyId, name, sort_order: sortOrder })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as FixedServiceSection;
+  }
+
+  async updateFixedSection(
+    companyId: Company['id'],
+    id: number,
+    fields: Record<string, unknown>,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('fixed_service_sections')
+      .update(fields)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as FixedServiceSection;
+  }
+
+  async deleteFixedSection(companyId: Company['id'], id: number) {
+    const { error } = await this.supabase.client
+      .from('fixed_service_sections')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  // Orden y sección de un servicio fijo (el drop del arrastre).
+  async updateFixedServicePlacement(
+    companyId: Company['id'],
+    id: number,
+    fields: { section_id?: number | null; sort_order?: number },
+  ) {
+    const { error } = await this.supabase.client
+      .from('fixed_services')
+      .update(fields)
+      .eq('company_id', companyId)
+      .eq('id', id);
+    if (error) throw error;
   }
 }

@@ -23,6 +23,20 @@ export class FixedService {
   price_per_person: number;
   is_active: boolean;
   company_id: Company['id'];
+  // Secciones de fijos (migración 53): UNA sección por servicio.
+  section_id: number | null;
+  sort_order: number | null;
+}
+
+// Sección de servicios fijos (migración 53): caja con nombre libre y
+// orden arrastrable, espejo de ServiceCategory pero sin multi-vínculo.
+export class FixedServiceSection {
+  id: number;
+  created_at: Date;
+  company_id: Company['id'];
+  name: string;
+  is_active: boolean;
+  sort_order: number | null;
 }
 
 // A service category is now a first-class entity (multi-category feature).

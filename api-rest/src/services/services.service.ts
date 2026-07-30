@@ -352,6 +352,69 @@ export class ServicesService {
     return { success: true };
   }
 
+  // ---- Secciones de servicios fijos (migración 53): espejo de las
+  // categorías de variables, pero un servicio vive en UNA sección. ----
+
+  async listFixedSections(companyId: Company['id']) {
+    return this.servicesRepository.listFixedSections(companyId);
+  }
+
+  async createFixedSectionForCompany(companyId: Company['id'], name: string) {
+    const existentes =
+      await this.servicesRepository.listFixedSections(companyId);
+    return this.servicesRepository.createFixedSection(
+      companyId,
+      name.trim(),
+      existentes.length + 1,
+    );
+  }
+
+  async updateFixedSectionById(
+    companyId: Company['id'],
+    id: number,
+    fields: { name?: string; is_active?: boolean },
+  ) {
+    const clean: Record<string, unknown> = {};
+    if (fields.name !== undefined) clean.name = fields.name.trim();
+    if (fields.is_active !== undefined) clean.is_active = fields.is_active;
+    return this.servicesRepository.updateFixedSection(companyId, id, clean);
+  }
+
+  // Borrar una sección NO borra servicios: caen a "Sin sección" (el
+  // vínculo es ON DELETE SET NULL en la base).
+  async deleteFixedSectionById(companyId: Company['id'], id: number) {
+    await this.servicesRepository.deleteFixedSection(companyId, id);
+    return { success: true };
+  }
+
+  async reorderFixedSections(companyId: Company['id'], sectionIds: number[]) {
+    for (let i = 0; i < sectionIds.length; i++) {
+      await this.servicesRepository.updateFixedSection(
+        companyId,
+        sectionIds[i],
+        { sort_order: i + 1 },
+      );
+    }
+    return { success: true };
+  }
+
+  // El drop del arrastre: la lista COMPLETA de la sección destino, en
+  // su orden final (el servicio movido incluido).
+  async reorderFixedServices(
+    companyId: Company['id'],
+    sectionId: number | null,
+    serviceIds: number[],
+  ) {
+    for (let i = 0; i < serviceIds.length; i++) {
+      await this.servicesRepository.updateFixedServicePlacement(
+        companyId,
+        serviceIds[i],
+        { section_id: sectionId, sort_order: i + 1 },
+      );
+    }
+    return { success: true };
+  }
+
   async createFixedService(
     createFixedServiceDto: CreateFixedServiceDto,
     companyId: Company['id'],
