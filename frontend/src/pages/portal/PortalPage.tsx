@@ -574,47 +574,50 @@ export default function PortalPage() {
                   densidad. El detalle de cuotas vive en Post-Venta. */}
               <Seccion titulo={`Historial (${data.historial.length})`} />
               <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                {/* Opción A (decisión de Felipe 30-07): dos líneas por
+                    evento, estilo app de banco — título y monto arriba,
+                    detalles y acciones abajo. Nada se trunca y queda
+                    espacio para el botón del PDF (próxima tanda). */}
                 {data.historial.map((ev) => (
-                  <div
-                    key={ev.numero}
-                    className="grid grid-cols-[minmax(0,1fr)_106px_160px] items-center gap-2 px-4 py-2.5 text-sm"
-                  >
-                    <span className="text-gray-800 truncate">
-                      <b>
+                  <div key={ev.numero} className="px-4 py-2.5 text-sm">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <b className="text-gray-900">
                         {ev.tipo || "Evento"} · N° {ev.numero}
-                      </b>{" "}
-                      <span className="text-gray-500">
-                        · {fechaCorta(ev.fecha)}
-                        {ev.personas ? ` · ${ev.personas} pers.` : ""}
+                      </b>
+                      <b
+                        className="text-green-700 whitespace-nowrap"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        Pagado {clp(ev.total)} ✓
+                      </b>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mt-0.5">
+                      <span className="text-gray-500 text-xs">
+                        {fechaCorta(ev.fecha)}
+                        {ev.personas ? ` · ${ev.personas} personas` : ""}
                       </span>
-                    </span>
-                    <span className="flex justify-center">
-                      {ev.encuestaPath && (
-                        <a
-                          href={ev.encuestaPath}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 whitespace-nowrap"
-                          title="Cuéntanos cómo estuvo tu evento"
-                        >
-                          <span className="font-black">!</span> encuesta
-                        </a>
-                      )}
-                      {ev.encuestaRespondida && (
-                        <span
-                          className="text-[11px] font-bold text-green-700 whitespace-nowrap"
-                          title="Encuesta respondida — ¡gracias!"
-                        >
-                          ✓ encuesta
-                        </span>
-                      )}
-                    </span>
-                    <b
-                      className="text-green-700 text-right whitespace-nowrap"
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      Pagado {clp(ev.total)} ✓
-                    </b>
+                      <span className="flex items-center gap-2">
+                        {ev.encuestaPath && (
+                          <a
+                            href={ev.encuestaPath}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 whitespace-nowrap"
+                            title="Cuéntanos cómo estuvo tu evento"
+                          >
+                            <span className="font-black">!</span> encuesta
+                          </a>
+                        )}
+                        {ev.encuestaRespondida && (
+                          <span
+                            className="text-[11px] font-bold text-green-700 whitespace-nowrap"
+                            title="Encuesta respondida — ¡gracias!"
+                          >
+                            ✓ encuesta
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
