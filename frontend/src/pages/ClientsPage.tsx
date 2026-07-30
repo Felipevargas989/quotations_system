@@ -46,6 +46,7 @@ import {
   reorderClientTypes,
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
+import SelectWithSearch from "../components/selects/SelectWithSearch";
 import {
   ClientContact,
   createClientContact,
@@ -625,33 +626,37 @@ export default function ClientsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tipo de Cliente *
                 </label>
-                <select
-                  required
+                {/* Desplegable del sistema (pedido de Felipe 30-07): el
+                    nativo del navegador se veía ajeno al resto. */}
+                <SelectWithSearch
+                  options={[
+                    ...clientTypes.map((type) => ({
+                      value: type.name,
+                      label: type.name,
+                    })),
+                    // Si el cliente en edición tiene un tipo que ya no
+                    // existe en el catálogo, se muestra igual.
+                    ...(formData.client_type &&
+                    !clientTypes.some((t) => t.name === formData.client_type)
+                      ? [
+                          {
+                            value: formData.client_type,
+                            label: formData.client_type,
+                          },
+                        ]
+                      : []),
+                  ]}
                   value={formData.client_type}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value,
+                      client_type: value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {clientTypes.map((type) => (
-                    <option key={type.id} value={type.name}>
-                      {type.name}
-                    </option>
-                  ))}
-                  {/* Si el cliente en edición tiene un tipo que ya no
-                      existe en el catálogo, se muestra igual. */}
-                  {formData.client_type &&
-                    !clientTypes.some(
-                      (t) => t.name === formData.client_type,
-                    ) && (
-                      <option value={formData.client_type}>
-                        {formData.client_type}
-                      </option>
-                    )}
-                </select>
+                  placeholder="Elige un tipo"
+                  searchPlaceholder="Buscar tipo…"
+                  required
+                />
 
                 <button
                   type="button"
