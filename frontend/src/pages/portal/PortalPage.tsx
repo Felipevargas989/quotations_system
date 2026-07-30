@@ -114,6 +114,7 @@ export default function PortalPage() {
   // Fase 2b — "Ya transferí": formulario por cuota.
   const [compCuotaId, setCompCuotaId] = useState<string | null>(null);
   const [compMonto, setCompMonto] = useState<number | undefined>(undefined);
+  const [compMax, setCompMax] = useState<number>(0);
   const [compArchivo, setCompArchivo] = useState<File | null>(null);
   const [compEnviando, setCompEnviando] = useState(false);
   const [compError, setCompError] = useState<string | null>(null);
@@ -131,6 +132,12 @@ export default function PortalPage() {
     const monto = Math.round(compMonto || 0);
     if (!monto || monto <= 0) {
       setCompError("Indica el monto que transferiste");
+      return;
+    }
+    if (compMax > 0 && monto > compMax) {
+      setCompError(
+        `El monto supera lo pendiente de esta cuota (${clp(compMax)})`,
+      );
       return;
     }
     setCompEnviando(true);
@@ -367,12 +374,11 @@ export default function PortalPage() {
                               onChange={(v) => setCompMonto(v)}
                               currency
                               min={1}
+                              max={compMax || undefined}
                               placeholder="Monto transferido"
                               className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
                             />
                           </div>
-                          {/* Selector de archivo estilizado (el nativo
-                              es feo — pedido de Felipe). */}
                           <label
                             className="px-3 py-1.5 text-sm font-semibold rounded-lg cursor-pointer border"
                             style={{
@@ -381,12 +387,7 @@ export default function PortalPage() {
                               background: mix(primary, 0.06),
                             }}
                           >
-                            📎{" "}
-                            {compArchivo
-                              ? compArchivo.name.length > 22
-                                ? compArchivo.name.slice(0, 20) + "…"
-                                : compArchivo.name
-                              : "Adjuntar comprobante"}
+                            Adjuntar comprobante
                             <input
                               type="file"
                               accept="image/*,application/pdf"
@@ -397,6 +398,13 @@ export default function PortalPage() {
                             />
                           </label>
                         </div>
+                        {/* El nombre del archivo va ABAJO, azulito, a la
+                            usanza de los sistemas (pedido de Felipe). */}
+                        {compArchivo && (
+                          <p className="text-xs text-blue-600 truncate">
+                            {compArchivo.name}
+                          </p>
+                        )}
                         <div className="flex gap-2">
                           <button
                             disabled={compEnviando || !compArchivo}
@@ -425,6 +433,7 @@ export default function PortalPage() {
                         onClick={() => {
                           setCompCuotaId(c.id);
                           setCompMonto(c.monto - c.abonado);
+                          setCompMax(c.monto - c.abonado);
                           setCompArchivo(null);
                           setCompError(null);
                         }}

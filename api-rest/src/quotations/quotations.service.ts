@@ -576,6 +576,17 @@ export class QuotationsService {
     if (cuota.status === (PaymentStatus.PAGADO as string)) {
       throw new BadRequestException('Esta cuota ya está pagada');
     }
+    // Tope: no se puede declarar más de lo pendiente de la cuota.
+    const abonado = (cuota.payment_transactions || []).reduce(
+      (s: number, t: PaymentTransaction) => s + t.amount,
+      0,
+    );
+    const pendiente = cuota.amount - abonado;
+    if (monto > pendiente) {
+      throw new BadRequestException(
+        `El monto supera lo pendiente de esta cuota ($${pendiente.toLocaleString('es-CL')})`,
+      );
+    }
 
     const { url } = await this.storageService.upload(
       {
