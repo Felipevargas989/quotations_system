@@ -537,13 +537,13 @@ export default function PostVentaPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="w-1/4 min-w-[210px] shrink-0">
           <h1 className="text-2xl font-bold text-gray-900">Post‑Venta</h1>
           <p className="text-sm text-gray-500">
             Eventos cerrados · seguimiento de pagos
           </p>
         </div>
-        <div className="flex items-center space-x-3 flex-1 ml-8 max-w-4xl justify-end">
+        <div className="flex items-center space-x-3 flex-1">
           {/* Buscador a todo el ancho disponible (pedido de Felipe
               30-07: estaba fijo en angosto, a diferencia del de
               Cotizaciones). */}
