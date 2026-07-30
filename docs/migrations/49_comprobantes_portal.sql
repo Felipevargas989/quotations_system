@@ -23,3 +23,9 @@ CREATE TABLE IF NOT EXISTS public.portal_receipts (
 
 CREATE INDEX IF NOT EXISTS idx_portal_receipts_company_status
   ON public.portal_receipts(company_id, status);
+
+-- OJO (lección del 30-07 en el lab): desde el blindaje RLS fase 0 las
+-- tablas nuevas NO heredan permisos — sin estos GRANT el backend
+-- recibe "permission denied" (42501).
+GRANT ALL ON TABLE public.portal_receipts TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.portal_receipts_id_seq TO service_role;
