@@ -284,18 +284,19 @@ export class ServicesService {
   }
 
   // Reorder services within a single category.
+  // Migración 55: el reorden completo viaja en UNA llamada (antes era
+  // una orden por servicio — arrastrar en categorías gordas se
+  // demoraba segundos).
   async reorderServicesInCategory(
     companyId: Company['id'],
     categoryId: number,
     serviceIds: number[],
   ) {
-    for (let i = 0; i < serviceIds.length; i++) {
-      await this.servicesRepository.updateLinkSortOrder(
-        serviceIds[i],
-        categoryId,
-        i + 1,
-      );
-    }
+    await this.servicesRepository.reorderServicesInCategoryBulk(
+      companyId,
+      categoryId,
+      serviceIds,
+    );
     return { success: true };
   }
 
@@ -405,18 +406,18 @@ export class ServicesService {
 
   // El drop del arrastre: la lista COMPLETA de la sección destino, en
   // su orden final (el servicio movido incluido).
+  // Migración 55: sección + orden en UNA llamada (antes, 37 viajes
+  // para soltar algo en "Sin sección").
   async reorderFixedServices(
     companyId: Company['id'],
     sectionId: number | null,
     serviceIds: number[],
   ) {
-    for (let i = 0; i < serviceIds.length; i++) {
-      await this.servicesRepository.updateFixedServicePlacement(
-        companyId,
-        serviceIds[i],
-        { section_id: sectionId, sort_order: i + 1 },
-      );
-    }
+    await this.servicesRepository.reorderFixedServicesBulk(
+      companyId,
+      sectionId,
+      serviceIds,
+    );
     return { success: true };
   }
 

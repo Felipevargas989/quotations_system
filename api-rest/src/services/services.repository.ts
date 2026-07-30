@@ -364,4 +364,35 @@ export class ServicesRepository {
     if (error) throw error;
     return ((data || []) as { code: string }[]).map((r) => r.code);
   }
+
+  // ---- Reorden en un viaje (migración 55) ----
+
+  async reorderFixedServicesBulk(
+    companyId: Company['id'],
+    sectionId: number | null,
+    serviceIds: number[],
+  ) {
+    const { error } = await this.supabase.client.rpc('reorder_fixed_services', {
+      p_company_id: companyId,
+      p_section_id: sectionId,
+      p_ids: serviceIds,
+    });
+    if (error) throw error;
+  }
+
+  async reorderServicesInCategoryBulk(
+    companyId: Company['id'],
+    categoryId: number,
+    serviceIds: number[],
+  ) {
+    const { error } = await this.supabase.client.rpc(
+      'reorder_services_in_category',
+      {
+        p_company_id: companyId,
+        p_category_id: categoryId,
+        p_ids: serviceIds,
+      },
+    );
+    if (error) throw error;
+  }
 }
