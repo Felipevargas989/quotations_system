@@ -323,21 +323,26 @@ export default function PortalPage() {
                     <Users size={14} /> {ev.personas} personas
                   </span>
                 ) : null}
-                <button
-                  onClick={() => verCotizacion(ev.id)}
-                  className="flex items-center gap-1 font-semibold underline"
-                  style={{ color: primary }}
-                  title="Ver la cotización completa (puedes guardarla como PDF)"
-                >
-                  <FileText size={14} /> Ver cotización
-                </button>
               </p>
             </div>
-            <span
-              className={`px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[ev.estado] || CHIP.pendiente}`}
-            >
-              {ESTADO_LABEL[ev.estado] || ev.estado}
-            </span>
+            {/* Columna derecha = estado + acción, UNA familia de chips
+                (decisión de Felipe 30-07): píldora rellena sin borde;
+                la acción se distingue por el color de la empresa. */}
+            <div className="flex flex-col items-end gap-1.5">
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[ev.estado] || CHIP.pendiente}`}
+              >
+                {ESTADO_LABEL[ev.estado] || ev.estado}
+              </span>
+              <button
+                onClick={() => verCotizacion(ev.id)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 hover:bg-gray-200"
+                style={{ color: primary }}
+                title="Ver la cotización completa (puedes guardarla como PDF)"
+              >
+                <FileText size={13} /> Ver cotización
+              </button>
+            </div>
           </div>
 
           {ev.encuestaPath && (
@@ -345,16 +350,16 @@ export default function PortalPage() {
               href={ev.encuestaPath}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100"
+              className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 hover:bg-amber-200"
             >
               <span className="font-black">!</span> Encuesta pendiente —
               cuéntanos cómo estuvo
             </a>
           )}
           {ev.encuestaRespondida && (
-            <p className="mt-1.5 text-xs font-semibold text-green-700">
+            <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
               ✓ Encuesta respondida — ¡gracias por tu opinión!
-            </p>
+            </span>
           )}
           {typeof ev.saldo === "number" ? (
             compacta ? (
@@ -650,7 +655,7 @@ export default function PortalPage() {
                       <span className="flex items-center gap-2">
                         <button
                           onClick={() => verCotizacion(ev.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold underline whitespace-nowrap"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 hover:bg-gray-200 whitespace-nowrap"
                           style={{ color: primary }}
                           title="Ver la cotización completa (puedes guardarla como PDF)"
                         >
@@ -661,7 +666,7 @@ export default function PortalPage() {
                             href={ev.encuestaPath}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 whitespace-nowrap"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 whitespace-nowrap"
                             title="Cuéntanos cómo estuvo tu evento"
                           >
                             <span className="font-black">!</span> encuesta
@@ -669,7 +674,7 @@ export default function PortalPage() {
                         )}
                         {ev.encuestaRespondida && (
                           <span
-                            className="text-[11px] font-bold text-green-700 whitespace-nowrap"
+                            className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 whitespace-nowrap"
                             title="Encuesta respondida — ¡gracias!"
                           >
                             ✓ encuesta
