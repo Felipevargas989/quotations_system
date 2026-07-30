@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
-import { Coins } from "lucide-react";
+import { Coins, Landmark } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { updateCompany } from "../../../services/companies.service";
 import { uploadCompanyLogo } from "../../../services/storage.service";
+import { BankDetails } from "../../../types/companies.types";
 
 export default function CompanyConfiguration() {
   const { company, loadUserProfile } = useAuth();
 
   const [name, setName] = useState(company?.name || "");
+  // Subtítulo de marca y datos de cobro (migración 46): los usan los
+  // correos al cliente y el portal de pagos.
+  const [tagline, setTagline] = useState(company?.tagline || "");
+  const [bank, setBank] = useState<BankDetails>(company?.bank_details || {});
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(
     company?.logo_url || null,
@@ -25,6 +30,8 @@ export default function CompanyConfiguration() {
   // Update local state when auth context changes
   useEffect(() => {
     setName(company?.name || "");
+    setTagline(company?.tagline || "");
+    setBank(company?.bank_details || {});
     setLogoPreview(company?.logo_url || null);
     setPrimaryColor(company?.colors?.primary || "#667eea");
     setSecondaryColor(company?.colors?.secondary || "#059669");
@@ -95,8 +102,11 @@ export default function CompanyConfiguration() {
         secondary: secondaryColor,
       };
 
-      // Update company name, logo URL, and colors
-      await updateCompany(name, logoUrl || undefined, colors);
+      // Update company name, logo URL, colors, tagline and bank data
+      await updateCompany(name, logoUrl || undefined, colors, undefined, {
+        tagline: tagline.trim() || null,
+        bank_details: bank,
+      });
 
       // Refresh user profile to get updated data
       await loadUserProfile();
@@ -135,6 +145,28 @@ export default function CompanyConfiguration() {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
+        </div>
+
+        {/* Subtítulo de marca */}
+        <div>
+          <label
+            htmlFor="companyTagline"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Subtítulo de la empresa
+          </label>
+          <input
+            type="text"
+            id="companyTagline"
+            value={tagline}
+            onChange={(e) => setTagline(e.target.value)}
+            maxLength={60}
+            placeholder="Ej: Eventos & Banquetería"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            Aparece bajo el nombre en los correos que reciben tus clientes
+          </p>
         </div>
 
         {/* Company Currency (Read-only) */}
@@ -256,6 +288,49 @@ export default function CompanyConfiguration() {
             Estos colores se aplicarán automáticamente en las cotizaciones
             generadas en PDF
           </p>
+        </div>
+
+        {/* Datos de cobro */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Landmark className="inline w-4 h-4 mr-2" />
+            Datos de cobro
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Aparecen en los recordatorios de pago que reciben tus clientes y
+            en su portal de pagos
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(
+              [
+                ["titular", "Titular de la cuenta", "Valle del Sol SpA"],
+                ["rut", "RUT del titular", "76.123.456-7"],
+                ["banco", "Banco", "Banco Estado"],
+                ["tipo_cuenta", "Tipo de cuenta", "Cuenta Corriente"],
+                ["numero", "Número de cuenta", "123456789"],
+                ["correo_pagos", "Correo para comprobantes", "pagos@tuempresa.cl"],
+              ] as const
+            ).map(([campo, etiqueta, ejemplo]) => (
+              <div key={campo}>
+                <label
+                  htmlFor={`bank-${campo}`}
+                  className="block text-xs font-medium text-gray-600 mb-1"
+                >
+                  {etiqueta}
+                </label>
+                <input
+                  type="text"
+                  id={`bank-${campo}`}
+                  value={bank[campo] || ""}
+                  onChange={(e) =>
+                    setBank((p) => ({ ...p, [campo]: e.target.value }))
+                  }
+                  placeholder={ejemplo}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Messages */}

@@ -26,12 +26,20 @@ export const updateCompany = async (
   logo_url?: Company["logo_url"],
   colors?: Company["colors"],
   notifications?: Company["notifications"],
+  extras?: {
+    tagline?: Company["tagline"];
+    bank_details?: Company["bank_details"];
+  },
 ) => {
   const response = await apiRequest(`${API_ROUTES.COMPANIES}`, "PATCH", {
     name,
     logo_url,
     colors,
     notifications,
+    ...(extras?.tagline !== undefined ? { tagline: extras.tagline } : {}),
+    ...(extras?.bank_details !== undefined
+      ? { bank_details: extras.bank_details }
+      : {}),
   });
   return { data: response };
 };
