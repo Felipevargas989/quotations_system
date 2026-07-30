@@ -57,8 +57,11 @@ export class PaymentsCronService {
       }
 
       for (const payment of payments) {
+        // Paso 1 (30-07): la cobranza le escribe a la PERSONA que
+        // contrató (mandante); la ficha queda de respaldo.
+        const mandante = payment.quotations.mandante;
         const params: PaymentReminderParams = {
-          clientName: payment.quotations.clients.name,
+          clientName: mandante?.name || payment.quotations.clients.name,
           companyName: payment.quotations.companies.name,
           quotationId: payment.quotations.quotation_number.toString(),
           payment: {
@@ -69,11 +72,11 @@ export class PaymentsCronService {
         };
 
         await this.emailService.sendEmail(
-          payment.quotations.clients.email,
+          mandante?.email || payment.quotations.clients.email,
           emailTemplate,
           params,
           payment.quotations.company_id,
-          payment.quotations.mandante?.portal_token || null,
+          mandante?.portal_token || null,
         );
 
         const admins = await this.usersService.findAll(

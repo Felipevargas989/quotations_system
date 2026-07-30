@@ -345,10 +345,19 @@ export class QuotationsService {
   }
 
   /** Token del portal de un contacto (lo usan los correos de pagos). */
-  async portalTokenOf(
-    contactId: number | null | undefined,
-  ): Promise<string | null> {
-    return this.quotationsRepository.findContactPortalToken(contactId);
+  /**
+   * El mandante de una cotización, listo para la correspondencia
+   * (paso 1 del reordenamiento, 30-07): la plata le escribe a la
+   * PERSONA; quien llama decide el respaldo (la ficha) si no hay.
+   */
+  async mandanteOf(contactId: number | null | undefined): Promise<{
+    name: string;
+    email: string | null;
+    portalToken: string | null;
+  } | null> {
+    const c = await this.quotationsRepository.findContactById(contactId);
+    if (!c) return null;
+    return { name: c.name, email: c.email, portalToken: c.portal_token };
   }
 
   async markEventDone(id: string, companyId: number) {

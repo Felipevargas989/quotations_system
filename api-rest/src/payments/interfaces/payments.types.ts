@@ -9,7 +9,11 @@ export type PaymentWithTransactionsAndQuotation = Payment & {
     companies: Pick<Company, 'name'>;
   } & {
     /** Mandante vinculado (migración 48); trae el token del portal. */
-    mandante?: { name: string; portal_token: string | null } | null;
+    mandante?: {
+      name: string;
+      email: string | null;
+      portal_token: string | null;
+    } | null;
   };
   payment_transactions: PaymentTransaction[];
 };

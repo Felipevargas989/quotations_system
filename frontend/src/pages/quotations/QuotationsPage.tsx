@@ -35,6 +35,11 @@ import { formatPhone } from "../../utils/phone";
 // reloads / navigation instead of resetting to the default each time.
 const STATUS_FILTER_KEY = (userId: string | number) =>
   `eventia_quotations_status_filter_${userId}`;
+// El orden elegido también se recuerda por usuario (pedido de Felipe
+// 30-07: "si ordeno por fecha de evento, que se acuerde" — igual que
+// Post-Venta).
+const SORT_KEY = (userId: string | number) =>
+  `eventia_quotations_sort_${userId}`;
 
 const ALL_STATUSES: QuotationStatus[] = [
   QuotationStatus.SOLICITADA,
@@ -96,11 +101,37 @@ export default function QuotationsPage() {
           setStatusFilter(parsed);
         }
       }
+      const savedSort = localStorage.getItem(SORT_KEY(user.id));
+      if (savedSort) {
+        const s = JSON.parse(savedSort) as {
+          by?: string;
+          order?: string;
+        };
+        if (s.by === "quotation_number" || s.by === "event_date") {
+          setSortBy(s.by);
+        }
+        if (s.order === "asc" || s.order === "desc") {
+          setSortOrder(s.order);
+        }
+      }
     } catch {
       /* ignore malformed / unavailable storage */
     }
     setFilterRestored(true);
   }, [user]);
+
+  // Persist the chosen sort (after restore, like the filter).
+  useEffect(() => {
+    if (!user || !filterRestored) return;
+    try {
+      localStorage.setItem(
+        SORT_KEY(user.id),
+        JSON.stringify({ by: sortBy, order: sortOrder }),
+      );
+    } catch {
+      /* ignore quota / disabled storage */
+    }
+  }, [sortBy, sortOrder, user, filterRestored]);
 
   // Persist the status filter whenever it changes (after restore).
   useEffect(() => {

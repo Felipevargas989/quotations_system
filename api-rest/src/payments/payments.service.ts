@@ -84,14 +84,16 @@ export class PaymentsService {
         quotation &&
         quotation.quotation_status !== QuotationStatus.ACEPTADA
       ) {
-        const portalToken = await this.quotationsService.portalTokenOf(
+        // Paso 1 (30-07): la plata le escribe a la PERSONA; la ficha
+        // queda de respaldo si el mandante no tiene correo.
+        const mandante = await this.quotationsService.mandanteOf(
           quotation.client_contact_id,
         );
         void this.emailService.sendEmail(
-          quotation.clients.email,
+          mandante?.email || quotation.clients.email,
           EmailStructure.PAYMENT_PLAN_CREATED,
           {
-            clientName: quotation.clients.name,
+            clientName: mandante?.name || quotation.clients.name,
             companyName: quotation.companies.name,
             quotationNumber: quotation.quotation_number,
             payments: createPaymentPlanDto.payments.map((payment) => ({
@@ -101,7 +103,7 @@ export class PaymentsService {
             })),
           },
           companyId,
-          portalToken,
+          mandante?.portalToken || null,
         );
       }
     } catch (error) {
@@ -426,23 +428,27 @@ export class PaymentsService {
         const { data: quotation } = await this.quotationsService.findOne(
           dto.quotation_id,
         );
-        if (quotation && quotation.clients.email) {
-          const portalToken = await this.quotationsService.portalTokenOf(
+        if (quotation) {
+          // Paso 1 (30-07): primero el mandante, la ficha de respaldo.
+          const mandante = await this.quotationsService.mandanteOf(
             quotation.client_contact_id,
           );
-          void this.emailService.sendEmail(
-            quotation.clients.email,
-            EmailStructure.PAYMENT_RECEIVED,
-            {
-              clientName: quotation.clients.name,
-              companyName: quotation.companies.name,
-              amount: dto.amount,
-              paymentMethod: dto.payment_method || '',
-              transactionDate: dto.transaction_date || new Date(),
-            },
-            companyId,
-            portalToken,
-          );
+          const destino = mandante?.email || quotation.clients.email;
+          if (destino) {
+            void this.emailService.sendEmail(
+              destino,
+              EmailStructure.PAYMENT_RECEIVED,
+              {
+                clientName: mandante?.name || quotation.clients.name,
+                companyName: quotation.companies.name,
+                amount: dto.amount,
+                paymentMethod: dto.payment_method || '',
+                transactionDate: dto.transaction_date || new Date(),
+              },
+              companyId,
+              mandante?.portalToken || null,
+            );
+          }
         }
       } catch (emailError) {
         // Log email error but don't throw - payments were already created
@@ -580,23 +586,27 @@ export class PaymentsService {
             (payload as CreatePaymentTransaction).quotation_id,
           );
 
-          if (quotation && quotation.clients.email) {
-            const portalToken = await this.quotationsService.portalTokenOf(
+          if (quotation) {
+            // Paso 1 (30-07): primero el mandante, la ficha de respaldo.
+            const mandante = await this.quotationsService.mandanteOf(
               quotation.client_contact_id,
             );
-            void this.emailService.sendEmail(
-              quotation.clients.email,
-              EmailStructure.PAYMENT_RECEIVED,
-              {
-                clientName: quotation.clients.name,
-                companyName: quotation.companies.name,
-                amount: payload.amount || 0,
-                paymentMethod: payload.payment_method || '',
-                transactionDate: payload.transaction_date || new Date(),
-              },
-              companyId,
-              portalToken,
-            );
+            const destino = mandante?.email || quotation.clients.email;
+            if (destino) {
+              void this.emailService.sendEmail(
+                destino,
+                EmailStructure.PAYMENT_RECEIVED,
+                {
+                  clientName: mandante?.name || quotation.clients.name,
+                  companyName: quotation.companies.name,
+                  amount: payload.amount || 0,
+                  paymentMethod: payload.payment_method || '',
+                  transactionDate: payload.transaction_date || new Date(),
+                },
+                companyId,
+                mandante?.portalToken || null,
+              );
+            }
           }
         } catch (emailError) {
           // Log email error but don't throw - payment was already created

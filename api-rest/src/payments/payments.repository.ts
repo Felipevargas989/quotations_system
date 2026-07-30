@@ -96,6 +96,7 @@ export class PaymentsRepository {
       contact_name,
       mandante:client_contacts!quotations_client_contact_id_fkey (
         name,
+        email,
         portal_token
       ),
       clients!inner (

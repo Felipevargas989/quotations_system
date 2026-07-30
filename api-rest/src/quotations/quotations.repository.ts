@@ -406,4 +406,21 @@ export class QuotationsRepository {
       (data as { portal_token?: string | null } | null)?.portal_token || null
     );
   }
+
+  // El mandante completo por su vínculo REAL (client_contact_id) — lo
+  // usan los correos de plata (paso 1 del reordenamiento, 30-07): la
+  // correspondencia le escribe a la persona, no a la ficha.
+  async findContactById(contactId: number | null | undefined): Promise<{
+    name: string;
+    email: string | null;
+    portal_token: string | null;
+  } | null> {
+    if (!contactId) return null;
+    const { data } = await this.supabase.client
+      .from('client_contacts')
+      .select('name, email, portal_token')
+      .eq('id', contactId)
+      .maybeSingle();
+    return (data as never) || null;
+  }
 }
