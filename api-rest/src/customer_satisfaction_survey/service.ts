@@ -1,4 +1,9 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { EmailService } from 'src/email/email.service';
@@ -13,6 +18,7 @@ import { CustomerSatisfactionSurveyRepository } from './repository';
 
 @Injectable()
 export class CustomerSatisfactionSurveyService {
+  // (hasAnswer se expone para el controller y para el portal)
   constructor(
     private readonly customerSatisfactionSurveyRepository: CustomerSatisfactionSurveyRepository,
     private readonly quotationsService: QuotationsService,
@@ -53,6 +59,17 @@ export class CustomerSatisfactionSurveyService {
     this.logger.info(
       `createAnswer with createAnswerDto ${logSafe(createAnswerDto)}`,
     );
+
+    // Candado (30-07, pedido de Felipe): UNA respuesta por cotización.
+    const yaRespondida =
+      await this.customerSatisfactionSurveyRepository.hasAnswer(
+        createAnswerDto.quotationId,
+      );
+    if (yaRespondida) {
+      throw new BadRequestException(
+        'Esta encuesta ya fue respondida. ¡Gracias por tu opinión!',
+      );
+    }
 
     try {
       // get quotation to get the company id
@@ -127,6 +144,11 @@ export class CustomerSatisfactionSurveyService {
       this.logger.error(`Error in createAnswer: ${(error as Error).message}`);
       throw error;
     }
+  }
+
+  async hasAnswer(quotationId: string): Promise<boolean> {
+    if (!quotationId) return false;
+    return this.customerSatisfactionSurveyRepository.hasAnswer(quotationId);
   }
 
   async getTemplate(companyId: Company['id']) {

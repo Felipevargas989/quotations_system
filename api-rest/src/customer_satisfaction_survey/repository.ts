@@ -68,6 +68,27 @@ export class CustomerSatisfactionSurveyRepository {
       .single();
   }
 
+  /** ¿La cotización ya tiene respuesta? (candado: una encuesta por evento) */
+  async hasAnswer(quotationId: string): Promise<boolean> {
+    const { data } = await this.supabase.client
+      .from('customer_satisfaction_survey_responses')
+      .select('id')
+      .eq('quotation_id', quotationId)
+      .limit(1);
+    return ((data || []) as { id: number }[]).length > 0;
+  }
+
+  /** Cotizaciones (de una lista) que ya tienen respuesta — para el portal. */
+  async answeredSet(quotationIds: string[]): Promise<Set<string>> {
+    if (!quotationIds.length) return new Set();
+    const { data } = await this.supabase.client
+      .from('customer_satisfaction_survey_responses')
+      .select('quotation_id')
+      .in('quotation_id', quotationIds);
+    const rows = (data || []) as { quotation_id: string }[];
+    return new Set(rows.map((r) => r.quotation_id));
+  }
+
   async getTemplate(companyId: Company['id']): Promise<{
     data: CustomerSatisfactionSurveyTemplate | null;
     error: PostgrestError | null;

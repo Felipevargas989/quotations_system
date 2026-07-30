@@ -226,6 +226,22 @@ export class QuotationsRepository {
   }
 
   /**
+   * Cotizaciones (de una lista) con encuesta YA respondida — el portal
+   * muestra el agradecimiento en vez del enlace. (Duplica una consulta
+   * del módulo de encuestas a propósito: inyectarlo aquí crearía un
+   * ciclo de módulos.)
+   */
+  async answeredSurveys(quotationIds: string[]): Promise<Set<string>> {
+    if (!quotationIds.length) return new Set();
+    const { data } = await this.supabase.client
+      .from('customer_satisfaction_survey_responses')
+      .select('quotation_id')
+      .in('quotation_id', quotationIds);
+    const rows = (data || []) as { quotation_id: string }[];
+    return new Set(rows.map((r) => r.quotation_id));
+  }
+
+  /**
    * Vincula el mandante escrito (texto) con su contacto real del
    * cliente, si el nombre calza. Se usa al crear/editar cotizaciones
    * para que el portal del mandante las vea sin trabajo manual.

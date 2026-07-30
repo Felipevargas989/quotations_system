@@ -468,20 +468,34 @@ export class QuotationsService {
         })
         .sort((a, b) => a.numero - b.numero);
 
-    const base = (q: (typeof lista)[number]) => ({
-      numero: q.quotation_number,
-      tipo: q.event_type,
-      fecha: q.event_date,
-      personas: q.people_count,
-      total: q.total_amount,
-      estado: q.quotation_status,
-      // Eventos realizados invitan a la encuesta desde el portal
-      // (misma página pública que ya usa el correo).
-      encuestaPath:
-        q.quotation_status === QuotationStatus.REALIZADA
-          ? `/customer-satisfaction-survey/${companyId}/${q.id}`
-          : null,
-    });
+    // Encuestas ya respondidas: el portal agradece en vez de invitar.
+    const encuestasRespondidas =
+      await this.quotationsRepository.answeredSurveys(
+        lista
+          .filter((q) => q.quotation_status === QuotationStatus.REALIZADA)
+          .map((q) => q.id),
+      );
+
+    const base = (q: (typeof lista)[number]) => {
+      const realizada = q.quotation_status === QuotationStatus.REALIZADA;
+      const respondida = realizada && encuestasRespondidas.has(q.id);
+      return {
+        numero: q.quotation_number,
+        tipo: q.event_type,
+        fecha: q.event_date,
+        personas: q.people_count,
+        total: q.total_amount,
+        estado: q.quotation_status,
+        // Eventos realizados invitan a la encuesta desde el portal
+        // (misma página pública que ya usa el correo) — solo si aún no
+        // fue respondida.
+        encuestaPath:
+          realizada && !respondida
+            ? `/customer-satisfaction-survey/${companyId}/${q.id}`
+            : null,
+        encuestaRespondida: respondida,
+      };
+    };
 
     type ItemConfirmado = ReturnType<typeof base> & {
       cuotas: ReturnType<typeof cuotasDe>;

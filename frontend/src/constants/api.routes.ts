@@ -100,4 +100,5 @@ export const API_ROUTES = {
   CUSTOMER_SATISFACTION_SURVEY_TEMPLATE:
     "/customer-satisfaction-survey/template",
   CUSTOMER_SATISFACTION_SURVEY_ANSWER: "/customer-satisfaction-survey/answer",
+  CUSTOMER_SATISFACTION_SURVEY: "/customer-satisfaction-survey",
 };

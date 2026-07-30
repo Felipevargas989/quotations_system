@@ -38,6 +38,7 @@ interface EventoPortal {
   pagado?: number;
   saldo?: number;
   encuestaPath?: string | null;
+  encuestaRespondida?: boolean;
 }
 interface PortalData {
   empresa: {
@@ -287,6 +288,11 @@ export default function PortalPage() {
             >
               ✍️ Cuéntanos cómo estuvo — responder la encuesta
             </a>
+          )}
+          {ev.encuestaRespondida && (
+            <p className="mt-1.5 text-xs font-semibold text-green-700">
+              ✓ Encuesta respondida — ¡gracias por tu opinión!
+            </p>
           )}
           {typeof ev.saldo === "number" ? (
             compacta ? (

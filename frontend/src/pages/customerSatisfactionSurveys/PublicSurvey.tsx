@@ -8,6 +8,7 @@ import {
 } from "../../types/customerSatisfactionSurveys.types";
 import {
   getTemplate,
+  isSurveyAnswered,
   createAnswer,
 } from "../../services/customerSatisfactionSurveys.service";
 import { getQuotationById } from "../../services/quotations.service";
@@ -43,11 +44,19 @@ export default function CustomerSatisfactionSurveyPublicPage() {
 
       try {
         // Fetch template and quotation data in parallel
-        const [templateData, quotationData, companyData] = await Promise.all([
-          getTemplate(Number.parseInt(companyId)),
-          getQuotationById(quotationId),
-          getCompanyById(Number.parseInt(companyId)),
-        ]);
+        const [templateData, quotationData, companyData, yaRespondida] =
+          await Promise.all([
+            getTemplate(Number.parseInt(companyId)),
+            getQuotationById(quotationId),
+            getCompanyById(Number.parseInt(companyId)),
+            isSurveyAnswered(quotationId),
+          ]);
+
+        // Candado: una respuesta por cotización — si ya existe, se
+        // muestra el agradecimiento en vez del formulario.
+        if (yaRespondida) {
+          setSubmitted(true);
+        }
 
         if (templateData) {
           setTemplate(templateData);

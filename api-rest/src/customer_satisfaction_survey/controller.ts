@@ -38,6 +38,17 @@ export class CustomerSatisfactionSurveyController {
     return this.customerSatisfactionSurveyService.getTemplate(companyId);
   }
 
+  // ¿Ya fue respondida? (público: la página de la encuesta lo consulta
+  // al abrir para mostrar el agradecimiento en vez del formulario)
+  @Public()
+  @Get('answered')
+  async answered(@Query('quotationId') quotationId: string) {
+    return {
+      answered:
+        await this.customerSatisfactionSurveyService.hasAnswer(quotationId),
+    };
+  }
+
   // Techo estricto: acceso público de escritura (Fase 3).
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
