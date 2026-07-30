@@ -20,6 +20,7 @@ export const EMAIL_SUBJECTS = {
     'Nueva respuesta de encuesta de satisfacción',
   [EmailStructure.WEEKLY_ANALYTICS]: 'Análisis semanal de tus eventos',
   [EmailStructure.QUOTATION_STATUS_CHECK]: 'Resumen diario de tus cotizaciones',
+  [EmailStructure.WEEKLY_DIGEST]: 'Tu semana en Eventia',
   [EmailStructure.SUPER_ADMIN_NOTIFICATION]:
     'Notificación para Super Administradores',
 };

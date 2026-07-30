@@ -32,6 +32,8 @@ import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/t
 import { QuotationStatusCheckParams } from './templates/quotationStatusCheck/types';
 import { soonEventsTemplate } from './templates/soonEvents';
 import { superAdminNotificationTemplate } from './templates/superAdminNotification';
+import { weeklyDigestTemplate } from './templates/weeklyDigest/template';
+import { WeeklyDigestParams } from './templates/weeklyDigest/types';
 import { WeeklyAnalyticsParams } from './templates/weekly_analytics/types';
 import { weeklyAnalyticsTemplate } from './templates/weekly_analytics/weekly_analytics';
 import { EmailStructure } from './types';
@@ -223,6 +225,14 @@ export class EmailService {
     to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.QUOTATION_STATUS_CHECK,
     params: QuotationStatusCheckParams,
+  ): Promise<void>;
+  /**
+   * Sends the weekly digest (to multiple recipients)
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.WEEKLY_DIGEST,
+    params: WeeklyDigestParams,
   ): Promise<void>;
   /**
    * Sends a notification to super admins
@@ -445,6 +455,17 @@ export class EmailService {
           params as QuotationStatusCheckParams,
         );
         break;
+
+      case EmailStructure.WEEKLY_DIGEST: {
+        if (!params) {
+          throw new Error('Params are required for WEEKLY_DIGEST template');
+        }
+        const wd = params as WeeklyDigestParams;
+        subject = `Tu semana en ${wd.companyName}: ${wd.eventos.length} evento${wd.eventos.length === 1 ? '' : 's'} · ${wd.pipeline.solicitadas + wd.pipeline.enviadas + wd.pipeline.enNegociacion} cotizaciones en curso`;
+        sendTo = to as string[];
+        html = weeklyDigestTemplate(wd);
+        break;
+      }
 
       case EmailStructure.SUPER_ADMIN_NOTIFICATION:
         subject = EMAIL_SUBJECTS[EmailStructure.SUPER_ADMIN_NOTIFICATION];
