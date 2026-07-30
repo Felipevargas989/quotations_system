@@ -65,6 +65,13 @@ export class ServicesController {
   //   return this.servicesService.findOne(+id);
   // }
 
+  // Códigos de servicio EN USO en cotizaciones (migración 54): la
+  // pantalla apaga el basurero para ellos.
+  @Get('used-codes')
+  usedServiceCodes(@CurrentUser() user: User) {
+    return this.servicesService.usedServiceCodes(user.company_id);
+  }
+
   // ---- Secciones de servicios FIJOS (migración 53) ----
 
   @Get('fixed-sections')

@@ -40,6 +40,8 @@ interface Props {
   readonly categoryLinks: VariableServiceCategoryLink[];
   readonly onEdit: (service: VariableService) => void;
   readonly onDelete: (id: number) => void;
+  // Códigos presentes en alguna cotización: su basurero se apaga.
+  readonly usedCodes: Set<string>;
   readonly onToggleActive: (service: VariableService) => void;
   readonly onEditRecipe?: (service: VariableService) => void;
   // Costo de insumos por persona (desde la receta), por id de servicio.
@@ -69,6 +71,7 @@ export default function VariableServicesByCategory({
   categoryLinks,
   onEdit,
   onDelete,
+  usedCodes,
   onToggleActive,
   onEditRecipe,
   recipeCosts,
@@ -855,14 +858,20 @@ export default function VariableServicesByCategory({
                         >
                           <Edit size={16} />
                         </button>
-                        <button
-                          type="button"
-                          title="Eliminar"
-                          onClick={() => onDelete(service.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {usedCodes.has(service.code || "") ? (
+                          <span className="text-gray-300 cursor-not-allowed">
+                            <Trash2 size={16} />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            title="Eliminar"
+                            onClick={() => onDelete(service.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

@@ -352,6 +352,11 @@ export class ServicesService {
     return { success: true };
   }
 
+  // Códigos en uso en cotizaciones (migración 54).
+  async usedServiceCodes(companyId: Company['id']) {
+    return this.servicesRepository.usedServiceCodes(companyId);
+  }
+
   // ---- Secciones de servicios fijos (migración 53): espejo de las
   // categorías de variables, pero un servicio vive en UNA sección. ----
 

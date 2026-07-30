@@ -18,6 +18,7 @@ import {
   updateCategoryById,
   updateFixedService,
   updateVariableService,
+  getUsedServiceCodes,
 } from "../../services/services.service";
 import MultiSelect, {
   MultiSelectOption,
@@ -99,6 +100,13 @@ export default function ServicesPage() {
   // Query (Etapa 3): silencioso — la lista funciona igual sin costos.
   const { company } = useAuth();
   const queryClient = useQueryClient();
+
+  // Códigos en uso en cotizaciones (migración 54): basureros apagados.
+  const { data: usedCodesList = [] } = useQuery({
+    queryKey: ["usedServiceCodes"],
+    queryFn: getUsedServiceCodes,
+  });
+  const usedCodes = new Set(usedCodesList);
 
   const { data: recipeCosts = {} } = useQuery({
     queryKey: ["recipeCosts", company?.id],
@@ -473,6 +481,7 @@ export default function ServicesPage() {
           (c) => showInactive || c.is_active !== false,
         )}
         variableServices={shownVariableServices}
+        usedCodes={usedCodes}
         categoryLinks={categoryLinks}
         searchActive={searchingSvc || recipeFilterActive}
         onEdit={(s) => handleEditService(s, ServiceType.VARIABLE)}
@@ -499,6 +508,7 @@ export default function ServicesPage() {
         ) : (
           <FixedServicesBySection
             fixedServices={shownFixedServices}
+            usedCodes={usedCodes}
             onEdit={(s) => handleEditService(s, ServiceType.FIXED)}
             onEditRecipe={(s) => handleEditRecipe(s, ServiceType.FIXED)}
             onDelete={(id) => handleDeleteService(id, ServiceType.FIXED)}

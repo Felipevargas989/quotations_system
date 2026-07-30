@@ -353,4 +353,15 @@ export class ServicesRepository {
       .eq('id', id);
     if (error) throw error;
   }
+
+  // Códigos de servicio presentes en alguna cotización (migración 54):
+  // el catálogo apaga el basurero para ellos.
+  async usedServiceCodes(companyId: Company['id']): Promise<string[]> {
+    const { data, error } = await this.supabase.client.rpc(
+      'used_service_codes',
+      { p_company_id: companyId },
+    );
+    if (error) throw error;
+    return ((data || []) as { code: string }[]).map((r) => r.code);
+  }
 }

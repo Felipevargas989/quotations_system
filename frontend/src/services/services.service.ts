@@ -187,3 +187,10 @@ export const reorderFixedServices = async (
     ...(sectionId !== null ? { section_id: sectionId } : {}),
     service_ids: serviceIds,
   });
+
+// Códigos de servicio en uso en cotizaciones (migración 54): el
+// catálogo apaga el basurero para ellos.
+export const getUsedServiceCodes = async (): Promise<string[]> => {
+  const data = await apiRequest(`${API_ROUTES.SERVICES}/used-codes`, "GET");
+  return (data || []) as string[];
+};

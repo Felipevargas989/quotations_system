@@ -39,6 +39,8 @@ interface Props {
   readonly onDelete: (id: number) => void;
   readonly onToggleActive: (s: FixedService) => void;
   readonly onServicesChanged: () => void;
+  // Códigos presentes en alguna cotización: su basurero se apaga.
+  readonly usedCodes: Set<string>;
 }
 
 const clp = (n?: number) =>
@@ -51,6 +53,7 @@ export default function FixedServicesBySection({
   onDelete,
   onToggleActive,
   onServicesChanged,
+  usedCodes,
 }: Props) {
   const queryClient = useQueryClient();
   const sectionsQuery = useQuery({
@@ -228,14 +231,20 @@ export default function FixedServicesBySection({
           >
             <Edit size={16} />
           </button>
-          <button
-            type="button"
-            title="Eliminar"
-            onClick={() => onDelete(s.id)}
-            className="text-red-500 hover:text-red-700"
-          >
-            <Trash2 size={16} />
-          </button>
+          {usedCodes.has(s.code || "") ? (
+            <span className="text-gray-300 cursor-not-allowed">
+              <Trash2 size={16} />
+            </span>
+          ) : (
+            <button
+              type="button"
+              title="Eliminar"
+              onClick={() => onDelete(s.id)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
     );
