@@ -214,7 +214,15 @@ export default function CustomerSatisfactionSurveyPublicPage() {
             {/* Event Information */}
             {quotation && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">
+                      Cotización:
+                    </span>
+                    <p className="text-gray-900">
+                      N° {quotation.quotation_number}
+                    </p>
+                  </div>
                   <div>
                     <span className="font-medium text-gray-700">
                       Tipo de Evento:
