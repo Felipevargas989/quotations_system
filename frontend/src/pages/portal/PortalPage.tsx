@@ -37,6 +37,7 @@ interface EventoPortal {
   cuotas?: CuotaPortal[];
   pagado?: number;
   saldo?: number;
+  encuestaPath?: string | null;
 }
 interface PortalData {
   empresa: {
@@ -276,6 +277,17 @@ export default function PortalPage() {
             </span>
           </div>
 
+          {ev.encuestaPath && (
+            <a
+              href={ev.encuestaPath}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mt-1.5 text-xs font-semibold underline"
+              style={{ color: primary }}
+            >
+              ✍️ Cuéntanos cómo estuvo — responder la encuesta
+            </a>
+          )}
           {typeof ev.saldo === "number" ? (
             compacta ? (
               // Historial: saldado y compacto — sin barra ni redundancia.

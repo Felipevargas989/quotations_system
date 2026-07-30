@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { listPortalReceipts } from "../../services/portalReceipts.service";
 import {
   DollarSign,
   TrendingUp,
@@ -388,6 +389,15 @@ export default function DashboardPage() {
   });
   const data = dashboardQuery.data ?? EMPTY_DASHBOARD;
   const loading = dashboardQuery.isPending;
+
+  // Fila HOY: comprobantes del portal por confirmar (Fase 2b) — el
+  // aviso más temprano de que llegó plata declarada.
+  const receiptsQuery = useQuery({
+    queryKey: ["postventa", "comprobantes"],
+    staleTime: 0,
+    queryFn: listPortalReceipts,
+  });
+  const comprobantesPortal = (receiptsQuery.data ?? []).length;
 
   const getStatusLabel = (status: string) => {
     const labels = {
@@ -882,6 +892,23 @@ export default function DashboardPage() {
             Para actuar hoy
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {comprobantesPortal > 0 && (
+              <button
+                onClick={() => navigate("/post-venta")}
+                className="bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 border-amber-500"
+                title="Comprobantes subidos por clientes desde el portal, esperando confirmación en Post-Venta"
+              >
+                <p className="text-sm font-medium text-gray-600">
+                  💸 Comprobantes del portal
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {comprobantesPortal}
+                </p>
+                <p className="text-xs mt-0.5 text-amber-700 font-semibold">
+                  por confirmar
+                </p>
+              </button>
+            )}
             <button
               onClick={() => navigate("/post-venta")}
               className={`bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 ${

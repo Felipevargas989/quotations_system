@@ -475,6 +475,12 @@ export class QuotationsService {
       personas: q.people_count,
       total: q.total_amount,
       estado: q.quotation_status,
+      // Eventos realizados invitan a la encuesta desde el portal
+      // (misma página pública que ya usa el correo).
+      encuestaPath:
+        q.quotation_status === QuotationStatus.REALIZADA
+          ? `/customer-satisfaction-survey/${companyId}/${q.id}`
+          : null,
     });
 
     type ItemConfirmado = ReturnType<typeof base> & {
