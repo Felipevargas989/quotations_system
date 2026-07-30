@@ -229,10 +229,17 @@ export class QuotationsService {
     if (newQuotationCreated) {
       try {
         // send email to the client who created the quotation
+        const portalToken =
+          await this.quotationsRepository.findContactPortalToken(
+            (newQuotationCreated as { client_contact_id?: number | null })
+              .client_contact_id,
+          );
         void this.emailService.sendEmail(
           createQuotationPublicDto.email,
           EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
           company_id,
+          undefined,
+          portalToken,
         );
 
         // get company admin email
@@ -304,7 +311,11 @@ export class QuotationsService {
     client_id: string;
     contact_name?: string | null;
     clients?: { name: string; email?: string | null };
-  }): Promise<{ email: string; name: string } | null> {
+  }): Promise<{
+    email: string;
+    name: string;
+    portalToken: string | null;
+  } | null> {
     const contactName = (quotation.contact_name || '').trim();
     if (contactName) {
       const { data: contact } =
@@ -313,14 +324,31 @@ export class QuotationsService {
           contactName,
         );
       if (contact?.email) {
-        return { email: contact.email, name: contact.name };
+        return {
+          email: contact.email,
+          name: contact.name,
+          portalToken:
+            (contact as { portal_token?: string | null }).portal_token || null,
+        };
       }
       return null; // la persona existe pero no tiene correo: no se envía
     }
     if (quotation.clients?.email) {
-      return { email: quotation.clients.email, name: quotation.clients.name };
+      // Ficha sin contacto: no hay portal que ofrecer.
+      return {
+        email: quotation.clients.email,
+        name: quotation.clients.name,
+        portalToken: null,
+      };
     }
     return null;
+  }
+
+  /** Token del portal de un contacto (lo usan los correos de pagos). */
+  async portalTokenOf(
+    contactId: number | null | undefined,
+  ): Promise<string | null> {
+    return this.quotationsRepository.findContactPortalToken(contactId);
   }
 
   async markEventDone(id: string, companyId: number) {
@@ -359,6 +387,7 @@ export class QuotationsService {
             quotationId: quotation.id,
           },
           quotation.company_id,
+          recipient.portalToken,
         );
         surveySent = true;
         await this.quotationsRepository.update(
@@ -1006,6 +1035,7 @@ export class QuotationsService {
                 quotationNumber: quotation.quotation_number,
               },
               companyId,
+              sentRecipient.portalToken,
             );
           }
         }

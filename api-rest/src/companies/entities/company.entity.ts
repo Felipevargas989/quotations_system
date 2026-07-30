@@ -25,6 +25,8 @@ export class Company {
     emails: {
       [key in EmailStructure]: boolean;
     };
+    /** "Responder a" de los correos al cliente (punto medio 30-07). */
+    replyTo?: string | null;
   };
   currency: string;
   is_active: boolean;

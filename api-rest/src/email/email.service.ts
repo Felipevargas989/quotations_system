@@ -119,6 +119,7 @@ export class EmailService {
           logoUrl: company.logo_url || null,
           primary: company.colors?.primary,
           bank: company.bank_details || null,
+          replyTo: company.notifications?.replyTo || null,
         };
       }
     } catch (error) {
@@ -138,6 +139,9 @@ export class EmailService {
     companyId: Company['id'],
   ): Promise<{ sent: number; subjects: string[] }> {
     const branding = await this.getBranding(companyId);
+    // En las pruebas el botón del portal aparece pero no lleva a ningún
+    // portal real (no hay mandante de ejemplo).
+    branding.portalUrl = '#';
     const resend = new Resend(
       this.configService.get<string>('RESEND_API_KEY') as string,
     );
@@ -265,6 +269,11 @@ export class EmailService {
       | EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT
       | EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
     companyId: Company['id'],
+    // En este overload el companyId viaja en la posición de params
+    // (herencia histórica); el token va en la 5ª posición como en el
+    // resto, dejando la 4ª vacía.
+    unused?: undefined,
+    portalToken?: string | null,
   ): Promise<void>;
   /**
    * Sends an email with events (to multiple recipients)
@@ -283,6 +292,7 @@ export class EmailService {
     emailStructure: EmailStructure.CUSTOMER_SATISFACTION_SURVEY,
     params: CustomerSatisfactionSurveyParams,
     companyId: Company['id'],
+    portalToken?: string | null,
   ): Promise<void>;
 
   /**
@@ -305,6 +315,7 @@ export class EmailService {
       | EmailStructure.PAYMENT_OVERDUE_ADMIN,
     params: PaymentReminderParams,
     companyId: Company['id'],
+    portalToken?: string | null,
   ): Promise<void>;
 
   /**
@@ -315,6 +326,7 @@ export class EmailService {
     emailStructure: EmailStructure.QUOTATION_IS_SENT,
     params: QuotationIsSentParams,
     companyId: Company['id'],
+    portalToken?: string | null,
   ): Promise<void>;
 
   /**
@@ -325,6 +337,7 @@ export class EmailService {
     emailStructure: EmailStructure.PAYMENT_PLAN_CREATED,
     params: PaymentPlanCreatedParams,
     companyId: Company['id'],
+    portalToken?: string | null,
   ): Promise<void>;
 
   /**
@@ -335,6 +348,7 @@ export class EmailService {
     emailStructure: EmailStructure.PAYMENT_RECEIVED,
     params: PaymentReceivedParams,
     companyId: Company['id'],
+    portalToken?: string | null,
   ): Promise<void>;
 
   /**
@@ -386,6 +400,7 @@ export class EmailService {
     emailStructure: EmailStructure,
     params?: any,
     companyId?: Company['id'],
+    portalToken?: string | null,
   ): Promise<void> {
     // Check if email should be sent based on company configuration
     // Only check for client-facing emails
@@ -417,6 +432,16 @@ export class EmailService {
     };
     if (brandCompanyId && EMAILS_SEND_TO_CLIENT.includes(emailStructure)) {
       branding = await this.getBranding(brandCompanyId, branding.companyName);
+    }
+    // Botón "Ingresar a mi portal": solo si la cotización tiene mandante
+    // vinculado (el que llama pasa su token secreto).
+    if (portalToken && EMAILS_SEND_TO_CLIENT.includes(emailStructure)) {
+      const base = (
+        this.configService.get<string>('FRONTEND_URL') || ''
+      ).replace(/\/+$/, '');
+      if (base) {
+        branding.portalUrl = `${base}/portal/${portalToken}`;
+      }
     }
 
     let subject: string;
@@ -648,11 +673,20 @@ export class EmailService {
       ? `${branding.companyName} <hola@eventi-app.com>`
       : EMAIL_FROM;
 
+    // "Responder a" de la empresa (punto medio 30-07): el envío sigue
+    // saliendo del dominio de Eventia, pero la respuesta del cliente
+    // llega a la casilla real de la empresa.
+    const replyTo =
+      EMAILS_SEND_TO_CLIENT.includes(emailStructure) && branding.replyTo
+        ? branding.replyTo
+        : undefined;
+
     await resend.emails.send({
       from,
       to: sendTo,
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
   }
 }

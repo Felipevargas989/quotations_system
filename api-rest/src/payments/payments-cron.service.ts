@@ -73,6 +73,7 @@ export class PaymentsCronService {
           emailTemplate,
           params,
           payment.quotations.company_id,
+          payment.quotations.mandante?.portal_token || null,
         );
 
         const admins = await this.usersService.findAll(

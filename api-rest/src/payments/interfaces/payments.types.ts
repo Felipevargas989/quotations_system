@@ -7,6 +7,9 @@ import { Payment, PaymentTransaction } from '../entities/payment.entity';
 export type PaymentWithTransactionsAndQuotation = Payment & {
   quotations: Quotation & { clients: Pick<Client, 'name' | 'email'> } & {
     companies: Pick<Company, 'name'>;
+  } & {
+    /** Mandante vinculado (migración 48); trae el token del portal. */
+    mandante?: { name: string; portal_token: string | null } | null;
   };
   payment_transactions: PaymentTransaction[];
 };

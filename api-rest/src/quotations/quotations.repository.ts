@@ -385,9 +385,25 @@ export class QuotationsRepository {
   findContactByName(clientId: string, name: string) {
     return this.supabase.client
       .from('client_contacts')
-      .select('name, email')
+      .select('name, email, portal_token')
       .eq('client_id', clientId)
       .ilike('name', name)
       .maybeSingle();
+  }
+
+  // El token secreto del mandante, para el botón "Ingresar a mi
+  // portal" de los correos. Sin contacto vinculado, sin botón.
+  async findContactPortalToken(
+    contactId: number | null | undefined,
+  ): Promise<string | null> {
+    if (!contactId) return null;
+    const { data } = await this.supabase.client
+      .from('client_contacts')
+      .select('portal_token')
+      .eq('id', contactId)
+      .maybeSingle();
+    return (
+      (data as { portal_token?: string | null } | null)?.portal_token || null
+    );
   }
 }

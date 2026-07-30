@@ -18,6 +18,10 @@ export interface EmailBranding {
   /** Color primario de la empresa; si falta, azul Eventia. */
   primary?: string;
   bank?: Company['bank_details'];
+  /** Enlace secreto al portal del mandante; si falta, sin botón. */
+  portalUrl?: string | null;
+  /** "Responder a" de la empresa (notifications.replyTo). */
+  replyTo?: string | null;
 }
 
 export type BandTone = 'info' | 'aviso' | 'firme';
@@ -122,11 +126,23 @@ export const brandEmailTemplate = (p: BrandEmailParams): string => {
     ? `<div style="color:#6b7280;font-size:13px;margin-top:2px;">${p.branding.tagline}</div>`
     : '';
   const ctaColor = p.cta?.tone === 'firme' ? '#b45309' : primary;
-  const cta = p.cta
-    ? `<div style="text-align:center;padding:8px 32px 28px;">
-        <a href="${p.cta.link}" style="display:inline-block;background:${ctaColor};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 34px;border-radius:10px;">${p.cta.text}</a>
+  // Botón al portal del mandante (pedido de Felipe 30-07): va en TODOS
+  // los correos al cliente con contacto vinculado. Si el correo ya trae
+  // su propio botón, el portal baja a botón secundario (contorno).
+  const portalBtn = p.branding.portalUrl
+    ? p.cta
+      ? `<div style="text-align:center;padding:0 32px 26px;">
+        <a href="${p.branding.portalUrl}" style="display:inline-block;background:#ffffff;color:${primary};border:2px solid ${primary};text-decoration:none;font-weight:700;font-size:14px;padding:10px 30px;border-radius:10px;">Ingresar a mi portal</a>
       </div>`
-    : '<div style="height:20px;"></div>';
+      : `<div style="text-align:center;padding:8px 32px 28px;">
+        <a href="${p.branding.portalUrl}" style="display:inline-block;background:${primary};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 34px;border-radius:10px;">Ingresar a mi portal</a>
+      </div>`
+    : '';
+  const cta = p.cta
+    ? `<div style="text-align:center;padding:8px 32px ${portalBtn ? '14px' : '28px'};">
+        <a href="${p.cta.link}" style="display:inline-block;background:${ctaColor};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 34px;border-radius:10px;">${p.cta.text}</a>
+      </div>${portalBtn}`
+    : portalBtn || '<div style="height:20px;"></div>';
 
   return `<!DOCTYPE html>
 <html lang="es">

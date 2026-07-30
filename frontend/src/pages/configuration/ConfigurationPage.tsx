@@ -27,6 +27,9 @@ export default function ConfigurationPage() {
   const [emailNotifications, setEmailNotifications] = useState<{
     [key in EmailStructure]?: boolean;
   }>({});
+  // "Responder a": si el cliente responde un correo, llega a esta
+  // casilla (el envío sigue saliendo del dominio de Eventia).
+  const [replyTo, setReplyTo] = useState("");
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
 
   const companyQuery = useQuery({
@@ -46,6 +49,7 @@ export default function ConfigurationPage() {
   useEffect(() => {
     if (company) {
       setEmailNotifications(company.notifications?.emails || {});
+      setReplyTo(company.notifications?.replyTo || "");
     }
   }, [company?.id]);
 
@@ -141,6 +145,7 @@ export default function ConfigurationPage() {
       setIsSavingNotifications(true);
       await updateCompany(company.name, company.logo_url, company.colors, {
         emails: emailNotifications,
+        replyTo: replyTo.trim() || null,
       });
 
       alert("Notificaciones guardadas exitosamente");
@@ -416,6 +421,27 @@ export default function ConfigurationPage() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200">
+                <label
+                  htmlFor="reply-to"
+                  className="block text-sm font-medium text-gray-900"
+                >
+                  Responder a
+                </label>
+                <p className="text-xs text-gray-600 mt-0.5 mb-2">
+                  Si un cliente responde un correo, la respuesta llega a esta
+                  casilla. Vacío = sin respuesta directa.
+                </p>
+                <input
+                  id="reply-to"
+                  type="email"
+                  value={replyTo}
+                  onChange={(e) => setReplyTo(e.target.value)}
+                  placeholder="contacto@tuempresa.cl"
+                  className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center gap-4 flex-wrap">
                   <div className="text-xs text-gray-500">
                     <p>
@@ -439,9 +465,7 @@ export default function ConfigurationPage() {
                       <Save size={16} />
                     )}
                     <span>
-                      {isSavingNotifications
-                        ? "Guardando..."
-                        : "Guardar Configuración de Notificaciones"}
+                      {isSavingNotifications ? "Guardando..." : "Guardar"}
                     </span>
                   </button>
                 </div>

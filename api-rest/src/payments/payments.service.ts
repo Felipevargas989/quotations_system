@@ -84,6 +84,9 @@ export class PaymentsService {
         quotation &&
         quotation.quotation_status !== QuotationStatus.ACEPTADA
       ) {
+        const portalToken = await this.quotationsService.portalTokenOf(
+          quotation.client_contact_id,
+        );
         void this.emailService.sendEmail(
           quotation.clients.email,
           EmailStructure.PAYMENT_PLAN_CREATED,
@@ -98,6 +101,7 @@ export class PaymentsService {
             })),
           },
           companyId,
+          portalToken,
         );
       }
     } catch (error) {
@@ -423,6 +427,9 @@ export class PaymentsService {
           dto.quotation_id,
         );
         if (quotation && quotation.clients.email) {
+          const portalToken = await this.quotationsService.portalTokenOf(
+            quotation.client_contact_id,
+          );
           void this.emailService.sendEmail(
             quotation.clients.email,
             EmailStructure.PAYMENT_RECEIVED,
@@ -434,6 +441,7 @@ export class PaymentsService {
               transactionDate: dto.transaction_date || new Date(),
             },
             companyId,
+            portalToken,
           );
         }
       } catch (emailError) {
@@ -573,6 +581,9 @@ export class PaymentsService {
           );
 
           if (quotation && quotation.clients.email) {
+            const portalToken = await this.quotationsService.portalTokenOf(
+              quotation.client_contact_id,
+            );
             void this.emailService.sendEmail(
               quotation.clients.email,
               EmailStructure.PAYMENT_RECEIVED,
@@ -584,6 +595,7 @@ export class PaymentsService {
                 transactionDate: payload.transaction_date || new Date(),
               },
               companyId,
+              portalToken,
             );
           }
         } catch (emailError) {
