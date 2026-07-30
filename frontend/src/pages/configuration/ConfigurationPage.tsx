@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, Lock, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
 import { useAuth } from "../../contexts/AuthContext";
-import { emailCategories } from "./constants";
+import { emailCategories, equipoEmails } from "./constants";
 import { getCompany, updateCompany } from "../../services/companies.service";
 import { Company } from "../../types/companies.types";
 import { EmailStructure } from "../../types/notifications";
@@ -324,7 +324,8 @@ export default function ConfigurationPage() {
             Notificaciones por Email
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Configura qué notificaciones por email quieres recibir
+            Los correos al cliente salen encendidos por defecto; aquí puedes
+            apagar los que no quieras enviar
           </p>
         </div>
         <div className="p-4">
@@ -359,10 +360,12 @@ export default function ConfigurationPage() {
                               id={`email-${email.id}`}
                               name={`email-${email.id}`}
                               type="checkbox"
+                              // Sin llave = encendido (regla del 29-07):
+                              // solo un "false" explícito lo apaga.
                               checked={
                                 emailNotifications[
                                   email.id as EmailStructure
-                                ] === true
+                                ] !== false
                               }
                               onChange={(e) =>
                                 handleEmailNotificationChange(
@@ -392,15 +395,37 @@ export default function ConfigurationPage() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">
+                    EQUIPO
+                  </span>
+                  Para el equipo — siempre activos
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                  {equipoEmails.map((email) => (
+                    <div key={email.name} className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {email.icon} {email.name}
+                      </p>
+                      <p className="text-gray-600 text-xs mt-0.5">
+                        {email.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center gap-4 flex-wrap">
                   <div className="text-xs text-gray-500">
                     <p>
-                      <strong>Enviados desde:</strong> Eventia
+                      <strong>Enviados desde:</strong>{" "}
+                      {company?.name || "Tu empresa"}{" "}
                       &lt;hola@eventi-app.com&gt;
                     </p>
                     <p>
-                      <strong>Recordatorios:</strong> Diarios entre las 9:00 AM
-                      y las 12:00 PM
+                      <strong>Cobranza:</strong> 3 días antes · el día del
+                      vencimiento · 7 días después (máx. 3 avisos por cuota)
                     </p>
                   </div>
                   <button
