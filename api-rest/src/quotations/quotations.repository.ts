@@ -168,33 +168,83 @@ export class QuotationsRepository {
   }
 
   /**
-   * Portal del cliente (Fase 2a): busca una cotización por su enlace
-   * secreto, con la marca de la empresa y el nombre del cliente. Es la
-   * ÚNICA puerta pública de lectura y solo entrega ESA cotización.
+   * PORTAL DEL MANDANTE (migración 48): el enlace secreto vive en el
+   * CONTACTO. Esta es la única puerta pública de lectura: entrega el
+   * contacto, su cliente y la marca de la empresa — nada más.
+   * (La consulta vive aquí y no en clients por pragmatismo: el portal
+   * es un caso de uso de cotizaciones.)
    */
-  async findByPortalToken(token: string): Promise<{
-    data:
-      | (Quotation & {
-          clients: Pick<Client, 'name'> | null;
-          companies: Pick<
-            Company,
-            'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
-          > | null;
-        })
-      | null;
+  async findPortalContact(token: string): Promise<{
+    data: {
+      id: number;
+      name: string;
+      client_id: string;
+      clients: {
+        name: string;
+        company_id: number;
+        companies: Pick<
+          Company,
+          'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
+        > | null;
+      } | null;
+    } | null;
     error: PostgrestError | null;
   }> {
-    this.logger.info('find quotation by portal token');
+    this.logger.info('find portal contact by token');
     return (await this.supabase.client
-      .from('quotations')
+      .from('client_contacts')
       .select(
-        `*,
-        clients ( name ),
-        companies ( name, tagline, logo_url, colors, bank_details )
-        `,
+        `id, name, client_id,
+        clients!inner (
+          name, company_id,
+          companies!inner ( name, tagline, logo_url, colors, bank_details )
+        )`,
       )
       .eq('portal_token', token)
       .maybeSingle()) as never;
+  }
+
+  /** Cotizaciones visibles en el portal de UN mandante. */
+  async findAllByContact(contactId: number): Promise<{
+    data: Quotation[] | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info(`portal quotations of contact ${contactId}`);
+    return (await this.supabase.client
+      .from('quotations')
+      .select(
+        'id, quotation_number, event_type, event_date, event_end_date, people_count, total_amount, quotation_status, company_id',
+      )
+      .eq('client_contact_id', contactId)
+      .in('quotation_status', [
+        'enviada',
+        'en_negociacion',
+        'aceptada',
+        'realizada',
+      ])
+      .order('event_date', { ascending: true })) as never;
+  }
+
+  /**
+   * Vincula el mandante escrito (texto) con su contacto real del
+   * cliente, si el nombre calza. Se usa al crear/editar cotizaciones
+   * para que el portal del mandante las vea sin trabajo manual.
+   */
+  async resolveContactId(
+    clientId: string,
+    contactName?: string | null,
+  ): Promise<number | null> {
+    const nombre = (contactName || '').trim();
+    if (!nombre) return null;
+    const { data } = await this.supabase.client
+      .from('client_contacts')
+      .select('id, name')
+      .eq('client_id', clientId);
+    const contactos = (data || []) as { id: number; name: string }[];
+    const match = contactos.find(
+      (c) => c.name.trim().toLowerCase() === nombre.toLowerCase(),
+    );
+    return match ? match.id : null;
   }
 
   async update(

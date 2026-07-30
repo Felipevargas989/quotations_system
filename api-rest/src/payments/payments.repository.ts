@@ -94,7 +94,10 @@ export class PaymentsRepository {
       requires_invoice,
       has_contract,
       contact_name,
-      portal_token,
+      mandante:client_contacts!quotations_client_contact_id_fkey (
+        name,
+        portal_token
+      ),
       clients!inner (
         name,
         email,

@@ -5,7 +5,6 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
@@ -120,6 +119,13 @@ export class QuotationsService {
     // ISO 8601 with UTC offset (+00:00 = UTC), equivalent to 2025-09-24T00:00:00.000Z
     const eventDateUtc = getEventDateUtc(createQuotationDto.event_date);
 
+    // Portal del mandante (migración 48): vincular el mandante escrito
+    // con su contacto real, si el nombre calza.
+    const clientContactId = await this.quotationsRepository.resolveContactId(
+      createQuotationDto.client_id,
+      createQuotationDto.contact_name,
+    );
+
     const newQuotation: CreateQuotation = {
       client_id: createQuotationDto.client_id,
       event_type: createQuotationDto.event_type,
@@ -132,6 +138,7 @@ export class QuotationsService {
       // de arriba: si falta aquí, se bota en silencio.
       tip_amount: Math.max(0, Math.round(createQuotationDto.tip_amount || 0)),
       contact_name: createQuotationDto.contact_name || null,
+      client_contact_id: clientContactId,
       observations: createQuotationDto.observations,
       event_date: eventDateUtc,
       // Último día (evento multi-día); null = un solo día. Si esto falta,
@@ -373,84 +380,135 @@ export class QuotationsService {
   }
 
   /**
-   * Portal del cliente (Fase 2a): datos públicos de UNA cotización a
-   * partir de su enlace secreto. Solo eventos aceptados o realizados;
-   * cualquier otra cosa (token malo, corto, anulada) responde 404 sin
-   * dar pistas.
+   * PORTAL DEL MANDANTE (migración 48, diseño de Felipe 30-07): el
+   * enlace secreto es del CONTACTO y muestra TODAS sus cotizaciones —
+   * y solo las suyas. Token malo/corto = 404 sin pistas.
    */
   async getPortalData(token: string) {
     if (!token || token.length < 40) {
       throw new NotFoundException();
     }
-    const { data: q } =
-      await this.quotationsRepository.findByPortalToken(token);
-    if (
-      !q ||
-      ![QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA].includes(
-        q.quotation_status,
-      )
-    ) {
+    const { data: contacto } =
+      await this.quotationsRepository.findPortalContact(token);
+    const cliente = contacto?.clients;
+    if (!contacto || !cliente || !cliente.companies) {
       throw new NotFoundException();
     }
+    const companyId = cliente.company_id;
+    const empresa = cliente.companies;
 
-    const { data: payments } =
-      await this.paymentsService.findAllPaymentsFromQuotation(
-        [q.id],
-        q.company_id,
-      );
+    const { data: quotations } =
+      await this.quotationsRepository.findAllByContact(contacto.id);
+    const lista = quotations || [];
+
+    // Cuotas de los eventos confirmados (aceptada/realizada), de una vez.
+    const confirmadasIds = lista
+      .filter((q) =>
+        [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA].includes(
+          q.quotation_status,
+        ),
+      )
+      .map((q) => q.id);
+    const { data: payments } = confirmadasIds.length
+      ? await this.paymentsService.findAllPaymentsFromQuotation(
+          confirmadasIds,
+          companyId,
+        )
+      : { data: [] };
+    const refundsMap = await this.refundsService.paidMapByCompany(companyId);
+
     const hoy = new Date().toISOString().slice(0, 10);
-    let pagado = 0;
-    const cuotas = (payments || [])
-      .map((p) => {
-        const abonado = (p.payment_transactions || []).reduce(
-          (s: number, t: PaymentTransaction) => s + t.amount,
-          0,
-        );
-        pagado += abonado;
-        const vence = p.due_date ? String(p.due_date).slice(0, 10) : null;
-        let estado: string = p.status;
-        if (
-          estado !== (PaymentStatus.PAGADO as string) &&
-          vence &&
-          vence < hoy
-        ) {
-          estado = PaymentStatus.VENCIDO;
-        }
-        return {
-          numero: p.payment_number,
-          monto: p.amount,
-          vence,
-          estado,
-          abonado,
-        };
-      })
-      .sort((a, b) => a.numero - b.numero);
+    const cuotasDe = (quotationId: string) =>
+      (payments || [])
+        .filter((p) => p.quotation_id === quotationId)
+        .map((p) => {
+          const abonado = (p.payment_transactions || []).reduce(
+            (s: number, t: PaymentTransaction) => s + t.amount,
+            0,
+          );
+          const vence = p.due_date ? String(p.due_date).slice(0, 10) : null;
+          let estado: string = p.status;
+          if (
+            estado !== (PaymentStatus.PAGADO as string) &&
+            vence &&
+            vence < hoy
+          ) {
+            estado = PaymentStatus.VENCIDO;
+          }
+          return {
+            numero: p.payment_number,
+            monto: p.amount,
+            vence,
+            estado,
+            abonado,
+          };
+        })
+        .sort((a, b) => a.numero - b.numero);
 
-    const refundsMap = await this.refundsService.paidMapByCompany(q.company_id);
-    const reembolsado = Number(refundsMap?.[q.id] || 0);
-    const pagadoNeto = pagado - reembolsado;
+    const base = (q: (typeof lista)[number]) => ({
+      numero: q.quotation_number,
+      tipo: q.event_type,
+      fecha: q.event_date,
+      personas: q.people_count,
+      total: q.total_amount,
+      estado: q.quotation_status,
+    });
+
+    type ItemConfirmado = ReturnType<typeof base> & {
+      cuotas: ReturnType<typeof cuotasDe>;
+      pagado: number;
+      saldo: number;
+    };
+    const confirmados: ItemConfirmado[] = [];
+    const historial: ItemConfirmado[] = [];
+    for (const q of lista) {
+      if (
+        ![QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA].includes(
+          q.quotation_status,
+        )
+      ) {
+        continue;
+      }
+      const cuotas = cuotasDe(q.id);
+      const pagadoBruto = cuotas.reduce((s, c) => s + c.abonado, 0);
+      const pagado = pagadoBruto - Number(refundsMap?.[q.id] || 0);
+      const item = {
+        ...base(q),
+        cuotas,
+        pagado,
+        saldo: q.total_amount - pagado,
+      };
+      // Realizado y saldado = historial (plegado); el resto, arriba.
+      if (q.quotation_status === QuotationStatus.REALIZADA && item.saldo <= 0) {
+        historial.push(item);
+      } else {
+        confirmados.push(item);
+      }
+    }
+    const enConversacion = lista
+      .filter((q) =>
+        [QuotationStatus.ENVIADA, QuotationStatus.EN_NEGOCIACION].includes(
+          q.quotation_status,
+        ),
+      )
+      .map(base);
 
     return {
       empresa: {
-        nombre: q.companies?.name || '',
-        tagline: q.companies?.tagline || null,
-        logo_url: q.companies?.logo_url || null,
-        color: q.companies?.colors?.primary || null,
-        datos_cobro: q.companies?.bank_details || null,
+        nombre: empresa.name || '',
+        tagline: empresa.tagline || null,
+        logo_url: empresa.logo_url || null,
+        color: empresa.colors?.primary || null,
+        datos_cobro: empresa.bank_details || null,
       },
-      evento: {
-        numero: q.quotation_number,
-        tipo: q.event_type,
-        fecha: q.event_date,
-        personas: q.people_count,
-        estado: q.quotation_status,
-        cliente: q.clients?.name || '',
-        contacto: q.contact_name || null,
+      mandante: {
+        nombre: contacto.name,
+        clienteEmpresa: cliente.name || null,
       },
-      cuotas,
-      total: q.total_amount,
-      pagado: pagadoNeto,
-      saldo: q.total_amount - pagadoNeto,
+      saldoTotal: confirmados.reduce((s, c) => s + c.saldo, 0),
+      confirmados,
+      enConversacion,
+      historial,
     };
   }
 
@@ -759,18 +817,18 @@ export class QuotationsService {
         this.logger.error(error);
       }
 
-      // Portal del cliente (Fase 2a): al ACEPTAR nace el enlace secreto.
-      if (
-        updateQuotationDto.quotation_status === QuotationStatus.ACEPTADA &&
-        !quotation.portal_token
-      ) {
-        await this.quotationsRepository.update(
-          id,
-          {
-            portal_token: randomBytes(32).toString('hex'),
-          } as unknown as UpdateQuotationDto,
-          companyId,
+      // Portal del mandante (migración 48): si viene mandante escrito,
+      // se vincula con su contacto real del cliente (calce por nombre).
+      if (updateQuotationDto.contact_name !== undefined) {
+        const contactId = await this.quotationsRepository.resolveContactId(
+          quotation.client_id,
+          updateQuotationDto.contact_name,
         );
+        (
+          updateQuotationDto as unknown as {
+            client_contact_id?: number | null;
+          }
+        ).client_contact_id = contactId;
       }
 
       // update quotation

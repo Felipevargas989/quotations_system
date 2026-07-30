@@ -53,9 +53,12 @@ export interface Quotation {
   tip_amount?: number | null;
   // Persona de contacto del evento (texto libre).
   contact_name?: string | null;
-  // Enlace secreto del portal del cliente (migración 47): nace al
-  // aceptar la cotización. 64 hex = imposible de adivinar.
+  // Enlace secreto del portal (migración 47) — SIN USO desde la 48:
+  // el portal es del MANDANTE y su token vive en client_contacts.
   portal_token?: string | null;
+  // Vínculo real mandante↔cotización (migración 48). El backend lo
+  // resuelve solo desde contact_name al crear/editar.
+  client_contact_id?: number | null;
   value_per_person: number;
   fixed_value: number;
   request_type: RequestType;

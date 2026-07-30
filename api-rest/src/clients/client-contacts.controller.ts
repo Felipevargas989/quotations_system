@@ -10,6 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { SupabaseService } from 'src/supabase/supabase.service';
@@ -49,7 +50,13 @@ export class ClientContactsRepository {
     this.logger.info(`create contact (datos redactados)`);
     const { data, error } = await this.supabase.client
       .from('client_contacts')
-      .insert({ ...dto, company_id: companyId })
+      .insert({
+        ...dto,
+        company_id: companyId,
+        // Portal del mandante (migración 48): todo contacto nace con
+        // su enlace secreto listo.
+        portal_token: randomBytes(32).toString('hex'),
+      })
       .select()
       .single();
     if (error) throw error;
