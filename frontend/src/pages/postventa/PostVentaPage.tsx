@@ -309,8 +309,8 @@ export default function PostVentaPage() {
         requiresInvoice: q?.requires_invoice,
         hasContract: q?.has_contract,
         portalToken:
-          (q as unknown as { portal_token?: string | null })?.portal_token ??
-          null,
+          (q as unknown as { mandante?: { portal_token?: string | null } })
+            ?.mandante?.portal_token ?? null,
         total,
         paid,
         refunded,

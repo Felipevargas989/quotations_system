@@ -43,8 +43,9 @@ export interface PaymentWithTransactions {
     total_amount: number;
     requires_invoice: boolean;
     has_contract: boolean;
-    // Enlace secreto del portal del cliente (migración 47).
-    portal_token?: string | null;
+    // Mandante real de la cotización, con su enlace secreto del
+    // portal (migración 48).
+    mandante?: { name?: string; portal_token?: string | null } | null;
     clients: Pick<Client, "name">;
   };
   refunds: Refund[];

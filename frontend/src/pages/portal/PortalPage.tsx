@@ -1,14 +1,38 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Landmark, CalendarDays, Users, MessageCircle } from "lucide-react";
+import {
+  Landmark,
+  CalendarDays,
+  Users,
+  MessageCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { apiRequest } from "../../services/api";
 import { API_ROUTES } from "../../constants/api.routes";
 
-// PORTAL DEL CLIENTE — Fase 2a (30-07-2026). Página PÚBLICA: el
-// cliente llega por su enlace secreto (sin clave) y ve su evento, su
-// plan de cuotas, el saldo y los datos para transferir, con la marca
-// de la empresa. Misma familia visual que los correos.
+// PORTAL DEL MANDANTE (30-07-2026, diseño de Felipe). Página PÚBLICA:
+// el contacto llega por su enlace secreto y ve TODAS sus cotizaciones
+// — y solo las suyas. Misma familia visual que los correos.
 
+interface CuotaPortal {
+  numero: number;
+  monto: number;
+  vence: string | null;
+  estado: string;
+  abonado: number;
+}
+interface EventoPortal {
+  numero: number;
+  tipo?: string | null;
+  fecha?: string | null;
+  personas?: number | null;
+  total: number;
+  estado: string;
+  cuotas?: CuotaPortal[];
+  pagado?: number;
+  saldo?: number;
+}
 interface PortalData {
   empresa: {
     nombre: string;
@@ -24,30 +48,16 @@ interface PortalData {
       correo_pagos?: string;
     } | null;
   };
-  evento: {
-    numero: number;
-    tipo?: string | null;
-    fecha?: string | null;
-    personas?: number | null;
-    estado: string;
-    cliente: string;
-    contacto?: string | null;
-  };
-  cuotas: {
-    numero: number;
-    monto: number;
-    vence: string | null;
-    estado: string;
-    abonado: number;
-  }[];
-  total: number;
-  pagado: number;
-  saldo: number;
+  mandante: { nombre: string; clienteEmpresa?: string | null };
+  saldoTotal: number;
+  confirmados: EventoPortal[];
+  enConversacion: EventoPortal[];
+  historial: EventoPortal[];
 }
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const fecha = (d?: string | null) => {
-  if (!d) return "—";
+  if (!d) return "por definir";
   try {
     return new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString("es-CL", {
       day: "2-digit",
@@ -55,11 +65,9 @@ const fecha = (d?: string | null) => {
       year: "numeric",
     });
   } catch {
-    return "—";
+    return "por definir";
   }
 };
-
-// Mezcla el color primario con blanco (misma técnica de los correos)
 const mix = (hex: string, w: number): string => {
   const h = hex.replace("#", "");
   if (h.length !== 6) return hex;
@@ -74,12 +82,30 @@ const CHIP: Record<string, string> = {
   pagado: "bg-green-100 text-green-700",
   pendiente: "bg-gray-100 text-gray-600",
   vencido: "bg-amber-100 text-amber-700",
+  enviada: "bg-blue-100 text-blue-700",
+  en_negociacion: "bg-purple-100 text-purple-700",
+  aceptada: "bg-green-100 text-green-700",
+  realizada: "bg-emerald-100 text-emerald-700",
 };
+const ESTADO_LABEL: Record<string, string> = {
+  enviada: "enviada",
+  en_negociacion: "en conversación",
+  aceptada: "confirmado",
+  realizada: "realizado",
+};
+
+const Seccion = ({ titulo }: { titulo: string }) => (
+  <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+    {titulo}
+  </p>
+);
 
 export default function PortalPage() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PortalData | null>(null);
   const [error, setError] = useState(false);
+  const [abierto, setAbierto] = useState<number | null>(null);
+  const [verHistorial, setVerHistorial] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -103,7 +129,6 @@ export default function PortalPage() {
       </div>
     );
   }
-
   if (!data) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -114,14 +139,150 @@ export default function PortalPage() {
 
   const primary = data.empresa.color || "#134686";
   const banco = data.empresa.datos_cobro;
-  const pct = data.total
-    ? Math.min(100, Math.round((data.pagado / data.total) * 100))
-    : 0;
+  const tieneBanco = !!(banco && (banco.numero || banco.banco));
+
+  const datosCobro = tieneBanco && (
+    <div
+      className="rounded-xl p-4 text-sm text-gray-700 mt-3"
+      style={{
+        background: mix(primary, 0.04),
+        border: `1px dashed ${mix(primary, 0.35)}`,
+      }}
+    >
+      <p
+        className="font-bold mb-1 flex items-center gap-1.5"
+        style={{ color: primary }}
+      >
+        <Landmark size={15} /> Datos para transferir
+      </p>
+      <p>
+        {[banco!.titular, banco!.rut ? `RUT ${banco!.rut}` : ""]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <p>
+        {[banco!.banco, banco!.tipo_cuenta, banco!.numero]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {banco!.correo_pagos && <p>{banco!.correo_pagos}</p>}
+    </div>
+  );
+
+  const cardEvento = (ev: EventoPortal, expandible: boolean) => {
+    const abiertoEste = abierto === ev.numero;
+    return (
+      <div
+        key={ev.numero}
+        className="border border-gray-100 rounded-xl overflow-hidden"
+      >
+        <div className="px-4 py-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="font-bold text-gray-900">
+                {ev.tipo || "Evento"} · N° {ev.numero}
+              </p>
+              <p className="text-sm text-gray-500 flex flex-wrap gap-3 mt-0.5">
+                <span className="flex items-center gap-1">
+                  <CalendarDays size={14} /> {fecha(ev.fecha)}
+                </span>
+                {ev.personas ? (
+                  <span className="flex items-center gap-1">
+                    <Users size={14} /> {ev.personas} personas
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[ev.estado] || CHIP.pendiente}`}
+            >
+              {ESTADO_LABEL[ev.estado] || ev.estado}
+            </span>
+          </div>
+
+          {typeof ev.saldo === "number" ? (
+            <div className="mt-3">
+              <div className="flex items-baseline justify-between flex-wrap gap-2">
+                <p className="text-sm text-gray-600">
+                  {ev.saldo > 0 ? (
+                    <>
+                      saldo{" "}
+                      <b style={{ color: primary }}>{clp(ev.saldo)}</b> de{" "}
+                      {clp(ev.total)}
+                    </>
+                  ) : (
+                    <b className="text-green-700">Totalmente pagado ✓</b>
+                  )}
+                </p>
+                {expandible && (
+                  <button
+                    onClick={() =>
+                      setAbierto(abiertoEste ? null : ev.numero)
+                    }
+                    className="text-sm font-semibold flex items-center gap-1"
+                    style={{ color: primary }}
+                  >
+                    {abiertoEste ? "Ocultar plan" : "Ver plan de pagos"}
+                    {abiertoEste ? (
+                      <ChevronUp size={15} />
+                    ) : (
+                      <ChevronDown size={15} />
+                    )}
+                  </button>
+                )}
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
+                <div
+                  className="h-2 rounded-full"
+                  style={{
+                    width: `${ev.total ? Math.min(100, Math.round(((ev.pagado || 0) / ev.total) * 100)) : 0}%`,
+                    background: primary,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-gray-600">
+              valor cotizado: <b>{clp(ev.total)}</b>
+            </p>
+          )}
+        </div>
+
+        {expandible && abiertoEste && (
+          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/60">
+            {(ev.cuotas || []).map((c) => (
+              <div
+                key={c.numero}
+                className="flex items-center justify-between py-1.5 text-sm"
+              >
+                <span className="text-gray-700">
+                  Cuota {c.numero} · {clp(c.monto)}
+                  {c.abonado > 0 && c.abonado < c.monto
+                    ? ` · abonado ${clp(c.abonado)}`
+                    : ""}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-gray-500 text-xs">
+                    {c.estado === "pagado" ? "pagada" : `vence ${fecha(c.vence)}`}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${CHIP[c.estado] || CHIP.pendiente}`}
+                  >
+                    {c.estado}
+                  </span>
+                </span>
+              </div>
+            ))}
+            {datosCobro}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow overflow-hidden">
-        {/* Franja + cabecera blanca (familia de los correos) */}
         <div style={{ background: primary, height: 6 }} />
         <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-gray-100">
           <div>
@@ -141,144 +302,93 @@ export default function PortalPage() {
           )}
         </div>
 
-        <div className="px-6 sm:px-8 py-6 space-y-6">
-          {/* Evento */}
+        <div className="px-6 sm:px-8 py-6 space-y-7">
+          {/* El mandante: de quién es este portal */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
-              Tu evento
-            </p>
             <p className="text-lg font-bold text-gray-900">
-              {data.evento.tipo || "Evento"} · N° {data.evento.numero}
+              Portal de {data.mandante.nombre}
             </p>
-            <div className="flex flex-wrap gap-4 mt-1 text-sm text-gray-600">
-              <span className="flex items-center gap-1">
-                <CalendarDays size={15} /> {fecha(data.evento.fecha)}
-              </span>
-              {data.evento.personas ? (
-                <span className="flex items-center gap-1">
-                  <Users size={15} /> {data.evento.personas} personas
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Progreso + saldo */}
-          <div
-            className="rounded-xl p-5"
-            style={{
-              background: mix(primary, 0.06),
-              border: `1px solid ${mix(primary, 0.22)}`,
-            }}
-          >
-            <div className="flex items-baseline justify-between flex-wrap gap-2">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                  Saldo pendiente
-                </p>
-                <p
-                  className="text-3xl font-extrabold"
-                  style={{ color: primary }}
-                >
-                  {clp(data.saldo)}
-                </p>
-              </div>
-              <p className="text-sm text-gray-600">
-                pagado {clp(data.pagado)} de {clp(data.total)}
-              </p>
-            </div>
-            <div className="w-full bg-white rounded-full h-2.5 mt-3 border border-gray-200">
-              <div
-                className="h-2.5 rounded-full"
-                style={{ width: `${pct}%`, background: primary }}
-              />
-            </div>
-          </div>
-
-          {/* Cuotas */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-              Plan de pagos
-            </p>
-            <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-              {data.cuotas.map((c) => (
-                <div
-                  key={c.numero}
-                  className="flex items-center justify-between px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      Cuota {c.numero} · {clp(c.monto)}
-                    </p>
-                    <p className="text-gray-500">
-                      {c.estado === "pagado"
-                        ? "Pagada"
-                        : `Vence ${fecha(c.vence)}`}
-                      {c.abonado > 0 && c.abonado < c.monto
-                        ? ` · abonado ${clp(c.abonado)}`
-                        : ""}
-                    </p>
-                  </div>
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[c.estado] || CHIP.pendiente}`}
-                  >
-                    {c.estado}
-                  </span>
-                </div>
-              ))}
-              {data.cuotas.length === 0 && (
-                <p className="px-4 py-3 text-sm text-gray-500">
-                  Sin cuotas registradas todavía.
+            {data.mandante.clienteEmpresa &&
+              data.mandante.clienteEmpresa !== data.mandante.nombre && (
+                <p className="text-sm text-gray-500">
+                  {data.mandante.clienteEmpresa}
                 </p>
               )}
-            </div>
           </div>
 
-          {/* Datos de cobro */}
-          {banco && (banco.numero || banco.banco) && (
+          {/* Saldo total, si hay deuda */}
+          {data.saldoTotal > 0 && (
             <div
-              className="rounded-xl p-5 text-sm text-gray-700"
+              className="rounded-xl p-5"
               style={{
-                background: mix(primary, 0.04),
-                border: `1px dashed ${mix(primary, 0.35)}`,
+                background: mix(primary, 0.06),
+                border: `1px solid ${mix(primary, 0.22)}`,
               }}
             >
-              <p
-                className="font-bold mb-1 flex items-center gap-1.5"
-                style={{ color: primary }}
-              >
-                <Landmark size={16} /> Datos para transferir
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                Saldo pendiente total
               </p>
-              {[banco.titular, banco.rut ? `RUT ${banco.rut}` : ""]
-                .filter(Boolean)
-                .join(" · ") && (
-                <p>
-                  {[banco.titular, banco.rut ? `RUT ${banco.rut}` : ""]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-              <p>
-                {[banco.banco, banco.tipo_cuenta, banco.numero]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {banco.correo_pagos && <p>{banco.correo_pagos}</p>}
-              <p className="text-xs text-gray-500 mt-2">
-                Después de transferir, envía tu comprobante a{" "}
-                {banco.correo_pagos || "tu contacto de la empresa"}.
+              <p className="text-3xl font-extrabold" style={{ color: primary }}>
+                {clp(data.saldoTotal)}
               </p>
             </div>
           )}
 
-          <p className="flex items-center gap-1.5 text-sm text-gray-500">
-            <MessageCircle size={15} /> ¿Dudas con tu plan? Responde cualquiera
-            de nuestros correos y lo conversamos.
-          </p>
+          {data.confirmados.length > 0 && (
+            <div>
+              <Seccion titulo="Tus eventos confirmados" />
+              <div className="space-y-3">
+                {data.confirmados.map((ev) => cardEvento(ev, true))}
+              </div>
+            </div>
+          )}
+
+          {data.enConversacion.length > 0 && (
+            <div>
+              <Seccion titulo="Cotizaciones en conversación" />
+              <div className="space-y-3">
+                {data.enConversacion.map((ev) => cardEvento(ev, false))}
+              </div>
+              <p className="text-sm text-gray-500 mt-2 flex items-center gap-1.5">
+                <MessageCircle size={14} /> ¿Quieres ajustar algo? Responde
+                nuestro correo y lo conversamos.
+              </p>
+            </div>
+          )}
+
+          {data.confirmados.length === 0 &&
+            data.enConversacion.length === 0 &&
+            data.historial.length === 0 && (
+              <p className="text-sm text-gray-500">
+                Aún no tienes cotizaciones activas con nosotros.
+              </p>
+            )}
+
+          {data.historial.length > 0 && (
+            <div>
+              <button
+                onClick={() => setVerHistorial((v) => !v)}
+                className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1 hover:text-gray-600"
+              >
+                Historial ({data.historial.length})
+                {verHistorial ? (
+                  <ChevronUp size={13} />
+                ) : (
+                  <ChevronDown size={13} />
+                )}
+              </button>
+              {verHistorial && (
+                <div className="space-y-3 mt-2">
+                  {data.historial.map((ev) => cardEvento(ev, true))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="border-t border-gray-100 px-6 sm:px-8 py-4 text-xs text-gray-400">
           <b className="text-gray-500">{data.empresa.nombre}</b> · página
-          exclusiva para {data.evento.cliente} · impulsado por Eventia
+          exclusiva de {data.mandante.nombre} · impulsado por Eventia
         </div>
       </div>
     </div>
