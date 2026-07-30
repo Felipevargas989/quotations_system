@@ -7,6 +7,7 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  FileText,
 } from "lucide-react";
 import { api, apiRequest } from "../../services/api";
 import { API_ROUTES } from "../../constants/api.routes";
@@ -28,6 +29,7 @@ interface CuotaPortal {
   enRevision?: boolean;
 }
 interface EventoPortal {
+  id: string;
   numero: number;
   tipo?: string | null;
   fecha?: string | null;
@@ -139,6 +141,47 @@ export default function PortalPage() {
       .catch(() => setError(true));
   };
   useEffect(cargar, [token]);
+
+  // La HOJA de la cotización (mismo diseño que usa la empresa). La
+  // ventana se abre ANTES de pedir los datos: los navegadores solo
+  // permiten abrir ventanas durante el clic.
+  const verCotizacion = async (quotationId: string) => {
+    if (!token) return;
+    const w = window.open("", "_blank");
+    if (!w) {
+      alert(
+        "Tu navegador bloqueó la ventana. Permite ventanas emergentes para ver la cotización.",
+      );
+      return;
+    }
+    w.document.write(
+      "<p style='font-family:sans-serif;color:#6b7280;padding:24px'>Cargando tu cotización…</p>",
+    );
+    try {
+      const d = (await apiRequest(
+        `${API_ROUTES.PORTAL}/${token}/cotizacion/${quotationId}`,
+        "GET",
+      )) as {
+        quotation: import("../../utils/quotationPrintDoc").PrintQuotation;
+        empresa: import("../../utils/quotationPrintDoc").PrintCompany;
+      };
+      const { buildQuotationPrintDoc } = await import(
+        "../../utils/quotationPrintDoc"
+      );
+      const { css, body } = buildQuotationPrintDoc(d.quotation, d.empresa, null);
+      w.document.open();
+      w.document.write(`<!DOCTYPE html>
+        <html lang="es"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Cotización ${d.quotation.quotation_number}</title>
+        <style>body{margin:0;background:#f3f4f6;} .qv-hoja{max-width:820px;margin:0 auto;} ${css}</style>
+        </head><body>${body}</body></html>`);
+      w.document.close();
+    } catch {
+      w.close();
+      alert("No se pudo abrir la cotización. Inténtalo de nuevo.");
+    }
+  };
 
   const enviarComprobante = async () => {
     if (!token || !compCuotaId || !compArchivo) return;
@@ -280,6 +323,14 @@ export default function PortalPage() {
                     <Users size={14} /> {ev.personas} personas
                   </span>
                 ) : null}
+                <button
+                  onClick={() => verCotizacion(ev.id)}
+                  className="flex items-center gap-1 font-semibold underline"
+                  style={{ color: primary }}
+                  title="Ver la cotización completa (puedes guardarla como PDF)"
+                >
+                  <FileText size={14} /> Ver cotización
+                </button>
               </p>
             </div>
             <span
@@ -597,6 +648,14 @@ export default function PortalPage() {
                         {ev.personas ? ` · ${ev.personas} personas` : ""}
                       </span>
                       <span className="flex items-center gap-2">
+                        <button
+                          onClick={() => verCotizacion(ev.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold underline whitespace-nowrap"
+                          style={{ color: primary }}
+                          title="Ver la cotización completa (puedes guardarla como PDF)"
+                        >
+                          <FileText size={12} /> Ver
+                        </button>
                         {ev.encuestaPath && (
                           <a
                             href={ev.encuestaPath}

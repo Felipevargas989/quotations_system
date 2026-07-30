@@ -53,6 +53,19 @@ export class PortalController {
     return this.quotationsService.getPortalData(token);
   }
 
+  // La cotización completa para la hoja/PDF del portal. Solo si
+  // pertenece al mandante del token; campos en LISTA BLANCA (los
+  // costos internos jamás salen por aquí).
+  @Public()
+  @Get(':token/cotizacion/:quotationId')
+  getPortalQuotation(
+    @Param('token') token: string,
+    @Param('quotationId') quotationId: string,
+  ) {
+    this.logger.info('GET /portal/cotizacion (token oculto)');
+    return this.quotationsService.getPortalQuotation(token, quotationId);
+  }
+
   // Fase 2b: "Ya transferí" — el cliente sube su comprobante. Queda
   // PENDIENTE hasta que el equipo lo confirme en Post-Venta.
   @Public()

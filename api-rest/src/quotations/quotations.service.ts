@@ -480,6 +480,7 @@ export class QuotationsService {
       const realizada = q.quotation_status === QuotationStatus.REALIZADA;
       const respondida = realizada && encuestasRespondidas.has(q.id);
       return {
+        id: q.id,
         numero: q.quotation_number,
         tipo: q.event_type,
         fecha: q.event_date,
@@ -552,6 +553,57 @@ export class QuotationsService {
       confirmados,
       enConversacion,
       historial,
+    };
+  }
+
+  /**
+   * La cotización completa para la HOJA del portal (mismo diseño que
+   * el visor del equipo). Solo si pertenece al mandante del token.
+   * LISTA BLANCA de campos: los costos internos (provisioned_*) y los
+   * identificadores de la casa jamás salen por esta puerta.
+   */
+  async getPortalQuotation(token: string, quotationId: string) {
+    if (!token || token.length < 40) {
+      throw new NotFoundException();
+    }
+    const { data: contacto } =
+      await this.quotationsRepository.findPortalContact(token);
+    const cliente = contacto?.clients;
+    if (!contacto || !cliente || !cliente.companies) {
+      throw new NotFoundException();
+    }
+    const { data: propias } = await this.quotationsRepository.findAllByContact(
+      contacto.id,
+    );
+    if (!(propias || []).some((q) => q.id === quotationId)) {
+      throw new NotFoundException();
+    }
+    const { data: q } = await this.quotationsRepository.findOne(quotationId);
+    if (!q) {
+      throw new NotFoundException();
+    }
+    return {
+      quotation: {
+        quotation_number: q.quotation_number,
+        people_count: q.people_count,
+        children_count: q.children_count,
+        event_type: q.event_type,
+        event_date: q.event_date,
+        event_end_date: q.event_end_date,
+        created_at: q.created_at,
+        total_amount: q.total_amount,
+        subtotal_amount: q.subtotal_amount,
+        tip_percentage: q.tip_percentage,
+        observations: q.observations,
+        contact_name: q.contact_name,
+        items: q.items,
+        clients: { name: q.clients?.name || cliente.name || '' },
+      },
+      empresa: {
+        name: cliente.companies.name,
+        logo_url: cliente.companies.logo_url || null,
+        colors: cliente.companies.colors || null,
+      },
     };
   }
 
