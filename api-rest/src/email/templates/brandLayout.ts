@@ -91,11 +91,14 @@ export interface BrandEmailParams {
 
 export const brandEmailTemplate = (p: BrandEmailParams): string => {
   const primary = p.branding.primary || EVENTIA_BLUE;
+  // Cabecera BLANCA (decisión de Felipe 29-07): franja fina del color
+  // primario arriba, nombre en el primario, subtítulo gris y el logo
+  // sin caja — así se adapta a cualquier logo de cualquier empresa.
   const logo = p.branding.logoUrl
-    ? `<td align="right" style="vertical-align:middle;"><img src="${p.branding.logoUrl}" alt="" height="44" style="max-height:44px;max-width:120px;border-radius:6px;background:#ffffff;padding:3px;"></td>`
+    ? `<td align="right" style="vertical-align:middle;"><img src="${p.branding.logoUrl}" alt="" height="48" style="max-height:48px;max-width:130px;"></td>`
     : '';
   const tagline = p.branding.tagline
-    ? `<div style="color:rgba(255,255,255,0.75);font-size:12.5px;margin-top:2px;">${p.branding.tagline}</div>`
+    ? `<div style="color:#6b7280;font-size:13px;margin-top:2px;">${p.branding.tagline}</div>`
     : '';
   const ctaColor = p.cta?.tone === 'firme' ? '#b45309' : primary;
   const cta = p.cta
@@ -110,10 +113,11 @@ export const brandEmailTemplate = (p: BrandEmailParams): string => {
 <body style="margin:0;padding:0;background:#eceff2;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eceff2;padding:24px 8px;"><tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:${FONT};color:#1f2937;font-size:15px;line-height:1.6;">
-      <tr><td style="background:${primary};padding:26px 32px;">
+      <tr><td style="background:${primary};height:6px;font-size:2px;line-height:6px;">&nbsp;</td></tr>
+      <tr><td style="background:#ffffff;padding:22px 32px 18px;border-bottom:1px solid #eef1f4;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="vertical-align:middle;">
-            <div style="color:#ffffff;font-size:20px;font-weight:700;font-family:${FONT};">${p.branding.companyName}</div>
+            <div style="color:${primary};font-size:21px;font-weight:800;font-family:${FONT};">${p.branding.companyName}</div>
             ${tagline}
           </td>
           ${logo}
