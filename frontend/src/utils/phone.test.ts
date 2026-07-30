@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatPhone, normalizePhone, telHref } from "./phone";
+import {
+  emailProblem,
+  formatPhone,
+  normalizePhone,
+  phoneProblem,
+  telHref,
+} from "./phone";
 
 // Primeras pruebas del frontend (Fase 2 Bloque C). Los casos salen de
 // la especificación escrita en los comentarios de phone.ts.
@@ -48,5 +54,34 @@ describe("formatPhone — mostrar vestido", () => {
 describe("telHref — el marcador recibe el número pelado", () => {
   it("normaliza antes de armar el enlace", () => {
     expect(telHref("+56 9 5095 5947")).toBe("tel:+56950955947");
+  });
+});
+
+describe("phoneProblem — el portero del campo teléfono (pillada 30-07)", () => {
+  it("un correo en el teléfono se rechaza con explicación", () => {
+    expect(phoneProblem("paula.lopez@climabiobio.cl")).toMatch(/correo/);
+  });
+  it("letras no pasan", () => {
+    expect(phoneProblem("nueve cinco cero")).toMatch(/letras/);
+  });
+  it("muy corto no pasa; vacío sí (es opcional)", () => {
+    expect(phoneProblem("12345")).toMatch(/corto/);
+    expect(phoneProblem("")).toBeNull();
+  });
+  it("teléfonos reales pasan en todas sus formas", () => {
+    expect(phoneProblem("+56 9 5095 5947")).toBeNull();
+    expect(phoneProblem("950955947")).toBeNull();
+    expect(phoneProblem("(42) 234 5678")).toBeNull();
+  });
+});
+
+describe("emailProblem — el portero del campo correo", () => {
+  it("un correo real pasa; vacío también (es opcional)", () => {
+    expect(emailProblem("paula.lopez@climabiobio.cl")).toBeNull();
+    expect(emailProblem("")).toBeNull();
+  });
+  it("un teléfono o texto suelto en el correo se rechaza", () => {
+    expect(emailProblem("+56950955947")).toMatch(/válido/);
+    expect(emailProblem("paula.lopez")).toMatch(/válido/);
   });
 });

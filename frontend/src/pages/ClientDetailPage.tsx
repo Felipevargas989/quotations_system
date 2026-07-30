@@ -29,7 +29,12 @@ import {
 } from "../services/clientContacts.service";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { getClientTypeColor } from "../utils/clientTypeColor";
-import { formatPhone, normalizePhone } from "../utils/phone";
+import {
+  emailProblem,
+  formatPhone,
+  normalizePhone,
+  phoneProblem,
+} from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
@@ -183,6 +188,11 @@ export default function ClientDetailPage() {
     email: string;
     phone: string;
   } | null>(null);
+  // Portero de los formularios de persona (30-07): el guardado se
+  // niega si el teléfono o el correo no parecen tales, y dice por qué.
+  const [contactFormError, setContactFormError] = useState<string | null>(
+    null,
+  );
   // Correos y teléfonos de la tarjeta: pincharlos COPIA (decisión de
   // Felipe 29-07 — antes eran mailto:/tel: y en el Mac abrían el app de
   // correo o FaceTime cuando uno solo quería pegar el dato en otro lado).
@@ -263,6 +273,13 @@ export default function ClientDetailPage() {
   const addContact = async () => {
     if (!data || !contactDraft || !contactDraft.name.trim() || !company?.id)
       return;
+    const problema =
+      phoneProblem(contactDraft.phone) || emailProblem(contactDraft.email);
+    if (problema) {
+      setContactFormError(problema);
+      return;
+    }
+    setContactFormError(null);
     setSavingContact(true);
     try {
       const isFirst = (data.client.client_contacts || []).length === 0;
@@ -316,6 +333,13 @@ export default function ClientDetailPage() {
 
   const saveContactEdit = async () => {
     if (!data || !contactEdit || !contactEdit.name.trim()) return;
+    const problema =
+      phoneProblem(contactEdit.phone) || emailProblem(contactEdit.email);
+    if (problema) {
+      setContactFormError(problema);
+      return;
+    }
+    setContactFormError(null);
     setSavingContact(true);
     try {
       const edited = (data.client.client_contacts || []).find(
@@ -659,6 +683,11 @@ export default function ClientDetailPage() {
                     placeholder="Teléfono (opcional)"
                     className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {contactFormError && (
+                    <p className="text-xs text-red-600 font-medium">
+                      {contactFormError}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -670,7 +699,10 @@ export default function ClientDetailPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setContactEdit(null)}
+                      onClick={() => {
+                        setContactEdit(null);
+                        setContactFormError(null);
+                      }}
                       className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
                     >
                       Cancelar
@@ -701,6 +733,7 @@ export default function ClientDetailPage() {
                       onClick={() => {
                         setConfirmContactDelId(null);
                         setContactDraft(null);
+                        setContactFormError(null);
                         setContactEdit({
                           id: c.id,
                           name: c.name,
@@ -789,6 +822,11 @@ export default function ClientDetailPage() {
                 placeholder="Teléfono (opcional)"
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              {contactFormError && (
+                <p className="text-xs text-red-600 font-medium">
+                  {contactFormError}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -800,7 +838,10 @@ export default function ClientDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setContactDraft(null)}
+                  onClick={() => {
+                    setContactDraft(null);
+                    setContactFormError(null);
+                  }}
                   className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
                 >
                   Cancelar
@@ -810,9 +851,10 @@ export default function ClientDetailPage() {
           ) : (
             <button
               type="button"
-              onClick={() =>
-                setContactDraft({ name: "", email: "", phone: "" })
-              }
+              onClick={() => {
+                setContactFormError(null);
+                setContactDraft({ name: "", email: "", phone: "" });
+              }}
               className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
             >
               <Plus size={13} /> Agregar contacto

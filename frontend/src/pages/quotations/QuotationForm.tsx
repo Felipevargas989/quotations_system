@@ -23,7 +23,12 @@ import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
-import { normalizePhone, PHONE_PLACEHOLDER } from "../../utils/phone";
+import {
+  emailProblem,
+  normalizePhone,
+  PHONE_PLACEHOLDER,
+  phoneProblem,
+} from "../../utils/phone";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import {
@@ -225,6 +230,9 @@ export default function QuotationForm() {
   const [newContactName, setNewContactName] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  // Portero del mini-formulario (30-07): ni correos en el teléfono ni
+  // teléfonos en el correo.
+  const [newContactError, setNewContactError] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   // Eliminar cotización (solo admin, solo editando): confirmación INLINE
@@ -1100,6 +1108,13 @@ export default function QuotationForm() {
   const addClientContact = async () => {
     const name = newContactName.trim();
     if (!name || !formData.client_id || !company?.id) return;
+    const problema =
+      phoneProblem(newContactPhone) || emailProblem(newContactEmail);
+    if (problema) {
+      setNewContactError(problema);
+      return;
+    }
+    setNewContactError(null);
     setSavingContact(true);
     const { data, error } = await createClientContact({
       company_id: company.id,
@@ -1936,6 +1951,11 @@ export default function QuotationForm() {
                       placeholder={PHONE_PLACEHOLDER}
                     />
                   </div>
+                  {newContactError && (
+                    <p className="text-xs text-red-600 font-medium pt-1">
+                      {newContactError}
+                    </p>
+                  )}
                   <div className="flex justify-end gap-2 pt-1">
                     <button
                       type="button"
@@ -1944,6 +1964,7 @@ export default function QuotationForm() {
                         setNewContactName("");
                         setNewContactEmail("");
                         setNewContactPhone("");
+                        setNewContactError(null);
                       }}
                       className="px-3 py-2 text-sm text-gray-600"
                     >

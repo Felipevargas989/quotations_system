@@ -87,5 +87,32 @@ export const formatPhone = (stored?: string | null): string => {
 export const telHref = (stored?: string | null): string =>
   `tel:${normalizePhone(stored || "")}`;
 
+/**
+ * PORTERO del campo teléfono (30-07): dice qué tiene de malo lo escrito,
+ * o null si está bien (vacío incluido — el teléfono es opcional). Nació
+ * de una pillada real: el campo aceptó un correo como teléfono.
+ */
+export const phoneProblem = (raw: string): string | null => {
+  const texto = (raw || "").trim();
+  if (!texto) return null;
+  if (texto.includes("@"))
+    return "Eso parece un correo, no un teléfono.";
+  if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(texto))
+    return "Un teléfono no lleva letras.";
+  const digitos = soloDigitos(texto).length;
+  if (digitos < 8) return "El teléfono está muy corto.";
+  if (digitos > 15) return "El teléfono tiene demasiados dígitos.";
+  return null;
+};
+
+/** PORTERO del campo correo: null si está bien (vacío = opcional). */
+export const emailProblem = (raw: string): string | null => {
+  const texto = (raw || "").trim();
+  if (!texto) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(texto))
+    return "Ese correo no parece válido.";
+  return null;
+};
+
 /** Texto de ejemplo para los recuadros donde se escribe un teléfono. */
 export const PHONE_PLACEHOLDER = "+56 9 1234 5678";
