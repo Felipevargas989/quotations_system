@@ -75,50 +75,80 @@ export default function FixedServicesBySection({
   );
   const [renameSectionName, setRenameSectionName] = useState("");
 
-  // ---- Arrastre de servicios (mismo patrón nativo que variables) ----
+  // ---- Arrastre de servicios (calcado de variables, 30-07 v2):
+  // SOLO reordena dentro del grupo (cruzar sección = la cajita), y la
+  // pantalla se mueve AL INSTANTE (orden local optimista) mientras el
+  // servidor confirma en silencio. ----
   const dragService = useRef<number | null>(null);
+  const dragFrom = useRef<number | null | "nada">("nada");
+  // Orden/membresía local por grupo (clave: id de sección o "sin").
+  const [localOrder, setLocalOrder] = useState<Record<string, number[]>>({});
+  const keyOf = (sectionId: number | null) =>
+    sectionId === null ? "sin" : String(sectionId);
 
-  const servicesOf = (sectionId: number | null) =>
-    fixedServices
+  const byId = new Map(fixedServices.map((s) => [s.id, s]));
+  const servicesOf = (sectionId: number | null): FixedService[] => {
+    const override = localOrder[keyOf(sectionId)];
+    if (override) {
+      return override
+        .map((id) => byId.get(id))
+        .filter((s): s is FixedService => !!s);
+    }
+    return fixedServices
       .filter((s) => (s.section_id ?? null) === sectionId)
       .sort(
         (a, b) =>
           (a.sort_order ?? 9999) - (b.sort_order ?? 9999) || a.id - b.id,
       );
+  };
 
   const dropOnService = async (sectionId: number | null, targetId: number) => {
     const moved = dragService.current;
+    const desde = dragFrom.current;
     dragService.current = null;
-    if (moved == null || moved === targetId) return;
+    dragFrom.current = "nada";
+    // Como arriba: el arrastre NO cruza secciones.
+    if (moved == null || moved === targetId || desde !== sectionId) return;
     const lista = servicesOf(sectionId)
       .map((s) => s.id)
       .filter((id) => id !== moved);
     const idx = lista.indexOf(targetId);
     lista.splice(idx < 0 ? lista.length : idx, 0, moved);
+    setLocalOrder((prev) => ({ ...prev, [keyOf(sectionId)]: lista }));
     await reorderFixedServices(sectionId, lista);
-    onServicesChanged();
   };
 
   const dropOnGroup = async (sectionId: number | null) => {
     const moved = dragService.current;
+    const desde = dragFrom.current;
     dragService.current = null;
-    if (moved == null) return;
+    dragFrom.current = "nada";
+    if (moved == null || desde !== sectionId) return;
     const lista = servicesOf(sectionId)
       .map((s) => s.id)
       .filter((id) => id !== moved);
     lista.push(moved);
+    setLocalOrder((prev) => ({ ...prev, [keyOf(sectionId)]: lista }));
     await reorderFixedServices(sectionId, lista);
-    onServicesChanged();
   };
 
-  // Cajita desplegable de la fila: asignar sección sin arrastrar.
+  // Cajita desplegable de la fila: mover de sección (optimista).
   const changeSection = async (s: FixedService, sectionId: number | null) => {
-    const lista = servicesOf(sectionId)
+    const origen = (s.section_id ?? null) as number | null;
+    if (origen === sectionId) return;
+    const listaOrigen = servicesOf(origen)
       .map((x) => x.id)
       .filter((id) => id !== s.id);
-    lista.push(s.id);
-    await reorderFixedServices(sectionId, lista);
-    onServicesChanged();
+    const listaDestino = servicesOf(sectionId)
+      .map((x) => x.id)
+      .filter((id) => id !== s.id);
+    listaDestino.push(s.id);
+    setLocalOrder((prev) => ({
+      ...prev,
+      [keyOf(origen)]: listaOrigen,
+      [keyOf(sectionId)]: listaDestino,
+    }));
+    await reorderFixedServices(sectionId, listaDestino);
   };
 
   // ---- Acciones del modal ----
@@ -163,6 +193,7 @@ export default function FixedServicesBySection({
         draggable
         onDragStart={() => {
           dragService.current = s.id;
+          dragFrom.current = sectionId;
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -191,7 +222,12 @@ export default function FixedServicesBySection({
         <div className="flex items-center space-x-2 flex-shrink-0">
           {sections.length > 0 && (
             <select
-              value={s.section_id || 0}
+              value={(() => {
+                for (const [k, ids] of Object.entries(localOrder)) {
+                  if (ids.includes(s.id)) return k === "sin" ? 0 : Number(k);
+                }
+                return s.section_id || 0;
+              })()}
               onChange={(e) =>
                 void changeSection(s, Number(e.target.value) || null)
               }
