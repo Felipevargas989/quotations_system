@@ -531,7 +531,10 @@ export default function PostVentaPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <div className="relative">
+          {/* Buscador a todo el ancho disponible (pedido de Felipe
+              30-07: estaba fijo en angosto, a diferencia del de
+              Cotizaciones). */}
+          <div className="relative flex-1 min-w-[220px]">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               size={18}
@@ -539,8 +542,8 @@ export default function PostVentaPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por N°, cliente o contacto…"
-              className="w-72 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Buscar por N°, cliente o mandante…"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div className="min-w-[180px]">
