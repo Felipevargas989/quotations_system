@@ -176,6 +176,11 @@ export default function PortalPage() {
     compacta = false,
   ) => {
     const abiertoEste = abierto === ev.numero;
+    // Historial de UNA cuota: el plan repetiría el mismo monto — la
+    // fecha de pago va en la línea y el desplegable desaparece.
+    const unaCuotaSaldada =
+      compacta && (ev.cuotas || []).length === 1;
+    if (unaCuotaSaldada) expandible = false;
     const togglePlan = expandible && (
       <button
         onClick={() => setAbierto(abiertoEste ? null : ev.numero)}
@@ -189,7 +194,12 @@ export default function PortalPage() {
     return (
       <div
         key={ev.numero}
-        className="border border-gray-100 rounded-xl overflow-hidden"
+        className="border border-gray-200 shadow-sm rounded-xl overflow-hidden bg-white"
+        style={
+          // Riel de color: los eventos VIVOS llevan el color de la
+          // empresa al costado; el historial descansa sin riel.
+          compacta ? undefined : { borderLeft: `4px solid ${primary}` }
+        }
       >
         <div className="px-4 py-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -221,6 +231,12 @@ export default function PortalPage() {
               <div className="mt-2 flex items-baseline justify-between flex-wrap gap-2">
                 <p className="text-sm">
                   <b className="text-green-700">Pagado {clp(ev.total)} ✓</b>
+                  {unaCuotaSaldada && ev.cuotas?.[0]?.pagadaEl && (
+                    <span className="text-gray-500 font-normal">
+                      {" "}
+                      · {fecha(ev.cuotas[0].pagadaEl)}
+                    </span>
+                  )}
                 </p>
                 {togglePlan}
               </div>
@@ -259,7 +275,13 @@ export default function PortalPage() {
         </div>
 
         {expandible && abiertoEste && (
-          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/60">
+          <div
+            className="px-4 py-3"
+            style={{
+              background: mix(primary, 0.035),
+              borderTop: `2px solid ${mix(primary, 0.2)}`,
+            }}
+          >
             {(ev.cuotas || []).map((c) => (
               <div
                 key={c.numero}
