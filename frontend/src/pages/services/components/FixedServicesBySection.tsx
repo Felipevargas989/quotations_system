@@ -24,6 +24,7 @@ import {
   updateFixedSection,
 } from "../../../services/services.service";
 import { FixedService } from "../../../types/services.types";
+import SectionChipSelect from "../../../components/selects/SectionChipSelect";
 
 // SERVICIOS FIJOS EN UNA SOLA CAJA (migración 53, diseño de Felipe
 // 30-07 tras dos vueltas): las secciones NO son cajas apiladas — son
@@ -221,27 +222,18 @@ export default function FixedServicesBySection({
         </div>
         <div className="flex items-center space-x-2 flex-shrink-0">
           {sections.length > 0 && (
-            <select
+            <SectionChipSelect
               value={(() => {
                 for (const [k, ids] of Object.entries(localOrder)) {
                   if (ids.includes(s.id)) return k === "sin" ? 0 : Number(k);
                 }
                 return s.section_id || 0;
               })()}
-              onChange={(e) =>
-                void changeSection(s, Number(e.target.value) || null)
-              }
-              className="text-xs border border-gray-200 rounded-md px-1.5 py-1 text-gray-500 bg-white hover:border-gray-300 max-w-[130px]"
+              options={sections.map((sec) => ({ id: sec.id, name: sec.name }))}
+              onChange={(id) => void changeSection(s, id === 0 ? null : id)}
               title="Sección"
-              aria-label={`Sección de ${s.name}`}
-            >
-              <option value={0}>Sin sección</option>
-              {sections.map((sec) => (
-                <option key={sec.id} value={sec.id}>
-                  {sec.name}
-                </option>
-              ))}
-            </select>
+              ariaLabel={`Sección de ${s.name}`}
+            />
           )}
           <button
             type="button"

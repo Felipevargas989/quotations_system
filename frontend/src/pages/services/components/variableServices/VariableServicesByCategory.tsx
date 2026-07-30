@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import SectionChipSelect from "../../../../components/selects/SectionChipSelect";
 import {
   Edit,
   Trash2,
@@ -815,22 +816,16 @@ export default function VariableServicesByCategory({
                       </div>
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         {catSections.length > 0 && link && (
-                          <select
+                          <SectionChipSelect
                             value={link.section_id || 0}
-                            onChange={(e) =>
-                              changeSection(link, Number(e.target.value))
-                            }
-                            className="text-xs border border-gray-200 rounded-md px-1.5 py-1 text-gray-500 bg-white hover:border-gray-300 max-w-[130px]"
+                            options={catSections.map((sc) => ({
+                              id: sc.id,
+                              name: sc.name,
+                            }))}
+                            onChange={(id) => changeSection(link, id)}
                             title="Sección"
-                            aria-label={`Sección de ${service.name}`}
-                          >
-                            <option value={0}>Sin sección</option>
-                            {catSections.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
+                            ariaLabel={`Sección de ${service.name}`}
+                          />
                         )}
                         <button
                           type="button"
