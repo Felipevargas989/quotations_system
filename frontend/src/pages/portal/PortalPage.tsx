@@ -577,9 +577,9 @@ export default function PortalPage() {
                 {data.historial.map((ev) => (
                   <div
                     key={ev.numero}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm flex-wrap"
+                    className="grid grid-cols-[minmax(0,1fr)_106px_160px] items-center gap-2 px-4 py-2.5 text-sm"
                   >
-                    <span className="text-gray-800">
+                    <span className="text-gray-800 truncate">
                       <b>
                         {ev.tipo || "Evento"} · N° {ev.numero}
                       </b>{" "}
@@ -588,13 +588,13 @@ export default function PortalPage() {
                         {ev.personas ? ` · ${ev.personas} pers.` : ""}
                       </span>
                     </span>
-                    <span className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="flex justify-center">
                       {ev.encuestaPath && (
                         <a
                           href={ev.encuestaPath}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 whitespace-nowrap"
                           title="Cuéntanos cómo estuvo tu evento"
                         >
                           <span className="font-black">!</span> encuesta
@@ -602,16 +602,19 @@ export default function PortalPage() {
                       )}
                       {ev.encuestaRespondida && (
                         <span
-                          className="text-[11px] font-bold text-green-700"
+                          className="text-[11px] font-bold text-green-700 whitespace-nowrap"
                           title="Encuesta respondida — ¡gracias!"
                         >
                           ✓ encuesta
                         </span>
                       )}
-                      <b className="text-green-700">
-                        Pagado {clp(ev.total)} ✓
-                      </b>
                     </span>
+                    <b
+                      className="text-green-700 text-right whitespace-nowrap"
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      Pagado {clp(ev.total)} ✓
+                    </b>
                   </div>
                 ))}
               </div>
