@@ -256,9 +256,14 @@ export class EmailService {
 
     // Marca de la empresa para los correos que ve el cliente. Ojo: en
     // NEW_PUBLIC_QUOTATION_* el companyId viaja en la posición de
-    // params (así son sus overloads).
-    const brandCompanyId =
-      companyId ?? (typeof params === 'number' ? params : undefined);
+    // params (así son sus overloads) y en runtime puede llegar como
+    // TEXTO ("1", viene de la URL pública) — por eso el Number().
+    const paramsAsId =
+      (typeof params === 'number' || typeof params === 'string') &&
+      Number.isFinite(Number(params))
+        ? Number(params)
+        : undefined;
+    const brandCompanyId = companyId ?? paramsAsId;
     let branding: EmailBranding = {
       companyName:
         ((params as { companyName?: string })?.companyName as string) ||
