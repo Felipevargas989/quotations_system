@@ -1016,22 +1016,26 @@ export default function ClientsPage() {
                         </div>
                       </div>
                     )}
-                    {!contactDraft && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setContactDraft({
-                            id: null,
-                            name: "",
-                            email: "",
-                            phone: "",
-                          })
-                        }
-                        className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
-                      >
-                        + Agregar persona
-                      </button>
-                    )}
+                    {/* Particulares = UNA persona (regla de Felipe 30-07,
+                        medido: 0 de 134 tenían más; regla solo de
+                        pantalla, sin candado en la base). */}
+                    {!contactDraft &&
+                      !(!isEmpresa && contacts.length >= 1) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setContactDraft({
+                              id: null,
+                              name: "",
+                              email: "",
+                              phone: "",
+                            })
+                          }
+                          className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
+                        >
+                          + Agregar persona
+                        </button>
+                      )}
                     <p className="text-[11px] text-gray-400 pt-1">
                       La estrella marca el contacto principal (es el que se
                       muestra en la lista de clientes).

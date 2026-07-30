@@ -848,7 +848,10 @@ export default function ClientDetailPage() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : // Particulares = UNA persona (regla de Felipe 30-07,
+          // medido: 0 de 134 tenían más; sin candado en la base).
+          client.client_type === "Particulares" &&
+            (data.client.client_contacts || []).length >= 1 ? null : (
             <button
               type="button"
               onClick={() => {
