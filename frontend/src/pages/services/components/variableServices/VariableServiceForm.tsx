@@ -10,7 +10,6 @@ import {
   updateVariableService,
   setServiceCategories,
   createCategory,
-  findAllServices,
 } from "../../../../services/services.service";
 import { NumberInput } from "../../../../components/inputs";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -23,6 +22,10 @@ interface VariableServiceFormProps {
   readonly service?: VariableService;
   readonly isEditing?: boolean;
   readonly initialTab?: "datos" | "receta";
+  // Catálogo que la página YA tiene en memoria (30-07): el formulario
+  // dejó de descargar todo el catálogo solo para marcar checkboxes.
+  readonly allCategories: ServiceCategorySetting[];
+  readonly allCategoryLinks: { variable_service_id: number; category_id: number }[];
 }
 
 export default function VariableServiceForm({
@@ -32,6 +35,8 @@ export default function VariableServiceForm({
   service,
   isEditing = false,
   initialTab = "datos",
+  allCategories,
+  allCategoryLinks,
 }: VariableServiceFormProps) {
   const { company } = useAuth();
   const [tab, setTab] = useState<"datos" | "receta">(initialTab);
@@ -56,36 +61,30 @@ export default function VariableServiceForm({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
 
-  // Load categories + this service's current links.
+  // Categorías y vínculos vienen de la PÁGINA (ya en memoria): los
+  // checkboxes aparecen al instante, sin viaje al servidor (30-07 —
+  // antes el formulario re-descargaba el catálogo completo).
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await findAllServices();
-        const cats = (data?.categories ?? []).slice().sort(
-          (a, b) =>
-            (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-            (b.sort_order ?? Number.MAX_SAFE_INTEGER),
-        );
-        setCategories(cats);
+    const cats = allCategories.slice().sort(
+      (a, b) =>
+        (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+        (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+    );
+    setCategories(cats);
 
-        if (isEditing && service) {
-          const links = (data?.categoryLinks ?? []).filter(
-            (l) => l.variable_service_id === service.id,
-          );
-          let ids = links.map((l) => l.category_id);
-          // Fallback: match by legacy category name if there are no links yet.
-          if (ids.length === 0 && service.category) {
-            const match = cats.find((c) => c.name === service.category);
-            if (match) ids = [match.id];
-          }
-          setSelectedCategoryIds(ids);
-        }
-      } catch {
-        // ignore
+    if (isEditing && service) {
+      const links = allCategoryLinks.filter(
+        (l) => l.variable_service_id === service.id,
+      );
+      let ids = links.map((l) => l.category_id);
+      // Fallback: match by legacy category name if there are no links yet.
+      if (ids.length === 0 && service.category) {
+        const match = cats.find((c) => c.name === service.category);
+        if (match) ids = [match.id];
       }
-    };
-    load();
-  }, [isEditing, service]);
+      setSelectedCategoryIds(ids);
+    }
+  }, [isEditing, service, allCategories, allCategoryLinks]);
 
   // Initialize form data when editing
   useEffect(() => {

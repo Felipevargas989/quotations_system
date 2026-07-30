@@ -19,6 +19,7 @@ import {
   updateFixedService,
   updateVariableService,
   getUsedServiceCodes,
+  createCategory,
 } from "../../services/services.service";
 import MultiSelect, {
   MultiSelectOption,
@@ -38,6 +39,21 @@ export default function ServicesPage() {
 
   // Menú del botón "+ Nuevo servicio" (variable / fijo / importar Excel).
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  // "+ Nueva categoría" de la botonera (null = cerrado).
+  const [newTopCategory, setNewTopCategory] = useState<string | null>(null);
+  const [savingTopCategory, setSavingTopCategory] = useState(false);
+  const crearCategoriaArriba = async () => {
+    const name = (newTopCategory || "").trim();
+    if (!name) return;
+    setSavingTopCategory(true);
+    try {
+      await createCategory(name);
+      setNewTopCategory(null);
+      await loadServices();
+    } finally {
+      setSavingTopCategory(false);
+    }
+  };
   const createMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!showCreateMenu) return;
@@ -344,13 +360,57 @@ export default function ServicesPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           Gestión de Servicios
         </h1>
-        {/* Un solo botón: el menú despliega variable / fijo / importar Excel */}
+        {/* Botonera sobria (30-07): blanco y borde fino — el azul fuerte
+            se reserva para Guardar. Nueva categoría vive arriba, a la
+            vista, no escondida en el formulario de servicio. */}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            {newTopCategory !== null ? (
+              <span className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={newTopCategory}
+                  onChange={(e) => setNewTopCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void crearCategoriaArriba();
+                    if (e.key === "Escape") setNewTopCategory(null);
+                  }}
+                  placeholder="Nombre de la categoría"
+                  className="w-56 px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                />
+                <button
+                  type="button"
+                  disabled={savingTopCategory || !newTopCategory.trim()}
+                  onClick={() => void crearCategoriaArriba()}
+                  className="px-3 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg disabled:opacity-50"
+                >
+                  Crear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTopCategory(null)}
+                  className="px-2 py-2 text-sm text-gray-500"
+                >
+                  ✕
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setNewTopCategory("")}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+              >
+                <Plus size={16} />
+                <span>Nueva categoría</span>
+              </button>
+            )}
+          </div>
         <div className="relative" ref={createMenuRef}>
           <button
             onClick={() => setShowCreateMenu((v) => !v)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             <span>Nuevo servicio</span>
           </button>
           {showCreateMenu && (
@@ -389,6 +449,7 @@ export default function ServicesPage() {
               </button>
             </div>
           )}
+        </div>
         </div>
       </div>
 
@@ -534,6 +595,8 @@ export default function ServicesPage() {
         service={editingService as VariableService | undefined}
         isEditing={!!editingService}
         initialTab={initialFormTab}
+        allCategories={orderedCategories}
+        allCategoryLinks={categoryLinks}
       />
     </div>
   );
