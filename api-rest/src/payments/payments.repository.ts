@@ -104,7 +104,8 @@ export class PaymentsRepository {
         email,
         client_contacts (
           name,
-          phone
+          phone,
+          email
         )
       ),
       companies!inner (

@@ -88,6 +88,7 @@ interface EventRow {
   clientType?: string;
   contactPerson?: string;
   phone?: string;
+  contactEmail?: string;
   requiresInvoice?: boolean;
   hasContract?: boolean;
   total: number;
@@ -287,17 +288,28 @@ export default function PostVentaPage() {
       // tiene fono registrado, no se muestra el de otra persona.
       const qExtra = q as unknown as {
         contact_name?: string | null;
-        clients?: { client_contacts?: { name: string; phone?: string }[] };
+        clients?: {
+          email?: string;
+          client_contacts?: {
+            name: string;
+            phone?: string;
+            email?: string;
+          }[];
+        };
       };
       const mandante = qExtra?.contact_name?.trim();
       let contactPerson = client?.contact_person;
       let phone = client?.phone;
+      // Correo en la columna (pedido de Felipe 30-07), igual que en
+      // Cotizaciones: el del mandante; sin mandante, el de la ficha.
+      let contactEmail = qExtra?.clients?.email;
       if (mandante) {
         contactPerson = mandante;
         const match = (qExtra?.clients?.client_contacts || []).find(
           (c) => normalizeText(c.name) === normalizeText(mandante),
         );
         phone = match?.phone || undefined;
+        contactEmail = match?.email || undefined;
       }
 
       events.push({
@@ -311,6 +323,7 @@ export default function PostVentaPage() {
         clientType: client?.client_type,
         contactPerson,
         phone,
+        contactEmail,
         requiresInvoice: q?.requires_invoice,
         hasContract: q?.has_contract,
         portalToken:
@@ -530,7 +543,7 @@ export default function PostVentaPage() {
             Eventos cerrados · seguimiento de pagos
           </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-1 ml-8 max-w-4xl justify-end">
           {/* Buscador a todo el ancho disponible (pedido de Felipe
               30-07: estaba fijo en angosto, a diferencia del de
               Cotizaciones). */}
@@ -699,6 +712,14 @@ export default function PostVentaPage() {
                         <div className="text-xs text-gray-500">
                           {formatPhone(r.phone)}
                         </div>
+                        {r.contactEmail && (
+                          <div
+                            className="text-xs text-gray-500 truncate max-w-[180px]"
+                            title={r.contactEmail}
+                          >
+                            {r.contactEmail}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                         {clp(r.total)}
