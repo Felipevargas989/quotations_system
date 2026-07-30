@@ -83,6 +83,9 @@ export default function ServicesPage() {
   // búsqueda inteligente del sistema. Reemplazó al subtítulo redundante
   // "Servicios Variables".
   const [svcSearch, setSvcSearch] = useState("");
+  // Inactivos ocultos por defecto (Felipe 30-07); el interruptor NO se
+  // recuerda a propósito: al recargar vuelve a la vista limpia.
+  const [showInactive, setShowInactive] = useState(false);
   const searchingSvc = svcSearch.trim() !== "";
 
   // Filtro por receta/costos (26-07-2026). Vacío = todos. Se aplica DENTRO de
@@ -150,12 +153,15 @@ export default function ServicesPage() {
     ? fixedServices.filter((s) => matchesSearch(svcSearch, s.name))
     : fixedServices;
 
-  const shownVariableServices = searchedVariables.filter((s) =>
-    passesRecipeFilter(variableHasRecipe(s)),
-  );
-  const shownFixedServices = searchedFixed.filter((s) =>
-    passesRecipeFilter(fixedHasCosts(s)),
-  );
+  const shownVariableServices = searchedVariables
+    .filter((s) => passesRecipeFilter(variableHasRecipe(s)))
+    .filter((s) => showInactive || s.is_active !== false);
+  const shownFixedServices = searchedFixed
+    .filter((s) => passesRecipeFilter(fixedHasCosts(s)))
+    .filter((s) => showInactive || s.is_active !== false);
+  const inactiveCount =
+    variableServices.filter((s) => s.is_active === false).length +
+    fixedServices.filter((s) => s.is_active === false).length;
 
   const conCount =
     variableServices.filter(variableHasRecipe).length +
@@ -436,6 +442,20 @@ export default function ServicesPage() {
             className="w-full"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setShowInactive((v) => !v)}
+          className={`px-3 py-2 text-sm font-semibold rounded-lg border whitespace-nowrap ${
+            showInactive
+              ? "bg-blue-50 border-blue-300 text-blue-700"
+              : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+          title="Los servicios inactivos se ocultan por defecto"
+        >
+          {showInactive
+            ? "Ocultar inactivos"
+            : `Ver inactivos (${inactiveCount})`}
+        </button>
         {recipeFilterActive && (
           <span className="text-sm text-gray-600">
             Mostrando {shownVariableServices.length + shownFixedServices.length}{" "}
@@ -449,7 +469,9 @@ export default function ServicesPage() {
           activate-deactivate / delete). Services inside drag to reorder. */}
       <VariableServicesByCategory
         companyId={company?.id ? Number(company.id) : null}
-        orderedCategories={orderedCategories}
+        orderedCategories={orderedCategories.filter(
+          (c) => showInactive || c.is_active !== false,
+        )}
         variableServices={shownVariableServices}
         categoryLinks={categoryLinks}
         searchActive={searchingSvc || recipeFilterActive}
