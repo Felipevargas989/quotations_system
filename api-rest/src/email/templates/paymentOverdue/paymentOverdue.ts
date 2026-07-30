@@ -29,7 +29,7 @@ export const paymentOverdueTemplate = (
       `<span style="color:#b45309;font-weight:700;">Vencida el ${fecha}</span>`,
       primary,
     )}
-    ${datosCobroPanel(branding.bank)}
+    ${datosCobroPanel(branding.bank, primary)}
     <p style="margin:0 0 14px;">Para asegurar que tu evento siga en pie tal como lo planificamos, necesitamos regularizar este pago.</p>
     <p style="margin:0 0 14px;">Si hay un problema o quieres proponer una nueva fecha, <b>responde este correo hoy</b> — siempre hay una solución conversando.</p>`;
 

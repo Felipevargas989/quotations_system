@@ -29,6 +29,22 @@ const FONT = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 export const fmtCLP = (n: number): string =>
   '$' + Number(n || 0).toLocaleString('es-CL');
 
+/**
+ * Mezcla un color hex con blanco (peso = cuánto color queda). Así
+ * TODOS los fondos y bordes del correo se derivan del color primario
+ * de la empresa y la pieza entera se ve de una sola familia — sin
+ * rgba, que Outlook no respeta.
+ */
+export const mixWithWhite = (hex: string, weight: number): string => {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const canal = (i: number) =>
+    Math.round(parseInt(h.slice(i, i + 2), 16) * weight + 255 * (1 - weight))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${canal(0)}${canal(2)}${canal(4)}`;
+};
+
 export const fmtFechaLarga = (d: Date | string): string => {
   const date = typeof d === 'string' ? new Date(`${d}T12:00:00`) : d;
   return date.toLocaleDateString('es-CL', {
@@ -45,14 +61,17 @@ export const cifraBox = (
   sub: string,
   primary: string,
 ): string => `
-  <div style="background:#f4f7fb;border:1px solid #dfe8f3;border-radius:10px;padding:16px 20px;margin:18px 0;">
+  <div style="background:${mixWithWhite(primary, 0.06)};border:1px solid ${mixWithWhite(primary, 0.22)};border-radius:10px;padding:16px 20px;margin:18px 0;">
     <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;">${label}</div>
     <div style="font-size:26px;font-weight:800;color:${primary};">${valor}</div>
     <div style="font-size:13.5px;color:#4b5563;margin-top:4px;">${sub}</div>
   </div>`;
 
 /** Panel punteado con los datos de cobro de la empresa. */
-export const datosCobroPanel = (bank?: Company['bank_details']): string => {
+export const datosCobroPanel = (
+  bank?: Company['bank_details'],
+  primary: string = EVENTIA_BLUE,
+): string => {
   if (!bank || (!bank.numero && !bank.banco)) return '';
   const lineas = [
     [bank.titular, bank.rut ? `RUT ${bank.rut}` : '']
@@ -64,14 +83,16 @@ export const datosCobroPanel = (bank?: Company['bank_details']): string => {
     .filter(Boolean)
     .join('<br>');
   return `
-  <div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:14px;color:#374151;">
-    <b style="color:#111827;">Datos para transferir</b><br>${lineas}
+  <div style="background:${mixWithWhite(primary, 0.04)};border:1px dashed ${mixWithWhite(primary, 0.35)};border-radius:10px;padding:14px 18px;margin:16px 0;font-size:14px;color:#374151;">
+    <b style="color:${primary};">Datos para transferir</b><br>${lineas}
   </div>`;
 };
 
 const bandHtml = (text: string, tone: BandTone, primary: string): string => {
+  // Info = tinte del color de la empresa; aviso/firme = ámbar, el
+  // semáforo universal de la cobranza (única excepción a la familia).
   const styles: Record<BandTone, string> = {
-    info: `background:#e8eef7;color:${primary};`,
+    info: `background:${mixWithWhite(primary, 0.1)};color:${primary};`,
     aviso: 'background:#fef3c7;color:#92600a;',
     firme: 'background:#b45309;color:#ffffff;',
   };
@@ -95,7 +116,7 @@ export const brandEmailTemplate = (p: BrandEmailParams): string => {
   // primario arriba, nombre en el primario, subtítulo gris y el logo
   // sin caja — así se adapta a cualquier logo de cualquier empresa.
   const logo = p.branding.logoUrl
-    ? `<td align="right" style="vertical-align:middle;"><img src="${p.branding.logoUrl}" alt="" height="48" style="max-height:48px;max-width:130px;"></td>`
+    ? `<td align="right" style="vertical-align:middle;"><img src="${p.branding.logoUrl}" alt="" height="62" style="max-height:62px;max-width:160px;"></td>`
     : '';
   const tagline = p.branding.tagline
     ? `<div style="color:#6b7280;font-size:13px;margin-top:2px;">${p.branding.tagline}</div>`

@@ -50,7 +50,7 @@ export const paymentReminderTemplate = (
       venceHoy ? 'Vence hoy' : `Vence el ${fecha}`,
       primary,
     )}
-    ${datosCobroPanel(branding.bank)}
+    ${datosCobroPanel(branding.bank, primary)}
     ${cierre}`;
 
   return brandEmailTemplate({
