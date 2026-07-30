@@ -2,12 +2,16 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
-  Coins,
+  ChefHat,
+  ChevronDown,
+  ChevronRight,
   Edit,
+  Eye,
+  EyeOff,
   GripVertical,
   MoreVertical,
+  Pencil,
   Plus,
-  Power,
   Trash2,
   X,
 } from "lucide-react";
@@ -75,6 +79,8 @@ export default function FixedServicesBySection({
   );
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  // Plegado por caja (parten abiertas); "sin" = la caja Sin sección.
+  const [closed, setClosed] = useState<Set<number | "sin">>(new Set());
 
   // ---- Arrastre (mismo patrón nativo que variables) ----
   const dragService = useRef<number | null>(null);
@@ -185,51 +191,53 @@ export default function FixedServicesBySection({
           inactive ? "opacity-50" : ""
         }`}
       >
-        <GripVertical size={14} className="text-gray-300 shrink-0" />
-        <span
-          className="flex-1 min-w-0 truncate text-sm text-gray-900"
-          title={s.name}
-        >
-          {s.name}
-        </span>
-        <span className="text-xs text-gray-500 whitespace-nowrap hidden md:inline">
-          {s.min_price && s.max_price
-            ? `${clp(s.min_price)} – ${clp(s.max_price)}`
-            : clp(s.price)}
-          {s.price_per_person ? ` · ${clp(s.price_per_person)}/p` : ""}
-        </span>
-        <span className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <GripVertical
+            size={16}
+            className="text-gray-400 cursor-grab flex-shrink-0"
+          />
+          <span className="text-sm text-gray-900 truncate" title={s.name}>
+            {s.name}
+          </span>
+          <span className="text-sm text-gray-500 flex-shrink-0">
+            {s.min_price && s.max_price
+              ? `${clp(s.min_price)} – ${clp(s.max_price)}`
+              : clp(s.price)}
+            {s.price_per_person ? ` · ${clp(s.price_per_person)}/p` : ""}
+          </span>
+        </div>
+        <span className="flex items-center space-x-2 shrink-0">
           <button
             type="button"
-            onClick={() => onEditRecipe(s)}
-            className="p-1.5 text-gray-400 hover:text-amber-600"
-            title="Costos del servicio"
-          >
-            <Coins size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onEdit(s)}
-            className="p-1.5 text-gray-400 hover:text-blue-600"
-            title="Editar"
-          >
-            <Edit size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onToggleActive(s)}
-            className={`p-1.5 ${inactive ? "text-gray-300" : "text-green-500"} hover:text-gray-700`}
             title={inactive ? "Activar" : "Desactivar"}
+            onClick={() => onToggleActive(s)}
+            className="text-gray-400 hover:text-gray-700"
           >
-            <Power size={14} />
+            {inactive ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           <button
             type="button"
-            onClick={() => onDelete(s.id)}
-            className="p-1.5 text-gray-400 hover:text-red-600"
-            title="Eliminar"
+            title="Costos"
+            onClick={() => onEditRecipe(s)}
+            className="text-amber-600 hover:text-amber-800"
           >
-            <Trash2 size={14} />
+            <ChefHat size={16} />
+          </button>
+          <button
+            type="button"
+            title="Editar"
+            onClick={() => onEdit(s)}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            <Edit size={16} />
+          </button>
+          <button
+            type="button"
+            title="Eliminar"
+            onClick={() => onDelete(s.id)}
+            className="text-red-500 hover:text-red-700"
+          >
+            <Trash2 size={16} />
           </button>
         </span>
       </div>
@@ -264,8 +272,36 @@ export default function FixedServicesBySection({
           className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border-b border-gray-200"
         >
           {sec && (
-            <GripVertical size={15} className="text-gray-400 cursor-grab" />
+            <GripVertical
+              size={16}
+              className="text-gray-400 cursor-grab flex-shrink-0"
+            />
           )}
+          {(() => {
+            const key = sec ? sec.id : ("sin" as const);
+            const abierta = !closed.has(key);
+            return (
+              <button
+                type="button"
+                onClick={() =>
+                  setClosed((prev) => {
+                    const n = new Set(prev);
+                    if (n.has(key)) n.delete(key);
+                    else n.add(key);
+                    return n;
+                  })
+                }
+                className="text-gray-400 flex-shrink-0"
+                title={abierta ? "Plegar" : "Desplegar"}
+              >
+                {abierta ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronRight size={16} />
+                )}
+              </button>
+            );
+          })()}
           {renaming && sec && renaming.id === sec.id ? (
             <span className="flex items-center gap-1 flex-1">
               <input
@@ -294,30 +330,34 @@ export default function FixedServicesBySection({
               </button>
             </span>
           ) : (
-            <span className="flex-1 text-sm font-semibold text-gray-800">
+            <span className="flex-1 text-sm font-semibold text-gray-800 truncate">
               {sec ? sec.name : "Sin sección"}
               {inactiveSec && " (inactiva)"}
-              <span className="ml-2 text-xs font-normal text-gray-400">
-                {items.length}
-              </span>
+            </span>
+          )}
+          {!(renaming && sec && renaming.id === sec.id) && (
+            <span className="text-sm text-gray-500 whitespace-nowrap">
+              {items.length} servicio{items.length === 1 ? "" : "s"}
             </span>
           )}
           {sec && confirmDelId === sec.id ? (
-            <span className="flex items-center gap-1 text-xs">
-              ¿Eliminar? Los servicios quedan en "Sin sección"
+            <span className="flex items-center gap-2 text-xs text-gray-600">
+              ¿Eliminar? Sus servicios quedan en "Sin sección"
               <button
                 type="button"
+                title="Sí, eliminar"
                 onClick={() => void eliminarSeccion(sec.id)}
-                className="px-2 py-0.5 bg-red-600 text-white rounded font-semibold"
+                className="text-red-600 hover:text-red-800"
               >
-                Sí
+                <Check size={18} />
               </button>
               <button
                 type="button"
+                title="Cancelar"
                 onClick={() => setConfirmDelId(null)}
-                className="px-2 py-0.5 bg-gray-200 rounded font-semibold"
+                className="text-gray-500 hover:text-gray-700"
               >
-                No
+                <X size={18} />
               </button>
             </span>
           ) : (
@@ -328,9 +368,9 @@ export default function FixedServicesBySection({
                   onClick={() =>
                     setMenuOpen(menuOpen === sec.id ? null : sec.id)
                   }
-                  className="p-1 text-gray-400 hover:text-gray-700"
+                  className="p-1 rounded hover:bg-gray-100 text-gray-500"
                 >
-                  <MoreVertical size={15} />
+                  <MoreVertical size={18} />
                 </button>
                 {menuOpen === sec.id && (
                   <>
@@ -338,23 +378,31 @@ export default function FixedServicesBySection({
                       className="fixed inset-0 z-10"
                       onClick={() => setMenuOpen(null)}
                     />
-                    <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm">
+                    <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
                       <button
                         type="button"
                         onClick={() => {
                           setRenaming({ id: sec.id, name: sec.name });
                           setMenuOpen(null);
                         }}
-                        className="w-full text-left px-3 py-1.5 hover:bg-gray-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
                       >
-                        Renombrar
+                        <Pencil size={14} /> Renombrar
                       </button>
                       <button
                         type="button"
                         onClick={() => void toggleSeccion(sec)}
-                        className="w-full text-left px-3 py-1.5 hover:bg-gray-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
                       >
-                        {inactiveSec ? "Activar" : "Desactivar"}
+                        {inactiveSec ? (
+                          <>
+                            <Eye size={14} /> Activar
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff size={14} /> Desactivar
+                          </>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -362,9 +410,9 @@ export default function FixedServicesBySection({
                           setConfirmDelId(sec.id);
                           setMenuOpen(null);
                         }}
-                        className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                       >
-                        Eliminar
+                        <Trash2 size={14} /> Eliminar
                       </button>
                     </div>
                   </>
@@ -373,13 +421,14 @@ export default function FixedServicesBySection({
             )
           )}
         </div>
-        {items.length === 0 ? (
-          <p className="px-3 py-3 text-xs text-gray-400">
-            Arrastra servicios aquí.
-          </p>
-        ) : (
-          items.map((s) => fila(s, sec?.id ?? null))
-        )}
+        {!closed.has(sec ? sec.id : ("sin" as const)) &&
+          (items.length === 0 ? (
+            <p className="px-3 py-3 text-xs text-gray-400">
+              Arrastra servicios aquí.
+            </p>
+          ) : (
+            items.map((s) => fila(s, sec?.id ?? null))
+          ))}
       </div>
     );
   };
