@@ -443,7 +443,12 @@ export default function QuotationsPage() {
     (quotation) =>
       !searchTerm ||
       quotation.quotation_number?.toString() === searchTerm.trim() ||
-      matchesSearch(searchTerm, quotation.clients?.name),
+      matchesSearch(searchTerm, quotation.clients?.name) ||
+      // También por MANDANTE (pedido de Felipe 30-07): buscar "Roxana"
+      // encuentra sus cotizaciones aunque el cliente sea la UdeC —
+      // tanto por el texto escrito como por la persona vinculada.
+      matchesSearch(searchTerm, quotation.contact_name) ||
+      matchesSearch(searchTerm, quotation.mandante?.name),
   );
 
   return (

@@ -30,4 +30,6 @@ export type PaymentWithTransactionsAndQuotation = Payment & {
 export type QuotationWithClientAndCompany = Quotation & {
   clients: Pick<Client, 'name' | 'email'>;
   companies: Pick<Company, 'name'>;
+  /** Mandante vinculado (migración 48/50) — para búsqueda y pantalla. */
+  mandante?: { name: string } | null;
 };

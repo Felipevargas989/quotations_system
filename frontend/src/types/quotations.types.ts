@@ -161,4 +161,7 @@ export interface QuotationFormDataUpdate extends Partial<QuotationFormData> {}
 
 export interface QuotationWithClient extends Quotation {
   clients: Client;
+  // Mandante vinculado (migración 48/50) — la lista lo trae para que
+  // el buscador encuentre por persona.
+  mandante?: { name: string } | null;
 }

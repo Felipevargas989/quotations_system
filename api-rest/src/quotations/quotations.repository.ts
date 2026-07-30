@@ -59,6 +59,9 @@ export class QuotationsRepository {
       'contact_name, tip_amount';
     const query = this.supabase.client.from('quotations').select(
       `${COLUMNAS_LISTA},
+        mandante:client_contacts!quotations_client_contact_id_fkey (
+          name
+        ),
         clients (
           name,
           email,
