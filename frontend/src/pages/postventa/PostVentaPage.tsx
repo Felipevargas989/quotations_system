@@ -750,6 +750,15 @@ export default function PostVentaPage() {
           setTab={setTab}
           onClose={() => setSelected(null)}
           onDataChanged={refreshAfterSave}
+          pendingReceipts={
+            comprobantes.filter(
+              (r) => r.quotation_id === selected.quotationId,
+            ).length
+          }
+          onOpenReceipts={() => {
+            setSelected(null);
+            setVerComprobantes(true);
+          }}
         />
       )}
 
@@ -861,6 +870,10 @@ interface EventModalProps {
   ) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
+  // Comprobantes del portal PENDIENTES de este evento (Fase 2b): el
+  // aviso vive donde uno los busca — dentro del evento.
+  readonly pendingReceipts?: number;
+  readonly onOpenReceipts?: () => void;
 }
 
 function EventModal({
@@ -869,6 +882,8 @@ function EventModal({
   setTab,
   onClose,
   onDataChanged,
+  pendingReceipts = 0,
+  onOpenReceipts,
 }: EventModalProps) {
   const netPaid = event.paid - event.refunded;
   const saldo = event.total - netPaid;
@@ -1255,6 +1270,20 @@ function EventModal({
         <div className="p-6 flex-1 overflow-y-auto min-h-0">
           {tab === "pagos" && (
             <div className="space-y-6">
+              {pendingReceipts > 0 && (
+                <button
+                  type="button"
+                  onClick={onOpenReceipts}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl text-sm font-semibold text-amber-800 hover:bg-amber-100"
+                >
+                  <span>
+                    💸 Este evento tiene {pendingReceipts} comprobante
+                    {pendingReceipts === 1 ? "" : "s"} del portal por
+                    confirmar
+                  </span>
+                  <span className="underline">Revisar</span>
+                </button>
+              )}
               <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
               <div className="space-y-3">
                 <h4 className="text-sm font-bold text-gray-800">
