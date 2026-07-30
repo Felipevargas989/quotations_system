@@ -34,7 +34,9 @@ export class UsersRepository {
           colors,
           is_premium,
           currency,
-          is_active
+          is_active,
+          tagline,
+          bank_details
         )
         `,
       )

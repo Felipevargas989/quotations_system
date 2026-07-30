@@ -70,7 +70,8 @@ export class QuotationsRepository {
           phone,
           client_contacts (
             name,
-            phone
+            phone,
+            email
           )
         ),
         companies (

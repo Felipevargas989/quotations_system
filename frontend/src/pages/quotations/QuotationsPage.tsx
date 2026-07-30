@@ -236,7 +236,8 @@ export default function QuotationsPage() {
     const c = q.clients as unknown as {
       contact_person?: string;
       phone?: string;
-      client_contacts?: { name: string; phone?: string }[];
+      email?: string;
+      client_contacts?: { name: string; phone?: string; email?: string }[];
     };
     const mandante = (
       q as unknown as { contact_name?: string | null }
@@ -245,9 +246,19 @@ export default function QuotationsPage() {
       const match = (c?.client_contacts || []).find(
         (ct) => normalizeText(ct.name) === normalizeText(mandante),
       );
-      return { name: mandante, phone: match?.phone || "" };
+      return {
+        name: mandante,
+        phone: match?.phone || "",
+        // Correo en la columna (pedido de Felipe 30-07): gestión más
+        // rápida sin abrir la ficha.
+        email: match?.email || "",
+      };
     }
-    return { name: c?.contact_person || "", phone: c?.phone || "" };
+    return {
+      name: c?.contact_person || "",
+      phone: c?.phone || "",
+      email: c?.email || "",
+    };
   };
 
   const getStatusColor = (status: string) => {
@@ -653,6 +664,14 @@ export default function QuotationsPage() {
                         <div className="text-xs text-gray-500">
                           {formatPhone(contact.phone)}
                         </div>
+                        {contact.email && (
+                          <div
+                            className="text-xs text-gray-500 truncate max-w-[180px]"
+                            title={contact.email}
+                          >
+                            {contact.email}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                         ${quotation.total_amount.toLocaleString("es-CL")}
