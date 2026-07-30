@@ -435,12 +435,25 @@ export class QuotationsService {
           ) {
             estado = PaymentStatus.VENCIDO;
           }
+          // Fecha real del último pago: el dato de comprobante que el
+          // cliente busca en una cuota pagada.
+          const pagadaEl =
+            estado === (PaymentStatus.PAGADO as string)
+              ? (p.payment_transactions || []).reduce(
+                  (max: string, t: PaymentTransaction) => {
+                    const f = String(t.transaction_date || '').slice(0, 10);
+                    return f > max ? f : max;
+                  },
+                  '',
+                ) || null
+              : null;
           return {
             numero: p.payment_number,
             monto: p.amount,
             vence,
             estado,
             abonado,
+            pagadaEl,
           };
         })
         .sort((a, b) => a.numero - b.numero);

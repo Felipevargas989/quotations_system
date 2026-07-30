@@ -21,6 +21,7 @@ interface CuotaPortal {
   vence: string | null;
   estado: string;
   abonado: number;
+  pagadaEl?: string | null;
 }
 interface EventoPortal {
   numero: number;
@@ -169,8 +170,22 @@ export default function PortalPage() {
     </div>
   );
 
-  const cardEvento = (ev: EventoPortal, expandible: boolean) => {
+  const cardEvento = (
+    ev: EventoPortal,
+    expandible: boolean,
+    compacta = false,
+  ) => {
     const abiertoEste = abierto === ev.numero;
+    const togglePlan = expandible && (
+      <button
+        onClick={() => setAbierto(abiertoEste ? null : ev.numero)}
+        className="text-sm font-semibold flex items-center gap-1"
+        style={{ color: primary }}
+      >
+        {abiertoEste ? "Ocultar plan" : "Ver plan de pagos"}
+        {abiertoEste ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      </button>
+    );
     return (
       <div
         key={ev.numero}
@@ -201,46 +216,41 @@ export default function PortalPage() {
           </div>
 
           {typeof ev.saldo === "number" ? (
-            <div className="mt-3">
-              <div className="flex items-baseline justify-between flex-wrap gap-2">
-                <p className="text-sm text-gray-600">
-                  {ev.saldo > 0 ? (
-                    <>
-                      saldo{" "}
-                      <b style={{ color: primary }}>{clp(ev.saldo)}</b> de{" "}
-                      {clp(ev.total)}
-                    </>
-                  ) : (
-                    <b className="text-green-700">Totalmente pagado ✓</b>
-                  )}
+            compacta ? (
+              // Historial: saldado y compacto — sin barra ni redundancia.
+              <div className="mt-2 flex items-baseline justify-between flex-wrap gap-2">
+                <p className="text-sm">
+                  <b className="text-green-700">Pagado {clp(ev.total)} ✓</b>
                 </p>
-                {expandible && (
-                  <button
-                    onClick={() =>
-                      setAbierto(abiertoEste ? null : ev.numero)
-                    }
-                    className="text-sm font-semibold flex items-center gap-1"
-                    style={{ color: primary }}
-                  >
-                    {abiertoEste ? "Ocultar plan" : "Ver plan de pagos"}
-                    {abiertoEste ? (
-                      <ChevronUp size={15} />
+                {togglePlan}
+              </div>
+            ) : (
+              <div className="mt-3">
+                <div className="flex items-baseline justify-between flex-wrap gap-2">
+                  <p className="text-sm text-gray-600">
+                    {ev.saldo > 0 ? (
+                      <>
+                        saldo{" "}
+                        <b style={{ color: primary }}>{clp(ev.saldo)}</b> de{" "}
+                        {clp(ev.total)}
+                      </>
                     ) : (
-                      <ChevronDown size={15} />
+                      <b className="text-green-700">Totalmente pagado ✓</b>
                     )}
-                  </button>
-                )}
+                  </p>
+                  {togglePlan}
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
+                  <div
+                    className="h-2 rounded-full"
+                    style={{
+                      width: `${ev.total ? Math.min(100, Math.round(((ev.pagado || 0) / ev.total) * 100)) : 0}%`,
+                      background: primary,
+                    }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
-                <div
-                  className="h-2 rounded-full"
-                  style={{
-                    width: `${ev.total ? Math.min(100, Math.round(((ev.pagado || 0) / ev.total) * 100)) : 0}%`,
-                    background: primary,
-                  }}
-                />
-              </div>
-            </div>
+            )
           ) : (
             <p className="mt-2 text-sm text-gray-600">
               valor cotizado: <b>{clp(ev.total)}</b>
@@ -253,23 +263,24 @@ export default function PortalPage() {
             {(ev.cuotas || []).map((c) => (
               <div
                 key={c.numero}
-                className="flex items-center justify-between py-1.5 text-sm"
+                className="flex items-center justify-between gap-2 py-1.5 text-sm"
               >
                 <span className="text-gray-700">
-                  Cuota {c.numero} · {clp(c.monto)}
+                  Cuota {c.numero} · <b>{clp(c.monto)}</b>
                   {c.abonado > 0 && c.abonado < c.monto
                     ? ` · abonado ${clp(c.abonado)}`
                     : ""}
                 </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-gray-500 text-xs">
-                    {c.estado === "pagado" ? "pagada" : `vence ${fecha(c.vence)}`}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${CHIP[c.estado] || CHIP.pendiente}`}
-                  >
-                    {c.estado}
-                  </span>
+                {/* UNA sola señal por cuota (pedido de Felipe): el chip
+                    lo dice todo, con la fecha que importa. */}
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${CHIP[c.estado] || CHIP.pendiente}`}
+                >
+                  {c.estado === "pagado"
+                    ? `pagada${c.pagadaEl ? ` · ${fecha(c.pagadaEl)}` : ""}`
+                    : c.estado === "vencido"
+                      ? `vencida · ${fecha(c.vence)}`
+                      : `vence ${fecha(c.vence)}`}
                 </span>
               </div>
             ))}
@@ -379,7 +390,7 @@ export default function PortalPage() {
               </button>
               {verHistorial && (
                 <div className="space-y-3 mt-2">
-                  {data.historial.map((ev) => cardEvento(ev, true))}
+                  {data.historial.map((ev) => cardEvento(ev, true, true))}
                 </div>
               )}
             </div>
