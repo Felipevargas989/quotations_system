@@ -10,9 +10,17 @@ export class CreateCompanyDto {
   @IsOptional()
   logo_url: Company['logo_url'];
 
+  @IsString()
+  @IsOptional()
+  tagline: Company['tagline'];
+
   @IsObject()
   @IsOptional()
   colors: Company['colors'];
+
+  @IsObject()
+  @IsOptional()
+  bank_details: Company['bank_details'];
 
   @IsObject()
   @IsOptional()
