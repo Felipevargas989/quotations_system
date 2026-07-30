@@ -1262,7 +1262,7 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+                        className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
                       >
                         {client.client_type}
                       </span>

@@ -330,7 +330,7 @@ export default function PortalPage() {
                 la acción se distingue por el color de la empresa. */}
             <div className="flex flex-col items-end gap-1.5">
               <span
-                className={`px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[ev.estado] || CHIP.pendiente}`}
+                className={`whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-bold ${CHIP[ev.estado] || CHIP.pendiente}`}
               >
                 {ESTADO_LABEL[ev.estado] || ev.estado}
               </span>

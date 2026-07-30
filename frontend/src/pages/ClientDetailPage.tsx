@@ -471,7 +471,7 @@ export default function ClientDetailPage() {
               de desplegables nativos del navegador) */}
           <span className="relative flex items-center gap-1">
             <span
-              className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+              className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
             >
               {client.client_type}
             </span>
@@ -507,7 +507,7 @@ export default function ClientDetailPage() {
                       className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
                     >
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(name)}`}
+                        className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(name)}`}
                       >
                         {name}
                       </span>
@@ -966,7 +966,7 @@ export default function ClientDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(q.quotation_status)}`}
+                            className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(q.quotation_status)}`}
                           >
                             {STATUS_LABELS[q.quotation_status] ||
                               q.quotation_status}
