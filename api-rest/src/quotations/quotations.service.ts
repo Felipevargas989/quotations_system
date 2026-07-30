@@ -307,8 +307,14 @@ export class QuotationsService {
   // 2) contacto SIN correo -> NO se envía (null, sin fallback silencioso);
   // 3) cotización sin contacto -> correo del cliente (particulares y
   //    cotizaciones antiguas siguen funcionando como siempre).
+  // Regla del 30-07 ("correos a personas y punto"): el destinatario es
+  // el MANDANTE vinculado; el correo general de la ficha DEJÓ de ser
+  // destino. Persona sin correo = no se envía (mejor silencio que un
+  // enlace de portal en una casilla desconocida). La migración 50
+  // garantiza que toda cotización tiene su persona.
   private async resolveRecipient(quotation: {
     client_id: string;
+    client_contact_id?: number | null;
     contact_name?: string | null;
     clients?: { name: string; email?: string | null };
   }): Promise<{
@@ -316,6 +322,19 @@ export class QuotationsService {
     name: string;
     portalToken: string | null;
   } | null> {
+    const vinculado = await this.quotationsRepository.findContactById(
+      quotation.client_contact_id,
+    );
+    if (vinculado) {
+      if (!vinculado.email) return null;
+      return {
+        email: vinculado.email,
+        name: vinculado.name,
+        portalToken: vinculado.portal_token || null,
+      };
+    }
+    // Sin vínculo (no debería existir tras la 50): calce por el nombre
+    // escrito, último recurso.
     const contactName = (quotation.contact_name || '').trim();
     if (contactName) {
       const { data: contact } =
@@ -331,15 +350,6 @@ export class QuotationsService {
             (contact as { portal_token?: string | null }).portal_token || null,
         };
       }
-      return null; // la persona existe pero no tiene correo: no se envía
-    }
-    if (quotation.clients?.email) {
-      // Ficha sin contacto: no hay portal que ofrecer.
-      return {
-        email: quotation.clients.email,
-        name: quotation.clients.name,
-        portalToken: null,
-      };
     }
     return null;
   }

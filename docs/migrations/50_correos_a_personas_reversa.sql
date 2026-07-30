@@ -1,0 +1,11 @@
+-- REVERSA migración 50 (parcial, usar solo en emergencia).
+-- Los vínculos nuevos no se pueden distinguir de los de la 48 una vez
+-- aplicados; lo único reversible con precisión son las personas
+-- creadas por la Parte 1 (por su fecha de creación del día en que se
+-- corrió la migración — ajustar la fecha antes de usar):
+-- DELETE FROM public.client_contacts
+--   WHERE created_at::date = '2026-07-30' AND is_primary = true
+--   AND id NOT IN (SELECT client_contact_id FROM public.quotations
+--                   WHERE client_contact_id IS NOT NULL);
+-- (Nota: si ya tienen cotizaciones colgando, primero poner en NULL
+-- quotations.client_contact_id de esas personas.)

@@ -57,8 +57,9 @@ export class PaymentsCronService {
       }
 
       for (const payment of payments) {
-        // Paso 1 (30-07): la cobranza le escribe a la PERSONA que
-        // contrató (mandante); la ficha queda de respaldo.
+        // Correos a personas y punto (30-07): la cobranza le escribe
+        // SOLO al mandante; sin persona con correo, no sale nada al
+        // cliente (el aviso admin de abajo va igual).
         const mandante = payment.quotations.mandante;
         const params: PaymentReminderParams = {
           clientName: mandante?.name || payment.quotations.clients.name,
@@ -71,13 +72,19 @@ export class PaymentsCronService {
           },
         };
 
-        await this.emailService.sendEmail(
-          mandante?.email || payment.quotations.clients.email,
-          emailTemplate,
-          params,
-          payment.quotations.company_id,
-          mandante?.portal_token || null,
-        );
+        if (!mandante?.email) {
+          this.logger.warn(
+            `Cobranza sin destinatario: cotización ${payment.quotations.quotation_number} sin mandante con correo`,
+          );
+        } else {
+          await this.emailService.sendEmail(
+            mandante.email,
+            emailTemplate,
+            params,
+            payment.quotations.company_id,
+            mandante.portal_token || null,
+          );
+        }
 
         const admins = await this.usersService.findAll(
           payment.quotations.company_id,

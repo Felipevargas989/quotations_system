@@ -84,27 +84,33 @@ export class PaymentsService {
         quotation &&
         quotation.quotation_status !== QuotationStatus.ACEPTADA
       ) {
-        // Paso 1 (30-07): la plata le escribe a la PERSONA; la ficha
-        // queda de respaldo si el mandante no tiene correo.
+        // Correos a personas y punto (30-07): solo al mandante; sin
+        // persona con correo, no se envía (queda en el log).
         const mandante = await this.quotationsService.mandanteOf(
           quotation.client_contact_id,
         );
-        void this.emailService.sendEmail(
-          mandante?.email || quotation.clients.email,
-          EmailStructure.PAYMENT_PLAN_CREATED,
-          {
-            clientName: mandante?.name || quotation.clients.name,
-            companyName: quotation.companies.name,
-            quotationNumber: quotation.quotation_number,
-            payments: createPaymentPlanDto.payments.map((payment) => ({
-              payment_number: payment.payment_number,
-              amount: payment.amount,
-              due_date: payment.due_date,
-            })),
-          },
-          companyId,
-          mandante?.portalToken || null,
-        );
+        if (!mandante?.email) {
+          this.logger.warn(
+            `PAYMENT_PLAN_CREATED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
+          );
+        } else {
+          void this.emailService.sendEmail(
+            mandante.email,
+            EmailStructure.PAYMENT_PLAN_CREATED,
+            {
+              clientName: mandante.name,
+              companyName: quotation.companies.name,
+              quotationNumber: quotation.quotation_number,
+              payments: createPaymentPlanDto.payments.map((payment) => ({
+                payment_number: payment.payment_number,
+                amount: payment.amount,
+                due_date: payment.due_date,
+              })),
+            },
+            companyId,
+            mandante.portalToken || null,
+          );
+        }
       }
     } catch (error) {
       // Do not throw error, just log it
@@ -429,24 +435,27 @@ export class PaymentsService {
           dto.quotation_id,
         );
         if (quotation) {
-          // Paso 1 (30-07): primero el mandante, la ficha de respaldo.
+          // Correos a personas y punto (30-07): solo al mandante.
           const mandante = await this.quotationsService.mandanteOf(
             quotation.client_contact_id,
           );
-          const destino = mandante?.email || quotation.clients.email;
-          if (destino) {
+          if (!mandante?.email) {
+            this.logger.warn(
+              `PAYMENT_RECEIVED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
+            );
+          } else {
             void this.emailService.sendEmail(
-              destino,
+              mandante.email,
               EmailStructure.PAYMENT_RECEIVED,
               {
-                clientName: mandante?.name || quotation.clients.name,
+                clientName: mandante.name,
                 companyName: quotation.companies.name,
                 amount: dto.amount,
                 paymentMethod: dto.payment_method || '',
                 transactionDate: dto.transaction_date || new Date(),
               },
               companyId,
-              mandante?.portalToken || null,
+              mandante.portalToken || null,
             );
           }
         }
@@ -587,24 +596,27 @@ export class PaymentsService {
           );
 
           if (quotation) {
-            // Paso 1 (30-07): primero el mandante, la ficha de respaldo.
+            // Correos a personas y punto (30-07): solo al mandante.
             const mandante = await this.quotationsService.mandanteOf(
               quotation.client_contact_id,
             );
-            const destino = mandante?.email || quotation.clients.email;
-            if (destino) {
+            if (!mandante?.email) {
+              this.logger.warn(
+                `PAYMENT_RECEIVED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
+              );
+            } else {
               void this.emailService.sendEmail(
-                destino,
+                mandante.email,
                 EmailStructure.PAYMENT_RECEIVED,
                 {
-                  clientName: mandante?.name || quotation.clients.name,
+                  clientName: mandante.name,
                   companyName: quotation.companies.name,
                   amount: payload.amount || 0,
                   paymentMethod: payload.payment_method || '',
                   transactionDate: payload.transaction_date || new Date(),
                 },
                 companyId,
-                mandante?.portalToken || null,
+                mandante.portalToken || null,
               );
             }
           }
