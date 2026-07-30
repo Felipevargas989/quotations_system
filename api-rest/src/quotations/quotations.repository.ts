@@ -167,6 +167,36 @@ export class QuotationsRepository {
     return data as Quotation;
   }
 
+  /**
+   * Portal del cliente (Fase 2a): busca una cotización por su enlace
+   * secreto, con la marca de la empresa y el nombre del cliente. Es la
+   * ÚNICA puerta pública de lectura y solo entrega ESA cotización.
+   */
+  async findByPortalToken(token: string): Promise<{
+    data:
+      | (Quotation & {
+          clients: Pick<Client, 'name'> | null;
+          companies: Pick<
+            Company,
+            'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
+          > | null;
+        })
+      | null;
+    error: PostgrestError | null;
+  }> {
+    this.logger.info('find quotation by portal token');
+    return (await this.supabase.client
+      .from('quotations')
+      .select(
+        `*,
+        clients ( name ),
+        companies ( name, tagline, logo_url, colors, bank_details )
+        `,
+      )
+      .eq('portal_token', token)
+      .maybeSingle()) as never;
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,

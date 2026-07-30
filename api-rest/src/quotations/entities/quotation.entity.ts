@@ -53,6 +53,9 @@ export interface Quotation {
   tip_amount?: number | null;
   // Persona de contacto del evento (texto libre).
   contact_name?: string | null;
+  // Enlace secreto del portal del cliente (migración 47): nace al
+  // aceptar la cotización. 64 hex = imposible de adivinar.
+  portal_token?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: RequestType;

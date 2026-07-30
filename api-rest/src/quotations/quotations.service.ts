@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
   forwardRef,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
@@ -370,6 +372,88 @@ export class QuotationsService {
     };
   }
 
+  /**
+   * Portal del cliente (Fase 2a): datos públicos de UNA cotización a
+   * partir de su enlace secreto. Solo eventos aceptados o realizados;
+   * cualquier otra cosa (token malo, corto, anulada) responde 404 sin
+   * dar pistas.
+   */
+  async getPortalData(token: string) {
+    if (!token || token.length < 40) {
+      throw new NotFoundException();
+    }
+    const { data: q } =
+      await this.quotationsRepository.findByPortalToken(token);
+    if (
+      !q ||
+      ![QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA].includes(
+        q.quotation_status,
+      )
+    ) {
+      throw new NotFoundException();
+    }
+
+    const { data: payments } =
+      await this.paymentsService.findAllPaymentsFromQuotation(
+        [q.id],
+        q.company_id,
+      );
+    const hoy = new Date().toISOString().slice(0, 10);
+    let pagado = 0;
+    const cuotas = (payments || [])
+      .map((p) => {
+        const abonado = (p.payment_transactions || []).reduce(
+          (s: number, t: PaymentTransaction) => s + t.amount,
+          0,
+        );
+        pagado += abonado;
+        const vence = p.due_date ? String(p.due_date).slice(0, 10) : null;
+        let estado: string = p.status;
+        if (
+          estado !== (PaymentStatus.PAGADO as string) &&
+          vence &&
+          vence < hoy
+        ) {
+          estado = PaymentStatus.VENCIDO;
+        }
+        return {
+          numero: p.payment_number,
+          monto: p.amount,
+          vence,
+          estado,
+          abonado,
+        };
+      })
+      .sort((a, b) => a.numero - b.numero);
+
+    const refundsMap = await this.refundsService.paidMapByCompany(q.company_id);
+    const reembolsado = Number(refundsMap?.[q.id] || 0);
+    const pagadoNeto = pagado - reembolsado;
+
+    return {
+      empresa: {
+        nombre: q.companies?.name || '',
+        tagline: q.companies?.tagline || null,
+        logo_url: q.companies?.logo_url || null,
+        color: q.companies?.colors?.primary || null,
+        datos_cobro: q.companies?.bank_details || null,
+      },
+      evento: {
+        numero: q.quotation_number,
+        tipo: q.event_type,
+        fecha: q.event_date,
+        personas: q.people_count,
+        estado: q.quotation_status,
+        cliente: q.clients?.name || '',
+        contacto: q.contact_name || null,
+      },
+      cuotas,
+      total: q.total_amount,
+      pagado: pagadoNeto,
+      saldo: q.total_amount - pagadoNeto,
+    };
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,
@@ -673,6 +757,20 @@ export class QuotationsService {
       } catch (error) {
         // Do not throw error, just log it
         this.logger.error(error);
+      }
+
+      // Portal del cliente (Fase 2a): al ACEPTAR nace el enlace secreto.
+      if (
+        updateQuotationDto.quotation_status === QuotationStatus.ACEPTADA &&
+        !quotation.portal_token
+      ) {
+        await this.quotationsRepository.update(
+          id,
+          {
+            portal_token: randomBytes(32).toString('hex'),
+          } as unknown as UpdateQuotationDto,
+          companyId,
+        );
       }
 
       // update quotation

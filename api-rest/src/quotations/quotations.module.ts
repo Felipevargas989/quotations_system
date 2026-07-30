@@ -8,6 +8,7 @@ import {
   EventDocumentsController,
   EventDocumentsRepository,
 } from './event-documents.controller';
+import { PortalController } from './portal.controller';
 import { QuotationsCronService } from './quotations-cron.service';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
@@ -21,7 +22,11 @@ import { QuotationsService } from './quotations.service';
     forwardRef(() => PaymentsModule),
     forwardRef(() => UsersModule),
   ],
-  controllers: [QuotationsController, EventDocumentsController],
+  controllers: [
+    QuotationsController,
+    EventDocumentsController,
+    PortalController,
+  ],
   providers: [
     QuotationsService,
     QuotationsRepository,
