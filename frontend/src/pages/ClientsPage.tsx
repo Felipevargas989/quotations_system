@@ -359,6 +359,19 @@ export default function ClientsPage() {
       return;
     }
 
+    // Puerta trasera cerrada (30-07): no se puede pasar a Particulares
+    // una ficha con más de una persona de contacto.
+    if (
+      editingClient &&
+      formData.client_type === "Particulares" &&
+      contacts.length > 1
+    ) {
+      alert(
+        `Esta ficha tiene ${contacts.length} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
+      );
+      return;
+    }
+
     // Portero (30-07): los datos de la persona se revisan antes de crear.
     if (!editingClient) {
       const problema =

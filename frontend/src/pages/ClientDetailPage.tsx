@@ -238,6 +238,16 @@ export default function ClientDetailPage() {
       setTypeEditing(false);
       return;
     }
+    // Puerta trasera cerrada (30-07): a Particulares solo se llega con
+    // UNA persona — si hay más, primero se ordenan.
+    const personas = (data.client.client_contacts || []).length;
+    if (newType === "Particulares" && personas > 1) {
+      alert(
+        `Esta ficha tiene ${personas} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
+      );
+      setTypeEditing(false);
+      return;
+    }
     setTypeSaving(true);
     try {
       await updateClient(
