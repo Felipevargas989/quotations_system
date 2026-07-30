@@ -75,6 +75,18 @@ const fecha = (d?: string | null) => {
     return "por definir";
   }
 };
+const fechaCorta = (d?: string | null) => {
+  if (!d) return "—";
+  try {
+    return new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+};
 const mix = (hex: string, w: number): string => {
   const h = hex.replace("#", "");
   if (h.length !== 6) return hex;
@@ -112,7 +124,6 @@ export default function PortalPage() {
   const [data, setData] = useState<PortalData | null>(null);
   const [error, setError] = useState(false);
   const [abierto, setAbierto] = useState<number | null>(null);
-  const [verHistorial, setVerHistorial] = useState(false);
   // Fase 2b — "Ya transferí": formulario por cuota.
   const [compCuotaId, setCompCuotaId] = useState<string | null>(null);
   const [compMonto, setCompMonto] = useState<number | undefined>(undefined);
@@ -283,10 +294,10 @@ export default function PortalPage() {
               href={ev.encuestaPath}
               target="_blank"
               rel="noreferrer"
-              className="inline-block mt-1.5 text-xs font-semibold underline"
-              style={{ color: primary }}
+              className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100"
             >
-              ✍️ Cuéntanos cómo estuvo — responder la encuesta
+              <span className="font-black">!</span> Encuesta pendiente —
+              cuéntanos cómo estuvo
             </a>
           )}
           {ev.encuestaRespondida && (
@@ -558,22 +569,52 @@ export default function PortalPage() {
 
           {data.historial.length > 0 && (
             <div>
-              <button
-                onClick={() => setVerHistorial((v) => !v)}
-                className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1 hover:text-gray-600"
-              >
-                Historial ({data.historial.length})
-                {verHistorial ? (
-                  <ChevronUp size={13} />
-                ) : (
-                  <ChevronDown size={13} />
-                )}
-              </button>
-              {verHistorial && (
-                <div className="space-y-3 mt-2">
-                  {data.historial.map((ev) => cardEvento(ev, true, true))}
-                </div>
-              )}
+              {/* Historial siempre visible y en UNA línea por evento
+                  (decisión de Felipe 30-07): es archivo, merece
+                  densidad. El detalle de cuotas vive en Post-Venta. */}
+              <Seccion titulo={`Historial (${data.historial.length})`} />
+              <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                {data.historial.map((ev) => (
+                  <div
+                    key={ev.numero}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm flex-wrap"
+                  >
+                    <span className="text-gray-800">
+                      <b>
+                        {ev.tipo || "Evento"} · N° {ev.numero}
+                      </b>{" "}
+                      <span className="text-gray-500">
+                        · {fechaCorta(ev.fecha)}
+                        {ev.personas ? ` · ${ev.personas} pers.` : ""}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      {ev.encuestaPath && (
+                        <a
+                          href={ev.encuestaPath}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100"
+                          title="Cuéntanos cómo estuvo tu evento"
+                        >
+                          <span className="font-black">!</span> encuesta
+                        </a>
+                      )}
+                      {ev.encuestaRespondida && (
+                        <span
+                          className="text-[11px] font-bold text-green-700"
+                          title="Encuesta respondida — ¡gracias!"
+                        >
+                          ✓ encuesta
+                        </span>
+                      )}
+                      <b className="text-green-700">
+                        Pagado {clp(ev.total)} ✓
+                      </b>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
