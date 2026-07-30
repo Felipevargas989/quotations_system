@@ -6,6 +6,7 @@ import {
   DollarSign,
   Clock,
   CheckCircle,
+  Link2,
   AlertTriangle,
   X,
   ChevronRight,
@@ -96,6 +97,8 @@ interface EventRow {
   // Fecha del evento (y último día si es multi-día), para la columna.
   eventDate: string | null;
   eventEndDate: string | null;
+  // Enlace secreto del portal del cliente (migración 47).
+  portalToken: string | null;
   payments: PaymentWithTransactions[];
 }
 
@@ -305,6 +308,9 @@ export default function PostVentaPage() {
         phone,
         requiresInvoice: q?.requires_invoice,
         hasContract: q?.has_contract,
+        portalToken:
+          (q as unknown as { portal_token?: string | null })?.portal_token ??
+          null,
         total,
         paid,
         refunded,
@@ -755,6 +761,8 @@ function EventModal({
   const [editTx, setEditTx] = useState<PaymentTransaction | null>(null);
   const [confirmTxId, setConfirmTxId] = useState<number | null>(null);
   const [deletingTx, setDeletingTx] = useState(false);
+  // Portal del cliente: feedback del botón "copiar enlace de pagos".
+  const [linkCopiado, setLinkCopiado] = useState(false);
   // Nivel A del calendario (29-07): lapiz en la CUOTA (solo sin dinero
   // registrado) para editar fecha de vencimiento y nota. Distinto del
   // lapiz del registro de pago de mas abajo.
@@ -967,6 +975,30 @@ function EventModal({
                 className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50"
               >
                 Anular evento
+              </button>
+            )}
+            {event.portalToken && (
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      `${window.location.origin}/portal/${event.portalToken}`,
+                    );
+                    setLinkCopiado(true);
+                    setTimeout(() => setLinkCopiado(false), 2000);
+                  } catch {
+                    /* portapapeles bloqueado: no se rompe nada */
+                  }
+                }}
+                className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 flex items-center gap-1"
+                title="Copiar el enlace del portal de pagos del cliente (para mandárselo por WhatsApp o correo)"
+              >
+                {linkCopiado ? (
+                  <CheckCircle size={13} className="text-green-600" />
+                ) : (
+                  <Link2 size={13} />
+                )}
+                {linkCopiado ? "Copiado" : "Enlace de pagos"}
               </button>
             )}
             <button

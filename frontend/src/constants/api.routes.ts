@@ -64,6 +64,7 @@ export const API_ROUTES = {
   EVENT_DOCUMENTS: "/event-documents",
   ANALYTICS_HOY: "/analytics/hoy",
   CLIENT_CONTACTS: "/client-contacts",
+  PORTAL: "/portal",
   SECTIONS: "/sections",
   SECTIONS_MENU_ORDER: "/sections/menu-order",
   SUPER_ADMIN_COMPANIES: "/super-admin/companies",

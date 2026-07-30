@@ -73,6 +73,8 @@ const CreateQuotationPublic = lazy(
 const CustomerSatisfactionSurveyPublicPage = lazy(
   () => import("./pages/customerSatisfactionSurveys/PublicSurvey.tsx"),
 );
+// Portal del cliente (Fase 2a): página pública por enlace secreto.
+const PortalPage = lazy(() => import("./pages/portal/PortalPage.tsx"));
 const CustomerSatisfactionSurveysPage = lazy(
   () => import("./pages/customerSatisfactionSurveys/index.tsx"),
 );
@@ -141,6 +143,9 @@ function App() {
               path="/customer-satisfaction-survey/:companyId/:quotationId"
               element={<CustomerSatisfactionSurveyPublicPage />}
             />
+
+            {/* Portal del cliente (enlace secreto, sin clave) */}
+            <Route path="/portal/:token" element={<PortalPage />} />
 
             <Route path="/" element={<Layout />}>
               {/* Dashboard - Admin only */}

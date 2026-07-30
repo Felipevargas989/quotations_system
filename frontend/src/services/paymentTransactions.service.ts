@@ -43,6 +43,8 @@ export interface PaymentWithTransactions {
     total_amount: number;
     requires_invoice: boolean;
     has_contract: boolean;
+    // Enlace secreto del portal del cliente (migración 47).
+    portal_token?: string | null;
     clients: Pick<Client, "name">;
   };
   refunds: Refund[];
