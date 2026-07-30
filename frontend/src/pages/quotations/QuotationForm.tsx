@@ -3411,8 +3411,9 @@ export default function QuotationForm() {
                                 key={f.codigo}
                                 type="button"
                                 onClick={() => {
-                                  handleFixedServiceSelect(f.codigo, index);
-                                  setOpenFixedPicker(null);
+                                  // Agrega y deja la ventanita abierta,
+                                  // como variables.
+                                  handleFixedServiceSelect(f.codigo);
                                 }}
                                 className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                               >
