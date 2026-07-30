@@ -296,6 +296,9 @@ export class EmailService {
         to: [to],
         subject: p.subject,
         html: p.html,
+        // Mismo "Responder a" que los correos reales (pillada de Felipe
+        // 30-07: las pruebas iban sin él y respondían a hola@).
+        ...(branding.replyTo ? { replyTo: branding.replyTo } : {}),
       });
     }
     return { sent: lista.length, subjects: lista.map((p) => p.subject) };
