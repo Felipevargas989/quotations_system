@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { apiRequest } from "../../services/api";
+import { api, apiRequest } from "../../services/api";
 import { API_ROUTES } from "../../constants/api.routes";
 
 // PORTAL DEL MANDANTE (30-07-2026, diseño de Felipe). Página PÚBLICA:
@@ -16,12 +16,15 @@ import { API_ROUTES } from "../../constants/api.routes";
 // — y solo las suyas. Misma familia visual que los correos.
 
 interface CuotaPortal {
+  id: string;
   numero: number;
   monto: number;
   vence: string | null;
   estado: string;
   abonado: number;
   pagadaEl?: string | null;
+  // Fase 2b: hay un comprobante subido esperando confirmación.
+  enRevision?: boolean;
 }
 interface EventoPortal {
   numero: number;
@@ -107,13 +110,53 @@ export default function PortalPage() {
   const [error, setError] = useState(false);
   const [abierto, setAbierto] = useState<number | null>(null);
   const [verHistorial, setVerHistorial] = useState(false);
+  // Fase 2b — "Ya transferí": formulario por cuota.
+  const [compCuotaId, setCompCuotaId] = useState<string | null>(null);
+  const [compMonto, setCompMonto] = useState("");
+  const [compArchivo, setCompArchivo] = useState<File | null>(null);
+  const [compEnviando, setCompEnviando] = useState(false);
+  const [compError, setCompError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargar = () => {
     if (!token) return;
     apiRequest(`${API_ROUTES.PORTAL}/${token}`, "GET")
       .then((d) => setData(d as PortalData))
       .catch(() => setError(true));
-  }, [token]);
+  };
+  useEffect(cargar, [token]);
+
+  const enviarComprobante = async () => {
+    if (!token || !compCuotaId || !compArchivo) return;
+    const monto = Number(compMonto.replace(/\./g, ""));
+    if (!monto || monto <= 0) {
+      setCompError("Indica el monto que transferiste");
+      return;
+    }
+    setCompEnviando(true);
+    setCompError(null);
+    try {
+      const form = new FormData();
+      form.append("file", compArchivo);
+      form.append("payment_id", compCuotaId);
+      form.append("declared_amount", String(monto));
+      await api.request({
+        url: `${API_ROUTES.PORTAL}/${token}/comprobante`,
+        method: "POST",
+        data: form,
+        headers: { "Content-Type": undefined },
+      });
+      setCompCuotaId(null);
+      setCompArchivo(null);
+      setCompMonto("");
+      cargar();
+    } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setCompError(msg || "No se pudo enviar. Inténtalo de nuevo.");
+    } finally {
+      setCompEnviando(false);
+    }
+  };
 
   if (error) {
     return (
@@ -283,27 +326,96 @@ export default function PortalPage() {
             }}
           >
             {(ev.cuotas || []).map((c) => (
-              <div
-                key={c.numero}
-                className="flex items-center justify-between gap-2 py-1.5 text-sm"
-              >
-                <span className="text-gray-700">
-                  Cuota {c.numero} · <b>{clp(c.monto)}</b>
-                  {c.abonado > 0 && c.abonado < c.monto
-                    ? ` · abonado ${clp(c.abonado)}`
-                    : ""}
-                </span>
-                {/* UNA sola señal por cuota (pedido de Felipe): el chip
-                    lo dice todo, con la fecha que importa. */}
-                <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${CHIP[c.estado] || CHIP.pendiente}`}
-                >
-                  {c.estado === "pagado"
-                    ? `pagada${c.pagadaEl ? ` · ${fecha(c.pagadaEl)}` : ""}`
-                    : c.estado === "vencido"
-                      ? `vencida · ${fecha(c.vence)}`
-                      : `vence ${fecha(c.vence)}`}
-                </span>
+              <div key={c.numero} className="py-1.5">
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-gray-700">
+                    Cuota {c.numero} · <b>{clp(c.monto)}</b>
+                    {c.abonado > 0 && c.abonado < c.monto
+                      ? ` · abonado ${clp(c.abonado)}`
+                      : ""}
+                  </span>
+                  {/* UNA sola señal por cuota: el chip lo dice todo. */}
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                      c.enRevision && c.estado !== "pagado"
+                        ? "bg-blue-100 text-blue-700"
+                        : CHIP[c.estado] || CHIP.pendiente
+                    }`}
+                  >
+                    {c.estado === "pagado"
+                      ? `pagada${c.pagadaEl ? ` · ${fecha(c.pagadaEl)}` : ""}`
+                      : c.enRevision
+                        ? "comprobante en revisión"
+                        : c.estado === "vencido"
+                          ? `vencida · ${fecha(c.vence)}`
+                          : `vence ${fecha(c.vence)}`}
+                  </span>
+                </div>
+                {/* Fase 2b: "Ya transferí" en cuotas sin pagar. */}
+                {c.estado !== "pagado" && !c.enRevision && (
+                  <div className="mt-1.5">
+                    {compCuotaId === c.id ? (
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                        <p className="text-xs font-bold text-gray-600">
+                          Envíanos tu comprobante y lo confirmamos
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={compMonto}
+                            onChange={(e) => setCompMonto(e.target.value)}
+                            placeholder="Monto transferido"
+                            className="flex-1 min-w-32 px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+                          />
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) =>
+                              setCompArchivo(e.target.files?.[0] || null)
+                            }
+                            className="text-xs text-gray-600"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            disabled={compEnviando || !compArchivo}
+                            onClick={enviarComprobante}
+                            className="px-3 py-1.5 text-white text-xs rounded-lg font-semibold disabled:opacity-50"
+                            style={{ background: primary }}
+                          >
+                            {compEnviando ? "Enviando…" : "Enviar comprobante"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCompCuotaId(null);
+                              setCompError(null);
+                            }}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        {compError && (
+                          <p className="text-xs text-red-600">{compError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setCompCuotaId(c.id);
+                          setCompMonto(String(c.monto - c.abonado));
+                          setCompArchivo(null);
+                          setCompError(null);
+                        }}
+                        className="text-xs font-semibold underline"
+                        style={{ color: primary }}
+                      >
+                        Ya transferí — enviar mi comprobante
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {datosCobro}

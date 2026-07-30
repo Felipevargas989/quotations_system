@@ -33,6 +33,11 @@ import {
 import { getClients } from "../../services/clients.service";
 import { updatePaymentSchedule } from "../../services/payments.service";
 import {
+  confirmPortalReceipt,
+  listPortalReceipts,
+  rejectPortalReceipt,
+} from "../../services/portalReceipts.service";
+import {
   getQuotationById,
   markEventDone,
   updateQuotation,
@@ -338,6 +343,38 @@ export default function PostVentaPage() {
   const rows = eventsQuery.data ?? [];
   const loading = eventsQuery.isPending;
 
+  // Fase 2b del portal: comprobantes subidos por clientes, por
+  // confirmar. Se revisan aquí mismo (bandeja).
+  const receiptsQuery = useQuery({
+    queryKey: ["postventa", "comprobantes"],
+    staleTime: 0,
+    refetchInterval: 2 * 60 * 1000,
+    queryFn: listPortalReceipts,
+  });
+  const comprobantes = receiptsQuery.data ?? [];
+  const [verComprobantes, setVerComprobantes] = useState(false);
+  const [procesandoComp, setProcesandoComp] = useState<number | null>(null);
+  const [rechazoCompId, setRechazoCompId] = useState<number | null>(null);
+  const [notaRechazo, setNotaRechazo] = useState("");
+  const actuarComprobante = async (
+    id: number,
+    accion: "confirmar" | "rechazar",
+  ) => {
+    setProcesandoComp(id);
+    try {
+      if (accion === "confirmar") {
+        await confirmPortalReceipt(id);
+      } else {
+        await rejectPortalReceipt(id, notaRechazo.trim() || undefined);
+        setRechazoCompId(null);
+        setNotaRechazo("");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["postventa"] });
+    } finally {
+      setProcesandoComp(null);
+    }
+  };
+
   // El evento abierto en el modal se re-sincroniza con CADA versión
   // fresca de la lista (saldo, progreso, cuotas al día).
   useEffect(() => {
@@ -524,6 +561,16 @@ export default function PostVentaPage() {
               className="w-full"
             />
           </div>
+          {comprobantes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setVerComprobantes(true)}
+              className="px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-sm font-bold hover:bg-amber-200"
+              title="Comprobantes subidos por clientes desde el portal, esperando confirmación"
+            >
+              💸 Comprobantes ({comprobantes.length})
+            </button>
+          )}
         </div>
       </div>
 
@@ -704,6 +751,102 @@ export default function PostVentaPage() {
           onClose={() => setSelected(null)}
           onDataChanged={refreshAfterSave}
         />
+      )}
+
+      {/* Bandeja de comprobantes del portal (Fase 2b): confirmar
+          registra el pago real; rechazar lo archiva con nota. */}
+      {verComprobantes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">
+                💸 Comprobantes por confirmar
+              </h3>
+              <button
+                onClick={() => setVerComprobantes(false)}
+                className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {comprobantes.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  No quedan comprobantes pendientes. 🎉
+                </p>
+              )}
+              {comprobantes.map((r) => (
+                <div
+                  key={r.id}
+                  className="border border-gray-200 rounded-xl p-4"
+                >
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-bold text-gray-900">
+                        {clp(Number(r.declared_amount))} ·{" "}
+                        {r.client_contacts?.name || "Cliente"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Cot. N° {r.quotations?.quotation_number} ·{" "}
+                        {r.quotations?.clients?.name} · cuota{" "}
+                        {r.payments?.payment_number} ·{" "}
+                        {fmtDate(r.created_at)}
+                      </p>
+                    </div>
+                    <FileViewLink url={r.file_url} title="Ver comprobante" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    {rechazoCompId === r.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={notaRechazo}
+                          onChange={(e) => setNotaRechazo(e.target.value)}
+                          placeholder="Motivo (opcional)"
+                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+                        />
+                        <button
+                          disabled={procesandoComp === r.id}
+                          onClick={() => actuarComprobante(r.id, "rechazar")}
+                          className="px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg font-semibold disabled:opacity-50"
+                        >
+                          Rechazar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setRechazoCompId(null);
+                            setNotaRechazo("");
+                          }}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          disabled={procesandoComp === r.id}
+                          onClick={() => actuarComprobante(r.id, "confirmar")}
+                          className="px-4 py-1.5 bg-green-600 text-white text-xs rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {procesandoComp === r.id
+                            ? "Registrando…"
+                            : "Confirmar y registrar pago"}
+                        </button>
+                        <button
+                          onClick={() => setRechazoCompId(r.id)}
+                          className="px-3 py-1.5 border border-red-200 text-red-600 text-xs rounded-lg font-semibold hover:bg-red-50"
+                        >
+                          Rechazar
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
