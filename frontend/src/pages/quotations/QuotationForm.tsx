@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useServices } from "../../hooks/useServices";
+import { getFixedSections } from "../../services/services.service";
 import { useServiceGroups } from "../../hooks/useServiceGroups";
 import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollections";
 import { ServiceGroup } from "../../types/serviceGroups.types";
@@ -283,6 +284,34 @@ export default function QuotationForm() {
   const [confirmGroupDel, setConfirmGroupDel] = useState<number | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
   const [itemSearch, setItemSearch] = useState("");
+  // Desplegable de servicios FIJOS con secciones (30-07, calco del de
+  // items de variables): botón + buscador pegajoso + rótulos.
+  const [openFixedPicker, setOpenFixedPicker] = useState<number | null>(null);
+  const [fixedSearch, setFixedSearch] = useState("");
+  const { data: fixedSections = [] } = useQuery({
+    queryKey: ["fixedSections"],
+    queryFn: getFixedSections,
+  });
+  // Posición de cada servicio fijo según su sección en el catálogo
+  // (sección en su orden, "Sin sección" al final; adentro, sort_order).
+  const fixedOrderOf = (codigo: string): number => {
+    const svc = fixedServices.find((f) => f.codigo === codigo);
+    if (!svc) return Number.MAX_SAFE_INTEGER;
+    const secIdx =
+      svc.section_id != null
+        ? fixedSections.findIndex((sec) => sec.id === svc.section_id)
+        : -1;
+    const secPos = secIdx >= 0 ? secIdx : fixedSections.length;
+    return secPos * 100000 + (svc.sort_order ?? 99999);
+  };
+  const fixedSectionNameOf = (codigo: string): string => {
+    const svc = fixedServices.find((f) => f.codigo === codigo);
+    const sec =
+      svc?.section_id != null
+        ? fixedSections.find((x) => x.id === svc.section_id)
+        : null;
+    return sec ? sec.name : "Sin sección";
+  };
 
   // Service groups (save/load a category + its items as a reusable group)
   const [groupModalBoxId, setGroupModalBoxId] = useState<string | null>(null);
@@ -582,6 +611,7 @@ export default function QuotationForm() {
       const target = event.target as Element;
       if (!target.closest(".dropdown-container")) {
         setOpenDropdown(null);
+        setOpenFixedPicker(null);
       }
     };
 
@@ -755,7 +785,10 @@ export default function QuotationForm() {
           quantity: service.quantity,
         })),
       })),
-    fixed_services: selectedFixedServices.map((service) => ({
+    fixed_services: [...selectedFixedServices]
+      .filter((s) => s?.codigo)
+      .sort((a, b) => fixedOrderOf(a.codigo) - fixedOrderOf(b.codigo))
+      .map((service) => ({
       codigo: service.codigo,
       nombre: service.nombre,
       day: Math.min(service.day || 0, eventDaysCount),
@@ -3219,8 +3252,34 @@ export default function QuotationForm() {
               Servicios fijos del evento
             </h3>
             <div>
-              {selectedFixedServices.map((service, index) =>
-                service?.codigo ? (
+              {(() => {
+                const conCodigo = selectedFixedServices
+                  .map((sv, i) => ({ sv, i }))
+                  .filter((x) => x.sv?.codigo)
+                  .sort(
+                    (a, b) =>
+                      fixedOrderOf(a.sv.codigo) - fixedOrderOf(b.sv.codigo),
+                  );
+                const vacias = selectedFixedServices
+                  .map((sv, i) => ({ sv, i }))
+                  .filter((x) => !x.sv?.codigo);
+                let rotuloPrev = "";
+                return [...conCodigo, ...vacias].map(
+                  ({ sv: service, i: index }) => {
+                    const rotulo =
+                      service?.codigo && fixedSections.length > 0
+                        ? fixedSectionNameOf(service.codigo)
+                        : null;
+                    const muestraRotulo = !!rotulo && rotulo !== rotuloPrev;
+                    if (rotulo) rotuloPrev = rotulo;
+                    return (
+                      <div key={index}>
+                        {muestraRotulo && (
+                          <div className="pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-blue-900">
+                            {rotulo}
+                          </div>
+                        )}
+                        {service?.codigo ? (
                   /* Servicio elegido: fila limpia estilo mockup */
                   <div
                     key={index}
@@ -3278,25 +3337,102 @@ export default function QuotationForm() {
                     key={index}
                     className="flex items-center gap-2 py-2 border-b border-gray-100"
                   >
-                    <select
-                      value=""
-                      onChange={(e) =>
-                        handleFixedServiceSelect(e.target.value, index)
-                      }
-                      disabled={isRestrictedEditing}
-                      autoFocus
-                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Seleccionar servicio fijo…</option>
-                      {fixedServices.map((fixedService) => (
-                        <option
-                          key={fixedService.codigo}
-                          value={fixedService.codigo}
+                    <div className="relative dropdown-container flex-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenFixedPicker(
+                            openFixedPicker === index ? null : index,
+                          );
+                          setFixedSearch("");
+                        }}
+                        disabled={isRestrictedEditing}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
+                      >
+                        <span className="text-gray-500">
+                          Seleccionar servicio fijo…
+                        </span>
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {fixedService.nombre}
-                        </option>
-                      ))}
-                    </select>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {openFixedPicker === index && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={fixedSearch}
+                              onChange={(e) => setFixedSearch(e.target.value)}
+                              placeholder="Buscar servicio por nombre..."
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                          {(() => {
+                            const disponibles = fixedServices
+                              .filter((f) => f.is_active !== false)
+                              .filter((f) =>
+                                matchesSearch(fixedSearch, f.nombre),
+                              )
+                              .sort(
+                                (a, b) =>
+                                  fixedOrderOf(a.codigo) -
+                                  fixedOrderOf(b.codigo),
+                              );
+                            if (disponibles.length === 0) {
+                              return (
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  No se encontraron servicios
+                                </div>
+                              );
+                            }
+                            const botonDe = (f: (typeof disponibles)[number]) => (
+                              <button
+                                key={f.codigo}
+                                type="button"
+                                onClick={() => {
+                                  handleFixedServiceSelect(f.codigo, index);
+                                  setOpenFixedPicker(null);
+                                }}
+                                className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                              >
+                                {f.nombre} - $
+                                {(f.precio || 0).toLocaleString("es-CL")}
+                              </button>
+                            );
+                            if (fixedSections.length === 0) {
+                              return disponibles.map(botonDe);
+                            }
+                            let prev = "";
+                            return disponibles.map((f) => {
+                              const nombre = fixedSectionNameOf(f.codigo);
+                              const header = nombre !== prev;
+                              prev = nombre;
+                              return (
+                                <div key={f.codigo}>
+                                  {header && (
+                                    <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                      {nombre}
+                                    </div>
+                                  )}
+                                  {botonDe(f)}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </div>
                     {!isRestrictedEditing && (
                       <button
                         onClick={() => removeFixedService(index)}
@@ -3307,8 +3443,12 @@ export default function QuotationForm() {
                       </button>
                     )}
                   </div>
-                ),
-              )}
+                )}
+                      </div>
+                    );
+                  },
+                );
+              })()}
 
               <button
                 onClick={addNewFixedServiceSlot}

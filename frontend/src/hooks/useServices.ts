@@ -25,6 +25,11 @@ export interface Product {
 
 // Interface for fixed services in QuotationForm format
 export interface FixedServiceFormatted {
+  // Secciones de fijos (migración 53): agrupan el desplegable del
+  // cotizador y ordenan la cotización, como la carta de variables.
+  section_id?: number | null;
+  sort_order?: number | null;
+  is_active?: boolean;
   codigo: string;
   nombre: string;
   precio: number;
@@ -102,6 +107,9 @@ const transformFixedServiceToFormatted = (
 ): FixedServiceFormatted => ({
   // Use the database id as the unique selection identifier (see note above).
   codigo: service.id.toString(),
+  section_id: service.section_id ?? null,
+  sort_order: service.sort_order ?? null,
+  is_active: service.is_active,
   nombre: service.name,
   // El precio puede venir vacío del catálogo; 0 sigue la convención de
   // min/max de abajo, y resolveFixedServicePrice decide el valor real.
