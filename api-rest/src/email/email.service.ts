@@ -69,12 +69,15 @@ export class EmailService {
       return false;
     }
 
-    // If company has no notifications configuration, do not send email (default behavior)
+    // Sin configuración de avisos = TODO ENCENDIDO por defecto
+    // (decisión de Felipe 29-07). Antes esta rama devolvía false y
+    // tenía mudos los correos al cliente de todas las empresas sin
+    // configurar — contradiciendo su propio mensaje de log.
     if (!company.notifications?.emails) {
       this.logger.info(
         `Company ${companyId} has no email notifications configured, allowing email ${emailStructure}`,
       );
-      return false;
+      return true;
     }
 
     const emailNotifications = company.notifications.emails;
