@@ -1,74 +1,42 @@
-import { baseLayoutTemplate } from '../baseLayout';
-import { formatCurrency, formatDate } from '../utils';
+import {
+  brandEmailTemplate,
+  EmailBranding,
+  fmtCLP,
+  fmtFechaLarga,
+} from '../brandLayout';
 import { PaymentPlanCreatedParams } from './types';
 
 /**
- * Email template for payment plan created
- * Sent to client when quotation is accepted and payment plan is created
- * @param params - Payment plan details
- * @returns HTML string for the email
+ * Cotización aceptada + plan de pagos (rediseño 29-07). Muestra las
+ * cuotas en filas limpias con la fecha y el monto de cada una.
  */
 export const paymentPlanCreatedTemplate = (
   params: PaymentPlanCreatedParams,
+  branding: EmailBranding,
 ): string => {
-  // Format the payment details as plain text with line breaks
-  const paymentsList = params.payments
-    .map((payment) => {
-      return `Pago #${payment.payment_number}: ${formatCurrency(payment.amount)} - Vence: ${formatDate(payment.due_date)}`;
-    })
-    .join('<br>');
+  const primary = branding.primary || '#134686';
 
-  // Build the email content
-  const emailContent = `
-    <style>
-      .greeting {
-        font-size: 18px;
-        color: #374151;
-        margin: 0 0 20px 0;
-      }
-      .intro-text {
-        font-size: 16px;
-        color: #4b5563;
-        line-height: 1.6;
-        margin: 0 0 20px 0;
-      }
-      .payment-details {
-        font-size: 15px;
-        color: #374151;
-        line-height: 1.8;
-        margin: 20px 0;
-        padding: 20px;
-        background-color: #f9fafb;
-        border-left: 4px solid #3b82f6;
-      }
-      .help-text {
-        font-size: 14px;
-        color: #6b7280;
-        text-align: center;
-        margin: 30px 0 10px 0;
-        line-height: 1.6;
-      }
-    </style>
+  const filas = params.payments
+    .map(
+      (p) => `
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14.5px;color:#1f2937;">Cuota ${p.payment_number}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14.5px;color:#6b7280;">vence ${fmtFechaLarga(p.due_date)}</td>
+        <td align="right" style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14.5px;font-weight:700;color:${primary};">${fmtCLP(p.amount)}</td>
+      </tr>`,
+    )
+    .join('');
 
-    <p class="greeting">Hola ${params.clientName},</p>
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:16.5px;font-weight:700;">Hola ${params.clientName},</p>
+    <p style="margin:0 0 14px;">¡Tu cotización <b>N° ${params.quotationNumber}</b> quedó aceptada! Gracias por confiar en nosotros para tu evento.</p>
+    <p style="margin:0 0 8px;">Este es el plan de pagos que acordamos:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;">${filas}</table>
+    <p style="margin:0 0 14px;">Antes de cada vencimiento te enviaremos un recordatorio con los datos para transferir. ¿Dudas? Responde este correo.</p>`;
 
-    <p class="intro-text">
-      Te contactamos desde ${params.companyName} para informarte que tu cotización #${params.quotationNumber} ha sido aceptada.
-    </p>
-
-    <p class="intro-text">
-      A continuación, encontrarás los detalles del plan de pagos acordado:
-    </p>
-
-    <div class="payment-details">${paymentsList}</div>
-
-    <p class="help-text">
-      Si tienes alguna pregunta o necesitas ayuda, no dudes en contactar a ${params.companyName}.
-    </p>
-  `;
-
-  // Use the base layout
-  return baseLayoutTemplate({
-    content: emailContent,
+  return brandEmailTemplate({
+    branding,
+    band: { text: 'Cotización aceptada', tone: 'info' },
+    bodyHtml,
   });
 };

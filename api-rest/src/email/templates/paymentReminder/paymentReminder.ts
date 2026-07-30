@@ -1,64 +1,63 @@
-import { baseLayoutTemplate } from '../baseLayout';
-import { formatCurrency, formatDate } from '../utils';
+import {
+  brandEmailTemplate,
+  cifraBox,
+  datosCobroPanel,
+  EmailBranding,
+  fmtCLP,
+  fmtFechaLarga,
+} from '../brandLayout';
 import { PaymentReminderParams } from './types';
 
 /**
- * Email template for payment reminder
- * Sent to clients with a pending payment
- * @param params - Payment reminder details
- * @returns HTML string for the email
+ * Recordatorio de pago AL CLIENTE (rediseño 29-07, copy aprobado por
+ * Felipe). El mismo template cubre los dos toques previos al
+ * vencimiento y decide por la fecha: vence en días (toque 1, cinta
+ * azul) o vence HOY (toque 2, cinta ámbar).
  */
+export const daysToDue = (due: Date | string): number => {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const dueStr =
+    typeof due === 'string' ? due.slice(0, 10) : due.toISOString().slice(0, 10);
+  return Math.round(
+    (new Date(`${dueStr}T12:00:00Z`).getTime() -
+      new Date(`${hoy}T12:00:00Z`).getTime()) /
+      86400000,
+  );
+};
+
 export const paymentReminderTemplate = (
   params: PaymentReminderParams,
+  branding: EmailBranding,
 ): string => {
-  // Build the email content
-  const emailContent = `
-    <style>
-      .greeting {
-        font-size: 18px;
-        color: #374151;
-        margin: 0 0 20px 0;
-      }
-      .intro-text {
-        font-size: 16px;
-        color: #4b5563;
-        line-height: 1.6;
-        margin: 0 0 30px 0;
-      }
-      .help-text {
-        font-size: 14px;
-        color: #6b7280;
-        text-align: center;
-        margin: 30px 0 10px 0;
-        line-height: 1.6;
-      }
-    </style>
+  const dias = daysToDue(params.payment.due_date);
+  const venceHoy = dias <= 0;
+  const fecha = fmtFechaLarga(params.payment.due_date);
+  const primary = branding.primary || '#134686';
 
-    <p class="greeting">Hola ${params.clientName},</p>
+  const intro = venceHoy
+    ? `La cuota de tu evento vence <b>hoy, ${fecha}</b>.`
+    : `Un recordatorio amistoso: la cuota de tu evento vence el <b>${fecha}</b>.`;
+  const cierre = venceHoy
+    ? `<p style="margin:0 0 14px;">¿Algún inconveniente con la fecha? Responde este correo y lo conversamos — estamos para ayudarte.</p>`
+    : `<p style="margin:0 0 14px;font-size:13.5px;color:#6b7280;">Si ya pagaste, ignora este correo — el comprobante puede tardar un poco en registrarse.</p>`;
 
-    <p class="intro-text">
-      Te contactamos desde ${params.companyName} para recordarte que tienes un pago pendiente de tu cotización
-      <strong>#${params.quotationId}</strong>.
-    </p>
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:16.5px;font-weight:700;">Hola ${params.clientName},</p>
+    <p style="margin:0 0 14px;">${intro}</p>
+    ${cifraBox(
+      `Cuota ${params.payment.payment_number} · cotización N° ${params.quotationId}`,
+      fmtCLP(params.payment.amount),
+      venceHoy ? 'Vence hoy' : `Vence el ${fecha}`,
+      primary,
+    )}
+    ${datosCobroPanel(branding.bank)}
+    ${cierre}`;
 
-    <div class="intro-text">
-      A continuación te indicamos los detalles de tu pago:
-    </div>
-
-    <div class="intro-text">
-      <p><strong>Número de Pago:</strong>${params.payment.payment_number}</p>
-      <p><strong>Monto a Pagar:</strong> ${formatCurrency(params.payment.amount)}</p>
-      <p><strong>Fecha de Vencimiento:</strong> ${formatDate(params.payment.due_date)}</p>
-    </div>
-
-    <p class="help-text">
-      Si ya realizaste el pago, por favor ignora este mensaje.
-      Si tienes alguna duda o necesitas ayuda, no dudes en contactar a ${params.companyName}.
-    </p>
-  `;
-
-  // Use the base layout
-  return baseLayoutTemplate({
-    content: emailContent,
+  return brandEmailTemplate({
+    branding,
+    band: venceHoy
+      ? { text: 'Tu cuota vence hoy', tone: 'aviso' }
+      : { text: 'Recordatorio de pago', tone: 'info' },
+    bodyHtml,
   });
 };

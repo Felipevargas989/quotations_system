@@ -1,52 +1,21 @@
-import { baseLayoutTemplate } from '../baseLayout';
+import { brandEmailTemplate, EmailBranding } from '../brandLayout';
 import { QuotationIsSentParams } from './types';
 
 /**
- * Email template for quotation is sent
- * Sent to client of quotation
- * @param params - Quotation is sent details
- * @returns HTML string for the email
+ * Aviso de cotización enviada (rediseño 29-07, copy aprobado por
+ * Felipe): invita a conversar ajustes sin presionar.
  */
 export const quotationIsSentTemplate = (
   params: QuotationIsSentParams,
+  branding: EmailBranding,
 ): string => {
-  // Build the email content
-  const emailContent = `
-    <style>
-      .greeting {
-        font-size: 18px;
-        color: #374151;
-        margin: 0 0 20px 0;
-      }
-      .intro-text {
-        font-size: 16px;
-        color: #4b5563;
-        line-height: 1.6;
-        margin: 0 0 30px 0;
-      }
-      .help-text {
-        font-size: 14px;
-        color: #6b7280;
-        text-align: center;
-        margin: 30px 0 10px 0;
-        line-height: 1.6;
-      }
-    </style>
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:16.5px;font-weight:700;">Hola ${params.clientName},</p>
+    <p style="margin:0 0 14px;">Preparamos tu cotización <b>N° ${params.quotationNumber}</b> y ya va en camino (revisa también el correo con el documento adjunto).</p>
+    <p style="margin:0 0 14px;">¿Quieres ajustar algo — cantidad de personas, menú, servicios? Conversemos: esta cotización es un punto de partida, no una camisa de fuerza. Responde este correo y lo vemos.</p>`;
 
-    <p class="greeting">Hola ${params.clientName},</p>
-
-    <p class="intro-text">
-      Te contactamos desde ${params.companyName} para informarte que la cotización para el evento que cotizaste con nosotros ya ha sido enviada.
-      El número de cotización es <strong>#${params.quotationNumber}</strong>.
-    </p>
-
-    <p class="help-text">
-      Si aún no la recibes, o necesitas ayuda, no dudes en contactar a ${params.companyName}.
-    </p>
-  `;
-
-  // Use the base layout
-  return baseLayoutTemplate({
-    content: emailContent,
+  return brandEmailTemplate({
+    branding,
+    bodyHtml,
   });
 };

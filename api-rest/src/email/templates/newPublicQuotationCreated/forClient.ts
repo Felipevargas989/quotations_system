@@ -1,25 +1,21 @@
-import { baseLayoutTemplate } from '../baseLayout';
+import { brandEmailTemplate, EmailBranding } from '../brandLayout';
 
 /**
- * Email template for new public quotation submission
- * Sent to the client who submitted the quotation via public form
- * @returns HTML string for the email
+ * Confirmación al cliente que envió una solicitud por el formulario
+ * público (rediseño 29-07, copy aprobado por Felipe). El formulario
+ * público no entrega el nombre a este template, por eso el saludo es
+ * genérico; se personaliza cuando la solicitud viaje con el nombre.
  */
-export const newPublicQuotationClientTemplate = (): string => {
-  const content = `
-    <p>Hola,</p>
-    <p>Te contactamos a nombre de la empresa en donde acabas de hacer una solicitud de cotización para un evento.</p>
-    <p>
-      Te comentamos que la cotización ha sido recibida y se encuentra en proceso de revisión.
-    </p>
-    <p>
-      Te contactaremos pronto para coordinar la siguiente etapa.
-    </p>
-    <p>
-      Gracias por tu interés.
-    </p>
-    `;
-  return baseLayoutTemplate({
-    content,
+export const newPublicQuotationClientTemplate = (
+  branding: EmailBranding,
+): string => {
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:16.5px;font-weight:700;">¡Hola!</p>
+    <p style="margin:0 0 14px;">Tu solicitud ya está en manos de nuestro equipo. La revisaremos con calma y te enviaremos una cotización a tu medida muy pronto.</p>
+    <p style="margin:0 0 14px;">Si quieres agregar algún detalle mientras tanto, responde este mismo correo.</p>`;
+
+  return brandEmailTemplate({
+    branding,
+    bodyHtml,
   });
 };

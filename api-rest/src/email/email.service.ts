@@ -6,6 +6,7 @@ import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { EMAIL_FROM, EMAIL_SUBJECTS, EMAILS_SEND_TO_CLIENT } from './constants';
+import { EmailBranding, fmtCLP } from './templates/brandLayout';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { newAccountTemplate } from './templates/newAccount';
@@ -19,7 +20,10 @@ import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/payme
 import { PaymentPlanCreatedParams } from './templates/paymentPlanCreated/types';
 import { paymentReceivedTemplate } from './templates/paymentReceived/paymentReceived';
 import { PaymentReceivedParams } from './templates/paymentReceived/types';
-import { paymentReminderTemplate } from './templates/paymentReminder/paymentReminder';
+import {
+  daysToDue,
+  paymentReminderTemplate,
+} from './templates/paymentReminder/paymentReminder';
 import { paymentReminderAdminTemplate } from './templates/paymentReminder/paymentReminderAmin';
 import { PaymentReminderParams } from './templates/paymentReminder/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
@@ -85,6 +89,33 @@ export class EmailService {
       `Email ${emailStructure} is enabled for company ${companyId}`,
     );
     return true;
+  }
+
+  /**
+   * Marca de la empresa para los correos al cliente (rediseño 29-07):
+   * nombre, subtítulo, logo, color primario y datos de cobro. Si la
+   * carga falla, el correo sale igual con la marca mínima.
+   */
+  private async getBranding(
+    companyId: Company['id'],
+    fallbackName?: string,
+  ): Promise<EmailBranding> {
+    try {
+      const { data: company } =
+        await this.companiesRepository.findOne(companyId);
+      if (company) {
+        return {
+          companyName: company.name,
+          tagline: company.tagline || null,
+          logoUrl: company.logo_url || null,
+          primary: company.colors?.primary,
+          bank: company.bank_details || null,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`getBranding failed for company ${companyId}`, error);
+    }
+    return { companyName: fallbackName || 'Eventia' };
   }
 
   /**
@@ -223,6 +254,20 @@ export class EmailService {
       this.configService.get<string>('RESEND_API_KEY') as string,
     );
 
+    // Marca de la empresa para los correos que ve el cliente. Ojo: en
+    // NEW_PUBLIC_QUOTATION_* el companyId viaja en la posición de
+    // params (así son sus overloads).
+    const brandCompanyId =
+      companyId ?? (typeof params === 'number' ? params : undefined);
+    let branding: EmailBranding = {
+      companyName:
+        ((params as { companyName?: string })?.companyName as string) ||
+        'Eventia',
+    };
+    if (brandCompanyId && EMAILS_SEND_TO_CLIENT.includes(emailStructure)) {
+      branding = await this.getBranding(brandCompanyId, branding.companyName);
+    }
+
     let subject: string;
     let html: string;
     let sendTo: string[];
@@ -236,9 +281,9 @@ export class EmailService {
         break;
 
       case EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT:
-        subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT];
+        subject = `Recibimos tu solicitud — ${branding.companyName}`;
         sendTo = [to as string];
-        html = newPublicQuotationClientTemplate();
+        html = newPublicQuotationClientTemplate(branding);
         break;
 
       case EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN:
@@ -260,14 +305,19 @@ export class EmailService {
         html = soonEventsTemplate(params.events);
         break;
 
-      case EmailStructure.PAYMENT_REMINDER:
-        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_REMINDER];
-        sendTo = [to as string];
+      case EmailStructure.PAYMENT_REMINDER: {
         if (!params) {
           throw new Error('Params are required for PAYMENT_REMINDER template');
         }
-        html = paymentReminderTemplate(params as PaymentReminderParams);
+        const rp = params as PaymentReminderParams;
+        subject =
+          daysToDue(rp.payment.due_date) <= 0
+            ? `Hoy vence tu cuota de ${fmtCLP(rp.payment.amount)} — ${branding.companyName}`
+            : `Tu cuota vence pronto — ${branding.companyName}`;
+        sendTo = [to as string];
+        html = paymentReminderTemplate(rp, branding);
         break;
+      }
 
       case EmailStructure.PAYMENT_REMINDER_ADMIN:
         subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_REMINDER_ADMIN];
@@ -281,12 +331,15 @@ export class EmailService {
         break;
 
       case EmailStructure.PAYMENT_OVERDUE:
-        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_OVERDUE];
+        subject = 'Cuota pendiente de tu evento — necesitamos regularizarla';
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for PAYMENT_OVERDUE template');
         }
-        html = paymentOverdueTemplate(params as PaymentReminderParams);
+        html = paymentOverdueTemplate(
+          params as PaymentReminderParams,
+          branding,
+        );
         break;
 
       case EmailStructure.PAYMENT_OVERDUE_ADMIN:
@@ -300,14 +353,16 @@ export class EmailService {
         html = paymentOverdueAdminTemplate(params as PaymentReminderParams);
         break;
 
-      case EmailStructure.QUOTATION_IS_SENT:
-        subject = EMAIL_SUBJECTS[EmailStructure.QUOTATION_IS_SENT];
-        sendTo = [to as string];
+      case EmailStructure.QUOTATION_IS_SENT: {
         if (!params) {
           throw new Error('Params are required for QUOTATION_IS_SENT template');
         }
-        html = quotationIsSentTemplate(params as QuotationIsSentParams);
+        const qp = params as QuotationIsSentParams;
+        subject = `Tu cotización de ${branding.companyName} está lista — N° ${qp.quotationNumber}`;
+        sendTo = [to as string];
+        html = quotationIsSentTemplate(qp, branding);
         break;
+      }
 
       case EmailStructure.PAYMENT_PLAN_CREATED:
         subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_PLAN_CREATED];
@@ -317,30 +372,36 @@ export class EmailService {
             'Params are required for PAYMENT_PLAN_CREATED template',
           );
         }
-        html = paymentPlanCreatedTemplate(params as PaymentPlanCreatedParams);
+        html = paymentPlanCreatedTemplate(
+          params as PaymentPlanCreatedParams,
+          branding,
+        );
         break;
 
       case EmailStructure.PAYMENT_RECEIVED:
-        subject = EMAIL_SUBJECTS[EmailStructure.PAYMENT_RECEIVED];
+        subject = `Pago recibido ✓ — ${branding.companyName}`;
         sendTo = [to as string];
         if (!params) {
           throw new Error('Params are required for PAYMENT_RECEIVED template');
         }
-        html = paymentReceivedTemplate(params as PaymentReceivedParams);
+        html = paymentReceivedTemplate(
+          params as PaymentReceivedParams,
+          branding,
+        );
         break;
 
-      case EmailStructure.CUSTOMER_SATISFACTION_SURVEY:
-        subject = EMAIL_SUBJECTS[EmailStructure.CUSTOMER_SATISFACTION_SURVEY];
-        sendTo = [to as string];
+      case EmailStructure.CUSTOMER_SATISFACTION_SURVEY: {
         if (!params) {
           throw new Error(
             'Params are required for CUSTOMER_SATISFACTION_SURVEY template',
           );
         }
-        html = customerSatisfactionSurveyTemplate(
-          params as CustomerSatisfactionSurveyParams,
-        );
+        const sp = params as CustomerSatisfactionSurveyParams;
+        subject = `¿Cómo estuvo tu evento, ${sp.clientName}?`;
+        sendTo = [to as string];
+        html = customerSatisfactionSurveyTemplate(sp, branding);
         break;
+      }
 
       case EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY:
         subject =
@@ -406,8 +467,14 @@ export class EmailService {
       return;
     }
 
+    // Los correos al cliente salen con el NOMBRE DE LA EMPRESA como
+    // remitente (el dominio verificado sigue siendo el de Eventia).
+    const from = EMAILS_SEND_TO_CLIENT.includes(emailStructure)
+      ? `${branding.companyName} <hola@eventi-app.com>`
+      : EMAIL_FROM;
+
     await resend.emails.send({
-      from: EMAIL_FROM,
+      from,
       to: sendTo,
       subject,
       html,

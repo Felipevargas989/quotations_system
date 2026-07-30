@@ -1,71 +1,36 @@
-import { baseLayoutTemplate } from '../baseLayout';
-import { formatCurrency, formatDate } from '../utils';
+import {
+  brandEmailTemplate,
+  cifraBox,
+  EmailBranding,
+  fmtCLP,
+} from '../brandLayout';
+import { formatDate } from '../utils';
 import { PaymentReceivedParams } from './types';
 
 /**
- * Email template for payment received confirmation
- * Sent to client when a new payment transaction is created
- * @param params - Payment transaction details
- * @returns HTML string for the email
+ * Comprobante de pago recibido (rediseño 29-07, copy aprobado por
+ * Felipe). Cinta azul informativa y el monto en caja grande.
  */
 export const paymentReceivedTemplate = (
   params: PaymentReceivedParams,
+  branding: EmailBranding,
 ): string => {
-  // Build the email content
-  const emailContent = `
-    <style>
-      .greeting {
-        font-size: 18px;
-        color: #374151;
-        margin: 0 0 20px 0;
-      }
-      .intro-text {
-        font-size: 16px;
-        color: #4b5563;
-        line-height: 1.6;
-        margin: 0 0 20px 0;
-      }
-      .payment-details {
-        font-size: 15px;
-        color: #374151;
-        line-height: 1.8;
-        margin: 20px 0;
-        padding: 20px;
-        background-color: #f9fafb;
-        border-left: 4px solid #10b981;
-      }
-      .help-text {
-        font-size: 14px;
-        color: #6b7280;
-        text-align: center;
-        margin: 30px 0 10px 0;
-        line-height: 1.6;
-      }
-    </style>
+  const primary = branding.primary || '#134686';
 
-    <p class="greeting">Hola ${params.clientName},</p>
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:16.5px;font-weight:700;">Hola ${params.clientName},</p>
+    <p style="margin:0 0 14px;">Confirmamos que recibimos tu pago.</p>
+    ${cifraBox(
+      'Pago recibido',
+      fmtCLP(params.amount),
+      `${params.paymentMethod} · ${formatDate(params.transactionDate)}`,
+      primary,
+    )}
+    <p style="margin:0 0 14px;">Gracias por tu confianza.</p>`;
 
-    <p class="intro-text">
-      Te contactamos desde ${params.companyName} para confirmar que hemos recibido tu pago correctamente.
-    </p>
-
-    <p class="intro-text">
-      A continuación, encontrarás los detalles de la transacción:
-    </p>
-
-    <div class="payment-details">
-      Monto: ${formatCurrency(params.amount)}<br>
-      Método de pago: ${params.paymentMethod}<br>
-      Fecha de pago: ${formatDate(params.transactionDate)}
-    </div>
-
-    <p class="help-text">
-      Si tienes alguna pregunta o necesitas ayuda, no dudes en contactar a ${params.companyName}.
-    </p>
-  `;
-
-  // Use the base layout
-  return baseLayoutTemplate({
-    content: emailContent,
+  return brandEmailTemplate({
+    branding,
+    band: { text: 'Comprobante de pago', tone: 'info' },
+    bodyHtml,
   });
 };
