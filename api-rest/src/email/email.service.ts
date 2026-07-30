@@ -121,6 +121,127 @@ export class EmailService {
   }
 
   /**
+   * Correos de PRUEBA: renderiza los correos del cliente y el resumen
+   * semanal con datos de ejemplo y la marca REAL de la empresa, y los
+   * manda todos a una casilla. Salta las puertas de notificaciones a
+   * propósito (es una vista previa, no un envío de negocio).
+   */
+  async sendPreviewBatch(
+    to: string,
+    companyId: Company['id'],
+  ): Promise<{ sent: number; subjects: string[] }> {
+    const branding = await this.getBranding(companyId);
+    const resend = new Resend(
+      this.configService.get<string>('RESEND_API_KEY') as string,
+    );
+    const hoy = new Date();
+    const en3 = new Date(hoy);
+    en3.setDate(en3.getDate() + 3);
+    const hace7 = new Date(hoy);
+    hace7.setDate(hace7.getDate() - 7);
+    const cuota = (due: Date): PaymentReminderParams => ({
+      clientName: 'María Fernanda',
+      companyName: branding.companyName,
+      quotationId: '463',
+      payment: { payment_number: 2, amount: 925000, due_date: due },
+    });
+
+    const previews: { subject: string; html: string }[] = [
+      {
+        subject: `[PRUEBA] Recibimos tu solicitud — ${branding.companyName}`,
+        html: newPublicQuotationClientTemplate(branding),
+      },
+      {
+        subject: `[PRUEBA] Tu cotización de ${branding.companyName} está lista — N° 463`,
+        html: quotationIsSentTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            quotationNumber: 463,
+          },
+          branding,
+        ),
+      },
+      {
+        subject: `[PRUEBA] Cotización aceptada — plan de pagos`,
+        html: paymentPlanCreatedTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            quotationNumber: 463,
+            payments: [
+              { payment_number: 1, amount: 925000, due_date: hoy },
+              { payment_number: 2, amount: 925000, due_date: en3 },
+            ],
+          },
+          branding,
+        ),
+      },
+      {
+        subject: `[PRUEBA] Pago recibido ✓ — ${branding.companyName}`,
+        html: paymentReceivedTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            amount: 925000,
+            paymentMethod: 'Transferencia bancaria',
+            transactionDate: hoy,
+          },
+          branding,
+        ),
+      },
+      {
+        subject: `[PRUEBA] Tu cuota vence pronto — ${branding.companyName}`,
+        html: paymentReminderTemplate(cuota(en3), branding),
+      },
+      {
+        subject: `[PRUEBA] Hoy vence tu cuota de ${fmtCLP(925000)} — ${branding.companyName}`,
+        html: paymentReminderTemplate(cuota(hoy), branding),
+      },
+      {
+        subject:
+          '[PRUEBA] Cuota pendiente de tu evento — necesitamos regularizarla',
+        html: paymentOverdueTemplate(cuota(hace7), branding),
+      },
+      {
+        subject: `[PRUEBA] ¿Cómo estuvo tu evento, María Fernanda?`,
+        html: customerSatisfactionSurveyTemplate(
+          {
+            clientName: 'María Fernanda',
+            companyName: branding.companyName,
+            companyId,
+            quotationId: 'prueba',
+          },
+          branding,
+        ),
+      },
+      {
+        subject: `[PRUEBA] Tu semana en ${branding.companyName}: 2 eventos · 5 cotizaciones en curso`,
+        html: weeklyDigestTemplate({
+          companyName: branding.companyName,
+          weekLabel: 'semana de ejemplo',
+          eventos: [
+            { fecha: 'vie 7', tipo: 'Almuerzo empresa · CCU', personas: 120 },
+            { fecha: 'sáb 8', tipo: 'Matrimonio', personas: 180 },
+          ],
+          pipeline: { solicitadas: 2, enviadas: 2, enNegociacion: 1 },
+        }),
+      },
+    ];
+
+    const from = `${branding.companyName} <hola@eventi-app.com>`;
+    for (const p of previews) {
+      await resend.emails.send({
+        from,
+        to: [to],
+        subject: p.subject,
+        html: p.html,
+      });
+    }
+    return { sent: previews.length, subjects: previews.map((p) => p.subject) };
+  }
+
+  /**
    * Sends an email without parameters (static templates)
    */
   async sendEmail(
