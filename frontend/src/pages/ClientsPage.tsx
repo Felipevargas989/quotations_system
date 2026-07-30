@@ -830,7 +830,7 @@ export default function ClientsPage() {
                       contactDraft?.id === c.id ? (
                         <div
                           key={c.id}
-                          className="grid grid-cols-1 md:grid-cols-4 gap-2 py-1"
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2"
                         >
                           <input
                             autoFocus
@@ -895,17 +895,24 @@ export default function ClientsPage() {
                           key={c.id}
                           className="flex items-center justify-between gap-2 py-1 border-b border-gray-100 last:border-b-0"
                         >
-                          <div className="min-w-0 text-sm">
+                          <div className="min-w-0 text-sm flex items-baseline">
                             <span
-                              className={
+                              className={`shrink-0 ${
                                 c.is_primary
                                   ? "font-semibold text-gray-900"
                                   : "text-gray-800"
-                              }
+                              }`}
                             >
                               {c.name}
                             </span>
-                            <span className="ml-2 text-xs text-gray-400">
+                            {/* Correo largo: puntos suspensivos, texto
+                                completo al pasar el mouse (30-07). */}
+                            <span
+                              className="ml-2 text-xs text-gray-400 truncate"
+                              title={[c.email, formatPhone(c.phone)]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            >
                               {[c.email, formatPhone(c.phone)]
                                 .filter(Boolean)
                                 .join(" · ")}
@@ -974,7 +981,7 @@ export default function ClientsPage() {
                       ),
                     )}
                     {contactDraft && contactDraft.id == null && (
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 py-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
                         <input
                           autoFocus
                           value={contactDraft.name}
