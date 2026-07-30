@@ -25,7 +25,13 @@ import {
   validatePhone,
   validateClientForm,
 } from "../utils/validation";
-import { formatPhone, normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
+import {
+  emailProblem,
+  formatPhone,
+  normalizePhone,
+  PHONE_PLACEHOLDER,
+  phoneProblem,
+} from "../utils/phone";
 import { CLIENT_TYPES } from "../constants/clientTypes";
 import {
   clientsQueryOptions,
@@ -353,13 +359,28 @@ export default function ClientsPage() {
       return;
     }
 
-    // Correo/teléfono vacíos viajan como null (el backend valida el
-    // correo SOLO si viene con contenido — Clientes 2.0: las empresas
-    // no llevan correo propio).
+    // Portero (30-07): los datos de la persona se revisan antes de crear.
+    if (!editingClient) {
+      const problema =
+        phoneProblem(newContactPhone) || emailProblem(newContactEmail);
+      if (problema) {
+        alert(problema);
+        return;
+      }
+    }
+
+    // Boceto 30-07: la ficha ya no captura correo/teléfono propios. Al
+    // CREAR, el espejo del cliente se llena desde la persona principal
+    // (lo usa el anti-duplicados del formulario público); al editar,
+    // se conserva lo que había.
     const payload = {
       ...formData,
-      email: formData.email?.trim() ? formData.email.trim() : null,
-      phone: formData.phone?.trim() ? formData.phone.trim() : null,
+      email: editingClient
+        ? formData.email?.trim() || null
+        : newContactEmail.trim() || null,
+      phone: editingClient
+        ? formData.phone?.trim() || null
+        : normalizePhone(newContactPhone) || null,
     } as typeof formData;
 
     try {
@@ -368,20 +389,25 @@ export default function ClientsPage() {
 
         alert("Cliente actualizado exitosamente");
       } else {
-        const { data: created } = await createClient(payload);
+        // En Particulares, si no se escribió persona, la persona ES el
+        // cliente (boceto 30-07): se crea sola con su nombre.
+        const personaNombre =
+          formData.contact_person?.trim() ||
+          (!isEmpresa ? formData.name.trim() : "");
+        const payloadConEspejo = {
+          ...payload,
+          contact_person: personaNombre || payload.contact_person,
+        } as typeof formData;
+        const { data: created } = await createClient(payloadConEspejo);
         // Sembrar la persona de contacto como contacto PRINCIPAL real
         const createdClient = (created as any)?.data ?? created;
-        if (
-          createdClient?.id &&
-          formData.contact_person?.trim() &&
-          company?.id
-        ) {
+        if (createdClient?.id && personaNombre && company?.id) {
           await createClientContact({
             company_id: company.id,
             client_id: createdClient.id,
-            name: formData.contact_person.trim(),
+            name: personaNombre,
             email: newContactEmail.trim() || null,
-            phone: newContactPhone.trim() || null,
+            phone: normalizePhone(newContactPhone) || null,
             is_primary: true,
           });
           setNewContactEmail("");
@@ -728,65 +754,10 @@ export default function ClientsPage() {
                 )}
               </div>
 
-              {/* La empresa no tiene correo/teléfono propios: esos datos
-                  viven en las personas de contacto. Particulares sí. */}
-              {!isEmpresa && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => {
-                      const email = e.target.value;
-                      setFormData((prev) => ({ ...prev, email }));
-                      setErrors((prev) => ({
-                        ...prev,
-                        email: validateEmail(email),
-                      }));
-                    }}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? "border-red-500" : ""}`}
-                    placeholder="correo@ejemplo.com"
-                  />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                  )}
-                </div>
-              )}
-
-              {!isEmpresa && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => {
-                      const phone = e.target.value;
-                      setFormData((prev) => ({ ...prev, phone }));
-                      setErrors((prev) => ({
-                        ...prev,
-                        phone: validatePhone(phone),
-                      }));
-                    }}
-                    onBlur={() => {
-                      // Al salir del recuadro el número queda ordenado y a la
-                      // vista, para que se note que quedó bien guardado.
-                      setFormData((prev) => ({
-                        ...prev,
-                        phone: normalizePhone(prev.phone || ""),
-                      }));
-                    }}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phone ? "border-red-500" : ""}`}
-                    placeholder={PHONE_PLACEHOLDER}
-                  />
-                  {errors.phone && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                  )}
-                </div>
-              )}
+              {/* Boceto de Felipe (30-07): la ficha ya no tiene correo ni
+                  teléfono propios — NINGÚN tipo de cliente. Esos datos
+                  viven en las personas de contacto; abajo, al crear, se
+                  escriben directo en la persona principal. */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -808,27 +779,27 @@ export default function ClientsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Nombre del contacto principal"
                     />
-                    {isEmpresa && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="email"
-                          value={newContactEmail}
-                          onChange={(e) => setNewContactEmail(e.target.value)}
-                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                          placeholder="Correo de la persona"
-                        />
-                        <input
-                          type="tel"
-                          value={newContactPhone}
-                          onChange={(e) => setNewContactPhone(e.target.value)}
-                          onBlur={() =>
-                            setNewContactPhone((p) => normalizePhone(p || ""))
-                          }
-                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                          placeholder="Teléfono de la persona"
-                        />
-                      </div>
-                    )}
+                    {/* Correo y teléfono DE LA PERSONA, para todo tipo de
+                        cliente (boceto 30-07). */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        value={newContactEmail}
+                        onChange={(e) => setNewContactEmail(e.target.value)}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                        placeholder="Correo de la persona"
+                      />
+                      <input
+                        type="tel"
+                        value={newContactPhone}
+                        onChange={(e) => setNewContactPhone(e.target.value)}
+                        onBlur={() =>
+                          setNewContactPhone((p) => normalizePhone(p || ""))
+                        }
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                        placeholder="Teléfono de la persona"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="border border-gray-200 rounded-lg p-3 space-y-1">
@@ -1069,23 +1040,9 @@ export default function ClientsPage() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dirección
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      address: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Dirección completa"
-                />
-              </div>
+              {/* Dirección fuera del formulario (medición 30-07: solo 6 de
+                  291 clientes la tenían — dato muerto). La columna sigue
+                  en la base; no se borra nada. */}
             </div>
 
             <div>
