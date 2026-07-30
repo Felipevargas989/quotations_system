@@ -166,7 +166,7 @@ export default function FixedServicesBySection({
           e.stopPropagation();
           void dropOnService(sectionId, s.id);
         }}
-        className={`flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-blue-200 hover:bg-blue-100/50 ${
+        className={`flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 ${
           inactive ? "opacity-60" : ""
         }`}
       >
@@ -253,11 +253,11 @@ export default function FixedServicesBySection({
   const totalServicios = fixedServices.length;
 
   return (
-    <div className="bg-blue-50/60 border border-blue-100 rounded-lg shadow">
+    <div className="bg-white rounded-lg shadow border-l-4 border-blue-400 overflow-hidden">
       {/* Cabecera única: flechita + título + conteo + ⋮ (solo Secciones) */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className={`relative px-4 py-3 flex items-center justify-between cursor-pointer ${
+        className={`relative px-4 py-3 flex items-center justify-between cursor-pointer bg-blue-50/50 ${
           open ? "border-b border-blue-100" : ""
         }`}
       >
@@ -359,7 +359,7 @@ export default function FixedServicesBySection({
           }}
         >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[85vh]">
-            <div className="px-5 py-4 border-b border-blue-100">
+            <div className="px-5 py-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">
                 Secciones · Servicios fijos
               </h3>
