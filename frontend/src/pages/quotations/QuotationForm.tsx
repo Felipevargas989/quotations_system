@@ -1333,6 +1333,16 @@ export default function QuotationForm() {
     setSelectedFixedServices((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // La ventanita de selección vive SIEMPRE al final (Felipe 30-07:
+  // fuera el botón '+ Agregar servicio fijo'); este efecto garantiza
+  // exactamente un slot vacío esperando elección.
+  useEffect(() => {
+    if (!selectedFixedServices.some((sv) => !sv?.codigo)) {
+      addNewFixedServiceSlot();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFixedServices]);
+
   const addNewFixedServiceSlot = () => {
     setSelectedFixedServices((prev) => [
       ...prev,
@@ -3433,15 +3443,6 @@ export default function QuotationForm() {
                         </div>
                       )}
                     </div>
-                    {!isRestrictedEditing && (
-                      <button
-                        onClick={() => removeFixedService(index)}
-                        className="text-gray-300 hover:text-red-600"
-                        title="Cancelar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
                   </div>
                 )}
                       </div>
@@ -3450,16 +3451,6 @@ export default function QuotationForm() {
                 );
               })()}
 
-              <button
-                onClick={addNewFixedServiceSlot}
-                disabled={
-                  isRestrictedEditing ||
-                  selectedFixedServices.some((s) => !s.codigo)
-                }
-                className="mt-2 text-sm font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
-              >
-                + Agregar servicio fijo
-              </button>
             </div>
           </div>
 
