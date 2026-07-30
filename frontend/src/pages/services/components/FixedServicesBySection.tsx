@@ -2,18 +2,18 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
-  ChefHat,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
+  Coins,
   Edit,
   Eye,
   EyeOff,
   GripVertical,
+  Layers,
   MoreVertical,
   Pencil,
-  Plus,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   createFixedSection,
@@ -23,17 +23,17 @@ import {
   reorderFixedServices,
   updateFixedSection,
 } from "../../../services/services.service";
-import { FixedSection, FixedService } from "../../../types/services.types";
+import { FixedService } from "../../../types/services.types";
 
-// SECCIONES DE SERVICIOS FIJOS (migración 53, pedido de Felipe 30-07:
-// "ídem que servicios variables"): cajas con nombre libre, arrastre
-// para ordenar secciones y servicios, y mover servicios entre cajas.
-// Mismo arrastre nativo del componente de variables. Los servicios sin
-// sección viven en la caja "Sin sección" (la herencia parte ahí).
+// SERVICIOS FIJOS EN UNA SOLA CAJA (migración 53, diseño de Felipe
+// 30-07 tras dos vueltas): las secciones NO son cajas apiladas — son
+// rótulos DENTRO de la caja, exactamente como las secciones de una
+// categoría de variables. El modal "Secciones" (⋮) es el calco del de
+// arriba, sin la estrella de "fija" (exclusiva del cotizador de
+// variables). Monedas NARANJAS para costos (el gorro es de recetas).
 
 interface Props {
   readonly fixedServices: FixedService[];
-  readonly showInactive: boolean;
   readonly onEdit: (s: FixedService) => void;
   readonly onEditRecipe: (s: FixedService) => void;
   readonly onDelete: (id: number) => void;
@@ -42,17 +42,10 @@ interface Props {
 }
 
 const clp = (n?: number) =>
-  n || n === 0
-    ? new Intl.NumberFormat("es-CL", {
-        style: "currency",
-        currency: "CLP",
-        minimumFractionDigits: 0,
-      }).format(n)
-    : "—";
+  n || n === 0 ? `$${Number(n).toLocaleString("es-CL")}` : "—";
 
 export default function FixedServicesBySection({
   fixedServices,
-  showInactive,
   onEdit,
   onEditRecipe,
   onDelete,
@@ -64,27 +57,23 @@ export default function FixedServicesBySection({
     queryKey: ["fixedSections"],
     queryFn: getFixedSections,
   });
-  const sections = (sectionsQuery.data ?? []).filter(
-    (sec) => showInactive || sec.is_active !== false,
-  );
+  const sections = sectionsQuery.data ?? [];
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["fixedSections"] });
 
-  // ---- Estado de edición de secciones ----
-  const [newName, setNewName] = useState("");
-  const [addingSection, setAddingSection] = useState(false);
-  const [menuOpen, setMenuOpen] = useState<number | null>(null);
-  const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(
+  const [open, setOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showSections, setShowSections] = useState(false);
+
+  // ---- Modal de secciones (estado calcado del de variables) ----
+  const [newSectionName, setNewSectionName] = useState("");
+  const [renamingSectionId, setRenamingSectionId] = useState<number | null>(
     null,
   );
-  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  // Plegado por caja (parten abiertas); "sin" = la caja Sin sección.
-  const [closed, setClosed] = useState<Set<number | "sin">>(new Set());
+  const [renameSectionName, setRenameSectionName] = useState("");
 
-  // ---- Arrastre (mismo patrón nativo que variables) ----
+  // ---- Arrastre de servicios (mismo patrón nativo que variables) ----
   const dragService = useRef<number | null>(null);
-  const dragSection = useRef<number | null>(null);
 
   const servicesOf = (sectionId: number | null) =>
     fixedServices
@@ -94,10 +83,7 @@ export default function FixedServicesBySection({
           (a.sort_order ?? 9999) - (b.sort_order ?? 9999) || a.id - b.id,
       );
 
-  const dropOnService = async (
-    sectionId: number | null,
-    targetId: number,
-  ) => {
+  const dropOnService = async (sectionId: number | null, targetId: number) => {
     const moved = dragService.current;
     dragService.current = null;
     if (moved == null || moved === targetId) return;
@@ -110,7 +96,7 @@ export default function FixedServicesBySection({
     onServicesChanged();
   };
 
-  const dropOnBox = async (sectionId: number | null) => {
+  const dropOnGroup = async (sectionId: number | null) => {
     const moved = dragService.current;
     dragService.current = null;
     if (moved == null) return;
@@ -122,55 +108,48 @@ export default function FixedServicesBySection({
     onServicesChanged();
   };
 
-  const dropOnSectionHeader = async (targetId: number) => {
-    const moved = dragSection.current;
-    dragSection.current = null;
-    if (moved == null || moved === targetId) return;
-    const ids = sections.map((s) => s.id).filter((id) => id !== moved);
-    const idx = ids.indexOf(targetId);
-    ids.splice(idx < 0 ? ids.length : idx, 0, moved);
+  // Cajita desplegable de la fila: asignar sección sin arrastrar.
+  const changeSection = async (s: FixedService, sectionId: number | null) => {
+    const lista = servicesOf(sectionId)
+      .map((x) => x.id)
+      .filter((id) => id !== s.id);
+    lista.push(s.id);
+    await reorderFixedServices(sectionId, lista);
+    onServicesChanged();
+  };
+
+  // ---- Acciones del modal ----
+  const addSection = async () => {
+    const name = newSectionName.trim();
+    if (!name) return;
+    await createFixedSection(name);
+    setNewSectionName("");
+    await invalidate();
+  };
+
+  const submitRenameSection = async () => {
+    if (renamingSectionId == null || !renameSectionName.trim()) return;
+    await updateFixedSection(renamingSectionId, {
+      name: renameSectionName.trim(),
+    });
+    setRenamingSectionId(null);
+    await invalidate();
+  };
+
+  const moveSection = async (id: number, dir: -1 | 1) => {
+    const ids = sections.map((s) => s.id);
+    const i = ids.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
     await reorderFixedSections(ids);
     await invalidate();
   };
 
-  const crearSeccion = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    setSaving(true);
-    try {
-      await createFixedSection(name);
-      setNewName("");
-      setAddingSection(false);
-      await invalidate();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const renombrar = async () => {
-    if (!renaming || !renaming.name.trim()) return;
-    setSaving(true);
-    try {
-      await updateFixedSection(renaming.id, { name: renaming.name.trim() });
-      setRenaming(null);
-      await invalidate();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleSeccion = async (sec: FixedSection) => {
-    await updateFixedSection(sec.id, { is_active: sec.is_active === false });
-    setMenuOpen(null);
-    await invalidate();
-  };
-
-  const eliminarSeccion = async (id: number) => {
+  const removeSection = async (id: number) => {
     await deleteFixedSection(id);
-    setConfirmDelId(null);
-    setMenuOpen(null);
     await invalidate();
-    onServicesChanged(); // sus servicios caen a "Sin sección"
+    onServicesChanged(); // sus servicios quedan en "Sin sección"
   };
 
   const fila = (s: FixedService, sectionId: number | null) => {
@@ -187,11 +166,11 @@ export default function FixedServicesBySection({
           e.stopPropagation();
           void dropOnService(sectionId, s.id);
         }}
-        className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 bg-white hover:bg-gray-50 cursor-grab ${
-          inactive ? "opacity-50" : ""
+        className={`flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 ${
+          inactive ? "opacity-60" : ""
         }`}
       >
-        <div className="flex items-center space-x-3 min-w-0 flex-1">
+        <div className="flex items-center space-x-3 min-w-0">
           <GripVertical
             size={16}
             className="text-gray-400 cursor-grab flex-shrink-0"
@@ -206,7 +185,25 @@ export default function FixedServicesBySection({
             {s.price_per_person ? ` · ${clp(s.price_per_person)}/p` : ""}
           </span>
         </div>
-        <span className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center space-x-2 flex-shrink-0">
+          {sections.length > 0 && (
+            <select
+              value={s.section_id || 0}
+              onChange={(e) =>
+                void changeSection(s, Number(e.target.value) || null)
+              }
+              className="text-xs border border-gray-200 rounded-md px-1.5 py-1 text-gray-500 bg-white hover:border-gray-300 max-w-[130px]"
+              title="Sección"
+              aria-label={`Sección de ${s.name}`}
+            >
+              <option value={0}>Sin sección</option>
+              {sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             title={inactive ? "Activar" : "Desactivar"}
@@ -221,7 +218,7 @@ export default function FixedServicesBySection({
             onClick={() => onEditRecipe(s)}
             className="text-amber-600 hover:text-amber-800"
           >
-            <ChefHat size={16} />
+            <Coins size={16} />
           </button>
           <button
             type="button"
@@ -239,241 +236,257 @@ export default function FixedServicesBySection({
           >
             <Trash2 size={16} />
           </button>
-        </span>
+        </div>
       </div>
     );
   };
 
-  const caja = (sec: FixedSection | null) => {
-    const items = servicesOf(sec?.id ?? null);
-    if (sec === null && items.length === 0) return null;
-    const inactiveSec = sec?.is_active === false;
-    return (
+  // Grupos: cada sección en su orden + "Sin sección" al final. Los
+  // rótulos solo aparecen cuando existen secciones (como arriba).
+  const grupos: { sectionId: number | null; nombre: string }[] = [
+    ...sections.map((sec) => ({
+      sectionId: sec.id as number | null,
+      nombre: sec.name,
+    })),
+    { sectionId: null, nombre: "Sin sección" },
+  ];
+  const totalServicios = fixedServices.length;
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      {/* Cabecera única: flechita + título + conteo + ⋮ (solo Secciones) */}
       <div
-        key={sec?.id ?? "sin-seccion"}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={() => void dropOnBox(sec?.id ?? null)}
-        className={`border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${
-          inactiveSec ? "opacity-60" : ""
+        onClick={() => setOpen((v) => !v)}
+        className={`relative px-4 py-3 flex items-center justify-between cursor-pointer ${
+          open ? "border-b border-gray-200" : ""
         }`}
       >
-        <div
-          draggable={!!sec}
-          onDragStart={() => {
-            if (sec) dragSection.current = sec.id;
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            if (sec && dragSection.current != null) {
-              e.stopPropagation();
-              void dropOnSectionHeader(sec.id);
-            }
-          }}
-          className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border-b border-gray-200"
-        >
-          {sec && (
-            <GripVertical
-              size={16}
-              className="text-gray-400 cursor-grab flex-shrink-0"
-            />
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? (
+            <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+          ) : (
+            <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
           )}
-          {(() => {
-            const key = sec ? sec.id : ("sin" as const);
-            const abierta = !closed.has(key);
-            return (
-              <button
-                type="button"
-                onClick={() =>
-                  setClosed((prev) => {
-                    const n = new Set(prev);
-                    if (n.has(key)) n.delete(key);
-                    else n.add(key);
-                    return n;
-                  })
-                }
-                className="text-gray-400 flex-shrink-0"
-                title={abierta ? "Plegar" : "Desplegar"}
+          <span className="text-sm font-semibold text-gray-800">
+            Servicios fijos
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 whitespace-nowrap">
+            {totalServicios} servicio{totalServicios === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+            aria-label="Menú de servicios fijos"
+          >
+            <MoreVertical size={18} />
+          </button>
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                }}
+              />
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-2 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700"
               >
-                {abierta ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronRight size={16} />
-                )}
-              </button>
-            );
-          })()}
-          {renaming && sec && renaming.id === sec.id ? (
-            <span className="flex items-center gap-1 flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowSections(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  <Layers size={14} /> Secciones
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Servicios agrupados por rótulo de sección, como arriba */}
+      {open && (
+        <div className="p-2">
+          {totalServicios === 0 ? (
+            <p className="px-4 py-3 text-sm text-gray-400">
+              No hay servicios fijos registrados.
+            </p>
+          ) : (
+            grupos.map(({ sectionId, nombre }) => {
+              const items = servicesOf(sectionId);
+              if (sectionId === null && items.length === 0) return null;
+              return (
+                <div
+                  key={sectionId ?? "sin"}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => void dropOnGroup(sectionId)}
+                >
+                  {sections.length > 0 && (
+                    <div className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                      {nombre}
+                    </div>
+                  )}
+                  {items.length === 0 && sectionId !== null ? (
+                    <p className="px-3 pb-1 text-xs text-gray-300">
+                      Arrastra o asigna servicios aquí.
+                    </p>
+                  ) : (
+                    items.map((s) => fila(s, sectionId))
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Modal de secciones: calco del de variables, sin la estrella
+          "fija" (esa es exclusiva del cotizador de variables). */}
+      {showSections && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowSections(false);
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[85vh]">
+            <div className="px-5 py-4 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900">
+                Secciones · Servicios fijos
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Ordenan la caja de servicios fijos. Cada servicio se asigna
+                desde su cajita en la lista, o arrastrándolo.
+              </p>
+            </div>
+
+            <div className="px-3 py-2 overflow-y-auto flex-1">
+              {sections.length === 0 ? (
+                <p className="px-2 py-3 text-sm text-gray-400">
+                  Aún no hay secciones. Crea la primera abajo.
+                </p>
+              ) : (
+                sections.map((s, i) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                  >
+                    {renamingSectionId === s.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={renameSectionName}
+                          onChange={(e) => setRenameSectionName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void submitRenameSection();
+                            if (e.key === "Escape") {
+                              e.stopPropagation();
+                              setRenamingSectionId(null);
+                            }
+                          }}
+                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void submitRenameSection()}
+                          className="text-green-600 hover:text-green-800 p-1"
+                          aria-label="Guardar nombre"
+                        >
+                          <Check size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-sm text-gray-800 truncate pl-1">
+                          {s.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void moveSection(s.id, -1)}
+                          disabled={i === 0}
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25 p-1"
+                          aria-label="Subir sección"
+                        >
+                          <ChevronUp size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void moveSection(s.id, 1)}
+                          disabled={i === sections.length - 1}
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-25 p-1"
+                          aria-label="Bajar sección"
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingSectionId(s.id);
+                            setRenameSectionName(s.name);
+                          }}
+                          className="text-gray-400 hover:text-blue-600 p-1"
+                          aria-label="Renombrar sección"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeSection(s.id)}
+                          className="text-gray-400 hover:text-red-600 p-1"
+                          title="Eliminar (sus servicios quedan sin sección)"
+                          aria-label="Eliminar sección"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2">
               <input
-                autoFocus
-                value={renaming.name}
-                onChange={(e) =>
-                  setRenaming({ id: sec.id, name: e.target.value })
-                }
-                onKeyDown={(e) => e.key === "Enter" && void renombrar()}
-                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-lg"
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void addSection();
+                }}
+                placeholder="Nueva sección (ej: Salones, Equipamiento…)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
               <button
                 type="button"
-                disabled={saving}
-                onClick={() => void renombrar()}
-                className="p-1 text-green-600"
+                onClick={() => void addSection()}
+                disabled={!newSectionName.trim()}
+                className="px-3 py-2 bg-white border border-blue-600 text-blue-600 rounded-lg text-sm font-semibold disabled:opacity-40 hover:bg-blue-50"
               >
-                <Check size={15} />
+                + Agregar
               </button>
-              <button
-                type="button"
-                onClick={() => setRenaming(null)}
-                className="p-1 text-gray-500"
-              >
-                <X size={15} />
-              </button>
-            </span>
-          ) : (
-            <span className="flex-1 text-sm font-semibold text-gray-800 truncate">
-              {sec ? sec.name : "Sin sección"}
-              {inactiveSec && " (inactiva)"}
-            </span>
-          )}
-          {!(renaming && sec && renaming.id === sec.id) && (
-            <span className="text-sm text-gray-500 whitespace-nowrap">
-              {items.length} servicio{items.length === 1 ? "" : "s"}
-            </span>
-          )}
-          {sec && confirmDelId === sec.id ? (
-            <span className="flex items-center gap-2 text-xs text-gray-600">
-              ¿Eliminar? Sus servicios quedan en "Sin sección"
-              <button
-                type="button"
-                title="Sí, eliminar"
-                onClick={() => void eliminarSeccion(sec.id)}
-                className="text-red-600 hover:text-red-800"
-              >
-                <Check size={18} />
-              </button>
-              <button
-                type="button"
-                title="Cancelar"
-                onClick={() => setConfirmDelId(null)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={18} />
-              </button>
-            </span>
-          ) : (
-            sec && (
-              <span className="relative">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMenuOpen(menuOpen === sec.id ? null : sec.id)
-                  }
-                  className="p-1 rounded hover:bg-gray-100 text-gray-500"
-                >
-                  <MoreVertical size={18} />
-                </button>
-                {menuOpen === sec.id && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setMenuOpen(null)}
-                    />
-                    <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRenaming({ id: sec.id, name: sec.name });
-                          setMenuOpen(null);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
-                      >
-                        <Pencil size={14} /> Renombrar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void toggleSeccion(sec)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
-                      >
-                        {inactiveSec ? (
-                          <>
-                            <Eye size={14} /> Activar
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff size={14} /> Desactivar
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConfirmDelId(sec.id);
-                          setMenuOpen(null);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={14} /> Eliminar
-                      </button>
-                    </div>
-                  </>
-                )}
-              </span>
-            )
-          )}
-        </div>
-        {!closed.has(sec ? sec.id : ("sin" as const)) &&
-          (items.length === 0 ? (
-            <p className="px-3 py-3 text-xs text-gray-400">
-              Arrastra servicios aquí.
-            </p>
-          ) : (
-            items.map((s) => fila(s, sec?.id ?? null))
-          ))}
-      </div>
-    );
-  };
+            </div>
 
-  return (
-    <div className="space-y-3">
-      {sections.map((sec) => caja(sec))}
-      {caja(null)}
-      {addingSection ? (
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void crearSeccion()}
-            placeholder="Nombre de la sección (Ej: Arriendo de espacios)"
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
-          />
-          <button
-            type="button"
-            disabled={saving || !newName.trim()}
-            onClick={() => void crearSeccion()}
-            className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-semibold disabled:opacity-50"
-          >
-            Crear
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAddingSection(false);
-              setNewName("");
-            }}
-            className="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg font-semibold"
-          >
-            Cancelar
-          </button>
+            <div className="px-5 pb-4">
+              <button
+                type="button"
+                onClick={() => setShowSections(false)}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAddingSection(true)}
-          className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
-        >
-          <Plus size={15} /> Nueva sección
-        </button>
       )}
     </div>
   );

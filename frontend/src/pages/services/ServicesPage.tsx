@@ -491,9 +491,6 @@ export default function ServicesPage() {
           libre y arrastre, ídem variables. Con filtro activo y sin
           coincidencias se avisa, en vez de dejar cajas vacías. */}
       <div className="mt-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          Servicios fijos
-        </h2>
         {(searchingSvc || recipeFilterActive) &&
         shownFixedServices.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
@@ -502,7 +499,6 @@ export default function ServicesPage() {
         ) : (
           <FixedServicesBySection
             fixedServices={shownFixedServices}
-            showInactive={showInactive}
             onEdit={(s) => handleEditService(s, ServiceType.FIXED)}
             onEditRecipe={(s) => handleEditRecipe(s, ServiceType.FIXED)}
             onDelete={(id) => handleDeleteService(id, ServiceType.FIXED)}
