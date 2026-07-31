@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
@@ -84,6 +84,11 @@ export default function FixedServicesBySection({
   const dragFrom = useRef<number | null | "nada">("nada");
   // Orden/membresía local por grupo (clave: id de sección o "sin").
   const [localOrder, setLocalOrder] = useState<Record<string, number[]>>({});
+  // Mismo remedio que variables (30-07): al llegar servicios frescos
+  // del servidor, la memoria optimista se rinde ante ellos.
+  useEffect(() => {
+    setLocalOrder({});
+  }, [fixedServices]);
   const keyOf = (sectionId: number | null) =>
     sectionId === null ? "sin" : String(sectionId);
 

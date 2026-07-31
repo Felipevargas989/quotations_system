@@ -89,6 +89,12 @@ export default function VariableServicesByCategory({
   const [dragServiceId, setDragServiceId] = useState<number | null>(null);
   // clave "categoryId:sectionId" (0 = sin sección) → ids ordenados
   const [localOrder, setLocalOrder] = useState<Record<string, number[]>>({});
+  // El optimismo caduca cuando el servidor habla (30-07, caso "jugo de
+  // naranja a Once"): datos frescos de vínculos borran la memoria local
+  // — si no, la pantalla pinta membresías viejas hasta recargar.
+  useEffect(() => {
+    setLocalOrder({});
+  }, [categoryLinks]);
 
   // --- Secciones por categoría ---
   const [sections, setSections] = useState<CategorySection[]>([]);
