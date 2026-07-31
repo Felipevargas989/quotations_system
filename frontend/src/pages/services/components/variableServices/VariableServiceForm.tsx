@@ -64,7 +64,12 @@ export default function VariableServiceForm({
   // Categorías y vínculos vienen de la PÁGINA (ya en memoria): los
   // checkboxes aparecen al instante, sin viaje al servidor (30-07 —
   // antes el formulario re-descargaba el catálogo completo).
+  // La foto se toma UNA vez al abrir (31-07): si el efecto siguiera a
+  // los datos vivos, cada revalidación (volver a la ventana, recarga
+  // tras guardar) repintaba las casillas al estado del servidor y
+  // pisaba las marcas sin guardar — el "pestañeo" del modal.
   useEffect(() => {
+    if (!isOpen) return;
     const cats = allCategories.slice().sort(
       (a, b) =>
         (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
@@ -84,7 +89,8 @@ export default function VariableServiceForm({
       }
       setSelectedCategoryIds(ids);
     }
-  }, [isEditing, service, allCategories, allCategoryLinks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- foto al abrir
+  }, [isOpen, isEditing, service]);
 
   // Initialize form data when editing
   useEffect(() => {
