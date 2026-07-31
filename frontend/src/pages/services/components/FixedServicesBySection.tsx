@@ -338,12 +338,15 @@ export default function FixedServicesBySection({
   const totalServicios = fixedServices.length;
 
   return (
-    <div className="bg-white rounded-lg shadow border-l-4 border-blue-400 overflow-hidden">
+    {/* Sin overflow-hidden (31-07): recortaba el menú flotante de la
+        cajita de sección en la última fila. Las esquinas redondeadas
+        de la cabecera se logran con rounded propio. */}
+    <div className="bg-white rounded-lg shadow border-l-4 border-blue-400">
       {/* Cabecera única: flechita + título + conteo + ⋮ (solo Secciones) */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className={`relative px-4 py-3 flex items-center justify-between cursor-pointer bg-blue-50/50 ${
-          open ? "border-b border-blue-100" : ""
+        className={`relative px-4 py-3 flex items-center justify-between cursor-pointer bg-blue-50/50 rounded-tr-lg ${
+          open ? "border-b border-blue-100" : "rounded-br-lg"
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
