@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { logSafe } from '../logging/log-safe';
+import { ClientContactsRepository } from './client-contacts.controller';
 import { ClientsRepository } from './clients.repository';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -10,6 +11,7 @@ import { CreateClient } from './interfaces/clients.interfaces';
 export class ClientsService {
   constructor(
     private readonly clientsRepository: ClientsRepository,
+    private readonly clientContactsRepository: ClientContactsRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ClientsService.name);
@@ -19,14 +21,42 @@ export class ClientsService {
       `create client with createClientDto ${logSafe(createClientDto)}`,
     );
 
-    // create new client object
+    // create new client object (los campos de la persona no van a la
+    // tabla clients)
+    const { contact_email, contact_phone, ...clientFields } = createClientDto;
     const newClient: CreateClient = {
-      ...createClientDto,
+      ...clientFields,
       company_id: companyId,
     };
 
     // create new client
-    return this.clientsRepository.create(newClient);
+    const created = await this.clientsRepository.create(newClient);
+
+    // GARANTÍA DE NACIMIENTO (31-07, regla de Felipe): todo cliente
+    // nace con su persona principal — por CUALQUIER camino (ficha,
+    // cotizador, formulario público). La persona es la fuente de
+    // verdad; el espejo de la ficha queda jubilado.
+    const createdId = (created as { id?: string } | null)?.id;
+    if (createdId) {
+      const personaNombre =
+        (createClientDto.contact_person || '').trim() ||
+        createClientDto.name.trim();
+      try {
+        await this.clientContactsRepository.create(companyId, {
+          client_id: createdId,
+          name: personaNombre,
+          email: contact_email?.trim() || createClientDto.email || null,
+          phone: contact_phone?.trim() || createClientDto.phone || null,
+          is_primary: true,
+        } as never);
+      } catch (error) {
+        // La persona es best-effort: no se aborta la creación del
+        // cliente por ella (se puede completar a mano).
+        this.logger.error(error);
+      }
+    }
+
+    return created;
   }
 
   findAll(companyId: number) {

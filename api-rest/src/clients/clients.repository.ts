@@ -39,7 +39,9 @@ export class ClientsRepository {
     // without loading the heavy quotation payloads.
     const { data, error } = await this.supabase.client
       .from('clients')
-      .select('*, quotations(id, quotation_status)')
+      .select(
+        '*, quotations(id, quotation_status), client_contacts(id, name, email, phone, is_primary)',
+      )
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
@@ -276,13 +278,33 @@ export class ClientsRepository {
       .select('*')
       .eq('company_id', company_id);
     const rows = (data || []) as Client[];
-    return (
-      rows.find(
-        (c) =>
-          (normEmail && (c.email || '').trim().toLowerCase() === normEmail) ||
-          (normPhone.length >= 8 && digits(c.phone).slice(-9) === normPhone),
-      ) || null
+    const porFicha = rows.find(
+      (c) =>
+        (normEmail && (c.email || '').trim().toLowerCase() === normEmail) ||
+        (normPhone.length >= 8 && digits(c.phone).slice(-9) === normPhone),
     );
+    if (porFicha) return porFicha;
+
+    // Fuente de verdad = las PERSONAS (31-07): el calce también se
+    // busca en sus correos/teléfonos — el espejo de la ficha quedó
+    // jubilado y los clientes nuevos solo tienen datos en la persona.
+    const { data: personas } = await this.supabase.client
+      .from('client_contacts')
+      .select('client_id, email, phone')
+      .eq('company_id', company_id);
+    const match = (
+      (personas || []) as {
+        client_id: string;
+        email: string | null;
+        phone: string | null;
+      }[]
+    ).find(
+      (p) =>
+        (normEmail && (p.email || '').trim().toLowerCase() === normEmail) ||
+        (normPhone.length >= 8 && digits(p.phone).slice(-9) === normPhone),
+    );
+    if (!match) return null;
+    return rows.find((c) => c.id === match.client_id) || null;
   }
 
   findOne(company_id: number, id?: number, email?: string, phone?: string) {

@@ -40,4 +40,20 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  // Datos de la PERSONA principal (fuente de verdad, 31-07): el
+  // backend siembra la persona al crear el cliente; estos campos
+  // permiten que lleguen su correo/teléfono desde cualquier formulario.
+  @ValidateIf(
+    (o: { contact_email?: string | null }) =>
+      o.contact_email !== undefined &&
+      o.contact_email !== null &&
+      o.contact_email !== '',
+  )
+  @IsEmail()
+  contact_email?: string;
+
+  @IsString()
+  @IsOptional()
+  contact_phone?: string;
 }

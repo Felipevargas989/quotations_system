@@ -405,28 +405,20 @@ export default function ClientsPage() {
       } else {
         // En Particulares, si no se escribió persona, la persona ES el
         // cliente (boceto 30-07): se crea sola con su nombre.
+        // La SIEMBRA la hace el backend (garantía de nacimiento, 31-07):
+        // acá solo viajan los datos de la persona en el mismo payload.
         const personaNombre =
           formData.contact_person?.trim() ||
           (!isEmpresa ? formData.name.trim() : "");
-        const payloadConEspejo = {
+        const payloadConPersona = {
           ...payload,
           contact_person: personaNombre || payload.contact_person,
+          contact_email: newContactEmail.trim() || null,
+          contact_phone: normalizePhone(newContactPhone) || null,
         } as typeof formData;
-        const { data: created } = await createClient(payloadConEspejo);
-        // Sembrar la persona de contacto como contacto PRINCIPAL real
-        const createdClient = (created as any)?.data ?? created;
-        if (createdClient?.id && personaNombre && company?.id) {
-          await createClientContact({
-            company_id: company.id,
-            client_id: createdClient.id,
-            name: personaNombre,
-            email: newContactEmail.trim() || null,
-            phone: normalizePhone(newContactPhone) || null,
-            is_primary: true,
-          });
-          setNewContactEmail("");
-          setNewContactPhone("");
-        }
+        await createClient(payloadConPersona);
+        setNewContactEmail("");
+        setNewContactPhone("");
 
         alert("Cliente creado exitosamente");
       }
@@ -550,8 +542,16 @@ export default function ClientsPage() {
     },
   ];
 
+  // La persona VIVA (31-07): la lista muestra a la principal de la tabla
+  // de personas — si cambia de trabajo y la actualizan, acá se refleja.
+  // El espejo de la ficha queda solo de respaldo para registros viejos.
+  const principalDe = (client: Client) =>
+    client.client_contacts?.find((c) => c.is_primary) ||
+    client.client_contacts?.[0];
+
   // Buscador, filtro de tipos y segmento se aplican JUNTOS (vacío = todos).
-  // Búsqueda inteligente: sin tildes, por palabras en cualquier orden.
+  // Búsqueda inteligente: sin tildes, por palabras en cualquier orden;
+  // también encuentra por TODAS las personas del cliente y sus correos.
   const filteredClients = clients.filter((client) => {
     const matchesText = matchesSearch(
       searchTerm,
@@ -559,6 +559,10 @@ export default function ClientsPage() {
       client.client_type,
       client.email,
       client.contact_person,
+      ...(client.client_contacts || []).flatMap((c) => [
+        c.name,
+        c.email || "",
+      ]),
     );
     const matchesType =
       typeFilter.length === 0 ||
@@ -1238,9 +1242,12 @@ export default function ClientsPage() {
                           <div className="text-sm font-medium text-gray-900">
                             {client.name}
                           </div>
-                          {client.contact_person && (
+                          {(principalDe(client)?.name ||
+                            client.contact_person) && (
                             <div className="text-sm text-gray-500">
-                              Contacto: {client.contact_person}
+                              Contacto:{" "}
+                              {principalDe(client)?.name ||
+                                client.contact_person}
                             </div>
                           )}
                         </div>
@@ -1255,21 +1262,27 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="space-y-1">
-                        {client.email && (
+                        {(principalDe(client)?.email || client.email) && (
                           <div className="flex items-center text-sm text-gray-900">
                             <Mail className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
                             <span
-                              title={client.email}
+                              title={
+                                principalDe(client)?.email ||
+                                client.email ||
+                                undefined
+                              }
                               className="truncate max-w-[200px]"
                             >
-                              {client.email}
+                              {principalDe(client)?.email || client.email}
                             </span>
                           </div>
                         )}
-                        {client.phone && (
+                        {(principalDe(client)?.phone || client.phone) && (
                           <div className="flex items-center text-sm text-gray-900">
                             <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                            {formatPhone(client.phone)}
+                            {formatPhone(
+                              principalDe(client)?.phone || client.phone || "",
+                            )}
                           </div>
                         )}
                       </div>

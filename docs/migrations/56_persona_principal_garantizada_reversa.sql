@@ -1,0 +1,6 @@
+-- REVERSA migración 56 (aproximada): borrar SOLO las personas creadas
+-- por la Parte 1 ese día (ajustar fecha) que no tengan cotizaciones.
+-- DELETE FROM public.client_contacts cc
+--  WHERE cc.created_at::date = '2026-07-31'
+--    AND NOT EXISTS (SELECT 1 FROM public.quotations q
+--                     WHERE q.client_contact_id = cc.id);

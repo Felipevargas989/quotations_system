@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { ClientContactsRepository } from '../client-contacts.controller';
 import { ClientsRepository } from '../clients.repository';
 import { ClientsService } from '../clients.service';
 
@@ -16,6 +17,7 @@ describe('ClientsService', () => {
       providers: [
         ClientsService,
         provideMock(ClientsRepository),
+        provideMock(ClientContactsRepository),
         { provide: PinoLogger, useValue: mockPinoLogger() },
       ],
     }).compile();
