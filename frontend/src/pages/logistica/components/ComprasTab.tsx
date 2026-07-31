@@ -1263,22 +1263,24 @@ export default function ComprasTab({
                 <col className="w-56" />
                 <col className="w-28" />
               </colgroup>
-              <thead className="bg-gray-100 border-b border-gray-200">
+              {/* Título de columnas: blanco, letra firme y línea inferior
+                  gruesa — marco de la planilla, no una fila más. */}
+              <thead className="bg-white border-b-2 border-gray-300">
                 <tr>
                   <th />
-                  <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Proveedor
                   </th>
-                  <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Nombre insumo
                   </th>
-                  <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Cantidad
                   </th>
-                  <th className="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Formato
                   </th>
-                  <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Costo
                   </th>
                 </tr>
@@ -1313,10 +1315,11 @@ export default function ComprasTab({
                     key={key}
                     className="divide-y divide-gray-100 border-b border-gray-200"
                   >
-                    {/* Fila del proveedor: plegable, con contacto y subtotal
-                        siempre a la vista (aun plegado). */}
+                    {/* Fila del proveedor: banda azul de la casa (misma
+                        alma que las secciones del catálogo), plegable,
+                        con contacto y subtotal a la vista (aun plegado). */}
                     <tr
-                      className="bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                      className="bg-blue-50/60 hover:bg-blue-50 cursor-pointer"
                       onClick={() =>
                         setToggledOpen((prev) => {
                           const next = new Map(prev);
@@ -1325,7 +1328,7 @@ export default function ComprasTab({
                         })
                       }
                     >
-                      <td className="px-3 py-1.5">
+                      <td className="px-3 py-2 border-l-4 border-blue-400">
                         <input
                           type="checkbox"
                           checked={allChecked}
@@ -1337,15 +1340,15 @@ export default function ComprasTab({
                           }`}
                         />
                       </td>
-                      <td colSpan={4} className="px-3 py-1.5">
+                      <td colSpan={4} className="px-3 py-2">
                         <span className="flex items-center gap-2">
                           {isOpen ? (
-                            <ChevronDown size={15} className="text-gray-500" />
+                            <ChevronDown size={15} className="text-blue-500" />
                           ) : (
-                            <ChevronRight size={15} className="text-gray-500" />
+                            <ChevronRight size={15} className="text-blue-500" />
                           )}
-                          <Truck size={14} className="text-gray-400" />
-                          <span className="text-xs font-bold uppercase text-gray-600">
+                          <Truck size={14} className="text-blue-400" />
+                          <span className="text-xs font-bold uppercase text-blue-900">
                             {g.supplier
                               ? g.supplier.name
                               : "Sin proveedor asignado"}
@@ -1376,7 +1379,7 @@ export default function ComprasTab({
                           )}
                         </span>
                       </td>
-                      <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
+                      <td className="px-3 py-2 text-right font-bold text-blue-900 whitespace-nowrap">
                         {fmtMoney(subShown)}
                       </td>
                     </tr>
