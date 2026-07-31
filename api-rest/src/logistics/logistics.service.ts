@@ -263,7 +263,45 @@ export class LogisticsService {
     return this.logisticsRepository.createSupply(companyId, dto);
   }
 
-  updateSupply(companyId: number, id: number, dto: UpdateSupplyDto) {
+  // Candado de familia (31-07, pedido de Felipe tras pasar naranja y
+  // manzana de gramos a unidades a mano): cambiar la familia de un
+  // insumo reescribe el significado de sus recetas (100 gr pasarían a
+  // leerse como 100 unidades) y dispara costos y compras. El cambio
+  // solo pasa cuando ninguna línea de receta hable el idioma viejo.
+  private static readonly UNITS_BY_FAMILY: Record<string, string[]> = {
+    masa: ['kg', 'gr'],
+    volumen: ['L', 'ml'],
+    unidad: ['u'],
+  };
+
+  async updateSupply(companyId: number, id: number, dto: UpdateSupplyDto) {
+    if (dto.unit_family) {
+      const actual = await this.logisticsRepository.findSupplyById(
+        companyId,
+        id,
+      );
+      if (actual && actual.unit_family !== dto.unit_family) {
+        const permitidas =
+          LogisticsService.UNITS_BY_FAMILY[dto.unit_family] || [];
+        const lineas = await this.logisticsRepository.recipeLinesForSupply(
+          companyId,
+          id,
+        );
+        const rebeldes = lineas.filter((l) => !permitidas.includes(l.unit));
+        if (rebeldes.length) {
+          const servicios = [...new Set(rebeldes.map((l) => l.servicio))].join(
+            ', ',
+          );
+          throw new ConflictException(
+            `No se puede cambiar la familia de unidad: este insumo está en ${
+              rebeldes.length === 1
+                ? 'una receta expresada'
+                : `${rebeldes.length} recetas expresadas`
+            } en la unidad antigua (${servicios}). Ajusta o quita esas líneas primero.`,
+          );
+        }
+      }
+    }
     return this.logisticsRepository.updateSupply(companyId, id, dto);
   }
 

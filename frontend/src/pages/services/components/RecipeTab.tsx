@@ -271,6 +271,19 @@ export default function RecipeTab({
   const qtyInputCls =
     "w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right";
 
+  // Red ámbar (31-07): cantidades POR PERSONA que huelen a error de
+  // unidad — más de 10 unidades, 1 kg, 1000 gr, 2 L o 2000 ml. No
+  // bloquea nada: solo hace dudar antes del desastre de compras.
+  const CRAZY_QTY: Record<RecipeUnit, number> = {
+    u: 10,
+    kg: 1,
+    gr: 1000,
+    L: 2,
+    ml: 2000,
+  };
+  const qtyLooksCrazy = (qty: number | undefined, unit: RecipeUnit) =>
+    !!qty && qty > (CRAZY_QTY[unit] ?? Infinity);
+
   return (
     <div className="space-y-6">
       {/* Indicador de guardado */}
@@ -349,6 +362,13 @@ export default function RecipeTab({
               <Plus size={16} />
             </button>
           </div>
+
+          {qtyLooksCrazy(addQty, addUnit) && (
+            <p className="mt-1.5 text-xs font-semibold text-amber-600">
+              Ojo: {addQty} {addUnit} por persona parece mucho — revisa la
+              unidad antes de agregar.
+            </p>
+          )}
 
           {/* Crear insumo al vuelo (inline, sin modal anidado) */}
           {!newSupplyOpen ? (
@@ -484,6 +504,14 @@ export default function RecipeTab({
                             <span className="text-gray-500 w-8 text-left">
                               {it.unit}
                             </span>
+                            {qtyLooksCrazy(it.qty_per_person, it.unit) && (
+                              <span
+                                className="text-amber-500 font-bold cursor-help"
+                                title={`${it.qty_per_person} ${it.unit} por persona parece mucho — revisa la unidad.`}
+                              >
+                                ⚠
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500">

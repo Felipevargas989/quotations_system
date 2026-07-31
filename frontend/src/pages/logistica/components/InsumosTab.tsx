@@ -167,10 +167,17 @@ export default function InsumosTab({
       : await createSupply({ company_id: companyId, ...fields });
     setSaving(false);
     if (error) {
+      // El candado de familia (backend) explica QUÉ recetas frenan el
+      // cambio: ese mensaje se muestra tal cual, no un genérico.
+      const backendMsg = (
+        error as { response?: { data?: { message?: unknown } } }
+      )?.response?.data?.message;
       setErr(
         String((error as any).message || error).includes("unique")
           ? "Ya existe un insumo con ese nombre."
-          : "No se pudo guardar.",
+          : typeof backendMsg === "string" && backendMsg
+            ? backendMsg
+            : "No se pudo guardar.",
       );
       return;
     }

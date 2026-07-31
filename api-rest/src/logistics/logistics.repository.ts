@@ -707,6 +707,61 @@ export class LogisticsRepository {
     return (data || []) as Record<string, unknown>[];
   }
 
+  async findSupplyById(companyId: number, id: number) {
+    this.logger.info(`findSupplyById ${id} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('supplies')
+      .select('id, unit_family')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as { id: number; unit_family: string } | null;
+  }
+
+  // Líneas de receta que usan un insumo, con el nombre de su servicio:
+  // alimentan el candado de familia (los nombres viajan en el error).
+  async recipeLinesForSupply(companyId: number, supplyId: number) {
+    this.logger.info(`recipeLinesForSupply ${supplyId} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('service_recipe_items')
+      .select('unit, service_type, service_id')
+      .eq('company_id', companyId)
+      .eq('supply_id', supplyId);
+    if (error) throw error;
+    const filas = (data || []) as {
+      unit: string;
+      service_type: string;
+      service_id: number;
+    }[];
+    if (!filas.length) return [];
+
+    const nombres = new Map<string, string>();
+    const idsDe = (tipo: string) =>
+      filas.filter((f) => f.service_type === tipo).map((f) => f.service_id);
+    for (const [tipo, tabla] of [
+      ['variable', 'variable_services'],
+      ['fixed', 'fixed_services'],
+    ] as const) {
+      const ids = idsDe(tipo);
+      if (!ids.length) continue;
+      const { data: svcs, error: errSvcs } = await this.supabase.client
+        .from(tabla)
+        .select('id, name')
+        .in('id', ids);
+      if (errSvcs) throw errSvcs;
+      for (const s of svcs || []) {
+        nombres.set(`${tipo}-${s.id as number}`, s.name as string);
+      }
+    }
+    return filas.map((f) => ({
+      unit: f.unit,
+      servicio:
+        nombres.get(`${f.service_type}-${f.service_id}`) ||
+        `servicio ${f.service_id}`,
+    }));
+  }
+
   async createSupply(companyId: number, dto: CreateSupplyDto) {
     this.logger.info(`createSupply company ${companyId}`);
     const { data, error } = await this.supabase.client
