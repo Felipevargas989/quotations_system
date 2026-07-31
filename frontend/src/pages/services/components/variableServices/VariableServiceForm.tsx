@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useLayoutEffect } from "react";
 import { X, Save, Plus, ChefHat } from "lucide-react";
 import {
   CreateVariableService,
@@ -42,7 +42,12 @@ export default function VariableServiceForm({
   const [tab, setTab] = useState<"datos" | "receta">(initialTab);
 
   // Reposicionar la pestaña cada vez que se abre el modal.
-  useEffect(() => {
+  // useLayoutEffect en los TRES inicializadores (31-07): corren ANTES
+  // de que el navegador pinte. Con useEffect el modal mostraba un
+  // primer cuadro con el estado anterior (u opciones vacías en la
+  // primera apertura) y un segundo cuadro ya corregido — el "pestañeo"
+  // que quedó a la vista cuando las categorías se volvieron instantáneas.
+  useLayoutEffect(() => {
     if (isOpen) setTab(isEditing ? initialTab : "datos");
   }, [isOpen, isEditing, initialTab]);
   const defaultFormData = {
@@ -68,7 +73,7 @@ export default function VariableServiceForm({
   // los datos vivos, cada revalidación (volver a la ventana, recarga
   // tras guardar) repintaba las casillas al estado del servidor y
   // pisaba las marcas sin guardar — el "pestañeo" del modal.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
     const cats = allCategories.slice().sort(
       (a, b) =>
@@ -93,7 +98,7 @@ export default function VariableServiceForm({
   }, [isOpen, isEditing, service]);
 
   // Initialize form data when editing
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isEditing && service) {
       setFormData({ name: service.name, price: service.price });
     } else {
