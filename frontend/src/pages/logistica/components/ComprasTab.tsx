@@ -1248,91 +1248,140 @@ export default function ComprasTab({
             </div>
           </div>
 
-          {consolidation.groups.map((g) => {
-            const key = g.supplier?.id || 0;
-            // Filtro faltantes/provisionados aplicado a las filas del grupo.
-            const rowsShown = g.rows.filter((c) => {
-              const st = supplyStatus(c.supply.id);
-              const full = st.used > 0 && st.prov === st.used;
-              if (supFilter === "faltantes") return !full;
-              if (supFilter === "provisionados") return full;
-              return true;
-            });
-            if (rowsShown.length === 0) return null;
-            const shownIds = rowsShown.map((r) => r.supply.id);
-            const allChecked = shownIds.every((id) =>
-              checkedSupplies.has(id),
-            );
-            const groupFull = g.rows.every((c) => {
-              const st = supplyStatus(c.supply.id);
-              return st.used > 0 && st.prov === st.used;
-            });
-            const sinPrecio = rowsShown.filter((c) => !c.supply.price).length;
-            const subShown = rowsShown.reduce((t, c) => t + c.costTotal, 0);
-            // Sin toque manual: los grupos completos parten plegados.
-            const isOpen = toggledOpen.get(key) ?? !groupFull;
-            return (
-              <div key={key}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setToggledOpen((prev) => {
-                      const next = new Map(prev);
-                      next.set(key, !isOpen);
-                      return next;
-                    })
-                  }
-                  className="w-full flex items-center gap-2 mb-1.5 py-1 px-1 rounded-md hover:bg-gray-50 text-left"
-                >
-                  {isOpen ? (
-                    <ChevronDown size={15} className="text-gray-500" />
-                  ) : (
-                    <ChevronRight size={15} className="text-gray-500" />
-                  )}
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    onChange={() => toggleGroup(shownIds)}
-                    onClick={(ev) => ev.stopPropagation()}
-                    className="rounded"
-                    aria-label={`Seleccionar grupo ${
-                      g.supplier?.name || "sin proveedor"
-                    }`}
-                  />
-                  <Truck size={14} className="text-gray-400" />
-                  <h5 className="text-xs font-bold uppercase text-gray-600">
-                    {g.supplier ? g.supplier.name : "Sin proveedor asignado"}
-                  </h5>
-                  {(g.supplier?.contact_name || g.supplier?.phone) && (
-                    <span className="text-[11px] text-gray-400">
-                      {[g.supplier.contact_name, formatPhone(g.supplier.phone)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-gray-400">
-                    · {rowsShown.length} ítem
-                    {rowsShown.length === 1 ? "" : "s"}
-                  </span>
-                  {sinPrecio > 0 && (
-                    <span className="text-[11px] font-semibold text-amber-600">
-                      · {sinPrecio} sin precio
-                    </span>
-                  )}
-                  {groupFull && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
-                      ✓ completo
-                    </span>
-                  )}
-                  <span className="ml-auto text-sm font-bold text-gray-900">
-                    {fmtMoney(subShown)}
-                  </span>
-                </button>
-                {isOpen && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="min-w-full text-sm">
-                    <tbody className="divide-y divide-gray-100">
-                      {rowsShown.map((c) => {
+          {/* Boceto de Felipe (31-07): UNA tabla con titulos
+              (PROVEEDOR / INSUMO / CANTIDAD / FORMATO / COSTO), los
+              subtotales por proveedor intactos y anchos fijos: todos
+              los grupos comparten los mismos rieles. Plegado, casillas
+              y contacto del proveedor siguen igual que antes. */}
+          <div className="border border-gray-200 rounded-lg overflow-x-auto">
+            <table className="min-w-full text-sm table-fixed">
+              <colgroup>
+                <col className="w-10" />
+                <col className="w-44" />
+                <col />
+                <col className="w-28" />
+                <col className="w-56" />
+                <col className="w-28" />
+              </colgroup>
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th />
+                  <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Proveedor
+                  </th>
+                  <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Nombre insumo
+                  </th>
+                  <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Cantidad
+                  </th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Formato
+                  </th>
+                  <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Costo
+                  </th>
+                </tr>
+              </thead>
+              {consolidation.groups.map((g) => {
+                const key = g.supplier?.id || 0;
+                // Filtro faltantes/provisionados aplicado a las filas del grupo.
+                const rowsShown = g.rows.filter((c) => {
+                  const st = supplyStatus(c.supply.id);
+                  const full = st.used > 0 && st.prov === st.used;
+                  if (supFilter === "faltantes") return !full;
+                  if (supFilter === "provisionados") return full;
+                  return true;
+                });
+                if (rowsShown.length === 0) return null;
+                const shownIds = rowsShown.map((r) => r.supply.id);
+                const allChecked = shownIds.every((id) =>
+                  checkedSupplies.has(id),
+                );
+                const groupFull = g.rows.every((c) => {
+                  const st = supplyStatus(c.supply.id);
+                  return st.used > 0 && st.prov === st.used;
+                });
+                const sinPrecio = rowsShown.filter(
+                  (c) => !c.supply.price,
+                ).length;
+                const subShown = rowsShown.reduce((t, c) => t + c.costTotal, 0);
+                // Sin toque manual: los grupos completos parten plegados.
+                const isOpen = toggledOpen.get(key) ?? !groupFull;
+                return (
+                  <tbody
+                    key={key}
+                    className="divide-y divide-gray-100 border-b border-gray-200"
+                  >
+                    {/* Fila del proveedor: plegable, con contacto y subtotal
+                        siempre a la vista (aun plegado). */}
+                    <tr
+                      className="bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                      onClick={() =>
+                        setToggledOpen((prev) => {
+                          const next = new Map(prev);
+                          next.set(key, !isOpen);
+                          return next;
+                        })
+                      }
+                    >
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={allChecked}
+                          onChange={() => toggleGroup(shownIds)}
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="rounded"
+                          aria-label={`Seleccionar grupo ${
+                            g.supplier?.name || "sin proveedor"
+                          }`}
+                        />
+                      </td>
+                      <td colSpan={4} className="px-3 py-1.5">
+                        <span className="flex items-center gap-2">
+                          {isOpen ? (
+                            <ChevronDown size={15} className="text-gray-500" />
+                          ) : (
+                            <ChevronRight size={15} className="text-gray-500" />
+                          )}
+                          <Truck size={14} className="text-gray-400" />
+                          <span className="text-xs font-bold uppercase text-gray-600">
+                            {g.supplier
+                              ? g.supplier.name
+                              : "Sin proveedor asignado"}
+                          </span>
+                          {(g.supplier?.contact_name || g.supplier?.phone) && (
+                            <span className="text-[11px] text-gray-400">
+                              {[
+                                g.supplier.contact_name,
+                                formatPhone(g.supplier.phone),
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-gray-400">
+                            · {rowsShown.length} ítem
+                            {rowsShown.length === 1 ? "" : "s"}
+                          </span>
+                          {sinPrecio > 0 && (
+                            <span className="text-[11px] font-semibold text-amber-600">
+                              · {sinPrecio} sin precio
+                            </span>
+                          )}
+                          {groupFull && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+                              ✓ completo
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
+                        {fmtMoney(subShown)}
+                      </td>
+                    </tr>
+                    {isOpen &&
+                      rowsShown.map((c) => {
                         const st = supplyStatus(c.supply.id);
                         const full = st.used > 0 && st.prov === st.used;
                         return (
@@ -1344,7 +1393,7 @@ export default function ComprasTab({
                                 : ""
                             }
                           >
-                            <td className="px-3 py-1.5 w-8">
+                            <td className="px-3 py-1.5">
                               <input
                                 type="checkbox"
                                 checked={checkedSupplies.has(c.supply.id)}
@@ -1352,6 +1401,12 @@ export default function ComprasTab({
                                 className="rounded"
                                 aria-label={`Seleccionar ${c.supply.name}`}
                               />
+                            </td>
+                            <td
+                              className="px-3 py-1.5 text-[11px] text-gray-400 truncate"
+                              title={g.supplier?.name || "Sin proveedor"}
+                            >
+                              {g.supplier?.name || "Sin proveedor"}
                             </td>
                             <td className="px-3 py-1.5">
                               <span className="text-gray-900">
@@ -1376,25 +1431,24 @@ export default function ComprasTab({
                             <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}
                               {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                              {/* Equivalencia en formato de compra EN LA MISMA
-                                  línea (filas a media altura, pedido 22-07).
-                                  El costo es lineal. */}
+                            </td>
+                            {/* Formato de compra en SU columna (informativo;
+                                el costo es lineal). */}
+                            <td className="px-2 py-1.5 text-[11px] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">
                               {c.supply.package_qty &&
-                                c.supply.package_qty > 0 &&
-                                (c.supply.package_name ||
-                                  c.supply.package_qty !== 1) && (
-                                  <span className="ml-1.5 text-[11px] font-normal text-gray-400">
-                                    ·{" "}
-                                    {Math.ceil(
-                                      c.totalBase / c.supply.package_qty,
-                                    ).toLocaleString("es-CL")}{" "}
-                                    × {c.supply.package_name || "formato"} de{" "}
-                                    {Number(
-                                      c.supply.package_qty,
-                                    ).toLocaleString("es-CL")}{" "}
-                                    {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                                  </span>
-                                )}
+                              c.supply.package_qty > 0 &&
+                              (c.supply.package_name ||
+                                c.supply.package_qty !== 1)
+                                ? `${Math.ceil(
+                                    c.totalBase / c.supply.package_qty,
+                                  ).toLocaleString("es-CL")} × ${
+                                    c.supply.package_name || "formato"
+                                  } de ${Number(
+                                    c.supply.package_qty,
+                                  ).toLocaleString("es-CL")} ${
+                                    UNIT_FAMILY_INFO[c.supply.unit_family].base
+                                  }`
+                                : ""}
                             </td>
                             <td className="px-3 py-1.5 text-right text-gray-700 whitespace-nowrap">
                               {c.supply.price ? fmtMoney(c.costTotal) : "—"}
@@ -1402,25 +1456,25 @@ export default function ComprasTab({
                           </tr>
                         );
                       })}
-                    </tbody>
-                    <tfoot className="bg-gray-50">
-                      <tr>
+                    {isOpen && (
+                      <tr className="bg-gray-50">
                         <td />
-                        <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase">
+                        <td
+                          colSpan={4}
+                          className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase"
+                        >
                           Subtotal
                         </td>
-                        <td />
                         <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
                           {fmtMoney(subShown)}
                         </td>
                       </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                )}
-              </div>
-            );
-          })}
+                    )}
+                  </tbody>
+                );
+              })}
+            </table>
+          </div>
 
           {consolidation.sinReceta.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
