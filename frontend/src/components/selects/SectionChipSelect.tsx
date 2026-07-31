@@ -34,7 +34,7 @@ export default function SectionChipSelect({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="flex items-center gap-1 text-xs border border-gray-200 rounded-md px-1.5 py-1 text-gray-500 bg-white hover:border-gray-300 max-w-[130px]"
+        className="flex items-center justify-between gap-1 text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-500 bg-white hover:border-gray-300 w-[130px]"
         title={title}
         aria-label={ariaLabel}
       >
