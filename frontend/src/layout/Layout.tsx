@@ -14,7 +14,6 @@ import {
   Menu,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
-import FloatingWhatsAppButton from "./FloatingWhatsAppButton";
 import Sidebar from "./Sidebar";
 import PageSkeleton from "../components/PageSkeleton";
 
@@ -256,7 +255,6 @@ export default function Layout() {
       </div>
 
       {/* Floating WhatsApp Button */}
-      <FloatingWhatsAppButton />
     </div>
     </>
   );
