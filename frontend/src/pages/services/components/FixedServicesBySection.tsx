@@ -42,6 +42,10 @@ interface Props {
   readonly onServicesChanged: () => void;
   // Códigos presentes en alguna cotización: su basurero se apaga.
   readonly usedCodes: Set<string>;
+  // Costo del servicio en sus DOS componentes (fijo/evento + $/persona),
+  // desde el catálogo de recursos. El % de margen solo se muestra
+  // cuando es honesto (precio y costo puros por evento).
+  readonly fixedCosts?: Record<number, { fijo: number; pp: number }>;
 }
 
 const clp = (n?: number) =>
@@ -55,6 +59,7 @@ export default function FixedServicesBySection({
   onToggleActive,
   onServicesChanged,
   usedCodes,
+  fixedCosts,
 }: Props) {
   const queryClient = useQueryClient();
   const sectionsQuery = useQuery({
@@ -224,6 +229,44 @@ export default function FixedServicesBySection({
               : clp(s.price)}
             {s.price_per_person ? ` · ${clp(s.price_per_person)}/p` : ""}
           </span>
+          {(() => {
+            // Costo (y margen cuando es honesto), como en variables.
+            const c = fixedCosts?.[s.id];
+            if (!c || (c.fijo === 0 && c.pp === 0)) return null;
+            const partes = [
+              c.fijo > 0 ? `${clp(Math.round(c.fijo))}/evento` : "",
+              c.pp > 0 ? `${clp(Math.round(c.pp))}/p` : "",
+            ]
+              .filter(Boolean)
+              .join(" + ");
+            const precioSimple =
+              !s.min_price && !s.max_price && !s.price_per_person
+                ? Number(s.price) || 0
+                : 0;
+            const margenHonesto = precioSimple > 0 && c.pp === 0;
+            return (
+              <span className="text-xs flex-shrink-0 text-gray-400">
+                costo {partes}
+                {margenHonesto && (
+                  <>
+                    {" · "}
+                    <span
+                      className={`font-semibold ${
+                        precioSimple - c.fijo >= 0
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {Math.round(
+                        ((precioSimple - c.fijo) / precioSimple) * 100,
+                      )}
+                      %
+                    </span>
+                  </>
+                )}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex items-center space-x-2 flex-shrink-0">
           {sections.length > 0 && (

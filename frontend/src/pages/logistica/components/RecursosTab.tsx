@@ -143,6 +143,21 @@ export default function RecursosTab({
     .filter((r) => showInactive || r.is_active)
     .filter((r) => !q || matchesSearch(q, r.name));
 
+  // Capítulos por TIPO y, dentro, filas ordenadas por proveedor (los
+  // sin proveedor al final) — pedido de Felipe 31-07.
+  const grouped = (Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[])
+    .map((t) => ({
+      type: t,
+      items: filtered
+        .filter((r) => r.type === t)
+        .sort((a, b) => {
+          const pa = a.supplier_id ? supplierName(a.supplier_id) : "￿";
+          const pb = b.supplier_id ? supplierName(b.supplier_id) : "￿";
+          return pa.localeCompare(pb) || a.name.localeCompare(b.name);
+        }),
+    }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-1 gap-3">
@@ -225,7 +240,20 @@ export default function RecursosTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((r) => (
+            {grouped.flatMap((g) => [
+              // Banda del capítulo (misma alma azul que Compras).
+              <tr key={`banda-${g.type}`} className="bg-blue-50/60">
+                <td
+                  colSpan={6}
+                  className="px-4 py-1.5 border-l-4 border-blue-400 text-xs font-bold uppercase text-blue-900"
+                >
+                  {RESOURCE_TYPE_LABEL[g.type]}
+                  <span className="ml-2 font-normal normal-case text-blue-400">
+                    {g.items.length} recurso{g.items.length === 1 ? "" : "s"}
+                  </span>
+                </td>
+              </tr>,
+              ...g.items.map((r) => (
               <tr key={r.id} className={r.is_active ? "" : "opacity-45"}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {r.name}
@@ -336,7 +364,8 @@ export default function RecursosTab({
                   </div>
                 </td>
               </tr>
-            ))}
+              )),
+            ])}
           </tbody>
         </table>
       )}

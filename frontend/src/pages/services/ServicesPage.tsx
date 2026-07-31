@@ -6,6 +6,7 @@ import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getAllFixedServiceCostItems,
+  getManagementResources,
   getAllIngredientRecipeItems,
   getSupplies,
 } from "../../services/logistics.service";
@@ -147,17 +148,35 @@ export default function ServicesPage() {
     retry: 0,
   });
 
-  // Qué servicios FIJOS tienen costos cargados. Silencioso: si falla, el
-  // filtro simplemente los trata como "sin costos".
-  const { data: fixedCostIds = new Set<number>() } = useQuery({
-    queryKey: ["fixedCostIds", company?.id],
+  // Costos de los servicios FIJOS, en sus DOS componentes (fijo por
+  // evento + variable por persona), calculados en vivo desde el precio
+  // de lista de cada recurso — igual que la ficha de costos. Silencioso:
+  // si falla, la lista funciona igual sin costos.
+  const { data: fixedCosts = {} } = useQuery({
+    queryKey: ["fixedCosts", company?.id],
     enabled: !!company?.id,
-    queryFn: async (): Promise<Set<number>> => {
-      const items = await getAllFixedServiceCostItems(Number(company!.id));
-      return new Set(items.map((it) => it.fixed_service_id));
+    queryFn: async (): Promise<
+      Record<number, { fijo: number; pp: number }>
+    > => {
+      const companyId = Number(company!.id);
+      const [items, resources] = await Promise.all([
+        getAllFixedServiceCostItems(companyId),
+        getManagementResources(companyId),
+      ]);
+      const resById = new Map(resources.map((r) => [r.id, r]));
+      const costs: Record<number, { fijo: number; pp: number }> = {};
+      items.forEach((it) => {
+        const r = resById.get(it.resource_id);
+        if (!r) return;
+        const acc = (costs[it.fixed_service_id] ||= { fijo: 0, pp: 0 });
+        acc.fijo += (r.list_price_fixed || 0) * (it.quantity || 1);
+        acc.pp += (r.list_price_per_person || 0) * (it.quantity || 1);
+      });
+      return costs;
     },
     retry: 0,
   });
+  const fixedCostIds = new Set(Object.keys(fixedCosts).map(Number));
 
   // "Tiene receta/costos": para variables, que exista costo calculado desde su
   // receta; para fijos, que tenga al menos una línea de costo.
@@ -570,6 +589,7 @@ export default function ServicesPage() {
           <FixedServicesBySection
             fixedServices={shownFixedServices}
             usedCodes={usedCodes}
+            fixedCosts={fixedCosts}
             onEdit={(s) => handleEditService(s, ServiceType.FIXED)}
             onEditRecipe={(s) => handleEditRecipe(s, ServiceType.FIXED)}
             onDelete={(id) => handleDeleteService(id, ServiceType.FIXED)}
