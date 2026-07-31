@@ -555,9 +555,21 @@ export class LogisticsRepository {
 
   async createFurniture(companyId: number, dto: CreateFurnitureItemDto) {
     this.logger.info(`createFurniture company ${companyId}`);
+    // La fila lleva SOLO lo que realmente vino: los campos ausentes los
+    // completa la base (categoría 'otro', stock 0). Mandar columnas
+    // vacías violaba el not-null y rompía el atajo "Crear y usar" de
+    // las recetas (31-07).
+    const fila: Record<string, unknown> = {
+      name: dto.name,
+      company_id: companyId,
+    };
+    if (dto.category != null) fila.category = dto.category;
+    if (dto.stock != null) fila.stock = dto.stock;
+    if (dto.photo_url != null) fila.photo_url = dto.photo_url;
+    if (dto.preassembled != null) fila.preassembled = dto.preassembled;
     const { data, error } = await this.supabase.client
       .from('furniture_items')
-      .insert([{ ...dto, company_id: companyId }])
+      .insert([fila])
       .select()
       .single();
     if (error) throw error;

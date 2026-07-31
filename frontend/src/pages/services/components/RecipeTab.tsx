@@ -11,6 +11,8 @@ import {
   updateRecipeItem,
 } from "../../../services/logistics.service";
 import {
+  FURNITURE_CATEGORY_LABEL,
+  FurnitureCategory,
   FurnitureItem,
   RecipeItem,
   RecipeServiceType,
@@ -70,6 +72,11 @@ export default function RecipeTab({
   const [nsPrice, setNsPrice] = useState<number>(0);
   const [newFurnOpen, setNewFurnOpen] = useState(false);
   const [nfName, setNfName] = useState("");
+  // Atajo completo (31-07, pedido de Felipe): el ítem nace con todos
+  // sus datos menos la foto (esa vive en Logística → Mobiliario).
+  const [nfCategory, setNfCategory] = useState<FurnitureCategory>("otro");
+  const [nfStock, setNfStock] = useState<number | undefined>(undefined);
+  const [nfPreassembled, setNfPreassembled] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const showIngredients = serviceType === "variable";
@@ -237,9 +244,21 @@ export default function RecipeTab({
     const { data, error } = await createFurnitureItem({
       company_id: companyId,
       name: nfName.trim(),
+      category: nfCategory,
+      stock: nfStock || 0,
+      preassembled: nfPreassembled,
     });
     if (error || !data) {
-      setErr("No se pudo crear el ítem (¿nombre repetido?).");
+      // El motivo real del servidor, no una adivinanza (lección 31-07:
+      // el "¿nombre repetido?" escondió una categoría rechazada).
+      const backendMsg = (
+        error as { response?: { data?: { message?: unknown } } }
+      )?.response?.data?.message;
+      setErr(
+        typeof backendMsg === "string" && backendMsg
+          ? backendMsg
+          : "No se pudo crear el ítem.",
+      );
       return;
     }
     queryClient.setQueryData(
@@ -249,6 +268,9 @@ export default function RecipeTab({
     );
     setNewFurnOpen(false);
     setNfName("");
+    setNfCategory("otro");
+    setNfStock(undefined);
+    setNfPreassembled(false);
     // Recién creado → directo a la receta.
     addFurniture(String(data.id));
   };
@@ -573,29 +595,72 @@ export default function RecipeTab({
             + ¿No está? Crear ítem de mobiliario
           </button>
         ) : (
-          <div className="mt-2 border border-blue-200 bg-blue-50 rounded-lg p-3 flex gap-2 items-center">
-            <input
-              value={nfName}
-                  maxLength={60}
-              onChange={(e) => setNfName(e.target.value)}
-              placeholder="Ej: Plato de fondo"
-              className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => setNewFurnOpen(false)}
-              className="text-xs text-gray-500"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={createNewFurniture}
-              disabled={!nfName.trim()}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
-            >
-              Crear y usar
-            </button>
+          <div className="mt-2 border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
+            <div className="flex gap-2 items-center">
+              <input
+                value={nfName}
+                maxLength={60}
+                onChange={(e) => setNfName(e.target.value)}
+                placeholder="Ej: Plato de fondo"
+                className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+              />
+              <span className="inline-block w-24">
+                <NumberInput
+                  value={nfStock}
+                  min={0}
+                  onChange={setNfStock}
+                  placeholder="Stock"
+                  className="!px-2 text-sm text-right"
+                />
+              </span>
+            </div>
+            {/* Categoría en píldoras, mismo lenguaje que Mobiliario. */}
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                Object.keys(FURNITURE_CATEGORY_LABEL) as FurnitureCategory[]
+              ).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNfCategory(c)}
+                  className={`px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+                    nfCategory === c
+                      ? "border-blue-600 bg-blue-100 text-blue-700"
+                      : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {FURNITURE_CATEGORY_LABEL[c]}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 items-center">
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={nfPreassembled}
+                  onChange={(e) => setNfPreassembled(e.target.checked)}
+                  className="rounded"
+                />
+                Prearmado
+              </label>
+              <span className="ml-auto flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => setNewFurnOpen(false)}
+                  className="text-xs text-gray-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={createNewFurniture}
+                  disabled={!nfName.trim()}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                >
+                  Crear y usar
+                </button>
+              </span>
+            </div>
           </div>
         )}
 
