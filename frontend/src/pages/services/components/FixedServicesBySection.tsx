@@ -337,10 +337,10 @@ export default function FixedServicesBySection({
   ];
   const totalServicios = fixedServices.length;
 
+  // Sin overflow-hidden en la caja (31-07): recortaba el menú flotante
+  // de la cajita de sección en la última fila. Las esquinas redondeadas
+  // de la cabecera se logran con rounded propio.
   return (
-    {/* Sin overflow-hidden (31-07): recortaba el menú flotante de la
-        cajita de sección en la última fila. Las esquinas redondeadas
-        de la cabecera se logran con rounded propio. */}
     <div className="bg-white rounded-lg shadow border-l-4 border-blue-400">
       {/* Cabecera única: flechita + título + conteo + ⋮ (solo Secciones) */}
       <div
