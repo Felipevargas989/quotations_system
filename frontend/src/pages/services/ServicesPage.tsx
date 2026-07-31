@@ -217,6 +217,9 @@ export default function ServicesPage() {
 
   const loadRecipeCosts = async () => {
     await queryClient.invalidateQueries({ queryKey: ["recipeCosts"] });
+    // Los costos de FIJOS viven en su propia consulta: sin este aviso
+    // quedaban congelados hasta recargar la página (pillada 31-07).
+    await queryClient.invalidateQueries({ queryKey: ["fixedCosts"] });
   };
 
   const handleUploadSuccess = async () => {
