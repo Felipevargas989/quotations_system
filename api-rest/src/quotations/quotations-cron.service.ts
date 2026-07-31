@@ -19,6 +19,20 @@ import { QuotationsRepository } from './quotations.repository';
  */
 @Injectable()
 export class QuotationsCronService {
+  // Palanca de operación (31-07): con RUN_FOLLOWUPS_ON_BOOT=1 el
+  // seguimiento corre UNA vez al encender (rescates puntuales, como el
+  // de Marcia cuando la llave de config bloqueó el ciclo de las 07:00).
+  // Sin la variable, este gancho es inerte. Retirar la variable tras
+  // usarla: cada reinicio con ella puesta re-evalúa el día.
+  onApplicationBootstrap() {
+    if (process.env.RUN_FOLLOWUPS_ON_BOOT === '1') {
+      this.logger.info(
+        'RUN_FOLLOWUPS_ON_BOOT: corriendo seguimiento al arrancar',
+      );
+      void this.sendQuotationFollowUps();
+    }
+  }
+
   constructor(
     private readonly quotationsRepository: QuotationsRepository,
     private readonly usersService: UsersService,
