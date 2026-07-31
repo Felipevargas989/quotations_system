@@ -1330,19 +1330,7 @@ export default function ComprasTab({
                 </button>
                 {isOpen && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* table-fixed + colgroup (31-07, pedido de Felipe):
-                      cantidad, formato y costo en rieles de ancho FIJO
-                      e idéntico en todos los proveedores — antes
-                      cantidad y formato compartían celda y las cifras
-                      quedaban en zigzag. */}
-                  <table className="min-w-full text-sm table-fixed">
-                    <colgroup>
-                      <col className="w-8" />
-                      <col />
-                      <col className="w-24" />
-                      <col className="w-60" />
-                      <col className="w-28" />
-                    </colgroup>
+                  <table className="min-w-full text-sm">
                     <tbody className="divide-y divide-gray-100">
                       {rowsShown.map((c) => {
                         const st = supplyStatus(c.supply.id);
@@ -1388,24 +1376,25 @@ export default function ComprasTab({
                             <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}
                               {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                            </td>
-                            {/* Formato de compra en SU columna (el costo
-                                sigue siendo lineal; esto es informativo). */}
-                            <td className="px-2 py-1.5 text-left text-[11px] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">
+                              {/* Equivalencia en formato de compra EN LA MISMA
+                                  línea (filas a media altura, pedido 22-07).
+                                  El costo es lineal. */}
                               {c.supply.package_qty &&
-                              c.supply.package_qty > 0 &&
-                              (c.supply.package_name ||
-                                c.supply.package_qty !== 1)
-                                ? `${Math.ceil(
-                                    c.totalBase / c.supply.package_qty,
-                                  ).toLocaleString("es-CL")} × ${
-                                    c.supply.package_name || "formato"
-                                  } de ${Number(
-                                    c.supply.package_qty,
-                                  ).toLocaleString("es-CL")} ${
-                                    UNIT_FAMILY_INFO[c.supply.unit_family].base
-                                  }`
-                                : ""}
+                                c.supply.package_qty > 0 &&
+                                (c.supply.package_name ||
+                                  c.supply.package_qty !== 1) && (
+                                  <span className="ml-1.5 text-[11px] font-normal text-gray-400">
+                                    ·{" "}
+                                    {Math.ceil(
+                                      c.totalBase / c.supply.package_qty,
+                                    ).toLocaleString("es-CL")}{" "}
+                                    × {c.supply.package_name || "formato"} de{" "}
+                                    {Number(
+                                      c.supply.package_qty,
+                                    ).toLocaleString("es-CL")}{" "}
+                                    {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                                  </span>
+                                )}
                             </td>
                             <td className="px-3 py-1.5 text-right text-gray-700 whitespace-nowrap">
                               {c.supply.price ? fmtMoney(c.costTotal) : "—"}
@@ -1417,12 +1406,10 @@ export default function ComprasTab({
                     <tfoot className="bg-gray-50">
                       <tr>
                         <td />
-                        <td
-                          colSpan={3}
-                          className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase"
-                        >
+                        <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase">
                           Subtotal
                         </td>
+                        <td />
                         <td className="px-3 py-1.5 text-right font-bold whitespace-nowrap">
                           {fmtMoney(subShown)}
                         </td>
