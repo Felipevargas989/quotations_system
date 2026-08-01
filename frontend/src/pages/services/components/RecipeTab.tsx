@@ -111,9 +111,11 @@ export default function RecipeTab({
     [furniture],
   );
 
+  // El check "Guardado" se QUEDA encendido mientras el modal esté
+  // abierto (pedido de Felipe 31-07: antes parpadeaba 1,6 s y parecía
+  // que el guardado se "perdía"). Se apaga solo al reabrir.
   const flashSaved = () => {
     setSaved(true);
-    setTimeout(() => setSaved(false), 1600);
     notifyCostsChanged();
   };
 

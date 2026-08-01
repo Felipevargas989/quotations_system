@@ -77,9 +77,10 @@ export default function FixedCostSection({
     return (id: number | null) => (id ? m.get(id) : undefined);
   }, [suppliers]);
 
+  // Check "Guardado" permanente mientras el modal viva (gemelo del de
+  // recetas — pedido de Felipe 31-07).
   const flashSaved = () => {
     setSaved(true);
-    setTimeout(() => setSaved(false), 1600);
   };
 
   // Cada línea aporta sus DOS componentes: fijo × cant. y por-persona × cant.
