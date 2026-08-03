@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, Plus, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
@@ -56,6 +56,46 @@ export default function QuotationsPage() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Menú de estado de la casa (Tanda 3b): reemplaza al <select> nativo.
+  const [statusMenuId, setStatusMenuId] = useState<string | null>(null);
+  const STATUS_EMOJI: Record<string, string> = {
+    solicitada: "📋",
+    enviada: "📤",
+    en_negociacion: "💬",
+    aceptada: "✅",
+    rechazada: "❌",
+    cancelada: "🚫",
+    realizada: "🎉",
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    solicitada: "Solicitada",
+    enviada: "Enviada",
+    en_negociacion: "En Negociación",
+    aceptada: "Aceptada",
+    rechazada: "Rechazada",
+    cancelada: "Cancelada",
+    realizada: "Realizada",
+  };
+  // Mismas reglas que el select viejo: Cancelada solo administradores
+  // (o si ya lo está); Realizada no se elige desde aquí — solo se
+  // muestra (y permite revertir a Aceptada si fue un error).
+  const statusOptionsFor = (q: QuotationWithClient) => {
+    const base = [
+      "solicitada",
+      "enviada",
+      "en_negociacion",
+      "aceptada",
+      "rechazada",
+    ];
+    if (
+      ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
+      q.quotation_status === "cancelada"
+    )
+      base.push("cancelada");
+    if (q.quotation_status === "realizada") base.push("realizada");
+    return base;
+  };
+
   // Cambio post-venta → pre-venta pendiente de confirmación (Tanda 3a).
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     quotationId: string;
@@ -685,32 +725,54 @@ export default function QuotationsPage() {
                         className="px-6 py-4 whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <select
-                          value={quotation.quotation_status}
-                          onChange={(e) =>
-                            handleStatusChange(quotation.id, e.target.value)
-                          }
-                          className={`px-2 py-1 text-xs font-semibold rounded-full border-0 ${getStatusColor(quotation.quotation_status)}`}
-                        >
-                          <option value="solicitada">📋 Solicitada</option>
-                          <option value="enviada">📤 Enviada</option>
-                          <option value="en_negociacion">
-                            💬 En Negociación
-                          </option>
-                          <option value="aceptada">✅ Aceptada</option>
-                          <option value="rechazada">❌ Rechazada</option>
-                          {(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
-                            quotation.quotation_status === "cancelada") && (
-                            <option value="cancelada">🚫 Cancelada</option>
+                        <span className="relative inline-block">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStatusMenuId((v) =>
+                                v === quotation.id ? null : quotation.id,
+                              )
+                            }
+                            className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+                            title="Cambiar estado"
+                          >
+                            {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+                            {STATUS_LABEL[quotation.quotation_status] ||
+                              quotation.quotation_status}
+                            <ChevronDown size={12} className="shrink-0" />
+                          </button>
+                          {statusMenuId === quotation.id && (
+                            <>
+                              <span
+                                className="fixed inset-0 z-10 block"
+                                onClick={() => setStatusMenuId(null)}
+                              />
+                              <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                                {statusOptionsFor(quotation).map((st) => (
+                                  <button
+                                    key={st}
+                                    type="button"
+                                    onClick={() => {
+                                      setStatusMenuId(null);
+                                      if (st !== quotation.quotation_status)
+                                        void handleStatusChange(
+                                          quotation.id,
+                                          st,
+                                        );
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
+                                  >
+                                    <span
+                                      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+                                    >
+                                      {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
+                                    </span>
+                                  </button>
+                                ))}
+                              </span>
+                            </>
                           )}
-                          {/* Realizada NO se elige desde aquí: solo el botón de
-                              Post-Venta la declara (y envía la encuesta). La opción
-                              existe únicamente para MOSTRAR el estado actual y
-                              permitir revertirlo a Aceptada si fue un error. */}
-                          {quotation.quotation_status === "realizada" && (
-                            <option value="realizada">🎉 Realizada</option>
-                          )}
-                        </select>
+                        </span>
                       </td>
                       <td
                         className="px-6 py-4 whitespace-nowrap"

@@ -63,6 +63,7 @@ import {
 import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch } from "../../utils/searchMatch";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
@@ -1716,22 +1717,22 @@ export default function QuotationForm() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Cliente
                 </label>
-                <select
+                <SelectWithSearch
+                  options={clientTypesList.map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
                   value={clientFormData.client_type}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setClientFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value,
+                      client_type: v,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {clientTypesList.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Tipo de cliente"
+                  searchPlaceholder="Buscar tipo…"
+                  noResultsText="Sin resultados"
+                />
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
@@ -2359,25 +2360,23 @@ export default function QuotationForm() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Tipo de Evento *
                 </label>
-                <select
-                  required
+                <SelectWithSearch
+                  options={Object.values(EventType).map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
                   value={formData.event_type}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setFormData((prev) => ({
                       ...prev,
-                      event_type: e.target.value as EventType,
+                      event_type: v as EventType,
                     }))
                   }
                   disabled={isRestrictedEditing}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Seleccionar tipo</option>
-                  {Object.values(EventType).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Seleccionar tipo"
+                  searchPlaceholder="Buscar tipo…"
+                  noResultsText="Sin resultados"
+                />
               </div>
             </div>
 
@@ -2826,27 +2825,23 @@ export default function QuotationForm() {
                         <label className="block text-xs font-medium text-gray-600 mb-1">
                           Día
                         </label>
-                        <select
+                        <SectionChipSelect
                           value={Math.min(box.day || 1, eventDaysCount)}
-                          onChange={(e) =>
+                          options={Array.from(
+                            { length: eventDaysCount },
+                            (_, i) => ({ id: i + 1, name: dayLabel(i + 1) }),
+                          )}
+                          onChange={(dia) =>
                             setServiceBoxes((prev) =>
                               prev.map((b) =>
-                                b.id === box.id
-                                  ? { ...b, day: Number(e.target.value) }
-                                  : b,
+                                b.id === box.id ? { ...b, day: dia } : b,
                               ),
                             )
                           }
+                          zeroLabel={null}
                           disabled={isRestrictedEditing}
-                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg font-semibold text-blue-900"
                           title="Día del evento en que va este servicio"
-                        >
-                          {Array.from({ length: eventDaysCount }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                              {dayLabel(i + 1)}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                     )}
                     <div className="ml-auto pb-2 flex items-center gap-2">
@@ -3309,28 +3304,23 @@ export default function QuotationForm() {
                       </span>
                       <span>×{service.quantity}</span>
                       {eventDaysCount > 1 && (
-                        <select
+                        <SectionChipSelect
                           value={Math.min(service.day || 0, eventDaysCount)}
-                          onChange={(e) =>
+                          options={Array.from(
+                            { length: eventDaysCount },
+                            (_, i) => ({ id: i + 1, name: dayLabel(i + 1) }),
+                          )}
+                          onChange={(dia) =>
                             setSelectedFixedServices((prev) =>
                               prev.map((f, i) =>
-                                i === index
-                                  ? { ...f, day: Number(e.target.value) }
-                                  : f,
+                                i === index ? { ...f, day: dia } : f,
                               ),
                             )
                           }
+                          zeroLabel="todo el evento"
                           disabled={isRestrictedEditing}
-                          className="text-sm text-gray-500 bg-transparent border-0 focus:ring-0 cursor-pointer"
                           title="Día del evento (o todo el evento)"
-                        >
-                          <option value={0}>todo el evento</option>
-                          {Array.from({ length: eventDaysCount }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                              {dayLabel(i + 1)}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       )}
                       {!isRestrictedEditing && (
                         <button

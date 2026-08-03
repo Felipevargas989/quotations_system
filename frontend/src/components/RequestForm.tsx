@@ -399,22 +399,22 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Cliente
                 </label>
-                <select
+                <SelectWithSearch
+                  options={clientTypesList.map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
                   value={clientFormData.client_type}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setClientFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value,
+                      client_type: v,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {clientTypesList.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Tipo de cliente"
+                  searchPlaceholder="Buscar tipo…"
+                  noResultsText="Sin resultados"
+                />
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
@@ -544,26 +544,24 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tipo de Evento *
             </label>
-            <select
-              required
+            <SelectWithSearch
+              options={eventTypes.map((type) => ({
+                value: type,
+                label: type,
+              }))}
               value={formData.event_type}
-              onChange={(e) =>
+              onChange={(v) =>
                 setFormData((prev) => ({
                   ...prev,
-                  // Las opciones del select salen de EventType, así que
-                  // el valor siempre es uno válido (o "" mientras elige).
-                  event_type: e.target.value as EventType,
+                  // Las opciones salen de EventType: el valor siempre es
+                  // uno válido (o "" mientras elige).
+                  event_type: v as EventType,
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Seleccionar tipo</option>
-              {eventTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+              placeholder="Seleccionar tipo"
+              searchPlaceholder="Buscar tipo…"
+              noResultsText="Sin resultados"
+            />
           </div>
 
           <div>
