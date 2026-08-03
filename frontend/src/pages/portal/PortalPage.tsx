@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "../../components/toast/Toast";
 import { useParams } from "react-router-dom";
 import {
   Landmark,
@@ -179,7 +180,7 @@ export default function PortalPage() {
       w.document.close();
     } catch {
       w.close();
-      alert("No se pudo abrir la cotización. Inténtalo de nuevo.");
+      toast.error("No se pudo abrir la cotización. Inténtalo de nuevo.");
     }
   };
 

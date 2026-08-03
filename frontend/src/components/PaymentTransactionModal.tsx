@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { toast } from "./toast/Toast";
 import {
   Save,
   X,
@@ -150,13 +151,13 @@ export default function PaymentTransactionModal({
 
       if (result.success && result.url) {
         setPhotoUrl(result.url);
-        alert("✅ Archivo subido exitosamente");
+        toast.success("Archivo subido.");
       } else {
-        alert(`❌ Error al subir el archivo: ${result.error}`);
+        toast.error(`No se pudo subir el archivo: ${result.error}`);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("❌ Error al subir el archivo");
+      toast.error("No se pudo subir el archivo.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -204,7 +205,7 @@ export default function PaymentTransactionModal({
           receipt_photo_url: photoUrl || undefined,
         });
 
-        alert("✅ Transacción de pago actualizada exitosamente");
+        toast.success("Transacción de pago actualizada.");
       } else {
         // Create new transaction
         await createPaymentTransaction({
@@ -217,16 +218,16 @@ export default function PaymentTransactionModal({
           receipt_photo_url: photoUrl || undefined,
         });
 
-        alert(
-          "✅ Transacción de pago creada exitosamente. Se ha enviado un correo de confirmación de pago al cliente.",
+        toast.success(
+          "Transacción creada. Se envió el correo de confirmación de pago al cliente.",
         );
       }
 
       onSave();
     } catch (error) {
       console.error("Error saving payment transaction:", error);
-      alert(
-        `Error al ${isEditing ? "actualizar" : "crear"} la transacción: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      toast.error(
+        `No se pudo ${isEditing ? "actualizar" : "crear"} la transacción: ${error instanceof Error ? error.message : "error desconocido"}`,
       );
     } finally {
       setLoading(false);

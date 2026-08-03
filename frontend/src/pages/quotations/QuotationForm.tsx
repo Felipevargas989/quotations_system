@@ -65,6 +65,7 @@ import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { matchesSearch } from "../../utils/searchMatch";
 import { UserRole } from "../../constants/users";
+import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
@@ -429,7 +430,7 @@ export default function QuotationForm() {
         try {
           const { data, error } = await getQuotationById(id);
           if (error) {
-            alert("Error al cargar la cotización");
+            toast.error("No se pudo cargar la cotización.");
             navigate("/quotations");
             return;
           }
@@ -442,7 +443,7 @@ export default function QuotationForm() {
           }
         } catch (error) {
           console.error("Error fetching quotation:", error);
-          alert("Error al cargar la cotización");
+          toast.error("No se pudo cargar la cotización.");
           navigate("/quotations");
         }
       } else if (duplicateFrom) {
@@ -977,7 +978,7 @@ export default function QuotationForm() {
       );
 
     if (items.length === 0) {
-      alert("No se pudieron asociar los items con servicios válidos.");
+      toast.error("No se pudieron asociar los ítems con servicios válidos.");
       return;
     }
 
@@ -990,9 +991,9 @@ export default function QuotationForm() {
       });
       setGroupModalBoxId(null);
       setGroupName("");
-      alert("Grupo guardado exitosamente");
+      toast.success("Grupo guardado.");
     } catch (error) {
-      alert("Error al guardar el grupo");
+      toast.error("No se pudo guardar el grupo.");
     } finally {
       setSavingGroup(false);
     }
@@ -1037,9 +1038,9 @@ export default function QuotationForm() {
       setShowCollectionModal(false);
       setCollectionName("");
       setSelectedGroupIds([]);
-      alert("Paquete guardado exitosamente");
+      toast.success("Paquete guardado.");
     } catch (error) {
-      alert("Error al guardar el paquete");
+      toast.error("No se pudo guardar el paquete.");
     } finally {
       setSavingCollection(false);
     }
@@ -1197,7 +1198,8 @@ export default function QuotationForm() {
 
     // Validate client form before submission
     if (!validateClientFormData()) {
-      alert("Por favor corrija los errores en los campos de email y teléfono");
+      // Los campos con problema ya quedan marcados en rojo (aviso 8 de
+      // la lista del destierro: la ventana repetía lo visible — fuera).
       return;
     }
 
@@ -1229,10 +1231,10 @@ export default function QuotationForm() {
       });
 
       setShowClientModal(false);
-      alert("Cliente creado exitosamente");
+      toast.success("Cliente creado.");
     } catch (error) {
       console.error("Error creating client:", error);
-      alert("Error al crear el cliente");
+      toast.error("No se pudo crear el cliente.");
     } finally {
       setClientLoading(false);
     }
@@ -1522,14 +1524,14 @@ export default function QuotationForm() {
         if (error) throw error;
       }
 
-      alert(
+      toast.success(
         isEditingExisting
-          ? "Cotización actualizada exitosamente"
-          : "Cotización guardada exitosamente",
+          ? "Cotización actualizada."
+          : "Cotización guardada.",
       );
       navigate("/quotations");
     } catch (error) {
-      alert(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
+      toast.error(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
     } finally {
       setLoading(false);
     }

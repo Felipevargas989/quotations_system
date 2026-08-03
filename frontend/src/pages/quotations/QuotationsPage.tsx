@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { AlertTriangle, ChevronRight, Plus, Search } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
 import { ROLE_GROUPS } from "../../constants/permissions";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
@@ -325,8 +326,8 @@ export default function QuotationsPage() {
               );
             }
 
-            alert(
-              "✅ Cotización aceptada exitosamente (plan de pagos ya existía)",
+            toast.success(
+              "Cotización aceptada (el plan de pagos ya existía).",
             );
             await fetchQuotations(statusFilter);
             await fetchRequirements();
@@ -350,8 +351,8 @@ export default function QuotationsPage() {
         throw new Error(`Error actualizando cotización: ${error.message}`);
       }
 
-      alert(
-        `✅ Estado actualizado correctamente a: ${newStatus} ${newStatus === QuotationStatus.ENVIADA ? ", y se ha enviado el correo de confirmación al cliente." : ""}`,
+      toast.success(
+        `Estado actualizado a ${newStatus}${newStatus === QuotationStatus.ENVIADA ? ". Se envió el correo de confirmación al cliente." : "."}`,
       );
       await fetchQuotations(statusFilter);
       await fetchRequirements();
@@ -361,10 +362,10 @@ export default function QuotationsPage() {
       const backendMsg = (
         error as { response?: { data?: { message?: string } } }
       )?.response?.data?.message;
-      alert(
+      toast.error(
         `No se pudo actualizar el estado: ${
           backendMsg ||
-          (error instanceof Error ? error.message : "Error desconocido")
+          (error instanceof Error ? error.message : "error desconocido")
         }`,
       );
       await fetchQuotations(statusFilter);
@@ -398,22 +399,21 @@ export default function QuotationsPage() {
       // call API reques to create paymet plan
       await createPaymentPlan(quotationForPaymentPlan.id, paymentsToCreate);
 
-      alert(
-        "✅ Plan de pagos creado y cotización aceptada exitosamente, y se ha enviado el correo de confirmación al cliente.",
+      toast.success(
+        "Plan de pagos creado y cotización aceptada. Se envió el correo de confirmación al cliente.",
       );
       setShowPaymentPlanEditor(false);
       setQuotationForPaymentPlan(null);
       await fetchQuotations(statusFilter);
       await fetchRequirements();
     } catch (error) {
-      alert(
-        `Error al crear el plan de pagos: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      toast.error(
+        `No se pudo crear el plan de pagos: ${error instanceof Error ? error.message : "error desconocido"}`,
       );
     }
   };
 
   const handlePaymentPlanCancel = () => {
-    alert("❌ Plan de pagos cancelado. La cotización no ha sido aceptada.");
     setShowPaymentPlanEditor(false);
     setQuotationForPaymentPlan(null);
   };
@@ -433,7 +433,7 @@ export default function QuotationsPage() {
       setShowViewer(true);
     } catch (error) {
       console.error("Error loading quotation details:", error);
-      alert("Error al cargar los detalles de la cotización");
+      toast.error("No se pudieron cargar los detalles de la cotización.");
     }
   };
 
