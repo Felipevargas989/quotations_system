@@ -1594,10 +1594,14 @@ function EventModal({
                 onChanged={onDataChanged}
               />
               </div>
-              <DocViewerPanel
-                doc={compView}
-                emptyText="Aprieta 'Ver' en un registro para ver su comprobante aquí."
-              />
+              {/* mt-8 en ancho: alinea el visor con la PRIMERA cuota
+                  (el título "Calendario de pagos" mide ese alto). */}
+              <div className="lg:mt-8">
+                <DocViewerPanel
+                  doc={compView}
+                  emptyText="Aprieta 'Ver' en un registro para ver su comprobante aquí."
+                />
+              </div>
               </div>
               {editTx && (
                 <EditRegistroModal
@@ -2605,7 +2609,7 @@ function RegistrarPagoPanel({
           + Registrar pago
         </button>
       ) : (
-        <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3">
+        <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3 max-w-2xl">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">Registrar pago</h4>
             <button
@@ -3247,7 +3251,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
     <div className="space-y-4">
       {/* Tarjeta única de subida (calco del panel Registrar pago) */}
       {upOpen ? (
-        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-xl">
+        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-2xl">
           <p className="text-sm font-bold text-gray-900">Subir documento</p>
           <div>
             <label className="text-xs font-semibold text-gray-600">
