@@ -2129,6 +2129,10 @@ function ServiciosTab({
         </div>
       )}
 
+      {/* Etapa 3 (03-08): dos columnas — la edición a la izquierda y el
+          RESUMEN PEGAJOSO a la derecha, con Guardar siempre a la vista. */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px] items-start">
+      <div>
       {/* Asistentes (editable): adultos + niños, como el cotizador */}
       <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-sm font-semibold text-blue-900">
         <span>
@@ -2219,6 +2223,15 @@ function ServiciosTab({
                 personas
                 {multiDia ? ` · Día ${g.day || 1}` : ""}
               </span>
+              {/* Subtotal del grupo (03-08): cuánto pesa esta categoría. */}
+              <span className="text-gray-800 font-bold ml-2">
+                {clp(
+                  (g.items || []).reduce(
+                    (t: number, it: any) => t + ppp(it) * gPeople(g),
+                    0,
+                  ),
+                )}
+              </span>
             </span>
           </div>
           {(g.items || []).map((it: any, i: number) =>
@@ -2267,8 +2280,17 @@ function ServiciosTab({
 
       {fixed.length > 0 && (
         <div>
-          <div className="text-xs font-bold uppercase text-green-700 bg-green-100 rounded px-2 py-1.5 mt-3">
-            Servicios fijos
+          <div className="text-xs font-bold uppercase text-green-700 bg-green-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
+            <span>Servicios fijos</span>
+            <span className="normal-case text-gray-800 font-bold">
+              {clp(
+                fixed.reduce(
+                  (t: number, f: any) =>
+                    t + (f.precio || 0) * (f.quantity || 1),
+                  0,
+                ),
+              )}
+            </span>
           </div>
           {fixed.map((f, i) =>
             row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`, () =>
@@ -2399,9 +2421,13 @@ function ServiciosTab({
           </div>
         )}
       </div>
+      </div>
 
+      {/* Resumen pegajoso: totales + comentarios + Guardar (siempre
+          visibles mientras editas a la izquierda). */}
+      <div className="lg:sticky lg:top-16 self-start bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
       {/* Totales + descuento editable */}
-      <div className="mt-5 border-t-2 border-gray-900 pt-3 space-y-2 text-sm">
+      <div className="border-t-2 border-gray-900 pt-3 space-y-2 text-sm">
         <div className="flex justify-between">
           <span>Total servicios</span>
           <span className="font-medium">{clp(subtotal)}</span>
@@ -2497,6 +2523,8 @@ function ServiciosTab({
         personas de SU audiencia; la propina de la cotización se mantiene. Al
         guardar, si cambia el total, el plan de pagos se ajusta automáticamente.
       </p>
+      </div>
+      </div>
     </div>
   );
 }
