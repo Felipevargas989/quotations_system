@@ -29,6 +29,7 @@ import ExcelUpload from "./components/ExcelUpload";
 import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
 import FixedServicesBySection from "./components/FixedServicesBySection";
 import { useServices } from "../../hooks/useServices";
+import { toast } from "../../components/toast/Toast";
 import { ServiceType } from "./constants";
 import VariableServiceForm from "./components/variableServices/VariableServiceForm";
 import FixedServiceForm from "./components/FixedServiceForm";
@@ -312,7 +313,7 @@ export default function ServicesPage() {
       await loadServices();
     } catch (error) {
       console.error("Error al actualizar el estado del servicio", error);
-      alert("Error al actualizar el estado del servicio");
+      toast.error("No se pudo actualizar el estado del servicio.");
     }
   };
 
@@ -370,9 +371,9 @@ export default function ServicesPage() {
       }
     } catch (error) {
       console.error("Error al eliminar el servicio", error);
-      alert("Error al eliminar el servicio");
+      toast.error("No se pudo eliminar el servicio.");
     }
-    alert("Servicio eliminado correctamente");
+    toast.success("Servicio eliminado.");
     await loadServices();
   };
 

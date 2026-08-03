@@ -6,6 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ToastHost } from "./components/toast/Toast";
 import Layout from "./layout/Layout.tsx";
 import PermissionGuard from "./components/PermissionGuard";
 import { SECTION_ROLES } from "./constants/permissions";
@@ -329,6 +330,9 @@ function App() {
             </Route>
           </Routes>
         </Suspense>
+        {/* Toasts de la casa (Tanda 0): un solo anfitrión para toda la
+            app, incluidas las pantallas públicas. */}
+        <ToastHost />
       </Router>
     </AuthProvider>
   );
