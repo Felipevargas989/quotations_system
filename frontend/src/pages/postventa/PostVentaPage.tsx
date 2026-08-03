@@ -947,6 +947,12 @@ function EventModal({
   onOpenReceipts,
   fullPage = false,
 }: EventModalProps) {
+  // Visor de comprobantes de la pestaña Pagos (03-08: mismo lenguaje
+  // que Documentos — lista a la izquierda, visor al lado).
+  const [compView, setCompView] = useState<{
+    file_url: string;
+    file_name: string;
+  } | null>(null);
   const netPaid = event.paid - event.refunded;
   const saldo = event.total - netPaid;
   const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
@@ -1384,8 +1390,11 @@ function EventModal({
               {/* Dos columnas en pantallas anchas (03-08): calendario
                   protagonista a la izquierda; registrar y reembolsos en
                   la lateral. En pantalla chica se apilan igual que antes. */}
-              <div className="grid gap-6 lg:grid-cols-[1fr_380px] items-start">
-              <div className="order-2 lg:order-1 space-y-3">
+              <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
+              <div className="grid gap-6 lg:grid-cols-[1fr_420px] items-start">
+              {/* Columna izquierda: calendario + reembolsos al final */}
+              <div className="space-y-6">
+              <div className="space-y-3">
                 <h4 className="text-sm font-bold text-gray-800">
                   Calendario de pagos
                 </h4>
@@ -1408,10 +1417,18 @@ function EventModal({
                     ) : (
                       <span className="flex items-center gap-3 shrink-0">
                         {t.receipt_photo_url && (
-                          <FileViewLink
-                            url={t.receipt_photo_url}
-                            title={`Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`}
-                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCompView({
+                                file_url: t.receipt_photo_url!,
+                                file_name: `Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`,
+                              })
+                            }
+                            className="text-sm font-semibold text-blue-600 hover:underline"
+                          >
+                            Ver
+                          </button>
                         )}
                         <button
                           type="button"
@@ -1572,13 +1589,15 @@ function EventModal({
                   );
                 })}
               </div>
-              <div className="order-1 lg:order-2 space-y-6">
-                <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
-                <ReembolsosManager
-                  quotationId={event.quotationId}
-                  onChanged={onDataChanged}
-                />
+              <ReembolsosManager
+                quotationId={event.quotationId}
+                onChanged={onDataChanged}
+              />
               </div>
+              <DocViewerPanel
+                doc={compView}
+                emptyText="Aprieta 'Ver' en un registro para ver su comprobante aquí."
+              />
               </div>
               {editTx && (
                 <EditRegistroModal
@@ -3373,8 +3392,10 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
 // privado + iframe (PDF) o imagen, con Descargar. Sin ventanitas.
 function DocViewerPanel({
   doc,
+  emptyText = "Elige un documento de la lista para verlo aquí.",
 }: {
-  readonly doc: EventDocument | null;
+  readonly doc: { file_url: string; file_name: string } | null;
+  readonly emptyText?: string;
 }) {
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -3391,8 +3412,8 @@ function DocViewerPanel({
 
   if (!doc) {
     return (
-      <div className="border border-dashed border-gray-300 rounded-xl min-h-[420px] flex items-center justify-center text-sm text-gray-400">
-        Elige un documento de la lista para verlo aquí.
+      <div className="border border-dashed border-gray-300 rounded-xl min-h-[420px] flex items-center justify-center text-sm text-gray-400 px-6 text-center">
+        {emptyText}
       </div>
     );
   }
