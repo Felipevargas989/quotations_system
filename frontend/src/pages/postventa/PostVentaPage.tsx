@@ -3151,9 +3151,11 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const loading = docsQuery.isPending;
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // Archivo elegido esperando su categoría (mini-formulario).
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingCat, setPendingCat] = useState<string>("");
+  // Tarjeta única de subida, calcada del panel "Registrar pago"
+  // (pedido de Felipe 03-08: sin proceso de pasos — todo junto).
+  const [upOpen, setUpOpen] = useState(false);
+  const [upCat, setUpCat] = useState<string>("");
+  const [upFile, setUpFile] = useState<File | null>(null);
   // Documento seleccionado para el visor.
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = docs.find((d) => d.id === selectedId) || docs[0] || null;
@@ -3179,8 +3181,9 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       });
       if (error) throw error;
       toast.success("Documento subido.");
-      setPendingFile(null);
-      setPendingCat("");
+      setUpOpen(false);
+      setUpCat("");
+      setUpFile(null);
       load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al subir el documento");
@@ -3214,42 +3217,47 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Barra de subida única */}
-      {pendingFile ? (
-        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
-          <p className="text-sm text-gray-800">
-            <FileText size={15} className="inline -mt-0.5 text-gray-500" />{" "}
-            <span className="font-semibold">{pendingFile.name}</span>
-            <span className="text-gray-400">
-              {" "}
-              · {(pendingFile.size / 1024 / 1024).toFixed(1)} MB
-            </span>
-          </p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-gray-600 mr-1">
-              Categoría:
-            </span>
-            {DOCUMENT_CATEGORIES.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => setPendingCat(c.key)}
-                className={`px-2.5 py-1 rounded-lg border text-xs font-semibold ${
-                  pendingCat === c.key
-                    ? "border-blue-600 bg-blue-100 text-blue-700"
-                    : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
+      {/* Tarjeta única de subida (calco del panel Registrar pago) */}
+      {upOpen ? (
+        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-xl">
+          <p className="text-sm font-bold text-gray-900">Subir documento</p>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">
+              Categoría
+            </label>
+            <SelectWithSearch
+              options={DOCUMENT_CATEGORIES.map((c) => ({
+                value: c.key,
+                label: c.label,
+              }))}
+              value={upCat}
+              onChange={setUpCat}
+              placeholder="Elegir categoría…"
+              searchPlaceholder="Buscar…"
+              noResultsText="Sin resultados"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">
+              Archivo{" "}
+              <span className="font-normal text-gray-400">
+                (imagen o PDF · máx. 5 MB)
+              </span>
+            </label>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setUpFile(e.target.files?.[0] || null)}
+              className="w-full text-xs mt-1.5"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => {
-                setPendingFile(null);
-                setPendingCat("");
+                setUpOpen(false);
+                setUpCat("");
+                setUpFile(null);
               }}
               className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
             >
@@ -3257,8 +3265,8 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
             </button>
             <button
               type="button"
-              disabled={!pendingCat || subiendo}
-              onClick={() => void onUpload(pendingCat, pendingFile)}
+              disabled={!upCat || !upFile || subiendo}
+              onClick={() => void onUpload(upCat, upFile || undefined)}
               className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
             >
               {subiendo ? "Subiendo…" : "Subir"}
@@ -3266,22 +3274,13 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
           </div>
         </div>
       ) : (
-        <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold cursor-pointer hover:bg-blue-700">
+        <button
+          type="button"
+          onClick={() => setUpOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+        >
           <Upload size={15} /> Subir documento
-          <span className="font-normal opacity-70 text-[11px]">
-            imagen o PDF · máx. 5 MB
-          </span>
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPendingFile(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
+        </button>
       )}
       {err && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
