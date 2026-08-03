@@ -228,6 +228,15 @@ function App() {
                   </PermissionGuard>
                 }
               />
+              {/* Ficha del evento como página propia (03-08) */}
+              <Route
+                path="post-venta/:id"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                    <PostVentaPage />
+                  </PermissionGuard>
+                }
+              />
 
               {/* User Management - Admin only */}
               <Route

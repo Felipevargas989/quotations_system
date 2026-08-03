@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "../../components/toast/Toast";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -182,11 +183,21 @@ const statusBadge = (st: string) => {
 export default function PostVentaPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
+  // La búsqueda también sobrevive al viaje ficha ↔ lista (03-08).
+  const [search, setSearch] = useState(
+    () => localStorage.getItem("eventia_pv_search") || "",
+  );
+  useEffect(() => {
+    localStorage.setItem("eventia_pv_search", search);
+  }, [search]);
   const [eventFilter, setEventFilter] = useState<string[]>([]);
   const [moneyFilter, setMoneyFilter] = useState<string[]>([]);
   const [filterRestored, setFilterRestored] = useState(false);
-  const [selected, setSelected] = useState<EventRow | null>(null);
+  // El evento abierto vive en la URL (/postventa/:id — decisión de
+  // Felipe 03-08: página propia, no modal): "volver" conserva la lista
+  // con sus filtros, el botón atrás funciona y el enlace se comparte.
+  const { id: routeId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<
     "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
   >("pagos");
@@ -390,13 +401,11 @@ export default function PostVentaPage() {
     }
   };
 
-  // El evento abierto en el modal se re-sincroniza con CADA versión
-  // fresca de la lista (saldo, progreso, cuotas al día).
-  useEffect(() => {
-    setSelected((cur) =>
-      cur ? rows.find((e) => e.quotationId === cur.quotationId) || cur : cur,
-    );
-  }, [rows]);
+  // Derivado de la URL: siempre la versión FRESCA de la lista (saldo,
+  // progreso, cuotas al día) — sin estado espejo que sincronizar.
+  const selected = routeId
+    ? rows.find((e) => e.quotationId === routeId) || null
+    : null;
 
   // Refresca tras guardar sin el spinner de pantalla completa. Un pago
   // cruza módulos: se invalidan también cotizaciones, fichas 360° de
@@ -512,8 +521,8 @@ export default function PostVentaPage() {
     p >= 100 ? "bg-green-500" : p > 0 ? "bg-blue-500" : "bg-gray-300";
 
   const openEvent = (r: EventRow) => {
-    setSelected(r);
     setTab("pagos");
+    navigate(`/post-venta/${r.quotationId}`);
   };
 
   if (loading) {
@@ -535,6 +544,46 @@ export default function PostVentaPage() {
       Icon: DollarSign,
     },
   ];
+
+  // Ficha como página propia: si la URL trae evento, la lista no se
+  // pinta (queda viva detrás, con filtros y búsqueda persistidos).
+  if (routeId) {
+    if (!selected) {
+      // Lista fresca sin ese evento (id malo o recién anulado): volver.
+      return (
+        <div className="flex flex-col items-center justify-center min-h-64 gap-3">
+          <p className="text-sm text-gray-500">
+            No se encontró ese evento en Post-Venta.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/post-venta")}
+            className="text-sm font-semibold text-blue-600 hover:underline"
+          >
+            ← Volver a Post-Venta
+          </button>
+        </div>
+      );
+    }
+    return (
+      <EventModal
+        fullPage
+        event={selected}
+        tab={tab}
+        setTab={setTab}
+        onClose={() => navigate("/post-venta")}
+        onDataChanged={refreshAfterSave}
+        pendingReceipts={
+          comprobantes.filter((r) => r.quotation_id === selected.quotationId)
+            .length
+        }
+        onOpenReceipts={() => {
+          navigate("/post-venta");
+          setVerComprobantes(true);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -768,25 +817,7 @@ export default function PostVentaPage() {
         </div>
       </div>
 
-      {/* Event detail modal */}
-      {selected && (
-        <EventModal
-          event={selected}
-          tab={tab}
-          setTab={setTab}
-          onClose={() => setSelected(null)}
-          onDataChanged={refreshAfterSave}
-          pendingReceipts={
-            comprobantes.filter(
-              (r) => r.quotation_id === selected.quotationId,
-            ).length
-          }
-          onOpenReceipts={() => {
-            setSelected(null);
-            setVerComprobantes(true);
-          }}
-        />
-      )}
+
 
       {/* Bandeja de comprobantes del portal (Fase 2b): confirmar
           registra el pago real; rechazar lo archiva con nota. */}
@@ -899,6 +930,9 @@ interface EventModalProps {
   // Comprobantes del portal PENDIENTES de este evento (Fase 2b): el
   // aviso vive donde uno los busca — dentro del evento.
   readonly pendingReceipts?: number;
+  // true = PÁGINA propia (03-08): sin velo oscuro ni alto fijo; la
+  // página scrollea natural y arriba va "← Volver a Post-Venta".
+  readonly fullPage?: boolean;
   readonly onOpenReceipts?: () => void;
 }
 
@@ -910,6 +944,7 @@ function EventModal({
   onDataChanged,
   pendingReceipts = 0,
   onOpenReceipts,
+  fullPage = false,
 }: EventModalProps) {
   const netPaid = event.paid - event.refunded;
   const saldo = event.total - netPaid;
@@ -1054,12 +1089,29 @@ function EventModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
-      onClick={onClose}
+      className={
+        fullPage
+          ? ""
+          : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
+      }
+      onClick={fullPage ? undefined : onClose}
     >
+      {fullPage && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold mb-3"
+        >
+          ← Volver a Post-Venta
+        </button>
+      )}
       <div
-        className="bg-white rounded-2xl w-full max-w-6xl h-[94vh] shadow-xl flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className={
+          fullPage
+            ? "bg-white rounded-2xl w-full shadow flex flex-col"
+            : "bg-white rounded-2xl w-full max-w-6xl h-[94vh] shadow-xl flex flex-col overflow-hidden"
+        }
+        onClick={fullPage ? undefined : (e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="shrink-0 flex items-start justify-between p-6 border-b border-gray-200">
@@ -1293,7 +1345,13 @@ function EventModal({
         </div>
 
         {/* Panels */}
-        <div className="p-6 flex-1 overflow-y-auto min-h-0">
+        <div
+          className={
+            fullPage
+              ? "p-6 flex-1"
+              : "p-6 flex-1 overflow-y-auto min-h-0"
+          }
+        >
           {tab === "pagos" && (
             <div className="space-y-6">
               {pendingReceipts > 0 && (
@@ -2154,9 +2212,10 @@ function ServiciosTab({
               <button
                 type="button"
                 onClick={() => setAddingToGroup(gi)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                className="ml-2 text-[11px] font-semibold text-blue-500 hover:text-blue-700"
+                title="Agregar un servicio a ESTA categoría"
               >
-                + Agregar servicio
+                ↳ Agregar servicio
               </button>
             )}
           </div>
@@ -2277,18 +2336,20 @@ function ServiciosTab({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-5">
+          // Nivel EVENTO (03-08): línea divisoria + botones sobrios, para
+          // no confundirse con el "agregar" de cada categoría.
+          <div className="flex items-center gap-3 border-t border-gray-200 mt-4 pt-4">
             <button
               type="button"
               onClick={() => setNewCatOpen(true)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
               + Agregar categoría nueva
             </button>
             <button
               type="button"
               onClick={() => setAddingFixed(true)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
               + Agregar servicio fijo
             </button>
