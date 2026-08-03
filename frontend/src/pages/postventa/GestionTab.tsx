@@ -441,7 +441,7 @@ export default function GestionTab({
       <div className="space-y-4">
         {/* Patrón de encabezado del modal (mismo que Recursos del evento y
             Ficha de cocina): icono + título text-base + divisoria. */}
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 min-h-[54px]">
           <Package size={17} className="text-gray-600" />
           <h4 className="text-base font-bold text-gray-900">
             Insumos y equipo
