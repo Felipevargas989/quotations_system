@@ -16,12 +16,17 @@ import {
   Copy,
   Eye,
   Check,
+  X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
 import QuotationViewer from "../components/QuotationViewer";
 import { getQuotationById } from "../services/quotations.service";
-import { getClientSummary, updateClient } from "../services/clients.service";
+import {
+  deleteClient,
+  getClientSummary,
+  updateClient,
+} from "../services/clients.service";
 import {
   createClientContact,
   deleteClientContact,
@@ -153,6 +158,41 @@ export default function ClientDetailPage() {
   const invalidateClients = () =>
     queryClient.invalidateQueries({ queryKey: ["clients"] });
 
+  const saveName = async () => {
+    const nombre = nameDraft.trim();
+    if (!data || !nombre || nombre === data.client.name) {
+      setNameEditing(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateClient({ name: nombre } as ClientFormData, data.client.id);
+      invalidateSummary();
+      invalidateClients();
+      toast.success("Nombre actualizado.");
+      setNameEditing(false);
+    } catch {
+      toast.error("No se pudo cambiar el nombre.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!data) return;
+    setDeleting(true);
+    try {
+      await deleteClient(data.client.id);
+      invalidateClients();
+      toast.success("Cliente eliminado.");
+      navigate("/clients");
+    } catch {
+      toast.error("No se pudo eliminar el cliente.");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   // Notas editables directamente en la ficha
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -163,6 +203,15 @@ export default function ClientDetailPage() {
   useEffect(() => {
     setNotesDraft(data?.client.notes || "");
   }, [data?.client.id]);
+
+  // Nombre editable en la ficha (03-08: la ficha es LA puerta de
+  // edición; el modal de la lista quedó solo para crear).
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  // Eliminar cliente desde la ficha (solo sin cotizaciones).
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Tipo de cliente editable en la ficha (caché de tipos compartido con
   // Gestión de Clientes — misma queryKey)
@@ -501,7 +550,55 @@ export default function ClientDetailPage() {
         </button>
         <div className="flex flex-wrap items-center gap-3">
           <Building className="h-9 w-9 text-gray-400" />
-          <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+          {nameEditing ? (
+            <span className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={nameDraft}
+                maxLength={80}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveName();
+                  if (e.key === "Escape") setNameEditing(false);
+                }}
+                className="text-2xl font-bold text-gray-900 border-b-2 border-blue-400 focus:outline-none bg-transparent"
+              />
+              <button
+                type="button"
+                disabled={savingName || !nameDraft.trim()}
+                onClick={() => void saveName()}
+                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-40"
+                title="Guardar nombre"
+              >
+                <Check size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setNameEditing(false)}
+                className="p-1 text-gray-500 hover:text-gray-700"
+                title="Cancelar"
+              >
+                <X size={18} />
+              </button>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {client.name}
+              </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(client.name);
+                  setNameEditing(true);
+                }}
+                className="text-gray-400 hover:text-blue-600"
+                title="Cambiar nombre"
+              >
+                <Pencil size={14} />
+              </button>
+            </span>
+          )}
           {/* Etiqueta de tipo + menú propio del sistema para cambiarlo
               (tarjeta blanca con las etiquetas de colores reales — nada
               de desplegables nativos del navegador) */}
@@ -574,6 +671,40 @@ export default function ClientDetailPage() {
           >
             <Plus size={16} /> Nueva cotización
           </button>
+          {/* Eliminar cliente (03-08): la ficha es la ÚNICA puerta.
+              Misma regla de siempre: con cotizaciones no se elimina. */}
+          <span className="relative">
+            {quotations.length > 0 ? (
+              <button
+                type="button"
+                disabled
+                className="px-3 py-2 border border-gray-200 text-gray-300 rounded-lg text-sm font-semibold cursor-not-allowed"
+                title={`No se puede eliminar: tiene ${quotations.length} cotización${quotations.length === 1 ? "" : "es"} asociada${quotations.length === 1 ? "" : "s"}`}
+              >
+                <Trash2 size={15} className="inline -mt-0.5" /> Eliminar
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50"
+                  title="Eliminar cliente"
+                >
+                  <Trash2 size={15} className="inline -mt-0.5" /> Eliminar
+                </button>
+                {confirmDelete && (
+                  <ConfirmInline
+                    question="¿Eliminar este cliente definitivamente?"
+                    yesLabel={deleting ? "Eliminando…" : "Eliminar"}
+                    busy={deleting}
+                    onYes={() => void handleDeleteClient()}
+                    onNo={() => setConfirmDelete(false)}
+                  />
+                )}
+              </>
+            )}
+          </span>
         </div>
       </div>
 

@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
-  Edit,
   Trash2,
   Building,
   Phone,
@@ -37,8 +36,6 @@ import { CLIENT_TYPES } from "../constants/clientTypes";
 import {
   clientsQueryOptions,
   createClient,
-  deleteClient,
-  updateClient,
 } from "../services/clients.service";
 import {
   clientTypesQueryOptions,
@@ -48,14 +45,6 @@ import {
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
 import SelectWithSearch from "../components/selects/SelectWithSearch";
-import {
-  ClientContact,
-  createClientContact,
-  deleteClientContact,
-  getClientContacts,
-  setPrimaryContact,
-  updateClientContact,
-} from "../services/clientContacts.service";
 
 // Persistencia por usuario del filtro de tipos (mismo patrón que el
 // filtro de estados de Cotizaciones): la selección sobrevive recargas.
@@ -79,7 +68,6 @@ export default function ClientsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
     email: "",
@@ -182,135 +170,18 @@ export default function ClientsPage() {
   const typeUsage = (name: string) =>
     clients.filter((c) => (c.client_type || "").trim() === name).length;
 
-  // ----- Personas de contacto del cliente en edición (multi-contactos) -----
-  const [contacts, setContacts] = useState<ClientContact[]>([]);
-  const [contactDraft, setContactDraft] = useState<{
-    id: number | null; // null = nueva persona
-    name: string;
-    email: string;
-    phone: string;
-  } | null>(null);
-  const [savingContact, setSavingContact] = useState(false);
   // Al CREAR una empresa: correo y teléfono de la persona de contacto
   // (la empresa no tiene correo/teléfono propios; las personas sí)
   const [newContactEmail, setNewContactEmail] = useState("");
   // Error de los datos de la persona al crear (aviso 38): junto al campo.
   const [contactErr, setContactErr] = useState<string | null>(null);
-  // Error al guardar una persona en el modal de edición (03-08): la
-  // puerta que guardaba en silencio ahora habla junto al campo.
-  const [contactDraftErr, setContactDraftErr] = useState<string | null>(null);
   const [newContactPhone, setNewContactPhone] = useState("");
   const { company } = useAuth();
 
   const isEmpresa = formData.client_type !== "Particulares";
 
-  // Espejo: clients.contact_person siempre refleja el nombre del principal.
-  const syncPrimaryName = async (clientId: string, name: string) => {
-    try {
-      await updateClient({ contact_person: name } as ClientFormData, clientId);
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
-      queryClient.invalidateQueries({ queryKey: ["clientSummary", clientId] });
-    } catch {
-      /* el espejo es best-effort */
-    }
-  };
-
-  const loadContacts = async (client: Client) => {
-    let list = await getClientContacts(client.id);
-    // Sanado: si el registro antiguo tiene una persona que no está en la
-    // tabla, se importa (principal si no hay ninguno).
-    const legacy = (client.contact_person || "").trim();
-    if (
-      legacy &&
-      company?.id &&
-      !list.some((c) => c.name.toLowerCase() === legacy.toLowerCase())
-    ) {
-      await createClientContact({
-        company_id: company.id,
-        client_id: client.id,
-        name: legacy,
-        is_primary: !list.some((c) => c.is_primary),
-      });
-      list = await getClientContacts(client.id);
-    }
-    setContacts(list);
-  };
-
-  const saveContactDraft = async (client: Client) => {
-    if (!contactDraft || !contactDraft.name.trim() || !company?.id) return;
-    // Portero (03-08): esta puerta guardaba sin validar y EN SILENCIO —
-    // por aquí entró un correo inválido que mañana rebota. Mismo criterio
-    // que la ficha 360°: aviso junto al campo, nunca mudo.
-    const problema =
-      phoneProblem(contactDraft.phone) || emailProblem(contactDraft.email);
-    if (problema) {
-      setContactDraftErr(problema);
-      return;
-    }
-    setContactDraftErr(null);
-    setSavingContact(true);
-    try {
-      if (contactDraft.id == null) {
-        const { data, error } = await createClientContact({
-          company_id: company.id,
-          client_id: client.id,
-          name: contactDraft.name.trim(),
-          email: contactDraft.email.trim() || null,
-          phone: contactDraft.phone.trim() || null,
-          is_primary: contacts.length === 0,
-        });
-        if (error) throw error;
-        if (data?.is_primary) await syncPrimaryName(client.id, data.name);
-      } else {
-        await updateClientContact(contactDraft.id, {
-          name: contactDraft.name.trim(),
-          email: contactDraft.email.trim() || null,
-          phone: contactDraft.phone.trim() || null,
-        });
-        const was = contacts.find((c) => c.id === contactDraft.id);
-        if (was?.is_primary)
-          await syncPrimaryName(client.id, contactDraft.name.trim());
-      }
-      setContactDraft(null);
-      setContacts(await getClientContacts(client.id));
-    } catch (error) {
-      const backendMsg = (
-        error as { response?: { data?: { message?: unknown } } }
-      )?.response?.data?.message;
-      setContactDraftErr(
-        typeof backendMsg === "string" && backendMsg
-          ? backendMsg
-          : "No se pudo guardar la persona.",
-      );
-    } finally {
-      setSavingContact(false);
-    }
-  };
-
-  const makePrimary = async (client: Client, contact: ClientContact) => {
-    await setPrimaryContact(client.id, contact.id);
-    await syncPrimaryName(client.id, contact.name);
-    setContacts(await getClientContacts(client.id));
-  };
-
-  // Confirmación inline para eliminar contacto (sin popup del navegador)
-  const [confirmContactId, setConfirmContactId] = useState<number | null>(null);
-  const removeContact = async (client: Client, contact: ClientContact) => {
-    setConfirmContactId(null);
-    await deleteClientContact(contact.id);
-    let list = await getClientContacts(client.id);
-    // Si se fue el principal y quedan personas, la primera hereda.
-    if (contact.is_primary) {
-      if (list.length > 0) {
-        await setPrimaryContact(client.id, list[0].id);
-        await syncPrimaryName(client.id, list[0].name);
-        list = await getClientContacts(client.id);
-      } else {
-        await syncPrimaryName(client.id, "");
-      }
-    }
-    setContacts(list);
-  };
+  // (03-08) Toda la gestión de personas se jubiló de este modal:
+  // vive ÚNICAMENTE en la ficha 360° (una sola puerta por regla).
 
   // Validation function using utility
   const validateForm = (): boolean => {
@@ -383,58 +254,29 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!user) return;
 
-    // (03-08) Fuera la validación del correo/teléfono de la FICHA: el
-    // formulario ya no captura esos campos (viven en las personas desde
-    // el boceto 30-07), así que validaba datos viejos invisibles y
-    // bloqueaba el guardado sin remedio posible. Los datos de la
-    // persona tienen su propio portero más abajo, con aviso junto al
-    // campo.
-
-    // Puerta trasera cerrada (30-07): no se puede pasar a Particulares
-    // una ficha con más de una persona de contacto.
-    if (
-      editingClient &&
-      formData.client_type === "Particulares" &&
-      contacts.length > 1
-    ) {
-      toast.warn(
-        `Esta ficha tiene ${contacts.length} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
-        { sticky: true },
-      );
-      return;
-    }
+    // (03-08) Este formulario es SOLO de creación: editar vive en la
+    // ficha 360° (una sola puerta por regla).
 
     // Portero (30-07): los datos de la persona se revisan antes de crear.
-    if (!editingClient) {
-      const problema =
-        phoneProblem(newContactPhone) || emailProblem(newContactEmail);
-      if (problema) {
-        setContactErr(problema);
-        return;
-      }
-      setContactErr(null);
+    const problema =
+      phoneProblem(newContactPhone) || emailProblem(newContactEmail);
+    if (problema) {
+      setContactErr(problema);
+      return;
     }
+    setContactErr(null);
 
-    // Boceto 30-07: la ficha ya no captura correo/teléfono propios. Al
-    // CREAR, el espejo del cliente se llena desde la persona principal
-    // (lo usa el anti-duplicados del formulario público); al editar,
-    // se conserva lo que había.
+    // Boceto 30-07: la ficha no captura correo/teléfono propios; el
+    // espejo del cliente se llena desde la persona principal (lo usa
+    // el anti-duplicados del formulario público).
     const payload = {
       ...formData,
-      email: editingClient
-        ? formData.email?.trim() || null
-        : newContactEmail.trim() || null,
-      phone: editingClient
-        ? formData.phone?.trim() || null
-        : normalizePhone(newContactPhone) || null,
+      email: newContactEmail.trim() || null,
+      phone: normalizePhone(newContactPhone) || null,
     } as typeof formData;
 
     try {
-      if (editingClient) {
-        await updateClient(payload, editingClient.id);
-
-        toast.success("Cliente actualizado.");
-      } else {
+      {
         // En Particulares, si no se escribió persona, la persona ES el
         // cliente (boceto 30-07): se crea sola con su nombre.
         // La SIEMBRA la hace el backend (garantía de nacimiento, 31-07):
@@ -456,7 +298,6 @@ export default function ClientsPage() {
       }
 
       setShowForm(false);
-      setEditingClient(null);
       setFormData({
         name: "",
         email: "",
@@ -476,47 +317,8 @@ export default function ClientsPage() {
     }
   };
 
-  const handleEdit = (client: Client) => {
-    setEditingClient(client);
-    setContacts([]);
-    setContactDraft(null);
-    loadContacts(client);
-    setFormData({
-      name: client.name,
-      email: client.email || "",
-      phone: client.phone || "",
-      client_type: client.client_type,
-      address: client.address || "",
-      contact_person: client.contact_person || "",
-      notes: client.notes || "",
-    });
-    setErrors({
-      email: "",
-      phone: "",
-    });
-    setShowForm(true);
-  };
-
-  // Eliminación con confirmación inline (patrón del sistema, sin popups
-  // del navegador). Solo llega aquí un cliente SIN cotizaciones: para
-  // los que tienen, el basurero va desactivado y el backend además lo
-  // rechaza con 409 por si acaso.
-  const handleDelete = async (clientId: string) => {
-    setDeletingClient(true);
-    setDeleteError(null);
-    try {
-      await deleteClient(clientId);
-      setConfirmDeleteId(null);
-      loadClients();
-    } catch (error: any) {
-      console.error("Error deleting client:", error);
-      setDeleteError(
-        error?.response?.data?.message || "No se pudo eliminar el cliente",
-      );
-    } finally {
-      setDeletingClient(false);
-    }
-  };
+  // (03-08) handleEdit/handleDelete jubilados: editar y eliminar
+  // viven SOLO en la ficha 360°.
 
   // Opciones del filtro: el catálogo en SU orden manual primero, y al
   // final (alfabéticos) los tipos antiguos que aún viven en clientes
@@ -613,13 +415,12 @@ export default function ClientsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">
-            {editingClient ? "Editar Cliente" : "Nuevo Cliente"}
+            Nuevo Cliente
           </h1>
           <button
             onClick={() => {
               setShowForm(false);
-              setEditingClient(null);
-              setFormData({
+                      setFormData({
                 name: "",
                 email: "",
                 phone: "",
@@ -815,11 +616,9 @@ export default function ClientsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {editingClient
-                    ? "Personas de contacto"
-                    : "Persona de contacto (principal)"}
+                  Persona de contacto (principal)
                 </label>
-                {!editingClient ? (
+                {(
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -860,269 +659,6 @@ export default function ClientsPage() {
                       </p>
                     )}
                   </div>
-                ) : (
-                  <div className="border border-gray-200 rounded-lg p-3 space-y-1">
-                    {contacts.length === 0 && !contactDraft && (
-                      <p className="text-sm text-gray-400">
-                        Sin personas de contacto.
-                      </p>
-                    )}
-                    {contacts.map((c) =>
-                      contactDraft?.id === c.id ? (
-                        <div
-                          key={c.id}
-                          className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2"
-                        >
-                          <input
-                            autoFocus
-                            value={contactDraft.name}
-                            onChange={(e) =>
-                              setContactDraft((d) =>
-                                d ? { ...d, name: e.target.value } : d,
-                              )
-                            }
-                            placeholder="Nombre *"
-                            className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                          />
-                          <input
-                            value={contactDraft.email}
-                            onChange={(e) =>
-                              setContactDraft((d) =>
-                                d ? { ...d, email: e.target.value } : d,
-                              )
-                            }
-                            placeholder="Correo"
-                            className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                          />
-                          <input
-                            value={contactDraft.phone}
-                            onChange={(e) =>
-                              setContactDraft((d) =>
-                                d ? { ...d, phone: e.target.value } : d,
-                              )
-                            }
-                            onBlur={() =>
-                              setContactDraft((d) =>
-                                d ? { ...d, phone: normalizePhone(d.phone) } : d,
-                              )
-                            }
-                            placeholder="Teléfono"
-                            className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                          />
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              disabled={
-                                savingContact || !contactDraft.name.trim()
-                              }
-                              onClick={() => saveContactDraft(editingClient)}
-                              className="p-1.5 text-green-600 hover:text-green-800 disabled:opacity-40"
-                              title="Guardar"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setContactDraft(null);
-                                setContactDraftErr(null);
-                              }}
-                              className="p-1.5 text-gray-500 hover:text-gray-700"
-                              title="Cancelar"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                          {contactDraftErr && (
-                            <p className="w-full text-xs font-semibold text-red-600">
-                              {contactDraftErr}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          key={c.id}
-                          className="flex items-center justify-between gap-2 py-1 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="min-w-0 text-sm flex items-baseline">
-                            <span
-                              className={`shrink-0 ${
-                                c.is_primary
-                                  ? "font-semibold text-gray-900"
-                                  : "text-gray-800"
-                              }`}
-                            >
-                              {c.name}
-                            </span>
-                            {/* Correo largo: puntos suspensivos, texto
-                                completo al pasar el mouse (30-07). */}
-                            <span
-                              className="ml-2 text-xs text-gray-400 truncate"
-                              title={[c.email, formatPhone(c.phone)]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            >
-                              {[c.email, formatPhone(c.phone)]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {confirmContactId === c.id ? (
-                              <ConfirmInline
-                                question={`¿Eliminar a "${c.name}"?`}
-                                onYes={() => removeContact(editingClient, c)}
-                                onNo={() => setConfirmContactId(null)}
-                              />
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    !c.is_primary &&
-                                    makePrimary(editingClient, c)
-                                  }
-                                  className={
-                                    c.is_primary
-                                      ? "p-1.5 text-amber-500 cursor-default"
-                                      : "p-1.5 text-gray-300 hover:text-amber-500"
-                                  }
-                                  title={
-                                    c.is_primary
-                                      ? "Contacto principal"
-                                      : "Marcar como principal"
-                                  }
-                                >
-                                  <Star
-                                    size={15}
-                                    fill={
-                                      c.is_primary ? "currentColor" : "none"
-                                    }
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setContactDraft({
-                                      id: c.id,
-                                      name: c.name,
-                                      email: c.email || "",
-                                      phone: c.phone || "",
-                                    })
-                                  }
-                                  className="p-1.5 text-gray-400 hover:text-blue-600"
-                                  title="Editar"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmContactId(c.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                    {contactDraft && contactDraft.id == null && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
-                        <input
-                          autoFocus
-                          value={contactDraft.name}
-                          onChange={(e) =>
-                            setContactDraft((d) =>
-                              d ? { ...d, name: e.target.value } : d,
-                            )
-                          }
-                          placeholder="Nombre *"
-                          className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                        />
-                        <input
-                          value={contactDraft.email}
-                          onChange={(e) =>
-                            setContactDraft((d) =>
-                              d ? { ...d, email: e.target.value } : d,
-                            )
-                          }
-                          placeholder="Correo"
-                          className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                        />
-                        <input
-                          value={contactDraft.phone}
-                          onChange={(e) =>
-                            setContactDraft((d) =>
-                              d ? { ...d, phone: e.target.value } : d,
-                            )
-                          }
-                          onBlur={() =>
-                            setContactDraft((d) =>
-                              d ? { ...d, phone: normalizePhone(d.phone) } : d,
-                            )
-                          }
-                          placeholder="Teléfono"
-                          className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                        />
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            disabled={
-                              savingContact || !contactDraft.name.trim()
-                            }
-                            onClick={() => saveContactDraft(editingClient)}
-                            className="p-1.5 text-green-600 hover:text-green-800 disabled:opacity-40"
-                            title="Guardar"
-                          >
-                            <Check size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setContactDraft(null);
-                              setContactDraftErr(null);
-                            }}
-                            className="p-1.5 text-gray-500 hover:text-gray-700"
-                            title="Cancelar"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                        {contactDraftErr && (
-                          <p className="sm:col-span-2 text-xs font-semibold text-red-600">
-                            {contactDraftErr}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {/* Particulares = UNA persona (regla de Felipe 30-07,
-                        medido: 0 de 134 tenían más; regla solo de
-                        pantalla, sin candado en la base). */}
-                    {!contactDraft &&
-                      !(!isEmpresa && contacts.length >= 1) && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setContactDraft({
-                              id: null,
-                              name: "",
-                              email: "",
-                              phone: "",
-                            })
-                          }
-                          className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
-                        >
-                          + Agregar persona
-                        </button>
-                      )}
-                    <p className="text-[11px] text-gray-400 pt-1">
-                      La estrella marca el contacto principal (es el que se
-                      muestra en la lista de clientes).
-                    </p>
-                  </div>
                 )}
               </div>
 
@@ -1151,7 +687,6 @@ export default function ClientsPage() {
                 type="button"
                 onClick={() => {
                   setShowForm(false);
-                  setEditingClient(null);
                   setErrors({
                     email: "",
                     phone: "",
@@ -1165,7 +700,7 @@ export default function ClientsPage() {
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                {editingClient ? "Actualizar Cliente" : "Crear Cliente"}
+                Crear Cliente
               </button>
             </div>
           </form>
@@ -1252,9 +787,6 @@ export default function ClientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha Registro
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
                 {/* Columna del chevron › (la fila se abre al pinchar) */}
                 <th className="w-8" aria-label="Abrir ficha" />
               </tr>
@@ -1263,7 +795,7 @@ export default function ClientsPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     Cargando...
@@ -1272,7 +804,7 @@ export default function ClientsPage() {
               ) : filteredClients.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="px-6 py-4 text-center text-gray-500"
                   >
                     No se encontraron clientes
@@ -1343,64 +875,8 @@ export default function ClientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(client.created_at).toLocaleDateString()}
                     </td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-sm font-medium"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* La celda SIEMPRE mide lo de los dos iconos; la
-                          confirmación flota anclada a la derecha y crece
-                          hacia la izquierda sobre la fila, sin mover la
-                          tabla (principio anti-salto de layout). */}
-                      <div className="relative">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(client)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          {(client.quotation_count ?? 0) > 0 ? (
-                            // Un cliente con cotizaciones NO se elimina:
-                            // su historial vive en esas cotizaciones.
-                            <span
-                              title={`No se puede eliminar: tiene ${client.quotation_count} cotización${(client.quotation_count ?? 0) > 1 ? "es" : ""} asociada${(client.quotation_count ?? 0) > 1 ? "s" : ""}`}
-                              className="text-gray-300 cursor-not-allowed"
-                            >
-                              <Trash2 size={16} />
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setConfirmDeleteId(client.id);
-                                setDeleteError(null);
-                              }}
-                              className="text-red-600 hover:text-red-900"
-                              title="Eliminar cliente"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                        {confirmDeleteId === client.id && (
-                          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 whitespace-nowrap">
-                            <ConfirmInline
-                              question="¿Eliminar cliente?"
-                              busy={deletingClient}
-                              onYes={() => handleDelete(client.id)}
-                              onNo={() => {
-                                setConfirmDeleteId(null);
-                                setDeleteError(null);
-                              }}
-                            />
-                            {deleteError && (
-                              <p className="text-xs text-red-600 mt-1">
-                                {deleteError}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
+                    {/* (03-08) Editar y eliminar viven ahora SOLO en la
+                        ficha 360°: la lista busca, crea y entra. */}
                     {/* Chevron › : señal visual de que la fila se abre
                         (mismo lenguaje que Post-Venta) */}
                     <td className="pr-4 text-right">
