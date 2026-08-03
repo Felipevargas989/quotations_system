@@ -458,11 +458,13 @@ export class LogisticsRepository {
     const [v, f] = await Promise.all([
       this.supabase.client
         .from('variable_services')
-        .select('id, name')
+        // no_cost (migración 57): las advertencias de Gestión excluyen
+        // a los servicios marcados "sin costo en Eventia".
+        .select('id, name, no_cost')
         .eq('company_id', companyId),
       this.supabase.client
         .from('fixed_services')
-        .select('id, name')
+        .select('id, name, no_cost')
         .eq('company_id', companyId),
     ]);
     if (v.error) throw v.error;

@@ -9,6 +9,9 @@ export class VariableService {
   price: number;
   category: string;
   is_active: boolean;
+  // Migración 57: no lleva costos dentro de Eventia (Ticket diario,
+  // alojamientos…) — cuenta $0 real y no figura como pendiente.
+  no_cost: boolean;
   company_id: Company['id'];
 }
 export class FixedService {
@@ -22,6 +25,8 @@ export class FixedService {
   max_price: number;
   price_per_person: number;
   is_active: boolean;
+  // Migración 57: no lleva costos dentro de Eventia (Exclusividad…).
+  no_cost: boolean;
   company_id: Company['id'];
   // Secciones de fijos (migración 53): UNA sección por servicio.
   section_id: number | null;

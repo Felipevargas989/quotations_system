@@ -39,4 +39,8 @@ export class CreateVariableServiceDto {
   @IsBoolean()
   @IsOptional()
   is_active?: VariableService['is_active'];
+
+  @IsBoolean()
+  @IsOptional()
+  no_cost?: VariableService['no_cost'];
 }

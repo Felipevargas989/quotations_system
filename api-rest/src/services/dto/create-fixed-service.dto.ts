@@ -42,4 +42,8 @@ export class CreateFixedServiceDto {
   @IsBoolean()
   @IsOptional()
   is_active?: FixedService['is_active'];
+
+  @IsBoolean()
+  @IsOptional()
+  no_cost?: FixedService['no_cost'];
 }
