@@ -66,7 +66,14 @@ export default function ClientsPage() {
     enabled: !!user,
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
+  // La búsqueda sobrevive al viaje ficha ↔ lista (03-08, mismo patrón
+  // que Post-Venta; los filtros ya se guardaban por usuario).
+  const [searchTerm, setSearchTerm] = useState(
+    () => localStorage.getItem("eventia_clients_search") || "",
+  );
+  useEffect(() => {
+    localStorage.setItem("eventia_clients_search", searchTerm);
+  }, [searchTerm]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
