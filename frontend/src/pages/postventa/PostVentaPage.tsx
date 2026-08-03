@@ -2432,9 +2432,14 @@ function ServiciosTab({
           <span>Total servicios</span>
           <span className="font-medium">{clp(subtotal)}</span>
         </div>
-        <div className="flex justify-between items-center">
+        {/* Descuento en dos líneas (panel angosto, 03-08): etiqueta y
+            monto arriba; toggle e input a lo ancho abajo. */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <span>Descuento</span>
+            <span className="text-red-600">− {clp(descAmount)}</span>
+          </div>
           <span className="flex items-center gap-2">
-            Descuento
             <span className="inline-flex border border-gray-300 rounded-md overflow-hidden">
               {(["%", "$"] as const).map((t) => (
                 <button
@@ -2465,7 +2470,7 @@ function ServiciosTab({
                 </button>
               ))}
             </span>
-            <div className="w-32">
+            <div className="flex-1">
               <NumberInput
                 value={discVal || undefined}
                 onChange={(v) => setDiscVal(v || 0)}
@@ -2478,7 +2483,6 @@ function ServiciosTab({
               />
             </div>
           </span>
-          <span className="text-red-600">− {clp(descAmount)}</span>
         </div>
         {tipAmount > 0 && (
           <div className="flex justify-between">
