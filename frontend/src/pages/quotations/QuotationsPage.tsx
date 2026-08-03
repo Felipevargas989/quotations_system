@@ -747,7 +747,9 @@ export default function QuotationsPage() {
                                 className="fixed inset-0 z-10 block"
                                 onClick={() => setStatusMenuId(null)}
                               />
-                              <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                              {/* whitespace-normal: la celda es nowrap y sin esto las
+                                  opciones se forman en una línea horizontal. */}
+                              <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
                                 {statusOptionsFor(quotation).map((st) => (
                                   <button
                                     key={st}
@@ -760,7 +762,7 @@ export default function QuotationsPage() {
                                           st,
                                         );
                                     }}
-                                    className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
+                                    className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                                   >
                                     <span
                                       className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
