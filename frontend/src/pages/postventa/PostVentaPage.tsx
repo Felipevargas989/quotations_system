@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "../../components/toast/Toast";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useNavigate, useParams } from "react-router-dom";
+import { resolveStorageUrl } from "../../services/storage.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -3135,10 +3136,11 @@ function RefundRow({
   );
 }
 
-// ---- Documentos del evento por categoría (con Supabase Storage) ----
+// ---- Documentos del evento (Etapa 2 del rediseño, 03-08): UN botón
+// de subida que pregunta la categoría al elegir el archivo, lista
+// agrupada a la izquierda (categorías vacías ocultas) y VISOR embebido
+// al lado — se acabó abrir una ventanita por cada documento. ----
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
-  // Documentos del evento vía React Query (frescura inmediata: son
-  // archivos que sube/borra el equipo).
   const queryClient = useQueryClient();
   const docsQuery = useQuery({
     queryKey: ["postventa", "docs", quotationId],
@@ -3147,8 +3149,14 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   });
   const docs = docsQuery.data ?? [];
   const loading = docsQuery.isPending;
-  const [busyCat, setBusyCat] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Archivo elegido esperando su categoría (mini-formulario).
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingCat, setPendingCat] = useState<string>("");
+  // Documento seleccionado para el visor.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = docs.find((d) => d.id === selectedId) || docs[0] || null;
 
   const load = () => {
     queryClient.invalidateQueries({
@@ -3158,7 +3166,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
 
   const onUpload = async (category: string, file?: File) => {
     if (!file) return;
-    setBusyCat(category);
+    setSubiendo(true);
     setErr(null);
     try {
       const up = await uploadEventDocument(file, quotationId, category);
@@ -3170,11 +3178,14 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
         file_url: up.url || "",
       });
       if (error) throw error;
+      toast.success("Documento subido.");
+      setPendingFile(null);
+      setPendingCat("");
       load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al subir el documento");
     } finally {
-      setBusyCat(null);
+      setSubiendo(false);
     }
   };
 
@@ -3186,6 +3197,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       await deleteStorageFileByUrl(doc.file_url);
       await deleteDocument(doc.id);
       setConfirmDocId(null);
+      if (selectedId === doc.id) setSelectedId(null);
       load();
     } finally {
       setDeletingDoc(false);
@@ -3202,97 +3214,229 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Barra de subida única */}
+      {pendingFile ? (
+        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
+          <p className="text-sm text-gray-800">
+            <FileText size={15} className="inline -mt-0.5 text-gray-500" />{" "}
+            <span className="font-semibold">{pendingFile.name}</span>
+            <span className="text-gray-400">
+              {" "}
+              · {(pendingFile.size / 1024 / 1024).toFixed(1)} MB
+            </span>
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-gray-600 mr-1">
+              Categoría:
+            </span>
+            {DOCUMENT_CATEGORIES.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setPendingCat(c.key)}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+                  pendingCat === c.key
+                    ? "border-blue-600 bg-blue-100 text-blue-700"
+                    : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPendingFile(null);
+                setPendingCat("");
+              }}
+              className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={!pendingCat || subiendo}
+              onClick={() => void onUpload(pendingCat, pendingFile)}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+            >
+              {subiendo ? "Subiendo…" : "Subir"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold cursor-pointer hover:bg-blue-700">
+          <Upload size={15} /> Subir documento
+          <span className="font-normal opacity-70 text-[11px]">
+            imagen o PDF · máx. 5 MB
+          </span>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPendingFile(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
       {err && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
           {err}
         </p>
       )}
-      {DOCUMENT_CATEGORIES.map((cat) => {
-        const list = docs.filter((d) => d.category === cat.key);
-        const busy = busyCat === cat.key;
-        return (
-          <div
-            key={cat.key}
-            className="border border-gray-200 rounded-xl overflow-hidden"
-          >
-            <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
-              <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <FileText size={15} className="text-gray-500" /> {cat.label}
-                <span className="text-xs font-normal text-gray-400">
-                  ({list.length})
-                </span>
-              </span>
-              <label
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${
-                  busy
-                    ? "bg-gray-200 text-gray-500"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                <Upload size={13} /> {busy ? "Subiendo…" : "Subir"}
-                <span className="font-normal opacity-70 text-[10px]">
-                  máx. 5 MB
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  disabled={busy}
-                  onChange={(e) => {
-                    onUpload(cat.key, e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {list.length === 0 ? (
-              <p className="text-xs text-gray-400 px-4 py-3">Sin documentos.</p>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {list.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex items-center gap-3 px-4 py-2.5"
-                  >
-                    <FileText size={16} className="text-gray-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-900 truncate">
-                        {d.file_name}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {fmtDate(d.uploaded_at)}
-                      </div>
-                    </div>
-                    {confirmDocId === d.id ? (
-                      <ConfirmInline
-                        question="¿Eliminar este documento?"
-                        onYes={() => onDelete(d)}
-                        onNo={() => setConfirmDocId(null)}
-                        busy={deletingDoc}
-                      />
-                    ) : (
-                      <>
-                        <FileViewLink url={d.file_url} title={d.file_name} />
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDocId(d.id)}
-                          className="text-gray-300 hover:text-red-500"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </>
-                    )}
+
+      {docs.length === 0 ? (
+        <p className="text-sm text-gray-400 py-6">
+          Aún no hay documentos en este evento.
+        </p>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[400px_1fr] items-start">
+          {/* Lista agrupada (solo categorías con documentos) */}
+          <div className="space-y-3">
+            {DOCUMENT_CATEGORIES.filter((cat) =>
+              docs.some((d) => d.category === cat.key),
+            ).map((cat) => {
+              const list = docs.filter((d) => d.category === cat.key);
+              return (
+                <div
+                  key={cat.key}
+                  className="border border-gray-200 rounded-xl overflow-hidden"
+                >
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <FileText size={13} className="text-gray-500" />
+                    {cat.label}
+                    <span className="font-normal text-gray-400">
+                      ({list.length})
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="divide-y divide-gray-100">
+                    {list.map((d) => (
+                      <div
+                        key={d.id}
+                        onClick={() => setSelectedId(d.id)}
+                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${
+                          selected?.id === d.id
+                            ? "bg-blue-50"
+                            : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 truncate">
+                            {d.file_name}
+                          </div>
+                          <div className="text-[11px] text-gray-400">
+                            {fmtDate(d.uploaded_at)}
+                          </div>
+                        </div>
+                        {confirmDocId === d.id ? (
+                          <span onClick={(e) => e.stopPropagation()}>
+                            <ConfirmInline
+                              question="¿Eliminar?"
+                              onYes={() => onDelete(d)}
+                              onNo={() => setConfirmDocId(null)}
+                              busy={deletingDoc}
+                            />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDocId(d.id);
+                            }}
+                            className="text-gray-300 hover:text-red-500 shrink-0"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
-      <p className="text-xs text-gray-400">
-        Formatos: imágenes (JPG, PNG, WebP) y PDF · máx. 5MB.
-      </p>
+
+          {/* Visor embebido */}
+          <DocViewerPanel doc={selected} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Visor de documento embebido (Etapa 2): enlace firmado del bucket
+// privado + iframe (PDF) o imagen, con Descargar. Sin ventanitas.
+function DocViewerPanel({
+  doc,
+}: {
+  readonly doc: EventDocument | null;
+}) {
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!doc) return;
+    let vivo = true;
+    setViewUrl(null);
+    resolveStorageUrl(doc.file_url)
+      .then((firmada) => vivo && setViewUrl(firmada))
+      .catch(() => vivo && setViewUrl(null));
+    return () => {
+      vivo = false;
+    };
+  }, [doc?.file_url]);
+
+  if (!doc) {
+    return (
+      <div className="border border-dashed border-gray-300 rounded-xl min-h-[420px] flex items-center justify-center text-sm text-gray-400">
+        Elige un documento de la lista para verlo aquí.
+      </div>
+    );
+  }
+  const isPdf = doc.file_url.split("?")[0].toLowerCase().endsWith(".pdf");
+  const downloadUrl = viewUrl
+    ? viewUrl.includes("?")
+      ? `${viewUrl}&download=`
+      : `${viewUrl}?download=`
+    : null;
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+        <span className="text-sm font-semibold text-gray-800 truncate pr-3">
+          {doc.file_name}
+        </span>
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            className="text-xs font-semibold text-blue-600 hover:underline shrink-0"
+          >
+            Descargar
+          </a>
+        )}
+      </div>
+      {!viewUrl ? (
+        <div className="min-h-[420px] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+        </div>
+      ) : isPdf ? (
+        <iframe
+          src={viewUrl}
+          title={doc.file_name}
+          className="w-full min-h-[560px]"
+        />
+      ) : (
+        <div className="p-4 flex justify-center bg-gray-50">
+          <img
+            src={viewUrl}
+            alt={doc.file_name}
+            className="max-w-full max-h-[560px] rounded-lg object-contain"
+          />
+        </div>
+      )}
     </div>
   );
 }
