@@ -3175,9 +3175,16 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const [upOpen, setUpOpen] = useState(false);
   const [upCat, setUpCat] = useState<string>("");
   const [upFile, setUpFile] = useState<File | null>(null);
+  const [upComment, setUpComment] = useState("");
   // Documento seleccionado para el visor.
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = docs.find((d) => d.id === selectedId) || docs[0] || null;
+  // El visor NO carga nada solo (regla de Felipe: mirar es opcional,
+  // no un peaje de navegación). Solo "Ver" lo alimenta.
+  const selected = docs.find((d) => d.id === selectedId) || null;
+  // ¿La etiqueta guardada es un comentario humano o un nombre crudo de
+  // archivo? Los crudos (con extensión) no se muestran en la fila.
+  const esComentario = (nombre: string) =>
+    !/\.(pdf|jpe?g|png|webp|gif|heic)$/i.test(nombre.trim());
 
   const load = () => {
     queryClient.invalidateQueries({
@@ -3195,7 +3202,8 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       const { error } = await addDocument({
         quotation_id: quotationId,
         category,
-        file_name: file.name,
+        // El comentario ES la etiqueta (el archivo real vive en la URL).
+        file_name: upComment.trim() || file.name,
         file_url: up.url || "",
       });
       if (error) throw error;
@@ -3203,6 +3211,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       setUpOpen(false);
       setUpCat("");
       setUpFile(null);
+      setUpComment("");
       load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al subir el documento");
@@ -3270,6 +3279,22 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
               className="w-full text-xs mt-1.5"
             />
           </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600">
+              Comentario{" "}
+              <span className="font-normal text-gray-400">
+                (opcional — es lo que se mostrará en la lista)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={upComment}
+              maxLength={80}
+              onChange={(e) => setUpComment(e.target.value)}
+              placeholder="Ej: Contrato firmado por el cliente"
+              className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm mt-1"
+            />
+          </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -3277,6 +3302,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                 setUpOpen(false);
                 setUpCat("");
                 setUpFile(null);
+                setUpComment("");
               }}
               className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
             >
@@ -3335,21 +3361,27 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                     {list.map((d) => (
                       <div
                         key={d.id}
-                        onClick={() => setSelectedId(d.id)}
-                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${
-                          selected?.id === d.id
-                            ? "bg-blue-50"
-                            : "hover:bg-gray-50"
+                        className={`flex items-center gap-2 px-3 py-2 ${
+                          selected?.id === d.id ? "bg-blue-50" : ""
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-900 truncate">
-                            {d.file_name}
-                          </div>
+                          {esComentario(d.file_name) && (
+                            <div className="text-sm text-gray-900 truncate">
+                              {d.file_name}
+                            </div>
+                          )}
                           <div className="text-[11px] text-gray-400">
                             {fmtDate(d.uploaded_at)}
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(d.id)}
+                          className="text-sm font-semibold text-blue-600 hover:underline shrink-0"
+                        >
+                          Ver
+                        </button>
                         {confirmDocId === d.id ? (
                           <span onClick={(e) => e.stopPropagation()}>
                             <ConfirmInline
@@ -3427,7 +3459,9 @@ function DocViewerPanel({
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 border-b border-gray-200">
         <span className="text-sm font-semibold text-gray-800 truncate pr-3">
-          {doc.file_name}
+          {/\.(pdf|jpe?g|png|webp|gif|heic)$/i.test(doc.file_name.trim())
+            ? "Documento"
+            : doc.file_name}
         </span>
         {downloadUrl && (
           <a
