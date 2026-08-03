@@ -150,8 +150,9 @@ export default function PortalPage() {
     if (!token) return;
     const w = window.open("", "_blank");
     if (!w) {
-      alert(
-        "Tu navegador bloqueó la ventana. Permite ventanas emergentes para ver la cotización.",
+      toast.warn(
+        "Tu navegador bloqueó la ventana. Permite ventanas emergentes para este sitio y vuelve a intentarlo.",
+        { sticky: true },
       );
       return;
     }

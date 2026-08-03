@@ -42,17 +42,24 @@ const DURACION: Record<Kind, number> = {
   error: 7000,
 };
 
-const push = (kind: Kind, text: string) => {
+// sticky = tarjeta PEGAJOSA: no se va sola, queda hasta que el usuario
+// la cierre. Para instrucciones (ej. "permite ventanas emergentes"),
+// no para noticias.
+const push = (kind: Kind, text: string, sticky = false) => {
   const id = nextId++;
   items = [...items, { id, kind, text }];
   emit();
-  setTimeout(() => quitar(id), DURACION[kind]);
+  if (!sticky) setTimeout(() => quitar(id), DURACION[kind]);
 };
 
+interface ToastOpts {
+  sticky?: boolean;
+}
+
 export const toast = {
-  success: (text: string) => push("success", text),
-  error: (text: string) => push("error", text),
-  warn: (text: string) => push("warn", text),
+  success: (text: string, o?: ToastOpts) => push("success", text, o?.sticky),
+  error: (text: string, o?: ToastOpts) => push("error", text, o?.sticky),
+  warn: (text: string, o?: ToastOpts) => push("warn", text, o?.sticky),
 };
 
 const ESTILO: Record<Kind, { borde: string; icono: JSX.Element }> = {

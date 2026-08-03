@@ -44,6 +44,13 @@ export default function PaymentTransactionModal({
   });
 
   const [amountDisplay, setAmountDisplay] = useState("");
+  // Errores de validación POR CAMPO (destierro 1b): se muestran junto
+  // al campo con problema y se limpian al corregirlo.
+  const [fieldErrs, setFieldErrs] = useState<{
+    amount?: string;
+    method?: string;
+    file?: string;
+  }>({});
 
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -119,9 +126,10 @@ export default function PaymentTransactionModal({
     // Validate file
     const validation = validateImageFile(file);
     if (!validation.valid) {
-      alert(validation.error);
+      setFieldErrs((prev) => ({ ...prev, file: validation.error }));
       return;
     }
+    setFieldErrs((prev) => ({ ...prev, file: undefined }));
 
     setSelectedFile(file);
 
@@ -176,21 +184,22 @@ export default function PaymentTransactionModal({
     e.preventDefault();
 
     if (!formData.amount || formData.amount <= 0) {
-      alert("Por favor ingresa un monto válido");
+      setFieldErrs({ amount: "Ingresa un monto válido." });
       return;
     }
 
     if (formData.amount > maxAmount) {
-      alert(
-        `El monto no puede exceder el saldo pendiente: $${maxAmount.toLocaleString("es-CL")}`,
-      );
+      setFieldErrs({
+        amount: `No puede exceder el saldo pendiente: $${maxAmount.toLocaleString("es-CL")}.`,
+      });
       return;
     }
 
     if (!formData.payment_method) {
-      alert("Por favor selecciona un medio de pago");
+      setFieldErrs({ method: "Selecciona un medio de pago." });
       return;
     }
+    setFieldErrs({});
 
     setLoading(true);
 
@@ -349,6 +358,11 @@ export default function PaymentTransactionModal({
             <p className="text-xs text-gray-500 mt-1 w-full">
               Máximo: ${maxAmount.toLocaleString("es-ES")}
             </p>
+            {fieldErrs.amount && (
+              <p className="text-xs font-semibold text-red-600 mt-1 w-full">
+                {fieldErrs.amount}
+              </p>
+            )}
           </div>
 
           {/* Payment Method */}
@@ -373,6 +387,11 @@ export default function PaymentTransactionModal({
                 </option>
               ))}
             </select>
+            {fieldErrs.method && (
+              <p className="text-xs font-semibold text-red-600 mt-1 w-full">
+                {fieldErrs.method}
+              </p>
+            )}
           </div>
 
           {/* Transaction Date */}
@@ -423,6 +442,11 @@ export default function PaymentTransactionModal({
               onChange={handleFileSelect}
               className="hidden"
             />
+            {fieldErrs.file && (
+              <p className="text-xs font-semibold text-red-600 mb-1 w-full">
+                {fieldErrs.file}
+              </p>
+            )}
 
             {/* Upload Area */}
             {!selectedFile && !photoUrl && (

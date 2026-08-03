@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "./toast/Toast";
 import { X, Download, FileText } from "lucide-react";
 import { QuotationWithClient } from "../types/quotations.types";
 import { useAuth } from "../contexts/AuthContext";
@@ -68,8 +69,9 @@ export default function QuotationViewer({
   const handleDownloadPDF = (): void => {
     const ok = openQuotationPrintWindow(quotation, company ?? null, menu);
     if (!ok) {
-      alert(
-        "No se pudo abrir la ventana de impresión. Verifica que el bloqueador de ventanas emergentes esté deshabilitado.",
+      toast.warn(
+        "No se pudo abrir la impresión: tu navegador bloqueó la ventana. Permite ventanas emergentes para este sitio y vuelve a intentarlo.",
+        { sticky: true },
       );
     }
   };
