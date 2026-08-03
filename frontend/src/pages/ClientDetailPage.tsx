@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "../components/toast/Toast";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -242,8 +243,9 @@ export default function ClientDetailPage() {
     // UNA persona — si hay más, primero se ordenan.
     const personas = (data.client.client_contacts || []).length;
     if (newType === "Particulares" && personas > 1) {
-      alert(
+      toast.warn(
         `Esta ficha tiene ${personas} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
+        { sticky: true },
       );
       setTypeEditing(false);
       return;

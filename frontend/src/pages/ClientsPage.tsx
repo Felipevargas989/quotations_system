@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "../components/toast/Toast";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -193,6 +194,8 @@ export default function ClientsPage() {
   // Al CREAR una empresa: correo y teléfono de la persona de contacto
   // (la empresa no tiene correo/teléfono propios; las personas sí)
   const [newContactEmail, setNewContactEmail] = useState("");
+  // Error de los datos de la persona al crear (aviso 38): junto al campo.
+  const [contactErr, setContactErr] = useState<string | null>(null);
   const [newContactPhone, setNewContactPhone] = useState("");
   const { company } = useAuth();
 
@@ -356,7 +359,8 @@ export default function ClientsPage() {
 
     // Validate form before submission
     if (!validateForm()) {
-      alert("Por favor corrija los errores en los campos de email y teléfono");
+      // Los campos con problema ya quedan marcados en rojo (aviso 36 de
+      // la lista del destierro: la ventana repetía lo visible).
       return;
     }
 
@@ -367,8 +371,9 @@ export default function ClientsPage() {
       formData.client_type === "Particulares" &&
       contacts.length > 1
     ) {
-      alert(
+      toast.warn(
         `Esta ficha tiene ${contacts.length} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
+        { sticky: true },
       );
       return;
     }
@@ -378,9 +383,10 @@ export default function ClientsPage() {
       const problema =
         phoneProblem(newContactPhone) || emailProblem(newContactEmail);
       if (problema) {
-        alert(problema);
+        setContactErr(problema);
         return;
       }
+      setContactErr(null);
     }
 
     // Boceto 30-07: la ficha ya no captura correo/teléfono propios. Al
@@ -401,7 +407,7 @@ export default function ClientsPage() {
       if (editingClient) {
         await updateClient(payload, editingClient.id);
 
-        alert("Cliente actualizado exitosamente");
+        toast.success("Cliente actualizado.");
       } else {
         // En Particulares, si no se escribió persona, la persona ES el
         // cliente (boceto 30-07): se crea sola con su nombre.
@@ -420,7 +426,7 @@ export default function ClientsPage() {
         setNewContactEmail("");
         setNewContactPhone("");
 
-        alert("Cliente creado exitosamente");
+        toast.success("Cliente creado.");
       }
 
       setShowForm(false);
@@ -440,7 +446,7 @@ export default function ClientsPage() {
       });
       loadClients();
     } catch (error) {
-      alert("Error al guardar el cliente");
+      toast.error("No se pudo guardar el cliente.");
     }
   };
 
@@ -822,6 +828,11 @@ export default function ClientsPage() {
                         placeholder="Teléfono de la persona"
                       />
                     </div>
+                    {contactErr && (
+                      <p className="text-xs font-semibold text-red-600">
+                        {contactErr}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="border border-gray-200 rounded-lg p-3 space-y-1">

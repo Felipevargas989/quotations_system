@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "../../components/toast/Toast";
 import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, Lock, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
@@ -148,7 +149,7 @@ export default function ConfigurationPage() {
         replyTo: replyTo.trim() || null,
       });
 
-      alert("Notificaciones guardadas exitosamente");
+      toast.success("Notificaciones guardadas.");
     } catch (error) {
       console.error("Error saving notifications:", error);
       setError("Error inesperado al guardar las notificaciones");

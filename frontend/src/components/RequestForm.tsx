@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "./toast/Toast";
 import { Save, RotateCcw, Plus, X, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
@@ -196,10 +197,10 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         client_type: DEFAULT_CLIENT_TYPE,
       });
       setShowClientModal(false);
-      alert("Cliente creado exitosamente");
+      toast.success("Cliente creado.");
     } catch (error) {
       console.error("Error creating client:", error);
-      alert("Error al crear el cliente");
+      toast.error("No se pudo crear el cliente.");
     } finally {
       setClientLoading(false);
     }
@@ -217,7 +218,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         const { error } = await updateQuotation(formData, request.id);
 
         if (error) throw error;
-        alert("Requerimiento actualizado exitosamente");
+        toast.success("Requerimiento actualizado.");
       } else {
         const { error } = await createQuotation({
           ...formData,
@@ -226,12 +227,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         });
 
         if (error) throw error;
-        alert("Requerimiento creado exitosamente");
+        toast.success("Requerimiento creado.");
       }
 
       if (onSave) onSave();
     } catch (error) {
-      alert("Error al guardar el requerimiento");
+      toast.error("No se pudo guardar el requerimiento.");
     } finally {
       setLoading(false);
     }

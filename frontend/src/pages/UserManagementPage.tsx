@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "../components/toast/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
@@ -50,6 +51,9 @@ export default function UserManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  // Aviso 30/31 del destierro: el "completa los campos" vive DENTRO del
+  // formulario, no en una ventana.
+  const [formErr, setFormErr] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
     email: "",
     full_name: "",
@@ -104,14 +108,15 @@ export default function UserManagementPage() {
 
   const createUser = async () => {
     if (!createForm.email || !createForm.full_name) {
-      alert("Por favor completa todos los campos requeridos");
+      setFormErr("Completa todos los campos requeridos.");
       return;
     }
 
     if (!isEditing && !createForm.password) {
-      alert("Por favor completa todos los campos requeridos");
+      setFormErr("Completa todos los campos requeridos.");
       return;
     }
+    setFormErr(null);
 
     setCreatingUser(true);
     try {
@@ -131,7 +136,7 @@ export default function UserManagementPage() {
         // Refresh users list
         await loadUsers();
 
-        alert("Usuario actualizado correctamente");
+        toast.success("Usuario actualizado.");
       } else {
         // Create new user
         const response = await createUserService(createForm);
@@ -153,8 +158,8 @@ export default function UserManagementPage() {
       setEditingUserId(null);
     } catch (error) {
       console.error("Error creating/updating user:", error);
-      alert(
-        "Error al crear/actualizar el usuario: " + (error as Error).message,
+      toast.error(
+        "No se pudo guardar el usuario: " + (error as Error).message,
       );
     } finally {
       setCreatingUser(false);
@@ -206,9 +211,9 @@ export default function UserManagementPage() {
       setShowDeleteModal(false);
       setDeletingUser(null);
 
-      alert("Usuario eliminado correctamente");
+      toast.success("Usuario eliminado.");
     } catch (error) {
-      alert("No se pudo eliminar el usuario. Intenta de nuevo.");
+      toast.error("No se pudo eliminar el usuario. Intenta de nuevo.");
     } finally {
       setDeleting(false);
     }
@@ -553,10 +558,16 @@ export default function UserManagementPage() {
               </div>
             </div>
 
+            {formErr && (
+              <p className="mt-3 text-xs font-semibold text-red-600">
+                {formErr}
+              </p>
+            )}
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  setFormErr(null);
                   resetCreateForm();
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"

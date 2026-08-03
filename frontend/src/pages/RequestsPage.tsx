@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "../components/toast/Toast";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -65,8 +66,8 @@ export default function RequestsPage() {
   const handleDelete = async (requestId: string) => {
     // Security check: Only administrators can delete requests
     if (!ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any)) {
-      alert(
-        "No tienes permisos para eliminar requerimientos. Solo los administradores pueden realizar esta acción.",
+      toast.warn(
+        "No tienes permisos para eliminar requerimientos: solo los administradores pueden hacerlo.",
       );
       return;
     }
@@ -84,9 +85,9 @@ export default function RequestsPage() {
         (prev ?? []).filter((r) => r.id !== requestId),
       );
       queryClient.invalidateQueries({ queryKey: ["requirements"] });
-      alert("Requerimiento eliminado exitosamente");
+      toast.success("Requerimiento eliminado.");
     } catch (error) {
-      alert("Error al eliminar el requerimiento");
+      toast.error("No se pudo eliminar el requerimiento.");
     }
   };
 
@@ -106,7 +107,7 @@ export default function RequestsPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("Error copying to clipboard:", error);
-      alert("Error al copiar el enlace");
+      toast.error("No se pudo copiar el enlace.");
     }
   };
 
