@@ -2493,7 +2493,6 @@ function RegistrarPagoPanel({
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
   // Cuotas con saldo, de la más próxima (menor número) hacia adelante.
   const pending = event.payments
@@ -2540,7 +2539,6 @@ function RegistrarPagoPanel({
     if (!amountValid) return;
     setSaving(true);
     setErr(null);
-    setOk(null);
     try {
       let receipt_photo_url: string | undefined;
       if (file) {
@@ -2561,10 +2559,10 @@ function RegistrarPagoPanel({
         notes: notes || undefined,
         receipt_photo_url,
       });
-      setOk(
-        `Pago de ${clp(amount)} registrado ✓${
+      toast.success(
+        `Pago de ${clp(amount)} registrado${
           preview.length > 1 ? ` (repartido en ${preview.length} cuotas)` : ""
-        }`,
+        }.`,
       );
       reset();
       setOpen(false);
@@ -2578,25 +2576,10 @@ function RegistrarPagoPanel({
 
   return (
     <div>
-      {ok && !open && (
-        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-green-800">{ok}</p>
-          <button
-            type="button"
-            onClick={() => setOk(null)}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
       {!open ? (
         <button
           type="button"
-          onClick={() => {
-            setOpen(true);
-            setOk(null);
-          }}
+          onClick={() => setOpen(true)}
           className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
         >
           + Registrar pago
@@ -2658,20 +2641,20 @@ function RegistrarPagoPanel({
                 noResultsText="Sin resultados"
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600">
-                Comprobante{" "}
-                <span className="font-normal text-gray-400">
-                  (imagen o PDF · máx. 5 MB)
-                </span>
-              </label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-xs mt-1.5"
-              />
-            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+              Comprobante{" "}
+              <span className="font-normal text-gray-400">
+                (imagen o PDF · máx. 5 MB)
+              </span>
+            </label>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full text-xs mt-1.5"
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600">
