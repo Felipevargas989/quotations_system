@@ -48,6 +48,7 @@ import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import { findAllServices } from "../../services/services.service";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 import { formatPhone } from "../../utils/phone";
 import GestionTab from "./GestionTab";
@@ -2184,35 +2185,31 @@ function ServiciosTab({
               <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
                 Categoría
               </label>
-              <select
+              <SelectWithSearch
+                options={catalog.cats.map((c) => ({ value: c, label: c }))}
                 value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-              >
-                <option value="">Elegir…</option>
-                {catalog.cats.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
+                onChange={setNewCatName}
+                placeholder="Elegir…"
+                searchPlaceholder="Buscar categoría…"
+                noResultsText="Sin resultados"
+              />
             </div>
             {multiDia && (
               <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
                   Día
                 </label>
-                <select
+                <SectionChipSelect
                   value={newCatDay}
-                  onChange={(e) => setNewCatDay(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
-                >
-                  {Array.from({ length: daysCount }, (_, i) => i + 1).map(
-                    (n) => (
-                      <option key={n} value={n}>
-                        Día {n}
-                      </option>
-                    ),
-                  )}
-                </select>
+                  options={Array.from({ length: daysCount }, (_, i) => ({
+                    id: i + 1,
+                    name: `Día ${i + 1}`,
+                  }))}
+                  onChange={setNewCatDay}
+                  zeroLabel={null}
+                  size="md"
+                  title="Día del evento"
+                />
               </div>
             )}
             {kidsN > 0 && (
@@ -2572,15 +2569,14 @@ function RegistrarPagoPanel({
               <label className="text-xs font-semibold text-gray-600">
                 Medio de pago
               </label>
-              <select
+              <SelectWithSearch
+                options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
                 value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
+                onChange={setMethod}
+                placeholder="Medio de pago"
+                searchPlaceholder="Buscar medio…"
+                noResultsText="Sin resultados"
+              />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600">
@@ -2788,15 +2784,14 @@ function EditRegistroModal({
           <label className="text-xs font-semibold text-gray-600">
             Medio de pago
           </label>
-          <select
+          <SelectWithSearch
+            options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
             value={method}
-            onChange={(e) => setMethod(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
+            onChange={setMethod}
+            placeholder="Medio de pago"
+            searchPlaceholder="Buscar medio…"
+            noResultsText="Sin resultados"
+          />
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-600">Nota</label>
@@ -3014,15 +3009,14 @@ function RefundRow({
               <label className="text-xs font-semibold text-gray-600">
                 Medio de pago
               </label>
-              <select
+              <SelectWithSearch
+                options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
                 value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
+                onChange={setMethod}
+                placeholder="Medio de pago"
+                searchPlaceholder="Buscar medio…"
+                noResultsText="Sin resultados"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 items-end">
