@@ -158,23 +158,43 @@ export default function ClientDetailPage() {
   const invalidateClients = () =>
     queryClient.invalidateQueries({ queryKey: ["clients"] });
 
-  const saveName = async () => {
-    const nombre = nameDraft.trim();
-    if (!data || !nombre || nombre === data.client.name) {
-      setNameEditing(false);
+  const saveHeader = async () => {
+    if (!data) return;
+    const nombre = draftName.trim();
+    if (!nombre) return;
+    // Puerta trasera cerrada (30-07): a Particulares solo se llega con
+    // UNA persona — si hay más, primero se ordenan.
+    const personas = (data.client.client_contacts || []).length;
+    if (
+      draftType === "Particulares" &&
+      data.client.client_type !== "Particulares" &&
+      personas > 1
+    ) {
+      toast.warn(
+        `Esta ficha tiene ${personas} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
+        { sticky: true },
+      );
       return;
     }
-    setSavingName(true);
+    const cambios: Record<string, string> = {};
+    if (nombre !== data.client.name) cambios.name = nombre;
+    if (draftType && draftType !== data.client.client_type)
+      cambios.client_type = draftType;
+    if (Object.keys(cambios).length === 0) {
+      setHeaderOpen(false);
+      return;
+    }
+    setSavingHeader(true);
     try {
-      await updateClient({ name: nombre } as ClientFormData, data.client.id);
+      await updateClient(cambios as unknown as ClientFormData, data.client.id);
       invalidateSummary();
       invalidateClients();
-      toast.success("Nombre actualizado.");
-      setNameEditing(false);
+      toast.success("Datos del cliente actualizados.");
+      setHeaderOpen(false);
     } catch {
-      toast.error("No se pudo cambiar el nombre.");
+      toast.error("No se pudieron guardar los cambios.");
     } finally {
-      setSavingName(false);
+      setSavingHeader(false);
     }
   };
 
@@ -204,19 +224,18 @@ export default function ClientDetailPage() {
     setNotesDraft(data?.client.notes || "");
   }, [data?.client.id]);
 
-  // Nombre editable en la ficha (03-08: la ficha es LA puerta de
-  // edición; el modal de la lista quedó solo para crear).
-  const [nameEditing, setNameEditing] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
-  const [savingName, setSavingName] = useState(false);
+  // Encabezado editable con UN solo lápiz (03-08): nombre y tipo se
+  // editan juntos en una tarjetita.
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftType, setDraftType] = useState("");
+  const [savingHeader, setSavingHeader] = useState(false);
   // Eliminar cliente desde la ficha (solo sin cotizaciones).
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Tipo de cliente editable en la ficha (caché de tipos compartido con
   // Gestión de Clientes — misma queryKey)
-  const [typeEditing, setTypeEditing] = useState(false);
-  const [typeSaving, setTypeSaving] = useState(false);
   const { data: clientTypesList = [] } = useQuery(clientTypesQueryOptions);
 
   // Contactos: agregar / eliminar / marcar principal desde la ficha
@@ -279,46 +298,6 @@ export default function ClientDetailPage() {
       }
     } catch (error) {
       console.error("Error abriendo el visor de cotización:", error);
-    }
-  };
-
-  // Cambiar el tipo de cliente desde la ficha
-  const saveType = async (newType: string) => {
-    if (!data || !newType || newType === data.client.client_type) {
-      setTypeEditing(false);
-      return;
-    }
-    // Puerta trasera cerrada (30-07): a Particulares solo se llega con
-    // UNA persona — si hay más, primero se ordenan.
-    const personas = (data.client.client_contacts || []).length;
-    if (newType === "Particulares" && personas > 1) {
-      toast.warn(
-        `Esta ficha tiene ${personas} personas de contacto; una Particular lleva solo una. Elimina las demás antes de cambiar el tipo.`,
-        { sticky: true },
-      );
-      setTypeEditing(false);
-      return;
-    }
-    setTypeSaving(true);
-    try {
-      await updateClient(
-        { client_type: newType } as ClientFormData,
-        data.client.id,
-      );
-      queryClient.setQueryData<SummaryData>(
-        ["clientSummary", id],
-        (prev) =>
-          prev && {
-            ...prev,
-            client: { ...prev.client, client_type: newType },
-          },
-      );
-      invalidateClients();
-    } catch {
-      /* si falla, la etiqueta conserva el tipo real */
-    } finally {
-      setTypeSaving(false);
-      setTypeEditing(false);
     }
   };
 
@@ -550,105 +529,87 @@ export default function ClientDetailPage() {
         </button>
         <div className="flex flex-wrap items-center gap-3">
           <Building className="h-9 w-9 text-gray-400" />
-          {nameEditing ? (
-            <span className="flex items-center gap-1.5">
-              <input
-                autoFocus
-                value={nameDraft}
-                maxLength={80}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void saveName();
-                  if (e.key === "Escape") setNameEditing(false);
-                }}
-                className="text-2xl font-bold text-gray-900 border-b-2 border-blue-400 focus:outline-none bg-transparent"
-              />
-              <button
-                type="button"
-                disabled={savingName || !nameDraft.trim()}
-                onClick={() => void saveName()}
-                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-40"
-                title="Guardar nombre"
-              >
-                <Check size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setNameEditing(false)}
-                className="p-1 text-gray-500 hover:text-gray-700"
-                title="Cancelar"
-              >
-                <X size={18} />
-              </button>
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {client.name}
-              </h1>
-              <button
-                type="button"
-                onClick={() => {
-                  setNameDraft(client.name);
-                  setNameEditing(true);
-                }}
-                className="text-gray-400 hover:text-blue-600"
-                title="Cambiar nombre"
-              >
-                <Pencil size={14} />
-              </button>
-            </span>
-          )}
-          {/* Etiqueta de tipo + menú propio del sistema para cambiarlo
-              (tarjeta blanca con las etiquetas de colores reales — nada
-              de desplegables nativos del navegador) */}
-          <span className="relative flex items-center gap-1">
-            <span
-              className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
-            >
-              {client.client_type}
-            </span>
+          <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+          <span
+            className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+          >
+            {client.client_type}
+          </span>
+          {/* UN solo lápiz (pedido de Felipe 03-08): abre la tarjetita
+              que edita nombre y tipo juntos. */}
+          <span className="relative">
             <button
               type="button"
-              onClick={() => setTypeEditing((v) => !v)}
-              className={`${typeEditing ? "text-blue-600" : "text-gray-400"} hover:text-blue-600`}
-              title="Cambiar tipo de cliente"
+              onClick={() => {
+                setDraftName(client.name);
+                setDraftType(client.client_type);
+                setHeaderOpen((v) => !v);
+              }}
+              className={`${headerOpen ? "text-blue-600" : "text-gray-400"} hover:text-blue-600`}
+              title="Editar nombre y tipo"
             >
-              <Pencil size={13} />
+              <Pencil size={14} />
             </button>
-            {typeEditing && (
+            {headerOpen && (
               <>
-                {/* Clic fuera: cierra sin cambiar nada */}
                 <div
                   className="fixed inset-0 z-10"
-                  onClick={() => setTypeEditing(false)}
+                  onClick={() => setHeaderOpen(false)}
                 />
-                <div className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
-                  {[
-                    ...clientTypesList.map((t) => t.name),
-                    ...(clientTypesList.some(
-                      (t) => t.name === client.client_type,
-                    )
-                      ? []
-                      : [client.client_type]),
-                  ].map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      disabled={typeSaving}
-                      onClick={() => saveType(name)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <span
-                        className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(name)}`}
+                <div className="absolute left-0 top-full mt-1 z-20 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2">
+                  <label className="block text-xs font-semibold text-gray-500">
+                    Nombre
+                  </label>
+                  <input
+                    autoFocus
+                    value={draftName}
+                    maxLength={80}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void saveHeader();
+                      if (e.key === "Escape") setHeaderOpen(false);
+                    }}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <label className="block text-xs font-semibold text-gray-500 pt-1">
+                    Tipo
+                  </label>
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {clientTypesList.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setDraftType(t.name)}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-md hover:bg-gray-50"
                       >
-                        {name}
-                      </span>
-                      {name === client.client_type && (
-                        <Check size={14} className="text-blue-600 shrink-0" />
-                      )}
+                        <span
+                          className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${getClientTypeColor(t.name)}`}
+                        >
+                          {t.name}
+                        </span>
+                        {draftType === t.name && (
+                          <Check size={14} className="text-blue-600 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setHeaderOpen(false)}
+                      className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Cancelar
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      disabled={savingHeader || !draftName.trim()}
+                      onClick={() => void saveHeader()}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingHeader ? "Guardando…" : "Guardar"}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
