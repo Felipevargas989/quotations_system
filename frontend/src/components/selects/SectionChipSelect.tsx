@@ -17,6 +17,8 @@ interface Props {
   /** Etiqueta de la opción 0; null = sin opción cero (Tanda 3b). */
   readonly zeroLabel?: string | null;
   readonly disabled?: boolean;
+  /** "md": altura y letra de campo de formulario (cotizador). */
+  readonly size?: "sm" | "md";
 }
 
 export default function SectionChipSelect({
@@ -27,6 +29,7 @@ export default function SectionChipSelect({
   ariaLabel,
   zeroLabel = "Sin sección",
   disabled = false,
+  size = "sm",
 }: Props) {
   const [open, setOpen] = useState(false);
   const actual =
@@ -40,7 +43,11 @@ export default function SectionChipSelect({
           e.stopPropagation();
           if (!disabled) setOpen((v) => !v);
         }}
-        className={`flex items-center justify-between gap-1 text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-500 bg-white hover:border-gray-300 w-[130px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        className={`flex items-center justify-between gap-1 border bg-white hover:border-gray-300 ${
+          size === "md"
+            ? "text-sm border-gray-300 rounded-lg px-3 py-2 text-gray-700 w-[150px]"
+            : "text-xs border-gray-200 rounded-md px-2 py-1 text-gray-500 w-[130px]"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         title={title}
         aria-label={ariaLabel}
       >

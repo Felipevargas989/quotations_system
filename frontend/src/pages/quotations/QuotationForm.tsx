@@ -2839,6 +2839,7 @@ export default function QuotationForm() {
                             )
                           }
                           zeroLabel={null}
+                          size="md"
                           disabled={isRestrictedEditing}
                           title="Día del evento en que va este servicio"
                         />
@@ -3318,6 +3319,7 @@ export default function QuotationForm() {
                             )
                           }
                           zeroLabel="todo el evento"
+                          size="md"
                           disabled={isRestrictedEditing}
                           title="Día del evento (o todo el evento)"
                         />
