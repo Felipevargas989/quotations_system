@@ -2600,7 +2600,7 @@ function RegistrarPagoPanel({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
         >
           + Registrar pago
         </button>
