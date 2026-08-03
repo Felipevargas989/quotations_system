@@ -196,6 +196,9 @@ export default function ClientsPage() {
   const [newContactEmail, setNewContactEmail] = useState("");
   // Error de los datos de la persona al crear (aviso 38): junto al campo.
   const [contactErr, setContactErr] = useState<string | null>(null);
+  // Error al guardar una persona en el modal de edición (03-08): la
+  // puerta que guardaba en silencio ahora habla junto al campo.
+  const [contactDraftErr, setContactDraftErr] = useState<string | null>(null);
   const [newContactPhone, setNewContactPhone] = useState("");
   const { company } = useAuth();
 
@@ -235,30 +238,53 @@ export default function ClientsPage() {
 
   const saveContactDraft = async (client: Client) => {
     if (!contactDraft || !contactDraft.name.trim() || !company?.id) return;
-    setSavingContact(true);
-    if (contactDraft.id == null) {
-      const { data } = await createClientContact({
-        company_id: company.id,
-        client_id: client.id,
-        name: contactDraft.name.trim(),
-        email: contactDraft.email.trim() || null,
-        phone: contactDraft.phone.trim() || null,
-        is_primary: contacts.length === 0,
-      });
-      if (data?.is_primary) await syncPrimaryName(client.id, data.name);
-    } else {
-      await updateClientContact(contactDraft.id, {
-        name: contactDraft.name.trim(),
-        email: contactDraft.email.trim() || null,
-        phone: contactDraft.phone.trim() || null,
-      });
-      const was = contacts.find((c) => c.id === contactDraft.id);
-      if (was?.is_primary)
-        await syncPrimaryName(client.id, contactDraft.name.trim());
+    // Portero (03-08): esta puerta guardaba sin validar y EN SILENCIO —
+    // por aquí entró un correo inválido que mañana rebota. Mismo criterio
+    // que la ficha 360°: aviso junto al campo, nunca mudo.
+    const problema =
+      phoneProblem(contactDraft.phone) || emailProblem(contactDraft.email);
+    if (problema) {
+      setContactDraftErr(problema);
+      return;
     }
-    setSavingContact(false);
-    setContactDraft(null);
-    setContacts(await getClientContacts(client.id));
+    setContactDraftErr(null);
+    setSavingContact(true);
+    try {
+      if (contactDraft.id == null) {
+        const { data, error } = await createClientContact({
+          company_id: company.id,
+          client_id: client.id,
+          name: contactDraft.name.trim(),
+          email: contactDraft.email.trim() || null,
+          phone: contactDraft.phone.trim() || null,
+          is_primary: contacts.length === 0,
+        });
+        if (error) throw error;
+        if (data?.is_primary) await syncPrimaryName(client.id, data.name);
+      } else {
+        await updateClientContact(contactDraft.id, {
+          name: contactDraft.name.trim(),
+          email: contactDraft.email.trim() || null,
+          phone: contactDraft.phone.trim() || null,
+        });
+        const was = contacts.find((c) => c.id === contactDraft.id);
+        if (was?.is_primary)
+          await syncPrimaryName(client.id, contactDraft.name.trim());
+      }
+      setContactDraft(null);
+      setContacts(await getClientContacts(client.id));
+    } catch (error) {
+      const backendMsg = (
+        error as { response?: { data?: { message?: unknown } } }
+      )?.response?.data?.message;
+      setContactDraftErr(
+        typeof backendMsg === "string" && backendMsg
+          ? backendMsg
+          : "No se pudo guardar la persona.",
+      );
+    } finally {
+      setSavingContact(false);
+    }
   };
 
   const makePrimary = async (client: Client, contact: ClientContact) => {
@@ -897,13 +923,21 @@ export default function ClientsPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setContactDraft(null)}
+                              onClick={() => {
+                                setContactDraft(null);
+                                setContactDraftErr(null);
+                              }}
                               className="p-1.5 text-gray-500 hover:text-gray-700"
                               title="Cancelar"
                             >
                               <X size={16} />
                             </button>
                           </div>
+                          {contactDraftErr && (
+                            <p className="w-full text-xs font-semibold text-red-600">
+                              {contactDraftErr}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <div
@@ -1047,13 +1081,21 @@ export default function ClientsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setContactDraft(null)}
+                            onClick={() => {
+                              setContactDraft(null);
+                              setContactDraftErr(null);
+                            }}
                             className="p-1.5 text-gray-500 hover:text-gray-700"
                             title="Cancelar"
                           >
                             <X size={16} />
                           </button>
                         </div>
+                        {contactDraftErr && (
+                          <p className="sm:col-span-2 text-xs font-semibold text-red-600">
+                            {contactDraftErr}
+                          </p>
+                        )}
                       </div>
                     )}
                     {/* Particulares = UNA persona (regla de Felipe 30-07,
