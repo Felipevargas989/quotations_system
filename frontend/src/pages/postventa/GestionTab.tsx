@@ -71,8 +71,9 @@ export default function GestionTab({
   const [costoRecursos, setCostoRecursos] = useState(0);
   // Secciones plegables (acordado 22-07): parten PLEGADAS mostrando el
   // resumen en una línea, para que los recursos del evento queden a mano.
-  const [openInsumos, setOpenInsumos] = useState(false);
-  const [openMobiliario, setOpenMobiliario] = useState(false);
+  // Abiertos por defecto (03-08): el plegado era por el modal angosto.
+  const [openInsumos, setOpenInsumos] = useState(true);
+  const [openMobiliario, setOpenMobiliario] = useState(true);
   const [photoView, setPhotoView] = useState<{
     url: string;
     title: string;
@@ -348,6 +349,94 @@ export default function GestionTab({
         </div>
       )}
 
+      {/* La CONCLUSIÓN primero (03-08): rentabilidad al tope — venta,
+          costo y margen a un vistazo, con el estado de provisión. */}
+      {/* ---------- Bloque 4: rentabilidad estimada ---------- */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3 border-b border-gray-200 pb-2">
+          <TrendingUp size={17} className="text-gray-600" />
+          <h4 className="text-base font-bold text-gray-900">
+            {provisioned ? "Rentabilidad del evento" : "Rentabilidad estimada"}
+          </h4>
+          {!provisioned && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+              según catálogo
+            </span>
+          )}
+          {prov.provisioned_at && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+              Provisionado el{" "}
+              {new Date(prov.provisioned_at).toLocaleDateString("es-CL")}
+            </span>
+          )}
+        </div>
+        {hayCostos ? (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                  {propina > 0 ? "Venta sin propina" : "Monto cotizado"}
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {fmtMoney(montoTotal)}
+                </p>
+                {propina > 0 && (
+                  <p className="text-[11px] text-gray-400">
+                    + propina {fmtMoney(propina)} (va al equipo, no es margen)
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                  {provisioned ? "Costo" : "Costo estimado"}
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {fmtMoney(costoTotal)}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  {provisioned
+                    ? `insumos congelados ${fmtMoney(costoBase)}`
+                    : `insumos ${fmtMoney(costoInsumos)}`}
+                  {" + recursos "}
+                  {fmtMoney(costoRecursos)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                  Margen estimado
+                </p>
+                <p
+                  className={`text-lg font-bold ${
+                    margen >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {fmtMoney(margen)}
+                  <span className="ml-1.5 text-sm font-semibold">
+                    ({margenPct.toFixed(1)}%)
+                  </span>
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-3">
+              {provisioned
+                ? "Insumos congelados al provisionar; los recursos del evento son la foto negociada de este evento."
+                : "Insumos estimados con precios de catálogo (se congelan al provisionar en Logística → Compras) + recursos del evento."}
+              {propina > 0 &&
+                " El margen se mide sobre la venta sin propina: la propina la paga el cliente pero va entera al equipo."}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500 italic">
+            Aún no hay costos que calcular: define recetas (insumos con
+            precio) o costos de servicios fijos en el catálogo.
+          </p>
+        )}
+      </div>
+
+
+      {/* Dos columnas en pantallas anchas: cálculo solo-lectura a la
+          izquierda, trabajo editable a la derecha. */}
+      <div className="grid gap-6 xl:grid-cols-2 items-start">
       {/* ---------- Bloque 1: Insumos y equipo ---------- */}
       <div className="space-y-4">
         {/* Patrón de encabezado del modal (mismo que Recursos del evento y
@@ -634,87 +723,6 @@ export default function GestionTab({
           onCostChange={setCostoRecursos}
         />
       )}
-
-      {/* ---------- Bloque 4: rentabilidad estimada ---------- */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3 border-b border-gray-200 pb-2">
-          <TrendingUp size={17} className="text-gray-600" />
-          <h4 className="text-base font-bold text-gray-900">
-            {provisioned ? "Rentabilidad del evento" : "Rentabilidad estimada"}
-          </h4>
-          {!provisioned && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-              según catálogo
-            </span>
-          )}
-          {prov.provisioned_at && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
-              Provisionado el{" "}
-              {new Date(prov.provisioned_at).toLocaleDateString("es-CL")}
-            </span>
-          )}
-        </div>
-        {hayCostos ? (
-          <>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <p className="text-[11px] uppercase text-gray-500 font-semibold">
-                  {propina > 0 ? "Venta sin propina" : "Monto cotizado"}
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {fmtMoney(montoTotal)}
-                </p>
-                {propina > 0 && (
-                  <p className="text-[11px] text-gray-400">
-                    + propina {fmtMoney(propina)} (va al equipo, no es margen)
-                  </p>
-                )}
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-gray-500 font-semibold">
-                  {provisioned ? "Costo" : "Costo estimado"}
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {fmtMoney(costoTotal)}
-                </p>
-                <p className="text-[11px] text-gray-400">
-                  {provisioned
-                    ? `insumos congelados ${fmtMoney(costoBase)}`
-                    : `insumos ${fmtMoney(costoInsumos)}`}
-                  {" + recursos "}
-                  {fmtMoney(costoRecursos)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase text-gray-500 font-semibold">
-                  Margen estimado
-                </p>
-                <p
-                  className={`text-lg font-bold ${
-                    margen >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {fmtMoney(margen)}
-                  <span className="ml-1.5 text-sm font-semibold">
-                    ({margenPct.toFixed(1)}%)
-                  </span>
-                </p>
-              </div>
-            </div>
-            <p className="text-[11px] text-gray-400 mt-3">
-              {provisioned
-                ? "Insumos congelados al provisionar; los recursos del evento son la foto negociada de este evento."
-                : "Insumos estimados con precios de catálogo (se congelan al provisionar en Logística → Compras) + recursos del evento."}
-              {propina > 0 &&
-                " El margen se mide sobre la venta sin propina: la propina la paga el cliente pero va entera al equipo."}
-            </p>
-          </>
-        ) : (
-          <p className="text-sm text-gray-500 italic">
-            Aún no hay costos que calcular: define recetas (insumos con
-            precio) o costos de servicios fijos en el catálogo.
-          </p>
-        )}
       </div>
 
       {photoView && (
