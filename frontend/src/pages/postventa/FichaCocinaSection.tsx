@@ -456,7 +456,7 @@ export default function FichaCocinaSection({
         )
         .map(
           (c) =>
-            `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="der">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td></tr>`,
+            `<div class="brow"><span class="chk"><span></span></span><span class="bnombre">${esc(c.supply.name)}</span><span class="bqty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</span></div>`,
         )
         .join("");
     };
@@ -609,18 +609,20 @@ export default function FichaCocinaSection({
   </div>
   <h2 class="seccion">Servicios del día</h2>
   ${bloques || '<p style="margin-top:8px;color:#888;font-size:13px">Sin servicios variables asignados.</p>'}
+  ${
+    bodega
+      ? `<h2 class="seccion">${esc(tituloBodega)}</h2><div class="bodega-cols">${bodega}</div>`
+      : ""
+  }
   <div class="dos-col">
-    <div>${
-      bodega
-        ? `<h2 class="seccion">${esc(tituloBodega)}</h2><table class="tabla">${bodega}</table>`
-        : ""
-    }</div>
     <div>
       ${
         mobiliario
           ? `<h2 class="seccion">${esc(tituloMob)}</h2><table class="tabla">${mobiliario}</table>`
           : ""
       }
+    </div>
+    <div>
       ${
         fijos
           ? `<h2 class="seccion">Servicios fijos</h2><table class="tabla fijos">${fijos}</table>`
@@ -740,6 +742,13 @@ export default function FichaCocinaSection({
   .tabla .nota { font-weight:400; font-size:10.5px; color:#9ca3af; }
   .fijos .fmontar td { font-weight:600; font-size:11px; color:${brandP}; padding:0 10px 7px 28px; border-bottom:1px solid #f3f4f6; }
   .dos-col { display:grid; grid-template-columns:1fr 1fr; gap:0 28px; align-items:start; }
+  /* Retiro de bodega a ancho completo, fluyendo en 2 columnas (03-08:
+     una lista de 40 ítems en una columna regalaba una página vacía). */
+  .bodega-cols { columns:2; column-gap:28px; }
+  .brow { display:flex; align-items:center; gap:6px; break-inside:avoid;
+    font-size:12.5px; padding:4.5px 0; border-bottom:1px solid #f3f4f6; }
+  .brow .bnombre { font-weight:600; flex:1; }
+  .brow .bqty { font-weight:700; white-space:nowrap; }
 
   /* ===== Notas ===== */
   .notas { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; }
