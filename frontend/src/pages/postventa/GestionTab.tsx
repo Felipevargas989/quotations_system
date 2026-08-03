@@ -7,24 +7,16 @@ import {
   ChevronRight,
   Download,
   Package,
-  TrendingUp,
 } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  PurchasingEvent,
   QuotationProvisioning,
   getAcceptedEvents,
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
-  getFurnitureItems,
   getQuotationProvisioning,
-  getSupplies,
 } from "../../services/logistics.service";
 import {
   FurnitureItem,
-  RecipeItem,
-  Supply,
   UNIT_FAMILY_INFO,
 } from "../../types/logistics.types";
 import {

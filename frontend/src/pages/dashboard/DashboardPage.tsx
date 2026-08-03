@@ -5,7 +5,6 @@ import {
   DollarSign,
   TrendingUp,
   ClipboardList,
-  Building,
   Calendar,
   BarChart3,
   Clock,
@@ -27,14 +26,8 @@ import { getCompleteStats } from "../../services/analytics.service";
 import { getHoyAlerts } from "../../services/hoy.service";
 import {
   getAllEventResources,
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
   getEventSupplyProvisions,
-  getFixedServiceCostsById,
-  getFurnitureItems,
   getManagementResources,
-  getSupplies,
-  getSuppliers,
   getWonEventsSince,
   getBaseCatalogo,
 } from "../../services/logistics.service";
@@ -65,28 +58,15 @@ ChartJS.register(
   Legend,
 );
 
-// Abreviatura chilena de cifras para los gráficos (Felipe, 23-07):
-// 16.000.000 -> "16M", 4.500.000 -> "4,5M", 450.000 -> "450k".
-const abrevCifra = (n: number): string => {
-  const abs = Math.abs(n);
-  const f = (v: number) =>
-    v.toLocaleString("es-CL", {
-      maximumFractionDigits: Math.abs(v) < 10 ? 1 : 0,
-    });
-  if (abs >= 1_000_000) return `${f(n / 1_000_000)}M`;
-  if (abs >= 1_000) return `${f(n / 1_000)}k`;
-  return n.toLocaleString("es-CL");
-};
-
-// Plugin liviano (sin dependencias): pinta la cifra abreviada sobre cada
+// Plugin liviano (sin dependencias): pinta la cifra sobre cada
 // punto de la curva, del color de la serie. El monto exacto sigue en el
-// tooltip. Se activa con `puntoAbrev` (dinero) o `puntoEntero` (conteos)
+// tooltip. Se activa con `puntoEntero` (conteos)
 // en las options del gráfico.
 const etiquetasDePunto = {
   id: "etiquetasDePunto",
   afterDatasetsDraw(chart: any) {
     const opts: any = chart.options || {};
-    if (!opts.puntoAbrev && !opts.puntoEntero) return;
+    if (!opts.puntoEntero) return;
     const { ctx } = chart;
     chart.data.datasets.forEach((ds: any, di: number) => {
       const meta = chart.getDatasetMeta(di);
@@ -99,9 +79,7 @@ const etiquetasDePunto = {
       meta.data.forEach((pt: any, i: number) => {
         const v = Number(ds.data[i]);
         if (!Number.isFinite(v) || v === 0) return;
-        const label = opts.puntoAbrev
-          ? abrevCifra(v)
-          : v.toLocaleString("es-CL");
+        const label = v.toLocaleString("es-CL");
         ctx.fillText(label, pt.x, pt.y - 6);
       });
       ctx.restore();
@@ -116,7 +94,6 @@ import NewAccount from "./components/NewAccount";
 import { UserRole } from "../../constants/users";
 import { subMonths, subYears } from "date-fns";
 import { MONTHS } from "../../constants/dates";
-import { QuotationStatus } from "../../types/quotations.types";
 import { formatCurrency } from "../../utils/currencies";
 
 interface DashboardData {
@@ -398,17 +375,6 @@ export default function DashboardPage() {
     queryFn: listPortalReceipts,
   });
   const comprobantesPortal = (receiptsQuery.data ?? []).length;
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      solicitada: "📋 Solicitada",
-      enviada: "📤 Enviada",
-      en_negociacion: "💬 En Negociación",
-      aceptada: "✅ Aceptada",
-      rechazada: "❌ Rechazada",
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -1490,38 +1456,6 @@ export default function DashboardPage() {
       </div>
         );
       })()}
-
-      {/* Cotizaciones por estado */}
-      {/* <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center space-x-2 mb-4">
-          <PieChart className="h-5 w-5 text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
-            Cotizaciones por Estado
-          </h2>
-        </div>
-        <div className="space-y-3">
-          {data.quotationsByStatus.map((item, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div
-                  className={`w-3 h-3 rounded-full ${getStatusColor(item.status)}`}
-                ></div>
-                <span className="text-sm text-gray-600">
-                  {getStatusLabel(item.status)}
-                </span>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
-                  {item.count}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {formatCurrency(item.amount, company?.currency || "CLP")}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div> */}
 
       {/* Pipeline de Negocio — EMBUDO transpuesto (23-07, con Felipe):
           estados como columnas en orden de viaje, agrupados en zonas

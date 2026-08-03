@@ -9,10 +9,6 @@ import {
   Building,
   Phone,
   Mail,
-  Star,
-  Pencil,
-  Check,
-  X,
   ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -21,18 +17,11 @@ import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
 import { getClientTypeColor } from "../utils/clientTypeColor";
 import { matchesSearch } from "../utils/searchMatch";
 import {
-  validateEmail,
-  validatePhone,
-  validateClientForm,
-} from "../utils/validation";
-import {
   emailProblem,
   formatPhone,
   normalizePhone,
-  PHONE_PLACEHOLDER,
   phoneProblem,
 } from "../utils/phone";
-import { CLIENT_TYPES } from "../constants/clientTypes";
 import {
   clientsQueryOptions,
   createClient,
@@ -77,22 +66,13 @@ export default function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
-    email: "",
-    phone: "",
     client_type: "Particulares",
     address: "",
     contact_person: "",
     notes: "",
   });
-  const [errors, setErrors] = useState({
-    email: "",
-    phone: "",
-  });
   // Confirmación inline de borrado de cliente (solo clientes sin
   // cotizaciones; los demás muestran el basurero desactivado).
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deletingClient, setDeletingClient] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // ---- Filtro múltiple por tipo (vacío = todos), guardado por usuario ----
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -183,19 +163,11 @@ export default function ClientsPage() {
   // Error de los datos de la persona al crear (aviso 38): junto al campo.
   const [contactErr, setContactErr] = useState<string | null>(null);
   const [newContactPhone, setNewContactPhone] = useState("");
-  const { company } = useAuth();
 
   const isEmpresa = formData.client_type !== "Particulares";
 
   // (03-08) Toda la gestión de personas se jubiló de este modal:
   // vive ÚNICAMENTE en la ficha 360° (una sola puerta por regla).
-
-  // Validation function using utility
-  const validateForm = (): boolean => {
-    const validation = validateClientForm(formData);
-    setErrors(validation.errors);
-    return validation.isValid;
-  };
 
   // (Clientes y tipos los carga React Query automáticamente.)
 
@@ -307,16 +279,10 @@ export default function ClientsPage() {
       setShowForm(false);
       setFormData({
         name: "",
-        email: "",
-        phone: "",
         client_type: "Particulares",
         address: "",
         contact_person: "",
         notes: "",
-      });
-      setErrors({
-        email: "",
-        phone: "",
       });
       loadClients();
     } catch (error) {
@@ -429,16 +395,10 @@ export default function ClientsPage() {
               setShowForm(false);
                       setFormData({
                 name: "",
-                email: "",
-                phone: "",
                 client_type: "Particulares",
                 address: "",
                 contact_person: "",
                 notes: "",
-              });
-              setErrors({
-                email: "",
-                phone: "",
               });
             }}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
@@ -625,48 +585,46 @@ export default function ClientsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Persona de contacto (principal)
                 </label>
-                {(
-                  <div className="space-y-2">
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={formData.contact_person}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        contact_person: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Nombre del contacto principal"
+                  />
+                  {/* Correo y teléfono DE LA PERSONA, para todo tipo de
+                      cliente (boceto 30-07). */}
+                  <div className="grid grid-cols-2 gap-2">
                     <input
-                      type="text"
-                      value={formData.contact_person}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          contact_person: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Nombre del contacto principal"
+                      type="email"
+                      value={newContactEmail}
+                      onChange={(e) => setNewContactEmail(e.target.value)}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      placeholder="Correo de la persona"
                     />
-                    {/* Correo y teléfono DE LA PERSONA, para todo tipo de
-                        cliente (boceto 30-07). */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="email"
-                        value={newContactEmail}
-                        onChange={(e) => setNewContactEmail(e.target.value)}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                        placeholder="Correo de la persona"
-                      />
-                      <input
-                        type="tel"
-                        value={newContactPhone}
-                        onChange={(e) => setNewContactPhone(e.target.value)}
-                        onBlur={() =>
-                          setNewContactPhone((p) => normalizePhone(p || ""))
-                        }
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                        placeholder="Teléfono de la persona"
-                      />
-                    </div>
-                    {contactErr && (
-                      <p className="text-xs font-semibold text-red-600">
-                        {contactErr}
-                      </p>
-                    )}
+                    <input
+                      type="tel"
+                      value={newContactPhone}
+                      onChange={(e) => setNewContactPhone(e.target.value)}
+                      onBlur={() =>
+                        setNewContactPhone((p) => normalizePhone(p || ""))
+                      }
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                      placeholder="Teléfono de la persona"
+                    />
                   </div>
-                )}
+                  {contactErr && (
+                    <p className="text-xs font-semibold text-red-600">
+                      {contactErr}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Dirección fuera del formulario (medición 30-07: solo 6 de
@@ -694,10 +652,6 @@ export default function ClientsPage() {
                 type="button"
                 onClick={() => {
                   setShowForm(false);
-                  setErrors({
-                    email: "",
-                    phone: "",
-                  });
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
@@ -728,10 +682,6 @@ export default function ClientsPage() {
         <button
           onClick={() => {
             setShowForm(true);
-            setErrors({
-              email: "",
-              phone: "",
-            });
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
         >

@@ -238,7 +238,7 @@ export default function QuotationsPage() {
 
   // Los antiguos "fetch" ahora son invalidaciones: todos los puntos que
   // llaman tras guardar/cambiar estado siguen funcionando igual.
-  const fetchQuotations = async (_statusFilter?: string[]) => {
+  const fetchQuotations = async () => {
     await queryClient.invalidateQueries({ queryKey: ["quotations"] });
   };
   const fetchRequirements = async () => {
@@ -268,11 +268,6 @@ export default function QuotationsPage() {
 
     // For other states, all roles can edit (assuming they have access to quotations)
     return true;
-  };
-
-  const refreshData = async () => {
-    await fetchQuotations(statusFilter);
-    await fetchRequirements();
   };
 
   // Contacto de la fila: el MANDANTE de la cotización con su propio
@@ -359,7 +354,7 @@ export default function QuotationsPage() {
           if (existingPayments && existingPayments.length > 0) {
             //
             // Payment plan already exists, just update the status
-            const { data, error } = await updateQuotation(
+            const { error } = await updateQuotation(
               { quotation_status: newStatus as QuotationStatus },
               quotationId,
             );
@@ -373,7 +368,7 @@ export default function QuotationsPage() {
             toast.success(
               "Cotización aceptada (el plan de pagos ya existía).",
             );
-            await fetchQuotations(statusFilter);
+            await fetchQuotations();
             await fetchRequirements();
             return;
           }
@@ -386,7 +381,7 @@ export default function QuotationsPage() {
       }
 
       // For other statuses or after payment plan is accepted, update the status
-      const { data, error } = await updateQuotation(
+      const { error } = await updateQuotation(
         { quotation_status: newStatus as QuotationStatus },
         quotationId,
       );
@@ -398,7 +393,7 @@ export default function QuotationsPage() {
       toast.success(
         `Estado actualizado a ${newStatus}${newStatus === QuotationStatus.ENVIADA ? ". Se envió el correo de confirmación al cliente." : "."}`,
       );
-      await fetchQuotations(statusFilter);
+      await fetchQuotations();
       await fetchRequirements();
     } catch (error) {
       // El backend puede rechazar con un motivo claro (ej: la guardia de
@@ -412,7 +407,7 @@ export default function QuotationsPage() {
           (error instanceof Error ? error.message : "error desconocido")
         }`,
       );
-      await fetchQuotations(statusFilter);
+      await fetchQuotations();
     }
   };
 
@@ -448,7 +443,7 @@ export default function QuotationsPage() {
       );
       setShowPaymentPlanEditor(false);
       setQuotationForPaymentPlan(null);
-      await fetchQuotations(statusFilter);
+      await fetchQuotations();
       await fetchRequirements();
     } catch (error) {
       toast.error(
@@ -821,7 +816,7 @@ export default function QuotationsPage() {
                 type="button"
                 onClick={() => {
                   setPendingStatusChange(null);
-                  void fetchQuotations(statusFilter);
+                  void fetchQuotations();
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
               >

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { KeyRound } from "lucide-react";
 import { resetPasswordWithToken } from "../../services/auth.service";
 
 export default function ResetPasswordPage() {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const [accessToken, setAccessToken] = useState("");
   const [recoveryType, setRecoveryType] = useState<string | undefined>();
 

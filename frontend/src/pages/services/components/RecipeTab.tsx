@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import {
   addRecipeItem,
@@ -291,9 +291,6 @@ export default function RecipeTab({
   const unitOptions = selectedSupply
     ? UNITS_BY_FAMILY[selectedSupply.unit_family]
     : [];
-
-  const qtyInputCls =
-    "w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right";
 
   // Red ámbar (31-07): cantidades POR PERSONA que huelen a error de
   // unidad — más de 10 unidades, 1 kg, 1000 gr, 2 L o 2000 ml. No

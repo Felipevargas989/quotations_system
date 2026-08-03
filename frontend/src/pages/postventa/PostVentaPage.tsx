@@ -568,7 +568,6 @@ export default function PostVentaPage() {
     }
     return (
       <EventModal
-        fullPage
         event={selected}
         tab={tab}
         setTab={setTab}
@@ -931,9 +930,6 @@ interface EventModalProps {
   // Comprobantes del portal PENDIENTES de este evento (Fase 2b): el
   // aviso vive donde uno los busca — dentro del evento.
   readonly pendingReceipts?: number;
-  // true = PÁGINA propia (03-08): sin velo oscuro ni alto fijo; la
-  // página scrollea natural y arriba va "← Volver a Post-Venta".
-  readonly fullPage?: boolean;
   readonly onOpenReceipts?: () => void;
 }
 
@@ -945,7 +941,6 @@ function EventModal({
   onDataChanged,
   pendingReceipts = 0,
   onOpenReceipts,
-  fullPage = false,
 }: EventModalProps) {
   // Visor de comprobantes de la pestaña Pagos (03-08: mismo lenguaje
   // que Documentos — lista a la izquierda, visor al lado).
@@ -1095,31 +1090,15 @@ function EventModal({
   };
 
   return (
-    <div
-      className={
-        fullPage
-          ? ""
-          : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-5 z-50"
-      }
-      onClick={fullPage ? undefined : onClose}
-    >
-      {fullPage && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold mb-3"
-        >
-          ← Volver a Post-Venta
-        </button>
-      )}
-      <div
-        className={
-          fullPage
-            ? "bg-white rounded-2xl w-full shadow flex flex-col"
-            : "bg-white rounded-2xl w-full max-w-6xl h-[94vh] shadow-xl flex flex-col overflow-hidden"
-        }
-        onClick={fullPage ? undefined : (e) => e.stopPropagation()}
+    <div className="">
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold mb-3"
       >
+        ← Volver a Post-Venta
+      </button>
+      <div className="bg-white rounded-2xl w-full shadow flex flex-col">
         {/* Header */}
         <div className="shrink-0 flex items-start justify-between p-6 border-b border-gray-200">
           <div>
@@ -1244,14 +1223,6 @@ function EventModal({
                 {linkCopiado ? "Copiado" : "Enlace de pagos"}
               </button>
             )}
-            {!fullPage && (
-              <button
-                onClick={onClose}
-                className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
-              >
-                <X size={18} />
-              </button>
-            )}
           </div>
         </div>
         {cancelError && (
@@ -1315,13 +1286,7 @@ function EventModal({
         </div>
 
         {/* Panels */}
-        <div
-          className={
-            fullPage
-              ? "p-6 flex-1"
-              : "p-6 flex-1 overflow-y-auto min-h-0"
-          }
-        >
+        <div className="p-6 flex-1">
           {tab === "pagos" && (
             <div className="space-y-6">
               {/* Montos y progreso: viven SOLO aquí (decisión de Felipe
@@ -1863,7 +1828,6 @@ function ServiciosTab({
     // La propina no se edita acá: viaja el % de la cotización.
     tip_percentage: quote.tip_percentage ?? null,
   });
-  const variableTotal = money.variableGrandTotal;
   // El % de la propina se sigue leyendo para la línea en pantalla.
   const tipPct = quote.tip_percentage;
   const valuePerPerson = money.valuePerPerson;
@@ -2778,16 +2742,6 @@ function RegistrarPagoPanel({
       )}
     </div>
   );
-}
-
-// ---- Comprobantes: ledger unificado (pagos + reembolsos registrados) ----
-interface LedgerEntry {
-  key: string;
-  kind: "pago" | "reembolso";
-  amount: number;
-  date: string | null;
-  method: string | null;
-  url: string | null;
 }
 
 // ---- Reembolsos: gestión/registro (vive en la pestaña Pagos) ----

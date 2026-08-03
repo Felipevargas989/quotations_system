@@ -8,7 +8,6 @@ import {
   Mail,
   Phone,
   Star,
-  MapPin,
   FileText,
   Pencil,
   Plus,
@@ -16,7 +15,6 @@ import {
   Copy,
   Eye,
   Check,
-  X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
@@ -62,9 +60,6 @@ interface SummaryClient {
   id: string;
   name: string;
   client_type: string;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
   contact_person?: string | null;
   notes?: string | null;
   created_at: string;

@@ -12,5 +12,4 @@ export interface SelectWithSearchProps {
   readonly noResultsText?: string;
   readonly disabled?: boolean;
   readonly required?: boolean;
-  readonly className?: string;
 }

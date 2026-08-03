@@ -12,7 +12,6 @@ export default function SelectWithSearch({
   noResultsText = "No se encontraron resultados",
   disabled = false,
   required = false,
-  className = "",
 }: SelectWithSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -157,7 +156,7 @@ export default function SelectWithSearch({
   };
 
   return (
-    <div className={`relative w-full ${className}`} ref={dropdownRef}>
+    <div className="relative w-full" ref={dropdownRef}>
       {/* Main selector button */}
       <button
         type="button"

@@ -8,7 +8,6 @@ import {
   ServiceCategorySetting,
   VariableServiceCategoryLink,
 } from "../types/services.types";
-import { CalculationType } from "../constants/services";
 
 // Interface for compatibility with QuotationForm. With multi-category, there is
 // one Product entry per (service, category) link, so a service shows up under

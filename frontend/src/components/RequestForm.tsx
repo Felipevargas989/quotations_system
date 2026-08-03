@@ -49,7 +49,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   const queryClientRQ = useQueryClient();
   const { data: clients = [] } = useQuery(clientsQueryOptions);
   const [loading, setLoading] = useState(false);
-  const [isExistingClient, setIsExistingClient] = useState(false);
+  const [, setIsExistingClient] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [clientFormData, setClientFormData] = useState({
     name: "",

@@ -13,11 +13,9 @@ import { resolveStorageUrl } from "../services/storage.service";
 export default function FileViewLink({
   url,
   title,
-  className = "",
 }: {
   readonly url: string;
   readonly title?: string;
-  readonly className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
@@ -48,7 +46,7 @@ export default function FileViewLink({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`text-sm font-semibold text-blue-600 hover:text-blue-800 ${className}`}
+        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
       >
         Ver
       </button>

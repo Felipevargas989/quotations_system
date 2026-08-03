@@ -1,6 +1,5 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { Client } from "../types/clients.types";
-import { CreatePaymentTransaction } from "../types/paymentsTransactions.types";
 import { Refund } from "../types/refunds.types";
 import { apiRequest } from "./api";
 
@@ -50,23 +49,6 @@ export interface PaymentWithTransactions {
   };
   refunds: Refund[];
 }
-
-export const createPaymentTransaction = async (
-  transaction: CreatePaymentTransaction,
-) => {
-  try {
-    const response = await apiRequest(
-      `${API_ROUTES.PAYMENTS_TRANSACTIONS}`,
-      "POST",
-      transaction,
-    );
-
-    return { data: response };
-  } catch (error) {
-    console.error("Error creating payment transaction:", error);
-    throw error;
-  }
-};
 
 export const getPaymentsWithTransactions = async (): Promise<{
   data: PaymentWithTransactions[];

@@ -11,10 +11,7 @@ import {
 import { findAllServices } from "../../../services/services.service";
 import { getClients } from "../../../services/clients.service";
 import { getQuotations } from "../../../services/quotations.service";
-import {
-  QuotationRequestType,
-  QuotationStatus,
-} from "../../../types/quotations.types";
+import { QuotationStatus } from "../../../types/quotations.types";
 import { useAuth } from "../../../contexts/AuthContext";
 
 interface EmptyState {

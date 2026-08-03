@@ -70,15 +70,7 @@ import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
-import {
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
-  getFixedServiceCostsById,
-  getFurnitureItems,
-  getSupplies,
-  getSuppliers,
-  getBaseCatalogo,
-} from "../../services/logistics.service";
+import { getBaseCatalogo } from "../../services/logistics.service";
 import {
   buildConsolidationContext,
   consolidateEvent,
@@ -99,7 +91,6 @@ interface ServiceBox {
   id: string;
   selectedCategory: string;
   selectedItem: string;
-  selectedItems: string[];
   services: SelectedService[]; // Each box has its own services
   groupName?: string; // Set (in memory) when the box was loaded from a saved group
   // Día del evento al que pertenece este servicio (1..N; eventos de un día = 1)
@@ -176,9 +167,7 @@ export default function QuotationForm() {
     discount_percentage: 0,
     discount_amount: 0,
     total_amount: 0,
-    quotation_status: isFromRequirement
-      ? QuotationStatus.ENVIADA
-      : QuotationStatus.SOLICITADA,
+    quotation_status: QuotationStatus.SOLICITADA,
     request_type: QuotationRequestType.COTIZACION,
     observations: "",
     value_per_person: 0,
@@ -211,16 +200,12 @@ export default function QuotationForm() {
       id: "1",
       selectedCategory: "",
       selectedItem: "",
-      selectedItems: [],
       services: [],
     },
   ]);
-  const [fixedServiceSlots, setFixedServiceSlots] = useState(3);
-  const [discountPercentage, setDiscountPercentage] = useState(0);
   // Descuento por porcentaje o por monto cerrado (mismo patrón que la
   // pestaña Servicios de Post Venta).
   const [discType, setDiscType] = useState<"%" | "$">("%");
-  const [subtotalBeforeDiscount, setSubtotalBeforeDiscount] = useState(0);
   // Propina opcional sobre los servicios variables, DESPUÉS del IVA
   // (no lleva IVA, va directa al equipo).
   const [tipEnabled, setTipEnabled] = useState(false);
@@ -661,7 +646,6 @@ export default function QuotationForm() {
         if (serviceBox.items && Array.isArray(serviceBox.items)) {
           // Create a service box for this group
           const boxId = `loaded-${index + 1}`;
-          const boxItems: string[] = [];
           const boxServices: SelectedService[] = [];
 
           serviceBox.items.forEach((item: any) => {
@@ -672,7 +656,6 @@ export default function QuotationForm() {
               categoria: item.categoria || serviceBox.category,
               quantity: item.quantity || 1,
             };
-            boxItems.push(item.codigo);
             boxServices.push(service);
           });
 
@@ -680,7 +663,6 @@ export default function QuotationForm() {
             id: boxId,
             selectedCategory: serviceBox.category,
             selectedItem: "",
-            selectedItems: boxItems,
             services: boxServices,
             day: serviceBox.day || 1,
             // Audiencia y personas del servicio (cotizaciones antiguas:
@@ -723,11 +705,6 @@ export default function QuotationForm() {
     // Set service boxes from loaded data
     if (serviceBoxesData.length > 0) {
       setServiceBoxes(serviceBoxesData);
-    }
-
-    // Actualizar slots de servicios fijos si es necesario
-    if (fixedServicesLoaded.length > fixedServiceSlots) {
-      setFixedServiceSlots(fixedServicesLoaded.length + 1);
     }
   };
 
@@ -859,7 +836,6 @@ export default function QuotationForm() {
       id: Date.now().toString(),
       selectedCategory: "",
       selectedItem: "",
-      selectedItems: [],
       services: [],
     };
     setServiceBoxes((prev) => [...prev, newBox]);
@@ -916,16 +892,9 @@ export default function QuotationForm() {
       id: `group-${group.id}-${Date.now()}`,
       selectedCategory: group.category,
       selectedItem: "",
-      selectedItems: all.map((s) => s.codigo),
       services: all,
       groupName: group.name,
     };
-  };
-
-  // Append a single group as a new box (does not affect the selected package).
-  const loadGroupAsBox = (group: ServiceGroup) => {
-    const newBox = buildBoxFromGroup(group);
-    if (newBox) setServiceBoxes((prev) => [...prev, newBox]);
   };
 
   // Aplica un menu guardado A UNA caja existente (mockup: el link vive
@@ -940,7 +909,6 @@ export default function QuotationForm() {
               ...b,
               selectedCategory: built.selectedCategory,
               selectedItem: "",
-              selectedItems: built.selectedItems,
               services: built.services,
               groupName: built.groupName,
             }
@@ -1060,7 +1028,6 @@ export default function QuotationForm() {
               ...(field === "selectedCategory"
                 ? {
                     selectedItem: "",
-                    selectedItems: seeded.map((s) => s.codigo),
                     services: seeded,
                   }
                 : {}),
@@ -1100,7 +1067,6 @@ export default function QuotationForm() {
                 };
                 return {
                   ...box,
-                  selectedItems: [...box.selectedItems, value],
                   services: [...box.services, newService],
                 };
               }
@@ -1110,12 +1076,6 @@ export default function QuotationForm() {
         );
       }
     }
-  };
-
-  const getSelectedItemsForCategory = (category: string) => {
-    return serviceBoxes
-      .flatMap((box) => box.services)
-      .filter((service) => service.categoria === category);
   };
 
   const getSelectedItemsForBox = (boxId: string) => {
@@ -1245,7 +1205,7 @@ export default function QuotationForm() {
     return products.filter((p) => p.categoria === categoria);
   };
 
-  const handleFixedServiceSelect = (serviceCodigo: string, index?: number) => {
+  const handleFixedServiceSelect = (serviceCodigo: string) => {
     if (!serviceCodigo) return;
 
     const service = fixedServices.find((s) => s.codigo === serviceCodigo);
@@ -1253,45 +1213,21 @@ export default function QuotationForm() {
 
     const calculatedPrice = calculatePrice(service, formData.people_count);
 
-    if (index !== undefined) {
-      // Update existing service at specific index
-      setSelectedFixedServices((prev) =>
-        prev.map((item, i) =>
-          i === index
-            ? {
-                codigo: service.codigo,
-                nombre: service.nombre,
-                precio_calculado: calculatedPrice,
-                categoria: service.categoria || "General",
-                quantity: 1,
-                tipo_calculo: service.tipo_calculo || "fijo",
-                min_precio: service.min_precio || 0,
-                max_precio: service.max_precio || 0,
-                precio_por_persona: service.precio_por_persona || 0,
-                // preservar el día elegido: cambiar el servicio de la fila
-                // no debe resetear el selector de día
-                day: item.day,
-              }
-            : item,
-        ),
-      );
-    } else {
-      // Add new service
-      setSelectedFixedServices((prev) => [
-        ...prev,
-        {
-          codigo: service.codigo,
-          nombre: service.nombre,
-          precio_calculado: calculatedPrice,
-          categoria: service.categoria || "General",
-          quantity: 1,
-          tipo_calculo: service.tipo_calculo || "fijo",
-          min_precio: service.min_precio || 0,
-          max_precio: service.max_precio || 0,
-          precio_por_persona: service.precio_por_persona || 0,
-        },
-      ]);
-    }
+    // Add new service
+    setSelectedFixedServices((prev) => [
+      ...prev,
+      {
+        codigo: service.codigo,
+        nombre: service.nombre,
+        precio_calculado: calculatedPrice,
+        categoria: service.categoria || "General",
+        quantity: 1,
+        tipo_calculo: service.tipo_calculo || "fijo",
+        min_precio: service.min_precio || 0,
+        max_precio: service.max_precio || 0,
+        precio_por_persona: service.precio_por_persona || 0,
+      },
+    ]);
   };
 
   const updateServiceQuantity = (
@@ -1313,9 +1249,6 @@ export default function QuotationForm() {
             return {
               ...box,
               services: box.services.filter((s) => s.codigo !== codigo),
-              selectedItems: box.selectedItems.filter(
-                (item) => item !== codigo,
-              ),
             };
           } else {
             // Update quantity of service in this box
@@ -1405,8 +1338,6 @@ export default function QuotationForm() {
   const calculateTotals = () => {
     const t = computeTotals();
 
-    // Subtotal antes del descuento, para la UI
-    setSubtotalBeforeDiscount(t.subtotalAmount);
     setTipAmountUI(t.tipAmount);
 
     setFormData((prev) => ({

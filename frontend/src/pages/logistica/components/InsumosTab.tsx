@@ -22,7 +22,6 @@ import {
 } from "../../../services/logistics.service";
 import {
   RecipeUnit,
-  Supplier,
   Supply,
   UNIT_FAMILY_INFO,
   UNITS_BY_FAMILY,

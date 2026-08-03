@@ -29,11 +29,6 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
 // Inputs de dinero: texto con separador de miles es-CL (sin flechitas).
-const fmtInput = (n: number) =>
-  n ? Math.round(n).toLocaleString("es-CL") : "";
-const parseInput = (s: string) =>
-  parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
-
 // Color del subgrupo por tipo de recurso.
 const TYPE_PILL: Record<ResourceType, string> = {
   personal: "bg-teal-100 text-teal-700",

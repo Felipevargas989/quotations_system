@@ -14,7 +14,6 @@ import {
   ManagementResource,
   RESOURCE_TYPE_LABEL,
   ResourceType,
-  Supplier,
   resourcePriceLabel,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";

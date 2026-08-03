@@ -31,14 +31,6 @@ interface QuotationViewerProps {
   onClose: () => void;
 }
 
-const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
-
-const esc = (s: string) =>
-  String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
 export default function QuotationViewer({
   quotation,
   onClose,

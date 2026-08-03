@@ -17,11 +17,8 @@ import {
   createFurnitureItem,
   deleteFurnitureItem,
   getAcceptedEvents,
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
   getFurnitureItems,
   getFurnitureUsage,
-  getSupplies,
   updateFurnitureItem,
 } from "../../../services/logistics.service";
 import {

@@ -16,28 +16,16 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { matchesSearch } from "../../../utils/searchMatch";
 import { formatPhone } from "../../../utils/phone";
 import {
-  EventSupplyProvision,
   PurchasingEvent,
   clearQuotationsProvisioned,
   deleteEventSupplyProvisions,
-  getAcceptedEvents,
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
-  getEventSupplyProvisions,
-  getFixedServiceCostsById,
-  getFurnitureItems,
-  getSupplies,
-  getSuppliers,
   markQuotationsProvisioned,
   upsertEventSupplyProvisions,
   getBaseCatalogo,
   getEstadoCompras,
 } from "../../../services/logistics.service";
 import {
-  FurnitureItem,
-  RecipeItem,
   Supplier,
-  Supply,
   UNIT_FAMILY_INFO,
   grossQty,
 } from "../../../types/logistics.types";

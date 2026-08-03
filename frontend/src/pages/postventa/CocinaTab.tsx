@@ -1,13 +1,6 @@
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
-import { useEffect, useState } from "react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  getAllRecipeItems,
-  getCatalogServiceNameIds,
-  getFurnitureItems,
-  getSupplies,
-} from "../../services/logistics.service";
 import {
   FurnitureItem,
   RecipeItem,
