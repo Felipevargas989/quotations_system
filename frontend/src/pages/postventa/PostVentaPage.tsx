@@ -2432,18 +2432,6 @@ function ServiciosTab({
           <span>Total servicios</span>
           <span className="font-medium">{clp(subtotal)}</span>
         </div>
-        {tipAmount > 0 && (
-          <div className="flex justify-between">
-            <span>Propina sugerida ({tipPct}%)</span>
-            <span className="font-medium">{clp(tipAmount)}</span>
-          </div>
-        )}
-        <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
-          <span>Total a pagar</span>
-          <span>{clp(total)}</span>
-        </div>
-        {/* Descuento bajo el total (pedido de Felipe 03-08): resultados
-            arriba, lo editable abajo junto a los comentarios. */}
         {/* Descuento en dos líneas (panel angosto, 03-08): etiqueta y
             monto arriba; toggle e input a lo ancho abajo. */}
         <div className="space-y-1.5">
@@ -2495,6 +2483,16 @@ function ServiciosTab({
               />
             </div>
           </span>
+        </div>
+        {tipAmount > 0 && (
+          <div className="flex justify-between">
+            <span>Propina sugerida ({tipPct}%)</span>
+            <span className="font-medium">{clp(tipAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
+          <span>Total a pagar</span>
+          <span>{clp(total)}</span>
         </div>
       </div>
 
