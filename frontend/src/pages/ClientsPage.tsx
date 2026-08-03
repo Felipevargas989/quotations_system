@@ -357,12 +357,12 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!user) return;
 
-    // Validate form before submission
-    if (!validateForm()) {
-      // Los campos con problema ya quedan marcados en rojo (aviso 36 de
-      // la lista del destierro: la ventana repetía lo visible).
-      return;
-    }
+    // (03-08) Fuera la validación del correo/teléfono de la FICHA: el
+    // formulario ya no captura esos campos (viven en las personas desde
+    // el boceto 30-07), así que validaba datos viejos invisibles y
+    // bloqueaba el guardado sin remedio posible. Los datos de la
+    // persona tienen su propio portero más abajo, con aviso junto al
+    // campo.
 
     // Puerta trasera cerrada (30-07): no se puede pasar a Particulares
     // una ficha con más de una persona de contacto.
