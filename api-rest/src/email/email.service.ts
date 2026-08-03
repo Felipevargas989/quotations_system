@@ -465,6 +465,18 @@ export class EmailService {
     companyId?: Company['id'],
     portalToken?: string | null,
   ): Promise<void> {
+    // Silenciador de laboratorio (03-08, pedido de Felipe): con
+    // EMAILS_SILENCED=1 NINGÚN correo sale de este servicio — solo se
+    // anota en la bitácora qué habría salido y para quién. La variable
+    // vive únicamente en el servidor del lab; producción no la tiene y
+    // este bloque queda dormido. El probador de correos (preview) no
+    // pasa por aquí a propósito: sus muestras van al propio Felipe.
+    if (process.env.EMAILS_SILENCED === '1') {
+      this.logger.info(
+        `Correo SUPRIMIDO (laboratorio): ${emailStructure} → ${JSON.stringify(to)}`,
+      );
+      return;
+    }
     // Check if email should be sent based on company configuration
     // Only check for client-facing emails
     if (EMAILS_SEND_TO_CLIENT.includes(emailStructure) && companyId) {
