@@ -2628,7 +2628,7 @@ function RegistrarPagoPanel({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="col-span-2">
               <label className="text-xs font-semibold text-gray-600">
                 Medio de pago
               </label>
