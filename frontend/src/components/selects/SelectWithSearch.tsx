@@ -21,17 +21,43 @@ export default function SelectWithSearch({
   // abre hacia ARRIBA (caso típico: campo al fondo de una ventana con
   // scroll interno, ej. Proveedor en Nuevo insumo). 22-07-2026.
   const [openUp, setOpenUp] = useState(false);
+  // Alto máximo de la LISTA interna (px): se recalcula al abrir para
+  // que el panel completo (buscador incluido) quepa en el espacio real
+  // del contenedor con scroll más cercano — dentro de un modal, el
+  // espacio no es la ventana (pillada de Felipe 03-08: el panel se
+  // abría hacia arriba y el modal se lo recortaba con buscador y todo).
+  const [listMaxH, setListMaxH] = useState(240);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Alto estimado de la lista desplegada (buscador + max-h-60).
   const LIST_HEIGHT = 320;
+  // Alto del buscador + bordes del panel (se resta del espacio).
+  const PANEL_EXTRA = 62;
 
   useEffect(() => {
     if (!isOpen || !dropdownRef.current) return;
     const rect = dropdownRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenUp(spaceBelow < LIST_HEIGHT && rect.top > spaceBelow);
+    // Límites del contenedor con scroll más cercano (o la ventana).
+    let topLimit = 0;
+    let bottomLimit = window.innerHeight;
+    let node: HTMLElement | null = dropdownRef.current.parentElement;
+    while (node) {
+      const oy = getComputedStyle(node).overflowY;
+      if (oy === "auto" || oy === "scroll" || oy === "hidden") {
+        const r = node.getBoundingClientRect();
+        topLimit = Math.max(topLimit, r.top);
+        bottomLimit = Math.min(bottomLimit, r.bottom);
+        break;
+      }
+      node = node.parentElement;
+    }
+    const spaceBelow = bottomLimit - rect.bottom - 8;
+    const spaceAbove = rect.top - topLimit - 8;
+    const up = spaceBelow < LIST_HEIGHT && spaceAbove > spaceBelow;
+    setOpenUp(up);
+    const disponible = (up ? spaceAbove : spaceBelow) - PANEL_EXTRA;
+    setListMaxH(Math.max(120, Math.min(240, disponible)));
   }, [isOpen]);
 
   // Búsqueda inteligente del sistema: sin tildes, por palabras en
@@ -203,8 +229,8 @@ export default function SelectWithSearch({
             </div>
           </div>
 
-          {/* Options list */}
-          <div className="max-h-60 overflow-y-auto">
+          {/* Options list (alto adaptado al espacio real disponible) */}
+          <div className="overflow-y-auto" style={{ maxHeight: listMaxH }}>
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option, index) => (
                 <button
