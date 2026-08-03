@@ -1237,12 +1237,14 @@ function EventModal({
                 {linkCopiado ? "Copiado" : "Enlace de pagos"}
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
-            >
-              <X size={18} />
-            </button>
+            {!fullPage && (
+              <button
+                onClick={onClose}
+                className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
         {cancelError && (
@@ -1281,8 +1283,44 @@ function EventModal({
             </p>
           )}
 
+        {/* Pestañas PEGAJOSAS (03-08): la página scrollea natural y
+            estas se quedan arriba. El chip de saldo acompaña siempre. */}
+        <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200 items-center sticky top-0 bg-white z-30 rounded-t-2xl">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-3 text-sm font-semibold border-b-2 ${
+                tab === t.key
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+          <span
+            className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${saldo > 0 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700"}`}
+            title="Saldo pendiente del evento"
+          >
+            Saldo {clp(saldo)}
+          </span>
+        </div>
+
+        {/* Panels */}
+        <div
+          className={
+            fullPage
+              ? "p-6 flex-1"
+              : "p-6 flex-1 overflow-y-auto min-h-0"
+          }
+        >
+          {tab === "pagos" && (
+            <div className="space-y-6">
+              {/* Montos y progreso: viven SOLO aquí (decisión de Felipe
+                  03-08 — son información de pagos, no de toda la ficha). */}
         {/* KPIs */}
-        <div className="shrink-0 flex gap-4 px-6 pt-5">
+        <div className="flex gap-4">
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
             <p className="text-xs uppercase text-gray-500">Monto total</p>
             <p className="text-lg font-bold">{clp(event.total)}</p>
@@ -1312,7 +1350,7 @@ function EventModal({
         </div>
 
         {/* Progress */}
-        <div className="shrink-0 px-6 pt-2 pb-4">
+        <div className="pt-1">
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
               className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
@@ -1327,33 +1365,7 @@ function EventModal({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 ${
-                tab === t.key
-                  ? "text-blue-600 border-blue-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
 
-        {/* Panels */}
-        <div
-          className={
-            fullPage
-              ? "p-6 flex-1"
-              : "p-6 flex-1 overflow-y-auto min-h-0"
-          }
-        >
-          {tab === "pagos" && (
-            <div className="space-y-6">
               {pendingReceipts > 0 && (
                 <button
                   type="button"
@@ -1368,8 +1380,11 @@ function EventModal({
                   <span className="underline">Revisar</span>
                 </button>
               )}
-              <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
-              <div className="space-y-3">
+              {/* Dos columnas en pantallas anchas (03-08): calendario
+                  protagonista a la izquierda; registrar y reembolsos en
+                  la lateral. En pantalla chica se apilan igual que antes. */}
+              <div className="grid gap-6 lg:grid-cols-[1fr_380px] items-start">
+              <div className="order-2 lg:order-1 space-y-3">
                 <h4 className="text-sm font-bold text-gray-800">
                   Calendario de pagos
                 </h4>
@@ -1556,10 +1571,14 @@ function EventModal({
                   );
                 })}
               </div>
-              <ReembolsosManager
-                quotationId={event.quotationId}
-                onChanged={onDataChanged}
-              />
+              <div className="order-1 lg:order-2 space-y-6">
+                <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
+                <ReembolsosManager
+                  quotationId={event.quotationId}
+                  onChanged={onDataChanged}
+                />
+              </div>
+              </div>
               {editTx && (
                 <EditRegistroModal
                   tx={editTx}
