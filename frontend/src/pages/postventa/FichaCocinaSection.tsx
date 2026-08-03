@@ -874,22 +874,61 @@ ${paginas}
 
       {!multiDay ? (
         <>
-          {/* ---- Evento de un día: vista de siempre ---- */}
+          {/* ---- Un día (03-08): la pantalla es la PREVISUALIZACIÓN del
+              papel — mismos títulos que la ficha impresa. ---- */}
           {slots.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {slots.map(slotCard)}
-            </div>
+            <>
+              <h5 className="text-xs font-bold uppercase tracking-wider text-gray-600 pt-1">
+                Servicios del día
+              </h5>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                {slots.map(slotCard)}
+              </div>
+            </>
           )}
 
+          {/* Retiro de bodega EN PANTALLA (antes solo existía en el
+              papel: no se podía revisar antes de imprimir). */}
+          {(() => {
+            const rows = dayBodegaTotals(1);
+            if (rows.length === 0) return null;
+            return (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                  Retiro de bodega — totales del evento
+                </div>
+                <div className="px-3 py-1 columns-1 sm:columns-2 xl:columns-3 gap-6">
+                  {rows.map((c) => (
+                    <div
+                      key={c.supply.id}
+                      className="flex items-center justify-between gap-2 py-0.5 text-sm border-b border-gray-50 break-inside-avoid"
+                    >
+                      <span className="text-gray-800">{c.supply.name}</span>
+                      <span className="font-bold text-gray-900 shrink-0">
+                        {fmtQty(c.totalBase)}{" "}
+                        {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {fixedList.length > 0 && (
-            <p className="text-xs text-gray-500">
-              Servicios fijos:{" "}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-sm text-blue-900">
+              <span className="text-[10px] font-bold uppercase tracking-wide mr-1">
+                Servicios fijos:
+              </span>
               {fixedList
                 .map((f) => `${f.nombre} ×${f.quantity || 1}`)
                 .join(" · ")}
-            </p>
+            </div>
           )}
 
+          <h5 className="text-xs font-bold uppercase tracking-wider text-gray-600 pt-1">
+            Notas del evento
+          </h5>
           <div className="flex items-center gap-2">
             <input
               value={newNote}
@@ -1003,7 +1042,7 @@ ${paginas}
                 {open && (
                   <div className="p-3 space-y-2.5">
                     {daySlots.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                         {daySlots.map(slotCard)}
                       </div>
                     ) : (
