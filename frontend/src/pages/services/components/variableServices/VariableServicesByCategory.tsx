@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ConfirmInline from "../../../../components/ConfirmInline";
 import SectionChipSelect from "../../../../components/selects/SectionChipSelect";
 import {
   Edit,
@@ -84,6 +85,8 @@ export default function VariableServicesByCategory({
   searchActive = false,
 }: Props) {
   // --- Service drag (within a category+sección) ---
+  // Confirmación de eliminar anclada al basurero (Tanda 3a).
+  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [dragCategory, setDragCategory] = useState<number | null>(null);
   const [dragSection, setDragSection] = useState<number | 0 | null>(null);
   const [dragServiceId, setDragServiceId] = useState<number | null>(null);
@@ -864,14 +867,28 @@ export default function VariableServicesByCategory({
                             <Trash2 size={16} />
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            title="Eliminar"
-                            onClick={() => onDelete(service.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <span className="relative">
+                            <button
+                              type="button"
+                              title="Eliminar"
+                              onClick={() => setConfirmDelId(service.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                            {confirmDelId === service.id && (
+                              <span className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 whitespace-nowrap block">
+                                <ConfirmInline
+                                  question="¿Eliminar este servicio?"
+                                  onYes={() => {
+                                    setConfirmDelId(null);
+                                    onDelete(service.id);
+                                  }}
+                                  onNo={() => setConfirmDelId(null)}
+                                />
+                              </span>
+                            )}
+                          </span>
                         )}
                       </div>
                     </div>

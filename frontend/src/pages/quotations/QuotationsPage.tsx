@@ -56,6 +56,11 @@ export default function QuotationsPage() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Cambio post-venta → pre-venta pendiente de confirmación (Tanda 3a).
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    quotationId: string;
+    newStatus: string;
+  } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const initialStatusFilter = [
     QuotationStatus.SOLICITADA,
@@ -284,27 +289,26 @@ export default function QuotationsPage() {
   };
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
-    try {
-      // Guardia de estados: volver de post-venta (aceptada/realizada/
-      // cancelada) a pre-venta elimina el plan de pagos — se avisa antes.
-      // Si hay pagos registrados, el backend rechaza el cambio.
-      const POST_SALE = ["aceptada", "realizada", "cancelada"];
-      const PRE_SALE = ["solicitada", "enviada", "en_negociacion", "rechazada"];
-      const current = quotations.find((q) => q.id === quotationId);
-      if (
-        current &&
-        POST_SALE.includes(current.quotation_status) &&
-        PRE_SALE.includes(newStatus)
-      ) {
-        const ok = confirm(
-          "Esta cotización ya pasó a Post-Venta con su plan de pagos.\n\nSi no hay pagos registrados, el plan se eliminará y la cotización volverá a pre-venta. Si ya hay pagos registrados, el sistema no permitirá el cambio (para eso está Anular en Post-Venta).\n\n¿Continuar?",
-        );
-        if (!ok) {
-          await fetchQuotations(statusFilter);
-          return;
-        }
-      }
+    // Guardia de estados: volver de post-venta (aceptada/realizada/
+    // cancelada) a pre-venta elimina el plan de pagos — se pregunta
+    // antes con la ventanita de la casa (Tanda 3a: adiós al confirm()
+    // del navegador). Si hay pagos registrados, el backend rechaza.
+    const POST_SALE = ["aceptada", "realizada", "cancelada"];
+    const PRE_SALE = ["solicitada", "enviada", "en_negociacion", "rechazada"];
+    const current = quotations.find((q) => q.id === quotationId);
+    if (
+      current &&
+      POST_SALE.includes(current.quotation_status) &&
+      PRE_SALE.includes(newStatus)
+    ) {
+      setPendingStatusChange({ quotationId, newStatus });
+      return;
+    }
+    await applyStatusChange(quotationId, newStatus);
+  };
 
+  const applyStatusChange = async (quotationId: string, newStatus: string) => {
+    try {
       if (newStatus === QuotationStatus.ACEPTADA) {
         const quotation = quotations.find((q) => q.id === quotationId);
         if (quotation) {
@@ -731,6 +735,47 @@ export default function QuotationsPage() {
           </table>
         </div>
       </div>
+
+      {/* Ventanita de la casa (Tanda 3a): confirmar la vuelta de
+          post-venta a pre-venta (reemplaza al confirm() del navegador). */}
+      {pendingStatusChange && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5 space-y-3">
+            <h3 className="text-base font-bold text-gray-900">
+              Volver a pre-venta
+            </h3>
+            <p className="text-sm text-gray-600">
+              Esta cotización ya pasó a Post-Venta con su plan de pagos. Si no
+              hay pagos registrados, el plan se eliminará y la cotización
+              volverá a pre-venta. Si ya hay pagos registrados, el sistema no
+              permitirá el cambio (para eso está Anular en Post-Venta).
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingStatusChange(null);
+                  void fetchQuotations(statusFilter);
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = pendingStatusChange;
+                  setPendingStatusChange(null);
+                  void applyStatusChange(p.quotationId, p.newStatus);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

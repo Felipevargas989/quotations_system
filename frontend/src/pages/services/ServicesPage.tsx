@@ -360,9 +360,9 @@ export default function ServicesPage() {
     }
   };
 
+  // (03-08, Tanda 3a) La confirmación vive en la fila (cajita de la
+  // casa anclada al basurero), ya no en el diálogo del navegador.
   const handleDeleteService = async (serviceId: number, type: ServiceType) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este servicio?"))
-      return;
     try {
       if (type === ServiceType.VARIABLE) {
         await removeVariableService(serviceId);

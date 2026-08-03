@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { toast } from "../../components/toast/Toast";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -983,7 +984,7 @@ function EventModal({
       setConfirmTxId(null);
       onDataChanged();
     } catch {
-      alert("No se pudo eliminar el registro. Intenta de nuevo.");
+      toast.error("No se pudo eliminar el registro. Intenta de nuevo.");
     } finally {
       setDeletingTx(false);
     }

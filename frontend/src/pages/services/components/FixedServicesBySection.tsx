@@ -24,6 +24,7 @@ import {
   updateFixedSection,
 } from "../../../services/services.service";
 import { FixedService } from "../../../types/services.types";
+import ConfirmInline from "../../../components/ConfirmInline";
 import SectionChipSelect from "../../../components/selects/SectionChipSelect";
 
 // SERVICIOS FIJOS EN UNA SOLA CAJA (migración 53, diseño de Felipe
@@ -71,6 +72,8 @@ export default function FixedServicesBySection({
     queryClient.invalidateQueries({ queryKey: ["fixedSections"] });
 
   const [open, setOpen] = useState(true);
+  // Confirmación de eliminar anclada al basurero (Tanda 3a).
+  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSections, setShowSections] = useState(false);
 
@@ -312,14 +315,28 @@ export default function FixedServicesBySection({
               <Trash2 size={16} />
             </span>
           ) : (
-            <button
-              type="button"
-              title="Eliminar"
-              onClick={() => onDelete(s.id)}
-              className="text-red-500 hover:text-red-700"
-            >
-              <Trash2 size={16} />
-            </button>
+            <span className="relative">
+              <button
+                type="button"
+                title="Eliminar"
+                onClick={() => setConfirmDelId(s.id)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <Trash2 size={16} />
+              </button>
+              {confirmDelId === s.id && (
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 whitespace-nowrap block">
+                  <ConfirmInline
+                    question="¿Eliminar este servicio?"
+                    onYes={() => {
+                      setConfirmDelId(null);
+                      onDelete(s.id);
+                    }}
+                    onNo={() => setConfirmDelId(null)}
+                  />
+                </span>
+              )}
+            </span>
           )}
         </div>
       </div>

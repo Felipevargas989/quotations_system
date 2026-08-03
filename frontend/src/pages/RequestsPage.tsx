@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ConfirmInline from "../components/ConfirmInline";
 import { toast } from "../components/toast/Toast";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,8 @@ export default function RequestsPage() {
   const { user, userRole, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Confirmación de eliminar anclada al basurero (Tanda 3a).
+  const [confirmDelId, setConfirmDelId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] =
     useState<QuotationWithClient | null>(null);
@@ -72,9 +75,7 @@ export default function RequestsPage() {
       return;
     }
 
-    if (!confirm("¿Estás seguro de que quieres eliminar este requerimiento?"))
-      return;
-
+    // (Tanda 3a) La confirmación vive anclada al basurero de la fila.
     try {
       const { error } = await deleteQuotation(requestId);
 
@@ -242,13 +243,27 @@ export default function RequestsPage() {
               <Edit size={16} />
             </button>
             {ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) && (
-              <button
-                onClick={() => handleDelete(request.id)}
-                className="text-red-600 hover:text-red-900"
-                title="Solo administradores pueden eliminar requerimientos"
-              >
-                <Trash2 size={16} />
-              </button>
+              <span className="relative">
+                <button
+                  onClick={() => setConfirmDelId(request.id)}
+                  className="text-red-600 hover:text-red-900"
+                  title="Solo administradores pueden eliminar requerimientos"
+                >
+                  <Trash2 size={16} />
+                </button>
+                {confirmDelId === request.id && (
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 whitespace-nowrap block">
+                    <ConfirmInline
+                      question="¿Eliminar este requerimiento?"
+                      onYes={() => {
+                        setConfirmDelId(null);
+                        void handleDelete(request.id);
+                      }}
+                      onNo={() => setConfirmDelId(null)}
+                    />
+                  </span>
+                )}
+              </span>
             )}
           </div>
         </td>
