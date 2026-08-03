@@ -10,7 +10,6 @@ import {
   SurveyTemplate,
 } from "../../../types/customerSatisfactionSurveys.types";
 import {
-  ChevronDown,
   FileText,
   Calendar,
   User,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import { formatISOUTCDateToString } from "../../../utils/dates";
 import Navigation from "./navigatino";
+import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 
 export default function AnswersView() {
   const { company } = useAuth();
@@ -185,25 +185,25 @@ export default function AnswersView() {
           >
             Seleccionar Cotización
           </label>
-          <div className="relative">
-            <select
-              id="quotation-select"
-              value={selectedQuotationId}
-              onChange={(e) => setSelectedQuotationId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white pr-10"
-            >
-              <option value="">Selecciona una cotización</option>
-              {uniqueQuotations.map((quotation: any) => (
-                <option key={quotation.id} value={quotation.id}>
-                  {quotation.quotation_number} -{" "}
-                  {quotation.clients?.name || "Sin cliente"}
-                  {quotation.event_date &&
-                    ` (${formatISOUTCDateToString(quotation.event_date)})`}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
+          {/* Desplegable del sistema con buscador: la lista crece con
+              cada evento y el nativo del navegador no permite filtrar. */}
+          <SelectWithSearch
+            options={uniqueQuotations.map((quotation: any) => ({
+              value: quotation.id,
+              label: `${quotation.quotation_number} - ${
+                quotation.clients?.name || "Sin cliente"
+              }${
+                quotation.event_date
+                  ? ` (${formatISOUTCDateToString(quotation.event_date)})`
+                  : ""
+              }`,
+            }))}
+            value={selectedQuotationId}
+            onChange={(value) => setSelectedQuotationId(value)}
+            placeholder="Selecciona una cotización"
+            searchPlaceholder="Buscar por número o cliente…"
+            noResultsText="Sin resultados"
+          />
         </div>
 
         {/* Quotation Navigation */}

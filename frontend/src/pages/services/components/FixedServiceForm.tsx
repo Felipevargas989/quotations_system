@@ -15,6 +15,7 @@ import {
   SELECTABLE_CALCULATION_TYPES,
 } from "../../../constants/services";
 import { NumberInput } from "../../../components/inputs";
+import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import { useAuth } from "../../../contexts/AuthContext";
 import RecipeTab from "./RecipeTab";
 import FixedCostSection from "./FixedCostSection";
@@ -242,21 +243,23 @@ export default function FixedServiceForm({
             >
               Tipo de Cálculo *
             </label>
-            <select
-              id="calculation_type"
-              name="calculation_type"
+            {/* Desplegable del sistema (pedido de Felipe 30-07): el
+                nativo del navegador se veía ajeno al resto. */}
+            <SelectWithSearch
+              options={SELECTABLE_CALCULATION_TYPES.map((type) => ({
+                value: type,
+                label: CALCULATION_TYPES_NAMES[type],
+              }))}
               value={formData.calculation_type || ""}
-              onChange={handleInputChange}
+              onChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  calculation_type: value as CalculationType,
+                }))
+              }
+              placeholder="Seleccionar tipo"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Seleccionar tipo</option>
-              {SELECTABLE_CALCULATION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {CALCULATION_TYPES_NAMES[type]}
-                </option>
-              ))}
-            </select>
+            />
             <div className="text-sm text-gray-500">
               {formData.calculation_type !== CalculationType.FIJO &&
                 CALCULATION_TYPES_EXPLANATIONS[formData.calculation_type]}

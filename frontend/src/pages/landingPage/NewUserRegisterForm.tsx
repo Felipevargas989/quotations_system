@@ -18,6 +18,7 @@ import { LeadData } from "../../types/leads.types";
 // import { SignupDto } from "../../types/users.types";
 // import { useAuth } from "../../contexts/AuthContext";
 import { CURRENCIES } from "../../constants/companies";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
 interface FormData {
   nombreContacto: string;
@@ -60,6 +61,12 @@ export default function NewUserRegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Portero: los desplegables de la casa no bloquean el envío como
+    // hacía el nativo con required — la puerta valida aquí.
+    if (!formData.personasEmpresa || !formData.ventasAnuales) {
+      setError("Completa los campos marcados con *");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -231,22 +238,24 @@ export default function NewUserRegisterForm() {
               <Users className="inline w-4 h-4 mr-2" />
               ¿Cuántas personas trabajan en tu empresa? *
             </label>
-            <select
-              id="personasEmpresa"
-              name="personasEmpresa"
+            {/* Desplegable del sistema: el nativo del navegador se veía
+                ajeno al resto. */}
+            <SelectWithSearch
+              options={[
+                { value: "1-5", label: "1-5 personas" },
+                { value: "6-10", label: "6-10 personas" },
+                { value: "11-25", label: "11-25 personas" },
+                { value: "26-50", label: "26-50 personas" },
+                { value: "51-100", label: "51-100 personas" },
+                { value: "100+", label: "Más de 100 personas" },
+              ]}
               value={formData.personasEmpresa}
-              onChange={handleInputChange}
+              onChange={(value) =>
+                setFormData((prev) => ({ ...prev, personasEmpresa: value }))
+              }
+              placeholder="Selecciona una opción"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              <option value="">Selecciona una opción</option>
-              <option value="1-5">1-5 personas</option>
-              <option value="6-10">6-10 personas</option>
-              <option value="11-25">11-25 personas</option>
-              <option value="26-50">26-50 personas</option>
-              <option value="51-100">51-100 personas</option>
-              <option value="100+">Más de 100 personas</option>
-            </select>
+            />
           </div>
 
           {/* Ventas Anuales */}
@@ -258,21 +267,23 @@ export default function NewUserRegisterForm() {
               <DollarSign className="inline w-4 h-4 mr-2" />
               ¿Cuánto venden anualmente? *
             </label>
-            <select
-              id="ventasAnuales"
-              name="ventasAnuales"
+            {/* Desplegable del sistema: el nativo del navegador se veía
+                ajeno al resto. */}
+            <SelectWithSearch
+              options={[
+                { value: "Menos de 50MM CLP", label: "Menos de 50MM CLP" },
+                { value: "50MM - 100MM CLP", label: "50MM - 100MM CLP" },
+                { value: "100MM - 500MM CLP", label: "100MM - 500MM CLP" },
+                { value: "500MM - 1B CLP", label: "500MM - 1B CLP" },
+                { value: "Más de 1B CLP", label: "Más de 1B CLP" },
+              ]}
               value={formData.ventasAnuales}
-              onChange={handleInputChange}
+              onChange={(value) =>
+                setFormData((prev) => ({ ...prev, ventasAnuales: value }))
+              }
+              placeholder="Selecciona una opción"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              <option value="">Selecciona una opción</option>
-              <option value="Menos de 50MM CLP">Menos de 50MM CLP</option>
-              <option value="50MM - 100MM CLP">50MM - 100MM CLP</option>
-              <option value="100MM - 500MM CLP">100MM - 500MM CLP</option>
-              <option value="500MM - 1B CLP">500MM - 1B CLP</option>
-              <option value="Más de 1B CLP">Más de 1B CLP</option>
-            </select>
+            />
           </div>
 
           {/* Currency Selector */}
@@ -284,20 +295,19 @@ export default function NewUserRegisterForm() {
               <Coins className="inline w-4 h-4 mr-2" />
               Moneda *
             </label>
-            <select
-              id="currency"
-              name="currency"
+            {/* Desplegable del sistema: el nativo del navegador se veía
+                ajeno al resto. */}
+            <SelectWithSearch
+              options={CURRENCIES.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
               value={formData.currency}
-              onChange={handleInputChange}
+              onChange={(value) =>
+                setFormData((prev) => ({ ...prev, currency: value }))
+              }
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              {CURRENCIES.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
+            />
             <p className="mt-1 text-sm text-gray-500">
               Selecciona la moneda para tus cotizaciones y pagos
             </p>

@@ -11,6 +11,7 @@ import {
 } from "../../types/quotations.types";
 import { Company } from "../../types/companies.types";
 import { NumberInput } from "../../components/inputs";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { normalizePhone } from "../../utils/phone";
 
 // Formulario público de solicitud (rediseño 22-07, aprobado por Felipe):
@@ -413,24 +414,21 @@ export default function CreateQuotationPublic() {
                 >
                   Tipo de cliente *
                 </label>
-                <select
-                  id="client_type"
-                  required
+                {/* Desplegable del sistema (Tanda 3b): cierre del destierro. */}
+                <SelectWithSearch
+                  options={clientTypesList.map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
                   value={formData.client_type}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      client_type: e.target.value,
+                      client_type: value,
                     }))
                   }
-                  className={inputCls(false)}
-                >
-                  {clientTypesList.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  required
+                />
               </div>
             </div>
 
@@ -444,24 +442,20 @@ export default function CreateQuotationPublic() {
                   >
                     Tipo de evento *
                   </label>
-                  <select
-                    id="event_type"
-                    required
+                  <SelectWithSearch
+                    options={Object.values(EventType).map((type) => ({
+                      value: type,
+                      label: type,
+                    }))}
                     value={formData.event_type}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       setFormData((prev) => ({
                         ...prev,
-                        event_type: e.target.value as EventType,
+                        event_type: value as EventType,
                       }))
                     }
-                    className={inputCls(false)}
-                  >
-                    {Object.values(EventType).map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+                    required
+                  />
                 </div>
 
                 <div>

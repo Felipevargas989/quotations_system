@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../constants/permissions";
+import SelectWithSearch from "../components/selects/SelectWithSearch";
 import {
   getUsers,
   createUser as createUserService,
@@ -539,22 +540,21 @@ export default function UserManagementPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Rol
                 </label>
-                <select
+                {/* Desplegable del sistema en vez del nativo del
+                    navegador, como en ClientsPage. */}
+                <SelectWithSearch
+                  options={roles.map((role) => ({
+                    value: role.value,
+                    label: role.label,
+                  }))}
                   value={createForm.role}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setCreateForm((prev) => ({
                       ...prev,
-                      role: e.target.value as UserRole,
+                      role: v as UserRole,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {roles.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 
