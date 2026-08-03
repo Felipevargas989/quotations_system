@@ -180,15 +180,19 @@ export default function ServicesPage() {
   const fixedCostIds = new Set(Object.keys(fixedCosts).map(Number));
 
   // "Tiene receta/costos": para variables, que exista costo calculado desde su
-  // receta; para fijos, que tenga al menos una línea de costo.
+  // receta; para fijos, que tenga al menos una línea de costo. Los marcados
+  // "sin costo en Eventia" (migración 57) son su propia casilla: no son
+  // pendientes ni tienen receta — cuentan $0 real por diseño.
   const variableHasRecipe = (s: VariableService) =>
     recipeCosts[s.id] !== undefined;
   const fixedHasCosts = (s: FixedService) => fixedCostIds.has(s.id);
+  const variableBucket = (s: VariableService) =>
+    s.no_cost ? "sincosto" : variableHasRecipe(s) ? "con" : "sin";
+  const fixedBucket = (s: FixedService) =>
+    s.no_cost ? "sincosto" : fixedHasCosts(s) ? "con" : "sin";
 
-  const passesRecipeFilter = (has: boolean) =>
-    !recipeFilterActive ||
-    (has && recipeFilter.includes("con")) ||
-    (!has && recipeFilter.includes("sin"));
+  const passesRecipeFilter = (bucket: string) =>
+    !recipeFilterActive || recipeFilter.includes(bucket);
 
   const searchedVariables = searchingSvc
     ? variableServices.filter((s) => matchesSearch(svcSearch, s.name))
@@ -198,22 +202,29 @@ export default function ServicesPage() {
     : fixedServices;
 
   const shownVariableServices = searchedVariables
-    .filter((s) => passesRecipeFilter(variableHasRecipe(s)))
+    .filter((s) => passesRecipeFilter(variableBucket(s)))
     .filter((s) => showInactive || s.is_active !== false);
   const shownFixedServices = searchedFixed
-    .filter((s) => passesRecipeFilter(fixedHasCosts(s)))
+    .filter((s) => passesRecipeFilter(fixedBucket(s)))
     .filter((s) => showInactive || s.is_active !== false);
   const inactiveCount =
     variableServices.filter((s) => s.is_active === false).length +
     fixedServices.filter((s) => s.is_active === false).length;
 
   const conCount =
-    variableServices.filter(variableHasRecipe).length +
-    fixedServices.filter(fixedHasCosts).length;
+    variableServices.filter((s) => variableBucket(s) === "con").length +
+    fixedServices.filter((s) => fixedBucket(s) === "con").length;
+  const sinCostoCount =
+    variableServices.filter((s) => s.no_cost).length +
+    fixedServices.filter((s) => s.no_cost).length;
   const totalCount = variableServices.length + fixedServices.length;
   const RECIPE_FILTER_OPTIONS: MultiSelectOption[] = [
-    { value: "con", label: `Con receta / costos (${conCount})` },
-    { value: "sin", label: `Sin receta / costos (${totalCount - conCount})` },
+    { value: "con", label: `Con receta (${conCount})` },
+    {
+      value: "sin",
+      label: `Sin receta (${totalCount - conCount - sinCostoCount})`,
+    },
+    { value: "sincosto", label: `Sin costo (${sinCostoCount})` },
   ];
 
   const loadRecipeCosts = async () => {
@@ -530,7 +541,7 @@ export default function ServicesPage() {
             options={RECIPE_FILTER_OPTIONS}
             value={recipeFilter}
             onChange={setRecipeFilter}
-            placeholder="Filtrar por receta / costos"
+            placeholder="Filtrar por receta"
             className="w-full"
           />
         </div>

@@ -26,6 +26,7 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../utils/eventConsolidation";
+import { canonicalServiceName } from "../../utils/searchMatch";
 // La propina no es venta ni margen (24-07, Felipe): el porqué y la
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
@@ -96,7 +97,12 @@ export default function GestionTab({
   const recipes = base.data?.recipes ?? [];
   const supplies = base.data?.supplies ?? [];
   const furniture = base.data?.furniture ?? [];
-  const nameIds = base.data?.nameIds ?? { variable: {}, fixed: {} };
+  const nameIds = base.data?.nameIds ?? {
+    variable: {},
+    fixed: {},
+    sinCostoVariable: [],
+    sinCostoFijoIds: [],
+  };
   const prov: QuotationProvisioning = gestionQuery.data?.prov ?? {
     provisioned_at: null,
     provisioned_cost: null,
@@ -179,10 +185,15 @@ export default function GestionTab({
       .filter((m) => m.item)
       .sort((a, b) => a.item.name.localeCompare(b.item.name));
 
+    // Los marcados "sin costo en Eventia" (migración 57) no son
+    // pendientes: la advertencia de sin-receta los deja pasar.
+    const sinCostoVar = new Set(nameIds.sinCostoVariable);
     return {
       insumos: insumosArr,
       mobiliario: mob,
-      sinReceta: [...new Set(acc.noRecipe)],
+      sinReceta: [...new Set(acc.noRecipe)].filter(
+        (n) => !sinCostoVar.has(canonicalServiceName(n)),
+      ),
       fijosServicios: r.fixedServices.filter(
         (f) => f.id !== undefined,
       ) as EventFixedService[],
@@ -701,6 +712,7 @@ export default function GestionTab({
           quotationId={String(quote.id)}
           personas={personas}
           fixedServices={fijosServicios}
+          noCostIds={new Set(nameIds.sinCostoFijoIds)}
           onCostChange={setCostoRecursos}
         />
       )}

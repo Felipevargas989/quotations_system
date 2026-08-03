@@ -56,12 +56,16 @@ export default function EventResourcesSection({
   quotationId,
   personas,
   fixedServices,
+  noCostIds,
   onCostChange,
 }: {
   readonly companyId: number;
   readonly quotationId: string;
   readonly personas: number;
   readonly fixedServices: EventFixedService[];
+  // Fijos marcados "sin costo en Eventia" (migración 57): la
+  // advertencia de sin-costo-definido los deja pasar.
+  readonly noCostIds?: ReadonlySet<number>;
   readonly onCostChange: (total: number) => void;
 }) {
   const queryClient = useQueryClient();
@@ -184,9 +188,12 @@ export default function EventResourcesSection({
   const noCostServices = useMemo(
     () =>
       fixedServices.filter(
-        (fs) => (itemsByService.get(fs.id) || []).length === 0,
+        (fs) =>
+          (itemsByService.get(fs.id) || []).length === 0 &&
+          // Marcados "sin costo en Eventia": no son pendientes.
+          !noCostIds?.has(fs.id),
       ),
-    [fixedServices, itemsByService],
+    [fixedServices, itemsByService, noCostIds],
   );
 
   const importFromFixed = async (services: EventFixedService[]) => {
@@ -548,13 +555,6 @@ export default function EventResourcesSection({
             </button>
           </div>
         </div>
-      )}
-
-      {noCostServices.length > 0 && (
-        <p className="text-[11px] text-gray-400">
-          Servicios fijos sin recursos de costo en el catálogo:{" "}
-          {noCostServices.map((s) => s.nombre).join(" · ")}
-        </p>
       )}
 
       {lines.length === 0 ? (

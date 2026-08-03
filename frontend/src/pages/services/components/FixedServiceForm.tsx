@@ -67,6 +67,7 @@ export default function FixedServiceForm({
         min_price: service.min_price,
         max_price: service.max_price,
         price_per_person: service.price_per_person,
+        no_cost: service.no_cost || false,
       });
     } else {
       // Reset form for new service
@@ -374,6 +375,25 @@ export default function FixedServiceForm({
                 </div>
               )}
           </div>
+
+          {/* Sin costo en Eventia (migración 57): Exclusividad… —
+              cuenta $0 real y deja de figurar como pendiente de costos. */}
+          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.no_cost || false}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, no_cost: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>
+              No lleva costo en Eventia
+              <span className="block text-xs text-gray-500">
+                Cuenta costo $0 real y no aparece como pendiente de costos.
+              </span>
+            </span>
+          </label>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <button

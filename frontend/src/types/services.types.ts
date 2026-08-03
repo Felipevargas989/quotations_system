@@ -9,6 +9,9 @@ export interface VariableService {
   price: number;
   category: string;
   is_active?: boolean;
+  // Migración 57: no lleva costos dentro de Eventia (Ticket diario,
+  // alojamientos…) — cuenta $0 real y no figura como pendiente.
+  no_cost?: boolean;
   company_id: Company["id"];
 }
 export interface FixedService {
@@ -30,6 +33,8 @@ export interface FixedService {
   // por persona. Costo en un evento = cost_fixed + cost_per_person × personas.
   cost_fixed?: number;
   cost_per_person?: number;
+  // Migración 57: no lleva costos dentro de Eventia (Exclusividad…).
+  no_cost?: boolean;
 }
 
 // A service category is now a first-class entity.

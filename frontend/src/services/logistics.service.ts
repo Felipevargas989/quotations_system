@@ -310,6 +310,10 @@ export const getCatalogServiceNameIds = async (
 ): Promise<{
   variable: Record<string, number>;
   fixed: Record<string, number>;
+  // Migración 57: servicios marcados "sin costo en Eventia" — las
+  // advertencias de Gestión los excluyen (no son pendientes).
+  sinCostoVariable: string[]; // nombres canónicos
+  sinCostoFijoIds: number[];
 }> => {
   // Claves canónicas (sin tildes, sin prefijo "02 - ", espacios
   // flexibles): las fotos de items de cotizaciones antiguas encuentran
@@ -318,16 +322,29 @@ export const getCatalogServiceNameIds = async (
   try {
     const data = await apiRequest(API_ROUTES.LOGISTICS_CATALOG_NAMES, "GET");
     const variable: Record<string, number> = {};
-    (data?.variable || []).forEach((s: { id: number; name: string }) => {
-      variable[norm(s.name)] = s.id;
-    });
+    const sinCostoVariable: string[] = [];
+    (data?.variable || []).forEach(
+      (s: { id: number; name: string; no_cost?: boolean }) => {
+        variable[norm(s.name)] = s.id;
+        if (s.no_cost) sinCostoVariable.push(norm(s.name));
+      },
+    );
     const fixed: Record<string, number> = {};
-    (data?.fixed || []).forEach((s: { id: number; name: string }) => {
-      fixed[norm(s.name)] = s.id;
-    });
-    return { variable, fixed };
+    const sinCostoFijoIds: number[] = [];
+    (data?.fixed || []).forEach(
+      (s: { id: number; name: string; no_cost?: boolean }) => {
+        fixed[norm(s.name)] = s.id;
+        if (s.no_cost) sinCostoFijoIds.push(s.id);
+      },
+    );
+    return { variable, fixed, sinCostoVariable, sinCostoFijoIds };
   } catch {
-    return { variable: {}, fixed: {} };
+    return {
+      variable: {},
+      fixed: {},
+      sinCostoVariable: [],
+      sinCostoFijoIds: [],
+    };
   }
 };
 
@@ -1026,20 +1043,33 @@ export const deleteFixedServiceCostItem = async (id: number) => {
 // reintenta y avisa (las funciones sueltas tragan errores por historia).
 
 const mapNameIds = (data: {
-  variable?: { id: number; name: string }[];
-  fixed?: { id: number; name: string }[];
-} | null): { variable: Record<string, number>; fixed: Record<string, number> } => {
+  variable?: { id: number; name: string; no_cost?: boolean }[];
+  fixed?: { id: number; name: string; no_cost?: boolean }[];
+} | null): NameIdsConCosto => {
   const norm = canonicalServiceName;
   const variable: Record<string, number> = {};
+  const sinCostoVariable: string[] = [];
   (data?.variable || []).forEach((s) => {
     variable[norm(s.name)] = s.id;
+    if (s.no_cost) sinCostoVariable.push(norm(s.name));
   });
   const fixed: Record<string, number> = {};
+  const sinCostoFijoIds: number[] = [];
   (data?.fixed || []).forEach((s) => {
     fixed[norm(s.name)] = s.id;
+    if (s.no_cost) sinCostoFijoIds.push(s.id);
   });
-  return { variable, fixed };
+  return { variable, fixed, sinCostoVariable, sinCostoFijoIds };
 };
+
+// Migración 57: además de los mapas nombre→id, viajan los marcados
+// "sin costo en Eventia" para que Gestión no los regañe.
+export interface NameIdsConCosto {
+  variable: Record<string, number>;
+  fixed: Record<string, number>;
+  sinCostoVariable: string[]; // nombres canónicos
+  sinCostoFijoIds: number[];
+}
 
 const mapFixedCosts = (
   data:
@@ -1066,7 +1096,7 @@ export const getBaseCatalogo = async (): Promise<{
   supplies: Supply[];
   furniture: FurnitureItem[];
   suppliers: Supplier[];
-  nameIds: { variable: Record<string, number>; fixed: Record<string, number> };
+  nameIds: NameIdsConCosto;
   fixedCosts: Record<
     number,
     { cost_fixed: number | null; cost_per_person: number | null }

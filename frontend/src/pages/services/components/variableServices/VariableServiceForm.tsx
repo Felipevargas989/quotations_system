@@ -100,7 +100,11 @@ export default function VariableServiceForm({
   // Initialize form data when editing
   useLayoutEffect(() => {
     if (isEditing && service) {
-      setFormData({ name: service.name, price: service.price });
+      setFormData({
+        name: service.name,
+        price: service.price,
+        no_cost: service.no_cost || false,
+      });
     } else {
       resetForm();
     }
@@ -368,6 +372,26 @@ export default function VariableServiceForm({
               El servicio aparecerá en cada categoría marcada, sin duplicarse.
             </p>
           </div>
+
+          {/* Sin costo en Eventia (migración 57): Ticket diario,
+              alojamientos… — cuenta $0 real y deja de figurar como
+              pendiente de receta. */}
+          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.no_cost || false}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, no_cost: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>
+              No lleva costo en Eventia
+              <span className="block text-xs text-gray-500">
+                Cuenta costo $0 real y no aparece como pendiente de receta.
+              </span>
+            </span>
+          </label>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <button
