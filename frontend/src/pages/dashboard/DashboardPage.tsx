@@ -689,6 +689,35 @@ export default function DashboardPage() {
     return false;
   };
 
+  // Venta y margen del mes en el tooltip de AMBOS gráficos (pedido
+  // Felipe 03-08): la VENTA (lo vendido por fecha de evento, no la
+  // caja por cuotas) y el margen — los mismos números de la tabla
+  // de abajo, para que todo el Dashboard cuadre entre sí.
+  const ventaDelMes = new Map(
+    data.moneyByMonth.map((r) => [r.monthKey, r.ventas]),
+  );
+  const lineasDePlata = (monthKey: string): string[] => {
+    const ventas = ventaDelMes.get(monthKey) || 0;
+    if (!ventas) return [];
+    const lineas = [
+      `Venta: ${formatCurrency(ventas, company?.currency || "CLP")}`,
+    ];
+    const m = marginByMonth.get(monthKey);
+    if (m && m.costo > 0) {
+      const margen = ventas - m.costo;
+      const pct = ((margen * 100) / ventas).toLocaleString("es-CL", {
+        maximumFractionDigits: 0,
+      });
+      lineas.push(
+        `Margen: ${m.estimado ? "~" : ""}${formatCurrency(
+          margen,
+          company?.currency || "CLP",
+        )} (${pct}%)`,
+      );
+    }
+    return lineas;
+  };
+
   // Chart configuration for the line chart
   const chartOptions = {
     responsive: true,
@@ -700,6 +729,16 @@ export default function DashboardPage() {
       },
       title: {
         display: false,
+      },
+      tooltip: {
+        callbacks: {
+          afterBody: (items: { dataIndex: number }[]) =>
+            items.length
+              ? lineasDePlata(
+                  data.requestsByMonth[items[0].dataIndex]?.monthKey || "",
+                )
+              : [],
+        },
       },
     },
     scales: {
@@ -751,6 +790,16 @@ export default function DashboardPage() {
       },
       title: {
         display: false,
+      },
+      tooltip: {
+        callbacks: {
+          afterBody: (items: { dataIndex: number }[]) =>
+            items.length
+              ? lineasDePlata(
+                  data.eventsByMonth[items[0].dataIndex]?.monthKey || "",
+                )
+              : [],
+        },
       },
     },
     scales: {
