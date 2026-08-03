@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 // Cajita de sección de la casa (30-07, pedido de Felipe): reemplaza al
@@ -32,6 +32,10 @@ export default function SectionChipSelect({
   size = "sm",
 }: Props) {
   const [open, setOpen] = useState(false);
+  // Si abajo no cabe, el menú se levanta hacia ARRIBA (pillada de
+  // Felipe 03-08 en el "Día" al final de la pestaña Servicios).
+  const [openUp, setOpenUp] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
   const actual =
     options.find((o) => o.id === value)?.name || zeroLabel || "";
 
@@ -39,9 +43,20 @@ export default function SectionChipSelect({
     <span className="relative inline-block">
       <button
         type="button"
+        ref={anchorRef}
         onClick={(e) => {
           e.stopPropagation();
-          if (!disabled) setOpen((v) => !v);
+          if (disabled) return;
+          if (!open && anchorRef.current) {
+            const r = anchorRef.current.getBoundingClientRect();
+            const alto = Math.min(
+              240,
+              (options.length + (zeroLabel === null ? 0 : 1)) * 34 + 10,
+            );
+            const abajo = window.innerHeight - r.bottom;
+            setOpenUp(abajo < alto && r.top > abajo);
+          }
+          setOpen((v) => !v);
         }}
         className={`flex items-center justify-between gap-1 border bg-white hover:border-gray-300 ${
           size === "md"
@@ -63,7 +78,11 @@ export default function SectionChipSelect({
               setOpen(false);
             }}
           />
-          <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block max-h-60 overflow-y-auto">
+          <span
+            className={`absolute right-0 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block max-h-60 overflow-y-auto ${
+              openUp ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
+          >
             {[
               ...(zeroLabel === null ? [] : [{ id: 0, name: zeroLabel }]),
               ...options,
