@@ -733,12 +733,14 @@ export default function QuotationsPage() {
                                 v === quotation.id ? null : quotation.id,
                               )
                             }
-                            className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+                            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
                             title="Cambiar estado"
                           >
-                            {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-                            {STATUS_LABEL[quotation.quotation_status] ||
-                              quotation.quotation_status}
+                            <span className="truncate">
+                              {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+                              {STATUS_LABEL[quotation.quotation_status] ||
+                                quotation.quotation_status}
+                            </span>
                             <ChevronDown size={12} className="shrink-0" />
                           </button>
                           {statusMenuId === quotation.id && (
@@ -765,7 +767,7 @@ export default function QuotationsPage() {
                                     className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                                   >
                                     <span
-                                      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+                                      className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
                                     >
                                       {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
                                     </span>
