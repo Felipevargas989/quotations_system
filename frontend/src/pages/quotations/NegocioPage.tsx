@@ -485,7 +485,8 @@ export default function NegocioPage() {
           {(
             [
               ["seguimiento", "Seguimiento"],
-              ["cotizacion", "Cotización"],
+              // Mismo nombre que en Post-Venta: ES la misma pieza.
+              ["cotizacion", "Servicios"],
             ] as const
           ).map(([k, l]) => (
             <button
