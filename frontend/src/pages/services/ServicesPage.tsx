@@ -288,6 +288,15 @@ export default function ServicesPage() {
   };
 
   const handleServiceFormSuccess = async () => {
+    // Cerrar ANTES de refrescar (pillada Felipe 03-08): el cierre iba al
+    // final de los refrescos, y si el usuario abría otra ficha mientras
+    // tanto, el apagado tardío cerraba SU modal recién abierto.
+    if (serviceType === ServiceType.VARIABLE) {
+      setShowVariableServiceForm(false);
+    } else {
+      setShowFixedServiceForm(false);
+    }
+    setEditingService(null);
     await loadServices();
     await loadRecipeCosts();
     // La despensa compartida (base-catalogo) viaja con la marca no_cost:
@@ -296,12 +305,6 @@ export default function ServicesPage() {
     await queryClient.invalidateQueries({
       queryKey: ["logistica", "compras", "base"],
     });
-    if (serviceType === ServiceType.VARIABLE) {
-      setShowVariableServiceForm(false);
-    } else {
-      setShowFixedServiceForm(false);
-    }
-    setEditingService(null);
   };
 
   const handleCloseServiceForm = () => {
