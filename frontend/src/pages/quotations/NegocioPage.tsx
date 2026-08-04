@@ -113,7 +113,16 @@ const IconoWhatsApp = () => (
   </svg>
 );
 
-const ESTADOS_VIVOS_FICHA = ["solicitada", "enviada", "en_negociacion"];
+// Estados cuyo cambio vive en esta ficha: los vivos Y la rechazada
+// (revivirla ES gestión comercial — pillada de Felipe 04-08: quedó
+// atrapada sin vuelta). Aceptada/realizada/cancelada quedan como chip
+// fijo: sus vueltas llevan ritual de plan de pagos (Post-Venta).
+const ESTADOS_VIVOS_FICHA = [
+  "solicitada",
+  "enviada",
+  "en_negociacion",
+  "rechazada",
+];
 
 const fechaCorta = (iso: string) =>
   new Date(iso).toLocaleDateString("es-CL", {
