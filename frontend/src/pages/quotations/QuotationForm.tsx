@@ -3752,10 +3752,6 @@ export default function QuotationForm() {
                               {money(margenSinDesc)} ({pctSinDesc.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="flex justify-between text-red-600">
-                            <span>El descuento te cuesta</span>
-                            <span>−{money(discountAmountUI)}</span>
-                          </div>
                         </div>
                       )}
                       {margenCotizador.sinReceta.length > 0 && (
