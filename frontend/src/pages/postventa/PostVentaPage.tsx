@@ -1659,7 +1659,6 @@ function EventModal({
 }
 
 // ---- Servicios tab (editable: personas, servicios, descuento % / $, comentarios) ----
-const GRID = "1fr 62px 110px 118px 28px";
 const deep = (x: any) => JSON.parse(JSON.stringify(x || []));
 export function ServiciosTab({
   quote,
@@ -1984,6 +1983,13 @@ export function ServiciosTab({
           : g,
       ),
     );
+  // Cantidad de un fijo (misma botonera − / +); piso 1, quitar por la ✕.
+  const setFixedQty = (i: number, qty: number) =>
+    setFixed((prev) =>
+      prev.map((f, idx) =>
+        idx === i ? { ...f, quantity: Math.max(1, qty) } : f,
+      ),
+    );
 
   // Agrega un servicio del catálogo AL GRUPO gi (nunca adivina el grupo).
   // Se identifica por `codigo`: con el desplegable agrupado por secciones
@@ -2155,49 +2161,62 @@ export function ServiciosTab({
   // Quitar un servicio pasa por confirmacion inline (es delicado aunque
   // el cambio recien se aplique al Guardar).
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
-  const row = (
-    nombre: string,
-    cant: number,
-    precio: number,
-    key: string,
-    onRemove: () => void,
-  ) =>
-    confirmRowKey === key ? (
-      <div
-        key={key}
-        className="flex items-center justify-between py-2 border-t border-gray-100 text-sm"
-      >
-        <span className="text-gray-900 truncate mr-3">{nombre}</span>
-        <ConfirmInline
-          question="¿Quitar del evento?"
-          yesLabel="Sí, quitar"
-          onYes={() => {
-            onRemove();
-            setConfirmRowKey(null);
-          }}
-          onNo={() => setConfirmRowKey(null)}
-        />
-      </div>
-    ) : (
-      <div
-        key={key}
-        style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
-        className="items-center py-2 border-t border-gray-100 text-sm"
-      >
-        <div className="text-gray-900">{nombre}</div>
-        <div className="text-right text-gray-500">{cant}</div>
-        <div className="text-right text-gray-500">{clp(precio)}</div>
-        <div className="text-right font-medium">{clp(precio * cant)}</div>
-        <button
-          type="button"
-          onClick={() => setConfirmRowKey(key)}
-          className="text-red-500 hover:text-red-700 text-right"
-          title="Quitar"
+  // Fila de un servicio FIJO (04-08, unificada con varRow para que la
+  // lista hable UN solo idioma): nombre · $precio unitario · − cantidad
+  // + · $TOTAL del ítem · ✕. El total es la MISMA cuenta de siempre
+  // (precio × cantidad — los fijos NO multiplican por personas). El
+  // candado no aplica acá: es de la sección fija de variables.
+  const fixedRow = (f: any, i: number) => {
+    const key = `f-${i}`;
+    if (confirmRowKey === key) {
+      return (
+        <div
+          key={key}
+          className="flex items-center justify-between py-2 border-b border-gray-100 text-sm"
         >
-          ✕
-        </button>
+          <span className="text-gray-900 truncate mr-3">{f.nombre}</span>
+          <ConfirmInline
+            question="¿Quitar del evento?"
+            yesLabel="Sí, quitar"
+            onYes={() => {
+              removeFixed(i);
+              setConfirmRowKey(null);
+            }}
+            onNo={() => setConfirmRowKey(null)}
+          />
+        </div>
+      );
+    }
+    return (
+      <div
+        key={key}
+        className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
+      >
+        <span className="text-gray-800 flex items-center gap-2 min-w-0">
+          <span className="truncate">{f.nombre}</span>
+        </span>
+        <span className="flex items-center gap-3 shrink-0">
+          <span className="text-gray-500">{clp(f.precio || 0)}</span>
+          <QuantitySelector
+            value={f.quantity || 1}
+            onChange={(q) => setFixedQty(i, q)}
+            min={1}
+          />
+          <span className="font-medium text-gray-900 w-20 text-right">
+            {clp((f.precio || 0) * (f.quantity || 1))}
+          </span>
+          <button
+            type="button"
+            onClick={() => setConfirmRowKey(key)}
+            className="text-red-500 hover:text-red-700"
+            title="Quitar"
+          >
+            ✕
+          </button>
+        </span>
       </div>
     );
+  };
 
   // Fila de un ítem VARIABLE (ajuste Felipe 04-08): nombre [+ candado si
   // es de sección fija] … $precio unitario · − cantidad + · $TOTAL del
@@ -2371,17 +2390,8 @@ export function ServiciosTab({
         </div>
       </div>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: GRID, gap: "10px" }}
-        className="text-xs uppercase text-gray-500 px-1 pb-1"
-      >
-        <div>Servicio</div>
-        <div className="text-right">Cant.</div>
-        <div className="text-right">Precio unit.</div>
-        <div className="text-right">Subtotal</div>
-        <div></div>
-      </div>
-
+      {/* La cabecera de columnas de la grilla se retiró (04-08): con
+          todas las filas en anatomía flex ya no describía nada. */}
       {varGroups.map((g, gi) => (
         <div key={`${g.category || "cat"}-${gi}`}>
           <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
@@ -2639,7 +2649,9 @@ export function ServiciosTab({
 
       {fixed.length > 0 && (
         <div>
-          <div className="text-xs font-bold uppercase text-green-700 bg-green-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
+          {/* Misma banda gris de los encabezados de categoría (04-08):
+              antes era verde y desentonaba — un solo idioma visual. */}
+          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
             <span>Servicios fijos</span>
             <span className="normal-case text-gray-800 font-bold">
               {clp(
@@ -2684,9 +2696,7 @@ export function ServiciosTab({
                       {rotulo}
                     </div>
                   )}
-                  {row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`, () =>
-                    removeFixed(i),
-                  )}
+                  {fixedRow(f, i)}
                 </div>
               );
             });
