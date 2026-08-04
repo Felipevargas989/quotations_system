@@ -1833,7 +1833,6 @@ export function ServiciosTab({
   // Agregar POR GRUPO (acordado 22-07): cada grupo tiene su propio
   // "+ Agregar servicio" — así dos categorías gemelas nunca se mezclan.
   const [addingToGroup, setAddingToGroup] = useState<number | null>(null);
-  const [addingFixed, setAddingFixed] = useState(false);
   // Desplegables artesanales (04-08, trasplante del cotizador): cuál está
   // abierto y qué se busca adentro. Se cierran al hacer clic afuera.
   // El de categoría es POR CAJA: cada grupo recién nacido tiene el suyo.
@@ -2840,22 +2839,27 @@ export function ServiciosTab({
         </div>
       ))}
 
-      {fixed.length > 0 && (
+      {/* Nivel EVENTO (03-08): línea divisoria + botón sobrio para la
+          caja nueva, separado del "agregar" de cada categoría. */}
+      <div className="flex items-center gap-3 border-t border-gray-200 mt-4 pt-4">
+        <button
+          type="button"
+          onClick={addGroup}
+          className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          + Agregar servicio
+        </button>
+      </div>
+
+      {/* Servicios fijos del evento — tarjeta propia, calco del cotizador
+          (04-08): título grande, lista seccionada adentro y el selector
+          SIEMPRE visible al final. Sin subtotal en el título — el
+          cotizador no lo muestra acá; el total vive en el Resumen. */}
+      <div className="bg-white rounded-xl shadow p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Servicios fijos del evento
+        </h3>
         <div>
-          {/* Misma banda gris de los encabezados de categoría (04-08):
-              antes era verde y desentonaba — un solo idioma visual. */}
-          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
-            <span>Servicios fijos</span>
-            <span className="normal-case text-gray-800 font-bold">
-              {clp(
-                fixed.reduce(
-                  (t: number, f: any) =>
-                    t + (f.precio || 0) * (f.quantity || 1),
-                  0,
-                ),
-              )}
-            </span>
-          </div>
           {/* Lista agrupada por secciones de fijos (calco del cotizador):
               se ordena por la posición del catálogo y se emite el rótulo
               azul cuando cambia la sección. El `codigo` guardado se cruza
@@ -2894,17 +2898,11 @@ export function ServiciosTab({
               );
             });
           })()}
-        </div>
-      )}
-
-      {/* Agregadores GLOBALES: la caja nueva nace directa (el panel azul
-          intermedio se jubiló el 04-08) y los servicios fijos. */}
-      <div className="mt-4">
-        {addingFixed ? (
-          /* Desplegable de fijos trasplantado del cotizador (04-08):
-              buscador pegajoso, agrupado por secciones de fijos y panel
-              que queda abierto para agregar varios seguidos. */
-          <div className="flex items-center gap-2">
+          {/* Slot de selección SIEMPRE al final, calco del cotizador: la
+              ventanita vive al final de la tarjeta, sin botón de
+              abrir/cerrar. Buscador pegajoso, agrupado por secciones y
+              panel que queda abierto para agregar varios seguidos. */}
+          <div className="flex items-center gap-2 py-2 border-b border-gray-100">
             <div className="relative dropdown-container flex-1">
               <button
                 type="button"
@@ -2991,42 +2989,8 @@ export function ServiciosTab({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setAddingFixed(false);
-                setOpenFixedPicker(false);
-              }}
-              className="text-xs text-gray-500 hover:text-gray-700"
-            >
-              Cancelar
-            </button>
           </div>
-        ) : (
-          // Nivel EVENTO (03-08): línea divisoria + botones sobrios, para
-          // no confundirse con el "agregar" de cada categoría.
-          <div className="flex items-center gap-3 border-t border-gray-200 mt-4 pt-4">
-            <button
-              type="button"
-              onClick={addGroup}
-              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              + Agregar servicio
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAddingFixed(true);
-                // El desplegable se abre de una, con el buscador listo.
-                setOpenFixedPicker(true);
-                setFixedSearch("");
-              }}
-              className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              + Agregar servicio fijo
-            </button>
-          </div>
-        )}
+        </div>
       </div>
       </div>
 
