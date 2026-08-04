@@ -7,8 +7,11 @@ import {
 } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowUpDown,
   ChevronDown,
   ChevronRight,
+  LayoutGrid,
+  List,
   MessageSquare,
   Pencil,
   Plus,
@@ -136,6 +139,12 @@ const TIPO_ETIQUETA: Record<string, string> = {
   otro: "📌 Otro",
 };
 
+const ORDEN_ETIQUETA: Record<string, string> = {
+  urgencia: "Urgencia",
+  fecha: "Fecha evento",
+  numero: "N°",
+};
+
 const ALL_STATUSES: QuotationStatus[] = [
   QuotationStatus.SOLICITADA,
   QuotationStatus.ENVIADA,
@@ -250,6 +259,7 @@ export default function QuotationsPage() {
       return "urgencia";
     }
   });
+  const [ordenMenuAbierto, setOrdenMenuAbierto] = useState(false);
   const cambiarOrdenTablero = (v: "urgencia" | "fecha" | "numero") => {
     setOrdenTablero(v);
     try {
@@ -870,29 +880,32 @@ export default function QuotationsPage() {
             />
           </div>
           {/* Tablero = embudo vivo (las 3 columnas SON el filtro);
-              Lista = archivo completo con el filtro de estados. */}
+              Lista = archivo completo. Iconitos: la barra andaba con
+              mucho botón (pillada Felipe 03-08). */}
           <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
             <button
               type="button"
               onClick={() => cambiarVista("tablero")}
-              className={`px-3.5 py-2 text-sm font-semibold ${
+              className={`px-3 py-2 ${
                 vista === "tablero"
                   ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-50"
+                  : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
+              title="Tablero"
             >
-              Tablero
+              <LayoutGrid size={16} />
             </button>
             <button
               type="button"
               onClick={() => cambiarVista("lista")}
-              className={`px-3.5 py-2 text-sm font-semibold border-l border-gray-300 ${
+              className={`px-3 py-2 border-l border-gray-300 ${
                 vista === "lista"
                   ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-50"
+                  : "bg-white text-gray-500 hover:bg-gray-50"
               }`}
+              title="Lista (archivo completo)"
             >
-              Lista
+              <List size={16} />
             </button>
           </div>
           {vista === "lista" && (
@@ -906,30 +919,54 @@ export default function QuotationsPage() {
               />
             </div>
           )}
+          {/* Un solo chip de orden con menú de la casa: tres botones
+              eran bulla. */}
           {vista === "tablero" && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
-              Ordenar:
-              {(
-                [
-                  ["urgencia", "Urgencia"],
-                  ["fecha", "Fecha evento"],
-                  ["numero", "N°"],
-                ] as const
-              ).map(([v, l]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => cambiarOrdenTablero(v)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${
-                    ordenTablero === v
-                      ? "bg-gray-800 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+            <span className="relative inline-block shrink-0">
+              <button
+                type="button"
+                onClick={() => setOrdenMenuAbierto((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                title="Ordenar tarjetas dentro de cada columna"
+              >
+                <ArrowUpDown size={14} />
+                {ORDEN_ETIQUETA[ordenTablero]}
+                <ChevronDown size={12} />
+              </button>
+              {ordenMenuAbierto && (
+                <>
+                  <span
+                    className="fixed inset-0 z-10 block"
+                    onClick={() => setOrdenMenuAbierto(false)}
+                  />
+                  <span className="absolute right-0 top-full mt-1 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                    {(
+                      [
+                        ["urgencia", "Urgencia"],
+                        ["fecha", "Fecha evento"],
+                        ["numero", "N°"],
+                      ] as const
+                    ).map(([v, l]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => {
+                          setOrdenMenuAbierto(false);
+                          cambiarOrdenTablero(v);
+                        }}
+                        className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 ${
+                          ordenTablero === v
+                            ? "font-semibold text-blue-600"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </span>
+                </>
+              )}
+            </span>
           )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
