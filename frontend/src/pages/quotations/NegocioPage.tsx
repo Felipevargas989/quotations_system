@@ -12,14 +12,16 @@ import {
   Mail,
   MessageSquare,
   Pencil,
+  Phone,
+  Tag,
   Trash2,
   Upload,
+  Users,
   X,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import ConfirmInline from "../../components/ConfirmInline";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import QuotationViewer from "../../components/QuotationViewer";
 import {
   Quotation,
@@ -60,12 +62,24 @@ import { formatISOUTCDateToString } from "../../utils/dates";
 import { formatPhone } from "../../utils/phone";
 import { normalizeText } from "../../utils/searchMatch";
 
-const TIPO_ETIQUETA: Record<string, string> = {
-  llamada: "📞 Llamada",
-  correo: "✉️ Correo",
-  reunion: "🤝 Reunión",
-  whatsapp: "💬 WhatsApp",
-  otro: "📌 Otro",
+// Tipos de gestión con los iconos de línea de la casa (pedido de
+// Felipe 04-08: los emojis desentonaban).
+const TIPOS_GESTION: { v: string; l: string }[] = [
+  { v: "llamada", l: "Llamada" },
+  { v: "correo", l: "Correo" },
+  { v: "reunion", l: "Reunión" },
+  { v: "whatsapp", l: "WhatsApp" },
+  { v: "otro", l: "Otro" },
+];
+const nombreTipo = (v: string) =>
+  TIPOS_GESTION.find((t) => t.v === v)?.l || v;
+
+const IconoTipo = ({ tipo, size = 14 }: { readonly tipo: string; readonly size?: number }) => {
+  if (tipo === "llamada") return <Phone size={size} />;
+  if (tipo === "correo") return <Mail size={size} />;
+  if (tipo === "reunion") return <Users size={size} />;
+  if (tipo === "whatsapp") return <IconoWhatsApp size={size} />;
+  return <Tag size={size} />;
 };
 
 const ESTADO_ETIQUETA: Record<string, string> = {
@@ -107,8 +121,8 @@ const contactoDe = (q: QuotationWithClient) => {
 };
 
 // El logo clásico de WhatsApp (pedido de Felipe: íconos tradicionales).
-const IconoWhatsApp = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+const IconoWhatsApp = ({ size = 16 }: { readonly size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
   </svg>
 );
@@ -570,6 +584,7 @@ function HiloSeguimiento({
 
   const [nota, setNota] = useState("");
   const [tipo, setTipo] = useState("");
+  const [tipoMenu, setTipoMenu] = useState(false);
   const [proxima, setProxima] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -688,8 +703,9 @@ function HiloSeguimiento({
                     · {fechaCorta(e.nota.created_at)}
                     {e.nota.updated_at ? " · editada" : ""}
                     {e.nota.tipo ? (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 rounded-full">
-                        {TIPO_ETIQUETA[e.nota.tipo] || e.nota.tipo}
+                      <span className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded-full align-middle">
+                        <IconoTipo tipo={e.nota.tipo} size={11} />
+                        {nombreTipo(e.nota.tipo)}
                       </span>
                     ) : null}
                   </div>
@@ -780,17 +796,59 @@ function HiloSeguimiento({
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="w-40">
-            <SelectWithSearch
-              options={Object.entries(TIPO_ETIQUETA).map(([v, l]) => ({
-                value: v,
-                label: l,
-              }))}
-              value={tipo}
-              onChange={setTipo}
-              placeholder="Tipo (opcional)"
-            />
-          </div>
+          {/* Cinco opciones fijas no necesitan buscador: menucito de
+              la casa con los iconos de línea. */}
+          <span className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => setTipoMenu((v) => !v)}
+              className="flex items-center gap-1.5 w-40 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {tipo ? (
+                <>
+                  <IconoTipo tipo={tipo} /> {nombreTipo(tipo)}
+                </>
+              ) : (
+                <span className="text-gray-400">Tipo (opcional)</span>
+              )}
+              <ChevronDown size={12} className="ml-auto shrink-0" />
+            </button>
+            {tipoMenu && (
+              <>
+                <span
+                  className="fixed inset-0 z-10 block"
+                  onClick={() => setTipoMenu(false)}
+                />
+                <span className="absolute left-0 bottom-full mb-1 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                  {tipo && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoMenu(false);
+                        setTipo("");
+                      }}
+                      className="block w-full text-left px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-50"
+                    >
+                      Sin tipo
+                    </button>
+                  )}
+                  {TIPOS_GESTION.map((t) => (
+                    <button
+                      key={t.v}
+                      type="button"
+                      onClick={() => {
+                        setTipoMenu(false);
+                        setTipo(t.v);
+                      }}
+                      className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <IconoTipo tipo={t.v} /> {t.l}
+                    </button>
+                  ))}
+                </span>
+              </>
+            )}
+          </span>
           <label className="flex items-center gap-1.5 text-xs text-gray-600">
             Próx. contacto
             <input
