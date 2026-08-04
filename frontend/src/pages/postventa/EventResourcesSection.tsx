@@ -46,6 +46,22 @@ export interface EventFixedService {
 // StrictMode (efectos duplicados en desarrollo).
 const importingFor = new Set<string>();
 
+// Receta de la consulta de recursos, compartida con el precalentado del
+// evento (03-08): UNA sola definición, frescura 0 intacta.
+export const recursosQueryOpts = (companyId: number, quotationId: string) => ({
+  queryKey: ["postventa", "recursos", companyId, quotationId],
+  staleTime: 0,
+  queryFn: async () => {
+    const [l, r, s, ci] = await Promise.all([
+      getEventResources(companyId, quotationId),
+      getManagementResources(companyId),
+      getSuppliers(companyId),
+      getAllFixedServiceCostItems(companyId),
+    ]);
+    return { lines: l, resources: r, suppliers: s, costItems: ci };
+  },
+});
+
 // Recursos asignados a UN evento (Fase 4): staff, arriendos y compras del
 // catálogo. Los recursos de los SERVICIOS FIJOS del evento se importan
 // automáticamente como líneas (instanciación, con chip de origen); el precio
@@ -83,19 +99,7 @@ export default function EventResourcesSection({
   // Recursos del evento vía React Query (Etapa 5, frescura inmediata:
   // asignaciones = costos del evento). El prefijo ["postventa"] hace
   // que el embudo refreshAfterSave también los alcance.
-  const recursosQuery = useQuery({
-    queryKey: ["postventa", "recursos", companyId, quotationId],
-    staleTime: 0,
-    queryFn: async () => {
-      const [l, r, s, ci] = await Promise.all([
-        getEventResources(companyId, quotationId),
-        getManagementResources(companyId),
-        getSuppliers(companyId),
-        getAllFixedServiceCostItems(companyId),
-      ]);
-      return { lines: l, resources: r, suppliers: s, costItems: ci };
-    },
-  });
+  const recursosQuery = useQuery(recursosQueryOpts(companyId, quotationId));
   const lines = recursosQuery.data?.lines ?? [];
   const resources = recursosQuery.data?.resources ?? [];
   const suppliers = recursosQuery.data?.suppliers ?? [];

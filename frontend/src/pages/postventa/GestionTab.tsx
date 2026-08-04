@@ -27,6 +27,27 @@ import {
   servicesSignature,
 } from "../../utils/eventConsolidation";
 import { canonicalServiceName } from "../../utils/searchMatch";
+
+// Receta de la consulta propia de Gestión, compartida con el
+// precalentado del evento (03-08): UNA sola definición para que la
+// pestaña y el prefetch no se desalineen jamás. Frescura 0 intacta.
+export const gestionQueryOpts = (
+  companyId: number | null,
+  quoteId: Quotation["id"],
+) => ({
+  queryKey: ["postventa", "gestion", companyId, quoteId],
+  staleTime: 0,
+  queryFn: async () => {
+    const [pr, ev] = await Promise.all([
+      getQuotationProvisioning(String(quoteId)),
+      getAcceptedEvents(companyId!),
+    ]);
+    return {
+      prov: pr,
+      allEvents: ev,
+    };
+  },
+});
 // La propina no es venta ni margen (24-07, Felipe): el porqué y la
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
@@ -80,19 +101,8 @@ export default function GestionTab({
   // Acá solo se pide lo propio del evento (aprovisionamiento + eventos).
   const base = useBaseLogistica(companyId);
   const gestionQuery = useQuery({
-    queryKey: ["postventa", "gestion", companyId, quote.id],
+    ...gestionQueryOpts(companyId, quote.id),
     enabled: companyId !== null,
-    staleTime: 0,
-    queryFn: async () => {
-      const [pr, ev] = await Promise.all([
-        getQuotationProvisioning(String(quote.id)),
-        getAcceptedEvents(companyId!),
-      ]);
-      return {
-        prov: pr,
-        allEvents: ev,
-      };
-    },
   });
   const recipes = base.data?.recipes ?? [];
   const supplies = base.data?.supplies ?? [];

@@ -53,7 +53,8 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 import { formatPhone } from "../../utils/phone";
-import GestionTab from "./GestionTab";
+import GestionTab, { gestionQueryOpts } from "./GestionTab";
+import { recursosQueryOpts } from "./EventResourcesSection";
 import CocinaTab from "./CocinaTab";
 import { getQuotationProvisioning } from "../../services/logistics.service";
 import {
@@ -966,6 +967,22 @@ function EventModal({
   });
   const quote = quoteQuery.data ?? null;
   const qLoading = quoteQuery.isPending;
+
+  // Precalentado del evento (03-08): apenas se abre, las pestañas lentas
+  // (Gestión, Recursos, Documentos) piden lo suyo por detrás y EN
+  // PARALELO. La frescura total sigue intacta — al entrar a la pestaña
+  // igual se re-pregunta —, solo desaparece el "cargando" en blanco de
+  // la primera visita. Recetas compartidas: las mismas que usan las
+  // pestañas, así el precalentado no puede desalinearse.
+  const { company: empresaPre } = useAuth();
+  const clientePre = useQueryClient();
+  useEffect(() => {
+    const cid = empresaPre?.id ? Number(empresaPre.id) : null;
+    if (!cid || !quote) return;
+    void clientePre.prefetchQuery(gestionQueryOpts(cid, quote.id));
+    void clientePre.prefetchQuery(recursosQueryOpts(cid, String(quote.id)));
+    void clientePre.prefetchQuery(docsQueryOpts(event.quotationId));
+  }, [empresaPre?.id, quote, event.quotationId, clientePre]);
 
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     { key: "pagos", label: "Pagos" },
@@ -3149,13 +3166,16 @@ function RefundRow({
 // de subida que pregunta la categoría al elegir el archivo, lista
 // agrupada a la izquierda (categorías vacías ocultas) y VISOR embebido
 // al lado — se acabó abrir una ventanita por cada documento. ----
+// Receta compartida con el precalentado del evento (03-08).
+const docsQueryOpts = (quotationId: string) => ({
+  queryKey: ["postventa", "docs", quotationId],
+  staleTime: 0,
+  queryFn: () => getDocumentsByQuotation(quotationId),
+});
+
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const queryClient = useQueryClient();
-  const docsQuery = useQuery({
-    queryKey: ["postventa", "docs", quotationId],
-    staleTime: 0,
-    queryFn: () => getDocumentsByQuotation(quotationId),
-  });
+  const docsQuery = useQuery(docsQueryOpts(quotationId));
   const docs = docsQuery.data ?? [];
   const loading = docsQuery.isPending;
   const [subiendo, setSubiendo] = useState(false);
