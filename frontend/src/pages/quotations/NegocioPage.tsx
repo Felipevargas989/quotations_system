@@ -41,6 +41,7 @@ import {
 } from "../../services/payments.service";
 import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
+import EventoCajitas from "../../components/EventoCajitas";
 import { ServiciosTab } from "../postventa/PostVentaPage";
 import {
   createFollowup,
@@ -459,32 +460,25 @@ export default function NegocioPage() {
           </div>
         </div>
 
-        {/* Lo que importa, en grande: las 3 cajitas de la casa (mismo
-            lenguaje que Pagos y Gestión de Post-Venta). */}
-        <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-3 px-6 py-4 border-b border-gray-200">
-          <div className="border border-gray-200 rounded-xl px-4 py-3">
-            <p className="text-xs text-gray-500">Tipo de evento</p>
-            <p className="text-lg font-bold text-gray-900 truncate">
-              {String(fila?.event_type || "—")}
-            </p>
-          </div>
-          <div className="border border-gray-200 rounded-xl px-4 py-3">
-            <p className="text-xs text-gray-500">Fecha del evento</p>
-            <p className="text-lg font-bold text-gray-900">
-              {fila ? formatISOUTCDateToString(fila.event_date) : "…"}
-            </p>
-          </div>
-          <div className="border border-gray-200 rounded-xl px-4 py-3">
-            <p className="text-xs text-gray-500">Monto</p>
-            <p className="text-lg font-bold text-gray-900">
-              ${fila?.total_amount.toLocaleString("es-CL")}
-              <span className="ml-2 text-sm font-medium text-gray-500">
-                · {detalle?.people_count ?? fila?.people_count ?? "—"} persona
-                {(detalle?.people_count ?? fila?.people_count) === 1 ? "" : "s"}
-              </span>
-            </p>
-          </div>
-        </div>
+        {/* Las cajitas del evento: pieza única compartida con
+            Post-Venta (diseño de Felipe 04-08). */}
+        <EventoCajitas
+          quotationId={fila.id}
+          tipo={String(fila.event_type || "")}
+          fechaInicio={fila.event_date}
+          fechaFin={fila.event_end_date}
+          adultos={Math.max(
+            0,
+            (detalle?.people_count ?? fila.people_count ?? 0) -
+              (detalle?.children_count ?? fila.children_count ?? 0),
+          )}
+          ninos={detalle?.children_count ?? fila.children_count ?? 0}
+          monto={fila.total_amount}
+          onFechaGuardada={() => {
+            void queryClient.invalidateQueries({ queryKey: ["quotations"] });
+            void queryClient.invalidateQueries({ queryKey: ["quotation", id] });
+          }}
+        />
 
         {/* Pestañas — misma estética que Post-Venta (subrayado azul),
             coherencia del sistema (pedido de Felipe 04-08). */}

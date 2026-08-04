@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "../../components/toast/Toast";
+import EventoCajitas from "../../components/EventoCajitas";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useNavigate, useParams } from "react-router-dom";
 import { resolveStorageUrl } from "../../services/storage.service";
@@ -1278,6 +1279,27 @@ function EventModal({
             </p>
           )}
 
+        {/* Las cajitas del evento: pieza única compartida con la ficha
+            del negocio (diseño de Felipe 04-08) — trae al encabezado la
+            fecha (editable) que antes ni se mostraba. */}
+        {quote && (
+          <EventoCajitas
+            quotationId={event.quotationId}
+            tipo={String(quote.event_type || "")}
+            fechaInicio={quote.event_date}
+            fechaFin={quote.event_end_date}
+            adultos={Math.max(
+              0,
+              (quote.people_count || 0) - (quote.children_count || 0),
+            )}
+            ninos={quote.children_count || 0}
+            monto={event.total}
+            pagado={netPaid}
+            saldo={saldo}
+            onFechaGuardada={onDataChanged}
+          />
+        )}
+
         {/* Pestañas PEGAJOSAS (03-08): la página scrollea natural y
             estas se quedan arriba. El chip de saldo acompaña siempre. */}
         <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200 items-center sticky top-0 bg-white z-30 rounded-t-2xl">
@@ -1306,38 +1328,8 @@ function EventModal({
         <div className="p-6 flex-1">
           {tab === "pagos" && (
             <div className="space-y-6">
-              {/* Montos y progreso: viven SOLO aquí (decisión de Felipe
-                  03-08 — son información de pagos, no de toda la ficha). */}
-        {/* KPIs */}
-        <div className="flex gap-4">
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <p className="text-xs uppercase text-gray-500">Monto total</p>
-            <p className="text-lg font-bold">{clp(event.total)}</p>
-          </div>
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <p className="text-xs uppercase text-gray-500">Pagado</p>
-            <p className="text-lg font-bold text-green-600">
-              {clp(event.paid)}
-            </p>
-          </div>
-          {event.refunded > 0 && (
-            <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-3">
-              <p className="text-xs uppercase text-gray-500">Reembolsado</p>
-              <p className="text-lg font-bold text-red-600">
-                − {clp(event.refunded)}
-              </p>
-            </div>
-          )}
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3">
-            <p className="text-xs uppercase text-gray-500">Saldo</p>
-            <p
-              className={`text-lg font-bold ${saldo > 0 ? "text-yellow-600" : "text-green-600"}`}
-            >
-              {clp(saldo)}
-            </p>
-          </div>
-        </div>
-
+              {/* Los montos viven arriba en las cajitas del evento
+                  (04-08); aquí queda el progreso de cuotas. */}
         {/* Progress */}
         <div className="pt-1">
           <div className="w-full bg-gray-200 rounded-full h-3">
