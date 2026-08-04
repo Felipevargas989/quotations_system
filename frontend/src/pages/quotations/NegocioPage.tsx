@@ -498,7 +498,7 @@ export default function NegocioPage() {
 
         <div className="p-6">
           {tab === "seguimiento" && fila && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               <HiloSeguimiento quotation={fila} />
               <AdjuntosComerciales quotationId={fila.id} />
             </div>
@@ -971,41 +971,15 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
   const esImagen = (url: string) => /\.(jpe?g|png|webp|gif|heic)/i.test(url);
 
   return (
-    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+    <div className="border border-gray-200 rounded-xl flex flex-col">
+      <h3 className="text-sm font-bold text-gray-700 flex items-center gap-1.5 px-4 pt-3">
         <Upload size={15} /> Respaldos comerciales
       </h3>
-      <p className="text-xs text-gray-500 -mt-1.5">
+      <p className="text-xs text-gray-500 px-4 pb-2">
         Pantallazos de WhatsApp, correos — la evidencia del último estado.
       </p>
 
-      <div className="space-y-2">
-        <input
-          type="file"
-          onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-          className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-        />
-        <input
-          type="text"
-          value={comentario}
-          onChange={(e) => setComentario(e.target.value)}
-          placeholder="Comentario (será la etiqueta del respaldo)"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => void subir()}
-            disabled={!archivo || subiendo}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-          >
-            {subiendo ? "Subiendo…" : "Subir respaldo"}
-          </button>
-        </div>
-        {err && <p className="text-xs text-red-600">{err}</p>}
-      </div>
-
-      <div className="divide-y divide-gray-100">
+      <div className="flex-1 overflow-y-auto max-h-[420px] px-4 divide-y divide-gray-100">
         {(() => {
           if (docsQuery.isPending)
             return <p className="py-2 text-sm text-gray-500">Cargando…</p>;
@@ -1055,6 +1029,34 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
             </div>
           ));
         })()}
+      </div>
+
+      {/* Acción abajo, como el cajón del hilo: los dos botones azules
+          quedan anclados a la misma altura (pedido de Felipe 04-08). */}
+      <div className="shrink-0 border-t border-gray-200 p-4 space-y-2.5 mt-3">
+        {err && <p className="text-xs text-red-600">{err}</p>}
+        <input
+          type="file"
+          onChange={(e) => setArchivo(e.target.files?.[0] || null)}
+          className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
+        />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <input
+            type="text"
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            placeholder="Comentario (será la etiqueta del respaldo)"
+            className="flex-1 min-w-[180px] px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onClick={() => void subir()}
+            disabled={!archivo || subiendo}
+            className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {subiendo ? "Subiendo…" : "Subir respaldo"}
+          </button>
+        </div>
       </div>
 
       {/* Visor en MODAL (pedido de Felipe 04-08): el respaldo se mira
