@@ -856,14 +856,16 @@ export default function QuotationsPage() {
                               (control para mover, compacto — la columna
                               ya dice el estado); abajo el semáforo junto
                               al Ver — la gestión y la acción, juntas. */}
-                          <div
-                            className="flex items-center justify-between gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          {/* Protección de click SOLO en los botones:
+                              el resto de la tarjeta navega a la ficha
+                              (pedido de Felipe 04-08). */}
+                          <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-bold text-gray-700">
                               #{quotation.quotation_number}
                             </span>
-                            {estadoPill(quotation, "icono")}
+                            <span onClick={(e) => e.stopPropagation()}>
+                              {estadoPill(quotation, "icono")}
+                            </span>
                           </div>
                           <p className="mt-1 text-sm font-medium text-gray-900 truncate">
                             {quotation.clients?.name}
@@ -877,10 +879,7 @@ export default function QuotationsPage() {
                               : ""}
                             {formatISOUTCDateToString(quotation.event_date)}
                           </p>
-                          <div
-                            className="mt-2 flex items-center justify-between gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <div className="mt-2 flex items-center justify-between gap-2">
                             <span
                               className="text-sm font-semibold text-gray-900"
                               title={
@@ -900,7 +899,10 @@ export default function QuotationsPage() {
                               {sem && (
                                 <button
                                   type="button"
-                                  onClick={() => navigate(`/negocio/${quotation.id}`)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/negocio/${quotation.id}`);
+                                  }}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
                                   title="Abrir bitácora de seguimiento"
                                 >
@@ -909,7 +911,10 @@ export default function QuotationsPage() {
                                 </button>
                               )}
                               <button
-                                onClick={() => handleViewQuotation(quotation)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewQuotation(quotation);
+                                }}
                                 className="text-sm font-semibold text-blue-600 hover:underline"
                                 title="Ver el documento de la cotización"
                               >

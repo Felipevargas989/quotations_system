@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Coins, Landmark } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { NumberInput } from "../../../components/inputs";
 import { updateCompany } from "../../../services/companies.service";
 import { uploadCompanyLogo } from "../../../services/storage.service";
 import { BankDetails } from "../../../types/companies.types";
@@ -359,13 +360,15 @@ export default function CompanyConfiguration() {
             <label className="block text-sm font-medium text-gray-700">
               💎 Umbral de cotización de alto valor (CLP)
             </label>
-            <input
-              type="number"
+            {/* La caja numérica de la casa: puntos de miles
+                automáticos (pedido de Felipe 04-08). */}
+            <NumberInput
+              name="high_value_threshold"
+              value={umbral ? Number(umbral) : undefined}
+              onChange={(value) => setUmbral(value ? String(value) : "")}
               min={0}
-              value={umbral}
-              onChange={(e) => setUmbral(e.target.value)}
-              placeholder="Ej: 1000000 — vacío = sin marca"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              formatThousands={true}
+              placeholder="Ej: 1.000.000 — vacío = sin marca"
             />
             <p className="text-xs text-gray-500">
               Las cotizaciones del tablero con monto igual o superior llevan
