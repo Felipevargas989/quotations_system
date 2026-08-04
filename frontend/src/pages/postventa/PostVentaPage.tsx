@@ -1654,7 +1654,7 @@ function EventModal({
 // ---- Servicios tab (editable: personas, servicios, descuento % / $, comentarios) ----
 const GRID = "1fr 62px 110px 118px 28px";
 const deep = (x: any) => JSON.parse(JSON.stringify(x || []));
-function ServiciosTab({
+export function ServiciosTab({
   quote,
   paidAmount,
   onSaved,
