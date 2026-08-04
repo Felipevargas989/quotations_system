@@ -9,6 +9,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
+  FileText,
   Mail,
   MessageSquare,
   Pencil,
@@ -446,6 +447,14 @@ export default function NegocioPage() {
                 <Mail size={15} /> Correo
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => setVerPdf(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
+              title="Ver el documento de la cotización"
+            >
+              <FileText size={15} /> PDF
+            </button>
           </div>
         </div>
 
@@ -468,6 +477,10 @@ export default function NegocioPage() {
             <p className="text-xs text-gray-500">Monto</p>
             <p className="text-lg font-bold text-gray-900">
               ${fila?.total_amount.toLocaleString("es-CL")}
+              <span className="ml-2 text-sm font-medium text-gray-500">
+                · {detalle?.people_count ?? fila?.people_count ?? "—"} persona
+                {(detalle?.people_count ?? fila?.people_count) === 1 ? "" : "s"}
+              </span>
             </p>
           </div>
         </div>
@@ -504,56 +517,182 @@ export default function NegocioPage() {
             </div>
           )}
           {tab === "cotizacion" && fila && (
-            <div className="max-w-2xl space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">Monto</p>
-                  <p className="font-semibold text-gray-900">
+            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
+              {/* La plata desglosada: solo las líneas que existen. */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <h3 className="text-sm font-bold text-gray-700">Desglose</h3>
+                {(() => {
+                  const d = detalle;
+                  const filas: {
+                    l: string;
+                    v: string;
+                    cls?: string;
+                  }[] = [];
+                  if (d?.subtotal_amount)
+                    filas.push({
+                      l: "Subtotal",
+                      v: `$${d.subtotal_amount.toLocaleString("es-CL")}`,
+                    });
+                  if (d?.discount_amount)
+                    filas.push({
+                      l: `Descuento${d.discount_percentage ? ` (${d.discount_percentage}%)` : ""}`,
+                      v: `−$${d.discount_amount.toLocaleString("es-CL")}`,
+                      cls: "text-red-600",
+                    });
+                  if (d?.tip_amount)
+                    filas.push({
+                      l: `Propina${d.tip_percentage ? ` (${d.tip_percentage}%)` : ""}`,
+                      v: `+$${d.tip_amount.toLocaleString("es-CL")}`,
+                    });
+                  return filas.map((f) => (
+                    <div
+                      key={f.l}
+                      className="flex justify-between text-sm text-gray-700"
+                    >
+                      <span>{f.l}</span>
+                      <span className={`font-medium ${f.cls || ""}`}>
+                        {f.v}
+                      </span>
+                    </div>
+                  ));
+                })()}
+                <div className="flex justify-between border-t border-gray-200 pt-2 text-gray-900">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-lg font-bold">
                     ${fila.total_amount.toLocaleString("es-CL")}
-                  </p>
+                  </span>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">Personas</p>
-                  <p className="font-semibold text-gray-900">
-                    {detalle?.people_count ?? fila.people_count ?? "—"}
+                {!!detalle?.value_per_person && (
+                  <p className="text-xs text-gray-500">
+                    ${detalle.value_per_person.toLocaleString("es-CL")} por
+                    persona · {detalle.people_count} persona
+                    {detalle.people_count === 1 ? "" : "s"}
+                    {detalle.children_count
+                      ? ` (${detalle.people_count - detalle.children_count} adultos + ${detalle.children_count} niños)`
+                      : ""}
                   </p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">Fecha del evento</p>
-                  <p className="font-semibold text-gray-900">
-                    {formatISOUTCDateToString(fila.event_date)}
-                  </p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">Tipo</p>
-                  <p className="font-semibold text-gray-900">
-                    {String(fila.event_type || "—")}
-                  </p>
+                )}
+                {detalle?.observations && (
+                  <div className="border-t border-gray-200 pt-2">
+                    <p className="text-xs text-gray-500">Observaciones</p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {detalle.observations}
+                    </p>
+                  </div>
+                )}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/quotation-form/${fila.id}`)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"
+                  >
+                    Editar cotización
+                  </button>
                 </div>
               </div>
-              {detalle?.observations && (
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">Observaciones</p>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                    {detalle.observations}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setVerPdf(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
-                >
-                  Ver PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/quotation-form/${fila.id}`)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"
-                >
-                  Editar cotización
-                </button>
+
+              {/* Lo cotizado, con el lenguaje de Post-Venta. */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+                <h3 className="text-sm font-bold text-gray-700">
+                  Servicios cotizados
+                </h3>
+                {(() => {
+                  const items = detalle?.items as unknown as {
+                    variable_services?: {
+                      category?: string;
+                      day?: number;
+                      people?: number;
+                      audience?: string;
+                      items?: {
+                        codigo?: string;
+                        nombre?: string;
+                        precio?: number;
+                        quantity?: number;
+                      }[];
+                    }[];
+                    fixed_services?: {
+                      codigo?: string;
+                      nombre?: string;
+                      precio?: number;
+                      quantity?: number;
+                      day?: number;
+                    }[];
+                  } | null;
+                  const cajas = items?.variable_services || [];
+                  const fijos = items?.fixed_services || [];
+                  if (!cajas.length && !fijos.length)
+                    return (
+                      <p className="text-sm text-gray-500">
+                        Esta cotización no tiene servicios en su foto.
+                      </p>
+                    );
+                  return (
+                    <>
+                      {cajas.map((caja, i) => (
+                        <div key={`${caja.category}-${i}`}>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {caja.category || "Servicios"}
+                            {caja.day ? ` · Día ${caja.day}` : ""}
+                            {caja.people
+                              ? ` · ${caja.people} persona${caja.people === 1 ? "" : "s"}`
+                              : ""}
+                            {caja.audience === "ninos" ? " · niños" : ""}
+                          </p>
+                          <div className="divide-y divide-gray-100">
+                            {(caja.items || []).map((it, j) => (
+                              <div
+                                key={`${it.codigo}-${j}`}
+                                className="py-1.5 flex justify-between gap-3 text-sm"
+                              >
+                                <span className="text-gray-800">
+                                  {it.nombre}
+                                  {(it.quantity || 1) > 1
+                                    ? ` ×${it.quantity}`
+                                    : ""}
+                                </span>
+                                <span className="text-gray-500 shrink-0">
+                                  ${(it.precio || 0).toLocaleString("es-CL")}{" "}
+                                  p/p
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {fijos.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Servicios fijos
+                          </p>
+                          <div className="divide-y divide-gray-100">
+                            {fijos.map((f, j) => (
+                              <div
+                                key={`${f.codigo}-${j}`}
+                                className="py-1.5 flex justify-between gap-3 text-sm"
+                              >
+                                <span className="text-gray-800">
+                                  {f.nombre}
+                                  {(f.quantity || 1) > 1
+                                    ? ` ×${f.quantity}`
+                                    : ""}
+                                  {f.day ? (
+                                    <span className="text-xs text-gray-400">
+                                      {" "}
+                                      · Día {f.day}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="text-gray-500 shrink-0">
+                                  ${(f.precio || 0).toLocaleString("es-CL")}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}

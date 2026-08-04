@@ -130,6 +130,13 @@ export default function QuotationForm() {
     | string
     | undefined;
   const navigate = useNavigate();
+  // Volver a DONDE VENÍAS (pillada Felipe 04-08: desde la ficha del
+  // negocio, "volver" botaba a la lista). Si se entró directo por URL
+  // (sin historia propia), la lista sigue siendo el puerto seguro.
+  const volver = () => {
+    if (window.history.state && window.history.state.idx > 0) navigate(-1);
+    else navigate("/quotations");
+  };
   const { user, userRole, company } = useAuth();
   const {
     products,
@@ -1461,7 +1468,7 @@ export default function QuotationForm() {
           ? "Cotización actualizada."
           : "Cotización guardada.",
       );
-      navigate("/quotations");
+      volver();
     } catch (error) {
       toast.error(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
     } finally {
@@ -1865,11 +1872,11 @@ export default function QuotationForm() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 px-2">
           <button
-            onClick={() => navigate("/quotations")}
+            onClick={volver}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft size={20} />
-            <span>Volver a la lista</span>
+            <span>Volver</span>
           </button>
           {isFromRequirement && (
             <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
