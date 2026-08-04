@@ -22,7 +22,9 @@ export class AddDocumentDto {
   @IsUUID()
   quotation_id: string;
 
-  @IsIn(['contratos', 'ordenes_compra', 'facturas', 'otros'])
+  // 'comercial' (04-08): respaldos de la negociación — pantallazos de
+  // WhatsApp/correos que suben desde la ficha del negocio.
+  @IsIn(['contratos', 'ordenes_compra', 'facturas', 'comercial', 'otros'])
   category: string;
 
   @IsString()
