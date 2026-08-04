@@ -37,7 +37,6 @@ import {
 } from "../../services/payments.service";
 import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
-import { ROLE_GROUPS } from "../../constants/permissions";
 import {
   createFollowup,
   deleteFollowup,
@@ -142,7 +141,7 @@ export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, userRole, company } = useAuth();
+  const { user, company } = useAuth();
   const [tab, setTab] = useState<"seguimiento" | "cotizacion">("seguimiento");
   // Cambio de estado desde la ficha (pedido de Felipe 04-08), con el
   // MISMO ritual del tablero: aceptar revisa si ya hay plan de pagos
@@ -363,15 +362,15 @@ export default function NegocioPage() {
                       onClick={() => setEstadoMenu(false)}
                     />
                     <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                      {/* Cancelada NO va: es destino exclusivo de lo
+                          aceptado (regla de Felipe 04-08), y las
+                          aceptadas llevan chip fijo en esta ficha. */}
                       {[
                         "solicitada",
                         "enviada",
                         "en_negociacion",
                         "aceptada",
                         "rechazada",
-                        ...(ROLE_GROUPS.ADMIN_ONLY.includes(userRole as never)
-                          ? ["cancelada"]
-                          : []),
                       ].map((st) => (
                         <button
                           key={st}

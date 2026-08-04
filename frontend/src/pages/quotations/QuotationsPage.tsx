@@ -158,9 +158,11 @@ export default function QuotationsPage() {
     cancelada: "Cancelada",
     realizada: "Realizada",
   };
-  // Mismas reglas que el select viejo: Cancelada solo administradores
-  // (o si ya lo está); Realizada no se elige desde aquí — solo se
-  // muestra (y permite revertir a Aceptada si fue un error).
+  // Reglas del ciclo de vida (afinadas por Felipe 04-08): Cancelada y
+  // Realizada son destinos EXCLUSIVOS de lo aceptado — lo que nunca se
+  // ganó se rechaza, no se cancela. Cancelada: solo administradores y
+  // solo desde Aceptada (o si ya lo está). Realizada no se elige desde
+  // aquí — solo se muestra (y permite revertir a Aceptada si fue error).
   const statusOptionsFor = (q: QuotationWithClient) => {
     const base = [
       "solicitada",
@@ -170,7 +172,8 @@ export default function QuotationsPage() {
       "rechazada",
     ];
     if (
-      ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any) ||
+      (q.quotation_status === "aceptada" &&
+        ROLE_GROUPS.ADMIN_ONLY.includes(userRole as any)) ||
       q.quotation_status === "cancelada"
     )
       base.push("cancelada");
