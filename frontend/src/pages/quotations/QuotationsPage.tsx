@@ -62,6 +62,9 @@ const STATUS_FILTER_KEY = (userId: string | number) =>
 // Post-Venta).
 const SORT_KEY = (userId: string | number) =>
   `eventia_quotations_sort_${userId}`;
+// Etapa 2 del pipeline: la vista elegida (tablero | lista) se recuerda.
+const VISTA_KEY = (userId: string | number) =>
+  `eventia_quotations_vista_${userId}`;
 
 // ---- Bitácora comercial (migración 59): semáforo de seguimiento ----
 // El reloj corre desde la última gestión REAL (nota escrita o
@@ -252,10 +255,18 @@ export default function QuotationsPage() {
   // combinación se sigue mostrando la lista anterior mientras llega la
   // nueva (sin parpadeo a blanco). Volver a esta pantalla pinta al
   // instante desde caché y revalida en segundo plano.
+  // El tablero muestra SOLO el embudo vivo; la Lista respeta el filtro
+  // de estados de siempre.
   const statusesToFetch: QuotationStatus[] =
-    statusFilter.length === 0
-      ? ALL_STATUSES
-      : (statusFilter as QuotationStatus[]);
+    vista === "tablero"
+      ? [
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+        ]
+      : statusFilter.length === 0
+        ? ALL_STATUSES
+        : (statusFilter as QuotationStatus[]);
 
   const quotationsQuery = useQuery({
     queryKey: [
@@ -313,6 +324,24 @@ export default function QuotationsPage() {
     null,
   );
   const [soloSeguimiento, setSoloSeguimiento] = useState(false);
+  // Tablero (Etapa 2): el embudo vivo en 3 columnas. La Lista queda
+  // como archivo completo (todos los estados, filtros de siempre).
+  const [vista, setVista] = useState<"tablero" | "lista">(() => {
+    try {
+      const v = user ? localStorage.getItem(VISTA_KEY(user.id)) : null;
+      return v === "lista" ? "lista" : "tablero";
+    } catch {
+      return "tablero";
+    }
+  });
+  const cambiarVista = (v: "tablero" | "lista") => {
+    setVista(v);
+    try {
+      if (user) localStorage.setItem(VISTA_KEY(user.id), v);
+    } catch {
+      /* sin persistencia no pasa nada */
+    }
+  };
 
   type Semaforo = { texto: string; clase: string; urgencia: number };
   const semaforoDe = (q: QuotationWithClient): Semaforo | null => {
@@ -604,6 +633,58 @@ export default function QuotationsPage() {
 
   // Número: exacto (decisión 21-07). Nombre: búsqueda inteligente (sin
   // tildes, palabras en cualquier orden).
+  // Píldora de estado con su menú de la casa — compartida por la fila
+  // de la Lista y la tarjeta del Tablero (mismo estado, mismo menú).
+  const estadoPill = (quotation: QuotationWithClient) => (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        onClick={() =>
+          setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
+        }
+        className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+        title="Cambiar estado"
+      >
+        <span className="truncate">
+          {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+          {STATUS_LABEL[quotation.quotation_status] ||
+            quotation.quotation_status}
+        </span>
+        <ChevronDown size={12} className="shrink-0" />
+      </button>
+      {statusMenuId === quotation.id && (
+        <>
+          <span
+            className="fixed inset-0 z-10 block"
+            onClick={() => setStatusMenuId(null)}
+          />
+          {/* whitespace-normal: la celda es nowrap y sin esto las
+              opciones se forman en una línea horizontal. */}
+          <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
+            {statusOptionsFor(quotation).map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => {
+                  setStatusMenuId(null);
+                  if (st !== quotation.quotation_status)
+                    void handleStatusChange(quotation.id, st);
+                }}
+                className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
+              >
+                <span
+                  className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+                >
+                  {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
+                </span>
+              </button>
+            ))}
+          </span>
+        </>
+      )}
+    </span>
+  );
+
   const filtradasBase = quotations.filter(
     (quotation) =>
       !searchTerm ||
@@ -700,15 +781,43 @@ export default function QuotationsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="min-w-[200px]">
-            <MultiSelect
-              options={statusOptions}
-              value={statusFilter}
-              onChange={setStatusFilter}
-              placeholder="Filtrar por estado"
-              className="w-full"
-            />
+          {/* Tablero = embudo vivo (las 3 columnas SON el filtro);
+              Lista = archivo completo con el filtro de estados. */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => cambiarVista("tablero")}
+              className={`px-3.5 py-2 text-sm font-semibold ${
+                vista === "tablero"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Tablero
+            </button>
+            <button
+              type="button"
+              onClick={() => cambiarVista("lista")}
+              className={`px-3.5 py-2 text-sm font-semibold border-l border-gray-300 ${
+                vista === "lista"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Lista
+            </button>
           </div>
+          {vista === "lista" && (
+            <div className="min-w-[200px]">
+              <MultiSelect
+                options={statusOptions}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="Filtrar por estado"
+                className="w-full"
+              />
+            </div>
+          )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
             type="button"
@@ -725,10 +834,110 @@ export default function QuotationsPage() {
         </div>
       </div>
 
+      {/* Tablero (Etapa 2): el embudo vivo en 3 columnas. Sin arrastre
+          por ahora — el estado se cambia con la píldora de siempre. */}
+      {vista === "tablero" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          {[
+            QuotationStatus.SOLICITADA,
+            QuotationStatus.ENVIADA,
+            QuotationStatus.EN_NEGOCIACION,
+          ].map((col) => {
+            const tarjetas = filteredQuotations.filter(
+              (q) => q.quotation_status === col,
+            );
+            const suma = tarjetas.reduce(
+              (s, q) => s + (q.total_amount || 0),
+              0,
+            );
+            return (
+              <div key={col} className="bg-gray-100 rounded-xl p-3">
+                <div className="flex items-baseline justify-between px-1 pb-2">
+                  <h3 className="text-sm font-bold text-gray-700">
+                    {STATUS_EMOJI[col]} {STATUS_LABEL[col]} ({tarjetas.length})
+                  </h3>
+                  <span className="text-xs font-semibold text-gray-500">
+                    ${suma.toLocaleString("es-CL")}
+                  </span>
+                </div>
+                <div className="space-y-2.5">
+                  {tarjetas.length === 0 ? (
+                    <p className="text-xs text-gray-400 px-1 py-3">
+                      Sin cotizaciones aquí.
+                    </p>
+                  ) : (
+                    tarjetas.map((quotation) => {
+                      const sem = semaforoDe(quotation);
+                      const contact = contactOf(quotation);
+                      return (
+                        <div
+                          key={quotation.id}
+                          onClick={() => handleRowClick(quotation)}
+                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-gray-700">
+                              #{quotation.quotation_number}
+                            </span>
+                            {sem && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBitacoraFor(quotation);
+                                }}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
+                                title="Abrir bitácora de seguimiento"
+                              >
+                                <MessageSquare
+                                  size={12}
+                                  className="shrink-0"
+                                />
+                                {sem.texto}
+                              </button>
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm font-medium text-gray-900 truncate">
+                            {quotation.clients?.name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {contact.name || "—"} ·{" "}
+                            {formatISOUTCDateToString(quotation.event_date)}
+                          </p>
+                          <div
+                            className="mt-2 flex items-center justify-between gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="text-sm font-semibold text-gray-900">
+                              ${quotation.total_amount.toLocaleString("es-CL")}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {estadoPill(quotation)}
+                              <button
+                                onClick={() => handleViewQuotation(quotation)}
+                                className="text-sm font-semibold text-blue-600 hover:underline"
+                                title="Ver cotización (solo lectura)"
+                              >
+                                Ver
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Lista de cotizaciones — mismo esquema visual que Post-Venta
           (coherencia del sistema, acordado 22-07): fila clickeable con
           chevron, columna Estado (píldora-selector, click aislado) y
           "Ver" azul para el visor. Eliminar vive en el formulario. */}
+      {vista === "lista" && (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-medium text-gray-900">Cotizaciones</h2>
@@ -861,58 +1070,7 @@ export default function QuotationsPage() {
                         className="px-6 py-4 whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="relative inline-block">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setStatusMenuId((v) =>
-                                v === quotation.id ? null : quotation.id,
-                              )
-                            }
-                            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
-                            title="Cambiar estado"
-                          >
-                            <span className="truncate">
-                              {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-                              {STATUS_LABEL[quotation.quotation_status] ||
-                                quotation.quotation_status}
-                            </span>
-                            <ChevronDown size={12} className="shrink-0" />
-                          </button>
-                          {statusMenuId === quotation.id && (
-                            <>
-                              <span
-                                className="fixed inset-0 z-10 block"
-                                onClick={() => setStatusMenuId(null)}
-                              />
-                              {/* whitespace-normal: la celda es nowrap y sin esto las
-                                  opciones se forman en una línea horizontal. */}
-                              <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
-                                {statusOptionsFor(quotation).map((st) => (
-                                  <button
-                                    key={st}
-                                    type="button"
-                                    onClick={() => {
-                                      setStatusMenuId(null);
-                                      if (st !== quotation.quotation_status)
-                                        void handleStatusChange(
-                                          quotation.id,
-                                          st,
-                                        );
-                                    }}
-                                    className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
-                                  >
-                                    <span
-                                      className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
-                                    >
-                                      {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
-                                    </span>
-                                  </button>
-                                ))}
-                              </span>
-                            </>
-                          )}
-                        </span>
+                        {estadoPill(quotation)}
                       </td>
                       {/* Bitácora comercial: semáforo (vivas) o icono
                           discreto (cerradas, para leer la historia). */}
@@ -967,6 +1125,7 @@ export default function QuotationsPage() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Ventanita de la casa (Tanda 3a): confirmar la vuelta de
           post-venta a pre-venta (reemplaza al confirm() del navegador). */}
