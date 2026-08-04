@@ -3454,34 +3454,9 @@ export default function QuotationForm() {
                   })
               )}
 
-              <div className="bg-gray-50 px-4 py-2 space-y-0.5 border-t border-gray-200">
-                <div className="flex justify-between text-xs font-semibold text-gray-600">
-                  <span>Por adulto (servicios completos)</span>
-                  <span>${formData.value_per_person.toLocaleString("es-CL")}</span>
-                </div>
-                {childrenCount > 0 && (
-                  <div className="flex justify-between text-xs font-semibold text-gray-600">
-                    <span>Por niño</span>
-                    <span>
-                      $
-                      {Math.round(
-                        serviceBoxes.reduce((sum, box) => {
-                          if ((box.audience || "adultos") !== "ninos")
-                            return sum;
-                          if (boxPeople(box) !== childrenCount) return sum;
-                          return (
-                            sum +
-                            box.services.reduce(
-                              (s, it) => s + it.precio * it.quantity,
-                              0,
-                            )
-                          );
-                        }, 0),
-                      ).toLocaleString("es-CL")}
-                    </span>
-                  </div>
-                )}
-              </div>
+              {/* Las filas "Por adulto / Por niño" se retiraron (04-08):
+                  interrumpían la lectura; el desglose vive ahora dentro
+                  del recuadro ámbar del Total con IVA. */}
             </div>
 
             {/* Fijos: solo lectura aquí (se editan en su tarjeta) */}
@@ -3559,6 +3534,96 @@ export default function QuotationForm() {
                       <span>Total con IVA</span>
                       <span>${totalConIva.toLocaleString("es-CL")}</span>
                     </div>
+                    {/* Desglose (04-08, Felipe): SUMA EXACTO al total
+                        ámbar porque sale de los MISMOS números de la
+                        cuenta: variables = ámbar + descuento − fijos
+                        (por construcción), adultos con la misma fórmula
+                        de computeMoney y niños POR DIFERENCIA —
+                        cualquier resto cae ahí y la suma nunca
+                        descuadra. La apostilla "×N" solo cuando toda la
+                        audiencia adulta/niña está completa. */}
+                    {(() => {
+                      const variablesTot =
+                        totalConIva + discountAmountUI - formData.fixed_value;
+                      const activos = serviceBoxes.filter(
+                        (b) => b.selectedCategory && b.services.length > 0,
+                      );
+                      const deAdultos = activos.filter(
+                        (b) => (b.audience || "adultos") !== "ninos",
+                      );
+                      const deNinos = activos.filter(
+                        (b) => (b.audience || "adultos") === "ninos",
+                      );
+                      const perPersonOf = (b: (typeof activos)[number]) =>
+                        b.services.reduce(
+                          (s, it) => s + it.precio * it.quantity,
+                          0,
+                        );
+                      const adultosCalc = deAdultos.reduce(
+                        (s, b) => s + perPersonOf(b) * boxPeople(b),
+                        0,
+                      );
+                      const adultosVar =
+                        childrenCount > 0 ? adultosCalc : variablesTot;
+                      const ninosVar =
+                        childrenCount > 0 ? variablesTot - adultosCalc : 0;
+                      const adultosExacto =
+                        adultsCount > 0 &&
+                        deAdultos.length > 0 &&
+                        deAdultos.every((b) => boxPeople(b) === adultsCount);
+                      const ninosExacto =
+                        childrenCount > 0 &&
+                        deNinos.length > 0 &&
+                        deNinos.every((b) => boxPeople(b) === childrenCount);
+                      const vppNinos = ninosExacto
+                        ? deNinos.reduce((s, b) => s + perPersonOf(b), 0)
+                        : 0;
+                      const fmtA = (m: number) =>
+                        `$${Math.round(m).toLocaleString("es-CL")}`;
+                      return (
+                        <div className="mt-1 pt-1 border-t border-amber-200 space-y-0.5 text-xs font-normal text-amber-900">
+                          <div className="flex justify-between gap-2">
+                            <span>
+                              Variables (adultos)
+                              {adultosExacto && (
+                                <span className="text-amber-700">
+                                  {" "}
+                                  — {fmtA(formData.value_per_person)} ×{" "}
+                                  {adultsCount.toLocaleString("es-CL")} adultos
+                                </span>
+                              )}
+                            </span>
+                            <span>{fmtA(adultosVar)}</span>
+                          </div>
+                          {childrenCount > 0 && (
+                            <div className="flex justify-between gap-2">
+                              <span>
+                                Variables (niños)
+                                {ninosExacto && (
+                                  <span className="text-amber-700">
+                                    {" "}
+                                    — {fmtA(vppNinos)} ×{" "}
+                                    {childrenCount.toLocaleString("es-CL")}{" "}
+                                    niños
+                                  </span>
+                                )}
+                              </span>
+                              <span>{fmtA(ninosVar)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between gap-2">
+                            <span>Servicios fijos</span>
+                            <span>{fmtA(formData.fixed_value)}</span>
+                          </div>
+                          {hasDiscount && (
+                            <div className="flex justify-between gap-2">
+                              <span>Descuento</span>
+                              <span>−{fmtA(discountAmountUI)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Propina opcional: sobre los variables, DESPUÉS del

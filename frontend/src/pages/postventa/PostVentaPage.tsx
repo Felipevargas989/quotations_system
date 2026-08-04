@@ -3058,35 +3058,9 @@ export function ServiciosTab({
               })
           )}
 
-          <div className="bg-gray-50 px-4 py-2 space-y-0.5 border-t border-gray-200">
-            <div className="flex justify-between text-xs font-semibold text-gray-600">
-              <span>Por adulto (servicios completos)</span>
-              <span>
-                ${Math.round(valuePerPerson).toLocaleString("es-CL")}
-              </span>
-            </div>
-            {kidsN > 0 && (
-              <div className="flex justify-between text-xs font-semibold text-gray-600">
-                <span>Por niño</span>
-                <span>
-                  $
-                  {Math.round(
-                    varGroups.reduce((sum, g) => {
-                      if (audOf(g) !== "ninos") return sum;
-                      if (gPeople(g) !== kidsN) return sum;
-                      return (
-                        sum +
-                        (g.items || []).reduce(
-                          (s: number, it: any) => s + ppp(it),
-                          0,
-                        )
-                      );
-                    }, 0),
-                  ).toLocaleString("es-CL")}
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Las filas "Por adulto / Por niño" se retiraron (04-08):
+              interrumpían la lectura; el desglose vive ahora dentro del
+              recuadro ámbar del Total con IVA. */}
         </div>
 
         {/* Fijos: solo lectura aquí (se editan en la lista de la izquierda) */}
@@ -3160,6 +3134,90 @@ export function ServiciosTab({
                     ${Math.round(totalConIva).toLocaleString("es-CL")}
                   </span>
                 </div>
+                {/* Desglose (04-08, Felipe): SUMA EXACTO al total ámbar
+                    porque sale de los MISMOS números de computeMoney:
+                    variables = ámbar + descuento − fijos (por
+                    construcción), adultos con la misma fórmula de la
+                    cuenta y niños POR DIFERENCIA — cualquier resto cae
+                    ahí y la suma nunca descuadra. La apostilla "×N" solo
+                    cuando toda audiencia adulta/niña está completa. */}
+                {(() => {
+                  const variablesTot = totalConIva + descAmount - fixedValue;
+                  const activos = varGroups.filter(
+                    (g) => (g.items || []).length > 0,
+                  );
+                  const deAdultos = activos.filter(
+                    (g) => audOf(g) === "adultos",
+                  );
+                  const deNinos = activos.filter((g) => audOf(g) === "ninos");
+                  const perPersonOf = (g: any) =>
+                    (g.items || []).reduce(
+                      (s: number, it: any) => s + ppp(it),
+                      0,
+                    );
+                  const adultosCalc = deAdultos.reduce(
+                    (s, g) => s + perPersonOf(g) * gPeople(g),
+                    0,
+                  );
+                  const adultosVar =
+                    kidsN > 0 ? adultosCalc : variablesTot;
+                  const ninosVar = kidsN > 0 ? variablesTot - adultosCalc : 0;
+                  const adultosExacto =
+                    adultsN > 0 &&
+                    deAdultos.length > 0 &&
+                    deAdultos.every((g) => gPeople(g) === adultsN);
+                  const ninosExacto =
+                    kidsN > 0 &&
+                    deNinos.length > 0 &&
+                    deNinos.every((g) => gPeople(g) === kidsN);
+                  const vppNinos = ninosExacto
+                    ? deNinos.reduce((s, g) => s + perPersonOf(g), 0)
+                    : 0;
+                  const fmtA = (m: number) =>
+                    `$${Math.round(m).toLocaleString("es-CL")}`;
+                  return (
+                    <div className="mt-1 pt-1 border-t border-amber-200 space-y-0.5 text-xs font-normal text-amber-900">
+                      <div className="flex justify-between gap-2">
+                        <span>
+                          Variables (adultos)
+                          {adultosExacto && (
+                            <span className="text-amber-700">
+                              {" "}
+                              — {fmtA(valuePerPerson)} ×{" "}
+                              {adultsN.toLocaleString("es-CL")} adultos
+                            </span>
+                          )}
+                        </span>
+                        <span>{fmtA(adultosVar)}</span>
+                      </div>
+                      {kidsN > 0 && (
+                        <div className="flex justify-between gap-2">
+                          <span>
+                            Variables (niños)
+                            {ninosExacto && (
+                              <span className="text-amber-700">
+                                {" "}
+                                — {fmtA(vppNinos)} ×{" "}
+                                {kidsN.toLocaleString("es-CL")} niños
+                              </span>
+                            )}
+                          </span>
+                          <span>{fmtA(ninosVar)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-2">
+                        <span>Servicios fijos</span>
+                        <span>{fmtA(fixedValue)}</span>
+                      </div>
+                      {descAmount > 0 && (
+                        <div className="flex justify-between gap-2">
+                          <span>Descuento</span>
+                          <span>−{fmtA(descAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Propina opcional: sobre los variables, DESPUÉS del
