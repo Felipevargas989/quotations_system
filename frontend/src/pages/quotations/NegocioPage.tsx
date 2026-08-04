@@ -61,7 +61,6 @@ import {
   resolveStorageUrl,
   uploadEventDocument,
 } from "../../services/storage.service";
-import { formatISOUTCDateToString } from "../../utils/dates";
 import { formatPhone } from "../../utils/phone";
 import { normalizeText } from "../../utils/searchMatch";
 
