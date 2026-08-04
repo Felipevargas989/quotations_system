@@ -42,7 +42,7 @@ import {
 import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import EventoCajitas from "../../components/EventoCajitas";
-import { ServiciosTab } from "../postventa/PostVentaPage";
+import ServiciosTab from "../postventa/ServiciosTab";
 import {
   createFollowup,
   deleteFollowup,
