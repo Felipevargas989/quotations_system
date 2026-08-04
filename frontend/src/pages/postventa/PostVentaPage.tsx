@@ -54,6 +54,16 @@ import { getFixedSections } from "../../services/services.service";
 import { getCategorySections } from "../../services/sections.service";
 import { useServices } from "../../hooks/useServices";
 import { CategorySection } from "../../types/services.types";
+// Margen en Servicios (04-08, porte del cotizador): la misma despensa
+// compartida de logística y la misma máquina de consolidación.
+import { useBaseLogistica } from "../../hooks/useBaseLogistica";
+import {
+  buildConsolidationContext,
+  consolidateEvent,
+  newAccumulator,
+  type EventItemsSnapshot,
+} from "../../utils/eventConsolidation";
+import { UserRole } from "../../constants/users";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import QuantitySelector from "../../components/QuantitySelector";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
@@ -1910,6 +1920,46 @@ export function ServiciosTab({
   const tipAmount = money.tipAmount;
   const total = money.totalAmount;
 
+  // ---------- Margen y costos (porte del cotizador, 04-08) ----------
+  // Solo operaciones y administrador ven el costo (decisión de Felipe).
+  // El vendedor sigue pudiendo descontar, pero sin ver el margen.
+  const puedeVerMargen =
+    userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES;
+  // La despensa compartida de logística (misma llave que Compras, el
+  // Dashboard y el cotizador): si otra pantalla ya la pidió, sale de
+  // caché. Sin permiso no se pide (companyId null = query apagada).
+  const marginBaseQuery = useBaseLogistica(
+    puedeVerMargen && company?.id ? Number(company.id) : null,
+  );
+  // Costo ESTIMADO DE CATÁLOGO: recetas → insumos, más los costos fijos
+  // del catálogo — la MISMA estimación del cotizador, armada con la misma
+  // foto de ítems que alimenta la cuenta de pantalla y el guardado, así
+  // reacciona en vivo a cantidades, ítems y personas.
+  const margenEvento = useMemo(() => {
+    const base = marginBaseQuery.data;
+    if (!base) return null;
+    const ctx = buildConsolidationContext(
+      base.recipes,
+      base.supplies,
+      base.furniture,
+      base.nameIds,
+      base.fixedCosts,
+    );
+    const acc = newAccumulator();
+    const r = consolidateEvent(
+      buildItemsSnapshot() as EventItemsSnapshot,
+      personas,
+      ctx,
+      acc,
+    );
+    return {
+      costo: r.costoInsumos + r.costoFijos,
+      sinReceta: [...new Set(acc.noRecipe)],
+    };
+    // buildItemsSnapshot se rearma sola cuando cambia cualquiera de estos
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marginBaseQuery.data, varGroups, fixed, adultsN, kidsN]);
+
   const removeVar = (gi: number, ii: number) => {
     setVarGroups((prev) => {
       const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
@@ -2964,6 +3014,97 @@ export function ServiciosTab({
           <span>{clp(total)}</span>
         </div>
       </div>
+
+      {/* Margen y costos (porte del cotizador 04-08) — junto a los
+          totales, para ver el impacto ANTES de ofrecer un descuento.
+          Solo operaciones y administrador. El resumen pegajoso ya es una
+          tarjeta, así que va como bloque adentro (no tarjeta anidada);
+          el contenido es el markup del cotizador tal cual. */}
+      {puedeVerMargen && (
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            Margen y costos
+          </h3>
+          {!margenEvento ? (
+            <p className="text-xs text-gray-500">Calculando…</p>
+          ) : (
+            (() => {
+              // Mismos números del cotizador: la propina no entra a la
+              // venta; el descuento se muestra con y sin efecto.
+              const venta = total - tipAmount;
+              const ventaSinDesc = venta + descAmount;
+              const costo = margenEvento.costo;
+              const margen = venta - costo;
+              const pct = venta > 0 ? (margen / venta) * 100 : 0;
+              const margenSinDesc = ventaSinDesc - costo;
+              const pctSinDesc =
+                ventaSinDesc > 0 ? (margenSinDesc / ventaSinDesc) * 100 : 0;
+              const fmt = (n: number) =>
+                `$${Math.round(n).toLocaleString("es-CL")}`;
+              if (costo <= 0) {
+                return (
+                  <p className="text-xs text-gray-500">
+                    Todavía no hay costos: los servicios cotizados no
+                    tienen receta cargada.
+                  </p>
+                );
+              }
+              return (
+                <>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Monto cotizado</span>
+                      <span className="text-gray-900">{fmt(venta)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Costo estimado</span>
+                      <span className="text-gray-900">{fmt(costo)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-1 font-semibold">
+                      <span className="text-gray-700">Margen</span>
+                      <span
+                        className={
+                          margen >= 0 ? "text-emerald-600" : "text-red-600"
+                        }
+                      >
+                        {fmt(margen)} ({pct.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                  {descAmount > 0 && (
+                    <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Margen sin descuento</span>
+                        <span>
+                          {fmt(margenSinDesc)} ({pctSinDesc.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-red-600">
+                        <span>El descuento te cuesta</span>
+                        <span>−{fmt(descAmount)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {margenEvento.sinReceta.length > 0 && (
+                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      ⚠ {margenEvento.sinReceta.length} servicio
+                      {margenEvento.sinReceta.length > 1 ? "s" : ""} sin
+                      receta, no suma
+                      {margenEvento.sinReceta.length > 1 ? "n" : ""} al
+                      costo: el margen se ve mejor de lo que es.
+                    </p>
+                  )}
+                  <p className="mt-2 text-[11px] text-gray-400">
+                    Estimación de catálogo (recetas + costos fijos), no el
+                    costo real de compra. La propina no entra en el
+                    cálculo.
+                  </p>
+                </>
+              );
+            })()
+          )}
+        </div>
+      )}
 
       {/* Comentarios editable */}
       <div className="mt-5">
