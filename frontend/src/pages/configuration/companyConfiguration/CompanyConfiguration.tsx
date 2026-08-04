@@ -13,6 +13,10 @@ export default function CompanyConfiguration() {
   // correos al cliente y el portal de pagos.
   const [tagline, setTagline] = useState(company?.tagline || "");
   const [bank, setBank] = useState<BankDetails>(company?.bank_details || {});
+  // Umbral de alto valor (migración 60): 💎 en el tablero. Vacío = sin marca.
+  const [umbral, setUmbral] = useState(
+    company?.high_value_threshold ? String(company.high_value_threshold) : "",
+  );
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(
     company?.logo_url || null,
@@ -32,6 +36,9 @@ export default function CompanyConfiguration() {
     setName(company?.name || "");
     setTagline(company?.tagline || "");
     setBank(company?.bank_details || {});
+    setUmbral(
+      company?.high_value_threshold ? String(company.high_value_threshold) : "",
+    );
     setLogoPreview(company?.logo_url || null);
     setPrimaryColor(company?.colors?.primary || "#667eea");
     setSecondaryColor(company?.colors?.secondary || "#059669");
@@ -106,6 +113,7 @@ export default function CompanyConfiguration() {
       await updateCompany(name, logoUrl || undefined, colors, undefined, {
         tagline: tagline.trim() || null,
         bank_details: bank,
+        high_value_threshold: umbral.trim() ? Number(umbral) : null,
       });
 
       // Refresh user profile to get updated data
@@ -347,7 +355,25 @@ export default function CompanyConfiguration() {
         )}
 
         {/* Submit Button */}
-        <div className="flex gap-4">
+        <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              💎 Umbral de cotización de alto valor (CLP)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={umbral}
+              onChange={(e) => setUmbral(e.target.value)}
+              placeholder="Ej: 1000000 — vacío = sin marca"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500">
+              Las cotizaciones del tablero con monto igual o superior llevan
+              la marca 💎.
+            </p>
+          </div>
+
+          <div className="flex gap-4">
           <button
             type="submit"
             disabled={isLoading}

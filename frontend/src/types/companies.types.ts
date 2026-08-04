@@ -23,6 +23,8 @@ export interface Company {
     secondary: string;
   };
   bank_details?: BankDetails | null;
+  // Migración 60: umbral de cotización de alto valor (💎 en el tablero).
+  high_value_threshold?: number | null;
   is_premium: boolean;
   notifications?: {
     emails?: {

@@ -28,6 +28,7 @@ export const updateCompany = async (
   notifications?: Company["notifications"],
   extras?: {
     tagline?: Company["tagline"];
+    high_value_threshold?: Company["high_value_threshold"];
     bank_details?: Company["bank_details"];
   },
 ) => {

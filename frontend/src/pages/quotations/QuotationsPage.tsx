@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   keepPreviousData,
@@ -10,8 +10,6 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronRight,
-  LayoutGrid,
-  List,
   MessageSquare,
   Plus,
   Search,
@@ -39,23 +37,11 @@ import {
 } from "../../services/payments.service";
 import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
-import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
-import { formatPhone } from "../../utils/phone";
 
-// Persist the quotations status filter per user, so the selection survives
-// reloads / navigation instead of resetting to the default each time.
-const STATUS_FILTER_KEY = (userId: string | number) =>
-  `eventia_quotations_status_filter_${userId}`;
-// El orden elegido también se recuerda por usuario (pedido de Felipe
-// 30-07: "si ordeno por fecha de evento, que se acuerde" — igual que
-// Post-Venta).
-const SORT_KEY = (userId: string | number) =>
-  `eventia_quotations_sort_${userId}`;
-// Etapa 2 del pipeline: la vista elegida (tablero | lista) se recuerda.
-const VISTA_KEY = (userId: string | number) =>
-  `eventia_quotations_vista_${userId}`;
-// Y el orden de las tarjetas dentro de las columnas también.
+// La Lista se jubiló (04-08, decisión de Felipe): el tablero es la
+// única vista — cerradas en Post-Venta, rechazadas en su franja, la
+// búsqueda encuentra todo. El orden de las tarjetas se recuerda.
 const ORDEN_TABLERO_KEY = (userId: string | number) =>
   `eventia_quotations_orden_tablero_${userId}`;
 
@@ -124,18 +110,11 @@ const ORDEN_ETIQUETA: Record<string, string> = {
   numero: "N°",
 };
 
-const ALL_STATUSES: QuotationStatus[] = [
-  QuotationStatus.SOLICITADA,
-  QuotationStatus.ENVIADA,
-  QuotationStatus.EN_NEGOCIACION,
-  QuotationStatus.ACEPTADA,
-  QuotationStatus.RECHAZADA,
-  QuotationStatus.CANCELADA,
-  QuotationStatus.REALIZADA,
-];
 
 export default function QuotationsPage() {
-  const { user, userRole } = useAuth();
+  const { user, userRole, company } = useAuth();
+  // Umbral de alto valor (migración 60): 💎 en las tarjetas.
+  const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Menú de estado de la casa (Tanda 3b): reemplaza al <select> nativo.
@@ -187,16 +166,6 @@ export default function QuotationsPage() {
     newStatus: string;
   } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const initialStatusFilter = [
-    QuotationStatus.SOLICITADA,
-    QuotationStatus.ENVIADA,
-    QuotationStatus.EN_NEGOCIACION,
-  ];
-  const [statusFilter, setStatusFilter] =
-    useState<string[]>(initialStatusFilter);
-  // Guards the persisted-filter restore so we don't fetch (or overwrite
-  // storage) before we've loaded the user's saved selection.
-  const [filterRestored, setFilterRestored] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
@@ -204,31 +173,6 @@ export default function QuotationsPage() {
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
 
-  // Sorting state
-  const [sortBy, setSortBy] = useState<"quotation_number" | "event_date">(
-    "quotation_number",
-  );
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
-  // Tablero (Etapa 2): el embudo vivo en 3 columnas. La Lista queda
-  // como archivo completo (todos los estados, filtros de siempre).
-  // Declarada ANTES de statusesToFetch, que depende de la vista.
-  const [vista, setVista] = useState<"tablero" | "lista">(() => {
-    try {
-      const v = user ? localStorage.getItem(VISTA_KEY(user.id)) : null;
-      return v === "lista" ? "lista" : "tablero";
-    } catch {
-      return "tablero";
-    }
-  });
-  const cambiarVista = (v: "tablero" | "lista") => {
-    setVista(v);
-    try {
-      if (user) localStorage.setItem(VISTA_KEY(user.id), v);
-    } catch {
-      /* sin persistencia no pasa nada */
-    }
-  };
   // Orden dentro de las columnas: Urgencia por defecto (lo más frío
   // arriba — la filosofía de la cola).
   const [ordenTablero, setOrdenTablero] = useState<
@@ -257,107 +201,19 @@ export default function QuotationsPage() {
     }
   };
 
-  // Status options for multiselect
-  const statusOptions: MultiSelectOption[] = [
-    { value: QuotationStatus.SOLICITADA, label: "📋 Solicitada" },
-    { value: QuotationStatus.ENVIADA, label: "📤 Enviada" },
-    { value: QuotationStatus.EN_NEGOCIACION, label: "💬 En Negociación" },
-    { value: QuotationStatus.ACEPTADA, label: "✅ Aceptada" },
-    { value: QuotationStatus.RECHAZADA, label: "❌ Rechazada" },
-    { value: QuotationStatus.CANCELADA, label: "🚫 Cancelada" },
-    { value: QuotationStatus.REALIZADA, label: "🎉 Realizada" },
-  ];
-
-  // Restore the persisted status filter (per user) before the first fetch.
-  useEffect(() => {
-    if (!user) return;
-    try {
-      const saved = localStorage.getItem(STATUS_FILTER_KEY(user.id));
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setStatusFilter(parsed);
-        }
-      }
-      const savedSort = localStorage.getItem(SORT_KEY(user.id));
-      if (savedSort) {
-        const s = JSON.parse(savedSort) as {
-          by?: string;
-          order?: string;
-        };
-        if (s.by === "quotation_number" || s.by === "event_date") {
-          setSortBy(s.by);
-        }
-        if (s.order === "asc" || s.order === "desc") {
-          setSortOrder(s.order);
-        }
-      }
-    } catch {
-      /* ignore malformed / unavailable storage */
-    }
-    setFilterRestored(true);
-  }, [user]);
-
-  // Persist the chosen sort (after restore, like the filter).
-  useEffect(() => {
-    if (!user || !filterRestored) return;
-    try {
-      localStorage.setItem(
-        SORT_KEY(user.id),
-        JSON.stringify({ by: sortBy, order: sortOrder }),
-      );
-    } catch {
-      /* ignore quota / disabled storage */
-    }
-  }, [sortBy, sortOrder, user, filterRestored]);
-
-  // Persist the status filter whenever it changes (after restore).
-  useEffect(() => {
-    if (!user || !filterRestored) return;
-    try {
-      localStorage.setItem(
-        STATUS_FILTER_KEY(user.id),
-        JSON.stringify(statusFilter),
-      );
-    } catch {
-      /* ignore quota / disabled storage */
-    }
-  }, [statusFilter, user, filterRestored]);
-
   // ---- Cotizaciones y requerimientos vía React Query (Etapa 2) ----
-  // La consulta reacciona sola al filtro y al orden; al cambiar de
-  // combinación se sigue mostrando la lista anterior mientras llega la
-  // nueva (sin parpadeo a blanco). Volver a esta pantalla pinta al
-  // instante desde caché y revalida en segundo plano.
-  // El tablero muestra SOLO el embudo vivo; la Lista respeta el filtro
-  // de estados de siempre.
-  const statusesToFetch: QuotationStatus[] =
-    vista === "tablero"
-      ? [
-          QuotationStatus.SOLICITADA,
-          QuotationStatus.ENVIADA,
-          QuotationStatus.EN_NEGOCIACION,
-        ]
-      : statusFilter.length === 0
-        ? ALL_STATUSES
-        : (statusFilter as QuotationStatus[]);
-
+  // El tablero es la única vista: el embudo vivo, siempre. Volver a
+  // esta pantalla pinta al instante desde caché y revalida detrás.
   const quotationsQuery = useQuery({
-    queryKey: [
-      "quotations",
-      [...statusesToFetch].sort().join(","),
-      sortBy,
-      sortOrder,
-    ],
-    enabled: !!user && filterRestored,
+    queryKey: ["quotations", "embudo"],
+    enabled: !!user,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<QuotationWithClient[]> => {
-      const { data } = await getQuotations(
-        QuotationRequestType.COTIZACION,
-        statusesToFetch,
-        sortBy,
-        sortOrder,
-      );
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
+        QuotationStatus.SOLICITADA,
+        QuotationStatus.ENVIADA,
+        QuotationStatus.EN_NEGOCIACION,
+      ]);
       return data;
     },
   });
@@ -442,30 +298,9 @@ export default function QuotationsPage() {
     return !!s && s.urgencia >= 103;
   };
 
-  // Handle column sorting
-  const handleSort = (column: "quotation_number" | "event_date") => {
-    if (sortBy === column) {
-      // If clicking the same column, toggle the order
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      // If clicking a different column, set it as the new sort column with default desc order
-      setSortBy(column);
-      setSortOrder("desc");
-    }
-  };
 
-  // Check if user can edit a quotation based on status and role
-  const canEditQuotation = (quotation: Quotation): boolean => {
-    if (!userRole) return false;
 
-    // If quotation is in "Aceptada" state, only operaciones and administrador can edit
-    if (quotation.quotation_status === "aceptada") {
-      return ROLE_GROUPS.OPERATIONS_AND_UP.includes(userRole);
-    }
 
-    // For other states, all roles can edit (assuming they have access to quotations)
-    return true;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -644,13 +479,7 @@ export default function QuotationsPage() {
   // Fila clickeable (patrón Post-Venta): con permiso → edición; sin
   // permiso (aceptadas para roles no operativos) → visor de solo lectura.
   // El click siempre hace algo útil, sin avisos de permiso.
-  const handleRowClick = (quotation: QuotationWithClient) => {
-    if (canEditQuotation(quotation)) {
-      navigate(`/quotation-form/${quotation.id}`);
-    } else {
-      handleViewQuotation(quotation);
-    }
-  };
+
 
   // Número: exacto (decisión 21-07). Nombre: búsqueda inteligente (sin
   // tildes, palabras en cualquier orden).
@@ -743,7 +572,7 @@ export default function QuotationsPage() {
   // NADA sea inencontrable (aceptadas/realizadas enlazan a Post-Venta).
   const rechazadasQuery = useQuery({
     queryKey: ["quotations", "rechazadas"],
-    enabled: !!user && vista === "tablero",
+    enabled: !!user,
     queryFn: async (): Promise<QuotationWithClient[]> => {
       const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
         QuotationStatus.RECHAZADA,
@@ -754,7 +583,7 @@ export default function QuotationsPage() {
   const rechazadas = (rechazadasQuery.data ?? []).filter(coincideBusqueda);
   const [verRechazadas, setVerRechazadas] = useState(false);
 
-  const busquedaActiva = vista === "tablero" && searchTerm.trim() !== "";
+  const busquedaActiva = searchTerm.trim() !== "";
   const cerradasQuery = useQuery({
     queryKey: ["quotations", "cerradas-busqueda"],
     enabled: !!user && busquedaActiva,
@@ -842,50 +671,9 @@ export default function QuotationsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          {/* Tablero = embudo vivo (las 3 columnas SON el filtro);
-              Lista = archivo completo. Iconitos: la barra andaba con
-              mucho botón (pillada Felipe 03-08). */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={() => cambiarVista("tablero")}
-              className={`px-3 py-2 ${
-                vista === "tablero"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-              title="Tablero"
-            >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => cambiarVista("lista")}
-              className={`px-3 py-2 border-l border-gray-300 ${
-                vista === "lista"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-              title="Lista (archivo completo)"
-            >
-              <List size={16} />
-            </button>
-          </div>
-          {vista === "lista" && (
-            <div className="min-w-[200px]">
-              <MultiSelect
-                options={statusOptions}
-                value={statusFilter}
-                onChange={setStatusFilter}
-                placeholder="Filtrar por estado"
-                className="w-full"
-              />
-            </div>
-          )}
           {/* Un solo chip de orden con menú de la casa: tres botones
               eran bulla. */}
-          {vista === "tablero" && (
-            <span className="relative inline-block shrink-0">
+          <span className="relative inline-block shrink-0">
               <button
                 type="button"
                 onClick={() => setOrdenMenuAbierto((v) => !v)}
@@ -930,7 +718,6 @@ export default function QuotationsPage() {
                 </>
               )}
             </span>
-          )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
             type="button"
@@ -970,8 +757,7 @@ export default function QuotationsPage() {
 
       {/* Tablero (Etapa 2): el embudo vivo en 3 columnas. Sin arrastre
           por ahora — el estado se cambia con la píldora de siempre. */}
-      {vista === "tablero" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           {[
             QuotationStatus.SOLICITADA,
             QuotationStatus.ENVIADA,
@@ -1095,7 +881,19 @@ export default function QuotationsPage() {
                             className="mt-2 flex items-center justify-between gap-2"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span
+                              className="text-sm font-semibold text-gray-900"
+                              title={
+                                umbralAltoValor &&
+                                quotation.total_amount >= umbralAltoValor
+                                  ? "Cotización de alto valor"
+                                  : undefined
+                              }
+                            >
+                              {umbralAltoValor &&
+                              quotation.total_amount >= umbralAltoValor
+                                ? "💎 "
+                                : ""}
                               ${quotation.total_amount.toLocaleString("es-CL")}
                             </span>
                             <div className="flex items-center gap-2">
@@ -1128,7 +926,6 @@ export default function QuotationsPage() {
             );
           })}
         </div>
-      )}
 
       {/* Búsqueda global (camino a tablero-único): lo cerrado también
           aparece — con puente a Post-Venta donde corresponde. */}
@@ -1176,6 +973,16 @@ export default function QuotationsPage() {
                   >
                     PDF
                   </button>
+                  {q.quotation_status === QuotationStatus.RECHAZADA && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/negocio/${q.id}`)}
+                      className="text-gray-300 hover:text-gray-500"
+                      title="Abrir la ficha del negocio"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1184,7 +991,7 @@ export default function QuotationsPage() {
 
       {/* Rechazadas: plegadas bajo el tablero — mirar por qué se pierde
           es oro; tenerlo a la vista todos los días, no. */}
-      {vista === "tablero" && !busquedaActiva && (
+      {!busquedaActiva && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg">
           <button
             type="button"
@@ -1232,6 +1039,16 @@ export default function QuotationsPage() {
                     >
                       PDF
                     </button>
+                    {/* Revisar la rechazada en su ficha (pedido Felipe
+                        04-08: "le haré casi la misma a Abastible"). */}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/negocio/${q.id}`)}
+                      className="text-gray-300 hover:text-gray-500"
+                      title="Abrir la ficha del negocio"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
                   </div>
                 ))
               )}
@@ -1240,199 +1057,6 @@ export default function QuotationsPage() {
         </div>
       )}
 
-      {/* Lista de cotizaciones — mismo esquema visual que Post-Venta
-          (coherencia del sistema, acordado 22-07): fila clickeable con
-          chevron, columna Estado (píldora-selector, click aislado) y
-          "Ver" azul para el visor. Eliminar vive en el formulario. */}
-      {vista === "lista" && (
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">Cotizaciones</h2>
-          <span className="text-sm text-gray-500">
-            {filteredQuotations.length} de {quotations.length}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
-                  onClick={() => handleSort("quotation_number")}
-                >
-                  N° Cot.{" "}
-                  {sortBy === "quotation_number"
-                    ? sortOrder === "asc"
-                      ? "▲"
-                      : "▼"
-                    : ""}
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
-                  onClick={() => handleSort("event_date")}
-                >
-                  Fecha evento{" "}
-                  {sortBy === "event_date"
-                    ? sortOrder === "asc"
-                      ? "▲"
-                      : "▼"
-                    : ""}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Seguimiento
-                </th>
-                <th className="px-6 py-3" />
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    Cargando...
-                  </td>
-                </tr>
-              ) : filteredQuotations.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    No se encontraron cotizaciones
-                  </td>
-                </tr>
-              ) : (
-                filteredQuotations.map((quotation) => {
-                  const contact = contactOf(quotation);
-                  const clientType = (
-                    quotation.clients as unknown as { client_type?: string }
-                  )?.client_type;
-                  const endDate = (
-                    quotation as unknown as { event_end_date?: string | null }
-                  )?.event_end_date;
-                  return (
-                    <tr
-                      key={quotation.id}
-                      onClick={() => handleRowClick(quotation)}
-                      className="hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
-                        #{quotation.quotation_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatISOUTCDateToString(quotation.event_date)}
-                        </div>
-                        {endDate && String(endDate) !== String(quotation.event_date) && (
-                          <div className="text-xs text-gray-500">
-                            al {formatISOUTCDateToString(endDate)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {quotation.clients.name.slice(0, 40) +
-                            (quotation.clients.name.length > 40 ? "..." : "")}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {clientType || ""}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {contact.name || "—"}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatPhone(contact.phone)}
-                        </div>
-                        {contact.email && (
-                          <div
-                            className="text-xs text-gray-500 truncate max-w-[180px]"
-                            title={contact.email}
-                          >
-                            {contact.email}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        ${quotation.total_amount.toLocaleString("es-CL")}
-                      </td>
-                      {/* Click aislado: cambiar el estado no abre la fila */}
-                      <td
-                        className="px-6 py-4 whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {estadoPill(quotation)}
-                      </td>
-                      {/* Bitácora comercial: semáforo (vivas) o icono
-                          discreto (cerradas, para leer la historia). */}
-                      <td
-                        className="px-6 py-4 whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {(() => {
-                          const sem = semaforoDe(quotation);
-                          return sem ? (
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/negocio/${quotation.id}`)}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
-                              title="Abrir bitácora de seguimiento"
-                            >
-                              <MessageSquare size={12} className="shrink-0" />
-                              {sem.texto}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/negocio/${quotation.id}`)}
-                              className="text-gray-300 hover:text-gray-500"
-                              title="Ver bitácora de seguimiento"
-                            >
-                              <MessageSquare size={16} />
-                            </button>
-                          );
-                        })()}
-                      </td>
-                      <td
-                        className="px-6 py-4 whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => handleViewQuotation(quotation)}
-                          className="text-sm font-semibold text-blue-600 hover:underline"
-                          title="Ver el documento de la cotización"
-                        >
-                          PDF
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        <ChevronRight size={18} />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      )}
 
       {/* Ventanita de la casa (Tanda 3a): confirmar la vuelta de
           post-venta a pre-venta (reemplaza al confirm() del navegador). */}
