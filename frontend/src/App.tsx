@@ -49,6 +49,8 @@ const QuotationsPage = lazy(importQuotations);
 const QuotationForm = lazy(importQuotationForm);
 const ClientsPage = lazy(importClients);
 const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
+// Ficha del negocio (04-08): la página propia de cada cotización.
+const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
@@ -175,6 +177,16 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
                     <QuotationsPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* Ficha del negocio (04-08): página propia por cotización */}
+              <Route
+                path="negocio/:id"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                    <NegocioPage />
                   </PermissionGuard>
                 }
               />

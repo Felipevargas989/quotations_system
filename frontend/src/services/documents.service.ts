@@ -18,6 +18,9 @@ export const DOCUMENT_CATEGORIES: { key: string; label: string }[] = [
   { key: "contratos", label: "Contratos" },
   { key: "ordenes_compra", label: "Órdenes de compra" },
   { key: "facturas", label: "Facturas" },
+  // Respaldo de la negociación (ficha del negocio, 04-08): pantallazos
+  // de WhatsApp, correos del cliente — la evidencia comercial.
+  { key: "comercial", label: "Comercial" },
   { key: "otros", label: "Otros" },
 ];
 

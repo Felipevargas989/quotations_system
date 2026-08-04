@@ -13,23 +13,10 @@ import {
   LayoutGrid,
   List,
   MessageSquare,
-  Pencil,
   Plus,
   Search,
-  Trash2,
-  X,
 } from "lucide-react";
-import ConfirmInline from "../../components/ConfirmInline";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import {
-  createFollowup,
-  deleteFollowup,
-  Followup,
-  FollowupTipo,
-  getFollowupsByQuotation,
-  getFollowupsMap,
-  updateFollowup,
-} from "../../services/quotationFollowups.service";
+import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
@@ -129,14 +116,6 @@ const contactOf = (q: QuotationWithClient) => {
     phone: c?.phone || "",
     email: c?.email || "",
   };
-};
-
-const TIPO_ETIQUETA: Record<string, string> = {
-  llamada: "📞 Llamada",
-  correo: "✉️ Correo",
-  reunion: "🤝 Reunión",
-  whatsapp: "💬 WhatsApp",
-  otro: "📌 Otro",
 };
 
 const ORDEN_ETIQUETA: Record<string, string> = {
@@ -412,9 +391,6 @@ export default function QuotationsPage() {
     queryFn: getFollowupsMap,
   });
   const seguimientosMap = seguimientosQuery.data ?? {};
-  const [bitacoraFor, setBitacoraFor] = useState<QuotationWithClient | null>(
-    null,
-  );
   const [soloSeguimiento, setSoloSeguimiento] = useState(false);
 
   type Semaforo = { texto: string; clase: string; urgencia: number };
@@ -1072,7 +1048,7 @@ export default function QuotationsPage() {
                             setDragId(null);
                             setDropCol(null);
                           }}
-                          onClick={() => handleRowClick(quotation)}
+                          onClick={() => navigate(`/negocio/${quotation.id}`)}
                           className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
                             dragId === quotation.id ? "opacity-40" : ""
                           }`}
@@ -1113,7 +1089,7 @@ export default function QuotationsPage() {
                               {sem && (
                                 <button
                                   type="button"
-                                  onClick={() => setBitacoraFor(quotation)}
+                                  onClick={() => navigate(`/negocio/${quotation.id}`)}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
                                   title="Abrir bitácora de seguimiento"
                                 >
@@ -1401,7 +1377,7 @@ export default function QuotationsPage() {
                           return sem ? (
                             <button
                               type="button"
-                              onClick={() => setBitacoraFor(quotation)}
+                              onClick={() => navigate(`/negocio/${quotation.id}`)}
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
                               title="Abrir bitácora de seguimiento"
                             >
@@ -1411,7 +1387,7 @@ export default function QuotationsPage() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => setBitacoraFor(quotation)}
+                              onClick={() => navigate(`/negocio/${quotation.id}`)}
                               className="text-gray-300 hover:text-gray-500"
                               title="Ver bitácora de seguimiento"
                             >
@@ -1485,327 +1461,6 @@ export default function QuotationsPage() {
           </div>
         </div>
       )}
-
-      {bitacoraFor && (
-        <BitacoraModal
-          quotation={bitacoraFor}
-          onClose={() => setBitacoraFor(null)}
-          onChanged={() =>
-            void queryClient.invalidateQueries({
-              queryKey: ["seguimientos", "map"],
-            })
-          }
-        />
-      )}
-    </div>
-  );
-}
-
-// ---- Bitácora comercial (migración 59): el hilo de una cotización ----
-// La conversación para VENDER la propuesta, separada de su contenido.
-// Notas editables/borrables SOLO por su autor (estándar del mercado:
-// la inmutabilidad castiga el tipeo y desincentiva registrar). El
-// envío al cliente aparece como entrada del sistema, gris y discreta.
-function BitacoraModal({
-  quotation,
-  onClose,
-  onChanged,
-}: {
-  readonly quotation: QuotationWithClient;
-  readonly onClose: () => void;
-  readonly onChanged: () => void;
-}) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const hiloQuery = useQuery({
-    queryKey: ["seguimientos", quotation.id],
-    staleTime: 0,
-    queryFn: () => getFollowupsByQuotation(quotation.id),
-  });
-  const notas = hiloQuery.data ?? [];
-
-  const [nota, setNota] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [proxima, setProxima] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editNota, setEditNota] = useState("");
-  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
-
-  const refrescar = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ["seguimientos", quotation.id],
-    });
-    onChanged();
-  };
-
-  const guardar = async () => {
-    const texto = nota.trim();
-    if (!texto || guardando) return;
-    setGuardando(true);
-    setErr(null);
-    try {
-      await createFollowup({
-        quotation_id: quotation.id,
-        note: texto,
-        ...(tipo ? { tipo: tipo as FollowupTipo } : {}),
-        ...(proxima ? { next_contact_date: proxima } : {}),
-      });
-      setNota("");
-      setTipo("");
-      setProxima("");
-      toast.success("Nota guardada");
-      await refrescar();
-    } catch {
-      setErr("No se pudo guardar la nota");
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  const guardarEdicion = async (id: number) => {
-    const texto = editNota.trim();
-    if (!texto) return;
-    try {
-      await updateFollowup(id, { note: texto });
-      setEditId(null);
-      await refrescar();
-    } catch {
-      setErr("No se pudo editar la nota");
-    }
-  };
-
-  const borrar = async (id: number) => {
-    setConfirmDelId(null);
-    try {
-      await deleteFollowup(id);
-      toast.success("Nota eliminada");
-      await refrescar();
-    } catch {
-      setErr("No se pudo eliminar la nota");
-    }
-  };
-
-  // Hilo mixto: notas humanas + el envío al cliente como entrada del
-  // sistema, todo en un solo orden cronológico (más nuevo arriba).
-  type Entrada =
-    | { kind: "nota"; at: string; nota: Followup }
-    | { kind: "sistema"; at: string; texto: string };
-  const entradas: Entrada[] = [
-    ...notas.map((n) => ({ kind: "nota" as const, at: n.created_at, nota: n })),
-    ...(quotation.sent_at
-      ? [
-          {
-            kind: "sistema" as const,
-            at: quotation.sent_at,
-            texto: "Cotización enviada al cliente",
-          },
-        ]
-      : []),
-  ].sort((a, b) => (a.at < b.at ? 1 : -1));
-
-  const fechaCorta = (iso: string) =>
-    new Date(iso).toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="shrink-0 flex items-start justify-between p-5 border-b border-gray-200">
-          <div>
-            <h3 className="text-base font-bold text-gray-900">
-              Seguimiento — #{quotation.quotation_number}
-            </h3>
-            {/* El contacto A MANO donde se anota la llamada: nombre,
-                teléfono y correo del mandante (camino a tablero-único —
-                antes vivían solo en la columna de la Lista). */}
-            {(() => {
-              const c = contactOf(quotation);
-              return (
-                <p className="text-xs text-gray-500">
-                  {quotation.clients?.name}
-                  {c.name && c.name !== quotation.clients?.name
-                    ? ` · ${c.name}`
-                    : ""}
-                  {c.phone ? ` · 📞 ${formatPhone(c.phone)}` : ""}
-                  {c.email ? ` · ✉️ ${c.email}` : ""}
-                </p>
-              );
-            })()}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {hiloQuery.isPending ? (
-            <p className="text-sm text-gray-500">Cargando…</p>
-          ) : entradas.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Sin notas todavía. La primera gestión parte abajo. 👇
-            </p>
-          ) : (
-            entradas.map((e) =>
-              e.kind === "sistema" ? (
-                <div key={`sys-${e.at}`} className="text-xs text-gray-400">
-                  ⚙ {e.texto} — {fechaCorta(e.at)}
-                </div>
-              ) : (
-                <div
-                  key={e.nota.id}
-                  className="border border-gray-200 rounded-lg p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs text-gray-500">
-                      <span className="font-semibold text-gray-700">
-                        {e.nota.author_name || "—"}
-                      </span>{" "}
-                      · {fechaCorta(e.nota.created_at)}
-                      {e.nota.updated_at ? " · editada" : ""}
-                      {e.nota.tipo ? (
-                        <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 rounded-full">
-                          {TIPO_ETIQUETA[e.nota.tipo] || e.nota.tipo}
-                        </span>
-                      ) : null}
-                    </div>
-                    {e.nota.author_user_id === user?.id &&
-                      editId !== e.nota.id && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {confirmDelId === e.nota.id ? (
-                            <ConfirmInline
-                              question="¿Eliminar?"
-                              onYes={() => void borrar(e.nota.id)}
-                              onNo={() => setConfirmDelId(null)}
-                            />
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditId(e.nota.id);
-                                  setEditNota(e.nota.note);
-                                }}
-                                className="text-gray-300 hover:text-gray-500"
-                                title="Editar mi nota"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDelId(e.nota.id)}
-                                className="text-gray-300 hover:text-red-500"
-                                title="Eliminar mi nota"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                  </div>
-                  {editId === e.nota.id ? (
-                    <div className="mt-2 space-y-2">
-                      <textarea
-                        value={editNota}
-                        onChange={(ev) => setEditNota(ev.target.value)}
-                        rows={2}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditId(null)}
-                          className="px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void guardarEdicion(e.nota.id)}
-                          className="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                          Guardar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-1.5 text-sm text-gray-800 whitespace-pre-wrap">
-                      {e.nota.note}
-                    </p>
-                  )}
-                  {e.nota.next_contact_date && (
-                    <p className="mt-1.5 text-xs text-blue-700">
-                      📅 Próximo contacto: {ddmm(e.nota.next_contact_date)}
-                    </p>
-                  )}
-                </div>
-              ),
-            )
-          )}
-        </div>
-
-        <div className="shrink-0 border-t border-gray-200 p-5 space-y-2.5">
-          {err && <p className="text-xs text-red-600">{err}</p>}
-          <textarea
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            rows={2}
-            placeholder="¿Qué pasó con esta negociación? (llamada, respuesta, espera de aprobación…)"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="w-40">
-              <SelectWithSearch
-                options={Object.entries(TIPO_ETIQUETA).map(([v, l]) => ({
-                  value: v,
-                  label: l,
-                }))}
-                value={tipo}
-                onChange={setTipo}
-                placeholder="Tipo (opcional)"
-              />
-            </div>
-            <label className="flex items-center gap-1.5 text-xs text-gray-600">
-              Próx. contacto
-              <input
-                type="date"
-                value={proxima}
-                min={hoyLocal()}
-                onChange={(e) => setProxima(e.target.value)}
-                className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => void guardar()}
-              disabled={!nota.trim() || guardando}
-              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-            >
-              {(() => {
-                if (guardando) return "Guardando…";
-                return proxima ? "Guardar" : "Guardar (sin próximo contacto)";
-              })()}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
