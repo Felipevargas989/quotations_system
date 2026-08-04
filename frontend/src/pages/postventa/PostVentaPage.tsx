@@ -1836,7 +1836,10 @@ export function ServiciosTab({
   const [addingFixed, setAddingFixed] = useState(false);
   // Desplegables artesanales (04-08, trasplante del cotizador): cuál está
   // abierto y qué se busca adentro. Se cierran al hacer clic afuera.
-  const [openCatPicker, setOpenCatPicker] = useState(false);
+  // El de categoría es POR CAJA: cada grupo recién nacido tiene el suyo.
+  const [openCatPicker, setOpenCatPicker] = useState<number | null>(null);
+  // Basurero de caja (04-08): confirmación inline solo si hay ítems.
+  const [confirmGroupKey, setConfirmGroupKey] = useState<number | null>(null);
   const [openItemPicker, setOpenItemPicker] = useState<number | null>(null);
   const [itemSearch, setItemSearch] = useState("");
   const [openFixedPicker, setOpenFixedPicker] = useState(false);
@@ -1847,7 +1850,7 @@ export function ServiciosTab({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       if (!target.closest(".dropdown-container")) {
-        setOpenCatPicker(false);
+        setOpenCatPicker(null);
         setOpenItemPicker(null);
         setOpenFixedPicker(false);
       }
@@ -1855,11 +1858,6 @@ export function ServiciosTab({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  // Categoría nueva: día explícito (multi-día) y audiencia (si hay niños).
-  const [newCatOpen, setNewCatOpen] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatDay, setNewCatDay] = useState(1);
-  const [newCatAud, setNewCatAud] = useState<"adultos" | "ninos">("adultos");
   const daysCount = (() => {
     if (!multiDia) return 1;
     const d0 = new Date(
@@ -1884,8 +1882,10 @@ export function ServiciosTab({
   // salen la pantalla, lo guardado y lo que el backend verifica — misma
   // fórmula compartida (@dinero = api-rest/src/quotations/utils/money.ts).
   const buildItemsSnapshot = () => ({
+    // Una caja sin categoría o sin ítems NO viaja: es solo un borrador
+    // en pantalla (el basurero de la caja es su única salida).
     variable_services: varGroups
-      .filter((g) => (g.items || []).length > 0)
+      .filter((g) => g.category && (g.items || []).length > 0)
       .map((g) => ({
         category: g.category,
         day: g.day || 1,
@@ -1994,8 +1994,20 @@ export function ServiciosTab({
     setVarGroups((prev) => {
       const copy = prev.map((g) => ({ ...g, items: [...(g.items || [])] }));
       copy[gi].items.splice(ii, 1);
-      return copy.filter((g) => (g.items || []).length > 0);
+      // El grupo ya NO se esfuma al vaciarse (04-08): la única salida de
+      // una caja es su basurero — una sola mecánica, como el cotizador.
+      return copy;
     });
+  };
+  // Quita la caja COMPLETA (basurero del encabezado, como el cotizador —
+  // que permite borrar cajas incluso con fijos de sección adentro). Los
+  // estados por índice se cierran: tras el corrimiento apuntarían mal.
+  const removeGroup = (gi: number) => {
+    setVarGroups((prev) => prev.filter((_, i) => i !== gi));
+    setConfirmGroupKey(null);
+    setAddingToGroup(null);
+    setOpenItemPicker(null);
+    setOpenCatPicker(null);
   };
   const removeFixed = (i: number) =>
     setFixed((prev) => prev.filter((_, idx) => idx !== i));
@@ -2072,32 +2084,40 @@ export function ServiciosTab({
       ]);
   };
 
-  // Crea el grupo con día y audiencia EXPLÍCITOS y abre su agregador
-  // (un grupo sin items se descarta solo al guardar). Los ítems de la
-  // sección fija de la categoría entran SOLOS, como en el cotizador —
-  // únicamente en categorías agregadas acá: lo ya guardado en la
-  // cotización no se toca al cargar.
-  const createGroup = () => {
-    if (!newCatName) return;
-    const newIndex = varGroups.length;
+  // Nace la caja VACÍA y sin categoría, como en el cotizador (04-08):
+  // el panel azul intermedio se jubiló. La categoría se elige ADENTRO.
+  const addGroup = () =>
     setVarGroups((prev) => [
       ...prev,
-      {
-        category: newCatName,
-        audience: newCatAud,
-        day: multiDia ? newCatDay : 1,
-        items: defaultServicesFor(newCatName),
-      },
+      { category: "", audience: "adultos", day: 1, items: [] },
     ]);
-    setNewCatOpen(false);
-    setNewCatName("");
-    setNewCatDay(1);
-    setNewCatAud("adultos");
-    setAddingToGroup(newIndex);
+  // Elegir la categoría dispara lo que antes hacía "Crear": entran solos
+  // los ítems de la sección fija (solo en cajas nuevas; lo guardado no se
+  // toca al cargar) y se abre el agregador del grupo. La categoría de una
+  // caja NO se cambia después (regla del cotizador): se borra la caja y
+  // se hace otra.
+  const setGroupCategory = (gi: number, name: string) => {
+    setVarGroups((prev) =>
+      prev.map((g, i) =>
+        i === gi
+          ? { ...g, category: name, items: defaultServicesFor(name) }
+          : g,
+      ),
+    );
+    setOpenCatPicker(null);
+    setAddingToGroup(gi);
     // El desplegable del grupo nuevo se abre de una, con el buscador listo.
-    setOpenItemPicker(newIndex);
+    setOpenItemPicker(gi);
     setItemSearch("");
   };
+  // Día y audiencia de una caja recién nacida (antes vivían en el panel
+  // azul); tras elegir categoría quedan fijos en la banda, como hoy.
+  const setGroupDay = (gi: number, day: number) =>
+    setVarGroups((prev) => prev.map((g, i) => (i === gi ? { ...g, day } : g)));
+  const setGroupAud = (gi: number, aud: "adultos" | "ninos") =>
+    setVarGroups((prev) =>
+      prev.map((g, i) => (i === gi ? { ...g, audience: aud } : g)),
+    );
 
   // Personas del grupo: igual al cotizador — escribir el número de su
   // audiencia vuelve a modo automático; otro número = ajuste manual.
@@ -2425,8 +2445,132 @@ export function ServiciosTab({
           todas las filas en anatomía flex ya no describía nada. */}
       {varGroups.map((g, gi) => (
         <div key={`${g.category || "cat"}-${gi}`}>
+          {!g.category ? (
+            /* Caja recién nacida (04-08, flujo del cotizador): la
+                categoría se elige ADENTRO con el desplegable sobrio y no
+                se cambia después (se borra la caja y se hace otra). Día y
+                audiencia se definen aquí — herencia del panel azul
+                jubilado; al elegir categoría quedan fijos en la banda. */
+            <div className="border border-gray-200 rounded-lg p-3 mt-3 flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Categoría
+                </label>
+                <div className="relative dropdown-container">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenCatPicker(openCatPicker === gi ? null : gi)
+                    }
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
+                  >
+                    <span className="text-gray-500">
+                      Seleccionar categoría
+                    </span>
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                  {openCatPicker === gi && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                      {catNames
+                        // Paridad con el cotizador: categorías
+                        // desactivadas no se ofrecen para cajas nuevas.
+                        .filter((c) => !inactiveCategorySet.has(c))
+                        .map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setGroupCategory(gi, c)}
+                            className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
+                          >
+                            {c}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {multiDia && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Día
+                  </label>
+                  <SectionChipSelect
+                    value={g.day || 1}
+                    options={Array.from({ length: daysCount }, (_, i) => ({
+                      id: i + 1,
+                      name: `Día ${i + 1}`,
+                    }))}
+                    onChange={(d) => setGroupDay(gi, d)}
+                    zeroLabel={null}
+                    size="md"
+                    title="Día del evento"
+                  />
+                </div>
+              )}
+              {kidsN > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Audiencia
+                  </label>
+                  <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                    {(["adultos", "ninos"] as const).map((aud) => (
+                      <button
+                        key={aud}
+                        type="button"
+                        onClick={() => setGroupAud(gi, aud)}
+                        className={`px-3 py-2 text-xs font-bold ${
+                          (g.audience || "adultos") === aud
+                            ? aud === "ninos"
+                              ? "bg-amber-600 text-white"
+                              : "bg-blue-900 text-white"
+                            : "bg-white text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        {aud === "ninos" ? "Niños" : "Adultos"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Caja sin categoría: se quita directo, no hay nada que
+                  confirmar. */}
+              <button
+                type="button"
+                onClick={() => removeGroup(gi)}
+                className="text-red-500 hover:text-red-700 pb-2.5"
+                title="Quitar este servicio"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ) : (
+            <>
           <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
             <span>{g.category}</span>
+            {confirmGroupKey === gi ? (
+              /* Basurero con ítems adentro: confirmación inline de la
+                  casa antes de borrar la caja completa. */
+              <span className="normal-case">
+                <ConfirmInline
+                  question="¿Quitar la categoría completa?"
+                  yesLabel="Sí, quitar"
+                  onYes={() => removeGroup(gi)}
+                  onNo={() => setConfirmGroupKey(null)}
+                />
+              </span>
+            ) : (
             <span className="normal-case font-semibold flex items-center gap-1.5">
               <span
                 className={
@@ -2470,7 +2614,23 @@ export function ServiciosTab({
                   ),
                 )}
               </span>
+              {/* Basurero de la caja (04-08, cotizador): única salida del
+                  grupo — con ítems pide confirmación, vacío sale directo.
+                  Como el cotizador, borra también cajas con sección fija. */}
+              <button
+                type="button"
+                onClick={() =>
+                  (g.items || []).length > 0
+                    ? setConfirmGroupKey(gi)
+                    : removeGroup(gi)
+                }
+                className="text-red-500 hover:text-red-700 ml-1"
+                title="Quitar este servicio"
+              >
+                <Trash2 size={14} />
+              </button>
             </span>
+            )}
           </div>
           {/* Lista armada por secciones, como la carta del cotizador:
               rótulo azul con línea divisora ("Otros" para lo suelto);
@@ -2675,6 +2835,8 @@ export function ServiciosTab({
               </button>
             )}
           </div>
+            </>
+          )}
         </div>
       ))}
 
@@ -2735,125 +2897,10 @@ export function ServiciosTab({
         </div>
       )}
 
-      {/* Agregadores GLOBALES: solo lo que no pertenece a un grupo —
-          categoría nueva (día y audiencia explícitos) y servicios fijos. */}
+      {/* Agregadores GLOBALES: la caja nueva nace directa (el panel azul
+          intermedio se jubiló el 04-08) y los servicios fijos. */}
       <div className="mt-4">
-        {newCatOpen ? (
-          <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px]">
-              <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
-                Categoría
-              </label>
-              {/* Desplegable sobrio del cotizador (patrón custom de la
-                  casa, sin buscador): pocas categorías, lista directa. */}
-              <div className="relative dropdown-container">
-                <button
-                  type="button"
-                  onClick={() => setOpenCatPicker((v) => !v)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
-                >
-                  <span
-                    className={newCatName ? "text-gray-900" : "text-gray-500"}
-                  >
-                    {newCatName || "Seleccionar categoría"}
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                {openCatPicker && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                    {catNames
-                      // Paridad con el cotizador: categorías desactivadas
-                      // no se ofrecen para grupos nuevos.
-                      .filter((c) => !inactiveCategorySet.has(c))
-                      .map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => {
-                            setNewCatName(c);
-                            setOpenCatPicker(false);
-                          }}
-                          className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
-                        >
-                          {c}
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {multiDia && (
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
-                  Día
-                </label>
-                <SectionChipSelect
-                  value={newCatDay}
-                  options={Array.from({ length: daysCount }, (_, i) => ({
-                    id: i + 1,
-                    name: `Día ${i + 1}`,
-                  }))}
-                  onChange={setNewCatDay}
-                  zeroLabel={null}
-                  size="md"
-                  title="Día del evento"
-                />
-              </div>
-            )}
-            {kidsN > 0 && (
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
-                  Audiencia
-                </label>
-                <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                  {(["adultos", "ninos"] as const).map((aud) => (
-                    <button
-                      key={aud}
-                      type="button"
-                      onClick={() => setNewCatAud(aud)}
-                      className={`px-3 py-2 text-xs font-bold ${
-                        newCatAud === aud
-                          ? aud === "ninos"
-                            ? "bg-amber-600 text-white"
-                            : "bg-blue-900 text-white"
-                          : "bg-white text-gray-500 hover:bg-gray-50"
-                      }`}
-                    >
-                      {aud === "ninos" ? "Niños" : "Adultos"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={createGroup}
-              disabled={!newCatName}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-            >
-              Crear
-            </button>
-            <button
-              type="button"
-              onClick={() => setNewCatOpen(false)}
-              className="px-3 py-2 text-sm text-gray-600"
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : addingFixed ? (
+        {addingFixed ? (
           /* Desplegable de fijos trasplantado del cotizador (04-08):
               buscador pegajoso, agrupado por secciones de fijos y panel
               que queda abierto para agregar varios seguidos. */
@@ -2961,10 +3008,10 @@ export function ServiciosTab({
           <div className="flex items-center gap-3 border-t border-gray-200 mt-4 pt-4">
             <button
               type="button"
-              onClick={() => setNewCatOpen(true)}
+              onClick={addGroup}
               className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
-              + Agregar categoría nueva
+              + Agregar servicio
             </button>
             <button
               type="button"
