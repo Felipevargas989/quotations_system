@@ -211,13 +211,20 @@ export default function ServicesPage() {
     variableServices.filter((s) => s.is_active === false).length +
     fixedServices.filter((s) => s.is_active === false).length;
 
+  // Los conteos del filtro cuentan SOLO lo que la vista puede mostrar
+  // (pillada Felipe 03-08: sumaba inactivos ocultos y el "Sin receta"
+  // mentía). Con "Ver inactivos" encendido, ahí sí entran a la cuenta.
+  const esVisible = (s: { is_active?: boolean }) =>
+    showInactive || s.is_active !== false;
+  const variablesVisibles = variableServices.filter(esVisible);
+  const fijosVisibles = fixedServices.filter(esVisible);
   const conCount =
-    variableServices.filter((s) => variableBucket(s) === "con").length +
-    fixedServices.filter((s) => fixedBucket(s) === "con").length;
+    variablesVisibles.filter((s) => variableBucket(s) === "con").length +
+    fijosVisibles.filter((s) => fixedBucket(s) === "con").length;
   const sinCostoCount =
-    variableServices.filter((s) => s.no_cost).length +
-    fixedServices.filter((s) => s.no_cost).length;
-  const totalCount = variableServices.length + fixedServices.length;
+    variablesVisibles.filter((s) => s.no_cost).length +
+    fijosVisibles.filter((s) => s.no_cost).length;
+  const totalCount = variablesVisibles.length + fijosVisibles.length;
   const RECIPE_FILTER_OPTIONS: MultiSelectOption[] = [
     { value: "con", label: `Con receta (${conCount})` },
     {
