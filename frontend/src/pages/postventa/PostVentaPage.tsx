@@ -49,7 +49,10 @@ import {
 import { Quotation, QuotationStatus } from "../../types/quotations.types";
 import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
-import { findAllServices } from "../../services/services.service";
+import { getFixedSections } from "../../services/services.service";
+import { getCategorySections } from "../../services/sections.service";
+import { useServices } from "../../hooks/useServices";
+import { CategorySection } from "../../types/services.types";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
@@ -1683,7 +1686,7 @@ export function ServiciosTab({
   const personas = adultsN + kidsN;
   // Provisión: si el evento ya se compró, advertir cambios y restringir
   // la baja de personas a administradores.
-  const { userRole } = useAuth();
+  const { userRole, company } = useAuth();
   const [provInfo, setProvInfo] = useState<{
     provisioned_at: string | null;
     provisioned_people: number | null;
@@ -1715,16 +1718,80 @@ export function ServiciosTab({
     text: string;
   } | null>(null);
 
-  // Catálogo del sistema para agregar (categoría -> servicios, y fijos).
-  const [catalog, setCatalog] = useState<{
-    byCat: Record<string, any[]>;
-    fixed: any[];
-    cats: string[];
-  }>({ byCat: {}, fixed: [], cats: [] });
+  // Catálogo del sistema vía useServices (04-08): el MISMO origen que el
+  // cotizador — products ya ordenados por categoría/orden interno, fijos
+  // con sección y orden, categorías ordenadas y vínculos con sección.
+  const {
+    products,
+    fixedServices: fixedCatalog,
+    orderedCategories,
+    categoryLinks,
+    inactiveCategories,
+  } = useServices();
+  const inactiveCategorySet = new Set(inactiveCategories);
+  // Secciones de fijos y de categorías: mismas fuentes del cotizador.
+  const { data: fixedSections = [] } = useQuery({
+    queryKey: ["fixedSections"],
+    queryFn: getFixedSections,
+  });
+  const [categorySections, setCategorySections] = useState<CategorySection[]>(
+    [],
+  );
+  useEffect(() => {
+    if (!company?.id) return;
+    getCategorySections(Number(company.id)).then(setCategorySections);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.id]);
+  // Servicios de una categoría (una entrada por vínculo servicio-categoría)
+  // y nombres de categoría en el orden del catálogo.
+  const productsOf = (categoria: string) =>
+    products.filter((p) => p.categoria === categoria);
+  const catNames = [...new Set(products.map((p) => p.categoria || "General"))];
+  // Posición y sección de un fijo según el catálogo (calco del cotizador):
+  // el `codigo` guardado en la cotización es el id del catálogo en texto.
+  const fixedOrderOf = (codigo: string): number => {
+    const svc = fixedCatalog.find((f) => f.codigo === codigo);
+    if (!svc) return Number.MAX_SAFE_INTEGER;
+    const secIdx =
+      svc.section_id != null
+        ? fixedSections.findIndex((sec) => sec.id === svc.section_id)
+        : -1;
+    const secPos = secIdx >= 0 ? secIdx : fixedSections.length;
+    return secPos * 100000 + (svc.sort_order ?? 99999);
+  };
+  const fixedSectionNameOf = (codigo: string): string => {
+    const svc = fixedCatalog.find((f) => f.codigo === codigo);
+    const sec =
+      svc?.section_id != null
+        ? fixedSections.find((x) => x.id === svc.section_id)
+        : null;
+    return sec ? sec.name : "Sin sección";
+  };
   // Agregar POR GRUPO (acordado 22-07): cada grupo tiene su propio
   // "+ Agregar servicio" — así dos categorías gemelas nunca se mezclan.
   const [addingToGroup, setAddingToGroup] = useState<number | null>(null);
   const [addingFixed, setAddingFixed] = useState(false);
+  // Desplegables artesanales (04-08, trasplante del cotizador): cuál está
+  // abierto y qué se busca adentro. Se cierran al hacer clic afuera.
+  const [openCatPicker, setOpenCatPicker] = useState(false);
+  const [openItemPicker, setOpenItemPicker] = useState<number | null>(null);
+  const [itemSearch, setItemSearch] = useState("");
+  const [openFixedPicker, setOpenFixedPicker] = useState(false);
+  const [fixedSearch, setFixedSearch] = useState("");
+  // Cierre al clic afuera: misma mecánica del cotizador (listener global
+  // que respeta los envoltorios .dropdown-container).
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest(".dropdown-container")) {
+        setOpenCatPicker(false);
+        setOpenItemPicker(null);
+        setOpenFixedPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   // Categoría nueva: día explícito (multi-día) y audiencia (si hay niños).
   const [newCatOpen, setNewCatOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -1740,51 +1807,6 @@ export function ServiciosTab({
     ).getTime();
     return Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
   })();
-
-  useEffect(() => {
-    findAllServices()
-      .then((data: any) => {
-        const cats = (data.categories || []).filter(
-          (c: any) => c.is_active !== false,
-        );
-        const svcById = new Map(
-          (data.variableServices || []).map((s: any) => [s.id, s]),
-        );
-        const links = data.categoryLinks || [];
-        const byCat: Record<string, any[]> = {};
-        const push = (name: string, s: any) => {
-          if (!byCat[name]) byCat[name] = [];
-          byCat[name].push({
-            codigo: String(s.id),
-            nombre: s.name,
-            precio: s.price || 0,
-          });
-        };
-        if (links.length) {
-          links.forEach((l: any) => {
-            const cat = cats.find((c: any) => c.id === l.category_id);
-            const s = svcById.get(l.variable_service_id);
-            if (cat && s) push(cat.name, s);
-          });
-        } else {
-          (data.variableServices || []).forEach((s: any) =>
-            push(s.category || "Sin categoría", s),
-          );
-        }
-        const fixedCat = (data.fixedServices || []).map((f: any) => ({
-          codigo: String(f.id),
-          nombre: f.name,
-          precio: f.price || 0,
-          categoria: "General",
-          tipo_calculo: f.calculation_type || "fijo",
-          min_precio: f.min_price || 0,
-          max_precio: f.max_price || 0,
-          precio_por_persona: f.price_per_person || 0,
-        }));
-        setCatalog({ byCat, fixed: fixedCat, cats: Object.keys(byCat) });
-      })
-      .catch(() => {});
-  }, []);
 
   // Precio por persona de un ítem variable = precio × cantidad (igual que la
   // cotización). Se usa para las filas en pantalla.
@@ -1857,9 +1879,15 @@ export function ServiciosTab({
     setFixed((prev) => prev.filter((_, idx) => idx !== i));
 
   // Agrega un servicio del catálogo AL GRUPO gi (nunca adivina el grupo).
-  const addToGroup = (gi: number, idx: string) => {
+  // Se identifica por `codigo`: con el desplegable agrupado por secciones
+  // el índice del arreglo ya no coincide con lo que se ve en pantalla.
+  // El panel queda abierto tras elegir, para agregar varios seguidos
+  // (mismo comportamiento del cotizador).
+  const addToGroup = (gi: number, codigo: string) => {
     const g = varGroups[gi];
-    const s = g ? catalog.byCat[g.category]?.[+idx] : undefined;
+    const s = g
+      ? productsOf(g.category).find((p) => p.codigo === codigo)
+      : undefined;
     if (!s) return;
     const item = {
       codigo: s.codigo,
@@ -1873,11 +1901,12 @@ export function ServiciosTab({
       copy[gi]?.items.push(item);
       return copy;
     });
-    setAddingToGroup(null);
   };
 
-  const addFixedSvc = (idx: string) => {
-    const s = catalog.fixed[+idx];
+  // También por `codigo` (el desplegable agrupado reordena la lista) y
+  // también deja el panel abierto tras elegir.
+  const addFixedSvc = (codigo: string) => {
+    const s = fixedCatalog.find((f) => f.codigo === codigo);
     // El precio queda RESUELTO al agregarlo (regla del catálogo en
     // @dinero): un fijo "por persona" ya no entra con precio 0.
     if (s)
@@ -1885,7 +1914,6 @@ export function ServiciosTab({
         ...prev,
         { ...s, precio: resolveFixedServicePrice(s, personas), quantity: 1 },
       ]);
-    setAddingFixed(false);
   };
 
   // Crea el grupo con día y audiencia EXPLÍCITOS y abre su agregador
@@ -1907,6 +1935,9 @@ export function ServiciosTab({
     setNewCatDay(1);
     setNewCatAud("adultos");
     setAddingToGroup(newIndex);
+    // El desplegable del grupo nuevo se abre de una, con el buscador listo.
+    setOpenItemPicker(newIndex);
+    setItemSearch("");
   };
 
   // Personas del grupo: igual al cotizador — escribir el número de su
@@ -2212,26 +2243,137 @@ export function ServiciosTab({
               removeVar(gi, i),
             ),
           )}
-          {/* Agregador DEL grupo: el servicio cae aquí, sin ambigüedad */}
+          {/* Agregador DEL grupo: el servicio cae aquí, sin ambigüedad.
+              Desplegable trasplantado del cotizador (04-08): buscador
+              pegajoso arriba, ítems agrupados por sección de la categoría
+              y panel que queda abierto para agregar varios seguidos. */}
           <div className="py-1.5 border-t border-gray-100">
             {addingToGroup === gi ? (
               <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <SelectWithSearch
-                    options={(catalog.byCat[g.category] || []).map((sv, i) => ({
-                      value: String(i),
-                      label: `${sv.nombre} — ${clp(sv.precio)}`,
-                    }))}
-                    value=""
-                    onChange={(v) => addToGroup(gi, v)}
-                    placeholder={`Buscar servicio de ${g.category}…`}
-                    searchPlaceholder="Buscar…"
-                    noResultsText="Sin resultados"
-                  />
+                <div className="relative dropdown-container flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenItemPicker(openItemPicker === gi ? null : gi);
+                      setItemSearch("");
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
+                  >
+                    <span className="text-gray-500">
+                      Seleccionar servicio de {g.category}…
+                    </span>
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                  {openItemPicker === gi && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                      <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={itemSearch}
+                          onChange={(e) => setItemSearch(e.target.value)}
+                          placeholder="Buscar item por nombre..."
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      {(() => {
+                        // NOTA: acá NO se porta la "sección fija" del
+                        // cotizador (is_default: ítems que entran solos al
+                        // elegir la categoría). En una cotización ya vendida
+                        // sería auto-insertar servicios — fuera de alcance.
+                        const filtered = productsOf(g.category)
+                          // Paridad con el cotizador: los desactivados no
+                          // se ofrecen (los ya agregados no se tocan).
+                          .filter((p) => p.is_active !== false)
+                          .filter((p) => matchesSearch(itemSearch, p.nombre));
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="px-3 py-2 text-sm text-gray-500">
+                              No se encontraron items
+                            </div>
+                          );
+                        }
+                        const itemButton = (p: {
+                          codigo: string;
+                          nombre: string;
+                          precio: number;
+                        }) => (
+                          <button
+                            key={p.codigo}
+                            type="button"
+                            onClick={() => addToGroup(gi, p.codigo)}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                          >
+                            {p.nombre} - ${p.precio.toLocaleString("es-CL")}
+                          </button>
+                        );
+                        // Con secciones definidas, el listado se agrupa
+                        // como la carta (Entradas, Principales...); una
+                        // categoría sin secciones se ve plana, como hoy.
+                        const cat = orderedCategories.find(
+                          (c) => c.name === g.category,
+                        );
+                        const secs = cat
+                          ? categorySections
+                              .filter((s) => s.category_id === cat.id)
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                          : [];
+                        if (secs.length === 0) {
+                          return filtered.map(itemButton);
+                        }
+                        const sectionOf = (codigo: string) =>
+                          categoryLinks.find(
+                            (l) =>
+                              l.category_id === cat!.id &&
+                              l.variable_service_id.toString() === codigo,
+                          )?.section_id || 0;
+                        return [
+                          ...secs.map((s) => ({
+                            key: `s-${s.id}`,
+                            name: s.name,
+                            items: filtered.filter(
+                              (p) => sectionOf(p.codigo) === s.id,
+                            ),
+                          })),
+                          {
+                            key: "s-0",
+                            name: "Sin sección",
+                            items: filtered.filter(
+                              (p) => sectionOf(p.codigo) === 0,
+                            ),
+                          },
+                        ]
+                          .filter((grp) => grp.items.length > 0)
+                          .map((grp) => (
+                            <div key={grp.key}>
+                              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                {grp.name}
+                              </div>
+                              {grp.items.map(itemButton)}
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAddingToGroup(null)}
+                  onClick={() => {
+                    setAddingToGroup(null);
+                    setOpenItemPicker(null);
+                  }}
                   className="text-xs text-gray-500 hover:text-gray-700"
                 >
                   Cancelar
@@ -2240,7 +2382,11 @@ export function ServiciosTab({
             ) : (
               <button
                 type="button"
-                onClick={() => setAddingToGroup(gi)}
+                onClick={() => {
+                  setAddingToGroup(gi);
+                  setOpenItemPicker(gi);
+                  setItemSearch("");
+                }}
                 className="ml-2 text-[11px] font-semibold text-blue-500 hover:text-blue-700"
                 title="Agregar un servicio a ESTA categoría"
               >
@@ -2265,11 +2411,46 @@ export function ServiciosTab({
               )}
             </span>
           </div>
-          {fixed.map((f, i) =>
-            row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`, () =>
-              removeFixed(i),
-            ),
-          )}
+          {/* Lista agrupada por secciones de fijos (calco del cotizador):
+              se ordena por la posición del catálogo y se emite el rótulo
+              azul cuando cambia la sección. El `codigo` guardado se cruza
+              contra el catálogo (codigo = id en texto); las filas sin
+              codigo van al final, planas. Solo cambia el ORDEN visual:
+              removeFixed sigue usando el índice original del estado. */}
+          {(() => {
+            const conCodigo = fixed
+              .map((f, i) => ({ f, i }))
+              .filter((x) => x.f?.codigo)
+              .sort(
+                (a, b) =>
+                  fixedOrderOf(String(a.f.codigo)) -
+                  fixedOrderOf(String(b.f.codigo)),
+              );
+            const sinCodigo = fixed
+              .map((f, i) => ({ f, i }))
+              .filter((x) => !x.f?.codigo);
+            let rotuloPrev = "";
+            return [...conCodigo, ...sinCodigo].map(({ f, i }) => {
+              const rotulo =
+                f?.codigo && fixedSections.length > 0
+                  ? fixedSectionNameOf(String(f.codigo))
+                  : null;
+              const muestraRotulo = !!rotulo && rotulo !== rotuloPrev;
+              if (rotulo) rotuloPrev = rotulo;
+              return (
+                <div key={`fw-${i}`}>
+                  {muestraRotulo && (
+                    <div className="pt-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-blue-900">
+                      {rotulo}
+                    </div>
+                  )}
+                  {row(f.nombre, f.quantity || 1, f.precio || 0, `f-${i}`, () =>
+                    removeFixed(i),
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
@@ -2278,18 +2459,59 @@ export function ServiciosTab({
       <div className="mt-4">
         {newCatOpen ? (
           <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 flex flex-wrap items-end gap-3">
-            <div className="min-w-[180px]">
+            <div className="min-w-[200px]">
               <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
                 Categoría
               </label>
-              <SelectWithSearch
-                options={catalog.cats.map((c) => ({ value: c, label: c }))}
-                value={newCatName}
-                onChange={setNewCatName}
-                placeholder="Elegir…"
-                searchPlaceholder="Buscar categoría…"
-                noResultsText="Sin resultados"
-              />
+              {/* Desplegable sobrio del cotizador (patrón custom de la
+                  casa, sin buscador): pocas categorías, lista directa. */}
+              <div className="relative dropdown-container">
+                <button
+                  type="button"
+                  onClick={() => setOpenCatPicker((v) => !v)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
+                >
+                  <span
+                    className={newCatName ? "text-gray-900" : "text-gray-500"}
+                  >
+                    {newCatName || "Seleccionar categoría"}
+                  </span>
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {openCatPicker && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                    {catNames
+                      // Paridad con el cotizador: categorías desactivadas
+                      // no se ofrecen para grupos nuevos.
+                      .filter((c) => !inactiveCategorySet.has(c))
+                      .map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setNewCatName(c);
+                            setOpenCatPicker(false);
+                          }}
+                          className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
+                        >
+                          {c}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             {multiDia && (
               <div>
@@ -2351,23 +2573,102 @@ export function ServiciosTab({
             </button>
           </div>
         ) : addingFixed ? (
+          /* Desplegable de fijos trasplantado del cotizador (04-08):
+              buscador pegajoso, agrupado por secciones de fijos y panel
+              que queda abierto para agregar varios seguidos. */
           <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <SelectWithSearch
-                options={catalog.fixed.map((sv, i) => ({
-                  value: String(i),
-                  label: `${sv.nombre} — ${clp(sv.precio)}`,
-                }))}
-                value=""
-                onChange={addFixedSvc}
-                placeholder="Buscar servicio fijo…"
-                searchPlaceholder="Buscar…"
-                noResultsText="Sin resultados"
-              />
+            <div className="relative dropdown-container flex-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenFixedPicker((v) => !v);
+                  setFixedSearch("");
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
+              >
+                <span className="text-gray-500">
+                  Seleccionar servicio fijo…
+                </span>
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {openFixedPicker && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={fixedSearch}
+                      onChange={(e) => setFixedSearch(e.target.value)}
+                      placeholder="Buscar servicio por nombre..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  {(() => {
+                    const disponibles = fixedCatalog
+                      // Paridad con el cotizador: desactivados afuera.
+                      .filter((f) => f.is_active !== false)
+                      .filter((f) => matchesSearch(fixedSearch, f.nombre))
+                      .sort(
+                        (a, b) => fixedOrderOf(a.codigo) - fixedOrderOf(b.codigo),
+                      );
+                    if (disponibles.length === 0) {
+                      return (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          No se encontraron servicios
+                        </div>
+                      );
+                    }
+                    const botonDe = (f: (typeof disponibles)[number]) => (
+                      <button
+                        key={f.codigo}
+                        type="button"
+                        onClick={() => addFixedSvc(f.codigo)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                      >
+                        {f.nombre} - ${(f.precio || 0).toLocaleString("es-CL")}
+                      </button>
+                    );
+                    if (fixedSections.length === 0) {
+                      return disponibles.map(botonDe);
+                    }
+                    let prev = "";
+                    return disponibles.map((f) => {
+                      const nombre = fixedSectionNameOf(f.codigo);
+                      const header = nombre !== prev;
+                      prev = nombre;
+                      return (
+                        <div key={f.codigo}>
+                          {header && (
+                            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                              {nombre}
+                            </div>
+                          )}
+                          {botonDe(f)}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
             </div>
             <button
               type="button"
-              onClick={() => setAddingFixed(false)}
+              onClick={() => {
+                setAddingFixed(false);
+                setOpenFixedPicker(false);
+              }}
               className="text-xs text-gray-500 hover:text-gray-700"
             >
               Cancelar
@@ -2386,7 +2687,12 @@ export function ServiciosTab({
             </button>
             <button
               type="button"
-              onClick={() => setAddingFixed(true)}
+              onClick={() => {
+                setAddingFixed(true);
+                // El desplegable se abre de una, con el buscador listo.
+                setOpenFixedPicker(true);
+                setFixedSearch("");
+              }}
               className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
               + Agregar servicio fijo
