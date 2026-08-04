@@ -163,6 +163,7 @@ export default function VariableServiceForm({
         await updateVariableService(service.id, {
           name: formData.name,
           price: formData.price,
+          no_cost: formData.no_cost || false,
         });
         // Sync the exact set of categories this service belongs to (>= 1).
         await setServiceCategories(service.id, selectedCategoryIds);
@@ -171,6 +172,7 @@ export default function VariableServiceForm({
           name: formData.name,
           price: formData.price,
           category_ids: selectedCategoryIds,
+          no_cost: formData.no_cost || false,
         });
       }
 

@@ -290,6 +290,12 @@ export default function ServicesPage() {
   const handleServiceFormSuccess = async () => {
     await loadServices();
     await loadRecipeCosts();
+    // La despensa compartida (base-catalogo) viaja con la marca no_cost:
+    // un solo aviso al guardar para que Gestión se entere sin esperar
+    // los 5 minutos de frescura. No agrega viajes en la navegación.
+    await queryClient.invalidateQueries({
+      queryKey: ["logistica", "compras", "base"],
+    });
     if (serviceType === ServiceType.VARIABLE) {
       setShowVariableServiceForm(false);
     } else {

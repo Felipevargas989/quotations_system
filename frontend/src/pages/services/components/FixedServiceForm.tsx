@@ -113,6 +113,7 @@ export default function FixedServiceForm({
           formData.calculation_type === CalculationType.FIJO_VARIABLE
             ? formData.price_per_person
             : undefined,
+        no_cost: formData.no_cost || false,
       };
 
       if (isEditing && service) {
