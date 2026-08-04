@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { Company } from '../entities/company.entity';
 
 export class CreateCompanyDto {
@@ -25,4 +31,8 @@ export class CreateCompanyDto {
   @IsObject()
   @IsOptional()
   notifications: Company['notifications'];
+
+  @IsNumber()
+  @IsOptional()
+  high_value_threshold?: Company['high_value_threshold'];
 }
