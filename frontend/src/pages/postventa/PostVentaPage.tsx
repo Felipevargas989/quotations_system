@@ -1719,6 +1719,14 @@ export function ServiciosTab({
   const [discVal, setDiscVal] = useState<number>(
     initDiscAmount > 0 ? initDiscAmount : quote.discount_percentage || 0,
   );
+  // Propina editable (04-08, pedido de Felipe): mismo interruptor del
+  // cotizador — el checkbox activa/desactiva tip_percentage. Parte de lo
+  // guardado en la cotización; 10% es el arranque del cotizador para una
+  // propina nueva.
+  const [tipEnabled, setTipEnabled] = useState<boolean>(
+    quote.tip_percentage != null,
+  );
+  const [tipPct, setTipPct] = useState<number>(quote.tip_percentage ?? 10);
   const [obs, setObs] = useState<string>(quote.observations || "");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -1907,17 +1915,36 @@ export function ServiciosTab({
     // Solo el modo activo del descuento entra a la cuenta.
     discount_percentage: discType === "%" ? discVal || 0 : 0,
     discount_amount: discType === "$" ? discVal || 0 : 0,
-    // La propina no se edita acá: viaja el % de la cotización.
-    tip_percentage: quote.tip_percentage ?? null,
+    // La propina se edita acá desde el 04-08 (checkbox del cotizador):
+    // apagada viaja null, no 0 — igual que el cotizador.
+    tip_percentage: tipEnabled ? tipPct || 0 : null,
   });
-  // El % de la propina se sigue leyendo para la línea en pantalla.
-  const tipPct = quote.tip_percentage;
   const valuePerPerson = money.valuePerPerson;
   const fixedValue = money.fixedTotal;
   const subtotal = money.subtotalAmount;
   const descAmount = money.discountAmount;
   const tipAmount = money.tipAmount;
   const total = money.totalAmount;
+
+  // Tope de descuento por rol (calco del cotizador): quién puede
+  // descontar cuánto; recepción no ve la tarjeta de descuento.
+  const getMaxDiscountForRole = () => {
+    if (!userRole) return 0;
+    switch (userRole) {
+      case "administrador":
+        return 40;
+      case "vendedor":
+      case "operaciones":
+        return 15;
+      case "recepcion":
+        return 0;
+      default:
+        return 0;
+    }
+  };
+  // Tope en $ = el mismo % máximo del rol aplicado al subtotal actual.
+  const getMaxDiscountAmount = () =>
+    Math.round((subtotal * getMaxDiscountForRole()) / 100);
 
   // ---------- Margen y costos (porte del cotizador, 04-08) ----------
   // Solo operaciones y administrador ven el costo (decisión de Felipe).
@@ -2113,11 +2140,11 @@ export function ServiciosTab({
           fixed_value: Math.round(fixedValue),
           subtotal_amount: Math.round(subtotal),
           total_amount: Math.round(total),
-          // El monto de la propina se guarda junto al total (migración 37).
-          // Acá sí se recalcula, y corresponde: al editar los servicios
-          // cambia la base variable, así que la propina que efectivamente
-          // se le cobra al cliente cambia con ella. Va el MISMO tipAmount
-          // que ya está sumado dentro de total, para que no discrepen.
+          // Propina (04-08, mismo flujo del cotizador): viaja el % activo
+          // — apagada va null, no 0 — junto al MISMO tipAmount que ya
+          // está sumado dentro de total (migración 37), para que la
+          // verificación del backend cuadre una sola cuenta.
+          tip_percentage: tipEnabled ? tipPct || 0 : null,
           tip_amount: Math.round(tipAmount),
           observations: obs,
           items: itemsPayload,
@@ -2952,32 +2979,243 @@ export function ServiciosTab({
       </div>
       </div>
 
-      {/* Resumen pegajoso: totales + comentarios + Guardar (siempre
-          visibles mientras editas a la izquierda). */}
-      <div className="lg:sticky lg:top-16 self-start bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-      {/* Totales + descuento editable */}
-      <div className="border-t-2 border-gray-900 pt-3 space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span>Total servicios</span>
-          <span className="font-medium">{clp(subtotal)}</span>
+      {/* Columna derecha pegajosa (04-08, orden calcado del cotizador):
+          Resumen de la cotización → Descuento → Margen y costos →
+          Comentarios + Guardar. Tarjetas hermanas, como en el cotizador. */}
+      <div className="lg:sticky lg:top-16 self-start space-y-6">
+
+      {/* Resumen de la cotización: panel único, estilo mockup v1 */}
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-blue-900 px-4 py-2.5">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-white">
+            Resumen de la cotización
+          </span>
         </div>
-        {/* Descuento en dos líneas (panel angosto, 03-08): etiqueta y
-            monto arriba; toggle e input a lo ancho abajo. */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between items-center">
-            <span>Descuento</span>
-            <span className="text-red-600">− {clp(descAmount)}</span>
+        <div className="divide-y divide-gray-200">
+          {/* Una línea POR GRUPO (nunca fusionadas): audiencia, día si es
+              multi-día, y personas — calco del cotizador sobre varGroups. */}
+          {varGroups.filter((g) => (g.items || []).length > 0).length ===
+          0 ? (
+            <p className="px-4 py-3 text-sm text-gray-400">
+              Aún no hay servicios.
+            </p>
+          ) : (
+            varGroups
+              .filter((g) => (g.items || []).length > 0)
+              .map((g, gi) => {
+                const perPerson = (g.items || []).reduce(
+                  (s: number, it: any) => s + ppp(it),
+                  0,
+                );
+                const people = gPeople(g);
+                const aud = audOf(g);
+                const parts: string[] = [];
+                if (multiDia) parts.push(`Día ${g.day || 1}`);
+                parts.push(
+                  typeof g.people === "number"
+                    ? `${people} de ${audCount(g)} personas`
+                    : `${people} personas`,
+                );
+                return (
+                  <div key={`rs-${gi}`} className="px-4 py-2 text-sm">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-700">
+                        <span
+                          className={`mr-1 text-[10px] font-extrabold ${
+                            aud === "ninos"
+                              ? "text-amber-700"
+                              : "text-blue-900"
+                          }`}
+                        >
+                          {aud === "ninos" ? "NIÑOS" : "ADULTOS"}
+                        </span>
+                        {g.category}
+                      </span>
+                      <span className="font-medium text-gray-900 whitespace-nowrap">
+                        ${(perPerson * people).toLocaleString("es-CL")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      {parts.join(" · ")}
+                    </p>
+                  </div>
+                );
+              })
+          )}
+
+          <div className="bg-gray-50 px-4 py-2 space-y-0.5 border-t border-gray-200">
+            <div className="flex justify-between text-xs font-semibold text-gray-600">
+              <span>Por adulto (servicios completos)</span>
+              <span>
+                ${Math.round(valuePerPerson).toLocaleString("es-CL")}
+              </span>
+            </div>
+            {kidsN > 0 && (
+              <div className="flex justify-between text-xs font-semibold text-gray-600">
+                <span>Por niño</span>
+                <span>
+                  $
+                  {Math.round(
+                    varGroups.reduce((sum, g) => {
+                      if (audOf(g) !== "ninos") return sum;
+                      if (gPeople(g) !== kidsN) return sum;
+                      return (
+                        sum +
+                        (g.items || []).reduce(
+                          (s: number, it: any) => s + ppp(it),
+                          0,
+                        )
+                      );
+                    }, 0),
+                  ).toLocaleString("es-CL")}
+                </span>
+              </div>
+            )}
           </div>
-          <span className="flex items-center gap-2">
-            <span className="inline-flex border border-gray-300 rounded-md overflow-hidden">
+        </div>
+
+        {/* Fijos: solo lectura aquí (se editan en la lista de la izquierda) */}
+        {fixed.length > 0 && (
+          <div className="border-t border-gray-200">
+            {fixed.map((f, i) => (
+              <div
+                key={`fs-${i}`}
+                className="flex justify-between px-4 py-2 text-sm bg-gray-50"
+              >
+                <span className="text-gray-700">{f.nombre}</span>
+                <span className="font-medium text-gray-900">
+                  $
+                  {((f.precio || 0) * (f.quantity || 1)).toLocaleString(
+                    "es-CL",
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {descAmount > 0 && (
+          <div className="bg-gray-100 px-4 py-2 border-b">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Subtotal antes descuento</span>
+              <span className="text-gray-600">
+                ${Math.round(subtotal).toLocaleString("es-CL")}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-red-600">
+                Descuento{" "}
+                {discType === "%" ? `(${discVal || 0}%)` : "(monto cerrado)"}
+              </span>
+              <span className="text-red-600">
+                -${Math.round(descAmount).toLocaleString("es-CL")}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* La propina NO lleva IVA: Neto e IVA se calculan sobre el
+            total SIN propina, y la propina se suma al final. */}
+        {(() => {
+          const totalConIva = total - tipAmount;
+          return (
+            <>
+              <div className="divide-y divide-gray-200">
+                <div className="flex justify-between px-4 py-1.5 text-sm">
+                  <span className="text-gray-500">Neto</span>
+                  <span className="text-gray-700">
+                    ${Math.round(totalConIva / 1.19).toLocaleString("es-CL")}
+                  </span>
+                </div>
+                <div className="flex justify-between px-4 py-1.5 text-sm">
+                  <span className="text-gray-500">IVA (19%)</span>
+                  <span className="text-gray-700">
+                    $
+                    {Math.round(
+                      totalConIva - totalConIva / 1.19,
+                    ).toLocaleString("es-CL")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-amber-100 px-4 py-2">
+                <div className="flex justify-between font-bold text-black">
+                  <span>Total con IVA</span>
+                  <span>
+                    ${Math.round(totalConIva).toLocaleString("es-CL")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Propina opcional: sobre los variables, DESPUÉS del
+                  IVA, va directa al equipo */}
+              <div className="px-4 py-2.5 border-t-2 border-dashed border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={tipEnabled}
+                      onChange={(e) => setTipEnabled(e.target.checked)}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span className="text-gray-700">Propina equipo</span>
+                    {tipEnabled && (
+                      <span className="flex items-center gap-1">
+                        <NumberInput
+                          value={tipPct || undefined}
+                          onChange={(v) => setTipPct(v ?? 0)}
+                          min={0}
+                          max={100}
+                          placeholder="0"
+                          className="w-12 px-1.5 py-0.5 text-xs text-right"
+                        />
+                        <span className="text-xs text-gray-500">%</span>
+                      </span>
+                    )}
+                  </label>
+                  {tipEnabled && (
+                    <span className="font-bold text-gray-900">
+                      ${Math.round(tipAmount).toLocaleString("es-CL")}
+                    </span>
+                  )}
+                </div>
+                {tipEnabled && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Sobre los servicios variables, después del IVA. No lleva
+                    IVA: va directa al equipo.
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-blue-900 px-4 py-2.5">
+                <div className="flex justify-between font-extrabold text-white">
+                  <span>TOTAL A PAGAR</span>
+                  <span>${Math.round(total).toLocaleString("es-CL")}</span>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Descuento — con el tope por rol del cotizador. El toggle %/$
+          conserva la conversión del tab (mantener el descuento efectivo
+          al cambiar de modo). Recepción no ve la tarjeta. */}
+      {userRole && getMaxDiscountForRole() > 0 && (
+        <div className="bg-white rounded-xl shadow p-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            Descuento
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
               {(["%", "$"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => {
                     if (t === discType) return;
-                    // Convertir el valor para que el descuento en $ se mantenga
-                    // al cambiar de modo (evita reinterpretar el número).
+                    // Convertir el valor para que el descuento en $ se
+                    // mantenga al cambiar de modo (no reinterpretar).
                     if (t === "$") {
                       setDiscVal(descAmount);
                     } else {
@@ -2989,49 +3227,46 @@ export function ServiciosTab({
                     }
                     setDiscType(t);
                   }}
-                  className={`px-2.5 py-1 text-xs font-bold ${
+                  className={`px-3 py-2 text-sm font-bold ${
                     discType === t
                       ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-500"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
                 >
                   {t}
                 </button>
               ))}
-            </span>
+            </div>
             <div className="flex-1">
               <NumberInput
                 value={discVal || undefined}
                 onChange={(v) => setDiscVal(v || 0)}
                 min={0}
-                max={discType === "%" ? 100 : undefined}
+                max={
+                  discType === "%"
+                    ? getMaxDiscountForRole()
+                    : getMaxDiscountAmount()
+                }
                 formatThousands
                 currency={discType === "$"}
                 placeholder="0"
                 className="text-right"
               />
             </div>
-          </span>
-        </div>
-        {tipAmount > 0 && (
-          <div className="flex justify-between">
-            <span>Propina sugerida ({tipPct}%)</span>
-            <span className="font-medium">{clp(tipAmount)}</span>
           </div>
-        )}
-        <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
-          <span>Total a pagar</span>
-          <span>{clp(total)}</span>
+          <p className="text-xs text-gray-500 mt-1">
+            {discType === "%"
+              ? `Máximo: ${getMaxDiscountForRole()}% (${userRole})`
+              : `Máximo: $${getMaxDiscountAmount().toLocaleString("es-CL")} — equivale al ${getMaxDiscountForRole()}% (${userRole})`}
+          </p>
         </div>
-      </div>
+      )}
 
-      {/* Margen y costos (porte del cotizador 04-08) — junto a los
-          totales, para ver el impacto ANTES de ofrecer un descuento.
-          Solo operaciones y administrador. El resumen pegajoso ya es una
-          tarjeta, así que va como bloque adentro (no tarjeta anidada);
-          el contenido es el markup del cotizador tal cual. */}
+      {/* Margen y costos — debajo del Descuento, para verlo ANTES de
+          ofrecerlo (orden del cotizador). Solo operaciones y
+          administrador. Tarjeta propia, como en el cotizador. */}
       {puedeVerMargen && (
-        <div className="mt-5">
+        <div className="bg-white rounded-xl shadow p-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">
             Margen y costos
           </h3>
@@ -3112,8 +3347,9 @@ export function ServiciosTab({
         </div>
       )}
 
-      {/* Comentarios editable */}
-      <div className="mt-5">
+      {/* Comentarios + Guardar: cierre de la columna (orden del
+          cotizador: Resumen → Descuento → Margen → Observaciones). */}
+      <div className="bg-white rounded-xl shadow p-4">
         <p className="text-xs font-semibold text-gray-700 mb-1">
           Comentarios / observaciones
         </p>
@@ -3123,26 +3359,24 @@ export function ServiciosTab({
           onChange={(e) => setObs(e.target.value)}
           className="w-full text-sm border border-gray-300 rounded-lg p-3"
         />
+        <div className="flex items-center justify-end gap-3 mt-4">
+          {msg && <span className="text-sm text-gray-500">{msg}</span>}
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
+          Editable: adultos y niños, servicios y cantidades, descuento (% o $),
+          propina equipo y comentarios. Cada servicio multiplica por las
+          personas de SU audiencia. Al guardar, si cambia el total, el plan de
+          pagos se ajusta automáticamente.
+        </p>
       </div>
-
-      <div className="flex items-center justify-end gap-3 mt-4">
-        {msg && <span className="text-sm text-gray-500">{msg}</span>}
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? "Guardando…" : "Guardar cambios"}
-        </button>
-      </div>
-
-      <p className="text-xs text-gray-400 mt-3">
-        Editable: adultos y niños, servicios (agregar por categoría / quitar con
-        ✕), descuento (% o $) y comentarios. Cada servicio multiplica por las
-        personas de SU audiencia; la propina de la cotización se mantiene. Al
-        guardar, si cambia el total, el plan de pagos se ajusta automáticamente.
-      </p>
       </div>
       </div>
     </div>
