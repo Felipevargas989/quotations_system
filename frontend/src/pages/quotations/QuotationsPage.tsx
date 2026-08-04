@@ -65,6 +65,9 @@ const SORT_KEY = (userId: string | number) =>
 // Etapa 2 del pipeline: la vista elegida (tablero | lista) se recuerda.
 const VISTA_KEY = (userId: string | number) =>
   `eventia_quotations_vista_${userId}`;
+// Y el orden de las tarjetas dentro de las columnas también.
+const ORDEN_TABLERO_KEY = (userId: string | number) =>
+  `eventia_quotations_orden_tablero_${userId}`;
 
 // ---- Bitácora comercial (migración 59): semáforo de seguimiento ----
 // El reloj corre desde la última gestión REAL (nota escrita o
@@ -91,6 +94,39 @@ const ESTADOS_VIVOS = new Set<QuotationStatus>([
   QuotationStatus.ENVIADA,
   QuotationStatus.EN_NEGOCIACION,
 ]);
+
+// Contacto de la fila/tarjeta/hilo: el MANDANTE de la cotización con
+// su propio teléfono (misma regla que Post-Venta); sin mandante
+// guardado → el contacto principal del cliente. A nivel de módulo
+// para que el hilo de la bitácora también lo use.
+const contactOf = (q: QuotationWithClient) => {
+  const c = q.clients as unknown as {
+    contact_person?: string;
+    phone?: string;
+    email?: string;
+    client_contacts?: { name: string; phone?: string; email?: string }[];
+  };
+  const mandante = (
+    q as unknown as { contact_name?: string | null }
+  ).contact_name?.trim();
+  if (mandante) {
+    const match = (c?.client_contacts || []).find(
+      (ct) => normalizeText(ct.name) === normalizeText(mandante),
+    );
+    return {
+      name: mandante,
+      phone: match?.phone || "",
+      // Correo en la columna (pedido de Felipe 30-07): gestión más
+      // rápida sin abrir la ficha.
+      email: match?.email || "",
+    };
+  }
+  return {
+    name: c?.contact_person || "",
+    phone: c?.phone || "",
+    email: c?.email || "",
+  };
+};
 
 const TIPO_ETIQUETA: Record<string, string> = {
   llamada: "📞 Llamada",
@@ -198,6 +234,26 @@ export default function QuotationsPage() {
     setVista(v);
     try {
       if (user) localStorage.setItem(VISTA_KEY(user.id), v);
+    } catch {
+      /* sin persistencia no pasa nada */
+    }
+  };
+  // Orden dentro de las columnas: Urgencia por defecto (lo más frío
+  // arriba — la filosofía de la cola).
+  const [ordenTablero, setOrdenTablero] = useState<
+    "urgencia" | "fecha" | "numero"
+  >(() => {
+    try {
+      const v = user ? localStorage.getItem(ORDEN_TABLERO_KEY(user.id)) : null;
+      return v === "fecha" || v === "numero" ? v : "urgencia";
+    } catch {
+      return "urgencia";
+    }
+  });
+  const cambiarOrdenTablero = (v: "urgencia" | "fecha" | "numero") => {
+    setOrdenTablero(v);
+    try {
+      if (user) localStorage.setItem(ORDEN_TABLERO_KEY(user.id), v);
     } catch {
       /* sin persistencia no pasa nada */
     }
@@ -414,38 +470,6 @@ export default function QuotationsPage() {
 
     // For other states, all roles can edit (assuming they have access to quotations)
     return true;
-  };
-
-  // Contacto de la fila: el MANDANTE de la cotización con su propio
-  // teléfono (misma regla que Post-Venta); sin mandante guardado → el
-  // contacto principal del cliente.
-  const contactOf = (q: QuotationWithClient) => {
-    const c = q.clients as unknown as {
-      contact_person?: string;
-      phone?: string;
-      email?: string;
-      client_contacts?: { name: string; phone?: string; email?: string }[];
-    };
-    const mandante = (
-      q as unknown as { contact_name?: string | null }
-    ).contact_name?.trim();
-    if (mandante) {
-      const match = (c?.client_contacts || []).find(
-        (ct) => normalizeText(ct.name) === normalizeText(mandante),
-      );
-      return {
-        name: mandante,
-        phone: match?.phone || "",
-        // Correo en la columna (pedido de Felipe 30-07): gestión más
-        // rápida sin abrir la ficha.
-        email: match?.email || "",
-      };
-    }
-    return {
-      name: c?.contact_person || "",
-      phone: c?.phone || "",
-      email: c?.email || "",
-    };
   };
 
   const getStatusColor = (status: string) => {
@@ -706,17 +730,60 @@ export default function QuotationsPage() {
     </span>
   );
 
-  const filtradasBase = quotations.filter(
-    (quotation) =>
-      !searchTerm ||
-      quotation.quotation_number?.toString() === searchTerm.trim() ||
-      matchesSearch(searchTerm, quotation.clients?.name) ||
-      // También por MANDANTE (pedido de Felipe 30-07): buscar "Roxana"
-      // encuentra sus cotizaciones aunque el cliente sea la UdeC —
-      // tanto por el texto escrito como por la persona vinculada.
-      matchesSearch(searchTerm, quotation.contact_name) ||
-      matchesSearch(searchTerm, quotation.mandante?.name),
-  );
+  // Predicado de búsqueda compartido por las vivas y el archivo.
+  const coincideBusqueda = (quotation: QuotationWithClient) =>
+    !searchTerm ||
+    quotation.quotation_number?.toString() === searchTerm.trim() ||
+    matchesSearch(searchTerm, quotation.clients?.name) ||
+    // También por MANDANTE (pedido de Felipe 30-07): buscar "Roxana"
+    // encuentra sus cotizaciones aunque el cliente sea la UdeC —
+    // tanto por el texto escrito como por la persona vinculada.
+    matchesSearch(searchTerm, quotation.contact_name) ||
+    matchesSearch(searchTerm, quotation.mandante?.name);
+
+  const filtradasBase = quotations.filter(coincideBusqueda);
+
+  // Camino a tablero-único: las rechazadas viven plegadas bajo el
+  // tablero, y la búsqueda también revisa el archivo completo para que
+  // NADA sea inencontrable (aceptadas/realizadas enlazan a Post-Venta).
+  const rechazadasQuery = useQuery({
+    queryKey: ["quotations", "rechazadas"],
+    enabled: !!user && vista === "tablero",
+    queryFn: async (): Promise<QuotationWithClient[]> => {
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
+        QuotationStatus.RECHAZADA,
+      ]);
+      return data;
+    },
+  });
+  const rechazadas = (rechazadasQuery.data ?? []).filter(coincideBusqueda);
+  const [verRechazadas, setVerRechazadas] = useState(false);
+
+  const busquedaActiva = vista === "tablero" && searchTerm.trim() !== "";
+  const cerradasQuery = useQuery({
+    queryKey: ["quotations", "cerradas-busqueda"],
+    enabled: !!user && busquedaActiva,
+    queryFn: async (): Promise<QuotationWithClient[]> => {
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
+        QuotationStatus.ACEPTADA,
+        QuotationStatus.CANCELADA,
+        QuotationStatus.REALIZADA,
+      ]);
+      return data;
+    },
+  });
+  const cerradasCoinciden = busquedaActiva
+    ? (cerradasQuery.data ?? []).filter(coincideBusqueda)
+    : [];
+
+  // Orden de las tarjetas dentro de cada columna.
+  const compararTarjetas = (a: QuotationWithClient, b: QuotationWithClient) => {
+    if (ordenTablero === "fecha")
+      return String(a.event_date).localeCompare(String(b.event_date));
+    if (ordenTablero === "numero")
+      return (b.quotation_number || 0) - (a.quotation_number || 0);
+    return (semaforoDe(b)?.urgencia || 0) - (semaforoDe(a)?.urgencia || 0);
+  };
   // Cola de trabajo (lección Vambe): lo más abandonado arriba.
   const nRequieren = filtradasBase.filter(requiereSeguimiento).length;
   const filteredQuotations = soloSeguimiento
@@ -839,6 +906,31 @@ export default function QuotationsPage() {
               />
             </div>
           )}
+          {vista === "tablero" && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+              Ordenar:
+              {(
+                [
+                  ["urgencia", "Urgencia"],
+                  ["fecha", "Fecha evento"],
+                  ["numero", "N°"],
+                ] as const
+              ).map(([v, l]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => cambiarOrdenTablero(v)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${
+                    ordenTablero === v
+                      ? "bg-gray-800 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
             type="button"
@@ -864,9 +956,9 @@ export default function QuotationsPage() {
             QuotationStatus.ENVIADA,
             QuotationStatus.EN_NEGOCIACION,
           ].map((col) => {
-            const tarjetas = filteredQuotations.filter(
-              (q) => q.quotation_status === col,
-            );
+            const tarjetas = filteredQuotations
+              .filter((q) => q.quotation_status === col)
+              .sort(compararTarjetas);
             const suma = tarjetas.reduce(
               (s, q) => s + (q.total_amount || 0),
               0,
@@ -957,6 +1049,116 @@ export default function QuotationsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Búsqueda global (camino a tablero-único): lo cerrado también
+          aparece — con puente a Post-Venta donde corresponde. */}
+      {busquedaActiva &&
+        (cerradasCoinciden.length > 0 || rechazadas.length > 0) && (
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-bold text-gray-700 pb-2">
+              Cerradas que coinciden (
+              {cerradasCoinciden.length + rechazadas.length})
+            </h3>
+            <div className="divide-y divide-gray-100">
+              {[...cerradasCoinciden, ...rechazadas].map((q) => (
+                <div
+                  key={q.id}
+                  className="py-2 flex flex-wrap items-center gap-x-4 gap-y-1"
+                >
+                  <span className="text-sm font-bold text-gray-700 w-14">
+                    #{q.quotation_number}
+                  </span>
+                  <span className="text-sm text-gray-900 flex-1 min-w-[160px] truncate">
+                    {q.clients?.name}
+                    <span className="text-xs text-gray-500">
+                      {" "}
+                      · {formatISOUTCDateToString(q.event_date)}
+                    </span>
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    ${q.total_amount.toLocaleString("es-CL")}
+                  </span>
+                  {estadoPill(q)}
+                  {(q.quotation_status === QuotationStatus.ACEPTADA ||
+                    q.quotation_status === QuotationStatus.REALIZADA) && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/post-venta/${q.id}`)}
+                      className="text-sm font-semibold text-blue-600 hover:underline"
+                    >
+                      → Post-Venta
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleViewQuotation(q)}
+                    className="text-sm font-semibold text-blue-600 hover:underline"
+                    title="Ver cotización (solo lectura)"
+                  >
+                    Ver
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      {/* Rechazadas: plegadas bajo el tablero — mirar por qué se pierde
+          es oro; tenerlo a la vista todos los días, no. */}
+      {vista === "tablero" && !busquedaActiva && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setVerRechazadas((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            <span>❌ Rechazadas ({rechazadas.length})</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${verRechazadas ? "rotate-180" : ""}`}
+            />
+          </button>
+          {verRechazadas && (
+            <div className="px-4 pb-3 divide-y divide-gray-200">
+              {rechazadas.length === 0 ? (
+                <p className="py-2 text-xs text-gray-400">
+                  Ninguna cotización rechazada.
+                </p>
+              ) : (
+                rechazadas.map((q) => (
+                  <div
+                    key={q.id}
+                    className="py-2 flex flex-wrap items-center gap-x-4 gap-y-1"
+                  >
+                    <span className="text-sm font-bold text-gray-700 w-14">
+                      #{q.quotation_number}
+                    </span>
+                    <span className="text-sm text-gray-900 flex-1 min-w-[160px] truncate">
+                      {q.clients?.name}
+                      <span className="text-xs text-gray-500">
+                        {" "}
+                        · {formatISOUTCDateToString(q.event_date)}
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      ${q.total_amount.toLocaleString("es-CL")}
+                    </span>
+                    {/* Píldora completa: revivir una rechazada a
+                        Enviada cuando el cliente vuelve. */}
+                    {estadoPill(q)}
+                    <button
+                      onClick={() => handleViewQuotation(q)}
+                      className="text-sm font-semibold text-blue-600 hover:underline"
+                      title="Ver cotización (solo lectura)"
+                    >
+                      Ver
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1337,10 +1539,22 @@ function BitacoraModal({
             <h3 className="text-base font-bold text-gray-900">
               Seguimiento — #{quotation.quotation_number}
             </h3>
-            <p className="text-xs text-gray-500">
-              {quotation.clients?.name}
-              {quotation.mandante?.name ? ` · ${quotation.mandante.name}` : ""}
-            </p>
+            {/* El contacto A MANO donde se anota la llamada: nombre,
+                teléfono y correo del mandante (camino a tablero-único —
+                antes vivían solo en la columna de la Lista). */}
+            {(() => {
+              const c = contactOf(quotation);
+              return (
+                <p className="text-xs text-gray-500">
+                  {quotation.clients?.name}
+                  {c.name && c.name !== quotation.clients?.name
+                    ? ` · ${c.name}`
+                    : ""}
+                  {c.phone ? ` · 📞 ${formatPhone(c.phone)}` : ""}
+                  {c.email ? ` · ✉️ ${c.email}` : ""}
+                </p>
+              );
+            })()}
           </div>
           <button
             type="button"
