@@ -260,6 +260,12 @@ export default function QuotationsPage() {
     }
   });
   const [ordenMenuAbierto, setOrdenMenuAbierto] = useState(false);
+  // Arrastre nativo entre columnas (Tanda A, pedido de Felipe): soltar
+  // = el mismo cambio de estado de la píldora. El orden dentro de la
+  // columna es automático, así que el destino es la COLUMNA entera
+  // (que se ilumina) — sin posiciones manuales que mantener.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropCol, setDropCol] = useState<QuotationStatus | null>(null);
   const cambiarOrdenTablero = (v: "urgencia" | "fecha" | "numero") => {
     setOrdenTablero(v);
     try {
@@ -1000,7 +1006,32 @@ export default function QuotationsPage() {
               0,
             );
             return (
-              <div key={col} className="bg-gray-100 rounded-xl p-3">
+              <div
+                key={col}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragId) setDropCol(col);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node))
+                    setDropCol((v) => (v === col ? null : v));
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const id = dragId;
+                  setDragId(null);
+                  setDropCol(null);
+                  if (!id) return;
+                  const q = quotations.find((x) => x.id === id);
+                  if (q && q.quotation_status !== col)
+                    void handleStatusChange(id, col);
+                }}
+                className={`rounded-xl p-3 transition-colors ${
+                  dropCol === col && dragId
+                    ? "bg-blue-50 ring-2 ring-blue-300"
+                    : "bg-gray-100"
+                }`}
+              >
                 <div className="flex items-baseline justify-between px-1 pb-2">
                   <h3 className="text-sm font-bold text-gray-700">
                     {STATUS_EMOJI[col]} {STATUS_LABEL[col]} ({tarjetas.length})
@@ -1010,6 +1041,12 @@ export default function QuotationsPage() {
                   </span>
                 </div>
                 <div className="space-y-2.5">
+                  {/* La marca de aterrizaje: sabes dónde caerá. */}
+                  {dropCol === col && dragId && (
+                    <div className="border-2 border-dashed border-blue-300 rounded-lg h-14 bg-blue-50/60 flex items-center justify-center text-xs font-semibold text-blue-500">
+                      Soltar aquí → {STATUS_LABEL[col]}
+                    </div>
+                  )}
                   {tarjetas.length === 0 ? (
                     <p className="text-xs text-gray-400 px-1 py-3">
                       Sin cotizaciones aquí.
@@ -1021,8 +1058,19 @@ export default function QuotationsPage() {
                       return (
                         <div
                           key={quotation.id}
+                          draggable
+                          onDragStart={(e) => {
+                            setDragId(quotation.id);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragEnd={() => {
+                            setDragId(null);
+                            setDropCol(null);
+                          }}
                           onClick={() => handleRowClick(quotation)}
-                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow"
+                          className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
+                            dragId === quotation.id ? "opacity-40" : ""
+                          }`}
                         >
                           {/* Orden de Felipe (03-08): estado arriba
                               (control para mover, compacto — la columna
