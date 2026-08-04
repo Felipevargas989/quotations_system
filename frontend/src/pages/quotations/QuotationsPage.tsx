@@ -183,6 +183,26 @@ export default function QuotationsPage() {
   );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
+  // Tablero (Etapa 2): el embudo vivo en 3 columnas. La Lista queda
+  // como archivo completo (todos los estados, filtros de siempre).
+  // Declarada ANTES de statusesToFetch, que depende de la vista.
+  const [vista, setVista] = useState<"tablero" | "lista">(() => {
+    try {
+      const v = user ? localStorage.getItem(VISTA_KEY(user.id)) : null;
+      return v === "lista" ? "lista" : "tablero";
+    } catch {
+      return "tablero";
+    }
+  });
+  const cambiarVista = (v: "tablero" | "lista") => {
+    setVista(v);
+    try {
+      if (user) localStorage.setItem(VISTA_KEY(user.id), v);
+    } catch {
+      /* sin persistencia no pasa nada */
+    }
+  };
+
   // Status options for multiselect
   const statusOptions: MultiSelectOption[] = [
     { value: QuotationStatus.SOLICITADA, label: "📋 Solicitada" },
@@ -324,24 +344,6 @@ export default function QuotationsPage() {
     null,
   );
   const [soloSeguimiento, setSoloSeguimiento] = useState(false);
-  // Tablero (Etapa 2): el embudo vivo en 3 columnas. La Lista queda
-  // como archivo completo (todos los estados, filtros de siempre).
-  const [vista, setVista] = useState<"tablero" | "lista">(() => {
-    try {
-      const v = user ? localStorage.getItem(VISTA_KEY(user.id)) : null;
-      return v === "lista" ? "lista" : "tablero";
-    } catch {
-      return "tablero";
-    }
-  });
-  const cambiarVista = (v: "tablero" | "lista") => {
-    setVista(v);
-    try {
-      if (user) localStorage.setItem(VISTA_KEY(user.id), v);
-    } catch {
-      /* sin persistencia no pasa nada */
-    }
-  };
 
   type Semaforo = { texto: string; clase: string; urgencia: number };
   const semaforoDe = (q: QuotationWithClient): Semaforo | null => {
