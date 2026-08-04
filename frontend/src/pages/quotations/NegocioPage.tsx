@@ -255,8 +255,9 @@ export default function NegocioPage() {
           </div>
         </div>
 
-        {/* Pestañas */}
-        <div className="shrink-0 flex gap-1 px-6 pt-3 border-b border-gray-200">
+        {/* Pestañas — misma estética que Post-Venta (subrayado azul),
+            coherencia del sistema (pedido de Felipe 04-08). */}
+        <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200 items-center">
           {(
             [
               ["seguimiento", "Seguimiento"],
@@ -267,10 +268,10 @@ export default function NegocioPage() {
               key={k}
               type="button"
               onClick={() => setTab(k)}
-              className={`px-4 py-2 text-sm font-semibold rounded-t-lg ${
+              className={`px-4 py-3 text-sm font-semibold border-b-2 ${
                 tab === k
-                  ? "bg-blue-50 text-blue-700 border border-b-0 border-gray-200"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
               }`}
             >
               {l}
