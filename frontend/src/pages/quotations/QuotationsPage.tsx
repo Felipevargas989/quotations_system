@@ -637,14 +637,14 @@ export default function QuotationsPage() {
   // tildes, palabras en cualquier orden).
   // Píldora de estado con su menú de la casa — compartida por la fila
   // de la Lista y la tarjeta del Tablero (mismo estado, mismo menú).
-  const estadoPill = (quotation: QuotationWithClient) => (
+  const estadoPill = (quotation: QuotationWithClient, compacta = false) => (
     <span className="relative inline-block">
       <button
         type="button"
         onClick={() =>
           setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
         }
-        className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+        className={`flex items-center justify-between gap-1 ${compacta ? "" : "w-40"} px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
         title="Cambiar estado"
       >
         <span className="truncate">
@@ -877,27 +877,18 @@ export default function QuotationsPage() {
                           onClick={() => handleRowClick(quotation)}
                           className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow"
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          {/* Orden de Felipe (03-08): estado arriba
+                              (control para mover, compacto — la columna
+                              ya dice el estado); abajo el semáforo junto
+                              al Ver — la gestión y la acción, juntas. */}
+                          <div
+                            className="flex items-center justify-between gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <span className="text-sm font-bold text-gray-700">
                               #{quotation.quotation_number}
                             </span>
-                            {sem && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setBitacoraFor(quotation);
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
-                                title="Abrir bitácora de seguimiento"
-                              >
-                                <MessageSquare
-                                  size={12}
-                                  className="shrink-0"
-                                />
-                                {sem.texto}
-                              </button>
-                            )}
+                            {estadoPill(quotation, true)}
                           </div>
                           <p className="mt-1 text-sm font-medium text-gray-900 truncate">
                             {quotation.clients?.name}
@@ -914,7 +905,17 @@ export default function QuotationsPage() {
                               ${quotation.total_amount.toLocaleString("es-CL")}
                             </span>
                             <div className="flex items-center gap-2">
-                              {estadoPill(quotation)}
+                              {sem && (
+                                <button
+                                  type="button"
+                                  onClick={() => setBitacoraFor(quotation)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
+                                  title="Abrir bitácora de seguimiento"
+                                >
+                                  <MessageSquare size={12} className="shrink-0" />
+                                  {sem.texto}
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleViewQuotation(quotation)}
                                 className="text-sm font-semibold text-blue-600 hover:underline"
