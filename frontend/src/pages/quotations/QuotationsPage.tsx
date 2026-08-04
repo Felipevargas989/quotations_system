@@ -637,23 +637,42 @@ export default function QuotationsPage() {
   // tildes, palabras en cualquier orden).
   // Píldora de estado con su menú de la casa — compartida por la fila
   // de la Lista y la tarjeta del Tablero (mismo estado, mismo menú).
-  const estadoPill = (quotation: QuotationWithClient, compacta = false) => (
+  // modo "pill": la píldora completa (Lista). modo "icono": solo el ⌄
+  // discreto (Tablero — la columna YA dice el estado; repetirlo en cada
+  // tarjeta era el desorden que acusó Felipe).
+  const estadoPill = (
+    quotation: QuotationWithClient,
+    modo: "pill" | "icono" = "pill",
+  ) => (
     <span className="relative inline-block">
-      <button
-        type="button"
-        onClick={() =>
-          setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
-        }
-        className={`flex items-center justify-between gap-1 ${compacta ? "" : "w-40"} px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
-        title="Cambiar estado"
-      >
-        <span className="truncate">
-          {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-          {STATUS_LABEL[quotation.quotation_status] ||
-            quotation.quotation_status}
-        </span>
-        <ChevronDown size={12} className="shrink-0" />
-      </button>
+      {modo === "icono" ? (
+        <button
+          type="button"
+          onClick={() =>
+            setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
+          }
+          className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400"
+          title="Cambiar estado"
+        >
+          <ChevronDown size={14} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() =>
+            setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
+          }
+          className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+          title="Cambiar estado"
+        >
+          <span className="truncate">
+            {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+            {STATUS_LABEL[quotation.quotation_status] ||
+              quotation.quotation_status}
+          </span>
+          <ChevronDown size={12} className="shrink-0" />
+        </button>
+      )}
       {statusMenuId === quotation.id && (
         <>
           <span
@@ -888,13 +907,18 @@ export default function QuotationsPage() {
                             <span className="text-sm font-bold text-gray-700">
                               #{quotation.quotation_number}
                             </span>
-                            {estadoPill(quotation, true)}
+                            {estadoPill(quotation, "icono")}
                           </div>
                           <p className="mt-1 text-sm font-medium text-gray-900 truncate">
                             {quotation.clients?.name}
                           </p>
                           <p className="text-xs text-gray-500 truncate">
-                            {contact.name || "—"} ·{" "}
+                            {/* El mandante solo si aporta algo distinto
+                                del cliente (nada de "Jose · Jose"). */}
+                            {contact.name &&
+                            contact.name !== quotation.clients?.name
+                              ? `${contact.name} · `
+                              : ""}
                             {formatISOUTCDateToString(quotation.event_date)}
                           </p>
                           <div
