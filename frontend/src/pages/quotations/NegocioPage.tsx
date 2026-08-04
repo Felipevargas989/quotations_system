@@ -159,7 +159,17 @@ export default function NegocioPage() {
       )}`
     : null;
 
-  if (!listaQuery.isPending && !fila) {
+  // Estados honestos (pillada 04-08: durante una racha de red la ficha
+  // mostraba un esqueleto mudo con "#" y "—" — mismo pecado que tuvo
+  // el tablero): cargando = rueda; error = mensaje con reintento.
+  if (listaQuery.isPending) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+  if (listaQuery.isError || !fila) {
     return (
       <div className="space-y-4">
         <button
@@ -170,8 +180,19 @@ export default function NegocioPage() {
           ← Volver a Cotizaciones
         </button>
         <p className="text-sm text-gray-500">
-          No se encontró esta cotización.
+          {listaQuery.isError
+            ? "No se pudo cargar la ficha (¿problema de conexión?)."
+            : "No se encontró esta cotización."}
         </p>
+        {listaQuery.isError && (
+          <button
+            type="button"
+            onClick={() => void listaQuery.refetch()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+          >
+            Reintentar
+          </button>
+        )}
       </div>
     );
   }
