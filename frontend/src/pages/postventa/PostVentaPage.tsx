@@ -1690,7 +1690,11 @@ export function ServiciosTab({
     })),
   );
   const [fixed, setFixed] = useState<any[]>(() =>
-    deep(quote.items?.fixed_services),
+    // Filas fantasma de fotos antiguas (fijo sin código/nombre que el
+    // cotizador viejo guardaba con el selector pendiente — pillada
+    // Felipe 04-08 en la #436): se ignoran al cargar, y al primer
+    // guardado la cotización queda limpia para siempre.
+    deep(quote.items?.fixed_services).filter((f: any) => f?.codigo),
   );
   const [adultsN, setAdultsN] = useState<number>(initAdults);
   const [kidsN, setKidsN] = useState<number>(initKids);
