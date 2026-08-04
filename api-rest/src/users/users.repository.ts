@@ -36,7 +36,8 @@ export class UsersRepository {
           currency,
           is_active,
           tagline,
-          bank_details
+          bank_details,
+          high_value_threshold
         )
         `,
       )

@@ -38,6 +38,9 @@ export const updateCompany = async (
     colors,
     notifications,
     ...(extras?.tagline !== undefined ? { tagline: extras.tagline } : {}),
+    ...(extras?.high_value_threshold !== undefined
+      ? { high_value_threshold: extras.high_value_threshold }
+      : {}),
     ...(extras?.bank_details !== undefined
       ? { bank_details: extras.bank_details }
       : {}),
