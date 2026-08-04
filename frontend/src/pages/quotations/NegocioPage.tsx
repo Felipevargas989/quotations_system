@@ -190,20 +190,18 @@ export default function NegocioPage() {
         {/* Encabezado: todo el contexto del negocio a la vista. */}
         <div className="shrink-0 flex flex-wrap items-start justify-between gap-3 p-6 border-b border-gray-200">
           <div>
+            {/* La identidad manda: el cliente en grande, el número en
+                gris discreto (pedido de Felipe 04-08). */}
             <h1 className="text-xl font-bold text-gray-900">
-              #{fila?.quotation_number}{" "}
-              <span className="font-medium">{fila?.clients?.name}</span>
+              {fila?.clients?.name}{" "}
+              <span className="text-base font-semibold text-gray-400">
+                #{fila?.quotation_number}
+              </span>
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {contacto.name || "—"}
               {contacto.phone ? ` · 📞 ${formatPhone(contacto.phone)}` : ""}
               {contacto.email ? ` · ✉️ ${contacto.email}` : ""}
-            </p>
-            <p className="text-sm text-gray-500">
-              Evento: {fila ? formatISOUTCDateToString(fila.event_date) : "…"} ·{" "}
-              <span className="font-semibold text-gray-900">
-                ${fila?.total_amount.toLocaleString("es-CL")}
-              </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -231,6 +229,29 @@ export default function NegocioPage() {
                 ✉️ Correo
               </a>
             )}
+          </div>
+        </div>
+
+        {/* Lo que importa, en grande: las 3 cajitas de la casa (mismo
+            lenguaje que Pagos y Gestión de Post-Venta). */}
+        <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-3 px-6 py-4 border-b border-gray-200">
+          <div className="border border-gray-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-gray-500">Tipo de evento</p>
+            <p className="text-lg font-bold text-gray-900 truncate">
+              {String(fila?.event_type || "—")}
+            </p>
+          </div>
+          <div className="border border-gray-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-gray-500">Fecha del evento</p>
+            <p className="text-lg font-bold text-gray-900">
+              {fila ? formatISOUTCDateToString(fila.event_date) : "…"}
+            </p>
+          </div>
+          <div className="border border-gray-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-gray-500">Monto</p>
+            <p className="text-lg font-bold text-gray-900">
+              ${fila?.total_amount.toLocaleString("es-CL")}
+            </p>
           </div>
         </div>
 
