@@ -797,7 +797,7 @@ export default function QuotationsPage() {
                 className={`rounded-xl p-3 border-t-4 transition-colors ${
                   (
                     {
-                      solicitada: "border-yellow-400",
+                      solicitada: "border-yellow-200",
                       enviada: "border-blue-400",
                       en_negociacion: "border-purple-400",
                     } as Record<string, string>
@@ -868,8 +868,10 @@ export default function QuotationsPage() {
                               el resto de la tarjeta navega a la ficha
                               (pedido de Felipe 04-08). */}
                           <div className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1.5 text-sm font-bold text-gray-700">
+                            <span className="text-sm font-bold text-gray-700">
                               #{quotation.quotation_number}
+                            </span>
+                            <span className="flex items-center gap-1">
                               {altoValor && (
                                 <Star
                                   size={14}
@@ -877,9 +879,9 @@ export default function QuotationsPage() {
                                   aria-label="Cotización de alto valor"
                                 />
                               )}
-                            </span>
-                            <span onClick={(e) => e.stopPropagation()}>
-                              {estadoPill(quotation, "icono")}
+                              <span onClick={(e) => e.stopPropagation()}>
+                                {estadoPill(quotation, "icono")}
+                              </span>
                             </span>
                           </div>
                           <p className="mt-1 text-sm font-medium text-gray-900 truncate">
