@@ -1071,9 +1071,9 @@ export default function QuotationsPage() {
                               <button
                                 onClick={() => handleViewQuotation(quotation)}
                                 className="text-sm font-semibold text-blue-600 hover:underline"
-                                title="Ver cotización (solo lectura)"
+                                title="Ver el documento de la cotización"
                               >
-                                Ver
+                                PDF
                               </button>
                             </div>
                           </div>
@@ -1130,9 +1130,9 @@ export default function QuotationsPage() {
                   <button
                     onClick={() => handleViewQuotation(q)}
                     className="text-sm font-semibold text-blue-600 hover:underline"
-                    title="Ver cotización (solo lectura)"
+                    title="Ver el documento de la cotización"
                   >
-                    Ver
+                    PDF
                   </button>
                 </div>
               ))}
@@ -1186,9 +1186,9 @@ export default function QuotationsPage() {
                     <button
                       onClick={() => handleViewQuotation(q)}
                       className="text-sm font-semibold text-blue-600 hover:underline"
-                      title="Ver cotización (solo lectura)"
+                      title="Ver el documento de la cotización"
                     >
-                      Ver
+                      PDF
                     </button>
                   </div>
                 ))
@@ -1374,9 +1374,9 @@ export default function QuotationsPage() {
                         <button
                           onClick={() => handleViewQuotation(quotation)}
                           className="text-sm font-semibold text-blue-600 hover:underline"
-                          title="Ver cotización (solo lectura)"
+                          title="Ver el documento de la cotización"
                         >
-                          Ver
+                          PDF
                         </button>
                       </td>
                       <td className="px-6 py-4 text-gray-300">
