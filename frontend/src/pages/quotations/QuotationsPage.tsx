@@ -1047,7 +1047,12 @@ export default function QuotationsPage() {
                       Soltar aquí → {STATUS_LABEL[col]}
                     </div>
                   )}
-                  {tarjetas.length === 0 ? (
+                  {/* Sin esto, la columna decía "sin cotizaciones"
+                      MIENTRAS cargaba — mentira de 1 segundo que
+                      asustó a Felipe (04-08). */}
+                  {loading ? (
+                    <p className="text-xs text-gray-400 px-1 py-3">Cargando…</p>
+                  ) : tarjetas.length === 0 ? (
                     <p className="text-xs text-gray-400 px-1 py-3">
                       Sin cotizaciones aquí.
                     </p>

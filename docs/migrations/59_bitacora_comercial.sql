@@ -23,3 +23,9 @@ CREATE TABLE IF NOT EXISTS public.quotation_followups (
 
 CREATE INDEX IF NOT EXISTS idx_qf_company_quotation
   ON public.quotation_followups(company_id, quotation_id, created_at DESC);
+
+-- Permisos (quemadura 04-08 en el lab: la tabla nació sin ellos y la
+-- API recibía "permission denied"): la API habla con service_role.
+GRANT ALL ON TABLE public.quotation_followups TO service_role;
+GRANT ALL ON TABLE public.quotation_followups TO postgres;
+GRANT USAGE, SELECT ON SEQUENCE public.quotation_followups_id_seq TO service_role;
