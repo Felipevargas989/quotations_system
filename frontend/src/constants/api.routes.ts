@@ -6,6 +6,11 @@ export const API_ROUTES = {
   QUOTATIONS_CHECK_CONFLICTS: "/quotations/check-conflicts",
   QUOTATIONS_PUBLIC: "/quotations/public",
 
+  // bitácora comercial (migración 59)
+  FOLLOWUPS: "/quotation-followups",
+  FOLLOWUPS_MAP: "/quotation-followups/map",
+  FOLLOWUPS_BY_QUOTATION: "/quotation-followups/by-quotation",
+
   // clients
   CLIENTS: "/clients",
   CLIENT_TYPES: "/clients/types",

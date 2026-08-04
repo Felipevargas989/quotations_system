@@ -86,6 +86,9 @@ export interface Quotation {
   tip_amount?: number | null;
   // Persona de contacto del evento (texto libre; puente a Etapa 4).
   contact_name?: string | null;
+  // Cuándo se envió al cliente (migración 51; alimenta el semáforo de
+  // seguimiento y los correos automáticos de día 7/14).
+  sent_at?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;
