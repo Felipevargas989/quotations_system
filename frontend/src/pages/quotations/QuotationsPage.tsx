@@ -1005,7 +1005,17 @@ export default function QuotationsPage() {
                   if (q && q.quotation_status !== col)
                     void handleStatusChange(id, col);
                 }}
-                className={`rounded-xl p-3 transition-colors ${
+                // Borde superior con el color del estado (pedido de
+                // Felipe 04-08: mataba el "mucho gris" — gesto Clientify).
+                className={`rounded-xl p-3 border-t-4 transition-colors ${
+                  (
+                    {
+                      solicitada: "border-yellow-400",
+                      enviada: "border-blue-400",
+                      en_negociacion: "border-purple-400",
+                    } as Record<string, string>
+                  )[col] || "border-gray-300"
+                } ${
                   dropCol === col && dragId
                     ? "bg-blue-50 ring-2 ring-blue-300"
                     : "bg-gray-100"
