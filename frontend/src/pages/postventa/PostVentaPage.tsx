@@ -19,6 +19,7 @@ import {
   Trash2,
   FileText,
   Undo2,
+  Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -54,6 +55,7 @@ import { getCategorySections } from "../../services/sections.service";
 import { useServices } from "../../hooks/useServices";
 import { CategorySection } from "../../types/services.types";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import QuantitySelector from "../../components/QuantitySelector";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 import { formatPhone } from "../../utils/phone";
@@ -1767,6 +1769,46 @@ export function ServiciosTab({
         : null;
     return sec ? sec.name : "Sin sección";
   };
+  // Sección FIJA de una categoría (is_default, calco del cotizador): sus
+  // servicios entran solos al crear la categoría y no se pueden quitar.
+  // Ids de servicios de la sección fija de una categoría (por nombre).
+  const defaultServiceIdsFor = (categoryName: string): number[] => {
+    const cat = orderedCategories.find((c) => c.name === categoryName);
+    if (!cat) return [];
+    const sec = categorySections.find(
+      (s) => s.category_id === cat.id && s.is_default,
+    );
+    if (!sec) return [];
+    return categoryLinks
+      .filter((l) => l.category_id === cat.id && l.section_id === sec.id)
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+          (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+      )
+      .map((l) => l.variable_service_id);
+  };
+  // ¿Este item va bloqueado en la categoría? (pertenece a su sección fija)
+  const isLockedService = (categoryName: string, codigo: string) =>
+    defaultServiceIdsFor(categoryName).some((id) => id.toString() === codigo);
+  // Items de la sección fija listos para entrar al grupo (solo activos).
+  const defaultServicesFor = (categoryName: string) =>
+    defaultServiceIdsFor(categoryName).flatMap((sid) => {
+      const p = products.find(
+        (prod) =>
+          prod.categoria === categoryName && prod.codigo === sid.toString(),
+      );
+      if (!p || p.is_active === false) return [];
+      return [
+        {
+          codigo: p.codigo,
+          nombre: p.nombre,
+          precio: p.precio,
+          categoria: categoryName,
+          quantity: 1,
+        },
+      ];
+    });
   // Agregar POR GRUPO (acordado 22-07): cada grupo tiene su propio
   // "+ Agregar servicio" — así dos categorías gemelas nunca se mezclan.
   const [addingToGroup, setAddingToGroup] = useState<number | null>(null);
@@ -1877,6 +1919,21 @@ export function ServiciosTab({
   };
   const removeFixed = (i: number) =>
     setFixed((prev) => prev.filter((_, idx) => idx !== i));
+  // Cantidad de un ítem variable (botones − / + de la casa). Por índice
+  // original, igual que quitar; el piso es 1 — quitar pasa por la ✕.
+  const setItemQty = (gi: number, ii: number, qty: number) =>
+    setVarGroups((prev) =>
+      prev.map((g, i) =>
+        i === gi
+          ? {
+              ...g,
+              items: (g.items || []).map((it: any, j: number) =>
+                j === ii ? { ...it, quantity: Math.max(1, qty) } : it,
+              ),
+            }
+          : g,
+      ),
+    );
 
   // Agrega un servicio del catálogo AL GRUPO gi (nunca adivina el grupo).
   // Se identifica por `codigo`: con el desplegable agrupado por secciones
@@ -1889,16 +1946,28 @@ export function ServiciosTab({
       ? productsOf(g.category).find((p) => p.codigo === codigo)
       : undefined;
     if (!s) return;
-    const item = {
-      codigo: s.codigo,
-      nombre: s.nombre,
-      precio: s.precio,
-      categoria: g.category,
-      quantity: 1,
-    };
     setVarGroups((prev) => {
       const copy = prev.map((x) => ({ ...x, items: [...(x.items || [])] }));
-      copy[gi]?.items.push(item);
+      const grp = copy[gi];
+      if (!grp) return prev;
+      // Re-elegir el mismo ítem suma +1 a su cantidad, no duplica la fila.
+      const idx = grp.items.findIndex(
+        (it: any) => String(it.codigo) === codigo,
+      );
+      if (idx >= 0) {
+        grp.items[idx] = {
+          ...grp.items[idx],
+          quantity: (grp.items[idx].quantity || 1) + 1,
+        };
+      } else {
+        grp.items.push({
+          codigo: s.codigo,
+          nombre: s.nombre,
+          precio: s.precio,
+          categoria: g.category,
+          quantity: 1,
+        });
+      }
       return copy;
     });
   };
@@ -1917,7 +1986,10 @@ export function ServiciosTab({
   };
 
   // Crea el grupo con día y audiencia EXPLÍCITOS y abre su agregador
-  // (un grupo sin items se descarta solo al guardar).
+  // (un grupo sin items se descarta solo al guardar). Los ítems de la
+  // sección fija de la categoría entran SOLOS, como en el cotizador —
+  // únicamente en categorías agregadas acá: lo ya guardado en la
+  // cotización no se toca al cargar.
   const createGroup = () => {
     if (!newCatName) return;
     const newIndex = varGroups.length;
@@ -1927,7 +1999,7 @@ export function ServiciosTab({
         category: newCatName,
         audience: newCatAud,
         day: multiDia ? newCatDay : 1,
-        items: [],
+        items: defaultServicesFor(newCatName),
       },
     ]);
     setNewCatOpen(false);
@@ -2076,6 +2148,77 @@ export function ServiciosTab({
         </button>
       </div>
     );
+
+  // Fila de un ítem VARIABLE (ajuste Felipe 04-08): nombre [+ candado si
+  // es de sección fija] … $precio unitario · − cantidad + · $TOTAL del
+  // ítem · ✕ (solo si no es fijo). El total es la MISMA cuenta de la
+  // última columna de siempre (precio × cantidad × personas del grupo);
+  // la matemática de personas/audiencia no se mueve de ppp/gPeople.
+  // Quitar sigue pasando por la confirmación inline.
+  const varRow = (g: any, gi: number, it: any, ii: number) => {
+    const key = `v-${gi}-${ii}`;
+    const locked = isLockedService(g.category, String(it.codigo || ""));
+    if (confirmRowKey === key) {
+      return (
+        <div
+          key={key}
+          className="flex items-center justify-between py-2 border-b border-gray-100 text-sm"
+        >
+          <span className="text-gray-900 truncate mr-3">{it.nombre}</span>
+          <ConfirmInline
+            question="¿Quitar del evento?"
+            yesLabel="Sí, quitar"
+            onYes={() => {
+              removeVar(gi, ii);
+              setConfirmRowKey(null);
+            }}
+            onNo={() => setConfirmRowKey(null)}
+          />
+        </div>
+      );
+    }
+    return (
+      <div
+        key={key}
+        className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
+      >
+        <span className="text-gray-800 flex items-center gap-2 min-w-0">
+          <span className="truncate">{it.nombre}</span>
+          {locked && (
+            <span
+              title="Va siempre con esta categoría (sección fija)"
+              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
+            >
+              <Lock size={10} /> fijo
+            </span>
+          )}
+        </span>
+        <span className="flex items-center gap-3 shrink-0">
+          <span className="text-gray-500">{clp(it.precio || 0)}</span>
+          <QuantitySelector
+            value={it.quantity || 1}
+            onChange={(q) => setItemQty(gi, ii, q)}
+            min={1}
+          />
+          <span className="font-medium text-gray-900 w-20 text-right">
+            {clp(ppp(it) * gPeople(g))}
+          </span>
+          {locked ? (
+            <span className="w-4" />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmRowKey(key)}
+              className="text-red-500 hover:text-red-700"
+              title="Quitar"
+            >
+              ✕
+            </button>
+          )}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -2238,11 +2381,56 @@ export function ServiciosTab({
               </span>
             </span>
           </div>
-          {(g.items || []).map((it: any, i: number) =>
-            row(it.nombre, gPeople(g), ppp(it), `v-${gi}-${i}`, () =>
-              removeVar(gi, i),
-            ),
-          )}
+          {/* Lista armada por secciones, como la carta del cotizador:
+              rótulo azul con línea divisora ("Otros" para lo suelto);
+              sin secciones, lista plana. Cada ítem conserva su índice
+              original en el estado para editar cantidad y quitar. */}
+          {(() => {
+            const cat = orderedCategories.find((c) => c.name === g.category);
+            const secs = cat
+              ? categorySections
+                  .filter((s) => s.category_id === cat.id)
+                  .sort((a, b) => a.sort_order - b.sort_order)
+              : [];
+            const sectionOf = (codigo: string) =>
+              cat
+                ? categoryLinks.find(
+                    (l) =>
+                      l.category_id === cat.id &&
+                      l.variable_service_id.toString() === codigo,
+                  )?.section_id || 0
+                : 0;
+            const withIdx = (g.items || []).map((it: any, i: number) => ({
+              it,
+              i,
+            }));
+            const bloques = [
+              ...secs.map((s) => ({
+                key: `s-${s.id}`,
+                name: s.name,
+                items: withIdx.filter(
+                  (x: any) => sectionOf(String(x.it.codigo || "")) === s.id,
+                ),
+              })),
+              {
+                key: "s-0",
+                name: secs.length ? "Otros" : "",
+                items: withIdx.filter(
+                  (x: any) => sectionOf(String(x.it.codigo || "")) === 0,
+                ),
+              },
+            ].filter((b) => b.items.length > 0);
+            return bloques.map((b) => (
+              <div key={b.key}>
+                {b.name && (
+                  <div className="pt-2 pb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-900 border-b border-blue-900/20">
+                    {b.name}
+                  </div>
+                )}
+                {b.items.map((x: any) => varRow(g, gi, x.it, x.i))}
+              </div>
+            ));
+          })()}
           {/* Agregador DEL grupo: el servicio cae aquí, sin ambigüedad.
               Desplegable trasplantado del cotizador (04-08): buscador
               pegajoso arriba, ítems agrupados por sección de la categoría
@@ -2289,14 +2477,16 @@ export function ServiciosTab({
                         />
                       </div>
                       {(() => {
-                        // NOTA: acá NO se porta la "sección fija" del
-                        // cotizador (is_default: ítems que entran solos al
-                        // elegir la categoría). En una cotización ya vendida
-                        // sería auto-insertar servicios — fuera de alcance.
                         const filtered = productsOf(g.category)
                           // Paridad con el cotizador: los desactivados no
                           // se ofrecen (los ya agregados no se tocan).
                           .filter((p) => p.is_active !== false)
+                          // La sección FIJA no se ofrece en el buscador:
+                          // sus servicios entran solos al crear la
+                          // categoría y no se pueden quitar (cotizador).
+                          .filter(
+                            (p) => !isLockedService(g.category, p.codigo),
+                          )
                           .filter((p) => matchesSearch(itemSearch, p.nombre));
                         if (filtered.length === 0) {
                           return (
