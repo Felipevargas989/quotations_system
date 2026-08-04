@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
@@ -984,30 +985,55 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
         })()}
       </div>
 
+      {/* Visor en MODAL (pedido de Felipe 04-08): el respaldo se mira
+          en grande y se cierra, sin empujar la página. */}
       {visor && (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <p className="text-xs text-gray-500 px-3 py-1.5 bg-gray-50 border-b border-gray-200 truncate">
-            {visor.file_name}
-          </p>
-          {(() => {
-            if (!visorUrl)
-              return <p className="p-3 text-sm text-gray-500">Cargando…</p>;
-            if (esImagen(visor.file_url) || esImagen(visorUrl))
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setVisor(null);
+            setVisorUrl(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
+              <p className="text-sm font-semibold text-gray-800 truncate">
+                {visor.file_name}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setVisor(null);
+                  setVisorUrl(null);
+                }}
+                className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {(() => {
+              if (!visorUrl)
+                return <p className="p-6 text-sm text-gray-500">Cargando…</p>;
+              if (esImagen(visor.file_url) || esImagen(visorUrl))
+                return (
+                  <img
+                    src={visorUrl}
+                    alt={visor.file_name}
+                    className="max-h-[75vh] w-full object-contain bg-gray-50"
+                  />
+                );
               return (
-                <img
+                <iframe
                   src={visorUrl}
-                  alt={visor.file_name}
-                  className="max-h-[380px] w-full object-contain bg-gray-50"
+                  title={visor.file_name}
+                  className="w-full h-[75vh]"
                 />
               );
-            return (
-              <iframe
-                src={visorUrl}
-                title={visor.file_name}
-                className="w-full h-[380px]"
-              />
-            );
-          })()}
+            })()}
+          </div>
         </div>
       )}
     </div>
