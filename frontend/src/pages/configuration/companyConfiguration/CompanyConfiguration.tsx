@@ -358,7 +358,7 @@ export default function CompanyConfiguration() {
         {/* Submit Button */}
         <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
-              💎 Umbral de cotización de alto valor (CLP)
+              ⭐ Umbral de cotización de alto valor (CLP)
             </label>
             {/* La caja numérica de la casa: puntos de miles
                 automáticos (pedido de Felipe 04-08). */}
@@ -371,8 +371,8 @@ export default function CompanyConfiguration() {
               placeholder="Ej: 1.000.000 — vacío = sin marca"
             />
             <p className="text-xs text-gray-500">
-              Las cotizaciones del tablero con monto igual o superior llevan
-              la marca 💎.
+              Las cotizaciones del tablero con monto igual o superior se
+              destacan con borde dorado y estrella.
             </p>
           </div>
 

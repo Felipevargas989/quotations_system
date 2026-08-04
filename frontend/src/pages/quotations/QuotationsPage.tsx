@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Plus,
   Search,
+  Star,
 } from "lucide-react";
 import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
@@ -835,6 +836,11 @@ export default function QuotationsPage() {
                     tarjetas.map((quotation) => {
                       const sem = semaforoDe(quotation);
                       const contact = contactOf(quotation);
+                      // Alto valor (opción 6 de Felipe): borde dorado
+                      // de lejos + estrella ámbar de cerca.
+                      const altoValor =
+                        umbralAltoValor > 0 &&
+                        quotation.total_amount >= umbralAltoValor;
                       return (
                         <div
                           key={quotation.id}
@@ -849,8 +855,10 @@ export default function QuotationsPage() {
                           }}
                           onClick={() => navigate(`/negocio/${quotation.id}`)}
                           className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
-                            dragId === quotation.id ? "opacity-40" : ""
-                          }`}
+                            altoValor
+                              ? "border-l-4 border-l-amber-400"
+                              : ""
+                          } ${dragId === quotation.id ? "opacity-40" : ""}`}
                         >
                           {/* Orden de Felipe (03-08): estado arriba
                               (control para mover, compacto — la columna
@@ -860,8 +868,15 @@ export default function QuotationsPage() {
                               el resto de la tarjeta navega a la ficha
                               (pedido de Felipe 04-08). */}
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-bold text-gray-700">
+                            <span className="flex items-center gap-1.5 text-sm font-bold text-gray-700">
                               #{quotation.quotation_number}
+                              {altoValor && (
+                                <Star
+                                  size={14}
+                                  className="text-amber-400 fill-amber-400"
+                                  aria-label="Cotización de alto valor"
+                                />
+                              )}
                             </span>
                             <span onClick={(e) => e.stopPropagation()}>
                               {estadoPill(quotation, "icono")}
@@ -880,19 +895,7 @@ export default function QuotationsPage() {
                             {formatISOUTCDateToString(quotation.event_date)}
                           </p>
                           <div className="mt-2 flex items-center justify-between gap-2">
-                            <span
-                              className="text-sm font-semibold text-gray-900"
-                              title={
-                                umbralAltoValor &&
-                                quotation.total_amount >= umbralAltoValor
-                                  ? "Cotización de alto valor"
-                                  : undefined
-                              }
-                            >
-                              {umbralAltoValor &&
-                              quotation.total_amount >= umbralAltoValor
-                                ? "💎 "
-                                : ""}
+                            <span className="text-sm font-semibold text-gray-900">
                               ${quotation.total_amount.toLocaleString("es-CL")}
                             </span>
                             <div className="flex items-center gap-2">
