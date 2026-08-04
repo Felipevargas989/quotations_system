@@ -20,6 +20,7 @@ import { LogisticsModule } from './logistics/logistics.module';
 import { MovilModule } from './movil/movil.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
+import { QuotationFollowupsModule } from './quotation-followups/quotation-followups.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { RefundsModule } from './refunds/refunds.module';
 import { ServiceGroupCollectionsModule } from './service-group-collections/service-group-collections.module';
@@ -69,6 +70,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     ClientsModule,
     QuotationsModule,
+    QuotationFollowupsModule,
     PaymentsModule,
     ServicesModule,
     SuperAdminModule,
