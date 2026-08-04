@@ -807,33 +807,6 @@ export default function QuotationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Cotizaciones</h1>
-        <div className="flex items-center gap-3">
-          {/* Requerimientos pendientes: aviso junto al botón (la tabla de
-              abajo se eliminó; la conversión vive en su módulo). */}
-          {requirements.length > 0 && (
-            <button
-              onClick={() => navigate("/requests")}
-              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm font-semibold hover:bg-amber-100"
-              title="Ir al módulo de Requerimientos"
-            >
-              <AlertTriangle size={16} className="text-amber-500" />
-              {requirements.length} requerimiento
-              {requirements.length === 1 ? "" : "s"} pendiente
-              {requirements.length === 1 ? "" : "s"}
-            </button>
-          )}
-          <button
-            onClick={() => navigate("/quotation-form")}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Nueva Cotización</span>
-          </button>
-        </div>
-      </div>
-
       {showViewer && viewingQuotation && (
         <QuotationViewer
           quotation={viewingQuotation}
@@ -863,10 +836,15 @@ export default function QuotationsPage() {
         />
       )}
 
-      {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
+      {/* UNA sola línea (pedido de Felipe 03-08): título, buscador
+          elástico, controles y acciones — envuelve con gracia si la
+          pantalla no alcanza. */}
+      <div className="bg-white rounded-lg shadow px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-bold text-gray-900 shrink-0">
+            Cotizaciones
+          </h1>
+          <div className="flex-1 min-w-[240px] relative">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
               size={20}
@@ -981,6 +959,27 @@ export default function QuotationsPage() {
           >
             Requieren seguimiento ({nRequieren})
           </button>
+          <div className="flex items-center gap-3 ml-auto">
+            {/* Requerimientos pendientes: aviso junto al botón (la
+                conversión vive en su módulo). */}
+            {requirements.length > 0 && (
+              <button
+                onClick={() => navigate("/requests")}
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm font-semibold hover:bg-amber-100"
+                title="Ir al módulo de Requerimientos"
+              >
+                <AlertTriangle size={16} className="text-amber-500" />
+                {requirements.length}
+              </button>
+            )}
+            <button
+              onClick={() => navigate("/quotation-form")}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
+            >
+              <Plus size={20} />
+              <span>Nueva Cotización</span>
+            </button>
+          </div>
         </div>
       </div>
 
