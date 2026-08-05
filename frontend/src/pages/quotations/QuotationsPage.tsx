@@ -179,16 +179,19 @@ export default function QuotationsPage() {
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
 
-  // Orden dentro de las columnas: Urgencia por defecto (lo más frío
-  // arriba — la filosofía de la cola).
+  // Orden dentro de las columnas: MONTO por defecto (06-08, decisión
+  // de Felipe: la plata grande primero). Una preferencia elegida a
+  // mano se respeta — el default es solo para quien no ha tocado el chip.
   const [ordenTablero, setOrdenTablero] = useState<
     "urgencia" | "fecha" | "numero" | "monto"
   >(() => {
     try {
       const v = user ? localStorage.getItem(ORDEN_TABLERO_KEY(user.id)) : null;
-      return v === "fecha" || v === "numero" || v === "monto" ? v : "urgencia";
+      return v === "fecha" || v === "numero" || v === "urgencia"
+        ? v
+        : "monto";
     } catch {
-      return "urgencia";
+      return "monto";
     }
   });
   const [ordenMenuAbierto, setOrdenMenuAbierto] = useState(false);
