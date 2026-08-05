@@ -2,10 +2,10 @@
 // PostVentaPage.tsx. La montan Post-Venta Y la ficha del negocio
 // (NegocioPage), por eso ahora es un archivo propio. Comportamiento
 // idéntico: solo se mudó el código, con sus imports.
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery } from "@tanstack/react-query";
-import { X, Trash2, Lock } from "lucide-react";
+import { ChevronDown, ChevronUp, X, Trash2, Lock } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import { updateQuotation } from "../../services/quotations.service";
@@ -544,6 +544,19 @@ export default function ServiciosTab({
       ),
     );
 
+  // Flechitas ▲▼ (06-08, pedido de Felipe): mover cajas sin arrastrar,
+  // patrón del catálogo. Orden local puro — viaja en la foto al Guardar.
+  const moverCaja = (gi: number, delta: -1 | 1) => {
+    const j = gi + delta;
+    setVarGroups((prev) => {
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[gi], next[j]] = [next[j], next[gi]];
+      return next;
+    });
+    setConfirmGroupKey(null);
+  };
+
   // Personas del grupo: igual al cotizador — escribir el número de su
   // audiencia vuelve a modo automático; otro número = ajuste manual.
   const setGroupPeople = (gi: number, v?: number) => {
@@ -562,7 +575,25 @@ export default function ServiciosTab({
     );
   };
 
-  const save = async () => {
+  // ---- Auto-guardado (05-08, pedido de Felipe): al modificar servicios,
+  // personas o fijos, los cambios viajan solos tras 1.5 s de calma; el
+  // botón de abajo queda como guardado general de refuerzo. ----
+  const [autoEstado, setAutoEstado] = useState<
+    "reposo" | "guardando" | "ok" | "error"
+  >("reposo");
+  const [autoHora, setAutoHora] = useState("");
+  const primerRender = useRef(true);
+  // Serialización: nunca dos guardados en vuelo. Si algo cambia mientras
+  // uno viaja, la bandera queda izada y al aterrizar despega otro con el
+  // estado final. autoRef apunta siempre a la versión más fresca.
+  const vueloRef = useRef(false);
+  const pendienteRef = useRef(false);
+  const autoRef = useRef<() => void>(() => {});
+
+  // `silencioso`: el auto-guardado no toca los textos del guardado
+  // manual (tiene su indicador propio); todo lo demás — payload, cuenta
+  // compartida, avisos de plan de pagos y refetch — es EXACTAMENTE igual.
+  const save = async (opts?: { silencioso?: boolean }): Promise<boolean> => {
     // Evento provisionado: bajar personas es solo para administradores.
     if (
       provInfo.provisioned_at &&
@@ -573,8 +604,13 @@ export default function ServiciosTab({
       setMsg(
         "Evento provisionado: solo un administrador puede disminuir el número de personas.",
       );
-      return;
+      return false;
     }
+    if (vueloRef.current) {
+      pendienteRef.current = true;
+      return false;
+    }
+    vueloRef.current = true;
     setSaving(true);
     setMsg(null);
     setNotice(null);
@@ -607,7 +643,7 @@ export default function ServiciosTab({
         quote.id,
       );
       if (error) throw error;
-      setMsg("Cambios guardados ✓");
+      if (!opts?.silencioso) setMsg("Cambios guardados ✓");
       // Aviso: describe cómo se reajustó el plan de pagos. SOLO en
       // Post-Venta — en una cotización en juego no hay cuotas que
       // ajustar y el cartel mentía (pillada de Felipe 05-08, #436).
@@ -643,12 +679,66 @@ export default function ServiciosTab({
         }
       }
       onSaved();
+      return true;
     } catch {
-      setMsg("No se pudo guardar.");
+      if (!opts?.silencioso) setMsg("No se pudo guardar.");
+      return false;
     } finally {
+      vueloRef.current = false;
       setSaving(false);
+      // Cambió algo en pleno vuelo: despega otro con el estado final
+      // (cubre también lo editado durante un guardado manual).
+      if (pendienteRef.current) {
+        pendienteRef.current = false;
+        setTimeout(() => void autoRef.current(), 0);
+      }
     }
   };
+
+  // Un viaje del auto-guardado: si hay vuelo, deja la bandera; si no,
+  // parte y pinta el indicador según cómo aterrice.
+  const autoGuardar = async () => {
+    if (vueloRef.current) {
+      pendienteRef.current = true;
+      return;
+    }
+    setAutoEstado("guardando");
+    const ok = await save({ silencioso: true });
+    setAutoEstado(ok ? "ok" : "error");
+    if (ok)
+      setAutoHora(
+        new Date().toLocaleTimeString("es-CL", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+  };
+  autoRef.current = autoGuardar;
+
+  // El observador: EXACTAMENTE lo que serializa save() — ítems variables
+  // y fijos, personas, descuento, propina y observaciones. Debounce de
+  // 1.5 s tras el último cambio (foto asentada; la verificación del
+  // backend cuadra porque el payload es el mismo de siempre).
+  useEffect(() => {
+    // El montaje no es un cambio: la foto recién cargada no se guarda.
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => void autoRef.current(), 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    varGroups,
+    fixed,
+    adultsN,
+    kidsN,
+    discType,
+    discVal,
+    tipEnabled,
+    tipPct,
+    obs,
+  ]);
 
   // Quitar un servicio pasa por confirmacion inline (es delicado aunque
   // el cambio recien se aplique al Guardar).
@@ -1081,6 +1171,26 @@ export default function ServiciosTab({
                   </div>
                 )}
                 <div className="ml-auto pb-2 flex items-center gap-2">
+                  {varGroups.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        title="Subir servicio"
+                        onClick={() => moverCaja(gi, -1)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                      >
+                        <ChevronUp size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Bajar servicio"
+                        onClick={() => moverCaja(gi, 1)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                      >
+                        <ChevronDown size={15} />
+                      </button>
+                    </>
+                  )}
                   {confirmGroupKey === gi ? (
                     /* Basurero con ítems adentro: confirmación inline de la
                     casa antes de borrar la caja completa. */
@@ -1947,10 +2057,25 @@ export default function ServiciosTab({
               className="w-full text-sm border border-gray-300 rounded-lg p-3"
             />
             <div className="flex items-center justify-end gap-3 mt-4">
+              {/* Indicador sutil del auto-guardado; el botón queda como
+                  refuerzo manual, tal cual. */}
+              {autoEstado === "guardando" && (
+                <span className="text-xs text-gray-400">Guardando…</span>
+              )}
+              {autoEstado === "ok" && (
+                <span className="text-xs text-gray-400">
+                  Guardado ✓ {autoHora}
+                </span>
+              )}
+              {autoEstado === "error" && (
+                <span className="text-xs font-semibold text-amber-600">
+                  No se pudo guardar — reintenta o usa Guardar
+                </span>
+              )}
               {msg && <span className="text-sm text-gray-500">{msg}</span>}
               <button
                 type="button"
-                onClick={save}
+                onClick={() => void save()}
                 disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
