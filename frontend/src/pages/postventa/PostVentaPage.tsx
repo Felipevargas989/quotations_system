@@ -1168,42 +1168,44 @@ function EventModal({
             {!event.cancelled &&
               (event.done ? (
                 <span className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700">
-                    ✓ REALIZADO
-                  </span>
-                  {/* La puerta de vuelta (solo admin): un dedo
-                      equivocado no queda pegado para siempre. La
-                      encuesta ya enviada no se reenvía al re-marcar. */}
-                  {userRole === "administrador" &&
-                    (confirmUndone ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-600">
-                          ¿Volver a pendiente?
-                        </span>
-                        <button
-                          disabled={undoingDone}
-                          onClick={doUnmarkDone}
-                          className="px-2.5 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50"
-                        >
-                          Sí
-                        </button>
-                        <button
-                          disabled={undoingDone}
-                          onClick={() => setConfirmUndone(false)}
-                          className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
-                        >
-                          No
-                        </button>
+                  {/* La puerta de vuelta vive EN la píldora (estilo de
+                      la casa): solo admin puede pincharla; para el
+                      resto es una etiqueta inerte. La encuesta ya
+                      enviada no se reenvía al re-marcar. */}
+                  {userRole === "administrador" ? (
+                    <button
+                      onClick={() => setConfirmUndone((v) => !v)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                      title="¿Marcado por error? Pincha para volverlo a pendiente"
+                    >
+                      ✓ REALIZADO
+                    </button>
+                  ) : (
+                    <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700">
+                      ✓ REALIZADO
+                    </span>
+                  )}
+                  {confirmUndone && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-600">
+                        ¿Volver a pendiente?
                       </span>
-                    ) : (
                       <button
-                        onClick={() => setConfirmUndone(true)}
-                        className="text-xs text-gray-400 hover:text-gray-600 underline"
-                        title="Des-marcar el evento realizado (la encuesta ya enviada no se toca)"
+                        disabled={undoingDone}
+                        onClick={doUnmarkDone}
+                        className="px-2.5 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50"
                       >
-                        Volver a pendiente
+                        Sí
                       </button>
-                    ))}
+                      <button
+                        disabled={undoingDone}
+                        onClick={() => setConfirmUndone(false)}
+                        className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
+                      >
+                        No
+                      </button>
+                    </span>
+                  )}
                 </span>
               ) : confirmDone ? (
                 <div className="flex items-center gap-2">
