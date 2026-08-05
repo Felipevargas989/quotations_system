@@ -110,6 +110,7 @@ const ORDEN_ETIQUETA: Record<string, string> = {
   urgencia: "Urgencia",
   fecha: "Fecha evento",
   numero: "N°",
+  monto: "Monto",
 };
 
 
@@ -181,11 +182,11 @@ export default function QuotationsPage() {
   // Orden dentro de las columnas: Urgencia por defecto (lo más frío
   // arriba — la filosofía de la cola).
   const [ordenTablero, setOrdenTablero] = useState<
-    "urgencia" | "fecha" | "numero"
+    "urgencia" | "fecha" | "numero" | "monto"
   >(() => {
     try {
       const v = user ? localStorage.getItem(ORDEN_TABLERO_KEY(user.id)) : null;
-      return v === "fecha" || v === "numero" ? v : "urgencia";
+      return v === "fecha" || v === "numero" || v === "monto" ? v : "urgencia";
     } catch {
       return "urgencia";
     }
@@ -197,7 +198,9 @@ export default function QuotationsPage() {
   // (que se ilumina) — sin posiciones manuales que mantener.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<QuotationStatus | null>(null);
-  const cambiarOrdenTablero = (v: "urgencia" | "fecha" | "numero") => {
+  const cambiarOrdenTablero = (
+    v: "urgencia" | "fecha" | "numero" | "monto",
+  ) => {
     setOrdenTablero(v);
     try {
       if (user) localStorage.setItem(ORDEN_TABLERO_KEY(user.id), v);
@@ -624,6 +627,10 @@ export default function QuotationsPage() {
       return String(a.event_date).localeCompare(String(b.event_date));
     if (ordenTablero === "numero")
       return (b.quotation_number || 0) - (a.quotation_number || 0);
+    // Monto de mayor a menor (05-08, pedido de Felipe: "quizás es
+    // incluso más relevante"): la plata grande primero.
+    if (ordenTablero === "monto")
+      return (b.total_amount || 0) - (a.total_amount || 0);
     return (semaforoDe(b)?.urgencia || 0) - (semaforoDe(a)?.urgencia || 0);
   };
   // Cola de trabajo (lección Vambe): lo más abandonado arriba.
@@ -714,6 +721,7 @@ export default function QuotationsPage() {
                         ["urgencia", "Urgencia"],
                         ["fecha", "Fecha evento"],
                         ["numero", "N°"],
+                        ["monto", "Monto"],
                       ] as const
                     ).map(([v, l]) => (
                       <button
