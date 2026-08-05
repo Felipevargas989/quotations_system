@@ -18,6 +18,7 @@ import { CategorySection } from "../../types/services.types";
 // Margen en Servicios (04-08, porte del cotizador): la misma despensa
 // compartida de logística y la misma máquina de consolidación.
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
+import { canonicalServiceName } from "../../utils/searchMatch";
 import {
   buildConsolidationContext,
   consolidateEvent,
@@ -399,9 +400,16 @@ export default function ServiciosTab({
       ctx,
       acc,
     );
+    // Los marcados "sin costo en Eventia" (migración 57) NO son
+    // pendientes: no tienen receta a propósito. Gestión ya los dejaba
+    // pasar; este cuadro los contaba igual (pillado en la #470 con
+    // "Ticket Diario"). Mismo filtro, misma verdad en las dos casas.
+    const sinCostoVar = new Set(base.nameIds?.sinCostoVariable ?? []);
     return {
       costo: r.costoInsumos + r.costoFijos,
-      sinReceta: [...new Set(acc.noRecipe)],
+      sinReceta: [...new Set(acc.noRecipe)].filter(
+        (n) => !sinCostoVar.has(canonicalServiceName(n)),
+      ),
     };
     // buildItemsSnapshot se rearma sola cuando cambia cualquiera de estos
     // eslint-disable-next-line react-hooks/exhaustive-deps
