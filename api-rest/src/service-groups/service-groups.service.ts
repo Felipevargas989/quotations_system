@@ -48,6 +48,16 @@ export class ServiceGroupsService {
       return createdGroup;
     } catch (error) {
       this.logger.error(error);
+      // Nombre repetido (23505): NO es una falla del servidor sino un
+      // choque esperable — el frontend necesita poder decírselo al
+      // usuario en vez de un "no se pudo" mudo (pillado 05-08 con
+      // "Desayuno de campo", que ya existía en una categoría vieja).
+      if ((error as { code?: string })?.code === '23505') {
+        throw new HttpException(
+          'Ya existe un menú guardado con ese nombre. Elige otro.',
+          HttpStatus.CONFLICT,
+        );
+      }
       throw new HttpException(
         (error as Error).message || 'Error al crear el grupo de servicios',
         HttpStatus.INTERNAL_SERVER_ERROR,
