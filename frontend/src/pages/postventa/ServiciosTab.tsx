@@ -1612,7 +1612,7 @@ export default function ServiciosTab({
         {/* Columna derecha pegajosa (04-08, orden calcado del cotizador):
           Resumen de la cotización → Descuento → Margen y costos →
           Comentarios + Guardar. Tarjetas hermanas, como en el cotizador. */}
-        <div className="lg:sticky lg:top-16 self-start space-y-6">
+        <div className="lg:sticky lg:top-16 self-start space-y-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-1">
           {/* Resumen de la cotización: panel único, estilo mockup v1 */}
           <div className="bg-white rounded-xl shadow overflow-hidden">
             <div className="bg-blue-900 px-4 py-2.5">
