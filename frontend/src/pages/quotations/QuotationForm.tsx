@@ -13,7 +13,7 @@ import {
   Package,
   ChevronDown,
   ChevronRight,
-  GripVertical,
+  ChevronUp,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { olvidarFiltrosTablero } from "./filtrosTablero";
@@ -202,7 +202,6 @@ export default function QuotationForm() {
   // se guarda con la cotización (variable_services serializa en orden);
   // el plegado es solo de la sesión — al abrir, todo parte desplegado.
   const [collapsedBoxes, setCollapsedBoxes] = useState<Set<string>>(new Set());
-  const [dragBoxId, setDragBoxId] = useState<string | null>(null);
   const [serviceBoxes, setServiceBoxes] = useState<ServiceBox[]>([
     {
       id: "1",
@@ -279,6 +278,9 @@ export default function QuotationForm() {
   const [confirmGroupDel, setConfirmGroupDel] = useState<number | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
   const [itemSearch, setItemSearch] = useState("");
+  // Búsqueda del desplegable de Categoría (04-08): mismo patrón sticky
+  // del buscador de ítems — con 12 categorías igual ayuda y uniforma.
+  const [catSearch, setCatSearch] = useState("");
   // Desplegable de servicios FIJOS con secciones (30-07, calco del de
   // items de variables): botón + buscador pegajoso + rótulos.
   const [openFixedPicker, setOpenFixedPicker] = useState<number | null>(null);
@@ -776,17 +778,17 @@ export default function QuotationForm() {
       .filter((s) => s?.codigo)
       .sort((a, b) => fixedOrderOf(a.codigo) - fixedOrderOf(b.codigo))
       .map((service) => ({
-      codigo: service.codigo,
-      nombre: service.nombre,
-      day: Math.min(service.day || 0, eventDaysCount),
-      precio: service.precio_calculado,
-      categoria: service.categoria,
-      quantity: service.quantity,
-      tipo_calculo: service.tipo_calculo || "fijo",
-      min_precio: service.min_precio || 0,
-      max_precio: service.max_precio || 0,
-      precio_por_persona: service.precio_por_persona || 0,
-    })),
+        codigo: service.codigo,
+        nombre: service.nombre,
+        day: Math.min(service.day || 0, eventDaysCount),
+        precio: service.precio_calculado,
+        categoria: service.categoria,
+        quantity: service.quantity,
+        tipo_calculo: service.tipo_calculo || "fijo",
+        min_precio: service.min_precio || 0,
+        max_precio: service.max_precio || 0,
+        precio_por_persona: service.precio_por_persona || 0,
+      })),
   });
 
   // Solo operaciones y administrador ven el costo (decisión de Felipe).
@@ -857,14 +859,14 @@ export default function QuotationForm() {
       return next;
     });
 
-  // Reordena arrastrando: la caja arrastrada se inserta donde se suelta.
-  const moveBoxTo = (fromId: string, toId: string) => {
+  // Reorden con flechitas ▲▼ (04-08: el drag de cajas se jubiló, igual
+  // que ayer el del catálogo). Estado local puro del formulario.
+  const moveBox = (index: number, delta: number) => {
     setServiceBoxes((prev) => {
-      const from = prev.findIndex((b) => b.id === fromId);
-      const to = prev.findIndex((b) => b.id === toId);
-      if (from < 0 || to < 0 || from === to) return prev;
+      const to = index + delta;
+      if (to < 0 || to >= prev.length) return prev;
       const next = [...prev];
-      const [moved] = next.splice(from, 1);
+      const [moved] = next.splice(index, 1);
       next.splice(to, 0, moved);
       return next;
     });
@@ -1033,6 +1035,11 @@ export default function QuotationForm() {
           ? {
               ...box,
               [field]: value,
+              // El botón del selector no se queda mostrando el último
+              // ítem pinchado (04-08, "ensucia la vista"): tras sumar,
+              // vuelve al placeholder. El agregado de abajo usa `value`
+              // directo, así que nada se pierde.
+              ...(field === "selectedItem" ? { selectedItem: "" } : {}),
               ...(field === "selectedCategory"
                 ? {
                     selectedItem: "",
@@ -1465,9 +1472,7 @@ export default function QuotationForm() {
       }
 
       toast.success(
-        isEditingExisting
-          ? "Cotización actualizada."
-          : "Cotización guardada.",
+        isEditingExisting ? "Cotización actualizada." : "Cotización guardada.",
       );
       // Al crear, el tablero olvida sus filtros: la tarjeta nueva
       // debe aparecer sí o sí al volver (una búsqueda vieja que la
@@ -1475,7 +1480,9 @@ export default function QuotationForm() {
       if (!isEditingExisting) olvidarFiltrosTablero(user?.id);
       volver();
     } catch (error) {
-      toast.error(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
+      toast.error(
+        `No se pudo guardar la cotización: ${humanizeApiError(error)}`,
+      );
     } finally {
       setLoading(false);
     }
@@ -2507,419 +2514,352 @@ export default function QuotationForm() {
                     (sum, it) => sum + it.precio * it.quantity,
                     0,
                   ) * boxPeople(box);
-                const dragControls = (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <span
-                      draggable={!isRestrictedEditing}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("text/plain", box.id);
-                        e.dataTransfer.effectAllowed = "move";
-                        setDragBoxId(box.id);
-                      }}
-                      onDragEnd={() => setDragBoxId(null)}
-                      className={
-                        isRestrictedEditing
-                          ? "text-gray-200"
-                          : "cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-                      }
-                      title="Arrastrar para reordenar"
-                    >
-                      <GripVertical size={15} />
-                    </span>
+                // "La esquina limpia" (04-08, opción A de Felipe): el
+                // grip de 6 puntitos se jubiló con su drag; número y
+                // plieguecito son UN botoncito compacto "N ⌄", y el
+                // reorden vive en flechitas ▲▼ junto al basurero
+                // (patrón del catálogo).
+                const plieguecito = (
+                  <button
+                    type="button"
+                    onClick={() => toggleBoxCollapsed(box.id)}
+                    className="flex items-center gap-0.5 px-1 py-0.5 rounded text-xs font-bold text-gray-400 hover:bg-gray-100 hover:text-gray-600 shrink-0"
+                    title={collapsed ? "Desplegar" : "Plegar"}
+                  >
+                    {index + 1}
+                    {collapsed ? (
+                      <ChevronRight size={13} />
+                    ) : (
+                      <ChevronDown size={13} />
+                    )}
+                  </button>
+                );
+                const flechas = (
+                  <>
                     <button
                       type="button"
-                      onClick={() => toggleBoxCollapsed(box.id)}
-                      className="text-gray-400 hover:text-gray-600"
-                      title={collapsed ? "Desplegar" : "Plegar"}
+                      title="Subir servicio"
+                      onClick={() => moveBox(index, -1)}
+                      className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
                     >
-                      {collapsed ? (
-                        <ChevronRight size={16} />
-                      ) : (
-                        <ChevronDown size={16} />
-                      )}
+                      <ChevronUp size={15} />
                     </button>
-                  </span>
+                    <button
+                      type="button"
+                      title="Bajar servicio"
+                      onClick={() => moveBox(index, 1)}
+                      className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                    >
+                      <ChevronDown size={15} />
+                    </button>
+                  </>
                 );
                 return (
-                <div
-                  key={box.id}
-                  onDragOver={(e) => {
-                    if (dragBoxId && dragBoxId !== box.id) e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragBoxId && dragBoxId !== box.id)
-                      moveBoxTo(dragBoxId, box.id);
-                    setDragBoxId(null);
-                  }}
-                  className={`border rounded-lg ${collapsed ? "p-3" : "p-4"} ${
-                    dragBoxId === box.id ? "opacity-40 " : ""
-                  }${
-                    (box.audience || "adultos") === "ninos"
-                      ? "border-amber-300 bg-amber-50/50"
-                      : "border-gray-200"
-                  }`}
-                >
-                {collapsed ? (
-                  /* Plegada: resumen en una línea (nombre, personas,
+                  <div
+                    key={box.id}
+                    className={`border rounded-lg ${collapsed ? "p-3" : "p-4"} ${
+                      (box.audience || "adultos") === "ninos"
+                        ? "border-amber-300 bg-amber-50/50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    {collapsed ? (
+                      /* Plegada: resumen en una línea (nombre, personas,
                      ítems y subtotal siempre a la vista) */
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    {dragControls}
-                    <span className="text-xs font-bold text-gray-400">
-                      {index + 1}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {box.selectedCategory || "Sin categoría"}
-                    </span>
-                    {(box.audience || "adultos") === "ninos" && (
-                      <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">
-                        Niños
-                      </span>
-                    )}
-                    {eventDaysCount > 1 && (
-                      <span className="text-xs font-semibold text-blue-900">
-                        {dayLabel(Math.min(box.day || 1, eventDaysCount))}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">
-                      {boxItemCount} ítem{boxItemCount === 1 ? "" : "s"} ·{" "}
-                      {boxPeople(box).toLocaleString("es-CL")} personas
-                    </span>
-                    <span className="ml-auto text-sm font-bold text-gray-900">
-                      ${boxTotal.toLocaleString("es-CL")}
-                    </span>
-                  </div>
-                ) : (
-                <>
-                  {/* Cabecera de la caja (mockup): numero + Categoria +
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        {plieguecito}
+                        <span className="text-sm font-semibold text-gray-900">
+                          {box.selectedCategory || "Sin categoría"}
+                        </span>
+                        {(box.audience || "adultos") === "ninos" && (
+                          <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">
+                            Niños
+                          </span>
+                        )}
+                        {eventDaysCount > 1 && (
+                          <span className="text-xs font-semibold text-blue-900">
+                            {dayLabel(Math.min(box.day || 1, eventDaysCount))}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          {boxItemCount} ítem{boxItemCount === 1 ? "" : "s"} ·{" "}
+                          {boxPeople(box).toLocaleString("es-CL")} personas
+                        </span>
+                        <span className="ml-auto flex items-center gap-1">
+                          <span className="text-sm font-bold text-gray-900">
+                            ${boxTotal.toLocaleString("es-CL")}
+                          </span>
+                          {/* Reordenar también plegada: antes lo daba el
+                          grip; ahora las mismas flechitas. */}
+                          {!isRestrictedEditing && flechas}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Cabecera de la caja (mockup): numero + Categoria +
                       Audiencia + Personas + Dia, todo etiquetado en una fila */}
-                  <div className="flex items-end gap-3 flex-wrap mb-3">
-                    <span className="pb-2.5">{dragControls}</span>
-                    <span className="text-xs font-bold text-gray-400 pb-3">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Categoría
-                      </label>
-                      {/* 28-07 (pedido de Felipe): antes era un <select>
+                        <div className="flex items-end gap-3 flex-wrap mb-3">
+                          <div className="flex-1 min-w-[200px]">
+                            {/* El "N ⌄" vive en la fila del rótulo: así el
+                          desplegable de Categoría parte pegado a la
+                          izquierda, en la MISMA columna que el área de
+                          ítems de abajo. */}
+                            <div className="flex items-center gap-1.5 mb-1">
+                              {plieguecito}
+                              <label className="text-xs font-medium text-gray-600">
+                                Categoría
+                              </label>
+                            </div>
+                            {/* 28-07 (pedido de Felipe): antes era un <select>
                           nativo del navegador y desentonaba con los demás
                           desplegables. Mismo patrón custom de la casa. */}
-                      <div className="relative dropdown-container">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenDropdown(
-                              openDropdown === `cat-${box.id}`
-                                ? null
-                                : `cat-${box.id}`,
-                            )
-                          }
-                          disabled={
-                            box.selectedCategory !== "" || isRestrictedEditing
-                          }
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
-                        >
-                          <span
-                            className={
-                              box.selectedCategory
-                                ? "text-gray-900"
-                                : "text-gray-500"
-                            }
-                          >
-                            {box.selectedCategory || "Seleccionar categoría"}
-                          </span>
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-                        {openDropdown === `cat-${box.id}` && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                            {serviceCategories
-                              .filter(
-                                (category) =>
-                                  !inactiveCategorySet.has(category) ||
-                                  category === box.selectedCategory,
-                              )
-                              .map((category) => (
-                                <button
-                                  key={category}
-                                  type="button"
-                                  onClick={() => {
-                                    updateServiceBox(
-                                      box.id,
-                                      "selectedCategory",
-                                      category,
-                                    );
-                                    setOpenDropdown(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
-                                >
-                                  {category}
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {childrenCount > 0 && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Audiencia
-                        </label>
-                        <div
-                          className="flex rounded-lg border border-gray-300 overflow-hidden"
-                          title="Audiencia de este servicio"
-                        >
-                          {(["adultos", "ninos"] as const).map((aud) => {
-                            const on = (box.audience || "adultos") === aud;
-                            return (
+                            <div className="relative dropdown-container">
                               <button
-                                key={aud}
                                 type="button"
-                                disabled={isRestrictedEditing}
-                                onClick={() =>
+                                onClick={() => {
+                                  setOpenDropdown(
+                                    openDropdown === `cat-${box.id}`
+                                      ? null
+                                      : `cat-${box.id}`,
+                                  );
+                                  setCatSearch("");
+                                }}
+                                disabled={
+                                  box.selectedCategory !== "" ||
+                                  isRestrictedEditing
+                                }
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
+                              >
+                                <span
+                                  className={
+                                    box.selectedCategory
+                                      ? "text-gray-900"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  {box.selectedCategory ||
+                                    "Seleccionar categoría"}
+                                </span>
+                                <svg
+                                  className="w-4 h-4 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 9l-7 7-7-7"
+                                  />
+                                </svg>
+                              </button>
+                              {openDropdown === `cat-${box.id}` && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                                  {/* Buscador pegajoso (04-08): mismo patrón
+                                del buscador de ítems. */}
+                                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={catSearch}
+                                      onChange={(e) =>
+                                        setCatSearch(e.target.value)
+                                      }
+                                      placeholder="Buscar categoría..."
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                  </div>
+                                  {(() => {
+                                    const cats = serviceCategories
+                                      .filter(
+                                        (category) =>
+                                          !inactiveCategorySet.has(category) ||
+                                          category === box.selectedCategory,
+                                      )
+                                      .filter((category) =>
+                                        matchesSearch(catSearch, category),
+                                      );
+                                    if (cats.length === 0)
+                                      return (
+                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                          No se encontraron categorías
+                                        </div>
+                                      );
+                                    return cats.map((category) => (
+                                      <button
+                                        key={category}
+                                        type="button"
+                                        onClick={() => {
+                                          updateServiceBox(
+                                            box.id,
+                                            "selectedCategory",
+                                            category,
+                                          );
+                                          // Lo escrito se borra solo al pinchar.
+                                          setCatSearch("");
+                                          setOpenDropdown(null);
+                                        }}
+                                        className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
+                                      >
+                                        {category}
+                                      </button>
+                                    ));
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Nacimiento progresivo (04-08, Felipe: "no traer
+                        los cubiertos antes de saber qué vas a comer"):
+                        sin categoría, la caja muestra SOLO el selector
+                        de Categoría y el basurero. */}
+                          {box.selectedCategory !== "" && childrenCount > 0 && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                                Audiencia
+                              </label>
+                              <div
+                                className="flex rounded-lg border border-gray-300 overflow-hidden"
+                                title="Audiencia de este servicio"
+                              >
+                                {(["adultos", "ninos"] as const).map((aud) => {
+                                  const on =
+                                    (box.audience || "adultos") === aud;
+                                  return (
+                                    <button
+                                      key={aud}
+                                      type="button"
+                                      disabled={isRestrictedEditing}
+                                      onClick={() =>
+                                        setServiceBoxes((prev) =>
+                                          prev.map((b) =>
+                                            b.id === box.id
+                                              ? {
+                                                  ...b,
+                                                  audience: aud,
+                                                  people: undefined,
+                                                }
+                                              : b,
+                                          ),
+                                        )
+                                      }
+                                      className={`px-3 py-2 text-sm font-bold ${
+                                        on
+                                          ? aud === "ninos"
+                                            ? "bg-amber-600 text-white"
+                                            : "bg-blue-900 text-white"
+                                          : "bg-white text-gray-500 hover:bg-gray-50"
+                                      }`}
+                                    >
+                                      {aud === "ninos" ? "Niños" : "Adultos"}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {box.selectedCategory !== "" && (
+                            <div className="relative">
+                              <label
+                                className="block text-xs font-medium text-gray-600 mb-1"
+                                title="Personas de este servicio (por defecto, toda su audiencia)"
+                              >
+                                Personas
+                              </label>
+                              {/* NumberInput (Regla Única, migrado 23-07):
+                          vacío o igual a la audiencia = automático */}
+                              <NumberInput
+                                value={boxPeople(box) || undefined}
+                                onChange={(v) =>
                                   setServiceBoxes((prev) =>
                                     prev.map((b) =>
                                       b.id === box.id
                                         ? {
                                             ...b,
-                                            audience: aud,
-                                            people: undefined,
+                                            people:
+                                              v === undefined ||
+                                              v === audienceCount(b)
+                                                ? undefined
+                                                : v,
                                           }
                                         : b,
                                     ),
                                   )
                                 }
-                                className={`px-3 py-2 text-sm font-bold ${
-                                  on
-                                    ? aud === "ninos"
-                                      ? "bg-amber-600 text-white"
-                                      : "bg-blue-900 text-white"
-                                    : "bg-white text-gray-500 hover:bg-gray-50"
+                                min={1}
+                                disabled={isRestrictedEditing}
+                                className={`w-12 text-sm text-right font-semibold ${
+                                  box.people !== undefined
+                                    ? "border-amber-400 bg-amber-50 text-amber-900"
+                                    : ""
                                 }`}
-                              >
-                                {aud === "ninos" ? "Niños" : "Adultos"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <div className="relative">
-                      <label
-                        className="block text-xs font-medium text-gray-600 mb-1"
-                        title="Personas de este servicio (por defecto, toda su audiencia)"
-                      >
-                        Personas
-                      </label>
-                      {/* NumberInput (Regla Única, migrado 23-07):
-                          vacío o igual a la audiencia = automático */}
-                      <NumberInput
-                        value={boxPeople(box) || undefined}
-                        onChange={(v) =>
-                          setServiceBoxes((prev) =>
-                            prev.map((b) =>
-                              b.id === box.id
-                                ? {
-                                    ...b,
-                                    people:
-                                      v === undefined ||
-                                      v === audienceCount(b)
-                                        ? undefined
-                                        : v,
-                                  }
-                                : b,
-                            ),
-                          )
-                        }
-                        min={1}
-                        disabled={isRestrictedEditing}
-                        className={`w-12 text-sm text-right font-semibold ${
-                          box.people !== undefined
-                            ? "border-amber-400 bg-amber-50 text-amber-900"
-                            : ""
-                        }`}
-                      />
-                      {/* COMPORTAMIENTO ACORDADO CON FELIPE — NO TOCAR EN
+                              />
+                              {/* COMPORTAMIENTO ACORDADO CON FELIPE — NO TOCAR EN
                           REDISEÑOS: el "de N" va ANCLADO bajo el campo SIN
                           ocupar espacio en la fila (absoluto). La casilla no
                           debe moverse ni un pixel al aparecer/desaparecer.
                           (Se regresionó el 20-07 al reconstruir el mockup;
                           restaurado el 22-07.) */}
-                      {box.people !== undefined && (
-                        <p className="absolute right-0 top-full mt-0.5 text-[10px] text-amber-700 whitespace-nowrap">
-                          de {audienceCount(box)}
-                        </p>
-                      )}
-                    </div>
-                    {eventDaysCount > 1 && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Día
-                        </label>
-                        <SectionChipSelect
-                          value={Math.min(box.day || 1, eventDaysCount)}
-                          options={Array.from(
-                            { length: eventDaysCount },
-                            (_, i) => ({ id: i + 1, name: dayLabel(i + 1) }),
-                          )}
-                          onChange={(dia) =>
-                            setServiceBoxes((prev) =>
-                              prev.map((b) =>
-                                b.id === box.id ? { ...b, day: dia } : b,
-                              ),
-                            )
-                          }
-                          zeroLabel={null}
-                          size="md"
-                          disabled={isRestrictedEditing}
-                          title="Día del evento en que va este servicio"
-                        />
-                      </div>
-                    )}
-                    <div className="ml-auto pb-2 flex items-center gap-2">
-                      {serviceBoxes.length > 1 && !isRestrictedEditing && (
-                        <button
-                          onClick={() => removeServiceBox(box.id)}
-                          className="text-red-500 hover:text-red-700"
-                          title="Quitar este servicio"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Item
-                      </label>
-                      <div className="relative dropdown-container">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenDropdown(
-                              openDropdown === box.id ? null : box.id,
-                            );
-                            // Reset the in-memory search each time the dropdown toggles
-                            setItemSearch("");
-                          }}
-                          disabled={
-                            !box.selectedCategory || isRestrictedEditing
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
-                        >
-                          <span
-                            className={
-                              box.selectedItem
-                                ? "text-gray-900"
-                                : "text-gray-500"
-                            }
-                          >
-                            {box.selectedItem
-                              ? getFilteredProducts(box.selectedCategory).find(
-                                  (p) => p.codigo === box.selectedItem,
-                                )?.nombre || "Seleccionar item"
-                              : "Seleccionar item"}
-                          </span>
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-
-                        {openDropdown === box.id && box.selectedCategory && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
-                            {/* In-memory search to filter items by name */}
-                            <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                              <input
-                                type="text"
-                                autoFocus
-                                value={itemSearch}
-                                onChange={(e) => setItemSearch(e.target.value)}
-                                placeholder="Buscar item por nombre..."
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
+                              {box.people !== undefined && (
+                                <p className="absolute right-0 top-full mt-0.5 text-[10px] text-amber-700 whitespace-nowrap">
+                                  de {audienceCount(box)}
+                                </p>
+                              )}
                             </div>
-                            {(() => {
-                              const filteredProducts = getFilteredProducts(
-                                box.selectedCategory,
-                              )
-                                // Hide deactivated items from the picker.
-                                // Already-selected items still render via the
-                                // button label above (full product list).
-                                .filter(
-                                  (product) => product.is_active !== false,
-                                )
-                                // La sección FIJA no se ofrece en el
-                                // buscador: sus servicios entran solos a la
-                                // cotización y no se pueden quitar.
-                                .filter(
-                                  (product) =>
-                                    !isLockedService(
-                                      box.selectedCategory,
-                                      product.codigo,
-                                    ),
-                                )
-                                .filter((product) =>
-                                  matchesSearch(itemSearch, product.nombre),
-                                );
-
-                              if (filteredProducts.length === 0) {
-                                return (
-                                  <div className="px-3 py-2 text-sm text-gray-500">
-                                    No se encontraron items
-                                  </div>
-                                );
-                              }
-
-                              const itemButton = (product: {
-                                codigo: string;
-                                nombre: string;
-                                precio: number;
-                              }) => (
+                          )}
+                          {box.selectedCategory !== "" &&
+                            eventDaysCount > 1 && (
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                  Día
+                                </label>
+                                <SectionChipSelect
+                                  value={Math.min(box.day || 1, eventDaysCount)}
+                                  options={Array.from(
+                                    { length: eventDaysCount },
+                                    (_, i) => ({
+                                      id: i + 1,
+                                      name: dayLabel(i + 1),
+                                    }),
+                                  )}
+                                  onChange={(dia) =>
+                                    setServiceBoxes((prev) =>
+                                      prev.map((b) =>
+                                        b.id === box.id
+                                          ? { ...b, day: dia }
+                                          : b,
+                                      ),
+                                    )
+                                  }
+                                  zeroLabel={null}
+                                  size="md"
+                                  disabled={isRestrictedEditing}
+                                  title="Día del evento en que va este servicio"
+                                />
+                              </div>
+                            )}
+                          <div className="ml-auto pb-2 flex items-center gap-2">
+                            {!isRestrictedEditing && flechas}
+                            {serviceBoxes.length > 1 &&
+                              !isRestrictedEditing && (
                                 <button
-                                  key={product.codigo}
-                                  type="button"
-                                  onClick={() => {
-                                    updateServiceBox(
-                                      box.id,
-                                      "selectedItem",
-                                      product.codigo,
-                                    );
-                                    // Keep dropdown open after selection
-                                  }}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                                  onClick={() => removeServiceBox(box.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Quitar este servicio"
                                 >
-                                  {product.nombre} - $
-                                  {product.precio.toLocaleString("es-CL")}
+                                  <Trash2 size={16} />
                                 </button>
-                              );
+                              )}
+                          </div>
+                        </div>
 
-                              // Con secciones definidas, el listado se agrupa
-                              // como la carta (Entradas, Principales...); una
-                              // categoría sin secciones se ve igual que hoy.
+                        {box.selectedCategory && (
+                          <div className="mt-4">
+                            {/* Items agrupados por seccion, como la carta (mockup):
+                          subtitulo azul marino, nombre, precio, cantidad por
+                          persona y el total de porciones a la derecha. */}
+                            {(() => {
                               const cat = orderedCategories.find(
                                 (c) => c.name === box.selectedCategory,
                               );
@@ -2928,262 +2868,399 @@ export default function QuotationForm() {
                                     .filter((s) => s.category_id === cat.id)
                                     .sort((a, b) => a.sort_order - b.sort_order)
                                 : [];
-                              if (secs.length === 0) {
-                                return filteredProducts.map(itemButton);
-                              }
-
                               const sectionOf = (codigo: string) =>
-                                categoryLinks.find(
-                                  (l) =>
-                                    l.category_id === cat!.id &&
-                                    l.variable_service_id.toString() === codigo,
-                                )?.section_id || 0;
-
-                              return [
+                                cat
+                                  ? categoryLinks.find(
+                                      (l) =>
+                                        l.category_id === cat.id &&
+                                        l.variable_service_id.toString() ===
+                                          codigo,
+                                    )?.section_id || 0
+                                  : 0;
+                              const items = getSelectedItemsForBox(box.id);
+                              const groups = [
                                 ...secs.map((s) => ({
                                   key: `s-${s.id}`,
                                   name: s.name,
-                                  items: filteredProducts.filter(
-                                    (p) => sectionOf(p.codigo) === s.id,
+                                  items: items.filter(
+                                    (it) => sectionOf(it.codigo) === s.id,
                                   ),
                                 })),
                                 {
                                   key: "s-0",
-                                  name: "Sin sección",
-                                  items: filteredProducts.filter(
-                                    (p) => sectionOf(p.codigo) === 0,
+                                  name: secs.length ? "Otros" : "",
+                                  items: items.filter(
+                                    (it) => sectionOf(it.codigo) === 0,
                                   ),
                                 },
-                              ]
-                                .filter((g) => g.items.length > 0)
-                                .map((g) => (
-                                  <div key={g.key}>
-                                    <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                              ].filter((g) => g.items.length > 0);
+                              return groups.map((g) => (
+                                <div key={g.key}>
+                                  {g.name && (
+                                    <div className="pt-2 pb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-900 border-b border-blue-900/20">
                                       {g.name}
                                     </div>
-                                    {g.items.map(itemButton)}
-                                  </div>
-                                ));
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                      {box.groupName && (
-                        <p className="mt-1 text-xs font-medium text-blue-600">
-                          Menú: {box.groupName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {box.selectedCategory && (
-                    <div className="mt-4">
-                      {/* Items agrupados por seccion, como la carta (mockup):
-                          subtitulo azul marino, nombre, precio, cantidad por
-                          persona y el total de porciones a la derecha. */}
-                      {(() => {
-                        const cat = orderedCategories.find(
-                          (c) => c.name === box.selectedCategory,
-                        );
-                        const secs = cat
-                          ? categorySections
-                              .filter((s) => s.category_id === cat.id)
-                              .sort((a, b) => a.sort_order - b.sort_order)
-                          : [];
-                        const sectionOf = (codigo: string) =>
-                          cat
-                            ? categoryLinks.find(
-                                (l) =>
-                                  l.category_id === cat.id &&
-                                  l.variable_service_id.toString() === codigo,
-                              )?.section_id || 0
-                            : 0;
-                        const items = getSelectedItemsForBox(box.id);
-                        const groups = [
-                          ...secs.map((s) => ({
-                            key: `s-${s.id}`,
-                            name: s.name,
-                            items: items.filter(
-                              (it) => sectionOf(it.codigo) === s.id,
-                            ),
-                          })),
-                          {
-                            key: "s-0",
-                            name: secs.length ? "Otros" : "",
-                            items: items.filter(
-                              (it) => sectionOf(it.codigo) === 0,
-                            ),
-                          },
-                        ].filter((g) => g.items.length > 0);
-                        return groups.map((g) => (
-                          <div key={g.key}>
-                            {g.name && (
-                              <div className="pt-2 pb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-900 border-b border-blue-900/20">
-                                {g.name}
-                              </div>
-                            )}
-                            {g.items.map((service) => {
-                              const locked = isLockedService(
-                                box.selectedCategory,
-                                service.codigo,
-                              );
-                              return (
-                                <div
-                                  key={service.codigo}
-                                  className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
-                                >
-                                  <span className="text-gray-800 flex items-center gap-2 min-w-0">
-                                    <span className="truncate">
-                                      {service.nombre}
-                                    </span>
-                                    {locked && (
-                                      <span
-                                        title="Va siempre con esta categoría (sección fija)"
-                                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
+                                  )}
+                                  {g.items.map((service) => {
+                                    const locked = isLockedService(
+                                      box.selectedCategory,
+                                      service.codigo,
+                                    );
+                                    return (
+                                      <div
+                                        key={service.codigo}
+                                        className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
                                       >
-                                        <Lock size={10} /> fijo
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="flex items-center gap-3 shrink-0">
-                                    <span className="text-gray-500">
-                                      ${service.precio.toLocaleString("es-CL")}
-                                    </span>
-                                    <QuantitySelector
-                                      value={service.quantity}
-                                      onChange={(newQuantity) =>
-                                        updateServiceQuantity(
-                                          service.codigo,
-                                          newQuantity,
-                                          box.id,
-                                        )
-                                      }
-                                      min={locked ? 1 : 0}
-                                      disabled={isRestrictedEditing}
-                                    />
-                                    <span className="font-bold text-gray-900 w-14 text-right">
-                                      ×
-                                      {(
-                                        service.quantity * boxPeople(box)
-                                      ).toLocaleString("es-CL")}
-                                    </span>
-                                  </span>
+                                        <span className="text-gray-800 flex items-center gap-2 min-w-0">
+                                          <span className="truncate">
+                                            {service.nombre}
+                                          </span>
+                                          {locked && (
+                                            <span
+                                              title="Va siempre con esta categoría (sección fija)"
+                                              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
+                                            >
+                                              <Lock size={10} /> fijo
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="flex items-center gap-3 shrink-0">
+                                          <span className="text-gray-500">
+                                            $
+                                            {service.precio.toLocaleString(
+                                              "es-CL",
+                                            )}
+                                          </span>
+                                          <QuantitySelector
+                                            value={service.quantity}
+                                            onChange={(newQuantity) =>
+                                              updateServiceQuantity(
+                                                service.codigo,
+                                                newQuantity,
+                                                box.id,
+                                              )
+                                            }
+                                            min={locked ? 1 : 0}
+                                            disabled={isRestrictedEditing}
+                                          />
+                                          <span className="font-bold text-gray-900 w-14 text-right">
+                                            ×
+                                            {(
+                                              service.quantity * boxPeople(box)
+                                            ).toLocaleString("es-CL")}
+                                          </span>
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        ));
-                      })()}
+                              ));
+                            })()}
 
-                      {/* Menus guardados de esta categoria + guardar el actual */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="relative dropdown-container">
-                          {(() => {
-                            const boxGroups = serviceGroups.filter(
-                              (g) =>
-                                !box.selectedCategory ||
-                                g.category === box.selectedCategory,
-                            );
-                            return (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOpenDropdown(
-                                      openDropdown === `groups-${box.id}`
-                                        ? null
-                                        : `groups-${box.id}`,
-                                    )
-                                  }
-                                  disabled={
-                                    isRestrictedEditing ||
-                                    boxGroups.length === 0
-                                  }
-                                  className="text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
-                                >
-                                  Usar un menú guardado de esta categoría…
-                                </button>
-                                {openDropdown === `groups-${box.id}` &&
-                                  boxGroups.length > 0 && (
-                                    <div className="absolute left-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                      {boxGroups.map((group) =>
-                                        confirmGroupDel === group.id ? (
-                                          <div
-                                            key={group.id}
-                                            className="px-3 py-2"
-                                          >
-                                            <ConfirmInline
-                                              question={`¿Eliminar "${group.name}"?`}
-                                              onYes={async () => {
-                                                await removeServiceGroup(
-                                                  group.id,
-                                                );
-                                                setConfirmGroupDel(null);
-                                              }}
-                                              onNo={() =>
-                                                setConfirmGroupDel(null)
-                                              }
-                                            />
-                                          </div>
-                                        ) : (
-                                          <div
-                                            key={group.id}
-                                            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                                          >
+                            {/* Selector de Item AL PIE de la lista armada
+                          (04-08, pedido de Felipe): lo agregado se lee
+                          primero y el panel se despliega hacia abajo
+                          sin tapar nada — igual que en Post-Venta. */}
+                            <div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                  Item
+                                </label>
+                                <div className="relative dropdown-container">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenDropdown(
+                                        openDropdown === box.id ? null : box.id,
+                                      );
+                                      // Reset the in-memory search each time the dropdown toggles
+                                      setItemSearch("");
+                                    }}
+                                    disabled={isRestrictedEditing}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
+                                  >
+                                    <span className="text-gray-500">
+                                      Seleccionar item
+                                    </span>
+                                    <svg
+                                      className="w-4 h-4 text-gray-400"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M19 9l-7 7-7-7"
+                                      />
+                                    </svg>
+                                  </button>
+
+                                  {openDropdown === box.id &&
+                                    box.selectedCategory && (
+                                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                        {/* In-memory search to filter items by name */}
+                                        <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                                          <input
+                                            type="text"
+                                            autoFocus
+                                            value={itemSearch}
+                                            onChange={(e) =>
+                                              setItemSearch(e.target.value)
+                                            }
+                                            placeholder="Buscar item por nombre..."
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          />
+                                        </div>
+                                        {(() => {
+                                          const filteredProducts =
+                                            getFilteredProducts(
+                                              box.selectedCategory,
+                                            )
+                                              // Hide deactivated items from the picker.
+                                              // Already-selected items still render via the
+                                              // button label above (full product list).
+                                              .filter(
+                                                (product) =>
+                                                  product.is_active !== false,
+                                              )
+                                              // La sección FIJA no se ofrece en el
+                                              // buscador: sus servicios entran solos a la
+                                              // cotización y no se pueden quitar.
+                                              .filter(
+                                                (product) =>
+                                                  !isLockedService(
+                                                    box.selectedCategory,
+                                                    product.codigo,
+                                                  ),
+                                              )
+                                              .filter((product) =>
+                                                matchesSearch(
+                                                  itemSearch,
+                                                  product.nombre,
+                                                ),
+                                              );
+
+                                          if (filteredProducts.length === 0) {
+                                            return (
+                                              <div className="px-3 py-2 text-sm text-gray-500">
+                                                No se encontraron items
+                                              </div>
+                                            );
+                                          }
+
+                                          const itemButton = (product: {
+                                            codigo: string;
+                                            nombre: string;
+                                            precio: number;
+                                          }) => (
                                             <button
+                                              key={product.codigo}
                                               type="button"
                                               onClick={() => {
-                                                loadGroupIntoBox(box.id, group);
-                                                setOpenDropdown(null);
+                                                updateServiceBox(
+                                                  box.id,
+                                                  "selectedItem",
+                                                  product.codigo,
+                                                );
+                                                // El panel queda abierto y lo ESCRITO
+                                                // se borra solo tras pinchar (04-08).
+                                                setItemSearch("");
                                               }}
-                                              className="flex-1 text-left text-sm"
+                                              className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                                             >
-                                              <span className="text-gray-900">
-                                                {group.name}
-                                              </span>{" "}
-                                              <span className="text-gray-500">
-                                                ({group.category})
-                                              </span>
+                                              {product.nombre} - $
+                                              {product.precio.toLocaleString(
+                                                "es-CL",
+                                              )}
                                             </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setConfirmGroupDel(group.id);
-                                              }}
-                                              className="ml-2 text-red-600 hover:text-red-800"
-                                              title="Eliminar menú guardado"
-                                            >
-                                              <Trash2 size={14} />
-                                            </button>
+                                          );
+
+                                          // Con secciones definidas, el listado se agrupa
+                                          // como la carta (Entradas, Principales...); una
+                                          // categoría sin secciones se ve igual que hoy.
+                                          const cat = orderedCategories.find(
+                                            (c) =>
+                                              c.name === box.selectedCategory,
+                                          );
+                                          const secs = cat
+                                            ? categorySections
+                                                .filter(
+                                                  (s) =>
+                                                    s.category_id === cat.id,
+                                                )
+                                                .sort(
+                                                  (a, b) =>
+                                                    a.sort_order - b.sort_order,
+                                                )
+                                            : [];
+                                          if (secs.length === 0) {
+                                            return filteredProducts.map(
+                                              itemButton,
+                                            );
+                                          }
+
+                                          const sectionOf = (codigo: string) =>
+                                            categoryLinks.find(
+                                              (l) =>
+                                                l.category_id === cat!.id &&
+                                                l.variable_service_id.toString() ===
+                                                  codigo,
+                                            )?.section_id || 0;
+
+                                          return [
+                                            ...secs.map((s) => ({
+                                              key: `s-${s.id}`,
+                                              name: s.name,
+                                              items: filteredProducts.filter(
+                                                (p) =>
+                                                  sectionOf(p.codigo) === s.id,
+                                              ),
+                                            })),
+                                            {
+                                              key: "s-0",
+                                              name: "Sin sección",
+                                              items: filteredProducts.filter(
+                                                (p) =>
+                                                  sectionOf(p.codigo) === 0,
+                                              ),
+                                            },
+                                          ]
+                                            .filter((g) => g.items.length > 0)
+                                            .map((g) => (
+                                              <div key={g.key}>
+                                                <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                                  {g.name}
+                                                </div>
+                                                {g.items.map(itemButton)}
+                                              </div>
+                                            ));
+                                        })()}
+                                      </div>
+                                    )}
+                                </div>
+                                {box.groupName && (
+                                  <p className="mt-1 text-xs font-medium text-blue-600">
+                                    Menú: {box.groupName}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {/* Menus guardados de esta categoria + guardar el actual */}
+                            <div className="mt-2 flex items-center justify-between">
+                              <div className="relative dropdown-container">
+                                {(() => {
+                                  const boxGroups = serviceGroups.filter(
+                                    (g) =>
+                                      !box.selectedCategory ||
+                                      g.category === box.selectedCategory,
+                                  );
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setOpenDropdown(
+                                            openDropdown === `groups-${box.id}`
+                                              ? null
+                                              : `groups-${box.id}`,
+                                          )
+                                        }
+                                        disabled={
+                                          isRestrictedEditing ||
+                                          boxGroups.length === 0
+                                        }
+                                        className="text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
+                                      >
+                                        Usar un menú guardado de esta categoría…
+                                      </button>
+                                      {openDropdown === `groups-${box.id}` &&
+                                        boxGroups.length > 0 && (
+                                          <div className="absolute left-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            {boxGroups.map((group) =>
+                                              confirmGroupDel === group.id ? (
+                                                <div
+                                                  key={group.id}
+                                                  className="px-3 py-2"
+                                                >
+                                                  <ConfirmInline
+                                                    question={`¿Eliminar "${group.name}"?`}
+                                                    onYes={async () => {
+                                                      await removeServiceGroup(
+                                                        group.id,
+                                                      );
+                                                      setConfirmGroupDel(null);
+                                                    }}
+                                                    onNo={() =>
+                                                      setConfirmGroupDel(null)
+                                                    }
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <div
+                                                  key={group.id}
+                                                  className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
+                                                >
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      loadGroupIntoBox(
+                                                        box.id,
+                                                        group,
+                                                      );
+                                                      setOpenDropdown(null);
+                                                    }}
+                                                    className="flex-1 text-left text-sm"
+                                                  >
+                                                    <span className="text-gray-900">
+                                                      {group.name}
+                                                    </span>{" "}
+                                                    <span className="text-gray-500">
+                                                      ({group.category})
+                                                    </span>
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setConfirmGroupDel(
+                                                        group.id,
+                                                      );
+                                                    }}
+                                                    className="ml-2 text-red-600 hover:text-red-800"
+                                                    title="Eliminar menú guardado"
+                                                  >
+                                                    <Trash2 size={14} />
+                                                  </button>
+                                                </div>
+                                              ),
+                                            )}
                                           </div>
-                                        ),
-                                      )}
-                                    </div>
-                                  )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                        {!box.groupName &&
-                          box.services.length > 0 &&
-                          !isRestrictedEditing && (
-                            <button
-                              type="button"
-                              onClick={() => openSaveGroupModal(box.id)}
-                              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-                              title="Guardar esta categoría y sus items como menú"
-                            >
-                              <Layers size={13} />
-                              Guardar como menú
-                            </button>
-                          )}
-                      </div>
-                    </div>
-                  )}
-                </>
-                )}
-                </div>
+                                        )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              {!box.groupName &&
+                                box.services.length > 0 &&
+                                !isRestrictedEditing && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openSaveGroupModal(box.id)}
+                                    className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                                    title="Guardar esta categoría y sus items como menú"
+                                  >
+                                    <Layers size={13} />
+                                    Guardar como menú
+                                  </button>
+                                )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 );
               })}
 
@@ -3231,167 +3308,179 @@ export default function QuotationForm() {
                           </div>
                         )}
                         {service?.codigo ? (
-                  /* Servicio elegido: fila limpia estilo mockup */
-                  <div
-                    key={index}
-                    className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 text-sm"
-                  >
-                    <span className="text-gray-800 truncate">
-                      {service.nombre}
-                    </span>
-                    <span className="flex items-center gap-2 shrink-0 text-gray-500">
-                      <span className="font-medium text-gray-900">
-                        $
-                        {(
-                          service.precio_calculado * service.quantity
-                        ).toLocaleString("es-CL")}
-                      </span>
-                      <span>×{service.quantity}</span>
-                      {eventDaysCount > 1 && (
-                        <SectionChipSelect
-                          value={Math.min(service.day || 0, eventDaysCount)}
-                          options={Array.from(
-                            { length: eventDaysCount },
-                            (_, i) => ({ id: i + 1, name: dayLabel(i + 1) }),
-                          )}
-                          onChange={(dia) =>
-                            setSelectedFixedServices((prev) =>
-                              prev.map((f, i) =>
-                                i === index ? { ...f, day: dia } : f,
-                              ),
-                            )
-                          }
-                          zeroLabel="todo el evento"
-                          size="md"
-                          disabled={isRestrictedEditing}
-                          title="Día del evento (o todo el evento)"
-                        />
-                      )}
-                      {!isRestrictedEditing && (
-                        <button
-                          onClick={() => removeFixedService(index)}
-                          className="text-gray-300 hover:text-red-600"
-                          title="Quitar"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                ) : (
-                  /* Fila en seleccion: solo el selector, sin ruido */
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 py-2 border-b border-gray-100"
-                  >
-                    <div className="relative dropdown-container flex-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenFixedPicker(
-                            openFixedPicker === index ? null : index,
-                          );
-                          setFixedSearch("");
-                        }}
-                        disabled={isRestrictedEditing}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
-                      >
-                        <span className="text-gray-500">
-                          Seleccionar servicio fijo…
-                        </span>
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </button>
-                      {openFixedPicker === index && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
-                          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                            <input
-                              type="text"
-                              autoFocus
-                              value={fixedSearch}
-                              onChange={(e) => setFixedSearch(e.target.value)}
-                              placeholder="Buscar servicio por nombre..."
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+                          /* Servicio elegido: fila limpia estilo mockup */
+                          <div
+                            key={index}
+                            className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 text-sm"
+                          >
+                            <span className="text-gray-800 truncate">
+                              {service.nombre}
+                            </span>
+                            <span className="flex items-center gap-2 shrink-0 text-gray-500">
+                              <span className="font-medium text-gray-900">
+                                $
+                                {(
+                                  service.precio_calculado * service.quantity
+                                ).toLocaleString("es-CL")}
+                              </span>
+                              <span>×{service.quantity}</span>
+                              {eventDaysCount > 1 && (
+                                <SectionChipSelect
+                                  value={Math.min(
+                                    service.day || 0,
+                                    eventDaysCount,
+                                  )}
+                                  options={Array.from(
+                                    { length: eventDaysCount },
+                                    (_, i) => ({
+                                      id: i + 1,
+                                      name: dayLabel(i + 1),
+                                    }),
+                                  )}
+                                  onChange={(dia) =>
+                                    setSelectedFixedServices((prev) =>
+                                      prev.map((f, i) =>
+                                        i === index ? { ...f, day: dia } : f,
+                                      ),
+                                    )
+                                  }
+                                  zeroLabel="todo el evento"
+                                  size="md"
+                                  disabled={isRestrictedEditing}
+                                  title="Día del evento (o todo el evento)"
+                                />
+                              )}
+                              {!isRestrictedEditing && (
+                                <button
+                                  onClick={() => removeFixedService(index)}
+                                  className="text-gray-300 hover:text-red-600"
+                                  title="Quitar"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </span>
                           </div>
-                          {(() => {
-                            const disponibles = fixedServices
-                              .filter((f) => f.is_active !== false)
-                              .filter((f) =>
-                                matchesSearch(fixedSearch, f.nombre),
-                              )
-                              .sort(
-                                (a, b) =>
-                                  fixedOrderOf(a.codigo) -
-                                  fixedOrderOf(b.codigo),
-                              );
-                            if (disponibles.length === 0) {
-                              return (
-                                <div className="px-3 py-2 text-sm text-gray-500">
-                                  No se encontraron servicios
-                                </div>
-                              );
-                            }
-                            const botonDe = (f: (typeof disponibles)[number]) => (
+                        ) : (
+                          /* Fila en seleccion: solo el selector, sin ruido */
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 py-2 border-b border-gray-100"
+                          >
+                            <div className="relative dropdown-container flex-1">
                               <button
-                                key={f.codigo}
                                 type="button"
                                 onClick={() => {
-                                  // Agrega y deja la ventanita abierta,
-                                  // como variables.
-                                  handleFixedServiceSelect(f.codigo);
+                                  setOpenFixedPicker(
+                                    openFixedPicker === index ? null : index,
+                                  );
+                                  setFixedSearch("");
                                 }}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                                disabled={isRestrictedEditing}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
                               >
-                                {f.nombre} - $
-                                {(f.precio || 0).toLocaleString("es-CL")}
+                                <span className="text-gray-500">
+                                  Seleccionar servicio fijo…
+                                </span>
+                                <svg
+                                  className="w-4 h-4 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 9l-7 7-7-7"
+                                  />
+                                </svg>
                               </button>
-                            );
-                            if (fixedSections.length === 0) {
-                              return disponibles.map(botonDe);
-                            }
-                            let prev = "";
-                            return disponibles.map((f) => {
-                              const nombre = fixedSectionNameOf(f.codigo);
-                              const header = nombre !== prev;
-                              prev = nombre;
-                              return (
-                                <div key={f.codigo}>
-                                  {header && (
-                                    <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
-                                      {nombre}
-                                    </div>
-                                  )}
-                                  {botonDe(f)}
+                              {openFixedPicker === index && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={fixedSearch}
+                                      onChange={(e) =>
+                                        setFixedSearch(e.target.value)
+                                      }
+                                      placeholder="Buscar servicio por nombre..."
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                  </div>
+                                  {(() => {
+                                    const disponibles = fixedServices
+                                      .filter((f) => f.is_active !== false)
+                                      .filter((f) =>
+                                        matchesSearch(fixedSearch, f.nombre),
+                                      )
+                                      .sort(
+                                        (a, b) =>
+                                          fixedOrderOf(a.codigo) -
+                                          fixedOrderOf(b.codigo),
+                                      );
+                                    if (disponibles.length === 0) {
+                                      return (
+                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                          No se encontraron servicios
+                                        </div>
+                                      );
+                                    }
+                                    const botonDe = (
+                                      f: (typeof disponibles)[number],
+                                    ) => (
+                                      <button
+                                        key={f.codigo}
+                                        type="button"
+                                        onClick={() => {
+                                          // Agrega y deja la ventanita abierta,
+                                          // como variables.
+                                          handleFixedServiceSelect(f.codigo);
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                                      >
+                                        {f.nombre} - $
+                                        {(f.precio || 0).toLocaleString(
+                                          "es-CL",
+                                        )}
+                                      </button>
+                                    );
+                                    if (fixedSections.length === 0) {
+                                      return disponibles.map(botonDe);
+                                    }
+                                    let prev = "";
+                                    return disponibles.map((f) => {
+                                      const nombre = fixedSectionNameOf(
+                                        f.codigo,
+                                      );
+                                      const header = nombre !== prev;
+                                      prev = nombre;
+                                      return (
+                                        <div key={f.codigo}>
+                                          {header && (
+                                            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                              {nombre}
+                                            </div>
+                                          )}
+                                          {botonDe(f)}
+                                        </div>
+                                      );
+                                    });
+                                  })()}
                                 </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   },
                 );
               })()}
-
             </div>
           </div>
-
         </div>
 
         {/* Columna lateral - Resúmenes */}
@@ -3520,7 +3609,8 @@ export default function QuotationForm() {
                     <div className="flex justify-between px-4 py-1.5 text-sm">
                       <span className="text-gray-500">Neto</span>
                       <span className="text-gray-700">
-                        ${Math.round(totalConIva / 1.19).toLocaleString("es-CL")}
+                        $
+                        {Math.round(totalConIva / 1.19).toLocaleString("es-CL")}
                       </span>
                     </div>
                     <div className="flex justify-between px-4 py-1.5 text-sm">
@@ -3679,7 +3769,9 @@ export default function QuotationForm() {
                   <div className="bg-blue-900 px-4 py-2.5">
                     <div className="flex justify-between font-extrabold text-white">
                       <span>TOTAL A PAGAR</span>
-                      <span>${formData.total_amount.toLocaleString("es-CL")}</span>
+                      <span>
+                        ${formData.total_amount.toLocaleString("es-CL")}
+                      </span>
                     </div>
                   </div>
                 </>
@@ -3785,8 +3877,8 @@ export default function QuotationForm() {
                   if (costo <= 0) {
                     return (
                       <p className="text-xs text-gray-500">
-                        Todavía no hay costos: los servicios cotizados no
-                        tienen receta cargada.
+                        Todavía no hay costos: los servicios cotizados no tienen
+                        receta cargada.
                       </p>
                     );
                   }
@@ -3798,9 +3890,7 @@ export default function QuotationForm() {
                           <span className="text-gray-900">{money(venta)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">
-                            Costo estimado
-                          </span>
+                          <span className="text-gray-600">Costo estimado</span>
                           <span className="text-gray-900">{money(costo)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-1 font-semibold">
@@ -3835,8 +3925,7 @@ export default function QuotationForm() {
                       )}
                       <p className="mt-2 text-[11px] text-gray-400">
                         Estimación de catálogo (recetas + costos fijos), no el
-                        costo real de compra. La propina no entra en el
-                        cálculo.
+                        costo real de compra. La propina no entra en el cálculo.
                       </p>
                     </>
                   );
