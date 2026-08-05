@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "../../components/toast/Toast";
 import EventoCajitas from "../../components/EventoCajitas";
+import CelebracionRealizada from "../../components/CelebracionRealizada";
 import { useNavigate, useParams } from "react-router-dom";
 import { resolveStorageUrl } from "../../services/storage.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import {
 import {
   getQuotationById,
   markEventDone,
+  unmarkEventDone,
   updateQuotation,
 } from "../../services/quotations.service";
 import { Quotation, QuotationStatus } from "../../types/quotations.types";
@@ -1078,6 +1080,27 @@ function EventModal({
   const [confirmDone, setConfirmDone] = useState(false);
   const [markingDone, setMarkingDone] = useState(false);
   const [doneNotice, setDoneNotice] = useState<string | null>(null);
+  // El unicornio de Eventia: se celebra SOLO en el momento de marcar
+  // realizado (no cada vez que se abre el evento).
+  const [celebrar, setCelebrar] = useState(false);
+  const [confirmUndone, setConfirmUndone] = useState(false);
+  const [undoingDone, setUndoingDone] = useState(false);
+  const doUnmarkDone = async () => {
+    setUndoingDone(true);
+    try {
+      await unmarkEventDone(event.quotationId);
+      toast.success(
+        "El evento volvió a pendiente. La encuesta ya enviada no se toca " +
+          "(y si lo vuelves a marcar, no se reenvía).",
+      );
+      setConfirmUndone(false);
+      onDataChanged();
+    } catch {
+      toast.error("No se pudo volver a pendiente. Intenta de nuevo.");
+    } finally {
+      setUndoingDone(false);
+    }
+  };
   const [doneError, setDoneError] = useState<string | null>(null);
   const doMarkDone = async () => {
     setMarkingDone(true);
@@ -1099,6 +1122,7 @@ function EventModal({
           : "";
       setDoneNotice(`Evento marcado como realizado. ${encuesta}${saldoTxt}`);
       setConfirmDone(false);
+      setCelebrar(true);
       onDataChanged();
     } catch {
       setDoneError(
@@ -1143,8 +1167,43 @@ function EventModal({
           <div className="flex items-center gap-2 shrink-0">
             {!event.cancelled &&
               (event.done ? (
-                <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700">
-                  ✓ REALIZADO
+                <span className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700">
+                    ✓ REALIZADO
+                  </span>
+                  {/* La puerta de vuelta (solo admin): un dedo
+                      equivocado no queda pegado para siempre. La
+                      encuesta ya enviada no se reenvía al re-marcar. */}
+                  {userRole === "administrador" &&
+                    (confirmUndone ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-600">
+                          ¿Volver a pendiente?
+                        </span>
+                        <button
+                          disabled={undoingDone}
+                          onClick={doUnmarkDone}
+                          className="px-2.5 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          disabled={undoingDone}
+                          onClick={() => setConfirmUndone(false)}
+                          className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200"
+                        >
+                          No
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmUndone(true)}
+                        className="text-xs text-gray-400 hover:text-gray-600 underline"
+                        title="Des-marcar el evento realizado (la encuesta ya enviada no se toca)"
+                      >
+                        Volver a pendiente
+                      </button>
+                    ))}
                 </span>
               ) : confirmDone ? (
                 <div className="flex items-center gap-2">
@@ -1252,6 +1311,28 @@ function EventModal({
         )}
         {doneError && (
           <p className="shrink-0 px-6 pt-2 text-sm text-red-600">{doneError}</p>
+        )}
+        {celebrar && (
+          <CelebracionRealizada
+            cliente={event.clientName}
+            tipoEvento={String(quote?.event_type || "") || undefined}
+            personas={Number(quote?.people_count || 0) || undefined}
+            monto={event.total}
+            diasGestion={(() => {
+              const c = quote?.created_at
+                ? new Date(String(quote.created_at)).getTime()
+                : NaN;
+              const e = event.eventDate
+                ? new Date(
+                    `${String(event.eventDate).slice(0, 10)}T00:00:00Z`,
+                  ).getTime()
+                : NaN;
+              return Number.isFinite(c) && Number.isFinite(e)
+                ? Math.max(0, Math.round((e - c) / 86400000))
+                : null;
+            })()}
+            onClose={() => setCelebrar(false)}
+          />
         )}
         {doneNotice && (
           <div

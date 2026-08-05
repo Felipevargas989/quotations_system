@@ -46,6 +46,15 @@ export const markEventDone = async (quotationId: string) => {
   return response as MarkEventDoneResult;
 };
 
+// La puerta de vuelta (solo administrador): des-marca un realizado.
+export const unmarkEventDone = async (quotationId: string) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/volver-a-pendiente`,
+    "POST",
+  );
+  return response as { ok: boolean };
+};
+
 export const deleteQuotation = async (quotationId: string) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,
