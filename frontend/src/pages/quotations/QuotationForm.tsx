@@ -2745,7 +2745,7 @@ export default function QuotationForm() {
                         }
                         min={1}
                         disabled={isRestrictedEditing}
-                        className={`w-24 text-sm text-right font-semibold ${
+                        className={`w-12 text-sm text-right font-semibold ${
                           box.people !== undefined
                             ? "border-amber-400 bg-amber-50 text-amber-900"
                             : ""

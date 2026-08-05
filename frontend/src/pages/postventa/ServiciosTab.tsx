@@ -55,6 +55,9 @@ export default function ServiciosTab({
   const [varGroups, setVarGroups] = useState<any[]>(() =>
     deep(quote.items?.variable_services).map((g: any) => ({
       ...g,
+      // Fotos muy antiguas pueden traer category null: normalizada a
+      // "" el selector queda HABILITADO (elegible) en vez de muerto.
+      category: g.category || "",
       // people igual a su audiencia al cargar = "automático": sigue al
       // contador si este cambia. Distinto = ajuste manual, se respeta.
       people:
@@ -240,8 +243,37 @@ export default function ServiciosTab({
     const d1 = new Date(
       String(quote.event_end_date).slice(0, 10) + "T00:00:00Z",
     ).getTime();
-    return Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+    // Mismas rejas del cotizador: fechas raras → 1 día; tope 60 (un
+    // "hasta" tipeado un año después no puede parir 366 chips).
+    if (!Number.isFinite(d0) || !Number.isFinite(d1) || d1 < d0) return 1;
+    return Math.min(60, Math.round((d1 - d0) / 86400000) + 1);
   })();
+  // Rótulo de día con fecha, calco del cotizador: "Día 1 (03/08)".
+  // Derivado del quote VIVO: si la ficha mueve las fechas con
+  // EventoCajitas, el refetch trae el quote nuevo y esto lo sigue.
+  const dayLabel = (n: number) => {
+    const base = new Date(
+      `${String(quote.event_date).slice(0, 10)}T00:00:00Z`,
+    );
+    if (!Number.isFinite(base.getTime())) return `Día ${n}`;
+    const d = new Date(base.getTime() + (n - 1) * 86400000);
+    return `Día ${n} (${d.toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "UTC",
+    })})`;
+  };
+  // Las opciones de día se arman UNA vez por cambio de fechas (no en
+  // cada tecleo, que redibuja toda la pestaña).
+  const diasOpciones = useMemo(
+    () =>
+      Array.from({ length: daysCount }, (_, i) => ({
+        id: i + 1,
+        name: dayLabel(i + 1),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [daysCount, quote.event_date],
+  );
 
   // Precio por persona de un ítem variable = precio × cantidad (igual que la
   // cotización). Se usa para las filas en pantalla.
@@ -262,7 +294,9 @@ export default function ServiciosTab({
       .filter((g) => g.category && (g.items || []).length > 0)
       .map((g) => ({
         category: g.category,
-        day: g.day || 1,
+        // Mismo campo y mismo tope del cotizador: la foto guardada es
+        // indistinguible de la suya.
+        day: Math.min(g.day || 1, daysCount),
         audience: audOf(g),
         people: gPeople(g),
         items: (g.items || []).map((it: any) => ({
@@ -273,9 +307,17 @@ export default function ServiciosTab({
           quantity: it.quantity || 1,
         })),
       })),
-    fixed_services: fixed.map((f) => ({
+    // Filtro + orden de catálogo ANTES de guardar, calco del cotizador:
+    // la foto queda idéntica la guarde quien la guarde (el documento
+    // impreso lista los fijos en este orden).
+    fixed_services: [...fixed]
+      .filter((f) => f?.codigo)
+      .sort((a, b) => fixedOrderOf(a.codigo) - fixedOrderOf(b.codigo))
+      .map((f) => ({
       codigo: f.codigo,
       nombre: f.nombre,
+      // Día del fijo como el cotizador: 0 = "todo el evento" (su default).
+      day: Math.min(f.day || 0, daysCount),
       precio: f.precio,
       categoria: f.categoria || "General",
       quantity: f.quantity || 1,
@@ -362,7 +404,7 @@ export default function ServiciosTab({
     };
     // buildItemsSnapshot se rearma sola cuando cambia cualquiera de estos
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marginBaseQuery.data, varGroups, fixed, adultsN, kidsN]);
+  }, [marginBaseQuery.data, varGroups, fixed, adultsN, kidsN, daysCount]);
 
   const removeVar = (gi: number, ii: number) => {
     setVarGroups((prev) => {
@@ -407,6 +449,9 @@ export default function ServiciosTab({
         idx === i ? { ...f, quantity: Math.max(1, qty) } : f,
       ),
     );
+  // Día de un fijo (calco del cotizador): 0 = "todo el evento".
+  const setFixedDay = (i: number, day: number) =>
+    setFixed((prev) => prev.map((f, idx) => (idx === i ? { ...f, day } : f)));
 
   // Agrega un servicio del catálogo AL GRUPO gi (nunca adivina el grupo).
   // Se identifica por `codigo`: con el desplegable agrupado por secciones
@@ -488,9 +533,14 @@ export default function ServiciosTab({
   // azul); tras elegir categoría quedan fijos en la banda, como hoy.
   const setGroupDay = (gi: number, day: number) =>
     setVarGroups((prev) => prev.map((g, i) => (i === gi ? { ...g, day } : g)));
+  // Cambiar la audiencia vuelve las personas al automático de la NUEVA
+  // audiencia (people: undefined), igual que el cotizador: los montos se
+  // rehacen solos con la tarifa por-adulto/por-niño existente.
   const setGroupAud = (gi: number, aud: "adultos" | "ninos") =>
     setVarGroups((prev) =>
-      prev.map((g, i) => (i === gi ? { ...g, audience: aud } : g)),
+      prev.map((g, i) =>
+        i === gi ? { ...g, audience: aud, people: undefined } : g,
+      ),
     );
 
   // Personas del grupo: igual al cotizador — escribir el número de su
@@ -499,7 +549,13 @@ export default function ServiciosTab({
     setVarGroups((prev) =>
       prev.map((g, i) =>
         i === gi
-          ? { ...g, people: !v || v === audCount(g) ? undefined : v }
+          ? {
+              ...g,
+              // Igual que el cotizador: SOLO vacío o el total de la
+              // audiencia vuelven a automático. Un 0 tipeado es ajuste
+              // manual (filas en $0) — no un "cobrar a todos" callado.
+              people: v === undefined || v === audCount(g) ? undefined : v,
+            }
           : g,
       ),
     );
@@ -551,9 +607,19 @@ export default function ServiciosTab({
       );
       if (error) throw error;
       setMsg("Cambios guardados ✓");
-      // Aviso: describe cómo se reajustó el plan de pagos.
+      // Aviso: describe cómo se reajustó el plan de pagos. SOLO en
+      // Post-Venta — en una cotización en juego no hay cuotas que
+      // ajustar y el cartel mentía (pillada de Felipe 05-08, #436).
       const diff = newTotal - prevTotal;
-      if (diff > 0) {
+      const enPreVenta = [
+        "solicitada",
+        "enviada",
+        "en_negociacion",
+        "rechazada",
+      ].includes(quote.quotation_status);
+      if (enPreVenta) {
+        // sin cartel: el total nuevo ya se ve en el resumen
+      } else if (diff > 0) {
         setNotice({
           tone: "up",
           title: `El total subió ${clp(diff)}`,
@@ -620,7 +686,9 @@ export default function ServiciosTab({
         <span className="text-gray-800 flex items-center gap-2 min-w-0">
           <span className="truncate">{f.nombre}</span>
         </span>
-        <span className="flex items-center gap-3 shrink-0">
+        {/* flex-wrap: en pantallas angostas la fila crece hacia abajo
+            en vez de desbordar la tarjeta (el chip de día mide 150px). */}
+        <span className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
           <span className="text-gray-500">{clp(f.precio || 0)}</span>
           <QuantitySelector
             value={f.quantity || 1}
@@ -630,6 +698,18 @@ export default function ServiciosTab({
           <span className="font-medium text-gray-900 w-20 text-right">
             {clp((f.precio || 0) * (f.quantity || 1))}
           </span>
+          {/* Día del fijo (calco del cotizador): solo en multi-día, con
+              "todo el evento" como default (0). */}
+          {daysCount > 1 && (
+            <SectionChipSelect
+              value={Math.min(f.day || 0, daysCount)}
+              options={diasOpciones}
+              onChange={(dia) => setFixedDay(i, dia)}
+              zeroLabel="todo el evento"
+              size="md"
+              title="Día del evento (o todo el evento)"
+            />
+          )}
           <button
             type="button"
             onClick={() => setConfirmRowKey(key)}
@@ -818,94 +898,92 @@ export default function ServiciosTab({
       {/* La cabecera de columnas de la grilla se retiró (04-08): con
           todas las filas en anatomía flex ya no describía nada. */}
       {varGroups.map((g, gi) => (
-        <div key={`${g.category || "cat"}-${gi}`}>
-          {!g.category ? (
-            /* Caja recién nacida (04-08, flujo del cotizador): la
-                categoría se elige ADENTRO con el desplegable sobrio y no
-                se cambia después (se borra la caja y se hace otra). Día y
-                audiencia se definen aquí — herencia del panel azul
-                jubilado; al elegir categoría quedan fijos en la banda. */
-            <div className="border border-gray-200 rounded-lg p-3 mt-3 flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Categoría
-                </label>
-                <div className="relative dropdown-container">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenCatPicker(openCatPicker === gi ? null : gi)
-                    }
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left flex justify-between items-center bg-white"
+        <div key={`${g.category || "cat"}-${gi}`} className="mt-3">
+          {/* Cabecera de caja calcada del cotizador (04-08, pedido de
+              Felipe: la cotización vive su vida en esta pestaña, así que
+              la caja se ve y se maneja IGUAL): número + Categoría
+              (bloqueada una vez elegida) + Audiencia + Personas + Día
+              (solo multi-día) + basurero. Sin arrastre ni colapso: acá
+              no hay reordenamiento de cajas. */}
+          <div className="flex items-end gap-3 flex-wrap mb-3">
+            <span className="text-xs font-bold text-gray-400 pb-3">
+              {gi + 1}
+            </span>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Categoría
+              </label>
+              <div className="relative dropdown-container">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenCatPicker(openCatPicker === gi ? null : gi)
+                  }
+                  disabled={g.category !== ""}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
+                >
+                  <span
+                    className={g.category ? "text-gray-900" : "text-gray-500"}
                   >
-                    <span className="text-gray-500">
-                      Seleccionar categoría
-                    </span>
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                  {openCatPicker === gi && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                      {catNames
-                        // Paridad con el cotizador: categorías
-                        // desactivadas no se ofrecen para cajas nuevas.
-                        .filter((c) => !inactiveCategorySet.has(c))
-                        .map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setGroupCategory(gi, c)}
-                            className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
-                          >
-                            {c}
-                          </button>
-                        ))}
-                    </div>
-                  )}
-                </div>
+                    {g.category || "Seleccionar categoría"}
+                  </span>
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {openCatPicker === gi && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                    {catNames
+                      // Paridad con el cotizador: desactivadas afuera,
+                      // salvo la ya elegida de esta caja.
+                      .filter(
+                        (c) => !inactiveCategorySet.has(c) || c === g.category,
+                      )
+                      .map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setGroupCategory(gi, c)}
+                          className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
+                        >
+                          {c}
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
-              {multiDia && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Día
-                  </label>
-                  <SectionChipSelect
-                    value={g.day || 1}
-                    options={Array.from({ length: daysCount }, (_, i) => ({
-                      id: i + 1,
-                      name: `Día ${i + 1}`,
-                    }))}
-                    onChange={(d) => setGroupDay(gi, d)}
-                    zeroLabel={null}
-                    size="md"
-                    title="Día del evento"
-                  />
-                </div>
-              )}
-              {kidsN > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Audiencia
-                  </label>
-                  <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                    {(["adultos", "ninos"] as const).map((aud) => (
+            </div>
+            {/* Visible con niños en el evento O si la caja YA es de
+                niños (foto antigua con niños en 0): sin esto la caja
+                queda muda y sin vuelta a adultos. */}
+            {(kidsN > 0 || audOf(g) === "ninos") && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Audiencia
+                </label>
+                <div
+                  className="flex rounded-lg border border-gray-300 overflow-hidden"
+                  title="Audiencia de este servicio"
+                >
+                  {(["adultos", "ninos"] as const).map((aud) => {
+                    const on = audOf(g) === aud;
+                    return (
                       <button
                         key={aud}
                         type="button"
                         onClick={() => setGroupAud(gi, aud)}
-                        className={`px-3 py-2 text-xs font-bold ${
-                          (g.audience || "adultos") === aud
+                        className={`px-3 py-2 text-sm font-bold ${
+                          on
                             ? aud === "ninos"
                               ? "bg-amber-600 text-white"
                               : "bg-blue-900 text-white"
@@ -914,98 +992,80 @@ export default function ServiciosTab({
                       >
                         {aud === "ninos" ? "Niños" : "Adultos"}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              )}
-              {/* Caja sin categoría: se quita directo, no hay nada que
-                  confirmar. */}
-              <button
-                type="button"
-                onClick={() => removeGroup(gi)}
-                className="text-red-500 hover:text-red-700 pb-2.5"
-                title="Quitar este servicio"
+              </div>
+            )}
+            <div className="relative">
+              <label
+                className="block text-xs font-medium text-gray-600 mb-1"
+                title="Personas de este servicio (por defecto, toda su audiencia)"
               >
-                <Trash2 size={16} />
-              </button>
+                Personas
+              </label>
+              <NumberInput
+                value={gPeople(g) || undefined}
+                onChange={(v) => setGroupPeople(gi, v)}
+                min={1}
+                className={`w-12 text-sm text-right font-semibold ${
+                  typeof g.people === "number"
+                    ? "border-amber-400 bg-amber-50 text-amber-900"
+                    : ""
+                }`}
+              />
+              {/* El "de N" anclado bajo el campo, calco del cotizador.
+                  Supera al pedido del 22-07 de omitirlo en esta pestaña:
+                  Felipe ordenó el 04-08 que la cabecera sea IGUAL. */}
+              {typeof g.people === "number" && (
+                <p className="absolute right-0 top-full mt-0.5 text-[10px] text-amber-700 whitespace-nowrap">
+                  de {audCount(g)}
+                </p>
+              )}
             </div>
-          ) : (
-            <>
-          <div className="text-xs font-bold uppercase text-gray-600 bg-gray-100 rounded px-2 py-1.5 mt-3 flex items-center justify-between">
-            <span>{g.category}</span>
-            {confirmGroupKey === gi ? (
-              /* Basurero con ítems adentro: confirmación inline de la
-                  casa antes de borrar la caja completa. */
-              <span className="normal-case">
+            {daysCount > 1 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Día
+                </label>
+                <SectionChipSelect
+                  value={Math.min(g.day || 1, daysCount)}
+                  options={diasOpciones}
+                  onChange={(dia) => setGroupDay(gi, dia)}
+                  zeroLabel={null}
+                  size="md"
+                  title="Día del evento en que va este servicio"
+                />
+              </div>
+            )}
+            <div className="ml-auto pb-2 flex items-center gap-2">
+              {confirmGroupKey === gi ? (
+                /* Basurero con ítems adentro: confirmación inline de la
+                    casa antes de borrar la caja completa. */
                 <ConfirmInline
                   question="¿Quitar la categoría completa?"
                   yesLabel="Sí, quitar"
                   onYes={() => removeGroup(gi)}
                   onNo={() => setConfirmGroupKey(null)}
                 />
-              </span>
-            ) : (
-            <span className="normal-case font-semibold flex items-center gap-1.5">
-              <span
-                className={
-                  audOf(g) === "ninos" ? "text-amber-700" : "text-blue-700"
-                }
-              >
-                {audOf(g) === "ninos" ? "NIÑOS" : "ADULTOS"}
-              </span>
-              <span className="text-gray-500">·</span>
-              {/* Personas del grupo, editable como en el cotizador. Sin
-                  el "de N" (pedido de Felipe 22-07: solo en el cotizador);
-                  el ajuste manual se distingue por la casilla ámbar. */}
-              <span className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={gPeople(g) ? gPeople(g).toLocaleString("es-CL") : ""}
-                  onChange={(e) => {
-                    const v =
-                      parseInt(e.target.value.replace(/\./g, ""), 10) || 0;
-                    setGroupPeople(gi, v);
-                  }}
-                  className={`w-16 border rounded-md px-1.5 py-0.5 text-xs text-right font-semibold ${
-                    typeof g.people === "number"
-                      ? "border-amber-400 bg-amber-50 text-amber-900"
-                      : "border-gray-300 bg-white text-gray-700"
-                  }`}
-                  aria-label={`Personas de ${g.category}`}
-                />
-              </span>
-              <span className="text-gray-500">
-                personas
-                {multiDia ? ` · Día ${g.day || 1}` : ""}
-              </span>
-              {/* Subtotal del grupo (03-08): cuánto pesa esta categoría. */}
-              <span className="text-gray-800 font-bold ml-2">
-                {clp(
-                  (g.items || []).reduce(
-                    (t: number, it: any) => t + ppp(it) * gPeople(g),
-                    0,
-                  ),
-                )}
-              </span>
-              {/* Basurero de la caja (04-08, cotizador): única salida del
-                  grupo — con ítems pide confirmación, vacío sale directo.
-                  Como el cotizador, borra también cajas con sección fija. */}
-              <button
-                type="button"
-                onClick={() =>
-                  (g.items || []).length > 0
-                    ? setConfirmGroupKey(gi)
-                    : removeGroup(gi)
-                }
-                className="text-red-500 hover:text-red-700 ml-1"
-                title="Quitar este servicio"
-              >
-                <Trash2 size={14} />
-              </button>
-            </span>
-            )}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    (g.items || []).length > 0
+                      ? setConfirmGroupKey(gi)
+                      : removeGroup(gi)
+                  }
+                  className="text-red-500 hover:text-red-700"
+                  title="Quitar este servicio"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
           </div>
+          {g.category && (
+            <>
           {/* Lista armada por secciones, como la carta del cotizador:
               rótulo azul con línea divisora ("Otros" para lo suelto);
               sin secciones, lista plana. Cada ítem conserva su índice
@@ -1400,7 +1460,8 @@ export default function ServiciosTab({
                 const people = gPeople(g);
                 const aud = audOf(g);
                 const parts: string[] = [];
-                if (multiDia) parts.push(`Día ${g.day || 1}`);
+                if (daysCount > 1)
+                  parts.push(`Día ${Math.min(g.day || 1, daysCount)}`);
                 parts.push(
                   typeof g.people === "number"
                     ? `${people} de ${audCount(g)} personas`

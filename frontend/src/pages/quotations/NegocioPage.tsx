@@ -4,7 +4,7 @@
 // conserva el tablero tal como estaba. Dos pestañas: Seguimiento (el
 // hilo comercial + respaldos + compartir por WhatsApp/correo) y
 // Cotización (resumen + PDF + editar).
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -163,6 +163,85 @@ const hoyLocal = () => {
   const f = new Date();
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
 };
+
+// ---- Rediseño del hilo (04-08, regla de Close de Felipe): "un negocio
+// vivo siempre tiene próximo paso; en rechazadas y cerradas muere el
+// deal y mata todo seguimiento". ----
+// Estados donde el negocio sigue VIVO para el seguimiento (exactos).
+const ESTADOS_VIVOS_SEGUIMIENTO = ["solicitada", "enviada", "en_negociacion"];
+
+// Color suave por tipo de gestión (chips del hilo y botoncitos del
+// formulario): llamada verde, correo azul, reunión morado, whatsapp
+// verde WhatsApp, otro gris.
+const COLOR_TIPO: Record<string, string> = {
+  llamada: "bg-green-50 text-green-700 border-green-300",
+  correo: "bg-blue-50 text-blue-700 border-blue-300",
+  reunion: "bg-purple-50 text-purple-700 border-purple-300",
+  whatsapp: "bg-emerald-50 text-emerald-700 border-emerald-300",
+  otro: "bg-gray-100 text-gray-600 border-gray-300",
+};
+
+// Autor legible: si author_name es un correo, la parte antes del @ con
+// la primera letra en mayúscula.
+const nombreAutor = (raw?: string | null) => {
+  const s = (raw || "").trim();
+  if (!s) return "—";
+  const base = s.includes("@") ? s.split("@")[0] : s;
+  return base.charAt(0).toUpperCase() + base.slice(1);
+};
+
+// Color ESTABLE por autor para el circulito de la línea de tiempo (el
+// mismo nombre pinta siempre igual).
+const PALETA_AVATAR = [
+  "#2563eb",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#dc2626",
+  "#0891b2",
+  "#db2777",
+  "#4f46e5",
+];
+const colorAutor = (nombre: string) => {
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++)
+    h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
+  return PALETA_AVATAR[h % PALETA_AVATAR.length];
+};
+
+// Fecha local YYYY-MM-DD de un Date (mismo patrón de hoyLocal).
+const fechaLocalDe = (f: Date) =>
+  `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
+
+// Fecha humana: "hoy 09:30", "ayer 15:12", "hace 3 días" y, más viejo,
+// la fecha corta. El title SIEMPRE lleva la fecha exacta completa.
+const fechaHumana = (iso: string) => {
+  const d = new Date(iso);
+  const dia = fechaLocalDe(d);
+  const hora = d.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (dia === hoyLocal()) return `hoy ${hora}`;
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1);
+  if (dia === fechaLocalDe(ayer)) return `ayer ${hora}`;
+  const dias = Math.round(
+    (new Date(`${hoyLocal()}T00:00:00`).getTime() -
+      new Date(`${dia}T00:00:00`).getTime()) /
+      86400000,
+  );
+  if (dias >= 2 && dias <= 7) return `hace ${dias} días`;
+  return d.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+};
+
+// "DD-MM" de una fecha ISO (para los compromisos y la franja).
+const ddmm = (isoDate: string) =>
+  `${isoDate.slice(8, 10)}-${isoDate.slice(5, 7)}`;
 
 export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
@@ -536,8 +615,14 @@ export default function NegocioPage() {
         </div>
       </div>
 
-      {verPdf && fila && (
-        <QuotationViewer quotation={fila} onClose={() => setVerPdf(false)} />
+      {/* El visor necesita la cotización COMPLETA (detalle): la fila
+          de la lista viaja a dieta, SIN items — con ella el PDF salía
+          sin servicios (quemadura 05-08, cotización 436). */}
+      {verPdf && fila && detalle && (
+        <QuotationViewer
+          quotation={{ ...fila, ...detalle, items: detalle.items || [] }}
+          onClose={() => setVerPdf(false)}
+        />
       )}
 
       {planAbierto && fila && (
@@ -572,15 +657,27 @@ function HiloSeguimiento({
   });
   const notas = hiloQuery.data ?? [];
 
+  // Negocio vivo = próximo paso OBLIGATORIO al anotar; muerto
+  // (rechazada/aceptada/realizada/cancelada) = solo notas de archivo y
+  // compromisos inertes en gris.
+  const negocioVivo = ESTADOS_VIVOS_SEGUIMIENTO.includes(
+    quotation.quotation_status || "",
+  );
+
   const [nota, setNota] = useState("");
   const [tipo, setTipo] = useState("");
-  const [tipoMenu, setTipoMenu] = useState(false);
   const [proxima, setProxima] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [editNota, setEditNota] = useState("");
+  const [editTipo, setEditTipo] = useState("");
+  const [editFecha, setEditFecha] = useState("");
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
+  // Focos de la franja de empujón: Registrar gestión → cuadro de nota;
+  // Reprogramar → casilla de fecha.
+  const notaRef = useRef<HTMLTextAreaElement>(null);
+  const fechaRef = useRef<HTMLInputElement>(null);
 
   const refrescar = async () => {
     await queryClient.invalidateQueries({
@@ -589,17 +686,26 @@ function HiloSeguimiento({
     await queryClient.invalidateQueries({ queryKey: ["seguimientos", "map"] });
   };
 
+  // Regla de Close al escribir: en vivos faltan cosas hasta que haya
+  // texto + tipo + fecha; en muertos basta el texto (nota de archivo).
+  const faltan = [
+    !nota.trim() && "la nota",
+    negocioVivo && !tipo && "el tipo de gestión",
+    negocioVivo && !proxima && "el próximo contacto",
+  ].filter(Boolean) as string[];
+  const puedeGuardar = faltan.length === 0 && !guardando;
+
   const guardar = async () => {
-    const texto = nota.trim();
-    if (!texto || guardando) return;
+    if (!puedeGuardar) return;
     setGuardando(true);
     setErr(null);
     try {
       await createFollowup({
         quotation_id: quotation.id,
-        note: texto,
-        ...(tipo ? { tipo: tipo as FollowupTipo } : {}),
-        ...(proxima ? { next_contact_date: proxima } : {}),
+        note: nota.trim(),
+        // En negocios muertos la nota es de archivo: sin tipo ni fecha.
+        ...(negocioVivo && tipo ? { tipo: tipo as FollowupTipo } : {}),
+        ...(negocioVivo && proxima ? { next_contact_date: proxima } : {}),
       });
       setNota("");
       setTipo("");
@@ -616,8 +722,18 @@ function HiloSeguimiento({
   const guardarEdicion = async (nid: number) => {
     const texto = editNota.trim();
     if (!texto) return;
+    // La obligación de tipo + fecha aplica también al editar en vivos.
+    if (negocioVivo && (!editTipo || !editFecha)) return;
     try {
-      await updateFollowup(nid, { note: texto });
+      await updateFollowup(nid, {
+        note: texto,
+        ...(negocioVivo && editTipo
+          ? { tipo: editTipo as FollowupTipo }
+          : {}),
+        ...(negocioVivo && editFecha
+          ? { next_contact_date: editFecha }
+          : {}),
+      });
       setEditId(null);
       await refrescar();
     } catch {
@@ -660,12 +776,136 @@ function HiloSeguimiento({
     [notas, quotation.sent_at],
   );
 
+  // DERIVADO, sin estado nuevo en la base: solo el compromiso de la
+  // nota MÁS RECIENTE con fecha está "vivo"; los anteriores quedaron
+  // resueltos por la gestión que los siguió.
+  const notaCompromiso = useMemo(() => {
+    let top: Followup | null = null;
+    for (const n of notas) {
+      if (!n.next_contact_date) continue;
+      if (!top || n.created_at > top.created_at) top = n;
+    }
+    return top;
+  }, [notas]);
+  const compromisoFecha =
+    notaCompromiso?.next_contact_date?.slice(0, 10) || "";
+  // Cara del compromiso vivo por fecha LOCAL (patrón hoyLocal), nunca
+  // por timestamps: futuro azul, hoy ámbar, pasado rojo.
+  const compromisoCara = (() => {
+    if (!compromisoFecha) return null;
+    const hoy = hoyLocal();
+    if (compromisoFecha < hoy) return "vencido" as const;
+    if (compromisoFecha === hoy) return "hoy" as const;
+    return "futuro" as const;
+  })();
+
+  // Chip de compromiso de UNA nota: gris inerte en negocios muertos;
+  // en vivos, el más reciente con sus 3 caras y los viejos ✓ cumplidos.
+  const chipCompromiso = (n: Followup) => {
+    if (!n.next_contact_date) return null;
+    const dm = ddmm(n.next_contact_date);
+    if (!negocioVivo)
+      return (
+        <p className="mt-1.5 text-xs text-gray-400">
+          📅 Próximo contacto: {dm}
+        </p>
+      );
+    if (notaCompromiso && n.id === notaCompromiso.id) {
+      if (compromisoCara === "vencido")
+        return (
+          <p className="mt-1.5 text-xs font-semibold text-red-600">
+            📅 Próximo contacto: {dm} — vencido
+          </p>
+        );
+      if (compromisoCara === "hoy")
+        return (
+          <p className="mt-1.5 text-xs font-semibold text-amber-600">
+            📅 Próximo contacto: {dm} — es hoy
+          </p>
+        );
+      return (
+        <p className="mt-1.5 text-xs text-blue-700">
+          📅 Próximo contacto: {dm}
+        </p>
+      );
+    }
+    return (
+      <p className="mt-1.5 text-xs text-gray-400">
+        ✓ Próximo contacto: {dm} — cumplido
+      </p>
+    );
+  };
+
+  // Fila de botoncitos de tipo (reemplaza el menucito): los mismos 5
+  // tipos e íconos de siempre, con borde y color al elegir.
+  // estirado: los 5 botones se reparten el ancho completo de la caja
+  // de comentarios (pedido de Felipe 05-08 — "más armónico").
+  const chipsTipo = (
+    val: string,
+    onPick: (v: string) => void,
+    estirado = false,
+  ) => (
+    <div
+      className={
+        estirado
+          ? "grid grid-cols-5 gap-2"
+          : "flex flex-wrap items-center gap-1.5"
+      }
+    >
+      {TIPOS_GESTION.map((t) => (
+        <button
+          key={t.v}
+          type="button"
+          onClick={() => onPick(val === t.v ? "" : t.v)}
+          title={t.l}
+          className={`flex items-center ${estirado ? "justify-center" : ""} gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg border ${
+            val === t.v
+              ? COLOR_TIPO[t.v]
+              : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+          }`}
+        >
+          <IconoTipo tipo={t.v} size={13} /> {t.l}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="border border-gray-200 rounded-xl flex flex-col">
       <h3 className="text-sm font-bold text-gray-700 px-4 pt-3 pb-2 flex items-center gap-1.5">
         <MessageSquare size={15} /> Hilo de seguimiento
       </h3>
-      <div className="flex-1 overflow-y-auto max-h-[420px] px-4 space-y-3">
+      {/* Franja de empujón (solo negocios vivos): el compromiso vivo es
+          hoy o venció — a registrar la gestión o a reprogramar. */}
+      {negocioVivo &&
+        (compromisoCara === "hoy" || compromisoCara === "vencido") && (
+          <div
+            className={`mx-4 mb-2 rounded-lg border px-3 py-2 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 ${
+              compromisoCara === "vencido"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}
+          >
+            <span className="font-semibold">
+              Contacto comprometido: {ddmm(compromisoFecha)}
+            </span>
+            <button
+              type="button"
+              onClick={() => notaRef.current?.focus()}
+              className="font-semibold underline hover:no-underline"
+            >
+              Registrar gestión
+            </button>
+            <button
+              type="button"
+              onClick={() => fechaRef.current?.focus()}
+              className="font-semibold underline hover:no-underline"
+            >
+              Reprogramar
+            </button>
+          </div>
+        )}
+      <div className="flex-1 overflow-y-auto max-h-[420px] px-4">
         {(() => {
           if (hiloQuery.isPending)
             return <p className="text-sm text-gray-500">Cargando…</p>;
@@ -675,103 +915,177 @@ function HiloSeguimiento({
                 Sin notas todavía. La primera gestión parte abajo. 👇
               </p>
             );
-          return entradas.map((e) =>
-            e.kind === "sistema" ? (
-              <div key={`sys-${e.at}`} className="text-xs text-gray-400">
-                ⚙ {e.texto} — {fechaCorta(e.at)}
-              </div>
-            ) : (
-              <div
-                key={e.nota.id}
-                className="border border-gray-200 rounded-lg p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-gray-500">
-                    <span className="font-semibold text-gray-700">
-                      {e.nota.author_name || "—"}
-                    </span>{" "}
-                    · {fechaCorta(e.nota.created_at)}
-                    {e.nota.updated_at ? " · editada" : ""}
-                    {e.nota.tipo ? (
-                      <span className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded-full align-middle">
-                        <IconoTipo tipo={e.nota.tipo} size={11} />
-                        {nombreTipo(e.nota.tipo)}
+          return (
+            /* Línea de tiempo vertical estilo Clientify: raya sutil y un
+               punto por entrada — inicial del autor con color estable;
+               lo de sistema, punto chico gris en la misma línea. */
+            <div className="relative">
+              <div className="absolute left-[13px] top-1 bottom-1 w-px bg-gray-200" />
+              {entradas.map((e) => {
+                if (e.kind === "sistema")
+                  return (
+                    <div key={`sys-${e.at}`} className="relative pl-9 pb-3">
+                      <span className="absolute left-[9px] top-1 w-2.5 h-2.5 rounded-full bg-gray-300 border-2 border-white" />
+                      <span
+                        className="text-xs text-gray-400"
+                        title={fechaCorta(e.at)}
+                      >
+                        {e.texto} — {fechaHumana(e.at)}
                       </span>
-                    ) : null}
-                  </div>
-                  {e.nota.author_user_id === user?.id && editId !== e.nota.id && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {confirmDelId === e.nota.id ? (
-                        <ConfirmInline
-                          question="¿Eliminar?"
-                          onYes={() => void borrar(e.nota.id)}
-                          onNo={() => setConfirmDelId(null)}
-                        />
+                    </div>
+                  );
+                const autor = nombreAutor(e.nota.author_name);
+                return (
+                  <div key={e.nota.id} className="relative pl-9 pb-3">
+                    <span
+                      className="absolute left-0 top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-white"
+                      style={{ backgroundColor: colorAutor(autor) }}
+                      title={autor}
+                    >
+                      {autor === "—" ? "?" : autor.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs text-gray-500">
+                          <span className="font-semibold text-gray-700">
+                            {autor}
+                          </span>{" "}
+                          ·{" "}
+                          <span title={fechaCorta(e.nota.created_at)}>
+                            {fechaHumana(e.nota.created_at)}
+                          </span>
+                          {e.nota.updated_at ? " · editada" : ""}
+                          {e.nota.tipo ? (
+                            <span
+                              className={`ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full align-middle ${
+                                COLOR_TIPO[e.nota.tipo] || COLOR_TIPO.otro
+                              }`}
+                            >
+                              <IconoTipo tipo={e.nota.tipo} size={11} />
+                              {nombreTipo(e.nota.tipo)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {e.nota.author_user_id === user?.id &&
+                          editId !== e.nota.id && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {confirmDelId === e.nota.id ? (
+                                <ConfirmInline
+                                  question="¿Eliminar?"
+                                  onYes={() => void borrar(e.nota.id)}
+                                  onNo={() => setConfirmDelId(null)}
+                                />
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditId(e.nota.id);
+                                      setEditNota(e.nota.note);
+                                      setEditTipo(e.nota.tipo || "");
+                                      setEditFecha(
+                                        e.nota.next_contact_date?.slice(
+                                          0,
+                                          10,
+                                        ) || "",
+                                      );
+                                    }}
+                                    className="text-gray-300 hover:text-gray-500"
+                                    title="Editar mi nota"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setConfirmDelId(e.nota.id)
+                                    }
+                                    className="text-gray-300 hover:text-red-500"
+                                    title="Eliminar mi nota"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                      </div>
+                      {editId === e.nota.id ? (
+                        <div className="mt-2 space-y-2">
+                          <textarea
+                            value={editNota}
+                            onChange={(ev) => setEditNota(ev.target.value)}
+                            rows={2}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          {/* En vivos, editar también exige tipo y fecha
+                              (misma regla de Close); en muertos la nota
+                              es de archivo y solo se toca el texto. */}
+                          {negocioVivo && (
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              {chipsTipo(editTipo, setEditTipo)}
+                              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                                Próx. contacto
+                                <input
+                                  type="date"
+                                  value={editFecha}
+                                  onChange={(ev) =>
+                                    setEditFecha(ev.target.value)
+                                  }
+                                  className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                />
+                              </label>
+                            </div>
+                          )}
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditId(null)}
+                              className="px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                              Cancelar
+                            </button>
+                            {(() => {
+                              const faltanEd = [
+                                !editNota.trim() && "la nota",
+                                negocioVivo &&
+                                  !editTipo &&
+                                  "el tipo de gestión",
+                                negocioVivo &&
+                                  !editFecha &&
+                                  "el próximo contacto",
+                              ].filter(Boolean) as string[];
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void guardarEdicion(e.nota.id)
+                                  }
+                                  disabled={faltanEd.length > 0}
+                                  title={
+                                    faltanEd.length > 0
+                                      ? `Falta ${faltanEd.join(", ")}`
+                                      : undefined
+                                  }
+                                  className="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                  Guardar
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
                       ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditId(e.nota.id);
-                              setEditNota(e.nota.note);
-                            }}
-                            className="text-gray-300 hover:text-gray-500"
-                            title="Editar mi nota"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDelId(e.nota.id)}
-                            className="text-gray-300 hover:text-red-500"
-                            title="Eliminar mi nota"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </>
+                        <p className="mt-1.5 text-sm text-gray-800 whitespace-pre-wrap">
+                          {e.nota.note}
+                        </p>
                       )}
-                    </div>
-                  )}
-                </div>
-                {editId === e.nota.id ? (
-                  <div className="mt-2 space-y-2">
-                    <textarea
-                      value={editNota}
-                      onChange={(ev) => setEditNota(ev.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditId(null)}
-                        className="px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void guardarEdicion(e.nota.id)}
-                        className="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        Guardar
-                      </button>
+                      {chipCompromiso(e.nota)}
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-1.5 text-sm text-gray-800 whitespace-pre-wrap">
-                    {e.nota.note}
-                  </p>
-                )}
-                {e.nota.next_contact_date && (
-                  <p className="mt-1.5 text-xs text-blue-700">
-                    📅 Próximo contacto:{" "}
-                    {e.nota.next_contact_date.slice(8, 10)}-
-                    {e.nota.next_contact_date.slice(5, 7)}
-                  </p>
-                )}
-              </div>
-            ),
+                );
+              })}
+            </div>
           );
         })()}
       </div>
@@ -779,88 +1093,64 @@ function HiloSeguimiento({
       <div className="shrink-0 border-t border-gray-200 p-4 space-y-2.5 mt-3">
         {err && <p className="text-xs text-red-600">{err}</p>}
         <textarea
+          ref={notaRef}
           value={nota}
           onChange={(e) => setNota(e.target.value)}
           rows={2}
-          placeholder="¿Qué pasó con esta negociación? (llamada, respuesta, espera de aprobación…)"
+          placeholder={
+            negocioVivo
+              ? "¿Qué pasó con esta negociación? (llamada, respuesta, espera de aprobación…)"
+              : "Nota de archivo (negocio cerrado: sin próximo paso)"
+          }
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Cinco opciones fijas no necesitan buscador: menucito de
-              la casa con los iconos de línea. */}
-          <span className="relative inline-block">
+        {negocioVivo ? (
+          /* Negocio vivo: tipo y próximo contacto OBLIGATORIOS — un
+             negocio vivo siempre tiene próximo paso. */
+          /* Dos filas armónicas (pedido de Felipe 05-08): los chips se
+             reparten el ancho completo de la caja de comentarios, y
+             abajo el calendario PEGADO al Guardar, a la derecha. */
+          <>
+            {chipsTipo(tipo, setTipo, true)}
+            <div className="flex items-center justify-end gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                Próx. contacto
+                <input
+                  ref={fechaRef}
+                  type="date"
+                  value={proxima}
+                  min={hoyLocal()}
+                  onChange={(e) => setProxima(e.target.value)}
+                  className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void guardar()}
+                disabled={!puedeGuardar}
+                title={
+                  faltan.length > 0 ? `Falta ${faltan.join(", ")}` : undefined
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {guardando ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Negocio muerto: solo la nota de archivo — sin tipo, sin
+             fecha, sin empujones. */
+          <div className="flex items-center">
             <button
               type="button"
-              onClick={() => setTipoMenu((v) => !v)}
-              className="flex items-center gap-1.5 w-40 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+              onClick={() => void guardar()}
+              disabled={!puedeGuardar}
+              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
             >
-              {tipo ? (
-                <>
-                  <IconoTipo tipo={tipo} /> {nombreTipo(tipo)}
-                </>
-              ) : (
-                <span className="text-gray-400">Tipo (opcional)</span>
-              )}
-              <ChevronDown size={12} className="ml-auto shrink-0" />
+              {guardando ? "Guardando…" : "Guardar"}
             </button>
-            {tipoMenu && (
-              <>
-                <span
-                  className="fixed inset-0 z-10 block"
-                  onClick={() => setTipoMenu(false)}
-                />
-                <span className="absolute left-0 bottom-full mb-1 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
-                  {tipo && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTipoMenu(false);
-                        setTipo("");
-                      }}
-                      className="block w-full text-left px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-50"
-                    >
-                      Sin tipo
-                    </button>
-                  )}
-                  {TIPOS_GESTION.map((t) => (
-                    <button
-                      key={t.v}
-                      type="button"
-                      onClick={() => {
-                        setTipoMenu(false);
-                        setTipo(t.v);
-                      }}
-                      className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <IconoTipo tipo={t.v} /> {t.l}
-                    </button>
-                  ))}
-                </span>
-              </>
-            )}
-          </span>
-          <label className="flex items-center gap-1.5 text-xs text-gray-600">
-            Próx. contacto
-            <input
-              type="date"
-              value={proxima}
-              min={hoyLocal()}
-              onChange={(e) => setProxima(e.target.value)}
-              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => void guardar()}
-            disabled={!nota.trim() || guardando}
-            className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-          >
-            {(() => {
-              if (guardando) return "Guardando…";
-              return proxima ? "Guardar" : "Guardar (sin próximo contacto)";
-            })()}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
