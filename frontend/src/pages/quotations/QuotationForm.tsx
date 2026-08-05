@@ -972,7 +972,10 @@ export default function QuotationForm() {
       setGroupName("");
       toast.success("Grupo guardado.");
     } catch (error) {
-      toast.error("No se pudo guardar el grupo.");
+      // El servidor sabe POR QUÉ falló (nombre repetido, etc.): decirlo
+      // en vez del "no se pudo" mudo (pillado 05-08 con un nombre ya
+      // usado por un menú viejo).
+      toast.error(`No se pudo guardar el menú: ${humanizeApiError(error)}`);
     } finally {
       setSavingGroup(false);
     }
