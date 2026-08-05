@@ -593,7 +593,7 @@ export default function ServiciosTab({
   // `silencioso`: el auto-guardado no toca los textos del guardado
   // manual (tiene su indicador propio); todo lo demás — payload, cuenta
   // compartida, avisos de plan de pagos y refetch — es EXACTAMENTE igual.
-  const save = async (opts?: { silencioso?: boolean }): Promise<boolean> => {
+  const save = async (): Promise<boolean> => {
     // Evento provisionado: bajar personas es solo para administradores.
     if (
       provInfo.provisioned_at &&
@@ -643,7 +643,6 @@ export default function ServiciosTab({
         quote.id,
       );
       if (error) throw error;
-      if (!opts?.silencioso) setMsg("Cambios guardados ✓");
       // Aviso: describe cómo se reajustó el plan de pagos. SOLO en
       // Post-Venta — en una cotización en juego no hay cuotas que
       // ajustar y el cartel mentía (pillada de Felipe 05-08, #436).
@@ -681,7 +680,6 @@ export default function ServiciosTab({
       onSaved();
       return true;
     } catch {
-      if (!opts?.silencioso) setMsg("No se pudo guardar.");
       return false;
     } finally {
       vueloRef.current = false;
@@ -703,13 +701,14 @@ export default function ServiciosTab({
       return;
     }
     setAutoEstado("guardando");
-    const ok = await save({ silencioso: true });
+    const ok = await save();
     setAutoEstado(ok ? "ok" : "error");
     if (ok)
       setAutoHora(
         new Date().toLocaleTimeString("es-CL", {
           hour: "2-digit",
           minute: "2-digit",
+          hour12: false,
         }),
       );
   };
@@ -2075,7 +2074,7 @@ export default function ServiciosTab({
               {msg && <span className="text-sm text-gray-500">{msg}</span>}
               <button
                 type="button"
-                onClick={() => void save()}
+                onClick={() => void autoGuardar()}
                 disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
