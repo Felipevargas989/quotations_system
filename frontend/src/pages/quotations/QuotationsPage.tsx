@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   keepPreviousData,
@@ -39,6 +39,7 @@ import {
 import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
+import { filtrosGuardados, guardarFiltros } from "./filtrosTablero";
 
 // La Lista se jubiló (04-08, decisión de Felipe): el tablero es la
 // única vista — cerradas en Post-Venta, rechazadas en su franja, la
@@ -166,7 +167,10 @@ export default function QuotationsPage() {
     quotationId: string;
     newStatus: string;
   } | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  // Una sola foto del storage por montaje: los tres filtros parten
+  // de la misma lectura.
+  const [filtrosIniciales] = useState(() => filtrosGuardados(user?.id));
+  const [searchTerm, setSearchTerm] = useState(filtrosIniciales.busqueda ?? "");
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
@@ -251,7 +255,9 @@ export default function QuotationsPage() {
     queryFn: getFollowupsMap,
   });
   const seguimientosMap = seguimientosQuery.data ?? {};
-  const [soloSeguimiento, setSoloSeguimiento] = useState(false);
+  const [soloSeguimiento, setSoloSeguimiento] = useState(
+    filtrosIniciales.soloSeguimiento ?? false,
+  );
 
   type Semaforo = { texto: string; clase: string; urgencia: number };
   const semaforoDe = (q: QuotationWithClient): Semaforo | null => {
@@ -582,7 +588,18 @@ export default function QuotationsPage() {
     },
   });
   const rechazadas = (rechazadasQuery.data ?? []).filter(coincideBusqueda);
-  const [verRechazadas, setVerRechazadas] = useState(false);
+  const [verRechazadas, setVerRechazadas] = useState(
+    filtrosIniciales.verRechazadas ?? false,
+  );
+
+  const userId = user?.id;
+  useEffect(() => {
+    guardarFiltros(userId, {
+      busqueda: searchTerm,
+      soloSeguimiento,
+      verRechazadas,
+    });
+  }, [userId, searchTerm, soloSeguimiento, verRechazadas]);
 
   const busquedaActiva = searchTerm.trim() !== "";
   const cerradasQuery = useQuery({
@@ -825,8 +842,11 @@ export default function QuotationsPage() {
                   )}
                   {/* Sin esto, la columna decía "sin cotizaciones"
                       MIENTRAS cargaba — mentira de 1 segundo que
-                      asustó a Felipe (04-08). */}
-                  {loading ? (
+                      asustó a Felipe (04-08). Con "Requieren"
+                      restaurado, el semáforo también necesita su mapa
+                      antes de filtrar (si no, clasifica a ciegas). */}
+                  {loading ||
+                  (soloSeguimiento && seguimientosQuery.isPending) ? (
                     <p className="text-xs text-gray-400 px-1 py-3">Cargando…</p>
                   ) : tarjetas.length === 0 ? (
                     <p className="text-xs text-gray-400 px-1 py-3">
@@ -1018,7 +1038,9 @@ export default function QuotationsPage() {
             <div className="px-4 pb-3 divide-y divide-gray-200">
               {rechazadas.length === 0 ? (
                 <p className="py-2 text-xs text-gray-400">
-                  Ninguna cotización rechazada.
+                  {rechazadasQuery.isPending
+                    ? "Cargando…"
+                    : "Ninguna cotización rechazada."}
                 </p>
               ) : (
                 rechazadas.map((q) => (

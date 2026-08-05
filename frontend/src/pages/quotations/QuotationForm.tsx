@@ -16,6 +16,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { olvidarFiltrosTablero } from "./filtrosTablero";
 import { useServices } from "../../hooks/useServices";
 import { getFixedSections } from "../../services/services.service";
 import { useServiceGroups } from "../../hooks/useServiceGroups";
@@ -1468,6 +1469,10 @@ export default function QuotationForm() {
           ? "Cotización actualizada."
           : "Cotización guardada.",
       );
+      // Al crear, el tablero olvida sus filtros: la tarjeta nueva
+      // debe aparecer sí o sí al volver (una búsqueda vieja que la
+      // esconde se lee como "la creación falló").
+      if (!isEditingExisting) olvidarFiltrosTablero(user?.id);
       volver();
     } catch (error) {
       toast.error(`No se pudo guardar la cotización: ${humanizeApiError(error)}`);
