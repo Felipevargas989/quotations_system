@@ -154,10 +154,59 @@ export default function VariableServicesByCategory({
   const closeAllCategories = () => persistOpenCats(new Set());
 
   // --- Category drag (reorder the boxes) + ⋮ menu ---
-  const [dragCategoryId, setDragCategoryId] = useState<number | null>(null);
   const [localCategoryOrder, setLocalCategoryOrder] = useState<number[] | null>(
     null,
   );
+
+  // CURA DEL REBOTE (06-08, "se pega y piensa" de Felipe): el orden
+  // local vive hasta que los datos del padre YA lo reflejan — nunca
+  // se bota antes de tiempo, así la lista no salta al orden viejo
+  // mientras la recarga viaja.
+  useEffect(() => {
+    if (!localCategoryOrder) return;
+    const propIds = orderedCategories.map((c) => c.id);
+    if (
+      propIds.length === localCategoryOrder.length &&
+      propIds.every((id, i) => id === localCategoryOrder[i])
+    ) {
+      setLocalCategoryOrder(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedCategories]);
+
+  // Flechitas ▲▼: clics rápidos se acumulan al tiro en el orden local
+  // y UNA sola llamada (con su recarga) viaja cuando dejas de mover.
+  const reorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ordenPendiente = useRef<number[] | null>(null);
+  useEffect(
+    () => () => {
+      // Si navegan con el temporizador andando, el orden igual se salva.
+      if (reorderTimer.current) {
+        clearTimeout(reorderTimer.current);
+        if (ordenPendiente.current) {
+          void onReorderCategories(ordenPendiente.current);
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const moverCategoria = (id: number, delta: -1 | 1) => {
+    const base = localCategoryOrder ?? orderedCategories.map((c) => c.id);
+    const i = base.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= base.length) return;
+    const next = [...base];
+    [next[i], next[j]] = [next[j], next[i]];
+    setLocalCategoryOrder(next);
+    ordenPendiente.current = next;
+    if (reorderTimer.current) clearTimeout(reorderTimer.current);
+    reorderTimer.current = setTimeout(() => {
+      reorderTimer.current = null;
+      ordenPendiente.current = null;
+      void onReorderCategories(next).catch(() => setLocalCategoryOrder(null));
+    }, 600);
+  };
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
@@ -400,31 +449,7 @@ export default function VariableServicesByCategory({
     ...orderedCategories.filter((c) => !categoryOrderIds.includes(c.id)),
   ];
 
-  const handleCategoryDragStart = (id: number) => {
-    setDragCategoryId(id);
-    setLocalCategoryOrder(orderedCategories.map((c) => c.id));
-  };
 
-  const handleCategoryDrop = async (targetId: number) => {
-    const base = localCategoryOrder ?? orderedCategories.map((c) => c.id);
-    if (dragCategoryId === null || dragCategoryId === targetId) {
-      setDragCategoryId(null);
-      return;
-    }
-    const without = base.filter((id) => id !== dragCategoryId);
-    const idx = without.indexOf(targetId);
-    const next = [...without];
-    next.splice(idx < 0 ? without.length : idx, 0, dragCategoryId);
-    setLocalCategoryOrder(next);
-    setDragCategoryId(null);
-    try {
-      await onReorderCategories(next);
-    } catch {
-      // parent reload restores the server order
-    } finally {
-      setLocalCategoryOrder(null);
-    }
-  };
 
   // --- Category menu actions ---
   const toggleMenu = (id: number) => {
@@ -547,7 +572,6 @@ export default function VariableServicesByCategory({
         const inactiveCat = cat.is_active === false;
         const isEditing = editingId === cat.id;
         const isConfirming = confirmDeleteId === cat.id;
-        const headerDraggable = !isEditing && !isConfirming;
         // Con búsqueda activa: abiertas si tienen coincidencias,
         // ocultas si no (sin tocar los pliegues guardados).
         if (searchActive && ids.length === 0) return null;
@@ -556,19 +580,10 @@ export default function VariableServicesByCategory({
         return (
           <div
             key={cat.id}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => handleCategoryDrop(cat.id)}
-            className={`bg-white rounded-lg shadow ${
-              dragCategoryId === cat.id ? "opacity-50" : ""
-            }`}
+            className="bg-white rounded-lg shadow"
           >
             {/* Category header: drag handle + name + count + ⋮ menu */}
             <div
-              draggable={headerDraggable}
-              onDragStart={() =>
-                headerDraggable && handleCategoryDragStart(cat.id)
-              }
-              onDragEnd={() => setDragCategoryId(null)}
               onClick={() => {
                 if (!isEditing && !isConfirming) toggleCategoryOpen(cat.id);
               }}
@@ -643,10 +658,6 @@ export default function VariableServicesByCategory({
                 </div>
               ) : (
                 <div className="flex items-center gap-2 min-w-0">
-                  <GripVertical
-                    size={16}
-                    className="text-gray-400 cursor-grab flex-shrink-0"
-                  />
                   {isOpen ? (
                     <ChevronDown
                       size={16}
@@ -675,6 +686,30 @@ export default function VariableServicesByCategory({
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-sm text-gray-500">
                     {ids.length} servicio{ids.length === 1 ? "" : "s"}
+                  </span>
+                  {/* Orden por flechas (06-08, decisión de Felipe): el
+                      arrastre de categorías se jubiló — esto es preciso
+                      y no se pega. */}
+                  <span
+                    className="flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      title="Subir categoría"
+                      onClick={() => moverCategoria(cat.id, -1)}
+                      className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                    >
+                      <ChevronUp size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Bajar categoría"
+                      onClick={() => moverCategoria(cat.id, 1)}
+                      className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"
+                    >
+                      <ChevronDown size={15} />
+                    </button>
                   </span>
                   <button
                     type="button"
