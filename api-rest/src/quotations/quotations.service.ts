@@ -370,6 +370,28 @@ export class QuotationsService {
     return { name: c.name, email: c.email, portalToken: c.portal_token };
   }
 
+  // Espejo de markEventDone: deshace la marca (realizada -> aceptada).
+  // Sin correos: la encuesta ya enviada no se puede des-enviar.
+  async unmarkEventDone(id: string, companyId: number) {
+    const { data: quotation, error } =
+      await this.quotationsRepository.findOne(id);
+    if (error) throw error;
+    if (!quotation || quotation.company_id !== companyId) {
+      throw new Error('Quotation not found');
+    }
+    if (quotation.quotation_status !== QuotationStatus.REALIZADA) {
+      throw new Error('Only done events can be unmarked');
+    }
+    await this.quotationsRepository.update(
+      id,
+      {
+        quotation_status: QuotationStatus.ACEPTADA,
+      } as unknown as UpdateQuotationDto,
+      companyId,
+    );
+    return { ok: true };
+  }
+
   async markEventDone(id: string, companyId: number) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);

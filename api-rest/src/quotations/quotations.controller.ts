@@ -12,7 +12,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
-import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user.entity';
@@ -125,6 +125,16 @@ export class QuotationsController {
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
     return this.quotationsService.markEventDone(id, user.company_id);
+  }
+
+  // La puerta de VUELTA (05-08, pedido de Felipe): des-marca un evento
+  // realizado por error. Solo administrador. La encuesta ya enviada no
+  // se toca (y si se re-marca, no se reenvia: survey_sent_at manda).
+  @Roles(...ADMIN_ONLY)
+  @Post(':id/volver-a-pendiente')
+  unmarkEventDone(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/volver-a-pendiente`);
+    return this.quotationsService.unmarkEventDone(id, user.company_id);
   }
 
   @Patch(':id')
