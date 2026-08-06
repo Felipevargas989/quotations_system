@@ -248,10 +248,17 @@ export function buildQuotationPrintDoc(
   `;
 
   // Nombres de lo que incluye un servicio, ordenados como la carta.
+  // Con la cantidad cuando es más de una (05-08, pillado por Felipe en
+  // la #411: cobraba 2 helados por persona y el programa mostraba uno
+  // solo). Mismo "×N" que ya usaban los servicios fijos.
+  const conCantidad = (it: { nombre?: string; quantity?: number }) => {
+    const q = it.quantity || 1;
+    return q > 1 ? `${it.nombre} ×${q}` : String(it.nombre);
+  };
   const includesOf = (g: VarGroup): string => {
     const items = (g.items || []).filter((it) => it.nombre);
     if (items.length === 0) return "";
-    if (!menu) return items.map((it) => it.nombre).join(" · ");
+    if (!menu) return items.map(conCantidad).join(" · ");
     const cat = menu.categories.find((c) => c.name === g.category);
     const secSort = new Map(menu.sections.map((s) => [s.id, s.sort_order]));
     const linkSec = new Map(
@@ -261,7 +268,7 @@ export function buildQuotationPrintDoc(
     );
     return items
       .map((it, i) => ({
-        nombre: it.nombre as string,
+        nombre: conCantidad(it),
         sort:
           (it.codigo && linkSec.get(String(it.codigo)) != null
             ? (secSort.get(linkSec.get(String(it.codigo)) as number) ?? 9998)
