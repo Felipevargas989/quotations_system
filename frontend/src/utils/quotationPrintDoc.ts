@@ -36,7 +36,7 @@ export interface PrintCompany {
 
 export interface PrintMenu {
   categories: { id: number; name: string }[];
-  sections: { id: number; sort_order?: number | null }[];
+  sections: { id: number; name?: string; sort_order?: number | null }[];
   links: {
     variable_service_id: number | string;
     section_id?: number | null;
@@ -193,6 +193,13 @@ export function buildQuotationPrintDoc(
   })();
 
   // ---------- Plantilla (mockup aprobado) ----------
+  // Textos del pie de página, escapados para viajar dentro de la regla
+  // CSS (comillas y barras romperían la hoja de estilos).
+  const enCss = (t: string) => t.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const pieIzq = enCss(company?.name || "");
+  const pieDer = enCss(
+    `Cotización N° ${quotation.quotation_number} · válida por 30 días`,
+  );
   const css = `
     .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
     .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
@@ -218,6 +225,9 @@ export function buildQuotationPrintDoc(
     .qv-prog .inc { font-size:11px; color:#6b7280; font-weight:400; margin-top:2px; line-height:1.5; }
     .qv-tagA { color:${brandP}; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
     .qv-tagN { color:#b45309; font-weight:800; font-size:9.5px; letter-spacing:.5px; }
+    /* Cierre del programa (06-08, pedido de Felipe): un renglón en el
+       color secundario que sella la sección antes de la plata. */
+    .qv-cierre { height:3px; border-radius:2px; background:${brandS || brandP}; margin:18px 0 2px; opacity:.85; }
     .qv-val { width:100%; border-collapse:collapse; }
     .qv-val td { font-size:12.5px; padding:6px 10px; border-bottom:1px solid #f3f4f6; color:#1f2937; }
     .qv-val .der { text-align:right; white-space:nowrap; font-weight:600; color:#111827; }
@@ -236,6 +246,31 @@ export function buildQuotationPrintDoc(
     .qv-obs { margin-top:24px; background:${brandS || "#f9fafb"}; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
     .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
     .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
+    /* PAGINACIÓN DE VERDAD (06-08): el navegador solo sugiere cortes;
+       esta regla — que interpreta la pieza de paginación cargada en la
+       ventana de impresión — define el pie que se repite en TODAS las
+       hojas y el contador "Página N de M". Fuera de @media print a
+       propósito: la paginación lee las reglas de nivel superior. */
+    @page {
+      size: A4;
+      margin: 12mm;
+      @bottom-left {
+        content: "${pieIzq}";
+        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-size: 9.5px;
+        color: #9ca3af;
+        vertical-align: bottom;
+        padding-bottom: 2mm;
+      }
+      @bottom-right {
+        content: "${pieDer} · Página " counter(page) " de " counter(pages);
+        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-size: 9.5px;
+        color: #9ca3af;
+        vertical-align: bottom;
+        padding-bottom: 2mm;
+      }
+    }
     .qv-hoja, .qv-hoja * {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -244,6 +279,43 @@ export function buildQuotationPrintDoc(
       @page { margin: 12mm; }
       body { background: #fff !important; }
       .qv-hoja { padding: 0; }
+
+      /* COSTURAS (06-08, pedido de Felipe: el detalle por secciones
+         alarga el documento y no puede cortar bloques por la mitad).
+         Granularidad fina a propósito: una TABLA larga sí puede seguir
+         en la hoja siguiente, pero nunca se parte una FILA ni una caja
+         que se lee como una unidad (los totales, sobre todo). */
+      .qv-prog tr, .qv-val tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      /* El cuadro de totales viaja entero a la hoja siguiente si no
+         cabe completo: jamás el IVA en una página y el TOTAL en otra. */
+      .qv-resumen, .qv-obs, .qv-head, .qv-datos {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      /* LA PLATA, TODA JUNTA (06-08, pedido de Felipe): valores por
+         persona con su subtotal, servicios fijos con el suyo, y
+         Neto/IVA/TOTAL viajan como UNA sola pieza a la hoja siguiente
+         si no caben. Cada cuadro por dentro tampoco se corta. Si el
+         conjunto no cabe ni en una hoja completa, se parte igual —
+         nunca se pierde contenido. */
+      .qv-plata, .qv-bloque {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      /* El pie del flujo desaparece al imprimir: lo reemplazan las
+         cajas del pie de página (abajo), que SÍ se repiten en todas
+         las hojas y saben el número de página. */
+      .qv-pie { display: none; }
+      /* Un título nunca queda solo al pie de la página. */
+      .qv-hoja h2, .qv-dia h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+      /* Y el rótulo del día viaja con sus primeras filas. */
+      .qv-dia { page-break-inside: auto; break-inside: auto; }
     }
   `;
 
@@ -255,30 +327,51 @@ export function buildQuotationPrintDoc(
     const q = it.quantity || 1;
     return q > 1 ? `${it.nombre} ×${q}` : String(it.nombre);
   };
-  const includesOf = (g: VarGroup): string => {
+  // Lo que incluye un servicio, AGRUPADO POR SECCIÓN como una carta
+  // (06-08, idea de Felipe: "aprovechemos las secciones que ya tenemos").
+  // Categoría sin secciones → una sola línea plana, como antes. Los
+  // ítems sin sección van al final SIN rótulo (el cliente no necesita
+  // ver un "Otros"). Secciones vacías no aparecen.
+  const includesOf = (g: VarGroup): { titulo: string; texto: string }[] => {
     const items = (g.items || []).filter((it) => it.nombre);
-    if (items.length === 0) return "";
-    if (!menu) return items.map(conCantidad).join(" · ");
+    if (items.length === 0) return [];
+    const plano = () => [{ titulo: "Incluye:", texto: items.map(conCantidad).join(" · ") }];
+    if (!menu) return plano();
     const cat = menu.categories.find((c) => c.name === g.category);
-    const secSort = new Map(menu.sections.map((s) => [s.id, s.sort_order]));
-    const linkSec = new Map(
+    if (!cat) return plano();
+    const secs = menu.sections
+      .filter((sec) => sec.name)
+      .slice()
+      .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
+    const secDe = new Map(
       menu.links
-        .filter((l) => !cat || l.category_id === cat.id)
-        .map((l) => [String(l.variable_service_id), l.section_id]),
+        .filter((l) => l.category_id === cat.id)
+        .map((l) => [String(l.variable_service_id), l.section_id ?? 0]),
     );
-    return items
-      .map((it, i) => ({
-        nombre: conCantidad(it),
-        sort:
-          (it.codigo && linkSec.get(String(it.codigo)) != null
-            ? (secSort.get(linkSec.get(String(it.codigo)) as number) ?? 9998)
-            : 9999) *
-            10000 +
-          i,
-      }))
-      .sort((a, b) => a.sort - b.sort)
-      .map((x) => x.nombre)
-      .join(" · ");
+    // ¿Esta categoría usa secciones en esta cotización? Si ninguno de
+    // sus ítems tiene sección, la lista plana de siempre.
+    const conSeccion = items.some(
+      (it) => (secDe.get(String(it.codigo ?? "")) ?? 0) !== 0,
+    );
+    if (!conSeccion) return plano();
+    const bloques: { titulo: string; texto: string }[] = [];
+    secs.forEach((sec) => {
+      const dentro = items.filter(
+        (it) => (secDe.get(String(it.codigo ?? "")) ?? 0) === sec.id,
+      );
+      if (dentro.length)
+        bloques.push({
+          titulo: `${sec.name}:`,
+          texto: dentro.map(conCantidad).join(" · "),
+        });
+    });
+    // Sin sección: al final y sin rótulo.
+    const sueltos = items.filter(
+      (it) => (secDe.get(String(it.codigo ?? "")) ?? 0) === 0,
+    );
+    if (sueltos.length)
+      bloques.push({ titulo: "", texto: sueltos.map(conCantidad).join(" · ") });
+    return bloques;
   };
 
   const audTag = (g: VarGroup) =>
@@ -287,10 +380,13 @@ export function buildQuotationPrintDoc(
       : `<span class="qv-tagA">ADULTOS</span>`;
 
   const progRow = (g: VarGroup) => {
-    const inc = includesOf(g);
-    return `<tr><td><b>${esc(g.category || "Servicio")}</b>${
-      inc ? `<div class="inc"><b>Incluye:</b> ${esc(inc)}</div>` : ""
-    }</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
+    const bloques = includesOf(g)
+      .map(
+        (b) =>
+          `<div class="inc">${b.titulo ? `<b>${esc(b.titulo)}</b> ` : ""}${esc(b.texto)}</div>`,
+      )
+      .join("");
+    return `<tr><td><b>${esc(g.category || "Servicio")}</b>${bloques}</td><td class="aud">${audTag(g)} · ${groupPeople(g).toLocaleString("es-CL")} personas</td></tr>`;
   };
 
   const programa = multiDay
@@ -374,14 +470,15 @@ export function buildQuotationPrintDoc(
         <div class="qv-dato"><div class="k">Tipo de evento</div><div class="v">${esc(String(quotation.event_type || "—"))}</div></div>
         <div class="qv-dato"><div class="k">Fecha del evento</div><div class="v">${eventDateLabel}</div></div>
         <div class="qv-dato"><div class="k">Asistentes</div><div class="v">${(adults + kids).toLocaleString("es-CL")}${kids > 0 ? ` <small>· ${adults} adultos + ${kids} niños</small>` : ""}</div></div>
-        <div class="qv-dato"><div class="k">Validez</div><div class="v">15 días</div></div>
+        <div class="qv-dato"><div class="k">Validez</div><div class="v">30 días</div></div>
       </div>
 
-      ${varGroups.length > 0 ? `<h2>Programa del evento</h2>${programa}` : ""}
+      ${varGroups.length > 0 ? `<h2>Programa del evento</h2>${programa}<div class="qv-cierre"></div>` : ""}
 
-      ${varGroups.length > 0 ? `<h2>Valores · servicios de alimentación</h2><table class="qv-val">${valoresRows}</table>` : ""}
+      <div class="qv-plata">
+      ${varGroups.length > 0 ? `<div class="qv-bloque"><h2>Valores · servicios de alimentación</h2><table class="qv-val">${valoresRows}</table></div>` : ""}
 
-      ${fijosRows ? `<h2>Servicios fijos del evento</h2><table class="qv-val">${fijosRows}</table>` : ""}
+      ${fijosRows ? `<div class="qv-bloque"><h2>Servicios fijos del evento</h2><table class="qv-val">${fijosRows}</table></div>` : ""}
 
       <div class="qv-resumen">
         ${
@@ -400,6 +497,7 @@ export function buildQuotationPrintDoc(
             : `<div class="final"><span>TOTAL</span><span>${clp(totalConIva)}</span></div>`
         }
       </div>
+      </div>
 
       ${
         quotation.observations
@@ -409,7 +507,7 @@ export function buildQuotationPrintDoc(
 
       <div class="qv-pie">
         <span>${esc(company?.name || "")}</span>
-        <span>Cotización N° ${quotation.quotation_number} · válida por 15 días</span>
+        <span>Cotización N° ${quotation.quotation_number} · válida por 30 días</span>
       </div>
     </div>
   `;
@@ -426,14 +524,31 @@ export function openQuotationPrintWindow(
   const { css, body } = buildQuotationPrintDoc(quotation, company, menu);
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
+  // La ventana de impresión pagina de VERDAD antes de imprimir (06-08):
+  // la pieza de paginación arma las hojas, repite el pie y numera
+  // "Página N de M" — lo que el navegador solo no sabe hacer. El
+  // respaldo por tiempo asegura que, si esa pieza no cargara, la
+  // impresión salga igual como siempre.
   printWindow.document.write(`<!DOCTYPE html>
       <html lang="es"><head><meta charset="utf-8">
       <title>Cotización ${quotation.quotation_number} - ${esc(company?.name || "Empresa")}</title>
       <style>body{margin:0;} ${css}</style>
-      </head><body>${body}</body></html>`);
+      <script>
+        window.__yaImprimio = false;
+        window.imprimirUnaVez = function () {
+          if (window.__yaImprimio) return;
+          window.__yaImprimio = true;
+          window.print();
+        };
+        window.PagedConfig = {
+          auto: true,
+          after: function () { setTimeout(window.imprimirUnaVez, 150); },
+        };
+      <\/script>
+      <script src="/paged.polyfill.js" onerror="setTimeout(window.imprimirUnaVez, 200)"><\/script>
+      </head><body>${body}
+      <script>setTimeout(window.imprimirUnaVez, 8000);<\/script>
+      </body></html>`);
   printWindow.document.close();
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
   return true;
 }
