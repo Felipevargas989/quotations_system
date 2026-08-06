@@ -1185,6 +1185,36 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
       queryKey: ["postventa", "docs", quotationId],
     });
 
+  // ARRASTRAR Y SOLTAR (06-08, pedido de Felipe): en Mac el pantallazo
+  // queda flotando abajo a la derecha y se arrastra DIRECTO desde ahí,
+  // sin pasar por Descargas. El botón de siempre sigue igual: esto es
+  // una puerta más, no un reemplazo. De regalo, pegar con Ctrl+V.
+  const [arrastrando, setArrastrando] = useState(false);
+  const recibir = (f: File | null | undefined) => {
+    if (!f) return;
+    setArchivo(f);
+    setErr(null);
+  };
+  const alSoltar = (e: React.DragEvent) => {
+    e.preventDefault();
+    setArrastrando(false);
+    recibir(e.dataTransfer.files?.[0]);
+  };
+  const alPegar = (e: React.ClipboardEvent) => {
+    const f = Array.from(e.clipboardData?.items || [])
+      .filter((i) => i.kind === "file")
+      .map((i) => i.getAsFile())
+      .find(Boolean);
+    if (f) {
+      e.preventDefault();
+      // Un pantallazo pegado no trae nombre útil: se bautiza con la fecha.
+      const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      recibir(
+        new File([f], `pantallazo-${new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "")}.${ext}`, { type: f.type }),
+      );
+    }
+  };
+
   const subir = async () => {
     if (!archivo || subiendo) return;
     setSubiendo(true);
@@ -1237,7 +1267,24 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
   const esImagen = (url: string) => /\.(jpe?g|png|webp|gif|heic)/i.test(url);
 
   return (
-    <div className="border border-gray-200 rounded-xl flex flex-col">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!arrastrando) setArrastrando(true);
+      }}
+      onDragLeave={(e) => {
+        // Solo apagar cuando el puntero sale de la tarjeta completa.
+        if (!e.currentTarget.contains(e.relatedTarget as Node))
+          setArrastrando(false);
+      }}
+      onDrop={alSoltar}
+      onPaste={alPegar}
+      className={`border rounded-xl flex flex-col transition-colors ${
+        arrastrando
+          ? "border-blue-400 border-dashed bg-blue-50/60"
+          : "border-gray-200"
+      }`}
+    >
       <h3 className="text-sm font-bold text-gray-700 flex items-center gap-1.5 px-4 pt-3">
         <Upload size={15} /> Respaldos comerciales
       </h3>
@@ -1301,6 +1348,16 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
           quedan anclados a la misma altura (pedido de Felipe 04-08). */}
       <div className="shrink-0 border-t border-gray-200 p-4 space-y-2.5 mt-3">
         {err && <p className="text-xs text-red-600">{err}</p>}
+        {arrastrando && (
+          <p className="text-xs font-semibold text-blue-600">
+            Suelta aquí el pantallazo ↓
+          </p>
+        )}
+        {archivo && !arrastrando && (
+          <p className="text-xs text-gray-600 truncate">
+            Listo para subir: <b className="text-gray-800">{archivo.name}</b>
+          </p>
+        )}
         <input
           type="file"
           onChange={(e) => setArchivo(e.target.files?.[0] || null)}
