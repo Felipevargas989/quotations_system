@@ -432,12 +432,13 @@ describe('QuotationsService', () => {
       );
 
       expect(r).toEqual({ ok: true, estado: 'en_gestion' });
-      const [, cambios] = quotationsRepositoryMock.update.mock.calls[0];
+      const cambios = quotationsRepositoryMock.update.mock
+        .calls[0][1] as unknown as Record<string, unknown>;
       expect(cambios).toMatchObject({
         harvest_status: 'en_gestion',
         recontacted_by: 'user-9',
       });
-      expect((cambios as any).recontacted_at).toEqual(expect.any(String));
+      expect(cambios.recontacted_at).toEqual(expect.any(String));
     });
 
     it('volver a automático borra el estado pero NO el rastro', async () => {
@@ -449,10 +450,11 @@ describe('QuotationsService', () => {
 
       await service.setHarvestStatus(idCotizacion, 7, 'user-9', null);
 
-      const [, cambios] = quotationsRepositoryMock.update.mock.calls[0];
-      expect((cambios as any).harvest_status).toBeNull();
-      expect((cambios as any).recontacted_by).toBe('user-9');
-      expect((cambios as any).recontacted_at).toEqual(expect.any(String));
+      const cambios = quotationsRepositoryMock.update.mock
+        .calls[0][1] as unknown as Record<string, unknown>;
+      expect(cambios.harvest_status).toBeNull();
+      expect(cambios.recontacted_by).toBe('user-9');
+      expect(cambios.recontacted_at).toEqual(expect.any(String));
     });
 
     it('no toca una cotización de otra compañía', async () => {

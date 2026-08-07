@@ -21,8 +21,8 @@ import { RequestType } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
-import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
+import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
 
