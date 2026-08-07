@@ -255,8 +255,10 @@ export function HiloSeguimiento({
     await queryClient.invalidateQueries({ queryKey: ["seguimientos", "map"] });
   };
 
-  // Regla de Close al escribir: en vivos faltan cosas hasta que haya
-  // texto + tipo + fecha; en muertos basta el texto (nota de archivo).
+  // Qué falta para poder guardar. Vendiendo: texto + tipo + fecha (un
+  // negocio vivo siempre tiene próximo paso). Evento ganado y negocio
+  // cerrado: basta el texto — el tipo y la fecha están a la vista pero
+  // son opcionales (07-08: "que fueran optativas").
   const faltan = [
     !nota.trim() && "la nota",
     negocioVivo && !tipo && "el tipo de gestión",
@@ -273,8 +275,8 @@ export function HiloSeguimiento({
         quotation_id: quotation.id,
         note: nota.trim(),
         // En negocios muertos la nota es de archivo: sin tipo ni fecha.
-        ...(negocioVivo && tipo ? { tipo: tipo as FollowupTipo } : {}),
-        ...(negocioVivo && proxima ? { next_contact_date: proxima } : {}),
+        ...(compromisoVivo && tipo ? { tipo: tipo as FollowupTipo } : {}),
+        ...(compromisoVivo && proxima ? { next_contact_date: proxima } : {}),
       });
       setNota("");
       setTipo("");
@@ -296,8 +298,12 @@ export function HiloSeguimiento({
     try {
       await updateFollowup(nid, {
         note: texto,
-        ...(negocioVivo && editTipo ? { tipo: editTipo as FollowupTipo } : {}),
-        ...(negocioVivo && editFecha ? { next_contact_date: editFecha } : {}),
+        ...(compromisoVivo && editTipo
+          ? { tipo: editTipo as FollowupTipo }
+          : {}),
+        ...(compromisoVivo && editFecha
+          ? { next_contact_date: editFecha }
+          : {}),
       });
       setEditId(null);
       await refrescar();
@@ -628,7 +634,7 @@ export function HiloSeguimiento({
                           {/* En vivos, editar también exige tipo y fecha
                               (misma regla de Close); en muertos la nota
                               es de archivo y solo se toca el texto. */}
-                          {negocioVivo && (
+                          {compromisoVivo && (
                             <div className="flex flex-wrap items-center gap-2.5">
                               {chipsTipo(editTipo, setEditTipo)}
                               <label className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -655,10 +661,10 @@ export function HiloSeguimiento({
                             {(() => {
                               const faltanEd = [
                                 !editNota.trim() && "la nota",
-                                negocioVivo &&
+                                compromisoVivo &&
                                   !editTipo &&
                                   "el tipo de gestión",
-                                negocioVivo &&
+                                compromisoVivo &&
                                   !editFecha &&
                                   "el próximo contacto",
                               ].filter(Boolean) as string[];
@@ -705,13 +711,17 @@ export function HiloSeguimiento({
           placeholder={
             negocioVivo
               ? "¿Qué pasó con esta negociación? (llamada, respuesta, espera de aprobación…)"
-              : "Nota de archivo (negocio cerrado: sin próximo paso)"
+              : eventoGanado
+                ? "¿Qué pasó con este evento? (llamado, cambio de menú, acuerdo…)"
+                : "Nota de archivo (negocio cerrado: sin próximo paso)"
           }
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        {negocioVivo ? (
-          /* Negocio vivo: tipo y próximo contacto OBLIGATORIOS — un
-             negocio vivo siempre tiene próximo paso. */
+        {compromisoVivo ? (
+          /* Vendiendo: tipo y próximo contacto OBLIGATORIOS — un
+             negocio vivo siempre tiene próximo paso. Evento ganado
+             (07-08): los MISMOS controles, pero opcionales — se puede
+             anotar sin nada, y si se pone fecha, esa fecha vence. */
           /* Dos filas armónicas (pedido de Felipe 05-08): los chips se
              reparten el ancho completo de la caja de comentarios, y
              abajo el calendario PEGADO al Guardar, a la derecha. */
