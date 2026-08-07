@@ -304,11 +304,13 @@ export default function EventResourcesSection({
       resources: ManagementResource[];
       suppliers: Supplier[];
       costItems: FixedServiceCostItem[];
-    }>(["postventa", "recursos", companyId, quotationId], (prev) =>
-      prev && {
-        ...prev,
-        lines: prev.lines.map((l) => (l.id === id ? { ...l, ...fields } : l)),
-      },
+    }>(
+      ["postventa", "recursos", companyId, quotationId],
+      (prev) =>
+        prev && {
+          ...prev,
+          lines: prev.lines.map((l) => (l.id === id ? { ...l, ...fields } : l)),
+        },
     );
   };
 
@@ -324,11 +326,13 @@ export default function EventResourcesSection({
         resources: ManagementResource[];
         suppliers: Supplier[];
         costItems: FixedServiceCostItem[];
-      }>(["postventa", "recursos", companyId, quotationId], (prev) =>
-        prev && {
-          ...prev,
-          lines: prev.lines.filter((l) => l.id !== id),
-        },
+      }>(
+        ["postventa", "recursos", companyId, quotationId],
+        (prev) =>
+          prev && {
+            ...prev,
+            lines: prev.lines.filter((l) => l.id !== id),
+          },
       );
       load();
     }
@@ -632,27 +636,41 @@ export default function EventResourcesSection({
                       }
                       return (
                         <tr key={l.id}>
-                          <td className="px-3 py-2">
-                            <span className="text-gray-900">
+                          {/* El nombre manda su propia línea y las
+                              etiquetas van abajo (07-08, pillada de
+                              Felipe en la #400): en una columna angosta
+                              se partían por la mitad — "FL / Eventos" y
+                              "de Audiovisual / básico"— y una píldora
+                              cortada en dos se lee pésimo. Cada pieza
+                              entera; si no caben todas, bajan enteras. */}
+                          <td className="px-3 py-2 align-top">
+                            <div className="text-gray-900">
                               {r?.name || "Recurso eliminado"}
-                            </span>
-                            {r && supName(r.supplier_id) && (
-                              <span className="ml-1.5 text-[11px] text-gray-400">
-                                {supName(r.supplier_id)}
-                              </span>
-                            )}
-                            {isRebaja && (
-                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-                                rebaja
-                              </span>
-                            )}
-                            {l.origin_fixed_service_id && (
-                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                                de{" "}
-                                {fixedServices.find(
-                                  (fs) => fs.id === l.origin_fixed_service_id,
-                                )?.nombre || "servicio fijo"}
-                              </span>
+                            </div>
+                            {(l.origin_fixed_service_id ||
+                              isRebaja ||
+                              (r && supName(r.supplier_id))) && (
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {r && supName(r.supplier_id) && (
+                                  <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                                    {supName(r.supplier_id)}
+                                  </span>
+                                )}
+                                {isRebaja && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
+                                    rebaja
+                                  </span>
+                                )}
+                                {l.origin_fixed_service_id && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">
+                                    de{" "}
+                                    {fixedServices.find(
+                                      (fs) =>
+                                        fs.id === l.origin_fixed_service_id,
+                                    )?.nombre || "servicio fijo"}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="px-2 py-1.5 text-right">
