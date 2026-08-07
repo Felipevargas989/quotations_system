@@ -22,7 +22,7 @@ import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-w
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
-import { RecontactoDto } from './dto/recontacto.dto';
+import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
 
@@ -138,20 +138,20 @@ export class QuotationsController {
     return this.quotationsService.unmarkEventDone(id, user.company_id);
   }
 
-  // Marca (o desmarca) que ya se intentó llamar al cliente. Lo usa la
-  // cosecha del mes en el Dashboard. Cualquiera que venda puede anotarlo.
-  @Post(':id/recontactado')
-  setRecontacted(
+  // La palabra final sobre una fila de la cosecha del mes. Cualquiera
+  // que venda puede corregirla: es su oficio, no una decisión de sistema.
+  @Post(':id/cosecha')
+  setHarvestStatus(
     @Param('id') id: string,
-    @Body() body: RecontactoDto,
+    @Body() body: EstadoCosechaDto,
     @CurrentUser() user: User,
   ) {
-    this.logger.info(`POST /quotations/${id}/recontactado ${body.marcado}`);
-    return this.quotationsService.setRecontacted(
+    this.logger.info(`POST /quotations/${id}/cosecha ${body.estado ?? 'auto'}`);
+    return this.quotationsService.setHarvestStatus(
       id,
       user.company_id,
       user.id,
-      body.marcado,
+      body.estado,
     );
   }
 

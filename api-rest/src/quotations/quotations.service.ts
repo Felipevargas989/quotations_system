@@ -370,17 +370,25 @@ export class QuotationsService {
     return { name: c.name, email: c.email, portalToken: c.portal_token };
   }
 
-  // RECONTACTO (07-08-2026, pedido de Felipe). La cosecha del mes lista
-  // a quién no ha vuelto a pedir lo mismo; esto anota si ya se intentó
-  // llamarlo. No es un hilo de seguimiento —esas cotizaciones suelen
-  // estar rechazadas o realizadas, y ahí muere todo seguimiento—: es una
-  // marca de dos datos, cuándo y quién. Sin estado que validar: se puede
-  // marcar cualquier cotización de la compañía, y desmarcar si fue error.
-  async setRecontacted(
+  // ESTADO DE LA COSECHA (07-08-2026, diseño de Felipe). La cosecha del
+  // mes lista quién pidió cotización ese mes; la máquina sugiere si
+  // volvió a pedir lo mismo cruzando empresa + mandante + tipo de
+  // evento, y ACÁ se guarda la palabra final de quien vende.
+  //
+  // Antes se intentó adivinarlo con reglas de distancia entre fechas y
+  // se rompía sola: FEPASA parte UN evento en dos cotizaciones (adultos
+  // y niños) y la regla las leía como re-cotización; la Iglesia
+  // Adventista re-cotizó al día siguiente y la regla lo leía como
+  // regreso. Ninguna regla le gana al ojo del vendedor.
+  //
+  // `estado` null borra la corrección: vuelve a mandar la sugerencia.
+  // Se anota además cuándo y quién, para saber si la llamada la hizo
+  // uno u otro (migración 62).
+  async setHarvestStatus(
     id: string,
     companyId: number,
     userId: string,
-    marcado: boolean,
+    estado?: string | null,
   ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
@@ -391,12 +399,13 @@ export class QuotationsService {
     await this.quotationsRepository.update(
       id,
       {
-        recontacted_at: marcado ? new Date().toISOString() : null,
-        recontacted_by: marcado ? userId : null,
+        harvest_status: estado ?? null,
+        recontacted_at: estado ? new Date().toISOString() : null,
+        recontacted_by: estado ? userId : null,
       } as unknown as UpdateQuotationDto,
       companyId,
     );
-    return { ok: true, marcado };
+    return { ok: true, estado: estado ?? null };
   }
 
   // Espejo de markEventDone: deshace la marca (realizada -> aceptada).
