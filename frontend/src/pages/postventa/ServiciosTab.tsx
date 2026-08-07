@@ -769,6 +769,10 @@ export default function ServiciosTab({
         }
       }
       onSaved();
+      // La huella se refresca ACÁ y no en el auto-guardado, para que el
+      // botón manual "Guardar" también la deje al día: si no, el
+      // siguiente auto-guardado volvía a mandar lo mismo.
+      huellaRef.current = huellaActual();
       return true;
     } catch {
       return false;
@@ -786,11 +790,38 @@ export default function ServiciosTab({
 
   // Un viaje del auto-guardado: si hay vuelo, deja la bandera; si no,
   // parte y pinta el indicador según cómo aterrice.
+  // La huella de la última foto que el servidor confirmó. Antes el
+  // auto-guardado disparaba y mandaba SIEMPRE, aunque el resultado fuera
+  // idéntico a lo ya guardado: escribir una letra y borrarla, o tocar
+  // algo y dejarlo igual, gastaba un viaje y hacía parpadear el
+  // indicador sin motivo (07-08, observación de Felipe: "guardar cada
+  // 1,5 s es una tontera, solo cuando hay modificación"). Si la huella
+  // no cambió, no hay nada que guardar.
+  const huellaRef = useRef<string | null>(null);
+  const huellaActual = () =>
+    JSON.stringify({
+      personas,
+      kidsN,
+      discType,
+      discVal,
+      tipEnabled,
+      tipPct,
+      obs,
+      items: buildItemsSnapshot(),
+    });
+
   const autoGuardar = async () => {
     if (vueloRef.current) {
       pendienteRef.current = true;
       return;
     }
+    const huella = huellaActual();
+    // Primera vez: se aprende la foto de llegada y no se guarda nada.
+    if (huellaRef.current === null) {
+      huellaRef.current = huella;
+      return;
+    }
+    if (huella === huellaRef.current) return;
     setAutoEstado("guardando");
     const ok = await save();
     setAutoEstado(ok ? "ok" : "error");
@@ -816,9 +847,11 @@ export default function ServiciosTab({
   // indicador quedaba parpadeando en cada punto seguido (07-08,
   // pillada de Felipe escribiendo comentarios).
   useEffect(() => {
-    // El montaje no es un cambio: la foto recién cargada no se guarda.
+    // El montaje no es un cambio: la foto recién cargada no se guarda,
+    // solo se aprende como punto de comparación.
     if (primerRender.current) {
       primerRender.current = false;
+      huellaRef.current = huellaActual();
       return;
     }
     const timer = setTimeout(() => void autoRef.current(), 1500);
@@ -826,17 +859,19 @@ export default function ServiciosTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [varGroups, fixed, adultsN, kidsN, discType, discVal, tipEnabled, tipPct]);
 
-  // El observador del TEXTO: cinco segundos de pausa, que es una pausa
-  // de verdad y no la de quien piensa la frase siguiente. Y al salir del
-  // campo guarda al tiro (ver onBlur del textarea), así que nada queda
-  // colgando por esperar.
+  // El TEXTO se guarda cuando terminas de escribir, no mientras
+  // escribes (decisión de Felipe, 07-08): la señal es salir del campo
+  // —ver el onBlur del textarea—, que es cuando uno de verdad terminó.
+  // Los 20 s son solo la red de seguridad para quien escribe y se va sin
+  // pinchar fuera; con la huella, si nada cambió el temporizador no
+  // gasta nada.
   const primerTexto = useRef(true);
   useEffect(() => {
     if (primerTexto.current) {
       primerTexto.current = false;
       return;
     }
-    const timer = setTimeout(() => void autoRef.current(), 5000);
+    const timer = setTimeout(() => void autoRef.current(), 20000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obs]);
