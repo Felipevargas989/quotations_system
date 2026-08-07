@@ -31,7 +31,10 @@ export class HoyRepository {
       this.supabase.client
         .from('payments')
         .select(
-          'amount, status, due_date, quotations!inner(company_id, quotation_status)',
+          // El `id` viaja para poder descontar los abonos parciales: sin
+          // él, una cuota de $1.623.600 con $800.000 ya pagados se
+          // contaba entera (07-08, pillada de Felipe en la #332).
+          'id, amount, status, due_date, quotations!inner(company_id, quotation_status)',
         )
         .eq('quotations.company_id', companyId)
         .neq('quotations.quotation_status', 'cancelada')
@@ -64,18 +67,52 @@ export class HoyRepository {
     if (reqs.error) throw reqs.error;
     if (envs.error) throw envs.error;
 
-    let pendiente = 0;
-    let vencido = 0;
-    for (const p of (pagos.data || []) as {
+    // Los ABONOS de esas cuotas. Una cuota se queda con su monto
+    // original aunque le hayan pagado la mitad: lo pagado vive en
+    // payment_transactions. Sin restarlo, "por cobrar" cuenta plata que
+    // ya está en la cuenta (07-08: la #332 mostraba $1.623.600 vencidos
+    // cuando lo que faltaba eran $823.600).
+    const cuotas = (pagos.data || []) as {
+      id: string;
       amount: number;
       status: string;
       due_date: string | null;
-    }[]) {
-      const amount = Number(p.amount) || 0;
+    }[];
+    const abonadoPorCuota = new Map<string, number>();
+    if (cuotas.length) {
+      const { data: abonos, error: errAbonos } = await this.supabase.client
+        .from('payment_transactions')
+        .select('payment_id, amount')
+        .in(
+          'payment_id',
+          cuotas.map((c) => c.id),
+        );
+      if (errAbonos) throw errAbonos;
+      for (const a of (abonos || []) as {
+        payment_id: string;
+        amount: number;
+      }[]) {
+        abonadoPorCuota.set(
+          a.payment_id,
+          (abonadoPorCuota.get(a.payment_id) || 0) + (Number(a.amount) || 0),
+        );
+      }
+    }
+
+    let pendiente = 0;
+    let vencido = 0;
+    for (const p of cuotas) {
+      // Lo que FALTA, nunca negativo: un abono de más no puede descontar
+      // de otra cuota.
+      const resta = Math.max(
+        (Number(p.amount) || 0) - (abonadoPorCuota.get(p.id) || 0),
+        0,
+      );
+      if (resta === 0) continue;
       const vencidoYa =
         p.status === 'vencido' || (p.due_date && p.due_date < hoy);
-      if (vencidoYa) vencido += amount;
-      else pendiente += amount;
+      if (vencidoYa) vencido += resta;
+      else pendiente += resta;
     }
 
     const evData = (eventos.data || []) as { event_date: string }[];
