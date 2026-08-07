@@ -66,13 +66,11 @@ import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch } from "../../utils/searchMatch";
+import { verEnLista } from "../../utils/verEnLista";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
-import {
-  buscarCategoria,
-  nombreVigente,
-} from "../../utils/categoriaCaja";
+import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
 import { getBaseCatalogo } from "../../services/logistics.service";
@@ -393,11 +391,15 @@ export default function QuotationForm() {
   // La categoría del catálogo a la que apunta una caja: por id (foto
   // nueva) o por nombre (foto vieja). El id no cambia nunca — diseño de
   // Felipe 06-08 para que renombrar no rompa cotizaciones guardadas.
-  const cajaDe = (box: { selectedCategory?: string; selectedCategoryId?: number | null }) => ({
+  const cajaDe = (box: {
+    selectedCategory?: string;
+    selectedCategoryId?: number | null;
+  }) => ({
     category: box.selectedCategory,
     category_id: box.selectedCategoryId ?? null,
   });
-  const catDeCaja = (box: any) => buscarCategoria(orderedCategories, cajaDe(box));
+  const catDeCaja = (box: any) =>
+    buscarCategoria(orderedCategories, cajaDe(box));
   const nomCat = (box: any) => nombreVigente(orderedCategories, cajaDe(box));
 
   const ofrecidosDe = (box: any) => {
@@ -3091,7 +3093,10 @@ export default function QuotationForm() {
                                       };
                                       let corrido = -1;
                                       return (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                        <div
+                                          className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto"
+                                          data-lista-scroll
+                                        >
                                           <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
                                             <input
                                               type="text"
@@ -3111,7 +3116,9 @@ export default function QuotationForm() {
                                                       orden.length - 1,
                                                     ),
                                                   );
-                                                } else if (e.key === "ArrowUp") {
+                                                } else if (
+                                                  e.key === "ArrowUp"
+                                                ) {
                                                   e.preventDefault();
                                                   setIdxItem((i) =>
                                                     Math.max(i - 1, 0),
@@ -3142,21 +3149,27 @@ export default function QuotationForm() {
                                                   </div>
                                                 )}
                                                 {grp.items.map((p: any) => {
-                                                  corrido += 1;
+                                                  // El índice de ESTA vuelta, congelado
+                                                  // en una constante. Si el handler
+                                                  // cierra sobre `corrido` —que es un
+                                                  // let que sigue contando— lee su
+                                                  // valor FINAL y todos los items
+                                                  // apuntan al último (07-08: se
+                                                  // autoseleccionaba el último y con
+                                                  // un Enter se agregaba un item que
+                                                  // nadie eligió).
+                                                  const pos = (corrido += 1);
                                                   const activo =
-                                                    corrido === idxItem;
+                                                    pos === idxItem;
                                                   return (
                                                     <button
                                                       key={p.codigo}
                                                       type="button"
-                                                      ref={(el) => {
-                                                        if (activo && el)
-                                                          el.scrollIntoView({
-                                                            block: "nearest",
-                                                          });
-                                                      }}
+                                                      ref={(el) =>
+                                                        activo && verEnLista(el)
+                                                      }
                                                       onMouseEnter={() =>
-                                                        setIdxItem(corrido)
+                                                        setIdxItem(pos)
                                                       }
                                                       onClick={() =>
                                                         elegir(p.codigo)

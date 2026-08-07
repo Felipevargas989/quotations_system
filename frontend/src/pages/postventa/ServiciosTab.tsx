@@ -19,10 +19,7 @@ import { CategorySection } from "../../types/services.types";
 // compartida de logística y la misma máquina de consolidación.
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import { canonicalServiceName } from "../../utils/searchMatch";
-import {
-  buscarCategoria,
-  nombreVigente,
-} from "../../utils/categoriaCaja";
+import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import {
   buildConsolidationContext,
   consolidateEvent,
@@ -33,6 +30,7 @@ import { UserRole } from "../../constants/users";
 import QuantitySelector from "../../components/QuantitySelector";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch } from "../../utils/searchMatch";
+import { verEnLista } from "../../utils/verEnLista";
 import { getQuotationProvisioning } from "../../services/logistics.service";
 // El formateador de pesos vive en la página madre y se comparte con el
 // resto de Post-Venta; acá solo se importa.
@@ -588,7 +586,10 @@ export default function ServiciosTab({
           .sort((a, b) => a.sort_order - b.sort_order)
       : [];
     if (secs.length === 0)
-      return { bloques: [{ key: "plano", name: "", items: filtrados }], orden: filtrados };
+      return {
+        bloques: [{ key: "plano", name: "", items: filtrados }],
+        orden: filtrados,
+      };
     const seccionDe = (codigo: string) =>
       categoryLinks.find(
         (l) =>
@@ -1396,7 +1397,10 @@ export default function ServiciosTab({
                               };
                               let corrido = -1;
                               return (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                <div
+                                  className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto"
+                                  data-lista-scroll
+                                >
                                   <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
                                     <input
                                       type="text"
@@ -1442,20 +1446,25 @@ export default function ServiciosTab({
                                           </div>
                                         )}
                                         {grp.items.map((p: any) => {
-                                          corrido += 1;
-                                          const activo = corrido === idxItem;
+                                          // El índice de ESTA vuelta, congelado en
+                                          // una constante. Si el handler de abajo
+                                          // cierra sobre `corrido` —que es un let
+                                          // que sigue contando— lee su valor FINAL
+                                          // y todos los items terminan apuntando al
+                                          // último (07-08: se autoseleccionaba el
+                                          // último de la lista y bastaba un Enter
+                                          // para agregar un item que nadie eligió).
+                                          const pos = (corrido += 1);
+                                          const activo = pos === idxItem;
                                           return (
                                             <button
                                               key={p.codigo}
                                               type="button"
-                                              ref={(el) => {
-                                                if (activo && el)
-                                                  el.scrollIntoView({
-                                                    block: "nearest",
-                                                  });
-                                              }}
+                                              ref={(el) =>
+                                                activo && verEnLista(el)
+                                              }
                                               onMouseEnter={() =>
-                                                setIdxItem(corrido)
+                                                setIdxItem(pos)
                                               }
                                               onClick={() => elegir(p.codigo)}
                                               className={`w-full px-3 py-2 text-left focus:outline-none ${
