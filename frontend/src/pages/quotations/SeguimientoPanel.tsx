@@ -31,7 +31,6 @@ import { toast } from "../../components/toast/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
-import { QuotationWithClient } from "../../types/quotations.types";
 import {
   Followup,
   FollowupTipo,
@@ -193,10 +192,19 @@ const fechaHumana = (iso: string) => {
 const ddmm = (isoDate: string) =>
   `${isoDate.slice(8, 10)}-${isoDate.slice(5, 7)}`;
 
+export type CotizacionDelHilo = {
+  id: string;
+  quotation_status?: string | null;
+  sent_at?: string | null;
+};
+
 export function HiloSeguimiento({
   quotation,
 }: {
-  readonly quotation: QuotationWithClient;
+  // Lo MÍNIMO que el hilo necesita, no la cotización entera: así lo
+  // pueden montar la ficha del negocio (QuotationWithClient) y
+  // Post-Venta (Quotation a secas) sin inventar datos (07-08).
+  readonly quotation: CotizacionDelHilo;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -210,9 +218,20 @@ export function HiloSeguimiento({
   // Negocio vivo = próximo paso OBLIGATORIO al anotar; muerto
   // (rechazada/aceptada/realizada/cancelada) = solo notas de archivo y
   // compromisos inertes en gris.
+  // OJO: son DOS cosas distintas y hasta el 07-08 estaban pegadas.
+  //  · negocioVivo  = la venta está en juego → tipo y próximo contacto
+  //    OBLIGATORIOS. Sin próximo paso, el negocio se enfría.
+  //  · compromisoVivo = la fecha anotada todavía es una TAREA. En un
+  //    evento ganado nadie está obligado a agendar nada, pero si uno
+  //    escribe "quedé de llamarla el 11", eso vence y avisa.
+  // Un deal muerto (rechazada/cancelada) no tiene ni lo uno ni lo otro.
   const negocioVivo = ESTADOS_VIVOS_SEGUIMIENTO.includes(
     quotation.quotation_status || "",
   );
+  const eventoGanado = ESTADOS_OPERATIVOS_SEGUIMIENTO.includes(
+    quotation.quotation_status || "",
+  );
+  const compromisoVivo = negocioVivo || eventoGanado;
 
   const [nota, setNota] = useState("");
   const [tipo, setTipo] = useState("");
@@ -325,10 +344,36 @@ export function HiloSeguimiento({
   // DERIVADO, sin estado nuevo en la base: solo el compromiso de la
   // nota MÁS RECIENTE con fecha está "vivo"; los anteriores quedaron
   // resueltos por la gestión que los siguió.
+  // "Listo": el pendiente queda cumplido sin escribir nada. La otra
+  // puerta —escribir la gestión siguiente— ya funcionaba sola, porque
+  // el compromiso vigente es siempre el de la nota más nueva.
+  const [marcandoListo, setMarcandoListo] = useState(false);
+  const darPorCumplido = async () => {
+    if (!notaCompromiso || marcandoListo) return;
+    setMarcandoListo(true);
+    try {
+      await updateFollowup(notaCompromiso.id, {
+        next_contact_done_at: new Date().toISOString(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["seguimientos", quotation.id],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["seguimientos", "map"],
+      });
+    } catch {
+      toast.error("No se pudo marcar como cumplido");
+    } finally {
+      setMarcandoListo(false);
+    }
+  };
+
   const notaCompromiso = useMemo(() => {
     let top: Followup | null = null;
     for (const n of notas) {
       if (!n.next_contact_date) continue;
+      // Un pendiente marcado "Listo" deja de ser tarea (migración 65).
+      if (n.next_contact_done_at) continue;
       if (!top || n.created_at > top.created_at) top = n;
     }
     return top;
@@ -349,10 +394,16 @@ export function HiloSeguimiento({
   const chipCompromiso = (n: Followup) => {
     if (!n.next_contact_date) return null;
     const dm = ddmm(n.next_contact_date);
-    if (!negocioVivo)
+    if (!compromisoVivo)
       return (
         <p className="mt-1.5 text-xs text-gray-400">
           📅 Próximo contacto: {dm}
+        </p>
+      );
+    if (n.next_contact_done_at)
+      return (
+        <p className="mt-1.5 text-xs text-gray-400">
+          ✓ Próximo contacto: {dm} — cumplido
         </p>
       );
     if (notaCompromiso && n.id === notaCompromiso.id) {
@@ -420,9 +471,10 @@ export function HiloSeguimiento({
       <h3 className="text-sm font-bold text-gray-700 px-4 pt-3 pb-2 flex items-center gap-1.5">
         <MessageSquare size={15} /> Hilo de seguimiento
       </h3>
-      {/* Franja de empujón (solo negocios vivos): el compromiso vivo es
-          hoy o venció — a registrar la gestión o a reprogramar. */}
-      {negocioVivo &&
+      {/* Franja de empujón: el compromiso es hoy o venció. Aparece
+          también en el evento ganado (07-08) — ahí poner fecha es
+          voluntario, pero si se puso, vence igual. */}
+      {compromisoVivo &&
         (compromisoCara === "hoy" || compromisoCara === "vencido") && (
           <div
             className={`mx-4 mb-2 rounded-lg border px-3 py-2 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 ${
@@ -447,6 +499,18 @@ export function HiloSeguimiento({
               className="font-semibold underline hover:no-underline"
             >
               Reprogramar
+            </button>
+            {/* La segunda puerta para apagarlo (las dos que pidió
+                Felipe): cuando uno cumplió y no tiene nada que anotar.
+                No borra la fecha — deja constancia de cuándo se dio por
+                hecho. */}
+            <button
+              type="button"
+              disabled={marcandoListo}
+              onClick={darPorCumplido}
+              className="font-semibold underline hover:no-underline disabled:opacity-50"
+            >
+              {marcandoListo ? "…" : "Listo"}
             </button>
           </div>
         )}

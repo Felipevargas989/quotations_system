@@ -21,13 +21,21 @@ export interface Followup {
   note: string;
   tipo?: FollowupTipo | null;
   next_contact_date?: string | null;
+  // Cuándo se dio por cumplido ese próximo contacto (migración 65).
+  // Con fecha vencida y esto en null, el compromiso está PENDIENTE: es
+  // lo que enciende el aviso ámbar en el tablero de Post-Venta.
+  next_contact_done_at?: string | null;
 }
 
 // Última gestión por cotización, para pintar el semáforo sin pedir
 // cada hilo completo.
 export type FollowupsMap = Record<
   string,
-  { last_at: string; next_contact_date: string | null }
+  {
+    last_at: string;
+    next_contact_date: string | null;
+    next_contact_done_at: string | null;
+  }
 >;
 
 export const getFollowupsMap = async (): Promise<FollowupsMap> => {
@@ -57,9 +65,20 @@ export const createFollowup = async (payload: {
 
 export const updateFollowup = async (
   id: number,
-  payload: { note?: string; tipo?: FollowupTipo; next_contact_date?: string },
+  payload: {
+    note?: string;
+    tipo?: FollowupTipo;
+    next_contact_date?: string;
+    // Instante ISO para dar el pendiente por cumplido; null lo devuelve
+    // a pendiente. Nunca borra next_contact_date.
+    next_contact_done_at?: string | null;
+  },
 ): Promise<Followup> => {
-  const data = await apiRequest(`${API_ROUTES.FOLLOWUPS}/${id}`, "PATCH", payload);
+  const data = await apiRequest(
+    `${API_ROUTES.FOLLOWUPS}/${id}`,
+    "PATCH",
+    payload,
+  );
   return data as Followup;
 };
 

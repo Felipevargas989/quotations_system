@@ -33,16 +33,34 @@ export class QuotationFollowupsService {
       const rows = await this.followupsRepository.findMapRows(companyId);
       // Las filas llegan de la más nueva a la más vieja: la primera
       // aparición de cada cotización ES su última nota.
+      //
+      // El COMPROMISO va aparte (07-08): no siempre vive en la última
+      // nota. En Post-Venta se anota sin fecha la mayoría de las veces,
+      // así que el pendiente puede estar tres notas más atrás. Se busca
+      // la más reciente que tenga fecha y NO esté dada por cumplida.
       const map: Record<
         string,
-        { last_at: string; next_contact_date: string | null }
+        {
+          last_at: string;
+          next_contact_date: string | null;
+          next_contact_done_at: string | null;
+        }
       > = {};
       for (const row of rows) {
         if (!map[row.quotation_id]) {
           map[row.quotation_id] = {
             last_at: row.created_at,
-            next_contact_date: row.next_contact_date ?? null,
+            next_contact_date: null,
+            next_contact_done_at: null,
           };
+        }
+        const actual = map[row.quotation_id];
+        if (
+          !actual.next_contact_date &&
+          row.next_contact_date &&
+          !row.next_contact_done_at
+        ) {
+          actual.next_contact_date = row.next_contact_date;
         }
       }
       return map;
@@ -120,6 +138,11 @@ export class QuotationFollowupsService {
       if (dto.tipo !== undefined) fields.tipo = dto.tipo;
       if (dto.next_contact_date !== undefined) {
         fields.next_contact_date = dto.next_contact_date;
+      }
+      // "Listo": da el pendiente por cumplido sin borrar la fecha. Con
+      // null vuelve a quedar pendiente (migración 65).
+      if (dto.next_contact_done_at !== undefined) {
+        fields.next_contact_done_at = dto.next_contact_done_at;
       }
       return await this.followupsRepository.update(user.company_id, id, fields);
     } catch (error) {

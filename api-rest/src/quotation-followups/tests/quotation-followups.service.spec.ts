@@ -151,7 +151,7 @@ describe('QuotationFollowupsService', () => {
   });
 
   describe('mapByCompany', () => {
-    it('se queda con la ÚLTIMA nota de cada cotización (y SU próximo contacto)', async () => {
+    it('toma la última nota de cada cotización y el compromiso VIGENTE', async () => {
       // Las filas llegan del repo ordenadas de la más nueva a la más
       // vieja: la reducción toma la primera aparición de cada una.
       const findMapRows = jest.fn().mockResolvedValue([
@@ -159,16 +159,35 @@ describe('QuotationFollowupsService', () => {
           quotation_id: 'q-1',
           created_at: '2026-08-02T12:00:00Z',
           next_contact_date: '2026-08-10',
+          next_contact_done_at: null,
         },
+        // q-2: la última nota NO tiene fecha (caso normal en Post-Venta,
+        // donde anotar sin compromiso es lo habitual), pero una nota más
+        // vieja dejó un pendiente vivo. El mapa tiene que encontrarlo.
         {
           quotation_id: 'q-2',
           created_at: '2026-08-01T09:00:00Z',
           next_contact_date: null,
+          next_contact_done_at: null,
+        },
+        {
+          quotation_id: 'q-2',
+          created_at: '2026-07-28T09:00:00Z',
+          next_contact_date: '2026-08-05',
+          next_contact_done_at: null,
         },
         {
           quotation_id: 'q-1',
           created_at: '2026-07-30T08:00:00Z',
           next_contact_date: '2026-08-01',
+          next_contact_done_at: null,
+        },
+        // q-3: tenía fecha pero se marcó "Listo" → no es pendiente.
+        {
+          quotation_id: 'q-3',
+          created_at: '2026-08-03T10:00:00Z',
+          next_contact_date: '2026-08-04',
+          next_contact_done_at: '2026-08-04T18:00:00Z',
         },
       ]);
       const service = buildService({ findMapRows });
@@ -180,8 +199,18 @@ describe('QuotationFollowupsService', () => {
         'q-1': {
           last_at: '2026-08-02T12:00:00Z',
           next_contact_date: '2026-08-10',
+          next_contact_done_at: null,
         },
-        'q-2': { last_at: '2026-08-01T09:00:00Z', next_contact_date: null },
+        'q-2': {
+          last_at: '2026-08-01T09:00:00Z',
+          next_contact_date: '2026-08-05',
+          next_contact_done_at: null,
+        },
+        'q-3': {
+          last_at: '2026-08-03T10:00:00Z',
+          next_contact_date: null,
+          next_contact_done_at: null,
+        },
       });
     });
   });

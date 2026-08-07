@@ -60,6 +60,11 @@ import CocinaTab from "./CocinaTab";
 // La pestaña Servicios vive en su propio archivo desde el 04-08 (también
 // la monta NegocioPage); todo lo exclusivo de ella se mudó allá.
 import ServiciosTab from "./ServiciosTab";
+import { getFollowupsMap } from "../../services/quotationFollowups.service";
+import {
+  HiloSeguimiento,
+  AdjuntosComerciales,
+} from "../quotations/SeguimientoPanel";
 import {
   getRefundsByQuotation,
   getPaidRefundsByQuotation,
@@ -148,8 +153,7 @@ const MONEY_OPTIONS: MultiSelectOption[] = [
 
 // Exportado: ServiciosTab (archivo propio desde el 04-08) usa el mismo
 // formateador para que los montos se vean idénticos en toda Post-Venta.
-export const clp = (n: number) =>
-  "$" + Number(n || 0).toLocaleString("es-CL");
+export const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
   try {
@@ -207,7 +211,7 @@ export default function PostVentaPage() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<
-    "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
+    "seguimiento" | "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
   >("pagos");
 
   // Restaurar los filtros persistidos (por usuario) al entrar. Si solo
@@ -225,8 +229,12 @@ export default function PostVentaPage() {
       const ev = leer(EVENT_FILTER_KEY(user.id));
       const mo = leer(MONEY_FILTER_KEY(user.id));
       if (ev || mo) {
-        setEventFilter((ev || []).filter((v) => EVENT_FILTER_VALUES.includes(v)));
-        setMoneyFilter((mo || []).filter((v) => MONEY_FILTER_VALUES.includes(v)));
+        setEventFilter(
+          (ev || []).filter((v) => EVENT_FILTER_VALUES.includes(v)),
+        );
+        setMoneyFilter(
+          (mo || []).filter((v) => MONEY_FILTER_VALUES.includes(v)),
+        );
       } else {
         const legacy = leer(LEGACY_FILTER_KEY(user.id));
         if (legacy) {
@@ -386,6 +394,29 @@ export default function PostVentaPage() {
     queryFn: listPortalReceipts,
   });
   const comprobantes = receiptsQuery.data ?? [];
+  // Compromisos del hilo, para el aviso ámbar del tablero (07-08,
+  // pedido de Felipe): "si llego a colocar fecha, en la pantalla de
+  // Post-Venta podría haber un signo de exclamación ámbar para avisar
+  // que hay algo pendiente ahí". Una sola consulta para todas las filas.
+  const seguimientosQuery = useQuery({
+    queryKey: ["seguimientos", "map"],
+    staleTime: 0,
+    queryFn: getFollowupsMap,
+  });
+  const compromisos = seguimientosQuery.data ?? {};
+  // Pendiente = hay fecha comprometida y ya llegó el día. Una fecha
+  // futura NO alarma: si el ámbar apareciera al anotarla, en dos semanas
+  // todos los eventos tendrían exclamación y dejaría de mirarse.
+  const pendienteDe = (quotationId: string) => {
+    const f = compromisos[quotationId]?.next_contact_date;
+    if (!f) return null;
+    const hoy = new Date();
+    const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    const dia = f.slice(0, 10);
+    if (dia > hoyISO) return null;
+    return { dia, vencido: dia < hoyISO };
+  };
+
   const [verComprobantes, setVerComprobantes] = useState(false);
   const [procesandoComp, setProcesandoComp] = useState<number | null>(null);
   const [rechazoCompId, setRechazoCompId] = useState<number | null>(null);
@@ -473,11 +504,7 @@ export default function PostVentaPage() {
       // realizado con cuotas vencidas SÍ aparece al filtrar "Vencidos".
       // Evento sin marcar = vigentes + realizados (anulados solo con su
       // opción). Plata sin marcar = todos.
-      const kind = r.cancelled
-        ? "cancelado"
-        : r.done
-          ? "realizado"
-          : "vigente";
+      const kind = r.cancelled ? "cancelado" : r.done ? "realizado" : "vigente";
       const matchEvent =
         eventFilter.length === 0
           ? kind !== "cancelado"
@@ -743,7 +770,27 @@ export default function PostVentaPage() {
                       className="hover:bg-gray-50 cursor-pointer"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
-                        #{r.quotationNumber}
+                        <span className="inline-flex items-center gap-1.5">
+                          #{r.quotationNumber}
+                          {(() => {
+                            const p = pendienteDe(r.quotationId);
+                            if (!p) return null;
+                            return (
+                              <span
+                                className={`text-base leading-none ${
+                                  p.vencido ? "text-red-600" : "text-amber-500"
+                                }`}
+                                title={
+                                  p.vencido
+                                    ? `Seguimiento pendiente desde el ${p.dia.slice(8, 10)}-${p.dia.slice(5, 7)}`
+                                    : "Seguimiento comprometido para hoy"
+                                }
+                              >
+                                ⚠
+                              </span>
+                            );
+                          })()}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
@@ -824,8 +871,6 @@ export default function PostVentaPage() {
         </div>
       </div>
 
-
-
       {/* Bandeja de comprobantes del portal (Fase 2b): confirmar
           registra el pago real; rechazar lo archiva con nota. */}
       {verComprobantes && (
@@ -862,8 +907,7 @@ export default function PostVentaPage() {
                       <p className="text-sm text-gray-500">
                         Cot. N° {r.quotations?.quotation_number} ·{" "}
                         {r.quotations?.clients?.name} · cuota{" "}
-                        {r.payments?.payment_number} ·{" "}
-                        {fmtDate(r.created_at)}
+                        {r.payments?.payment_number} · {fmtDate(r.created_at)}
                       </p>
                     </div>
                     <FileViewLink url={r.file_url} title="Ver comprobante" />
@@ -928,9 +972,21 @@ export default function PostVentaPage() {
 // ---- Event detail modal ----
 interface EventModalProps {
   readonly event: EventRow;
-  readonly tab: "pagos" | "documentos" | "servicios" | "gestion" | "cocina";
+  readonly tab:
+    | "seguimiento"
+    | "pagos"
+    | "documentos"
+    | "servicios"
+    | "gestion"
+    | "cocina";
   readonly setTab: (
-    t: "pagos" | "documentos" | "servicios" | "gestion" | "cocina",
+    t:
+      | "seguimiento"
+      | "pagos"
+      | "documentos"
+      | "servicios"
+      | "gestion"
+      | "cocina",
   ) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
@@ -991,6 +1047,9 @@ function EventModal({
   }, [empresaPre?.id, quote, event.quotationId, clientePre]);
 
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
+    // Seguimiento va PRIMERO (07-08, pedido de Felipe): es la historia
+    // del evento — "si algo se olvida uno va a seguimiento y está todo".
+    { key: "seguimiento", label: "Seguimiento" },
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
     { key: "servicios", label: "Servicios" },
@@ -1027,9 +1086,9 @@ function EventModal({
     });
     setSavingCuota(false);
     if (error) {
-      const msg =
-        (error as { response?: { data?: { message?: string | string[] } } })
-          .response?.data?.message;
+      const msg = (
+        error as { response?: { data?: { message?: string | string[] } } }
+      ).response?.data?.message;
       setErrorCuota(
         Array.isArray(msg) ? msg.join(" ") : msg || "No se pudo guardar",
       );
@@ -1431,26 +1490,36 @@ function EventModal({
 
         {/* Panels */}
         <div className="p-6 flex-1">
+          {tab === "seguimiento" && quote && (
+            /* EL MISMO panel de la ficha del negocio: un solo hilo con
+               la historia completa, y los respaldos comerciales pegados
+               a él. Acá tipo y próximo contacto NO son obligatorios —lo
+               decide el propio panel por el estado— pero si se anota una
+               fecha, vence y avisa. */
+            <div className="grid gap-5 lg:grid-cols-2 items-start">
+              <HiloSeguimiento quotation={quote} />
+              <AdjuntosComerciales quotationId={event.quotationId} />
+            </div>
+          )}
           {tab === "pagos" && (
             <div className="space-y-6">
               {/* Los montos viven arriba en las cajitas del evento
                   (04-08); aquí queda el progreso de cuotas. */}
-        {/* Progress */}
-        <div className="pt-1">
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
-              style={{ width: `${Math.min(p, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-gray-500 mt-1.5">
-            <span>{p}% pagado</span>
-            <span>
-              {event.cuotas} cuota{event.cuotas === 1 ? "" : "s"}
-            </span>
-          </div>
-        </div>
-
+              {/* Progress */}
+              <div className="pt-1">
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
+                    style={{ width: `${Math.min(p, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 mt-1.5">
+                  <span>{p}% pagado</span>
+                  <span>
+                    {event.cuotas} cuota{event.cuotas === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
 
               {pendingReceipts > 0 && (
                 <button
@@ -1460,8 +1529,7 @@ function EventModal({
                 >
                   <span>
                     💸 Este evento tiene {pendingReceipts} comprobante
-                    {pendingReceipts === 1 ? "" : "s"} del portal por
-                    confirmar
+                    {pendingReceipts === 1 ? "" : "s"} del portal por confirmar
                   </span>
                   <span className="underline">Revisar</span>
                 </button>
@@ -1471,216 +1539,218 @@ function EventModal({
                   la lateral. En pantalla chica se apilan igual que antes. */}
               <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
               <div className="grid gap-6 lg:grid-cols-[1fr_420px] items-start">
-              {/* Columna izquierda: calendario + reembolsos al final */}
-              <div className="space-y-6">
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold text-gray-800">
-                  Calendario de pagos
-                </h4>
-                {event.payments.map((pay) => {
-                  const cp = pay.amount
-                    ? Math.round(((pay.paid_amount || 0) / pay.amount) * 100)
-                    : 0;
-                  const txs = pay.transactions || [];
-                  // Registro de pago con sus acciones: ver comprobante,
-                  // rectificar (lapiz) y eliminar (basurero). El lapiz y
-                  // el basurero son del REGISTRO, nunca de la cuota.
-                  const txActions = (t: PaymentTransaction) =>
-                    confirmTxId === t.id ? (
-                      <ConfirmInline
-                        question="¿Eliminar este registro?"
-                        onYes={() => onDeleteTx(t)}
-                        onNo={() => setConfirmTxId(null)}
-                        busy={deletingTx}
-                      />
-                    ) : (
-                      <span className="flex items-center gap-3 shrink-0">
-                        {t.receipt_photo_url && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCompView({
-                                file_url: t.receipt_photo_url!,
-                                file_name: `Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`,
-                              })
-                            }
-                            className="text-sm font-semibold text-blue-600 hover:underline"
-                          >
-                            Ver
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setEditTx(t)}
-                          className="text-gray-400 hover:text-blue-600"
-                          title="Rectificar registro (fecha, monto o comprobante)"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmTxId(t.id)}
-                          className="text-gray-400 hover:text-red-600"
-                          title="Eliminar registro (la cuota vuelve a pendiente)"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </span>
-                    );
-                  return (
-                    <div
-                      key={pay.id}
-                      className="p-3 border border-gray-200 rounded-xl"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
-                            {pay.payment_number}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-gray-900">
-                                {clp(pay.amount)}
-                              </div>
-                              {statusBadge(cuotaStatus(pay))}
-                              {txs.length === 0 &&
-                                cuotaStatus(pay) !== "pagado" &&
-                                editCuota?.id !== pay.id && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setErrorCuota(null);
-                                      setEditCuota({
-                                        id: pay.id,
-                                        due_date: (pay.due_date || "").slice(
-                                          0,
-                                          10,
-                                        ),
-                                        notes: pay.notes || "",
-                                      });
-                                    }}
-                                    className="text-gray-400 hover:text-blue-600"
-                                    title="Editar fecha de vencimiento y nota de la cuota"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                )}
-                            </div>
-                            <div
-                              className="text-xs text-gray-500 truncate max-w-md"
-                              title={
-                                txs.length === 1 && txs[0].notes
-                                  ? txs[0].notes
-                                  : undefined
-                              }
+                {/* Columna izquierda: calendario + reembolsos al final */}
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-800">
+                      Calendario de pagos
+                    </h4>
+                    {event.payments.map((pay) => {
+                      const cp = pay.amount
+                        ? Math.round(
+                            ((pay.paid_amount || 0) / pay.amount) * 100,
+                          )
+                        : 0;
+                      const txs = pay.transactions || [];
+                      // Registro de pago con sus acciones: ver comprobante,
+                      // rectificar (lapiz) y eliminar (basurero). El lapiz y
+                      // el basurero son del REGISTRO, nunca de la cuota.
+                      const txActions = (t: PaymentTransaction) =>
+                        confirmTxId === t.id ? (
+                          <ConfirmInline
+                            question="¿Eliminar este registro?"
+                            onYes={() => onDeleteTx(t)}
+                            onNo={() => setConfirmTxId(null)}
+                            busy={deletingTx}
+                          />
+                        ) : (
+                          <span className="flex items-center gap-3 shrink-0">
+                            {t.receipt_photo_url && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCompView({
+                                    file_url: t.receipt_photo_url!,
+                                    file_name: `Comprobante · ${clp(t.amount)} · ${fmtDate(t.transaction_date)}`,
+                                  })
+                                }
+                                className="text-sm font-semibold text-blue-600 hover:underline"
+                              >
+                                Ver
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setEditTx(t)}
+                              className="text-gray-400 hover:text-blue-600"
+                              title="Rectificar registro (fecha, monto o comprobante)"
                             >
-                              {pay.status === "pagado"
-                                ? fmtDate(pay.last_payment_date)
-                                : `Vence ${fmtDate(pay.due_date)}`}
-                              {cp > 0 && cp < 100
-                                ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
-                                : ""}
-                              {txs.length === 1 && txs[0].notes
-                                ? ` · ${txs[0].notes}`
-                                : ""}
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmTxId(t.id)}
+                              className="text-gray-400 hover:text-red-600"
+                              title="Eliminar registro (la cuota vuelve a pendiente)"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </span>
+                        );
+                      return (
+                        <div
+                          key={pay.id}
+                          className="p-3 border border-gray-200 rounded-xl"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold text-sm">
+                                {pay.payment_number}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <div className="font-semibold text-gray-900">
+                                    {clp(pay.amount)}
+                                  </div>
+                                  {statusBadge(cuotaStatus(pay))}
+                                  {txs.length === 0 &&
+                                    cuotaStatus(pay) !== "pagado" &&
+                                    editCuota?.id !== pay.id && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setErrorCuota(null);
+                                          setEditCuota({
+                                            id: pay.id,
+                                            due_date: (
+                                              pay.due_date || ""
+                                            ).slice(0, 10),
+                                            notes: pay.notes || "",
+                                          });
+                                        }}
+                                        className="text-gray-400 hover:text-blue-600"
+                                        title="Editar fecha de vencimiento y nota de la cuota"
+                                      >
+                                        <Pencil size={14} />
+                                      </button>
+                                    )}
+                                </div>
+                                <div
+                                  className="text-xs text-gray-500 truncate max-w-md"
+                                  title={
+                                    txs.length === 1 && txs[0].notes
+                                      ? txs[0].notes
+                                      : undefined
+                                  }
+                                >
+                                  {pay.status === "pagado"
+                                    ? fmtDate(pay.last_payment_date)
+                                    : `Vence ${fmtDate(pay.due_date)}`}
+                                  {cp > 0 && cp < 100
+                                    ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
+                                    : ""}
+                                  {txs.length === 1 && txs[0].notes
+                                    ? ` · ${txs[0].notes}`
+                                    : ""}
+                                </div>
+                              </div>
                             </div>
+                            {txs.length === 1 && (
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <span>{txs[0].payment_method || "—"}</span>
+                                {txActions(txs[0])}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        {txs.length === 1 && (
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span>{txs[0].payment_method || "—"}</span>
-                            {txActions(txs[0])}
-                          </div>
-                        )}
-                      </div>
-                      {editCuota?.id === pay.id && (
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
-                          <input
-                            type="date"
-                            value={editCuota.due_date}
-                            onChange={(e) =>
-                              setEditCuota(
-                                (p) => p && { ...p, due_date: e.target.value },
-                              )
-                            }
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <input
-                            type="text"
-                            value={editCuota.notes}
-                            onChange={(e) =>
-                              setEditCuota(
-                                (p) => p && { ...p, notes: e.target.value },
-                              )
-                            }
-                            placeholder="Nota (opcional)"
-                            className="flex-1 min-w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <button
-                            type="button"
-                            disabled={savingCuota || !editCuota.due_date}
-                            onClick={onSaveCuota}
-                            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {savingCuota ? "…" : "Guardar"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditCuota(null);
-                              setErrorCuota(null);
-                            }}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
-                          >
-                            Cancelar
-                          </button>
-                          {errorCuota && (
-                            <p className="w-full text-xs text-red-600">
-                              {errorCuota}
-                            </p>
+                          {editCuota?.id === pay.id && (
+                            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                              <input
+                                type="date"
+                                value={editCuota.due_date}
+                                onChange={(e) =>
+                                  setEditCuota(
+                                    (p) =>
+                                      p && { ...p, due_date: e.target.value },
+                                  )
+                                }
+                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <input
+                                type="text"
+                                value={editCuota.notes}
+                                onChange={(e) =>
+                                  setEditCuota(
+                                    (p) => p && { ...p, notes: e.target.value },
+                                  )
+                                }
+                                placeholder="Nota (opcional)"
+                                className="flex-1 min-w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                              <button
+                                type="button"
+                                disabled={savingCuota || !editCuota.due_date}
+                                onClick={onSaveCuota}
+                                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {savingCuota ? "…" : "Guardar"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditCuota(null);
+                                  setErrorCuota(null);
+                                }}
+                                className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                              >
+                                Cancelar
+                              </button>
+                              {errorCuota && (
+                                <p className="w-full text-xs text-red-600">
+                                  {errorCuota}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {txs.length > 1 && (
+                            <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+                              {txs.map((t) => (
+                                <div
+                                  key={t.id}
+                                  className="flex items-center justify-between pl-13 text-xs text-gray-600"
+                                >
+                                  <span
+                                    className="pl-[52px] truncate max-w-lg"
+                                    title={t.notes || undefined}
+                                  >
+                                    {fmtDate(t.transaction_date)} ·{" "}
+                                    {t.payment_method || "—"} ·{" "}
+                                    <span className="font-semibold text-gray-800">
+                                      {clp(t.amount)}
+                                    </span>
+                                    {t.notes ? ` · ${t.notes}` : ""}
+                                  </span>
+                                  {txActions(t)}
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      )}
-                      {txs.length > 1 && (
-                        <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
-                          {txs.map((t) => (
-                            <div
-                              key={t.id}
-                              className="flex items-center justify-between pl-13 text-xs text-gray-600"
-                            >
-                              <span
-                                className="pl-[52px] truncate max-w-lg"
-                                title={t.notes || undefined}
-                              >
-                                {fmtDate(t.transaction_date)} ·{" "}
-                                {t.payment_method || "—"} ·{" "}
-                                <span className="font-semibold text-gray-800">
-                                  {clp(t.amount)}
-                                </span>
-                                {t.notes ? ` · ${t.notes}` : ""}
-                              </span>
-                              {txActions(t)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <ReembolsosManager
-                quotationId={event.quotationId}
-                onChanged={onDataChanged}
-              />
-              </div>
-              {/* mt-8 en ancho: alinea el visor con la PRIMERA cuota
+                      );
+                    })}
+                  </div>
+                  <ReembolsosManager
+                    quotationId={event.quotationId}
+                    onChanged={onDataChanged}
+                  />
+                </div>
+                {/* mt-8 en ancho: alinea el visor con la PRIMERA cuota
                   (el título "Calendario de pagos" mide ese alto). */}
-              <div className="lg:mt-8">
-                <DocViewerPanel
-                  doc={compView}
-                  emptyText="Aprieta 'Ver' en un registro para ver su comprobante aquí."
-                />
-              </div>
+                <div className="lg:mt-8">
+                  <DocViewerPanel
+                    doc={compView}
+                    emptyText="Aprieta 'Ver' en un registro para ver su comprobante aquí."
+                  />
+                </div>
               </div>
               {editTx && (
                 <EditRegistroModal
@@ -2410,7 +2480,11 @@ const docsQueryOpts = (quotationId: string) => ({
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const queryClient = useQueryClient();
   const docsQuery = useQuery(docsQueryOpts(quotationId));
-  const docs = docsQuery.data ?? [];
+  // Los respaldos COMERCIALES no viven acá: son de la conversación y
+  // solo tienen sentido pegados a la nota que los explica, en la
+  // pestaña Seguimiento (07-08, pillada de Felipe). Documentos es el
+  // archivador de lo contractual: contratos, órdenes y facturas.
+  const docs = (docsQuery.data ?? []).filter((d) => d.category !== "comercial");
   const loading = docsQuery.isPending;
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<string | null>(null);

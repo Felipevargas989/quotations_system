@@ -15,7 +15,10 @@ export type CreateFollowupPayload = Pick<
 
 // La edición solo toca el contenido; updated_at lo pone el service.
 export type UpdateFollowupPayload = Partial<
-  Pick<QuotationFollowup, 'note' | 'tipo' | 'next_contact_date'>
+  Pick<
+    QuotationFollowup,
+    'note' | 'tipo' | 'next_contact_date' | 'next_contact_done_at'
+  >
 > & { updated_at: string };
 
 // Fila mínima para el semáforo de la lista (ver findMapRows).
