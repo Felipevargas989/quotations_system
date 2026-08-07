@@ -409,4 +409,62 @@ describe('QuotationsService', () => {
       });
     });
   });
+
+  // ESTADO DE LA COSECHA (migración 63). Dos invariantes que en este
+  // repo se sostienen en código de aplicación y no en la base: el
+  // aislamiento por compañía, y que "Automático" no borre el rastro de
+  // quién tocó la fila.
+  describe('setHarvestStatus()', () => {
+    const idCotizacion = 'q-1';
+
+    it('guarda el estado y deja anotado quién y cuándo', async () => {
+      quotationsRepositoryMock.findOne.mockResolvedValue({
+        data: { id: idCotizacion, company_id: 7 },
+        error: null,
+      } as any);
+      quotationsRepositoryMock.update.mockResolvedValue({} as any);
+
+      const r = await service.setHarvestStatus(
+        idCotizacion,
+        7,
+        'user-9',
+        'en_gestion',
+      );
+
+      expect(r).toEqual({ ok: true, estado: 'en_gestion' });
+      const [, cambios] = quotationsRepositoryMock.update.mock.calls[0];
+      expect(cambios).toMatchObject({
+        harvest_status: 'en_gestion',
+        recontacted_by: 'user-9',
+      });
+      expect((cambios as any).recontacted_at).toEqual(expect.any(String));
+    });
+
+    it('volver a automático borra el estado pero NO el rastro', async () => {
+      quotationsRepositoryMock.findOne.mockResolvedValue({
+        data: { id: idCotizacion, company_id: 7 },
+        error: null,
+      } as any);
+      quotationsRepositoryMock.update.mockResolvedValue({} as any);
+
+      await service.setHarvestStatus(idCotizacion, 7, 'user-9', null);
+
+      const [, cambios] = quotationsRepositoryMock.update.mock.calls[0];
+      expect((cambios as any).harvest_status).toBeNull();
+      expect((cambios as any).recontacted_by).toBe('user-9');
+      expect((cambios as any).recontacted_at).toEqual(expect.any(String));
+    });
+
+    it('no toca una cotización de otra compañía', async () => {
+      quotationsRepositoryMock.findOne.mockResolvedValue({
+        data: { id: idCotizacion, company_id: 99 },
+        error: null,
+      } as any);
+
+      await expect(
+        service.setHarvestStatus(idCotizacion, 7, 'user-9', 'descartado'),
+      ).rejects.toThrow('Quotation not found');
+      expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+    });
+  });
 });

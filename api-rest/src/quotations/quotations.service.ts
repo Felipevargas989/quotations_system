@@ -400,8 +400,11 @@ export class QuotationsService {
       id,
       {
         harvest_status: estado ?? null,
-        recontacted_at: estado ? new Date().toISOString() : null,
-        recontacted_by: estado ? userId : null,
+        // Cuándo y quién, SIEMPRE: volver a "Automático" también es un
+        // toque, y borrar el rastro dejaba la migración 62 sin sentido
+        // (revisión del 07-08). La fecha es la del último toque.
+        recontacted_at: new Date().toISOString(),
+        recontacted_by: userId,
       } as unknown as UpdateQuotationDto,
       companyId,
     );
