@@ -1398,18 +1398,10 @@ export default function DashboardPage() {
                   anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
                 const clave = claveDe(mesElegido.anterior);
                 const filas = cosecha.filas;
-                // Se cuentan LLAMADOS, no filas: FEPASA parte un evento
-                // en dos cotizaciones y sigue siendo una sola llamada.
                 const cuantos = (e: EstadoCosecha) =>
-                  new Set(
-                    filas.filter((f) => f.efectivo === e).map((f) => f.llave),
-                  ).size;
+                  filas.filter((f) => f.efectivo === e).length;
                 const pendientes = cuantos("no_ha_vuelto");
                 const enGestion = cuantos("en_gestion");
-                // Cambiar el estado mueve a TODAS las cotizaciones de esa
-                // oportunidad dentro del mes que se está mirando.
-                const hermanas = (llave: string) =>
-                  filas.filter((f) => f.llave === llave).map((f) => f.id);
                 // Las dos pestañas: el mismo mes de este año y del pasado,
                 // con su cuenta a la vista para saber cuál mirar.
                 const anios = cosecha.anios;
@@ -1477,7 +1469,25 @@ export default function DashboardPage() {
                       </p>
                     ) : (
                       <div className="overflow-x-auto -mx-1">
-                        <table className="w-full text-sm">
+                        {/* Anchos fijos (07-08, pedido de Felipe: "no es
+                            capricho, es para darle más espacio a todo").
+                            En modo automático el navegador le regalaba el
+                            sobrante a CLIENTE —la columna de texto más
+                            largo— y dejaba apretadas las dos últimas, que
+                            son con las que se trabaja. Además el recorte
+                            de las celdas solo obedece con table-fixed. */}
+                        <table className="w-full text-sm table-fixed">
+                          <colgroup>
+                            <col className="w-[6%]" />
+                            <col className="w-[19%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[12%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[9%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[5%]" />
+                          </colgroup>
                           <thead>
                             <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b">
                               <th className="text-left font-semibold py-2 px-1">N°</th>
@@ -1488,7 +1498,7 @@ export default function DashboardPage() {
                               <th className="text-left font-semibold px-1">Cómo terminó</th>
                               <th className="text-right font-semibold px-1">Monto</th>
                               <th className="text-left font-semibold px-1">¿Volvió a pedirlo?</th>
-                              <th className="text-left font-semibold px-1"></th>
+                              <th className="text-right font-semibold px-1"></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1504,11 +1514,15 @@ export default function DashboardPage() {
                                 title="Abrir la ficha del negocio en otra pestaña"
                               >
                                 <td className="py-2 px-1 text-gray-500">#{f.numero}</td>
-                                <td className="px-1 font-medium text-gray-900">{f.cliente}</td>
+                                <td className="px-1 font-medium text-gray-900">
+                                  <div className="truncate" title={f.cliente}>
+                                    {f.cliente}
+                                  </div>
+                                </td>
                                 <td className="px-1">
                                   {f.tipoCliente ? (
                                     <span
-                                      className={`inline-block max-w-[86px] truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold align-middle ${getClientTypeColor(f.tipoCliente)}`}
+                                      className={`block truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-center ${getClientTypeColor(f.tipoCliente)}`}
                                       title={f.tipoCliente}
                                     >
                                       {f.tipoCliente}
@@ -1524,7 +1538,7 @@ export default function DashboardPage() {
                                     achicarla (revisión del 07-08). */}
                                 <td className="px-1 text-gray-600">
                                   <div
-                                    className="max-w-[110px] truncate"
+                                    className="truncate"
                                     title={f.mandante || undefined}
                                   >
                                     {f.mandante || (
@@ -1532,8 +1546,10 @@ export default function DashboardPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-1 text-gray-600 whitespace-nowrap">
-                                  {f.tipo}
+                                <td className="px-1 text-gray-600">
+                                  <div className="truncate" title={f.tipo}>
+                                    {f.tipo}
+                                  </div>
                                 </td>
                                 <td className="px-1">
                                   <span
@@ -1571,7 +1587,7 @@ export default function DashboardPage() {
                                     }
                                     onChange={(id) =>
                                       estadoMut.mutate({
-                                        ids: hermanas(f.llave),
+                                        ids: [f.id],
                                         estado:
                                           id === 0
                                             ? null
@@ -1579,7 +1595,7 @@ export default function DashboardPage() {
                                       })
                                     }
                                     chipClass={metaEstado(f.efectivo).chip}
-                                    widthClass="w-[132px]"
+                                    widthClass="w-full"
                                     disabled={
                                       estadoMut.isPending &&
                                       !!estadoMut.variables?.ids.includes(f.id)
@@ -1592,7 +1608,7 @@ export default function DashboardPage() {
                                     ariaLabel="Estado de la cosecha"
                                   />
                                 </td>
-                                <td className="px-1 whitespace-nowrap">
+                                <td className="px-1 text-right whitespace-nowrap">
                                   {f.posteriorNumero ? (
                                     <button
                                       type="button"
@@ -1625,10 +1641,10 @@ export default function DashboardPage() {
                           <b>empresa + mandante + tipo de evento</b>: si hubo un
                           pedido después de este mes, propone «Revendido»; si no,
                           «No ha vuelto». <b>La última palabra es tuya</b> —
-                          cámbialo en el desplegable y se guarda. Cambiarlo mueve
-                          juntas todas las cotizaciones de esa misma oportunidad
-                          en el mes, porque son un solo llamado. Las fichas se
-                          abren en otra pestaña para no perder la lista.
+                          cámbialo en el desplegable y se guarda. Cada fila es
+                          independiente: si un evento viene partido en dos
+                          cotizaciones, marca las dos. Las fichas se abren en
+                          otra pestaña para no perder la lista.
                         </p>
                       </div>
                     )}

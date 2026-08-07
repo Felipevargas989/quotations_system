@@ -206,9 +206,9 @@ export type FilaCosecha = {
   posteriorNumero: number | null;
   posteriorId: string | null;
   /** La palabra de Felipe (migración 63). null = manda la sugerencia.
-   *  Se toma del GRUPO: si cualquier hermana de la misma oportunidad y
-   *  mes la tiene puesta, la heredan todas —incluida una cotización
-   *  emitida después de haber marcado el grupo. */
+   *  Es de ESTA fila y de ninguna otra: se probó arrastrar a las
+   *  hermanas del mismo cruce y Felipe lo cortó al toque (07-08, movió
+   *  la #97 y se le movió la #107). Cada fila manda sobre sí misma. */
   estadoManual: EstadoCosecha | null;
   /** Lo que se muestra: su corrección si existe, si no la sugerencia. */
   efectivo: EstadoCosecha;
@@ -294,19 +294,8 @@ export const cosechaDelMes = (
       posterior.set(k, q);
   });
 
-  const delMes = filas.filter((q) => mesDe(q.created_at) === claveMes);
-
-  // El estado a mano es de la OPORTUNIDAD, no de la cotización suelta:
-  // se guarda replicado en las hermanas, así que basta con que una lo
-  // tenga para que el grupo entero lo muestre. Con esto, una cotización
-  // emitida después de haber marcado el grupo nace ya alineada.
-  const manualDeGrupo = new Map<string, EstadoCosecha>();
-  delMes.forEach((q) => {
-    const e = esEstado(q.harvest_status);
-    if (e && !manualDeGrupo.has(llaveDe(q))) manualDeGrupo.set(llaveDe(q), e);
-  });
-
-  return delMes
+  return filas
+    .filter((q) => mesDe(q.created_at) === claveMes)
     .map((q) => {
       const llave = llaveDe(q);
       const luego = posterior.get(llave);
@@ -315,7 +304,7 @@ export const cosechaDelMes = (
       else if (NO_SE_REPITE.has(canonizar(q.event_type)))
         sugerido = "no_se_repite";
       else sugerido = "no_ha_vuelto";
-      const estadoManual = manualDeGrupo.get(llave) ?? null;
+      const estadoManual = esEstado(q.harvest_status);
       return {
         id: String(q.id || ""),
         numero: q.quotation_number || 0,
