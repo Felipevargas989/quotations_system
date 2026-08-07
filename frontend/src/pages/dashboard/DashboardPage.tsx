@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   keepPreviousData,
   useMutation,
@@ -66,9 +66,11 @@ import {
   QuotationRequestType,
   QuotationStatus,
 } from "../../types/quotations.types";
+import type { QuotationWithClient } from "../../types/quotations.types";
 import { etiquetaMotivo } from "../../components/MotivoPerdida";
 import { getClientTypeColor } from "../../utils/clientTypeColor";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
+import { toast } from "../../components/toast/Toast";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
@@ -462,13 +464,87 @@ export default function DashboardPage() {
   // desplegable. Se guarda para TODAS las cotizaciones de la misma
   // oportunidad de ese mes: FEPASA parte un evento en dos (adultos y
   // niños) y las dos son un solo llamado, así que se mueven juntas.
+  // Las tres cosechas —la del mes y las dos pestañas de año— salían de
+  // tres recorridos del historial completo en CADA render, incluso al
+  // abrir una sección sin relación (revisión del 07-08). Una pasada.
+  const cosecha = useMemo(() => {
+    const todas = tendenciaQuery.data ?? [];
+    const claveDe = (anterior: boolean) =>
+      anterior ? unAnioAntes(mesElegido?.base || "") : mesElegido?.base || "";
+    if (!mesElegido) return { filas: [], anios: [] };
+    const anios = [true, false].map((ant) => {
+      const clave = claveDe(ant);
+      return { ant, clave, filas: cosechaDelMes(todas, clave) };
+    });
+    const mia = anios.find((a) => a.ant === mesElegido.anterior);
+    return {
+      filas: mia?.filas ?? [],
+      anios: anios.map((a) => ({ ant: a.ant, clave: a.clave, n: a.filas.length })),
+    };
+  }, [tendenciaQuery.data, mesElegido]);
+
+  // Quién dejó puesto el estado, para el tooltip: el uuid solo sirve
+  // para saber si fuiste tú (migración 62; sin join a usuarios).
+  const anotadoPor = (f: { anotadoEl: string | null; anotadoPor: string | null }) => {
+    const cuando = f.anotadoEl
+      ? ` el ${new Date(f.anotadoEl).toLocaleDateString("es-CL", {
+          day: "numeric",
+          month: "short",
+        })}`
+      : "";
+    if (!f.anotadoPor) return `Lo pusiste a mano${cuando}.`;
+    return f.anotadoPor === user?.id
+      ? `Lo pusiste tú${cuando}.`
+      : `Lo puso otra persona del equipo${cuando}.`;
+  };
+
   const clienteQuery = useQueryClient();
   const estadoMut = useMutation({
-    mutationFn: async (p: { ids: string[]; estado: EstadoCosecha | null }) => {
-      for (const id of p.ids) await guardarEstadoCosecha(id, p.estado);
+    mutationKey: ["cosecha"],
+    mutationFn: (p: { ids: string[]; estado: EstadoCosecha | null }) =>
+      // En paralelo: FEPASA mueve dos cotizaciones a la vez y no hay
+      // razón para que la segunda espere a la primera.
+      Promise.all(p.ids.map((id) => guardarEstadoCosecha(id, p.estado))),
+    // El chip cambia AL TIRO (07-08: "se demora mucho en cambiar de
+    // selección"). Antes cada cambio invalidaba la consulta y volvía a
+    // bajar las 374 cotizaciones con sus clientes: medio segundo largo
+    // de espera para escribir un texto de once letras. Ahora se escribe
+    // en la caché y el servidor confirma por detrás; si falla, se
+    // devuelve la foto anterior y no queda nada mentido en pantalla.
+    onMutate: async (p) => {
+      const llave = ["dashboard-tendencia"];
+      await clienteQuery.cancelQueries({ queryKey: llave });
+      const antes = clienteQuery.getQueriesData({ queryKey: llave });
+      clienteQuery.setQueriesData(
+        { queryKey: llave },
+        (viejo: unknown) =>
+          Array.isArray(viejo)
+            ? (viejo as QuotationWithClient[]).map((q) =>
+                p.ids.includes(String(q.id))
+                  ? { ...q, harvest_status: p.estado }
+                  : q,
+              )
+            : viejo,
+      );
+      return { antes };
     },
-    onSuccess: () =>
-      clienteQuery.invalidateQueries({ queryKey: ["dashboard-tendencia"] }),
+    onError: (_e, _p, ctx) => {
+      ctx?.antes?.forEach(([llave, datos]) =>
+        clienteQuery.setQueryData(llave, datos),
+      );
+      // Sin esto el chip volvía solo a su valor anterior y nadie se
+      // enteraba: uno cree que quedó anotado y al día siguiente vuelve a
+      // llamar al mismo cliente (revisión del 07-08).
+      toast.error("No se pudo guardar el estado. Inténtalo de nuevo.");
+    },
+    // Cuando ya no queda ningún guardado en vuelo, se vuelve a pedir la
+    // verdad al servidor. Hace falta porque dos cambios encadenados se
+    // pisan: el `onError` del primero restauraría una foto anterior al
+    // segundo y borraría de pantalla un cambio que sí se guardó.
+    onSettled: () => {
+      if (clienteQuery.isMutating({ mutationKey: ["cosecha"] }) <= 1)
+        clienteQuery.invalidateQueries({ queryKey: ["dashboard-tendencia"] });
+    },
   });
 
   const tieneAnterior = (
@@ -1321,8 +1397,7 @@ export default function DashboardPage() {
                 const claveDe = (anterior: boolean) =>
                   anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
                 const clave = claveDe(mesElegido.anterior);
-                const todas = tendenciaQuery.data ?? [];
-                const filas = cosechaDelMes(todas, clave);
+                const filas = cosecha.filas;
                 // Se cuentan LLAMADOS, no filas: FEPASA parte un evento
                 // en dos cotizaciones y sigue siendo una sola llamada.
                 const cuantos = (e: EstadoCosecha) =>
@@ -1337,11 +1412,7 @@ export default function DashboardPage() {
                   filas.filter((f) => f.llave === llave).map((f) => f.id);
                 // Las dos pestañas: el mismo mes de este año y del pasado,
                 // con su cuenta a la vista para saber cuál mirar.
-                const anios = [true, false].map((ant) => ({
-                  ant,
-                  clave: claveDe(ant),
-                  n: cosechaDelMes(todas, claveDe(ant)).length,
-                }));
+                const anios = cosecha.anios;
                 return (
                   <div className="bg-white rounded-lg shadow p-5">
                     <div className="flex items-start justify-between gap-3 mb-1">
@@ -1358,13 +1429,16 @@ export default function DashboardPage() {
                               <b className="text-amber-700">
                                 {pendientes} por llamar
                               </b>
-                              {enGestion > 0 && (
-                                <span className="text-blue-700">
-                                  {" · "}
-                                  {enGestion} en gestión
-                                </span>
-                              )}
                             </>
+                          )}
+                          {/* Fuera del guard de pendientes: el avance
+                              tiene que verse JUSTO cuando ya no queda
+                              nadie por llamar (revisión del 07-08). */}
+                          {enGestion > 0 && (
+                            <span className="text-blue-700">
+                              {" · "}
+                              {enGestion} en gestión
+                            </span>
                           )}
                         </p>
                         <div className="flex gap-1.5 mt-2">
@@ -1434,7 +1508,8 @@ export default function DashboardPage() {
                                 <td className="px-1">
                                   {f.tipoCliente ? (
                                     <span
-                                      className={`inline-block whitespace-nowrap px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getClientTypeColor(f.tipoCliente)}`}
+                                      className={`inline-block max-w-[86px] truncate px-1.5 py-0.5 rounded-full text-[10px] font-semibold align-middle ${getClientTypeColor(f.tipoCliente)}`}
+                                      title={f.tipoCliente}
                                     >
                                       {f.tipoCliente}
                                     </span>
@@ -1442,12 +1517,24 @@ export default function DashboardPage() {
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
+                                {/* El recorte va en un div, no en la celda:
+                                    en una tabla de ancho automático el
+                                    navegador ignora el max-width de un
+                                    <td> y el nowrap la ensancha en vez de
+                                    achicarla (revisión del 07-08). */}
                                 <td className="px-1 text-gray-600">
-                                  {f.mandante || (
-                                    <span className="text-gray-400 italic">sin mandante</span>
-                                  )}
+                                  <div
+                                    className="max-w-[110px] truncate"
+                                    title={f.mandante || undefined}
+                                  >
+                                    {f.mandante || (
+                                      <span className="text-gray-400 italic">sin mandante</span>
+                                    )}
+                                  </div>
                                 </td>
-                                <td className="px-1 text-gray-600">{f.tipo}</td>
+                                <td className="px-1 text-gray-600 whitespace-nowrap">
+                                  {f.tipo}
+                                </td>
                                 <td className="px-1">
                                   <span
                                     className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
@@ -1493,10 +1580,13 @@ export default function DashboardPage() {
                                     }
                                     chipClass={metaEstado(f.efectivo).chip}
                                     widthClass="w-[132px]"
-                                    disabled={estadoMut.isPending}
+                                    disabled={
+                                      estadoMut.isPending &&
+                                      !!estadoMut.variables?.ids.includes(f.id)
+                                    }
                                     title={
                                       f.estadoManual
-                                        ? `${metaEstado(f.efectivo).ayuda}. Lo pusiste tú.`
+                                        ? `${metaEstado(f.efectivo).ayuda}. ${anotadoPor(f)}`
                                         : `${metaEstado(f.efectivo).ayuda}. Sugerido por el sistema.`
                                     }
                                     ariaLabel="Estado de la cosecha"
@@ -1511,16 +1601,18 @@ export default function DashboardPage() {
                                         abrirAlLado(f.posteriorId || "");
                                       }}
                                       className="text-xs text-gray-500 hover:text-blue-700 hover:underline"
-                                      title="Abrir en otra pestaña la cotización posterior de este mismo cruce"
-                                    >
-                                      #{f.posteriorNumero} ·{" "}
-                                      {etiquetaMes(
+                                      title={`Cotización posterior de este mismo cruce (${etiquetaMes(
                                         String(f.posteriorEl).slice(0, 7),
-                                      )}
+                                      )}). Se abre en otra pestaña.`}
+                                    >
+                                      #{f.posteriorNumero}
                                     </button>
                                   ) : (
-                                    <span className="text-gray-300 text-xs">
-                                      sin pedidos después
+                                    <span
+                                      className="text-gray-300 text-xs"
+                                      title="No hay pedidos posteriores de este cruce"
+                                    >
+                                      —
                                     </span>
                                   )}
                                 </td>

@@ -139,7 +139,14 @@ export type EstadoCosecha =
   | "no_se_repite"
   | "descartado";
 
-/** Los cinco estados, en el orden en que se leen en el desplegable. */
+/** Los cinco estados, en el orden en que se leen en el desplegable.
+ *
+ *  OJO: esta lista tiene una gemela en el backend
+ *  (api-rest/src/quotations/dto/estado-cosecha.dto.ts → ESTADOS_COSECHA)
+ *  y no hay nada que las obligue a coincidir: el repo no tiene paquete
+ *  compartido, las dos apps solo hablan por HTTP. Agregar un estado acá
+ *  sin agregarlo allá se ve como un chip que vuelve solo, sin
+ *  explicación. Se tocan las dos o ninguna. */
 export const ESTADOS_COSECHA: {
   v: EstadoCosecha;
   l: string;
@@ -198,11 +205,16 @@ export type FilaCosecha = {
   posteriorEl: string | null;
   posteriorNumero: number | null;
   posteriorId: string | null;
-  /** La palabra de Felipe (migración 63). null = manda la sugerencia. */
+  /** La palabra de Felipe (migración 63). null = manda la sugerencia.
+   *  Se toma del GRUPO: si cualquier hermana de la misma oportunidad y
+   *  mes la tiene puesta, la heredan todas —incluida una cotización
+   *  emitida después de haber marcado el grupo. */
   estadoManual: EstadoCosecha | null;
   /** Lo que se muestra: su corrección si existe, si no la sugerencia. */
   efectivo: EstadoCosecha;
-  soloPorCliente: boolean;
+  /** Cuándo y quién tocó esta fila por última vez (migración 62). */
+  anotadoEl: string | null;
+  anotadoPor: string | null;
 };
 
 const canonizar = (t?: string | null) =>
@@ -221,7 +233,27 @@ type QCosecha = {
   quotation_status?: string | null;
   contact_name?: string | null;
   harvest_status?: string | null;
+  recontacted_at?: string | null;
+  recontacted_by?: string | null;
   clients?: { name?: string | null; client_type?: string | null } | null;
+};
+
+// El mes de una fecha, venga como texto ISO o como Date. El tipo de la
+// lista declara `created_at: Date` aunque la API entregue texto: cortar
+// a ciegas con slice(0,7) sobre un Date daría "Fri Aug" y la cosecha
+// saldría vacía sin avisar (revisión del 07-08).
+const mesDe = (v?: string | Date | null): string => {
+  if (!v) return "";
+  if (typeof v === "string") return v.slice(0, 7);
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 7) : "";
+};
+
+// Instante comparable, con el mismo cuidado.
+const instante = (v?: string | Date | null): number => {
+  if (!v) return 0;
+  const t = new Date(v as string | Date).getTime();
+  return Number.isFinite(t) ? t : 0;
 };
 
 const esEstado = (v?: string | null): EstadoCosecha | null =>
@@ -237,9 +269,17 @@ export const cosechaDelMes = (
   filas: QCosecha[],
   claveMes: string,
 ): FilaCosecha[] => {
-  const llaveDe = (q: QCosecha) =>
-    `${canonizar(q.clients?.name)}|${canonizar(q.contact_name)}|${canonizar(q.event_type)}`;
-  const mesDe = (q: QCosecha) => String(q.created_at || "").slice(0, 7);
+  // La llave de la oportunidad. Si falta el cliente o el mandante no hay
+  // nada que agrupar: la fila va sola con su propio id, para no arrastrar
+  // cotizaciones ajenas que solo comparten el tipo de evento (revisión
+  // del 07-08; hoy no hay ninguna así, pero el portal público podría
+  // crearla y el daño sería silencioso).
+  const llaveDe = (q: QCosecha) => {
+    const cli = canonizar(q.clients?.name);
+    const man = canonizar(q.contact_name);
+    if (!cli || !man) return `#${String(q.id || "")}`;
+    return `${cli}|${man}|${canonizar(q.event_type)}`;
+  };
 
   // La pregunta, una sola: ¿este cruce pidió algo DESPUÉS de este mes?
   // Se compara contra el MES, no contra cada cotización: así las dos
@@ -247,15 +287,26 @@ export const cosechaDelMes = (
   // misma respuesta, que es lo correcto — son un solo llamado.
   const posterior = new Map<string, QCosecha>();
   filas.forEach((q) => {
-    if (mesDe(q) <= claveMes) return;
+    if (mesDe(q.created_at) <= claveMes) return;
     const k = llaveDe(q);
     const previa = posterior.get(k);
-    if (!previa || String(q.created_at || "") > String(previa.created_at || ""))
+    if (!previa || instante(q.created_at) > instante(previa.created_at))
       posterior.set(k, q);
   });
 
-  return filas
-    .filter((q) => mesDe(q) === claveMes)
+  const delMes = filas.filter((q) => mesDe(q.created_at) === claveMes);
+
+  // El estado a mano es de la OPORTUNIDAD, no de la cotización suelta:
+  // se guarda replicado en las hermanas, así que basta con que una lo
+  // tenga para que el grupo entero lo muestre. Con esto, una cotización
+  // emitida después de haber marcado el grupo nace ya alineada.
+  const manualDeGrupo = new Map<string, EstadoCosecha>();
+  delMes.forEach((q) => {
+    const e = esEstado(q.harvest_status);
+    if (e && !manualDeGrupo.has(llaveDe(q))) manualDeGrupo.set(llaveDe(q), e);
+  });
+
+  return delMes
     .map((q) => {
       const llave = llaveDe(q);
       const luego = posterior.get(llave);
@@ -264,7 +315,7 @@ export const cosechaDelMes = (
       else if (NO_SE_REPITE.has(canonizar(q.event_type)))
         sugerido = "no_se_repite";
       else sugerido = "no_ha_vuelto";
-      const estadoManual = esEstado(q.harvest_status);
+      const estadoManual = manualDeGrupo.get(llave) ?? null;
       return {
         id: String(q.id || ""),
         numero: q.quotation_number || 0,
@@ -281,7 +332,8 @@ export const cosechaDelMes = (
         posteriorId: luego ? String(luego.id || "") : null,
         estadoManual,
         efectivo: estadoManual ?? sugerido,
-        soloPorCliente: !(q.contact_name || "").trim(),
+        anotadoEl: q.recontacted_at || null,
+        anotadoPor: q.recontacted_by || null,
       };
     })
     .sort((a, b) => b.monto - a.monto);

@@ -66,15 +66,21 @@ export default function SectionChipSelect({
           }
           setOpen((v) => !v);
         }}
-        className={`flex items-center justify-between gap-1 border hover:brightness-95 ${
+        className={`flex items-center justify-between gap-1 border ${
           size === "md"
             ? "text-sm rounded-lg px-3 py-2"
             : "text-xs rounded-md px-2 py-1"
         } ${
-          chipClass ||
-          (size === "md"
-            ? "bg-white border-gray-300 text-gray-700"
-            : "bg-white border-gray-200 text-gray-500")
+          // Sin colores propios, el chip sobrio de siempre, hover
+          // incluido: los 4 usos del catálogo y el cotizador tienen que
+          // verse idénticos a antes (revisión del 07-08).
+          chipClass
+            ? `${chipClass} hover:brightness-95`
+            : `bg-white hover:border-gray-300 ${
+                size === "md"
+                  ? "border-gray-300 text-gray-700"
+                  : "border-gray-200 text-gray-500"
+              }`
         } ${
           widthClass || (size === "md" ? "w-[150px]" : "w-[130px]")
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -82,7 +88,10 @@ export default function SectionChipSelect({
         aria-label={ariaLabel}
       >
         <span className="truncate">{actual}</span>
-        <ChevronDown size={12} className="shrink-0 opacity-60" />
+        <ChevronDown
+          size={12}
+          className={`shrink-0 ${chipClass ? "opacity-60" : "text-gray-400"}`}
+        />
       </button>
       {open && (
         <>
