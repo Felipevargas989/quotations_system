@@ -13,13 +13,12 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCompleteStats } from "../../services/analytics.service";
@@ -38,6 +37,14 @@ import {
   newAccumulator,
 } from "../../utils/eventConsolidation";
 import { CompleteStatsResponse } from "../../types/analytics.types";
+import {
+  agruparPorMes,
+  ES_EVENTO,
+  indiceMesActual,
+  primerMesConDatos,
+  serieInteranual,
+  ventanaMeses,
+} from "./tendencias";
 import { getQuotations } from "../../services/quotations.service";
 import {
   QuotationRequestType,
@@ -57,41 +64,11 @@ import FixedServicesUsageStatsComponent from "../analytics/components/FixedServi
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
 );
-
-// Plugin liviano (sin dependencias): pinta la cifra sobre cada
-// punto de la curva, del color de la serie. El monto exacto sigue en el
-// tooltip. Se activa con `puntoEntero` (conteos)
-// en las options del gráfico.
-const etiquetasDePunto = {
-  id: "etiquetasDePunto",
-  afterDatasetsDraw(chart: any) {
-    const opts: any = chart.options || {};
-    if (!opts.puntoEntero) return;
-    const { ctx } = chart;
-    chart.data.datasets.forEach((ds: any, di: number) => {
-      const meta = chart.getDatasetMeta(di);
-      if (meta.hidden) return;
-      ctx.save();
-      ctx.font = "bold 10px system-ui, sans-serif";
-      ctx.fillStyle = ds.borderColor || "#374151";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      meta.data.forEach((pt: any, i: number) => {
-        const v = Number(ds.data[i]);
-        if (!Number.isFinite(v) || v === 0) return;
-        const label = v.toLocaleString("es-CL");
-        ctx.fillText(label, pt.x, pt.y - 6);
-      });
-      ctx.restore();
-    });
-  },
-};
 
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -438,6 +415,55 @@ export default function DashboardPage() {
       getWonEventsSince(company!.id, resolveRange().start_date),
   });
 
+  // TENDENCIA INTERANUAL (06-08, diseño de Felipe): estos gráficos NO
+  // obedecen al filtro del período — muestran el pulso contra el año
+  // anterior. Una sola consulta con todo (son ~320 filas) da control
+  // total sobre la ventana móvil y la comparación mes contra mes.
+  const tendenciaQuery = useQuery({
+    queryKey: ["dashboard-tendencia", company?.id],
+    enabled: !!user && !!company?.id,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION);
+      return data || [];
+    },
+  });
+  const tieneAnterior = (
+    mapa: Map<string, { n: number; monto: number }>,
+    clave: string,
+  ) => {
+    const [a, m] = clave.split("-");
+    return mapa.has(`${Number(a) - 1}-${m}`);
+  };
+  const tendencia = (() => {
+    const filas = tendenciaQuery.data ?? [];
+    // Cotizaciones: por fecha de emisión, TODO lo que salió a la calle.
+    const mesesCot = ventanaMeses(12, 4);
+    const porEmision = agruparPorMes(filas, "created_at");
+    // Eventos: por fecha del evento y solo lo CONFIRMADO; 12 corridos
+    // más 4 de proyección (lo ya agendado).
+    const mesesEv = ventanaMeses(12, 4);
+    const porEvento = agruparPorMes(
+      filas.filter((q) => ES_EVENTO.has(String(q.quotation_status))),
+      "event_date",
+    );
+    // Antes del primer mes con datos el sistema no existía: ahí no se
+    // dibuja nada (un cero sería mentira).
+    const desde = primerMesConDatos([porEmision, porEvento]);
+    return {
+      cotCantidad: serieInteranual(mesesCot, porEmision, "n", desde),
+      cotMonto: serieInteranual(mesesCot, porEmision, "monto", desde),
+      evCantidad: serieInteranual(mesesEv, porEvento, "n", desde),
+      evMonto: serieInteranual(mesesEv, porEvento, "monto", desde),
+      // El mes en curso va a medias; de ahí en adelante, proyección.
+      mesActualCot: indiceMesActual(mesesCot),
+      mesActualEv: indiceMesActual(mesesEv),
+      hayComparacion: mesesCot.some(
+        (m, i) => tieneAnterior(porEmision, m.clave) && i >= 0,
+      ),
+    };
+  })();
+
   // POR QUÉ PERDIMOS (06-08, migración 61). Nació de un dato medido: el
   // ticket promedio de las ganadas y el de las perdidas es casi idéntico
   // — el precio NO explica las derrotas. Este cuadro convierte cada
@@ -731,174 +757,6 @@ export default function DashboardPage() {
     if (year > currentYear) return true;
     if (year === currentYear && monthIndex > currentMonth) return true;
     return false;
-  };
-
-  // Venta y margen del mes en el tooltip de AMBOS gráficos (pedido
-  // Felipe 03-08): la VENTA (lo vendido por fecha de evento, no la
-  // caja por cuotas) y el margen — los mismos números de la tabla
-  // de abajo, para que todo el Dashboard cuadre entre sí.
-  const ventaDelMes = new Map(
-    data.moneyByMonth.map((r) => [r.monthKey, r.ventas]),
-  );
-  const lineasDePlata = (monthKey: string): string[] => {
-    const ventas = ventaDelMes.get(monthKey) || 0;
-    if (!ventas) return [];
-    const lineas = [
-      `Venta: ${formatCurrency(ventas, company?.currency || "CLP")}`,
-    ];
-    const m = marginByMonth.get(monthKey);
-    if (m && m.costo > 0) {
-      const margen = ventas - m.costo;
-      const pct = ((margen * 100) / ventas).toLocaleString("es-CL", {
-        maximumFractionDigits: 0,
-      });
-      lineas.push(
-        `Margen: ${m.estimado ? "~" : ""}${formatCurrency(
-          margen,
-          company?.currency || "CLP",
-        )} (${pct}%)`,
-      );
-    }
-    return lineas;
-  };
-
-  // Chart configuration for the line chart
-  const chartOptions = {
-    responsive: true,
-    puntoEntero: true,
-    layout: { padding: { top: 16 } },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          afterBody: (items: { dataIndex: number }[]) =>
-            items.length
-              ? lineasDePlata(
-                  data.requestsByMonth[items[0].dataIndex]?.monthKey || "",
-                )
-              : [],
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: false,
-        },
-      },
-      y: {
-        display: true,
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1,
-        },
-      },
-    },
-    maintainAspectRatio: false,
-  };
-
-  // Prepare chart data for quotations
-  const chartData = {
-    labels: data.requestsByMonth.map((item) => item.month),
-    datasets: [
-      {
-        label: "Cotizaciones",
-        data: data.requestsByMonth.map((item) => item.count),
-        borderColor: "rgb(59, 130, 246)",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
-        borderWidth: 2,
-        pointBackgroundColor: "rgb(59, 130, 246)",
-        pointBorderColor: "rgb(59, 130, 246)",
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-      },
-    ],
-  };
-
-  // Chart configuration for the events line chart
-  const eventsChartOptions = {
-    responsive: true,
-    puntoEntero: true,
-    layout: { padding: { top: 16 } },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          afterBody: (items: { dataIndex: number }[]) =>
-            items.length
-              ? lineasDePlata(
-                  data.eventsByMonth[items[0].dataIndex]?.monthKey || "",
-                )
-              : [],
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: false,
-        },
-      },
-      y: {
-        display: true,
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1,
-        },
-      },
-    },
-    maintainAspectRatio: false,
-  };
-
-  // Prepare chart data for events
-  const eventsChartData = {
-    labels: data.eventsByMonth.map((item) => item.month),
-    datasets: [
-      {
-        label: "Eventos",
-        data: data.eventsByMonth.map((item) => item.count),
-        borderColor: "rgb(147, 51, 234)", // Purple color
-        backgroundColor: "rgba(147, 51, 234, 0.1)",
-        borderWidth: 2,
-        pointBackgroundColor: "rgb(147, 51, 234)",
-        pointBorderColor: "rgb(147, 51, 234)",
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        segment: {
-          borderColor: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.eventsByMonth.length)
-              return "rgb(147, 51, 234)";
-            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
-              ? "rgba(147, 51, 234, 0.3)"
-              : "rgb(147, 51, 234)";
-          },
-          borderDash: (ctx: any) => {
-            const nextIndex = ctx.p1DataIndex;
-            if (nextIndex >= data.eventsByMonth.length) return undefined;
-            return isMonthInFuture(data.eventsByMonth[nextIndex].monthKey)
-              ? [5, 5]
-              : undefined;
-          },
-        },
-      },
-    ],
   };
 
   // Esqueleto SOLO en la primera visita de la sesión (sin datos aún);
@@ -1247,39 +1105,168 @@ export default function DashboardPage() {
       })()}
 
       {/* Gráficos principales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Cotizaciones por mes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <BarChart3 className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Cotizaciones por Mes
-            </h2>
-            <span className="text-sm text-gray-500">(Todos los estados)</span>
+      {/* TENDENCIA INTERANUAL (06-08, diseño de Felipe): estos cuatro NO
+          obedecen al filtro del período — muestran el pulso del negocio
+          contra el año anterior. Arriba la cantidad (líneas), abajo la
+          plata (barras). En eventos, los últimos 4 meses son PROYECCIÓN:
+          lo ya agendado contra lo que realmente pasó el año pasado. */}
+      {(() => {
+        const azul = "rgb(59, 130, 246)";
+        const morado = "rgb(147, 51, 234)";
+        const tenue = "rgba(148, 163, 184, 0.55)";
+        const barras = (
+          serie: typeof tendencia.cotMonto,
+          color: string,
+          corte: number,
+        ) => ({
+          labels: serie.etiquetas,
+          datasets: [
+            {
+              label: "Hace un año",
+              data: serie.anterior,
+              backgroundColor: tenue,
+              borderRadius: 3,
+            },
+            {
+              label: "Este año",
+              data: serie.actual,
+              // Del mes en curso hacia adelante, la barra va translúcida:
+              // ese tramo no está cerrado (mes a medias) o es solo lo
+              // agendado. Se nota sin tener que explicarlo.
+              backgroundColor: serie.actual.map((_, i) =>
+                corte >= 0 && i >= corte
+                  ? color.replace("rgb", "rgba").replace(")", ", 0.35)")
+                  : color.replace("rgb", "rgba").replace(")", ", 0.85)"),
+              ),
+              borderRadius: 3,
+            },
+          ],
+        });
+        // Al pasar el cursor por un mes se muestran AMBOS años y la
+        // diferencia entre ellos (pedido de Felipe 06-08): la pregunta
+        // real no es "cuánto llevo" sino "cómo voy contra el año pasado".
+        const comparativo = {
+          // `intersect: true` es lo que permite CERRARLO: solo cuenta el
+          // clic sobre una barra, así un clic en el espacio vacío lo
+          // apaga. Con `false`, cualquier punto acertaba y no se iba
+          // nunca (06-08).
+          interaction: { mode: "index" as const, intersect: true },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                footer: (items: { parsed: { y: number } }[]) => {
+                  if (items.length < 2) return "";
+                  const antes = items[0].parsed.y;
+                  const ahora = items[1].parsed.y;
+                  if (!antes) return "";
+                  const dif = Math.round(((ahora - antes) / antes) * 100);
+                  return `${dif >= 0 ? "▲" : "▼"} ${Math.abs(dif)}% vs hace un año`;
+                },
+              },
+            },
+          },
+        };
+        const opcionesBase = {
+          responsive: true,
+          maintainAspectRatio: false,
+          // El detalle aparece SOLO al pinchar una barra (06-08: al
+          // pasar el cursor se disparaba solo y estorbaba). Se pincha
+          // otra parte y se va. `touchstart` para que sirva en tableta.
+          events: ["click", "touchstart"] as ("click" | "touchstart")[],
+          interaction: comparativo.interaction,
+          plugins: {
+            legend: {
+              display: true,
+              position: "bottom" as const,
+              labels: { boxWidth: 12, font: { size: 11 }, usePointStyle: true },
+            },
+            tooltip: comparativo.plugins.tooltip,
+          },
+          scales: { y: { beginAtZero: true } },
+        };
+        const opcionesPlata = {
+          ...opcionesBase,
+          plugins: {
+            ...opcionesBase.plugins,
+            tooltip: {
+              callbacks: {
+                label: (ctx: { dataset: { label?: string }; parsed: { y: number } }) =>
+                  `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y, company?.currency || "CLP")}`,
+                footer: comparativo.plugins.tooltip.callbacks.footer,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (v: string | number) =>
+                  `$${(Number(v) / 1_000_000).toFixed(0)}M`,
+              },
+            },
+          },
+        };
+        const marco = (
+          titulo: string,
+          sub: string,
+          icono: React.ReactNode,
+          grafico: React.ReactNode,
+        ) => (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center gap-2 mb-1">
+              {icono}
+              <h2 className="text-lg font-semibold text-gray-900">{titulo}</h2>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">{sub}</p>
+            <div className="h-64">{grafico}</div>
           </div>
-          <div className="h-64">
-            <Line data={chartData} options={chartOptions} plugins={[etiquetasDePunto]} />
-          </div>
-        </div>
+        );
+        return (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {marco(
+                "Cotizaciones por Mes",
+                "12 meses + 4 adelante · la línea tenue del año pasado es la meta a superar",
+                <BarChart3 className="h-5 w-5 text-blue-600" />,
+                <Bar
+                  data={barras(tendencia.cotCantidad, azul, tendencia.mesActualCot)}
+                  options={opcionesBase}
+                />,
+              )}
+              {marco(
+                "Eventos por Mes",
+                "12 meses + 4 de proyección (lo ya agendado) · solo confirmados",
+                <Calendar className="h-5 w-5 text-purple-600" />,
+                <Bar
+                  data={barras(tendencia.evCantidad, morado, tendencia.mesActualEv)}
+                  options={opcionesBase}
+                />,
+              )}
+            </div>
 
-        {/* Eventos por mes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center space-x-2 mb-4">
-            <Calendar className="h-5 w-5 text-purple-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Eventos por Mes
-            </h2>
-            {/* 24-07: la leyenda decía "(Solo aceptados)" desde noviembre y ya
-                no era cierta: desde el 23-07 el gráfico trae aceptadas Y
-                realizadas. El dato siempre estuvo bien; el letrero mentía. */}
-            <span className="text-sm text-gray-500">(eventos concretados)</span>
-          </div>
-          <div className="h-64">
-            <Line data={eventsChartData} options={eventsChartOptions} plugins={[etiquetasDePunto]} />
-          </div>
-        </div>
-
-      </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {marco(
+                "Cotizado por Mes",
+                "El dinero que pusiste sobre la mesa · el mes en curso va a medias",
+                <BarChart3 className="h-5 w-5 text-blue-600" />,
+                <Bar
+                  data={barras(tendencia.cotMonto, azul, tendencia.mesActualCot)}
+                  options={opcionesPlata}
+                />,
+              )}
+              {marco(
+                "Vendido por Mes",
+                "Eventos confirmados · los últimos 4 meses son lo ya agendado",
+                <Calendar className="h-5 w-5 text-purple-600" />,
+                <Bar
+                  data={barras(tendencia.evMonto, morado, tendencia.mesActualEv)}
+                  options={opcionesPlata}
+                />,
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* Ingresos y Caja por Mes — TRANSPUESTA (23-07, pedido Felipe):
           los MESES son columnas (máx 12, los más recientes del período,
@@ -1754,6 +1741,21 @@ export default function DashboardPage() {
               <QuotationStatusStatsComponent
                 stats={stats.quotation_status_stats}
               />
+              <EventTypeConversionStatsComponent
+                stats={stats.event_type_conversion_stats}
+              />
+              {company && (
+                <EventTypeRevenueStatsComponent
+                  stats={stats.event_type_revenue_stats}
+                  currency={company.currency}
+                />
+              )}
+              {company && (
+                <RevenueByClientTypeStatsComponent
+                  stats={stats.revenue_by_client_type}
+                  currency={company.currency}
+                />
+              )}
               {/* POR QUÉ PERDIMOS (06-08, migración 61): el mapa que
                   convierte cada derrota en algo accionable. */}
               <div className="bg-white rounded-xl shadow p-5">
@@ -1802,21 +1804,6 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <EventTypeConversionStatsComponent
-                stats={stats.event_type_conversion_stats}
-              />
-              {company && (
-                <EventTypeRevenueStatsComponent
-                  stats={stats.event_type_revenue_stats}
-                  currency={company.currency}
-                />
-              )}
-              {company && (
-                <RevenueByClientTypeStatsComponent
-                  stats={stats.revenue_by_client_type}
-                  currency={company.currency}
-                />
-              )}
             </div>
           ),
         },

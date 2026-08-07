@@ -171,7 +171,7 @@ export default function PortalPage() {
         // interno. Sin ella caía a la lista plana.
         menu?: import("../../utils/quotationPrintDoc").PrintMenu | null;
       };
-      const { buildQuotationPrintDoc } = await import(
+      const { buildQuotationPrintDoc, nombreArchivo } = await import(
         "../../utils/quotationPrintDoc"
       );
       const { css, body } = buildQuotationPrintDoc(
@@ -183,7 +183,7 @@ export default function PortalPage() {
       w.document.write(`<!DOCTYPE html>
         <html lang="es"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Cotización ${d.quotation.quotation_number}</title>
+        <title>${nombreArchivo(d.quotation)}</title>
         <style>body{margin:0;background:#f3f4f6;} .qv-hoja{max-width:820px;margin:0 auto;} ${css}</style>
         </head><body>${body}</body></html>`);
       w.document.close();

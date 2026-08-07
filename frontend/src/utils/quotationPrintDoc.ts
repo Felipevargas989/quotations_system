@@ -541,6 +541,20 @@ export function buildQuotationPrintDoc(
 }
 
 /** Abre la hoja en una ventana nueva y lanza imprimir/guardar PDF. */
+// EL NOMBRE DEL ARCHIVO (06-08, pedido de Felipe): "470 - Municipalidad
+// de Quillón" en vez de llevar siempre el nombre de la empresa propia,
+// que hacía que todos los PDF se llamaran casi igual. Chrome usa el
+// título de la ventana como nombre por defecto al guardar; se limpian
+// los caracteres que el sistema de archivos no acepta.
+export const nombreArchivo = (q: PrintQuotation): string => {
+  const cliente = (q.clients?.name || "").trim();
+  const limpio = cliente
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return limpio ? `${q.quotation_number} - ${limpio}` : `${q.quotation_number}`;
+};
+
 export function openQuotationPrintWindow(
   quotation: PrintQuotation,
   company: PrintCompany | null,
@@ -556,7 +570,7 @@ export function openQuotationPrintWindow(
   // impresión salga igual como siempre.
   printWindow.document.write(`<!DOCTYPE html>
       <html lang="es"><head><meta charset="utf-8">
-      <title>Cotización ${quotation.quotation_number} - ${esc(company?.name || "Empresa")}</title>
+      <title>${esc(nombreArchivo(quotation))}</title>
       <style>body{margin:0;} ${css}</style>
       <script>
         window.__yaImprimio = false;
