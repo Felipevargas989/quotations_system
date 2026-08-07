@@ -403,10 +403,18 @@ export default function QuotationForm() {
   const nomCat = (box: any) => nombreVigente(orderedCategories, cajaDe(box));
 
   const ofrecidosDe = (box: any) => {
-    const filtrados = getFilteredProducts(nomCat(box))
+    // El buscador entiende SECCIONES además de nombres (07-08, pedido
+    // de Felipe): escribir "postres" trae todo lo de esa sección aunque
+    // ningún plato diga "postre". `matchesSearch` ya acepta varios
+    // textos y exige que todas las palabras aparezcan en alguno, así que
+    // "principales pollo" también acierta. Por eso el filtro por nombre
+    // se aplica DESPUÉS de saber en qué sección cae cada item.
+    const ofrecidos = getFilteredProducts(nomCat(box))
       .filter((p) => p.is_active !== false)
-      .filter((p) => !isLockedService(nomCat(box), p.codigo))
-      .filter((p) => matchesSearch(itemSearch, p.nombre));
+      .filter((p) => !isLockedService(nomCat(box), p.codigo));
+    const filtrados = ofrecidos.filter((p) =>
+      matchesSearch(itemSearch, p.nombre),
+    );
     const cat = catDeCaja(box);
     const secs = cat
       ? categorySections
@@ -424,16 +432,22 @@ export default function QuotationForm() {
           l.category_id === cat!.id &&
           l.variable_service_id.toString() === codigo,
       )?.section_id || 0;
+    const deSeccion = (id: number, nombre: string) =>
+      ofrecidos.filter(
+        (p) =>
+          seccionDe(p.codigo) === id &&
+          matchesSearch(itemSearch, p.nombre, nombre),
+      );
     const bloques = [
       ...secs.map((sec) => ({
         key: `s-${sec.id}`,
         name: sec.name,
-        items: filtrados.filter((p) => seccionDe(p.codigo) === sec.id),
+        items: deSeccion(sec.id, sec.name),
       })),
       {
         key: "s-0",
         name: "Sin sección",
-        items: filtrados.filter((p) => seccionDe(p.codigo) === 0),
+        items: deSeccion(0, "Sin sección"),
       },
     ].filter((b) => b.items.length > 0);
     return { bloques, orden: bloques.flatMap((b) => b.items) };
