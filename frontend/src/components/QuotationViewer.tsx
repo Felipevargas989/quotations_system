@@ -59,6 +59,13 @@ export default function QuotationViewer({
   );
 
   const handleDownloadPDF = (): void => {
+    // La carta aún no llega: el documento saldría con la lista plana en
+    // vez de agrupada por secciones (revisión 06-08). Se avisa en vez
+    // de entregar un PDF distinto al que el usuario está viendo.
+    if (!menu) {
+      toast.warn("Un segundo: terminando de cargar la carta del catálogo…");
+      return;
+    }
     const ok = openQuotationPrintWindow(quotation, company ?? null, menu);
     if (!ok) {
       toast.warn(

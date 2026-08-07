@@ -674,6 +674,10 @@ export class QuotationsService {
         logo_url: cliente.companies.logo_url || null,
         colors: cliente.companies.colors || null,
       },
+      // La carta del catálogo: sin ella el portal mostraba la lista
+      // plana mientras el documento interno iba por secciones
+      // (revisión 06-08). Mismo documento, misma cara para el cliente.
+      menu: await this.quotationsRepository.cartaDelCatalogo(q.company_id),
     };
   }
 

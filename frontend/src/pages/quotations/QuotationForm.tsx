@@ -69,6 +69,10 @@ import { matchesSearch } from "../../utils/searchMatch";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
+import {
+  buscarCategoria,
+  nombreVigente,
+} from "../../utils/categoriaCaja";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
 import { getBaseCatalogo } from "../../services/logistics.service";
@@ -91,6 +95,8 @@ interface SelectedService {
 interface ServiceBox {
   id: string;
   selectedCategory: string;
+  // Id del catálogo (06-08): sobrevive a los renombres.
+  selectedCategoryId?: number | null;
   selectedItem: string;
   services: SelectedService[]; // Each box has its own services
   groupName?: string; // Set (in memory) when the box was loaded from a saved group
@@ -377,6 +383,16 @@ export default function QuotationForm() {
     box.audience === "ninos" ? childrenCount : adultsCount;
   const boxPeople = (box: Pick<ServiceBox, "audience" | "people">) =>
     box.people ?? audienceCount(box);
+
+  // La categoría del catálogo a la que apunta una caja: por id (foto
+  // nueva) o por nombre (foto vieja). El id no cambia nunca — diseño de
+  // Felipe 06-08 para que renombrar no rompa cotizaciones guardadas.
+  const cajaDe = (box: { selectedCategory?: string; selectedCategoryId?: number | null }) => ({
+    category: box.selectedCategory,
+    category_id: box.selectedCategoryId ?? null,
+  });
+  const catDeCaja = (box: any) => buscarCategoria(orderedCategories, cajaDe(box));
+  const nomCat = (box: any) => nombreVigente(orderedCategories, cajaDe(box));
 
   // Ids de servicios de la sección fija de una categoría (por nombre).
   const defaultServiceIdsFor = (categoryName: string): number[] => {
@@ -672,6 +688,7 @@ export default function QuotationForm() {
           serviceBoxesData.push({
             id: boxId,
             selectedCategory: serviceBox.category,
+            selectedCategoryId: serviceBox.category_id ?? null,
             selectedItem: "",
             services: boxServices,
             day: serviceBox.day || 1,
@@ -761,6 +778,12 @@ export default function QuotationForm() {
       .filter((box) => box.selectedCategory && box.services.length > 0)
       .map((box) => ({
         category: box.selectedCategory,
+        // El id NO cambia nunca: con él la caja reencuentra su
+        // categoría aunque se renombre en el catálogo.
+        // El id ya guardado se respeta si el catálogo no resuelve (una
+        // caída del catálogo NO puede borrar el vínculo — paridad con
+        // ServiciosTab).
+        category_id: catDeCaja(box)?.id ?? box.selectedCategoryId ?? null,
         day: Math.min(box.day || 1, eventDaysCount),
         // Audiencia y personas RESUELTAS del servicio: la foto queda
         // completa aunque después cambien los contadores del evento.
@@ -965,7 +988,9 @@ export default function QuotationForm() {
     try {
       await saveGroup({
         name: groupName.trim(),
-        category: box.selectedCategory,
+        // Con el nombre VIGENTE: guardado con el viejo, el menú no
+        // aparecería nunca en su propia caja.
+        category: nomCat(box),
         items,
       });
       setGroupModalBoxId(null);
@@ -1047,6 +1072,10 @@ export default function QuotationForm() {
                 ? {
                     selectedItem: "",
                     services: seeded,
+                    // La caja nace atada al id del catálogo.
+                    selectedCategoryId:
+                      orderedCategories.find((c) => c.name === value)?.id ??
+                      null,
                   }
                 : {}),
             }
@@ -1260,7 +1289,7 @@ export default function QuotationForm() {
         if (box.id === boxId) {
           if (newQuantity <= 0) {
             // Los de la sección fija no se pueden quitar (quedan en 1).
-            if (isLockedService(box.selectedCategory, codigo)) {
+            if (isLockedService(nomCat(box), codigo)) {
               return box;
             }
             // Remove service from this box
@@ -2864,7 +2893,7 @@ export default function QuotationForm() {
                           persona y el total de porciones a la derecha. */}
                             {(() => {
                               const cat = orderedCategories.find(
-                                (c) => c.name === box.selectedCategory,
+                                (c) => c.name === nomCat(box),
                               );
                               const secs = cat
                                 ? categorySections
@@ -2906,7 +2935,7 @@ export default function QuotationForm() {
                                   )}
                                   {g.items.map((service) => {
                                     const locked = isLockedService(
-                                      box.selectedCategory,
+                                      nomCat(box),
                                       service.codigo,
                                     );
                                     return (
@@ -3018,9 +3047,7 @@ export default function QuotationForm() {
                                         </div>
                                         {(() => {
                                           const filteredProducts =
-                                            getFilteredProducts(
-                                              box.selectedCategory,
-                                            )
+                                            getFilteredProducts(nomCat(box))
                                               // Hide deactivated items from the picker.
                                               // Already-selected items still render via the
                                               // button label above (full product list).
@@ -3034,7 +3061,7 @@ export default function QuotationForm() {
                                               .filter(
                                                 (product) =>
                                                   !isLockedService(
-                                                    box.selectedCategory,
+                                                    nomCat(box),
                                                     product.codigo,
                                                   ),
                                               )
@@ -3085,7 +3112,7 @@ export default function QuotationForm() {
                                           // categoría sin secciones se ve igual que hoy.
                                           const cat = orderedCategories.find(
                                             (c) =>
-                                              c.name === box.selectedCategory,
+                                              c.name === nomCat(box),
                                           );
                                           const secs = cat
                                             ? categorySections
@@ -3157,7 +3184,7 @@ export default function QuotationForm() {
                                   const boxGroups = serviceGroups.filter(
                                     (g) =>
                                       !box.selectedCategory ||
-                                      g.category === box.selectedCategory,
+                                      g.category === nomCat(box),
                                   );
                                   return (
                                     <>

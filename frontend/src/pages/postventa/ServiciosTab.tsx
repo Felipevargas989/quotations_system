@@ -20,6 +20,10 @@ import { CategorySection } from "../../types/services.types";
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import { canonicalServiceName } from "../../utils/searchMatch";
 import {
+  buscarCategoria,
+  nombreVigente,
+} from "../../utils/categoriaCaja";
+import {
   buildConsolidationContext,
   consolidateEvent,
   newAccumulator,
@@ -148,6 +152,11 @@ export default function ServiciosTab({
   // y nombres de categoría en el orden del catálogo.
   const productsOf = (categoria: string) =>
     products.filter((p) => p.categoria === categoria);
+  // La categoría del catálogo a la que apunta una caja: por id (foto
+  // nueva) o por nombre (foto vieja). De ahí sale el nombre VIGENTE que
+  // usan buscadores, secciones y fijos — así un renombre no rompe nada.
+  const catDeCaja = (g: any) => buscarCategoria(orderedCategories, g);
+  const nomCat = (g: any) => nombreVigente(orderedCategories, g);
   const catNames = [...new Set(products.map((p) => p.categoria || "General"))];
   // Posición y sección de un fijo según el catálogo (calco del cotizador):
   // el `codigo` guardado en la cotización es el id del catálogo en texto.
@@ -296,6 +305,9 @@ export default function ServiciosTab({
       .filter((g) => g.category && (g.items || []).length > 0)
       .map((g) => ({
         category: g.category,
+        // El id NO cambia nunca (diseño de Felipe 06-08): con él la
+        // caja reencuentra su categoría aunque se renombre.
+        category_id: catDeCaja(g)?.id ?? g.category_id ?? null,
         // Mismo campo y mismo tope del cotizador: la foto guardada es
         // indistinguible de la suya.
         day: Math.min(g.day || 1, daysCount),
@@ -470,7 +482,7 @@ export default function ServiciosTab({
   const addToGroup = (gi: number, codigo: string) => {
     const g = varGroups[gi];
     const s = g
-      ? productsOf(g.category).find((p) => p.codigo === codigo)
+      ? productsOf(nomCat(g)).find((p) => p.codigo === codigo)
       : undefined;
     if (!s) return;
     setVarGroups((prev) => {
@@ -491,7 +503,7 @@ export default function ServiciosTab({
           codigo: s.codigo,
           nombre: s.nombre,
           precio: s.precio,
-          categoria: g.category,
+          categoria: nomCat(g),
           quantity: 1,
         });
       }
@@ -528,7 +540,13 @@ export default function ServiciosTab({
     setVarGroups((prev) =>
       prev.map((g, i) =>
         i === gi
-          ? { ...g, category: name, items: defaultServicesFor(name) }
+          ? {
+              ...g,
+              category: name,
+              category_id:
+                orderedCategories.find((c) => c.name === name)?.id ?? null,
+              items: defaultServicesFor(name),
+            }
           : g,
       ),
     );
@@ -556,13 +574,23 @@ export default function ServiciosTab({
   // patrón del catálogo. Orden local puro — viaja en la foto al Guardar.
   const moverCaja = (gi: number, delta: -1 | 1) => {
     const j = gi + delta;
+    if (j < 0 || j >= varGroups.length) return;
     setVarGroups((prev) => {
       if (j < 0 || j >= prev.length) return prev;
       const next = [...prev];
       [next[gi], next[j]] = [next[j], next[gi]];
       return next;
     });
+    // Todo lo que se identifica por ÍNDICE de caja queda apuntando a la
+    // caja equivocada tras el intercambio (pillado en la revisión del
+    // 06-08): con una confirmación de quitar abierta, el "Sí, quitar"
+    // borraría de otra caja — y el auto-guardado lo persistiría. Se
+    // cierran todos antes de mover.
     setConfirmGroupKey(null);
+    setConfirmRowKey(null);
+    setAddingToGroup(null);
+    setOpenItemPicker(null);
+    setOpenCatPicker(null);
   };
 
   // Personas del grupo: igual al cotizador — escribir el número de su
@@ -829,7 +857,7 @@ export default function ServiciosTab({
   // Quitar sigue pasando por la confirmación inline.
   const varRow = (g: any, gi: number, it: any, ii: number) => {
     const key = `v-${gi}-${ii}`;
-    const locked = isLockedService(g.category, String(it.codigo || ""));
+    const locked = isLockedService(nomCat(g), String(it.codigo || ""));
     if (confirmRowKey === key) {
       return (
         <div
@@ -1230,9 +1258,7 @@ export default function ServiciosTab({
               sin secciones, lista plana. Cada ítem conserva su índice
               original en el estado para editar cantidad y quitar. */}
                   {(() => {
-                    const cat = orderedCategories.find(
-                      (c) => c.name === g.category,
-                    );
+                    const cat = catDeCaja(g);
                     const secs = cat
                       ? categorySections
                           .filter((s) => s.category_id === cat.id)
@@ -1331,7 +1357,7 @@ export default function ServiciosTab({
                                 />
                               </div>
                               {(() => {
-                                const filtered = productsOf(g.category)
+                                const filtered = productsOf(nomCat(g))
                                   // Paridad con el cotizador: los desactivados no
                                   // se ofrecen (los ya agregados no se tocan).
                                   .filter((p) => p.is_active !== false)
@@ -1340,7 +1366,7 @@ export default function ServiciosTab({
                                   // categoría y no se pueden quitar (cotizador).
                                   .filter(
                                     (p) =>
-                                      !isLockedService(g.category, p.codigo),
+                                      !isLockedService(nomCat(g), p.codigo),
                                   )
                                   .filter((p) =>
                                     matchesSearch(itemSearch, p.nombre),
@@ -1376,7 +1402,7 @@ export default function ServiciosTab({
                                 // como la carta (Entradas, Principales...); una
                                 // categoría sin secciones se ve plana, como hoy.
                                 const cat = orderedCategories.find(
-                                  (c) => c.name === g.category,
+                                  (c) => c.name === nomCat(g),
                                 );
                                 const secs = cat
                                   ? categorySections

@@ -166,11 +166,19 @@ export default function PortalPage() {
       )) as {
         quotation: import("../../utils/quotationPrintDoc").PrintQuotation;
         empresa: import("../../utils/quotationPrintDoc").PrintCompany;
+        // La carta del catálogo (06-08): con ella el cliente ve el
+        // programa agrupado por secciones, igual que el documento
+        // interno. Sin ella caía a la lista plana.
+        menu?: import("../../utils/quotationPrintDoc").PrintMenu | null;
       };
       const { buildQuotationPrintDoc } = await import(
         "../../utils/quotationPrintDoc"
       );
-      const { css, body } = buildQuotationPrintDoc(d.quotation, d.empresa, null);
+      const { css, body } = buildQuotationPrintDoc(
+        d.quotation,
+        d.empresa,
+        d.menu ?? null,
+      );
       w.document.open();
       w.document.write(`<!DOCTYPE html>
         <html lang="es"><head><meta charset="utf-8">

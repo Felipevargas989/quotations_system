@@ -1198,22 +1198,16 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
   const alSoltar = (e: React.DragEvent) => {
     e.preventDefault();
     setArrastrando(false);
-    recibir(e.dataTransfer.files?.[0]);
-  };
-  const alPegar = (e: React.ClipboardEvent) => {
-    const f = Array.from(e.clipboardData?.items || [])
-      .filter((i) => i.kind === "file")
-      .map((i) => i.getAsFile())
-      .find(Boolean);
-    if (f) {
-      e.preventDefault();
-      // Un pantallazo pegado no trae nombre útil: se bautiza con la fecha.
-      const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      recibir(
-        new File([f], `pantallazo-${new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "")}.${ext}`, { type: f.type }),
+    const sueltos = Array.from(e.dataTransfer.files || []);
+    recibir(sueltos[0]);
+    // Se sube de a uno (cada respaldo lleva su comentario): decirlo en
+    // vez de descartar en silencio los demás.
+    if (sueltos.length > 1)
+      toast.warn(
+        `Se tomó "${sueltos[0].name}". Los respaldos se suben de a uno: arrastra el siguiente cuando termine.`,
       );
-    }
   };
+
 
   const subir = async () => {
     if (!archivo || subiendo) return;
@@ -1231,7 +1225,9 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
       });
       if (error) throw error;
       toast.success("Respaldo subido.");
-      setArchivo(null);
+      // Solo se limpia si sigue siendo el mismo archivo: si soltaste
+      // otro mientras este subía, el nuevo se conserva (revisión 06-08).
+      setArchivo((actual) => (actual === archivo ? null : actual));
       setComentario("");
       load();
     } catch (e) {
@@ -1270,15 +1266,16 @@ function AdjuntosComerciales({ quotationId }: { readonly quotationId: string }) 
     <div
       onDragOver={(e) => {
         e.preventDefault();
-        if (!arrastrando) setArrastrando(true);
+        // Con el visor abierto la tarjeta NO recibe: el archivo caería
+        // invisible bajo el modal (revisión 06-08).
+        if (!arrastrando && !visor) setArrastrando(true);
       }}
       onDragLeave={(e) => {
         // Solo apagar cuando el puntero sale de la tarjeta completa.
         if (!e.currentTarget.contains(e.relatedTarget as Node))
           setArrastrando(false);
       }}
-      onDrop={alSoltar}
-      onPaste={alPegar}
+      onDrop={visor ? (e) => e.preventDefault() : alSoltar}
       className={`border rounded-xl flex flex-col transition-colors ${
         arrastrando
           ? "border-blue-400 border-dashed bg-blue-50/60"

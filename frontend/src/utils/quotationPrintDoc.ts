@@ -195,7 +195,14 @@ export function buildQuotationPrintDoc(
   // ---------- Plantilla (mockup aprobado) ----------
   // Textos del pie de página, escapados para viajar dentro de la regla
   // CSS (comillas y barras romperían la hoja de estilos).
-  const enCss = (t: string) => t.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const enCss = (t: string) =>
+    t
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      // Saltos de línea y el cierre de estilos romperían la hoja
+      // entera (revisión 06-08): fuera.
+      .replace(/[\r\n]+/g, " ")
+      .replace(/<\/style/gi, "<\\/style");
   const pieIzq = enCss(company?.name || "");
   const pieDer = enCss(
     `Cotización N° ${quotation.quotation_number} · válida por 30 días`,
@@ -246,6 +253,37 @@ export function buildQuotationPrintDoc(
     .qv-obs { margin-top:24px; background:${brandS || "#f9fafb"}; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
     .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
     .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
+    /* COSTURAS A NIVEL SUPERIOR (06-08, corregido en la revisión): la
+       paginación arma las hojas ANTES de imprimir — o sea trabajando en
+       modo PANTALLA —, así que estas reglas NO pueden vivir dentro de
+       @media print o las ignora, y el bloque de la plata volvía a
+       cortarse. Acá valen para la paginación y para la impresión. */
+    /* COSTURAS (06-08, pedido de Felipe: el detalle por secciones
+       alarga el documento y no puede cortar bloques por la mitad).
+       Granularidad fina a propósito: una TABLA larga sí puede seguir
+       en la hoja siguiente, pero nunca se parte una FILA ni una caja
+       que se lee como una unidad (los totales, sobre todo). */
+    .qv-prog tr, .qv-val tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    /* El cuadro de totales viaja entero a la hoja siguiente si no
+       cabe completo: jamás el IVA en una página y el TOTAL en otra. */
+    .qv-resumen, .qv-obs, .qv-head, .qv-datos {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    /* LA PLATA, TODA JUNTA (06-08, pedido de Felipe): valores por
+       persona con su subtotal, servicios fijos con el suyo, y
+       Neto/IVA/TOTAL viajan como UNA sola pieza a la hoja siguiente
+       si no caben. Cada cuadro por dentro tampoco se corta. Si el
+       conjunto no cabe ni en una hoja completa, se parte igual —
+       nunca se pierde contenido. */
+    .qv-plata, .qv-bloque {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
     /* PAGINACIÓN DE VERDAD (06-08): el navegador solo sugiere cortes;
        esta regla — que interpreta la pieza de paginación cargada en la
        ventana de impresión — define el pie que se repite en TODAS las
@@ -280,35 +318,12 @@ export function buildQuotationPrintDoc(
       body { background: #fff !important; }
       .qv-hoja { padding: 0; }
 
-      /* COSTURAS (06-08, pedido de Felipe: el detalle por secciones
-         alarga el documento y no puede cortar bloques por la mitad).
-         Granularidad fina a propósito: una TABLA larga sí puede seguir
-         en la hoja siguiente, pero nunca se parte una FILA ni una caja
-         que se lee como una unidad (los totales, sobre todo). */
-      .qv-prog tr, .qv-val tr {
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }
-      /* El cuadro de totales viaja entero a la hoja siguiente si no
-         cabe completo: jamás el IVA en una página y el TOTAL en otra. */
-      .qv-resumen, .qv-obs, .qv-head, .qv-datos {
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }
-      /* LA PLATA, TODA JUNTA (06-08, pedido de Felipe): valores por
-         persona con su subtotal, servicios fijos con el suyo, y
-         Neto/IVA/TOTAL viajan como UNA sola pieza a la hoja siguiente
-         si no caben. Cada cuadro por dentro tampoco se corta. Si el
-         conjunto no cabe ni en una hoja completa, se parte igual —
-         nunca se pierde contenido. */
-      .qv-plata, .qv-bloque {
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }
-      /* El pie del flujo desaparece al imprimir: lo reemplazan las
-         cajas del pie de página (abajo), que SÍ se repiten en todas
-         las hojas y saben el número de página. */
-      .qv-pie { display: none; }
+      /* El pie del flujo se esconde SOLO cuando la paginación armó las
+         hojas de verdad (ella marca el documento con .pagedjs_pages);
+         si no cargó — o en el portal del cliente, que no la usa — el
+         pie del flujo sigue ahí y el documento nunca sale sin folio
+         (pillado en la revisión del 06-08). */
+      body:has(.pagedjs_pages) .qv-pie { display: none; }
       /* Un título nunca queda solo al pie de la página. */
       .qv-hoja h2, .qv-dia h3 {
         page-break-after: avoid;
@@ -337,7 +352,17 @@ export function buildQuotationPrintDoc(
     if (items.length === 0) return [];
     const plano = () => [{ titulo: "Incluye:", texto: items.map(conCantidad).join(" · ") }];
     if (!menu) return plano();
-    const cat = menu.categories.find((c) => c.name === g.category);
+    // Por id primero (06-08): la caja reencuentra su categoría aunque
+    // haya sido renombrada en el catálogo; por nombre como respaldo.
+    const gid = (g as { category_id?: number | null }).category_id;
+    const cat =
+      (gid != null ? menu.categories.find((c) => c.id === gid) : undefined) ??
+      menu.categories.find((c) => c.name === g.category) ??
+      menu.categories.find(
+        (c) =>
+          c.name.trim().toLowerCase().replace(/s$/, "") ===
+          (g.category || "").trim().toLowerCase().replace(/s$/, ""),
+      );
     if (!cat) return plano();
     const secs = menu.sections
       .filter((sec) => sec.name)
@@ -540,14 +565,21 @@ export function openQuotationPrintWindow(
           window.__yaImprimio = true;
           window.print();
         };
+        window.__respaldo = null;
         window.PagedConfig = {
           auto: true,
+          before: function () {
+            // La paginación arrancó: el respaldo por tiempo ya no hace
+            // falta y sobra que dispare un segundo diálogo si el
+            // usuario canceló el primero (revisión 06-08).
+            if (window.__respaldo) clearTimeout(window.__respaldo);
+          },
           after: function () { setTimeout(window.imprimirUnaVez, 150); },
         };
       <\/script>
       <script src="/paged.polyfill.js" onerror="setTimeout(window.imprimirUnaVez, 200)"><\/script>
       </head><body>${body}
-      <script>setTimeout(window.imprimirUnaVez, 8000);<\/script>
+      <script>window.__respaldo = setTimeout(window.imprimirUnaVez, 8000);<\/script>
       </body></html>`);
   printWindow.document.close();
   return true;

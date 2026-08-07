@@ -112,6 +112,33 @@ export class QuotationsRepository {
     return data as unknown as QuotationWithClientAndCompany[];
   }
 
+  // La CARTA del catálogo (categorías, secciones y vínculos) para que el
+  // documento del portal agrupe por secciones igual que el interno
+  // (revisión 06-08: el cliente veía la lista plana). Solo lectura y
+  // acotado a la empresa, como toda consulta de este repositorio.
+  async cartaDelCatalogo(companyId: number) {
+    this.logger.info(`cartaDelCatalogo company ${companyId}`);
+    const [cats, secs, links] = await Promise.all([
+      this.supabase.client
+        .from('service_categories')
+        .select('id, name')
+        .eq('company_id', companyId),
+      this.supabase.client
+        .from('category_sections')
+        .select('id, name, sort_order, category_id')
+        .eq('company_id', companyId),
+      this.supabase.client
+        .from('variable_service_categories')
+        .select('variable_service_id, category_id, section_id')
+        .eq('company_id', companyId),
+    ]);
+    return {
+      categories: cats.data || [],
+      sections: secs.data || [],
+      links: links.data || [],
+    };
+  }
+
   async findOne(id: string): Promise<{
     data:
       | (Quotation & { clients: Pick<Client, 'name' | 'email'> } & {
