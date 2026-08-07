@@ -61,6 +61,7 @@ import CocinaTab from "./CocinaTab";
 // la monta NegocioPage); todo lo exclusivo de ella se mudó allá.
 import ServiciosTab from "./ServiciosTab";
 import { getFollowupsMap } from "../../services/quotationFollowups.service";
+import { useCopiarDato } from "../../hooks/useCopiarDato";
 import {
   HiloSeguimiento,
   AdjuntosComerciales,
@@ -1110,19 +1111,8 @@ function EventModal({
   // Portal del cliente: feedback del botón "copiar enlace de pagos".
   const [linkCopiado, setLinkCopiado] = useState(false);
   // Teléfono y correo del contacto: en azul y pinchables para COPIAR,
-  // igual que en la ficha del cliente (07-08, pedido de Felipe). Mismo
-  // gesto en las tres pantallas, sin botón aparte: probamos el ícono al
-  // lado y apretujaba la línea.
-  const [datoCopiado, setDatoCopiado] = useState<string | null>(null);
-  const copiarDato = async (clave: string, texto: string) => {
-    try {
-      await navigator.clipboard.writeText(texto);
-      setDatoCopiado(clave);
-      setTimeout(() => setDatoCopiado((p) => (p === clave ? null : p)), 2000);
-    } catch {
-      /* sin permiso de portapapeles: no se rompe nada */
-    }
-  };
+  // igual que en la ficha del cliente (07-08, pedido de Felipe).
+  const { copiado: datoCopiado, copiar: copiarDato } = useCopiarDato();
   // Nivel A del calendario (29-07): lapiz en la CUOTA (solo sin dinero
   // registrado) para editar fecha de vencimiento y nota. Distinto del
   // lapiz del registro de pago de mas abajo.
@@ -1292,14 +1282,21 @@ function EventModal({
                   {" · "}
                   <button
                     type="button"
-                    onClick={() =>
-                      void copiarDato("tel", formatPhone(event.phone))
-                    }
+                    // El número CRUDO, no el formateado: los espacios de
+                    // "+56 9 8425 7069" rompen al pegarlo en un marcador
+                    // o en un campo de teléfono. Es lo que ya hacía la
+                    // ficha del cliente.
+                    onClick={() => void copiarDato("tel", event.phone || "")}
                     title="Copiar teléfono"
                     className="text-blue-600 hover:underline"
                   >
                     {formatPhone(event.phone)}
-                    {datoCopiado === "tel" && " ✓"}
+                    {/* Ancho reservado: si el ✓ apareciera de la nada,
+                        empujaría todo lo que va a la derecha por dos
+                        segundos. */}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "tel" ? "✓" : ""}
+                    </span>
                   </button>
                 </>
               )}
@@ -1308,12 +1305,16 @@ function EventModal({
                   {" · "}
                   <button
                     type="button"
-                    onClick={() => void copiarDato("mail", event.contactEmail!)}
+                    onClick={() =>
+                      void copiarDato("mail", event.contactEmail || "")
+                    }
                     title="Copiar correo"
                     className="text-blue-600 hover:underline"
                   >
                     {event.contactEmail}
-                    {datoCopiado === "mail" && " ✓"}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "mail" ? "✓" : ""}
+                    </span>
                   </button>
                 </>
               )}

@@ -33,6 +33,7 @@ import ServiciosTab from "../postventa/ServiciosTab";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
 import { formatPhone } from "../../utils/phone";
+import { useCopiarDato } from "../../hooks/useCopiarDato";
 // Los dos bloques del seguimiento se mudaron a su propio archivo el
 // 07-08: ahora los monta también Post-Venta.
 import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
@@ -184,16 +185,7 @@ export default function NegocioPage() {
 
   // Copiar teléfono/correo del mandante, igual que en la ficha del
   // cliente: el dato en azul, un clic lo copia y confirma con un ✓.
-  const [datoCopiado, setDatoCopiado] = useState<string | null>(null);
-  const copiarDato = async (clave: string, texto: string) => {
-    try {
-      await navigator.clipboard.writeText(texto);
-      setDatoCopiado(clave);
-      setTimeout(() => setDatoCopiado((p) => (p === clave ? null : p)), 2000);
-    } catch {
-      /* sin permiso de portapapeles: no se rompe nada */
-    }
-  };
+  const { copiado: datoCopiado, copiar: copiarDato } = useCopiarDato();
 
   const refrescarEstado = async () => {
     await queryClient.invalidateQueries({ queryKey: ["quotations"] });
@@ -355,14 +347,16 @@ export default function NegocioPage() {
                   {" · 📞 "}
                   <button
                     type="button"
-                    onClick={() =>
-                      void copiarDato("tel", formatPhone(contacto.phone))
-                    }
+                    // El número CRUDO: los espacios del formateado
+                    // rompen al pegarlo en un marcador.
+                    onClick={() => void copiarDato("tel", contacto.phone)}
                     title="Copiar teléfono"
                     className="text-blue-600 hover:underline"
                   >
                     {formatPhone(contacto.phone)}
-                    {datoCopiado === "tel" && " ✓"}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "tel" ? "✓" : ""}
+                    </span>
                   </button>
                 </>
               )}
@@ -376,7 +370,9 @@ export default function NegocioPage() {
                     className="text-blue-600 hover:underline"
                   >
                     {contacto.email}
-                    {datoCopiado === "mail" && " ✓"}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "mail" ? "✓" : ""}
+                    </span>
                   </button>
                 </>
               )}

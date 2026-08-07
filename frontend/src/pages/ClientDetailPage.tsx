@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
+import { useCopiarDato } from "../hooks/useCopiarDato";
 import QuotationViewer from "../components/QuotationViewer";
 import { getQuotationById } from "../services/quotations.service";
 import {
@@ -254,22 +255,11 @@ export default function ClientDetailPage() {
   } | null>(null);
   // Portero de los formularios de persona (30-07): el guardado se
   // niega si el teléfono o el correo no parecen tales, y dice por qué.
-  const [contactFormError, setContactFormError] = useState<string | null>(
-    null,
-  );
+  const [contactFormError, setContactFormError] = useState<string | null>(null);
   // Correos y teléfonos de la tarjeta: pincharlos COPIA (decisión de
   // Felipe 29-07 — antes eran mailto:/tel: y en el Mac abrían el app de
   // correo o FaceTime cuando uno solo quería pegar el dato en otro lado).
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const copyDato = async (key: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey((p) => (p === key ? null : p)), 2000);
-    } catch {
-      /* sin permiso de portapapeles: no se rompe nada */
-    }
-  };
+  const { copiado: copiedKey, copiar: copyDato } = useCopiarDato();
 
   // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
   // fetchQuery cachea la cotización completa: reabrir el mismo visor
@@ -401,7 +391,10 @@ export default function ClientDetailPage() {
     setSavingNotes(true);
     setNotesSaved(false);
     try {
-      await updateClient({ notes: notesDraft } as ClientFormData, data.client.id);
+      await updateClient(
+        { notes: notesDraft } as ClientFormData,
+        data.client.id,
+      );
       queryClient.setQueryData<SummaryData>(
         ["clientSummary", id],
         (prev) =>
