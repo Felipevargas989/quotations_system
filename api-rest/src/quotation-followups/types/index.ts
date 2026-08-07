@@ -21,5 +21,10 @@ export type UpdateFollowupPayload = Partial<
 // Fila mínima para el semáforo de la lista (ver findMapRows).
 export type FollowupMapRow = Pick<
   QuotationFollowup,
-  'quotation_id' | 'created_at' | 'next_contact_date'
+  | 'quotation_id'
+  | 'created_at'
+  | 'next_contact_date'
+  // Sin esto el tablero no puede distinguir un pendiente vivo de uno
+  // ya cumplido, y el aviso ámbar quedaría encendido para siempre.
+  | 'next_contact_done_at'
 >;

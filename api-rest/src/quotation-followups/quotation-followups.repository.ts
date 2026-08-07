@@ -28,7 +28,9 @@ export class QuotationFollowupsRepository {
     this.logger.info(`findMapRows company ${companyId}`);
     const { data, error } = await this.supabase.client
       .from('quotation_followups')
-      .select('quotation_id, created_at, next_contact_date')
+      .select(
+        'quotation_id, created_at, next_contact_date, next_contact_done_at',
+      )
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) throw error;

@@ -28,4 +28,12 @@ export class CreateQuotationFollowupDto {
   @IsOptional()
   @IsString()
   next_contact_date?: string;
+
+  // Marca de cumplido (migración 65). Viaja en el PATCH cuando se
+  // aprieta "Listo": instante ISO para darlo por hecho, null para
+  // volver a dejarlo pendiente. No borra next_contact_date — la casa no
+  // reescribe la historia.
+  @IsOptional()
+  @IsString()
+  next_contact_done_at?: string | null;
 }

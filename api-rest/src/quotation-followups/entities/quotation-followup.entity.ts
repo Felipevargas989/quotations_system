@@ -16,4 +16,8 @@ export class QuotationFollowup {
   note: string;
   tipo: string | null;
   next_contact_date: string | null;
+  // Cuándo se dio por cumplido ese próximo contacto (migración 65).
+  // NULL con next_contact_date ya vencida = pendiente: es lo que
+  // enciende el aviso ámbar en Post-Venta.
+  next_contact_done_at: string | null;
 }
