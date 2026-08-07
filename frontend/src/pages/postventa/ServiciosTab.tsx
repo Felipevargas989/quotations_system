@@ -1398,7 +1398,7 @@ export default function ServiciosTab({
                               let corrido = -1;
                               return (
                                 <div
-                                  className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto"
+                                  className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto"
                                   data-lista-scroll
                                 >
                                   <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
@@ -1607,7 +1607,7 @@ export default function ServiciosTab({
                     </svg>
                   </button>
                   {openFixedPicker && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto">
                       <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
                         <input
                           type="text"
