@@ -105,7 +105,14 @@ export class QuotationFollowupsService {
       const payload: CreateFollowupPayload = {
         quotation_id: dto.quotation_id,
         company_id: user.company_id,
-        author_user_id: user.user_id,
+        // `user.id`, NO `user.user_id`: el guardián de sesión adjunta
+        // { id, company_id, role, email } y nunca un user_id. El tipo
+        // User lo declara, así que TypeScript no avisaba y se venía
+        // guardando `undefined` → null en todas las notas (medido el
+        // 07-08: 38 de 38). Con el autor en null, assertAuthor comparaba
+        // null contra el id de la sesión y devolvía 403 a TODOS: nadie
+        // podía editar ni borrar ni su propia nota.
+        author_user_id: user.id,
         // Nombre CONGELADO al escribir: si el usuario cambia de nombre
         // (o se va), la bitácora conserva quién firmó cada nota.
         author_name: user.full_name || user.email,
@@ -194,7 +201,17 @@ export class QuotationFollowupsService {
     if (!followup) {
       throw new NotFoundException('Nota de seguimiento no encontrada');
     }
-    if (followup.author_user_id !== user.user_id) {
+    // Las notas escritas ANTES del arreglo tienen el autor en null. No
+    // se pueden dejar bloqueadas para siempre: en esas se cae al nombre
+    // congelado, que es la identidad que sí se guardó (el correo de
+    // quien escribió).
+    const esAutor =
+      followup.author_user_id != null
+        ? followup.author_user_id === user.id
+        : !!user.email &&
+          (followup.author_name || '').toLowerCase() ===
+            user.email.toLowerCase();
+    if (!esAutor) {
       throw new ForbiddenException('Solo el autor puede modificar su nota');
     }
     return followup;

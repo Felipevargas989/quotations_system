@@ -18,11 +18,15 @@ describe('QuotationFollowupsService', () => {
       mockPinoLogger() as unknown as PinoLogger,
     );
 
+  // La sesión REAL que arma el guardián: { id, company_id, role, email }.
+  // Antes esta doble traía además user_id y full_name, campos que el
+  // guardián nunca adjunta — y por creerle, el servicio guardaba el
+  // autor en `user.user_id` (undefined → null en las 38 notas de
+  // producción) sin que la suite lo notara. La doble tiene que
+  // parecerse a la sesión de verdad, no al tipo User completo.
   const vendedora = {
-    id: 'fila-1',
-    user_id: 'user-1',
+    id: 'user-1',
     email: 'vendedora@eventia.cl',
-    full_name: 'Vendedora Uno',
     role: UserRole.VENDEDOR,
     company_id: 7,
   } as User;
@@ -46,7 +50,11 @@ describe('QuotationFollowupsService', () => {
         quotation_id: 'q-1',
         company_id: 7,
         author_user_id: 'user-1',
-        author_name: 'Vendedora Uno',
+        // El CORREO, no el nombre: la sesión que arma el guardián no
+        // trae full_name. Así están firmadas las 38 notas de producción
+        // ("camila@valledelsolquillon.cl"), y la pantalla lo recorta
+        // antes del @ para mostrar "Camila".
+        author_name: 'vendedora@eventia.cl',
         note: 'Llamé al cliente, pide propuesta el lunes',
         tipo: 'llamada',
         next_contact_date: '2026-08-10',
@@ -226,7 +234,7 @@ describe('QuotationFollowupsService', () => {
       const update = jest.fn().mockResolvedValue({ id: 5 });
       const service = buildService({ findById, update });
 
-      await service.update({ company_id: 7, user_id: 'felipe' } as never, 5, {
+      await service.update({ company_id: 7, id: 'felipe' } as never, 5, {
         next_contact_done_at: '2026-08-07T18:00:00Z',
       } as never);
 
@@ -244,7 +252,7 @@ describe('QuotationFollowupsService', () => {
       const service = buildService({ findById, update });
 
       await expect(
-        service.update({ company_id: 7, user_id: 'felipe' } as never, 5, {
+        service.update({ company_id: 7, id: 'felipe' } as never, 5, {
           note: 'reescribo lo que dijo otro',
         } as never),
       ).rejects.toThrow('Solo el autor puede modificar su nota');
