@@ -805,10 +805,16 @@ export default function ServiciosTab({
   };
   autoRef.current = autoGuardar;
 
-  // El observador: EXACTAMENTE lo que serializa save() — ítems variables
-  // y fijos, personas, descuento, propina y observaciones. Debounce de
-  // 1.5 s tras el último cambio (foto asentada; la verificación del
-  // backend cuadra porque el payload es el mismo de siempre).
+  // El observador de la ESTRUCTURA: ítems variables y fijos, personas,
+  // descuento y propina. Debounce de 1.5 s tras el último cambio (foto
+  // asentada; la verificación del backend cuadra porque el payload es
+  // el mismo de siempre).
+  //
+  // Los comentarios NO entran acá: tienen su propio ritmo más abajo.
+  // Segundo y medio es perfecto para un número o un clic, pero al
+  // redactar un párrafo las pausas son más largas que eso y el
+  // indicador quedaba parpadeando en cada punto seguido (07-08,
+  // pillada de Felipe escribiendo comentarios).
   useEffect(() => {
     // El montaje no es un cambio: la foto recién cargada no se guarda.
     if (primerRender.current) {
@@ -818,17 +824,22 @@ export default function ServiciosTab({
     const timer = setTimeout(() => void autoRef.current(), 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    varGroups,
-    fixed,
-    adultsN,
-    kidsN,
-    discType,
-    discVal,
-    tipEnabled,
-    tipPct,
-    obs,
-  ]);
+  }, [varGroups, fixed, adultsN, kidsN, discType, discVal, tipEnabled, tipPct]);
+
+  // El observador del TEXTO: cinco segundos de pausa, que es una pausa
+  // de verdad y no la de quien piensa la frase siguiente. Y al salir del
+  // campo guarda al tiro (ver onBlur del textarea), así que nada queda
+  // colgando por esperar.
+  const primerTexto = useRef(true);
+  useEffect(() => {
+    if (primerTexto.current) {
+      primerTexto.current = false;
+      return;
+    }
+    const timer = setTimeout(() => void autoRef.current(), 5000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obs]);
 
   // Quitar un servicio pasa por confirmacion inline (es delicado aunque
   // el cambio recien se aplique al Guardar).
@@ -2136,6 +2147,9 @@ export default function ServiciosTab({
               rows={3}
               value={obs}
               onChange={(e) => setObs(e.target.value)}
+              // Salir del campo es señal de "ya está": guarda al tiro y
+              // no hay que esperar los cinco segundos.
+              onBlur={() => void autoRef.current()}
               className="w-full text-sm border border-gray-300 rounded-lg p-3"
             />
             <div className="flex items-center justify-end gap-3 mt-4">
