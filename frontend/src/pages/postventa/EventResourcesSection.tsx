@@ -668,9 +668,19 @@ export default function EventResourcesSection({
                                      decir algo binario— (Felipe, 07-08).
                                      El nombre completo vive en el título;
                                      acá basta con avisar que la línea
-                                     llegó sola. */
+                                     llegó sola.
+
+                                     GRIS, no ámbar ni morado: en esta
+                                     misma pantalla el ámbar significa
+                                     "te falta importar" —justo lo
+                                     contrario de lo que marca este
+                                     chip— y el morado es el color de la
+                                     sección ARRIENDO. El gris no agrega
+                                     ningún color a la pantalla y se lee
+                                     como lo que es: una nota, no una
+                                     alerta. */
                                   <span
-                                    className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 whitespace-nowrap cursor-help"
+                                    className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-500 whitespace-nowrap cursor-help"
                                     title={`Llegó solo al importar el servicio fijo "${
                                       fixedServices.find(
                                         (fs) =>
