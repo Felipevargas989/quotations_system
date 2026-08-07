@@ -164,8 +164,20 @@ export default function NegocioPage() {
         `Hola ${contacto.name.split(" ")[0] || ""}, te escribo de ${company?.name || "Eventia"} por la cotización N°${fila?.quotation_number ?? ""}. ¿Conversamos?`,
       )}`
     : null;
+  // Outlook web y no `mailto:` (decisión de Felipe, 07-08). El mailto
+  // delega en la app de correo por omisión del sistema, y esa
+  // preferencia en macOS solo se cambia dentro de Mail.app —que exige
+  // configurarle una cuenta para dejarte llegar—. Media hora peleando
+  // con Apple para que el botón abriera Outlook; más barato apuntarle
+  // derecho.
+  //
+  // OJO si algún día hay clientes de verdad: esto le impone Outlook web
+  // a todos. Ahí habría que volverlo una opción por empresa
+  // (Configuración → "Abrir correos con: sistema / Outlook / Gmail").
   const correoHref = contacto.email
-    ? `mailto:${contacto.email}?subject=${encodeURIComponent(
+    ? `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(
+        contacto.email,
+      )}&subject=${encodeURIComponent(
         `Cotización N°${fila?.quotation_number ?? ""} — ${company?.name || ""}`,
       )}`
     : null;
@@ -400,8 +412,13 @@ export default function NegocioPage() {
             {correoHref && (
               <a
                 href={correoHref}
+                // Pestaña nueva: con `mailto:` daba igual porque no
+                // navegaba, pero Outlook web SÍ es una dirección y sin
+                // esto se llevaba la ficha (07-08).
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
-                title="Escribir correo al mandante"
+                title="Escribir correo al mandante en Outlook"
               >
                 <Mail size={15} /> Correo
               </a>
