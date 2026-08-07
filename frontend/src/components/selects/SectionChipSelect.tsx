@@ -19,6 +19,12 @@ interface Props {
   readonly disabled?: boolean;
   /** "md": altura y letra de campo de formulario (cotizador). */
   readonly size?: "sm" | "md";
+  /** Colores propios del chip (borde/fondo/texto). Sin esto, el chip
+   *  sobrio de siempre. Lo usa la cosecha del mes, donde el color ES
+   *  la información (07-08). */
+  readonly chipClass?: string;
+  /** Ancho del chip; por defecto el de la fila del catálogo. */
+  readonly widthClass?: string;
 }
 
 export default function SectionChipSelect({
@@ -30,6 +36,8 @@ export default function SectionChipSelect({
   zeroLabel = "Sin sección",
   disabled = false,
   size = "sm",
+  chipClass,
+  widthClass,
 }: Props) {
   const [open, setOpen] = useState(false);
   // Si abajo no cabe, el menú se levanta hacia ARRIBA (pillada de
@@ -58,16 +66,23 @@ export default function SectionChipSelect({
           }
           setOpen((v) => !v);
         }}
-        className={`flex items-center justify-between gap-1 border bg-white hover:border-gray-300 ${
+        className={`flex items-center justify-between gap-1 border hover:brightness-95 ${
           size === "md"
-            ? "text-sm border-gray-300 rounded-lg px-3 py-2 text-gray-700 w-[150px]"
-            : "text-xs border-gray-200 rounded-md px-2 py-1 text-gray-500 w-[130px]"
+            ? "text-sm rounded-lg px-3 py-2"
+            : "text-xs rounded-md px-2 py-1"
+        } ${
+          chipClass ||
+          (size === "md"
+            ? "bg-white border-gray-300 text-gray-700"
+            : "bg-white border-gray-200 text-gray-500")
+        } ${
+          widthClass || (size === "md" ? "w-[150px]" : "w-[130px]")
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         title={title}
         aria-label={ariaLabel}
       >
         <span className="truncate">{actual}</span>
-        <ChevronDown size={12} className="shrink-0 text-gray-400" />
+        <ChevronDown size={12} className="shrink-0 opacity-60" />
       </button>
       {open && (
         <>

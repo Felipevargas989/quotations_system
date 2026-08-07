@@ -55,20 +55,19 @@ export const unmarkEventDone = async (quotationId: string) => {
   return response as { ok: boolean };
 };
 
-// Anota (o borra) el intento de llamar al cliente. Lo usa la cosecha
-// del mes en el Dashboard: la lista de "no ha vuelto" es la lista de
-// llamados, y sin dónde marcarlo al día siguiente no se sabe por quién
-// se iba (pedido de Felipe, 07-08-2026).
-export const marcarRecontactado = async (
+// La palabra final de Felipe sobre una fila de la cosecha del mes.
+// `estado` en null borra la corrección y devuelve el mando a la
+// sugerencia automática (cruce empresa + mandante + tipo de evento).
+export const guardarEstadoCosecha = async (
   quotationId: string,
-  marcado: boolean,
+  estado: string | null,
 ) => {
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}/${quotationId}/recontactado`,
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/cosecha`,
     "POST",
-    { marcado },
+    { estado },
   );
-  return response as { ok: boolean; marcado: boolean };
+  return response as { ok: boolean; estado: string | null };
 };
 
 export const deleteQuotation = async (quotationId: string) => {

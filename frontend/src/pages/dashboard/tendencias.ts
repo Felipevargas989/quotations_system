@@ -117,17 +117,69 @@ export const indiceMesActual = (meses: FilaMes[]): number => {
   return meses.findIndex((m) => m.clave === clave);
 };
 
-// ---- LA COSECHA DEL MES (06-08-2026, hallazgo de Felipe) ----
+// ---- LA COSECHA DEL MES (06/07-08-2026, hallazgo y diseño de Felipe) ----
 // "El año pasado en agosto saqué 47 cotizaciones... ¿y a quién?". El
-// calendario dice cuándo fue el EVENTO, nadie decía cuándo te PIDIERON
+// calendario dice cuándo fue el EVENTO; nadie decía cuándo te PIDIERON
 // cotizar — y esa lista, un año después, es la lista de llamados del mes.
 //
-// El cruce de "¿ya volvió?" va por CLIENTE + MANDANTE + TIPO DE EVENTO
-// (afinado por Felipe): CCU puede cotizar un paseo de fin de año y una
-// celebración, con mandantes distintos — son oportunidades distintas y
-// dar por "vuelta" a una porque volvió la otra escondería el llamado que
-// importa. Incluir el tipo es seguro: se midió y es una lista CERRADA de
-// 8 opciones, sin texto libre ni variantes de nombre.
+// LA REGLA ES SIMPLE A PROPÓSITO. El 07-08 se probó adivinar el regreso
+// con distancias entre fechas y se rompió sola dos veces:
+//   · FEPASA parte UN evento en dos cotizaciones (adultos y niños): la
+//     regla las leía como una re-cotización de la misma venta.
+//   · La Iglesia Adventista re-cotizó al día siguiente: la regla lo leía
+//     como un regreso, y apagaba la alarma en un cliente que no volvió.
+// Conclusión de Felipe, y es la correcta: ninguna regla le gana al ojo de
+// quien vende. Así que la máquina SUGIERE con el cruce de siempre
+// —empresa + mandante + tipo de evento— y él tiene la palabra final.
+
+export type EstadoCosecha =
+  | "revendido"
+  | "en_gestion"
+  | "no_ha_vuelto"
+  | "no_se_repite"
+  | "descartado";
+
+/** Los cinco estados, en el orden en que se leen en el desplegable. */
+export const ESTADOS_COSECHA: {
+  v: EstadoCosecha;
+  l: string;
+  chip: string;
+  ayuda: string;
+}[] = [
+  {
+    v: "revendido",
+    l: "✓ Revendido",
+    chip: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    ayuda: "Volvió a pedir lo mismo",
+  },
+  {
+    v: "en_gestion",
+    l: "☎ En gestión",
+    chip: "bg-blue-50 text-blue-800 border-blue-200",
+    ayuda: "Ya lo llamé, lo estoy trabajando",
+  },
+  {
+    v: "no_ha_vuelto",
+    l: "⚠ No ha vuelto",
+    chip: "bg-amber-50 text-amber-800 border-amber-200",
+    ayuda: "Pendiente de llamado",
+  },
+  {
+    v: "no_se_repite",
+    l: "⊘ No se repite",
+    chip: "bg-violet-50 text-violet-800 border-violet-200",
+    ayuda: "Evento único: no es un cliente perdido, simplemente no vuelve",
+  },
+  {
+    v: "descartado",
+    l: "✕ Descartado",
+    chip: "bg-gray-100 text-gray-600 border-gray-200",
+    ayuda: "No insistir",
+  },
+];
+
+export const metaEstado = (v: EstadoCosecha) =>
+  ESTADOS_COSECHA.find((e) => e.v === v) ?? ESTADOS_COSECHA[2];
 
 export type FilaCosecha = {
   id: string;
@@ -138,16 +190,18 @@ export type FilaCosecha = {
   tipo: string;
   monto: number;
   estado: string;
-  // El REGRESO: una venta nueva posterior de la misma oportunidad. Con
-  // su número e id para abrirla y comparar (pedido de Felipe 06-08).
-  volvioEl: string | null;
-  volvioNumero: number | null;
-  volvioId: string | null;
-  // La MISMA venta re-cotizada (no es un regreso). Ver la regla abajo.
-  mismaVentaNumero: number | null;
-  mismaVentaId: string | null;
-  // Cuándo se intentó llamarlo (migración 62). NULL = todavía no.
-  recontactadoEl: string | null;
+  /** El cruce empresa|mandante|tipo: la unidad real de "un llamado". */
+  llave: string;
+  /** Lo que sugiere la máquina; solo puede proponer 3 de los 5. */
+  sugerido: EstadoCosecha;
+  /** La cotización posterior que gatilló la sugerencia, si la hubo. */
+  posteriorEl: string | null;
+  posteriorNumero: number | null;
+  posteriorId: string | null;
+  /** La palabra de Felipe (migración 63). null = manda la sugerencia. */
+  estadoManual: EstadoCosecha | null;
+  /** Lo que se muestra: su corrección si existe, si no la sugerencia. */
+  efectivo: EstadoCosecha;
   soloPorCliente: boolean;
 };
 
@@ -162,54 +216,22 @@ type QCosecha = {
   id?: string;
   quotation_number?: number;
   created_at?: string | Date | null;
-  event_date?: string | Date | null;
   event_type?: string | null;
   total_amount?: number | null;
   quotation_status?: string | null;
   contact_name?: string | null;
-  recontacted_at?: string | null;
+  harvest_status?: string | null;
   clients?: { name?: string | null; client_type?: string | null } | null;
 };
 
-// Cuándo dos cotizaciones son la MISMA venta y cuándo son dos ventas
-// distintas. Lo trajo Felipe el 06-08 mirando la tabla: la #97 aparecía
-// "vuelta" en la #107 — y eran del mismo cliente, el mismo mes y el
-// evento con UN día de diferencia. No era un regreso: la rechazó y se la
-// re-cotizó al día siguiente.
-//
-// Se midió el historial completo antes de fijar el corte:
-//   · 48 de 78 pares de la misma oportunidad son del MISMO MES.
-//   · CERO pares a 9-14 meses: o sea, ni uno solo de los "volvió" que
-//     mostraba la tabla era un regreso anual. La columna apagaba la
-//     alarma justo en quien había que llamar.
-//   · Los regresos reales (Linde, CCU, Maritano, Soprole, Ferrocarril)
-//     se piden con 5 a 8 meses de diferencia y su evento cae a UN AÑO
-//     exacto del anterior.
-//   · Al revés: Sindicato Masisa re-cotizó 4 meses después, pero para el
-//     MISMO día de evento. Misma venta.
-//
-// De ahí la regla: hace falta distancia en LAS DOS COSAS a la vez —el
-// pedido y el evento— para hablar de una venta nueva. Solo por año
-// fallaría en diciembre→enero (1 mes contaría como regreso) y en
-// enero→diciembre del mismo año (un regreso real no contaría).
-const DIAS_VENTA_NUEVA = 60;
+const esEstado = (v?: string | null): EstadoCosecha | null =>
+  ESTADOS_COSECHA.some((e) => e.v === v) ? (v as EstadoCosecha) : null;
 
-const dia = (v?: string | Date | null) => {
-  if (!v) return null;
-  const t = new Date(v as string | Date).getTime();
-  return Number.isFinite(t) ? t / 86_400_000 : null;
-};
-
-/** ¿La cotización `b` abre una venta NUEVA frente a `a`, o es la misma
- *  re-cotizada? Sin fecha de evento manda solo la fecha del pedido. */
-const esVentaNueva = (a: QCosecha, b: QCosecha) => {
-  const p1 = dia(a.created_at), p2 = dia(b.created_at);
-  if (p1 === null || p2 === null) return true;
-  if (Math.abs(p2 - p1) < DIAS_VENTA_NUEVA) return false;
-  const e1 = dia(a.event_date), e2 = dia(b.event_date);
-  if (e1 === null || e2 === null) return true;
-  return Math.abs(e2 - e1) >= DIAS_VENTA_NUEVA;
-};
+// Un matrimonio no se repite: el mismo novio con el mismo mandante no
+// vuelve el año siguiente. Se sugiere solo para ese tipo — "Graduación"
+// NO, porque un colegio gradúa un curso cada año (07-08, medido: la
+// lista de tipos es cerrada, 8 valores, sin texto libre).
+const NO_SE_REPITE = new Set(["matrimonio", "matrimonios"]);
 
 export const cosechaDelMes = (
   filas: QCosecha[],
@@ -217,47 +239,34 @@ export const cosechaDelMes = (
 ): FilaCosecha[] => {
   const llaveDe = (q: QCosecha) =>
     `${canonizar(q.clients?.name)}|${canonizar(q.contact_name)}|${canonizar(q.event_type)}`;
+  const mesDe = (q: QCosecha) => String(q.created_at || "").slice(0, 7);
 
-  // Cada oportunidad se ordena en el tiempo y se parte en VENTAS: un
-  // corte cada vez que la siguiente cotización ya no es la misma venta.
-  const porLlave = new Map<string, QCosecha[]>();
+  // La pregunta, una sola: ¿este cruce pidió algo DESPUÉS de este mes?
+  // Se compara contra el MES, no contra cada cotización: así las dos
+  // cotizaciones de un mismo evento (FEPASA: adultos y niños) reciben la
+  // misma respuesta, que es lo correcto — son un solo llamado.
+  const posterior = new Map<string, QCosecha>();
   filas.forEach((q) => {
+    if (mesDe(q) <= claveMes) return;
     const k = llaveDe(q);
-    const lista = porLlave.get(k);
-    if (lista) lista.push(q);
-    else porLlave.set(k, [q]);
-  });
-
-  // Para cada cotización: qué le sigue dentro de su misma venta, y cuál
-  // es la primera cotización de la venta siguiente (el regreso).
-  const sigue = new Map<string, QCosecha>();
-  const regreso = new Map<string, QCosecha>();
-  porLlave.forEach((lista) => {
-    lista.sort((a, b) => (dia(a.created_at) ?? 0) - (dia(b.created_at) ?? 0));
-    // Cortes: índices donde empieza una venta nueva.
-    const ventas: QCosecha[][] = [];
-    lista.forEach((q, i) => {
-      if (i === 0 || esVentaNueva(lista[i - 1], q)) ventas.push([q]);
-      else ventas[ventas.length - 1].push(q);
-    });
-    ventas.forEach((venta, iv) => {
-      const proxima = ventas[iv + 1]?.[0];
-      venta.forEach((q, i) => {
-        const id = String(q.id || "");
-        if (venta[i + 1]) sigue.set(id, venta[i + 1]);
-        else if (proxima) regreso.set(id, proxima);
-      });
-    });
+    const previa = posterior.get(k);
+    if (!previa || String(q.created_at || "") > String(previa.created_at || ""))
+      posterior.set(k, q);
   });
 
   return filas
-    .filter((q) => String(q.created_at || "").slice(0, 7) === claveMes)
+    .filter((q) => mesDe(q) === claveMes)
     .map((q) => {
-      const id = String(q.id || "");
-      const otra = sigue.get(id);
-      const nueva = regreso.get(id);
+      const llave = llaveDe(q);
+      const luego = posterior.get(llave);
+      let sugerido: EstadoCosecha;
+      if (luego) sugerido = "revendido";
+      else if (NO_SE_REPITE.has(canonizar(q.event_type)))
+        sugerido = "no_se_repite";
+      else sugerido = "no_ha_vuelto";
+      const estadoManual = esEstado(q.harvest_status);
       return {
-        id,
+        id: String(q.id || ""),
         numero: q.quotation_number || 0,
         cliente: q.clients?.name || "—",
         tipoCliente: (q.clients?.client_type || "").trim(),
@@ -265,13 +274,14 @@ export const cosechaDelMes = (
         tipo: q.event_type || "—",
         monto: q.total_amount || 0,
         estado: String(q.quotation_status || ""),
-        volvioEl: nueva ? String(nueva.created_at || "") : null,
-        volvioNumero: nueva ? nueva.quotation_number || 0 : null,
-        volvioId: nueva ? String(nueva.id || "") : null,
-        mismaVentaNumero: otra ? otra.quotation_number || 0 : null,
-        mismaVentaId: otra ? String(otra.id || "") : null,
-        recontactadoEl: q.recontacted_at || null,
-        soloPorCliente: !((q.contact_name || "").trim()),
+        llave,
+        sugerido,
+        posteriorEl: luego ? String(luego.created_at || "") : null,
+        posteriorNumero: luego ? luego.quotation_number || 0 : null,
+        posteriorId: luego ? String(luego.id || "") : null,
+        estadoManual,
+        efectivo: estadoManual ?? sugerido,
+        soloPorCliente: !(q.contact_name || "").trim(),
       };
     })
     .sort((a, b) => b.monto - a.monto);

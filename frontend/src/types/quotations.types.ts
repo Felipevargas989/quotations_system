@@ -96,6 +96,10 @@ export interface Quotation {
   // cuándo se trató de llamar y quién lo anotó. NULL = nunca se intentó.
   recontacted_at?: string | null;
   recontacted_by?: string | null;
+  // La palabra final sobre la fila de la cosecha (migración 63):
+  // revendido | en_gestion | no_ha_vuelto | no_se_repite | descartado.
+  // NULL = manda la sugerencia automática.
+  harvest_status?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;

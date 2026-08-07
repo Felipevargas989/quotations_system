@@ -46,6 +46,8 @@ import { CompleteStatsResponse } from "../../types/analytics.types";
 import {
   agruparPorMes,
   cosechaDelMes,
+  ESTADOS_COSECHA,
+  metaEstado,
   etiquetaMes,
   unAnioAntes,
   ETIQUETA_ESTADO,
@@ -55,9 +57,10 @@ import {
   serieInteranual,
   ventanaMeses,
 } from "./tendencias";
+import type { EstadoCosecha } from "./tendencias";
 import {
   getQuotations,
-  marcarRecontactado,
+  guardarEstadoCosecha,
 } from "../../services/quotations.service";
 import {
   QuotationRequestType,
@@ -65,7 +68,7 @@ import {
 } from "../../types/quotations.types";
 import { etiquetaMotivo } from "../../components/MotivoPerdida";
 import { getClientTypeColor } from "../../utils/clientTypeColor";
-import ConfirmInline from "../../components/ConfirmInline";
+import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
@@ -454,21 +457,18 @@ export default function DashboardPage() {
     base: string;
     anterior: boolean;
   } | null>(null);
-  // "Ya lo llamé" (07-08, pedido de Felipe): la lista de no-vueltos es la
-  // lista de llamados, y sin dónde anotar el intento, al día siguiente no
-  // se sabe por quién se iba. Se confirma con el ConfirmInline de la casa
-  // —la fila se transforma en la pregunta— y se puede deshacer.
-  const [confirmandoLlamada, setConfirmandoLlamada] = useState<string | null>(
-    null,
-  );
+  // EL ESTADO DE LA COSECHA (07-08, diseño de Felipe). La máquina
+  // sugiere con el cruce empresa+mandante+tipo; él corrige con el
+  // desplegable. Se guarda para TODAS las cotizaciones de la misma
+  // oportunidad de ese mes: FEPASA parte un evento en dos (adultos y
+  // niños) y las dos son un solo llamado, así que se mueven juntas.
   const clienteQuery = useQueryClient();
-  const llamadaMut = useMutation({
-    mutationFn: ({ id, marcado }: { id: string; marcado: boolean }) =>
-      marcarRecontactado(id, marcado),
-    onSuccess: () => {
-      setConfirmandoLlamada(null);
-      clienteQuery.invalidateQueries({ queryKey: ["dashboard-tendencia"] });
+  const estadoMut = useMutation({
+    mutationFn: async (p: { ids: string[]; estado: EstadoCosecha | null }) => {
+      for (const id of p.ids) await guardarEstadoCosecha(id, p.estado);
     },
+    onSuccess: () =>
+      clienteQuery.invalidateQueries({ queryKey: ["dashboard-tendencia"] }),
   });
 
   const tieneAnterior = (
@@ -1311,18 +1311,30 @@ export default function DashboardPage() {
                 Un año después, esa lista ES la lista de llamados. */}
             {mesElegido &&
               (() => {
+                // La cosecha es una lista de trabajo: se va abriendo una
+                // ficha tras otra. Si cada clic se llevara la pantalla,
+                // habría que rehacer el camino —gráfico, barra, mes— para
+                // volver a la siguiente (Felipe, 07-08). Se abre al lado.
+                const abrirAlLado = (id: string) => {
+                  if (id) window.open(`/negocio/${id}`, "_blank", "noopener");
+                };
                 const claveDe = (anterior: boolean) =>
                   anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
                 const clave = claveDe(mesElegido.anterior);
                 const todas = tendenciaQuery.data ?? [];
                 const filas = cosechaDelMes(todas, clave);
-                // Una re-cotización de la misma venta no es un pendiente:
-                // el veredicto lo carga la última cotización de esa venta.
-                const abiertas = filas.filter(
-                  (f) => !f.volvioEl && !f.mismaVentaNumero,
-                );
-                const pendientes = abiertas.length;
-                const llamados = abiertas.filter((f) => f.recontactadoEl).length;
+                // Se cuentan LLAMADOS, no filas: FEPASA parte un evento
+                // en dos cotizaciones y sigue siendo una sola llamada.
+                const cuantos = (e: EstadoCosecha) =>
+                  new Set(
+                    filas.filter((f) => f.efectivo === e).map((f) => f.llave),
+                  ).size;
+                const pendientes = cuantos("no_ha_vuelto");
+                const enGestion = cuantos("en_gestion");
+                // Cambiar el estado mueve a TODAS las cotizaciones de esa
+                // oportunidad dentro del mes que se está mirando.
+                const hermanas = (llave: string) =>
+                  filas.filter((f) => f.llave === llave).map((f) => f.id);
                 // Las dos pestañas: el mismo mes de este año y del pasado,
                 // con su cuenta a la vista para saber cuál mirar.
                 const anios = [true, false].map((ant) => ({
@@ -1344,13 +1356,12 @@ export default function DashboardPage() {
                             <>
                               {" · "}
                               <b className="text-amber-700">
-                                {pendientes} sin volver a pedir lo mismo
+                                {pendientes} por llamar
                               </b>
-                              {llamados > 0 && (
+                              {enGestion > 0 && (
                                 <span className="text-blue-700">
                                   {" · "}
-                                  {llamados} ya llamado
-                                  {llamados === 1 ? "" : "s"}
+                                  {enGestion} en gestión
                                 </span>
                               )}
                             </>
@@ -1403,21 +1414,20 @@ export default function DashboardPage() {
                               <th className="text-left font-semibold px-1">Cómo terminó</th>
                               <th className="text-right font-semibold px-1">Monto</th>
                               <th className="text-left font-semibold px-1">¿Volvió a pedirlo?</th>
+                              <th className="text-left font-semibold px-1"></th>
                             </tr>
                           </thead>
                           <tbody>
                             {filas.map((f) => (
                               <tr
                                 key={f.id}
-                                onClick={() => navigate(`/negocio/${f.id}`)}
+                                onClick={() => abrirAlLado(f.id)}
                                 className={`border-b border-gray-50 cursor-pointer hover:bg-blue-50/50 ${
-                                  f.volvioEl ||
-                                  f.mismaVentaNumero ||
-                                  f.recontactadoEl
-                                    ? ""
-                                    : "bg-amber-50/40"
+                                  f.efectivo === "no_ha_vuelto"
+                                    ? "bg-amber-50/40"
+                                    : ""
                                 }`}
-                                title="Abrir la ficha del negocio"
+                                title="Abrir la ficha del negocio en otra pestaña"
                               >
                                 <td className="py-2 px-1 text-gray-500">#{f.numero}</td>
                                 <td className="px-1 font-medium text-gray-900">{f.cliente}</td>
@@ -1456,81 +1466,62 @@ export default function DashboardPage() {
                                   onClick={(ev) => ev.stopPropagation()}
                                   role="presentation"
                                 >
-                                  {f.volvioEl ? (
+                                  <SectionChipSelect
+                                    value={
+                                      ESTADOS_COSECHA.findIndex(
+                                        (e) => e.v === f.efectivo,
+                                      ) + 1
+                                    }
+                                    options={ESTADOS_COSECHA.map((e, i) => ({
+                                      id: i + 1,
+                                      name: e.l,
+                                    }))}
+                                    // La opción cero solo aparece cuando hay
+                                    // una corrección puesta: es la puerta de
+                                    // vuelta a lo que sugiere la máquina.
+                                    zeroLabel={
+                                      f.estadoManual ? "↺ Automático" : null
+                                    }
+                                    onChange={(id) =>
+                                      estadoMut.mutate({
+                                        ids: hermanas(f.llave),
+                                        estado:
+                                          id === 0
+                                            ? null
+                                            : ESTADOS_COSECHA[id - 1].v,
+                                      })
+                                    }
+                                    chipClass={metaEstado(f.efectivo).chip}
+                                    widthClass="w-[132px]"
+                                    disabled={estadoMut.isPending}
+                                    title={
+                                      f.estadoManual
+                                        ? `${metaEstado(f.efectivo).ayuda}. Lo pusiste tú.`
+                                        : `${metaEstado(f.efectivo).ayuda}. Sugerido por el sistema.`
+                                    }
+                                    ariaLabel="Estado de la cosecha"
+                                  />
+                                </td>
+                                <td className="px-1 whitespace-nowrap">
+                                  {f.posteriorNumero ? (
                                     <button
                                       type="button"
                                       onClick={(ev) => {
                                         ev.stopPropagation();
-                                        if (f.volvioId) navigate(`/negocio/${f.volvioId}`);
+                                        abrirAlLado(f.posteriorId || "");
                                       }}
-                                      className="text-emerald-700 text-xs hover:underline"
-                                      title="Abrir la cotización nueva para comparar"
+                                      className="text-xs text-gray-500 hover:text-blue-700 hover:underline"
+                                      title="Abrir en otra pestaña la cotización posterior de este mismo cruce"
                                     >
-                                      ✓ #{f.volvioNumero} ·{" "}
-                                      {etiquetaMes(String(f.volvioEl).slice(0, 7))}
+                                      #{f.posteriorNumero} ·{" "}
+                                      {etiquetaMes(
+                                        String(f.posteriorEl).slice(0, 7),
+                                      )}
                                     </button>
-                                  ) : f.mismaVentaNumero ? (
-                                    <button
-                                      type="button"
-                                      onClick={(ev) => {
-                                        ev.stopPropagation();
-                                        if (f.mismaVentaId)
-                                          navigate(`/negocio/${f.mismaVentaId}`);
-                                      }}
-                                      className="text-gray-400 text-xs hover:underline"
-                                      title="Es la misma venta, re-cotizada"
-                                    >
-                                      ↺ misma venta · #{f.mismaVentaNumero}
-                                    </button>
-                                  ) : confirmandoLlamada === f.id ? (
-                                    <ConfirmInline
-                                      question={
-                                        f.recontactadoEl
-                                          ? "¿Quitar la marca?"
-                                          : "¿Ya lo llamaste?"
-                                      }
-                                      yesLabel={
-                                        f.recontactadoEl
-                                          ? "Sí, quitar"
-                                          : "Sí, lo llamé"
-                                      }
-                                      tono="normal"
-                                      busy={llamadaMut.isPending}
-                                      onYes={() =>
-                                        llamadaMut.mutate({
-                                          id: f.id,
-                                          marcado: !f.recontactadoEl,
-                                        })
-                                      }
-                                      onNo={() => setConfirmandoLlamada(null)}
-                                    />
                                   ) : (
-                                    <button
-                                      type="button"
-                                      onClick={(ev) => {
-                                        ev.stopPropagation();
-                                        setConfirmandoLlamada(f.id);
-                                      }}
-                                      className={`text-xs font-semibold rounded px-1 -mx-1 hover:underline ${
-                                        f.recontactadoEl
-                                          ? "text-blue-700"
-                                          : "text-amber-700"
-                                      }`}
-                                      title={
-                                        f.recontactadoEl
-                                          ? "Marcado como llamado. Pínchalo para quitar la marca."
-                                          : "Pínchalo cuando lo hayas llamado"
-                                      }
-                                    >
-                                      {f.recontactadoEl
-                                        ? `☎ llamado el ${new Date(
-                                            f.recontactadoEl,
-                                          ).toLocaleDateString("es-CL", {
-                                            day: "numeric",
-                                            month: "short",
-                                          })}`
-                                        : "⚠ no ha vuelto"}
-                                    </button>
+                                    <span className="text-gray-300 text-xs">
+                                      sin pedidos después
+                                    </span>
                                   )}
                                 </td>
                               </tr>
@@ -1538,18 +1529,14 @@ export default function DashboardPage() {
                           </tbody>
                         </table>
                         <p className="text-[11px] text-gray-400 mt-2">
-                          Se compara la misma combinación de cliente, mandante y
-                          tipo de evento: un paseo de fin de año y una cena del
-                          mismo contacto son ventas distintas.{" "}
-                          <b>Cuenta como regreso</b> si te pidieron lo mismo al
-                          menos 2 meses después y para un evento al menos 2
-                          meses distinto; si no, es la misma venta re-cotizada
-                          (<span className="text-gray-400">↺</span>) y el
-                          veredicto queda en la última del grupo. Pincha una
-                          fila para abrir su ficha, el número de al lado para
-                          abrir la otra cotización, o{" "}
-                          <b className="text-amber-700">no ha vuelto</b> para
-                          anotar que ya lo llamaste.
+                          El sistema <b>sugiere</b> el estado cruzando{" "}
+                          <b>empresa + mandante + tipo de evento</b>: si hubo un
+                          pedido después de este mes, propone «Revendido»; si no,
+                          «No ha vuelto». <b>La última palabra es tuya</b> —
+                          cámbialo en el desplegable y se guarda. Cambiarlo mueve
+                          juntas todas las cotizaciones de esa misma oportunidad
+                          en el mes, porque son un solo llamado. Las fichas se
+                          abren en otra pestaña para no perder la lista.
                         </p>
                       </div>
                     )}
