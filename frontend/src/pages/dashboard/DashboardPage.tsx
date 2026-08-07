@@ -57,7 +57,7 @@ import {
   serieInteranual,
   ventanaMeses,
 } from "./tendencias";
-import type { EstadoCosecha } from "./tendencias";
+import type { EstadoCosecha, FilaCosecha } from "./tendencias";
 import {
   getQuotations,
   guardarEstadoCosecha,
@@ -459,6 +459,24 @@ export default function DashboardPage() {
     base: string;
     anterior: boolean;
   } | null>(null);
+  // Filtros y orden de la cosecha (07-08, pedido de Felipe). Viven acá
+  // arriba, no dentro del panel, para que sobrevivan al salto entre las
+  // pestañas de año: mirar Empresas en Ago 25 y saltar a Ago 26 es
+  // justo la comparación que uno quiere hacer. Se limpian al cerrar.
+  const [filtroEvento, setFiltroEvento] = useState<string | null>(null);
+  const [filtroCliente, setFiltroCliente] = useState<string | null>(null);
+  const [filtroEstado, setFiltroEstado] = useState<EstadoCosecha | null>(null);
+  const [orden, setOrden] = useState<{
+    col: "monto" | "cliente";
+    desc: boolean;
+  }>({ col: "monto", desc: true });
+  const cerrarCosecha = () => {
+    setMesElegido(null);
+    setFiltroEvento(null);
+    setFiltroCliente(null);
+    setFiltroEstado(null);
+    setOrden({ col: "monto", desc: true });
+  };
   // EL ESTADO DE LA COSECHA (07-08, diseño de Felipe). La máquina
   // sugiere con el cruce empresa+mandante+tipo; él corrige con el
   // desplegable. Se guarda para TODAS las cotizaciones de la misma
@@ -1292,7 +1310,7 @@ export default function DashboardPage() {
         // dos barras de la columna), así que preguntamos aparte por la
         // barra realmente pinchada para saber de qué año hablamos.
         const alPinchar = (e: ChartEvent, elems: ActiveElement[], chart: Chart) => {
-          if (!elems.length) return setMesElegido(null);
+          if (!elems.length) return cerrarCosecha();
           const exacta = chart.getElementsAtEventForMode(
             e.native as Event,
             "nearest",
@@ -1397,7 +1415,69 @@ export default function DashboardPage() {
                 const claveDe = (anterior: boolean) =>
                   anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
                 const clave = claveDe(mesElegido.anterior);
-                const filas = cosecha.filas;
+                const todasDelMes = cosecha.filas;
+                // Las opciones salen del mes COMPLETO, no de lo ya
+                // filtrado: si salieran de lo filtrado, elegir un tipo
+                // haría desaparecer los demás del desplegable.
+                const opcionesDe = (saca: (f: FilaCosecha) => string) =>
+                  [...new Set(todasDelMes.map(saca).filter(Boolean))].sort(
+                    (a, b) => a.localeCompare(b, "es"),
+                  );
+                const tiposEvento = opcionesDe((f) => f.tipo);
+                const tiposCliente = opcionesDe((f) => f.tipoCliente);
+                const estadosPresentes = ESTADOS_COSECHA.filter((e) =>
+                  todasDelMes.some((f) => f.efectivo === e.v),
+                );
+                const filas = todasDelMes
+                  .filter(
+                    (f) =>
+                      (!filtroEvento || f.tipo === filtroEvento) &&
+                      (!filtroCliente || f.tipoCliente === filtroCliente) &&
+                      (!filtroEstado || f.efectivo === filtroEstado),
+                  )
+                  .sort((a, b) => {
+                    const s =
+                      orden.col === "monto"
+                        ? a.monto - b.monto
+                        : a.cliente.localeCompare(b.cliente, "es");
+                    return orden.desc ? -s : s;
+                  });
+                // Encabezado que ordena. Primer clic en una columna nueva
+                // parte por lo más útil —el monto de mayor a menor, los
+                // nombres de la A a la Z—; el segundo la da vuelta.
+                const encabezadoOrden = (
+                  col: "monto" | "cliente",
+                  texto: string,
+                  aLaDerecha = false,
+                ) => {
+                  const activa = orden.col === col;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOrden(
+                          activa
+                            ? { col, desc: !orden.desc }
+                            : { col, desc: col === "monto" },
+                        )
+                      }
+                      className={`inline-flex items-center gap-0.5 uppercase tracking-wide hover:text-gray-700 ${
+                        activa ? "text-gray-700" : ""
+                      } ${aLaDerecha ? "flex-row-reverse" : ""}`}
+                      title={`Ordenar por ${texto.toLowerCase()}`}
+                    >
+                      {texto}
+                      <span className={activa ? "" : "opacity-0"}>
+                        {orden.desc ? "▼" : "▲"}
+                      </span>
+                    </button>
+                  );
+                };
+                const hayFiltro = !!(
+                  filtroEvento ||
+                  filtroCliente ||
+                  filtroEstado
+                );
                 const cuantos = (e: EstadoCosecha) =>
                   filas.filter((f) => f.efectivo === e).length;
                 const pendientes = cuantos("no_ha_vuelto");
@@ -1413,8 +1493,9 @@ export default function DashboardPage() {
                           Quién cotizó en {etiquetaMes(clave)}
                         </h3>
                         <p className="text-xs text-gray-500">
-                          {filas.length} cotización
-                          {filas.length === 1 ? "" : "es"}
+                          {hayFiltro
+                            ? `${filas.length} de ${todasDelMes.length} cotizaciones`
+                            : `${filas.length} cotización${filas.length === 1 ? "" : "es"}`}
                           {pendientes > 0 && (
                             <>
                               {" · "}
@@ -1433,6 +1514,87 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </p>
+                        {/* Los tres filtros, con el desplegable de la
+                            casa. La opción cero es el "todos": así se
+                            limpia sin un botón aparte. */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <SectionChipSelect
+                            value={
+                              filtroEvento
+                                ? tiposEvento.indexOf(filtroEvento) + 1
+                                : 0
+                            }
+                            options={tiposEvento.map((t, i) => ({
+                              id: i + 1,
+                              name: t,
+                            }))}
+                            zeroLabel="Todo evento"
+                            onChange={(id) =>
+                              setFiltroEvento(id === 0 ? null : tiposEvento[id - 1])
+                            }
+                            chipClass={
+                              filtroEvento
+                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por tipo de evento"
+                            ariaLabel="Filtrar por tipo de evento"
+                          />
+                          <SectionChipSelect
+                            value={
+                              filtroCliente
+                                ? tiposCliente.indexOf(filtroCliente) + 1
+                                : 0
+                            }
+                            options={tiposCliente.map((t, i) => ({
+                              id: i + 1,
+                              name: t,
+                            }))}
+                            zeroLabel="Todo cliente"
+                            onChange={(id) =>
+                              setFiltroCliente(
+                                id === 0 ? null : tiposCliente[id - 1],
+                              )
+                            }
+                            chipClass={
+                              filtroCliente
+                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por tipo de cliente"
+                            ariaLabel="Filtrar por tipo de cliente"
+                          />
+                          <SectionChipSelect
+                            value={
+                              filtroEstado
+                                ? estadosPresentes.findIndex(
+                                    (e) => e.v === filtroEstado,
+                                  ) + 1
+                                : 0
+                            }
+                            options={estadosPresentes.map((e, i) => ({
+                              id: i + 1,
+                              name: e.l,
+                            }))}
+                            zeroLabel="Todo estado"
+                            onChange={(id) =>
+                              setFiltroEstado(
+                                id === 0 ? null : estadosPresentes[id - 1].v,
+                              )
+                            }
+                            chipClass={
+                              filtroEstado
+                                ? metaEstado(filtroEstado).chip + " font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por estado de la cosecha"
+                            ariaLabel="Filtrar por estado de la cosecha"
+                          />
+                        </div>
+
                         <div className="flex gap-1.5 mt-2">
                           {anios.map((a) => (
                             <button
@@ -1457,7 +1619,7 @@ export default function DashboardPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setMesElegido(null)}
+                        onClick={cerrarCosecha}
                         className="text-gray-400 hover:text-gray-600 text-sm"
                       >
                         Cerrar
@@ -1465,7 +1627,9 @@ export default function DashboardPage() {
                     </div>
                     {filas.length === 0 ? (
                       <p className="text-sm text-gray-500 py-3">
-                        Sin cotizaciones ese mes.
+                        {hayFiltro
+                          ? "Ninguna cotización de ese mes cumple con el filtro."
+                          : "Sin cotizaciones ese mes."}
                       </p>
                     ) : (
                       <div className="overflow-x-auto -mx-1">
@@ -1491,12 +1655,16 @@ export default function DashboardPage() {
                           <thead>
                             <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b">
                               <th className="text-left font-semibold py-2 px-1">N°</th>
-                              <th className="text-left font-semibold px-1">Cliente</th>
+                              <th className="text-left font-semibold px-1">
+                                {encabezadoOrden("cliente", "Cliente")}
+                              </th>
                               <th className="text-left font-semibold px-1">Tipo de cliente</th>
                               <th className="text-left font-semibold px-1">Mandante</th>
                               <th className="text-left font-semibold px-1">Tipo de evento</th>
                               <th className="text-left font-semibold px-1">Cómo terminó</th>
-                              <th className="text-right font-semibold px-1">Monto</th>
+                              <th className="text-right font-semibold px-1">
+                                {encabezadoOrden("monto", "Monto", true)}
+                              </th>
                               <th className="text-left font-semibold px-1">¿Volvió a pedirlo?</th>
                               <th className="text-right font-semibold px-1"></th>
                             </tr>
@@ -1643,7 +1811,9 @@ export default function DashboardPage() {
                           «No ha vuelto». <b>La última palabra es tuya</b> —
                           cámbialo en el desplegable y se guarda. Cada fila es
                           independiente: si un evento viene partido en dos
-                          cotizaciones, marca las dos. Las fichas se abren en
+                          cotizaciones, marca las dos. Los tres filtros de
+                          arriba se combinan y se mantienen al saltar de año;
+                          pincha «Cliente» o «Monto» para ordenar. Las fichas se abren en
                           otra pestaña para no perder la lista.
                         </p>
                       </div>
