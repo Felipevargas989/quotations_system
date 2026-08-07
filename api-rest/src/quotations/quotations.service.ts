@@ -370,6 +370,35 @@ export class QuotationsService {
     return { name: c.name, email: c.email, portalToken: c.portal_token };
   }
 
+  // RECONTACTO (07-08-2026, pedido de Felipe). La cosecha del mes lista
+  // a quién no ha vuelto a pedir lo mismo; esto anota si ya se intentó
+  // llamarlo. No es un hilo de seguimiento —esas cotizaciones suelen
+  // estar rechazadas o realizadas, y ahí muere todo seguimiento—: es una
+  // marca de dos datos, cuándo y quién. Sin estado que validar: se puede
+  // marcar cualquier cotización de la compañía, y desmarcar si fue error.
+  async setRecontacted(
+    id: string,
+    companyId: number,
+    userId: string,
+    marcado: boolean,
+  ) {
+    const { data: quotation, error } =
+      await this.quotationsRepository.findOne(id);
+    if (error) throw error;
+    if (!quotation || quotation.company_id !== companyId) {
+      throw new Error('Quotation not found');
+    }
+    await this.quotationsRepository.update(
+      id,
+      {
+        recontacted_at: marcado ? new Date().toISOString() : null,
+        recontacted_by: marcado ? userId : null,
+      } as unknown as UpdateQuotationDto,
+      companyId,
+    );
+    return { ok: true, marcado };
+  }
+
   // Espejo de markEventDone: deshace la marca (realizada -> aceptada).
   // Sin correos: la encuesta ya enviada no se puede des-enviar.
   async unmarkEventDone(id: string, companyId: number) {

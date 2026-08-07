@@ -22,6 +22,7 @@ import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-w
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
+import { RecontactoDto } from './dto/recontacto.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationsService } from './quotations.service';
 
@@ -135,6 +136,23 @@ export class QuotationsController {
   unmarkEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/volver-a-pendiente`);
     return this.quotationsService.unmarkEventDone(id, user.company_id);
+  }
+
+  // Marca (o desmarca) que ya se intentó llamar al cliente. Lo usa la
+  // cosecha del mes en el Dashboard. Cualquiera que venda puede anotarlo.
+  @Post(':id/recontactado')
+  setRecontacted(
+    @Param('id') id: string,
+    @Body() body: RecontactoDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /quotations/${id}/recontactado ${body.marcado}`);
+    return this.quotationsService.setRecontacted(
+      id,
+      user.company_id,
+      user.id,
+      body.marcado,
+    );
   }
 
   @Patch(':id')
