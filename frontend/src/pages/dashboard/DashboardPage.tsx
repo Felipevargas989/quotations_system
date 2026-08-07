@@ -1046,13 +1046,26 @@ export default function DashboardPage() {
               </button>
             )}
             <button
-              onClick={() => navigate("/post-venta")}
+              // Si hay plata vencida, el clic lleva a Post-Venta CON el
+              // filtro puesto: quien pincha un número rojo quiere ver
+              // esas cuotas, no la lista completa (07-08, Felipe).
+              onClick={() =>
+                navigate(
+                  hoy.porCobrar.vencido > 0
+                    ? "/post-venta?plata=vencido"
+                    : "/post-venta",
+                )
+              }
               className={`bg-white p-4 rounded-lg shadow text-left hover:shadow-md transition-shadow border-l-4 ${
                 hoy.porCobrar.vencido > 0
                   ? "border-red-500"
                   : "border-emerald-400"
               }`}
-              title="Ir a Post-Venta (cobranza)"
+              title={
+                hoy.porCobrar.vencido > 0
+                  ? "Ver en Post-Venta solo las cuotas vencidas"
+                  : "Ir a Post-Venta (cobranza)"
+              }
             >
               <p className="text-sm font-medium text-gray-600">Por cobrar</p>
               <p className="text-xl font-bold text-gray-900">

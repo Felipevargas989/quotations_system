@@ -246,6 +246,18 @@ export default function PostVentaPage() {
     } catch {
       /* valor antiguo o storage deshabilitado: usar el default */
     }
+    // Lo que venga por la dirección MANDA sobre lo guardado (07-08,
+    // pillada de Felipe): pinchar "VENCIDO" en el Dashboard tiene que
+    // dejar la lista mostrando lo vencido, no los filtros que uno traía
+    // de la visita anterior. Se aplica al final, después de restaurar.
+    const pedido = new URLSearchParams(window.location.search).get("plata");
+    if (pedido && MONEY_FILTER_VALUES.includes(pedido)) {
+      setMoneyFilter([pedido]);
+      // El estado del evento no se toca: una cuota vencida puede estar
+      // en un evento realizado o en uno por venir, y filtrar de más
+      // escondería justo lo que se viene a cobrar.
+      setEventFilter([]);
+    }
     setFilterRestored(true);
   }, [user]);
 
