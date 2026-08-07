@@ -21,6 +21,8 @@ import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
 import { ROLE_GROUPS } from "../../constants/permissions";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
+import MotivoPerdida from "../../components/MotivoPerdida";
+import { createFollowup } from "../../services/quotationFollowups.service";
 import {
   Quotation,
   QuotationRequestType,
@@ -352,10 +354,48 @@ export default function QuotationsPage() {
       setPendingStatusChange({ quotationId, newStatus });
       return;
     }
+    // Perder una venta o anular un evento pide su motivo (migración 61):
+    // sin el dato, las cotizaciones perdidas no enseñan nada. Se pregunta
+    // ANTES de aplicar el cambio.
+    if (newStatus === "rechazada" || newStatus === "cancelada") {
+      setPidiendoMotivo({ quotationId, newStatus });
+      return;
+    }
     await applyStatusChange(quotationId, newStatus);
   };
 
-  const applyStatusChange = async (quotationId: string, newStatus: string) => {
+  // Motivo de pérdida: se pregunta, se guarda con el estado y el
+  // comentario queda como nota en el hilo del negocio.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState<{
+    quotationId: string;
+    newStatus: string;
+  } | null>(null);
+  const [guardandoMotivo, setGuardandoMotivo] = useState(false);
+  const confirmarMotivo = async (motivo: string, comentario: string) => {
+    if (!pidiendoMotivo) return;
+    setGuardandoMotivo(true);
+    try {
+      await applyStatusChange(
+        pidiendoMotivo.quotationId,
+        pidiendoMotivo.newStatus,
+        motivo,
+      );
+      if (comentario)
+        await createFollowup({
+          quotation_id: pidiendoMotivo.quotationId,
+          note: comentario,
+        }).catch(() => {});
+      setPidiendoMotivo(null);
+    } finally {
+      setGuardandoMotivo(false);
+    }
+  };
+
+  const applyStatusChange = async (
+    quotationId: string,
+    newStatus: string,
+    motivo?: string,
+  ) => {
     try {
       if (newStatus === QuotationStatus.ACEPTADA) {
         const quotation = quotations.find((q) => q.id === quotationId);
@@ -395,7 +435,10 @@ export default function QuotationsPage() {
 
       // For other statuses or after payment plan is accepted, update the status
       const { error } = await updateQuotation(
-        { quotation_status: newStatus as QuotationStatus },
+        {
+          quotation_status: newStatus as QuotationStatus,
+          ...(motivo ? { loss_reason: motivo } : {}),
+        } as never,
         quotationId,
       );
 
@@ -649,6 +692,16 @@ export default function QuotationsPage() {
 
   return (
     <div className="space-y-6">
+      {pidiendoMotivo && (
+        <MotivoPerdida
+          tipo={pidiendoMotivo.newStatus === "cancelada" ? "anulacion" : "rechazo"}
+          guardando={guardandoMotivo}
+          onCancelar={() => setPidiendoMotivo(null)}
+          onConfirmar={(motivo, comentario) =>
+            void confirmarMotivo(motivo, comentario)
+          }
+        />
+      )}
       {showViewer && viewingQuotation && (
         <QuotationViewer
           quotation={viewingQuotation}

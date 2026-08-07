@@ -89,6 +89,9 @@ export interface Quotation {
   // Cuándo se envió al cliente (migración 51; alimenta el semáforo de
   // seguimiento y los correos automáticos de día 7/14).
   sent_at?: string | null;
+  // Motivo al rechazar o anular (migración 61): alimenta el cuadro
+  // "Por qué perdimos" del Dashboard.
+  loss_reason?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;

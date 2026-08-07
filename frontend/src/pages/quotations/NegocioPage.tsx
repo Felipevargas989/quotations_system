@@ -43,6 +43,7 @@ import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import EventoCajitas from "../../components/EventoCajitas";
 import ServiciosTab from "../postventa/ServiciosTab";
+import MotivoPerdida from "../../components/MotivoPerdida";
 import {
   createFollowup,
   deleteFollowup,
@@ -308,8 +309,17 @@ export default function NegocioPage() {
     await queryClient.invalidateQueries({ queryKey: ["quotation", id] });
   };
 
-  const cambiarEstado = async (nuevo: string) => {
+  // Motivo de pérdida (migración 61): rechazar o anular pide su razón
+  // antes de aplicarse; el comentario queda como nota del hilo.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState<string | null>(null);
+  const [guardandoMotivo, setGuardandoMotivo] = useState(false);
+
+  const cambiarEstado = async (nuevo: string, motivo?: string) => {
     if (!fila || nuevo === fila.quotation_status) return;
+    if ((nuevo === "rechazada" || nuevo === "cancelada") && !motivo) {
+      setPidiendoMotivo(nuevo);
+      return;
+    }
     try {
       if (nuevo === QuotationStatus.ACEPTADA) {
         const { data: pagosExistentes } = await getPaymentsByQuotationId(
@@ -329,7 +339,10 @@ export default function NegocioPage() {
         return;
       }
       const { error } = await updateQuotation(
-        { quotation_status: nuevo as QuotationStatus },
+        {
+          quotation_status: nuevo as QuotationStatus,
+          ...(motivo ? { loss_reason: motivo } : {}),
+        } as never,
         fila.id,
       );
       if (error) throw new Error(error.message);
@@ -615,6 +628,33 @@ export default function NegocioPage() {
         </div>
       </div>
 
+      {pidiendoMotivo && (
+        <MotivoPerdida
+          tipo={pidiendoMotivo === "cancelada" ? "anulacion" : "rechazo"}
+          guardando={guardandoMotivo}
+          onCancelar={() => setPidiendoMotivo(null)}
+          onConfirmar={(motivo, comentario) => {
+            const estado = pidiendoMotivo;
+            setGuardandoMotivo(true);
+            void (async () => {
+              try {
+                await cambiarEstado(estado, motivo);
+                if (comentario)
+                  await createFollowup({
+                    quotation_id: id!,
+                    note: comentario,
+                  }).catch(() => {});
+                queryClient.invalidateQueries({
+                  queryKey: ["followups", id],
+                });
+                setPidiendoMotivo(null);
+              } finally {
+                setGuardandoMotivo(false);
+              }
+            })();
+          }}
+        />
+      )}
       {/* El visor necesita la cotización COMPLETA (detalle): la fila
           de la lista viaja a dieta, SIN items — con ella el PDF salía
           sin servicios (quemadura 05-08, cotización 436). */}

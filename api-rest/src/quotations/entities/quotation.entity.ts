@@ -71,4 +71,6 @@ export interface Quotation {
   subtotal_amount: number;
   items: QuotationItem;
   company_id: number;
+  // Motivo al rechazar o anular (migración 61).
+  loss_reason?: string | null;
 }

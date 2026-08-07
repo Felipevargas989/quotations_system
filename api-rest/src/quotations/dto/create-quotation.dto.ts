@@ -81,6 +81,13 @@ export class CreateQuotationDto {
   @IsNotEmpty()
   quotation_status: QuotationStatus;
 
+  // Motivo al rechazar o anular (migración 61). Texto corto de una
+  // lista cerrada que define el frontend; el detalle libre viaja como
+  // nota al hilo de seguimiento, no acá.
+  @IsString()
+  @IsOptional()
+  loss_reason?: string;
+
   @IsNumber()
   @IsOptional()
   @Min(0, { message: 'Value per person must be non-negative' })

@@ -56,7 +56,7 @@ export class QuotationsRepository {
       'discount_percentage, subtotal_amount, company_id, discount_amount, ' +
       'provisioned_at, provisioned_cost, provisioned_people, ' +
       'survey_sent_at, event_end_date, children_count, tip_percentage, ' +
-      'contact_name, tip_amount, sent_at';
+      'contact_name, tip_amount, sent_at, loss_reason';
     const query = this.supabase.client.from('quotations').select(
       `${COLUMNAS_LISTA},
         mandante:client_contacts!quotations_client_contact_id_fkey (

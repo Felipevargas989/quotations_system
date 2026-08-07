@@ -38,6 +38,12 @@ import {
   newAccumulator,
 } from "../../utils/eventConsolidation";
 import { CompleteStatsResponse } from "../../types/analytics.types";
+import { getQuotations } from "../../services/quotations.service";
+import {
+  QuotationRequestType,
+  QuotationStatus,
+} from "../../types/quotations.types";
+import { etiquetaMotivo } from "../../components/MotivoPerdida";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
@@ -431,6 +437,44 @@ export default function DashboardPage() {
     queryFn: async () =>
       getWonEventsSince(company!.id, resolveRange().start_date),
   });
+
+  // POR QUÉ PERDIMOS (06-08, migración 61). Nació de un dato medido: el
+  // ticket promedio de las ganadas y el de las perdidas es casi idéntico
+  // — el precio NO explica las derrotas. Este cuadro convierte cada
+  // derrota en información.
+  const perdidasQuery = useQuery({
+    queryKey: ["dashboard-motivos", company?.id, selectedTimeRange],
+    enabled: !!user && !!company?.id,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
+        QuotationStatus.RECHAZADA,
+        QuotationStatus.CANCELADA,
+      ]);
+      const desde = resolveRange().start_date;
+      return (data || []).filter(
+        (q) => String(q.updated_at || q.created_at).slice(0, 10) >= desde,
+      );
+    },
+  });
+  const motivosPerdida = (() => {
+    const filas = perdidasQuery.data ?? [];
+    const conMotivo = filas.filter((q) => q.loss_reason);
+    const cuenta = new Map<string, { n: number; monto: number }>();
+    conMotivo.forEach((q) => {
+      const k = String(q.loss_reason);
+      const a = cuenta.get(k) || { n: 0, monto: 0 };
+      cuenta.set(k, { n: a.n + 1, monto: a.monto + (q.total_amount || 0) });
+    });
+    const lista = [...cuenta.entries()]
+      .map(([motivo, v]) => ({ motivo, ...v }))
+      .sort((a, b) => b.n - a.n);
+    return {
+      lista,
+      total: conMotivo.length,
+      sinMotivo: filas.length - conMotivo.length,
+    };
+  })();
 
   // Análisis de proveedores (23-07): provisiones reales + recursos.
   // 24-07: subido de más abajo, sin tocarle nada, porque el cálculo de
@@ -1710,6 +1754,54 @@ export default function DashboardPage() {
               <QuotationStatusStatsComponent
                 stats={stats.quotation_status_stats}
               />
+              {/* POR QUÉ PERDIMOS (06-08, migración 61): el mapa que
+                  convierte cada derrota en algo accionable. */}
+              <div className="bg-white rounded-xl shadow p-5">
+                <h3 className="text-sm font-bold text-gray-700">
+                  Por qué perdimos
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5 mb-3">
+                  Cotizaciones rechazadas y eventos anulados del período.
+                </p>
+                {motivosPerdida.total === 0 ? (
+                  <p className="text-sm text-gray-500 py-3">
+                    Sin motivos registrados todavía. Se piden al rechazar o
+                    anular.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {motivosPerdida.lista.map((m) => {
+                      const pct = Math.round(
+                        (100 * m.n) / motivosPerdida.total,
+                      );
+                      return (
+                        <div key={m.motivo}>
+                          <div className="flex items-baseline justify-between text-sm">
+                            <span className="text-gray-800 font-medium">
+                              {etiquetaMotivo(m.motivo)}
+                            </span>
+                            <span className="text-gray-500 text-xs">
+                              {m.n} · {formatCurrency(m.monto, company?.currency || "CLP")}
+                            </span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-1">
+                            <div
+                              className="h-full bg-blue-500 rounded-full"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {motivosPerdida.sinMotivo > 0 && (
+                      <p className="text-[11px] text-gray-400 pt-1">
+                        {motivosPerdida.sinMotivo} sin motivo (anteriores a
+                        esta función).
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               <EventTypeConversionStatsComponent
                 stats={stats.event_type_conversion_stats}
               />

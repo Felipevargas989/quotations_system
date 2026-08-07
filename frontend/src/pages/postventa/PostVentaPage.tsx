@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "../../components/toast/Toast";
 import EventoCajitas from "../../components/EventoCajitas";
 import CelebracionRealizada from "../../components/CelebracionRealizada";
+import MotivoPerdida from "../../components/MotivoPerdida";
 import { useNavigate, useParams } from "react-router-dom";
 import { resolveStorageUrl } from "../../services/storage.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1058,12 +1059,22 @@ function EventModal({
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
-  const doCancelEvent = async () => {
+  // Anular pide su motivo (migración 61): un evento que se cae enseña
+  // tanto como uno que se gana, si queda registrado por qué.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
+  const doCancelEvent = async (motivo?: string) => {
+    if (!motivo) {
+      setPidiendoMotivo(true);
+      return;
+    }
     setCancelling(true);
     setCancelError(null);
     try {
       await updateQuotation(
-        { quotation_status: QuotationStatus.CANCELADA },
+        {
+          quotation_status: QuotationStatus.CANCELADA,
+          loss_reason: motivo,
+        } as never,
         event.quotationId,
       );
       onDataChanged();
@@ -1072,6 +1083,7 @@ function EventModal({
       setCancelError("No se pudo anular el evento. Intenta de nuevo.");
     } finally {
       setCancelling(false);
+      setPidiendoMotivo(false);
     }
   };
 
@@ -1253,7 +1265,7 @@ function EventModal({
                 </span>
                 <button
                   disabled={cancelling}
-                  onClick={doCancelEvent}
+                  onClick={() => void doCancelEvent()}
                   className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 disabled:opacity-50"
                 >
                   Sí, anular
@@ -1313,6 +1325,14 @@ function EventModal({
         )}
         {doneError && (
           <p className="shrink-0 px-6 pt-2 text-sm text-red-600">{doneError}</p>
+        )}
+        {pidiendoMotivo && (
+          <MotivoPerdida
+            tipo="anulacion"
+            guardando={cancelling}
+            onCancelar={() => setPidiendoMotivo(false)}
+            onConfirmar={(motivo) => void doCancelEvent(motivo)}
+          />
         )}
         {celebrar && (
           <CelebracionRealizada
