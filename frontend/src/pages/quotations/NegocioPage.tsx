@@ -182,6 +182,19 @@ export default function NegocioPage() {
       )}`
     : null;
 
+  // Copiar teléfono/correo del mandante, igual que en la ficha del
+  // cliente: el dato en azul, un clic lo copia y confirma con un ✓.
+  const [datoCopiado, setDatoCopiado] = useState<string | null>(null);
+  const copiarDato = async (clave: string, texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setDatoCopiado(clave);
+      setTimeout(() => setDatoCopiado((p) => (p === clave ? null : p)), 2000);
+    } catch {
+      /* sin permiso de portapapeles: no se rompe nada */
+    }
+  };
+
   const refrescarEstado = async () => {
     await queryClient.invalidateQueries({ queryKey: ["quotations"] });
     await queryClient.invalidateQueries({ queryKey: ["quotation", id] });
@@ -333,10 +346,40 @@ export default function NegocioPage() {
                 #{fila?.quotation_number}
               </span>
             </h1>
+            {/* Teléfono y correo en azul y pinchables para COPIAR,
+                igual que en la ficha del cliente (07-08). */}
             <p className="text-sm text-gray-500 mt-0.5">
               {contacto.name || "—"}
-              {contacto.phone ? ` · 📞 ${formatPhone(contacto.phone)}` : ""}
-              {contacto.email ? ` · ✉️ ${contacto.email}` : ""}
+              {contacto.phone && (
+                <>
+                  {" · 📞 "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void copiarDato("tel", formatPhone(contacto.phone))
+                    }
+                    title="Copiar teléfono"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {formatPhone(contacto.phone)}
+                    {datoCopiado === "tel" && " ✓"}
+                  </button>
+                </>
+              )}
+              {contacto.email && (
+                <>
+                  {" · ✉️ "}
+                  <button
+                    type="button"
+                    onClick={() => void copiarDato("mail", contacto.email)}
+                    title="Copiar correo"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {contacto.email}
+                    {datoCopiado === "mail" && " ✓"}
+                  </button>
+                </>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">

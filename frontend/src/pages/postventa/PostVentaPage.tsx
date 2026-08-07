@@ -1109,6 +1109,20 @@ function EventModal({
   const [deletingTx, setDeletingTx] = useState(false);
   // Portal del cliente: feedback del botón "copiar enlace de pagos".
   const [linkCopiado, setLinkCopiado] = useState(false);
+  // Teléfono y correo del contacto: en azul y pinchables para COPIAR,
+  // igual que en la ficha del cliente (07-08, pedido de Felipe). Mismo
+  // gesto en las tres pantallas, sin botón aparte: probamos el ícono al
+  // lado y apretujaba la línea.
+  const [datoCopiado, setDatoCopiado] = useState<string | null>(null);
+  const copiarDato = async (clave: string, texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setDatoCopiado(clave);
+      setTimeout(() => setDatoCopiado((p) => (p === clave ? null : p)), 2000);
+    } catch {
+      /* sin permiso de portapapeles: no se rompe nada */
+    }
+  };
   // Nivel A del calendario (29-07): lapiz en la CUOTA (solo sin dinero
   // registrado) para editar fecha de vencimiento y nota. Distinto del
   // lapiz del registro de pago de mas abajo.
@@ -1273,7 +1287,36 @@ function EventModal({
             <p className="text-sm text-gray-500 mt-1">
               Cotización #{event.quotationNumber}
               {event.contactPerson ? ` · Contacto ${event.contactPerson}` : ""}
-              {event.phone ? ` · ${formatPhone(event.phone)}` : ""}
+              {event.phone && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void copiarDato("tel", formatPhone(event.phone))
+                    }
+                    title="Copiar teléfono"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {formatPhone(event.phone)}
+                    {datoCopiado === "tel" && " ✓"}
+                  </button>
+                </>
+              )}
+              {event.contactEmail && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => void copiarDato("mail", event.contactEmail!)}
+                    title="Copiar correo"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {event.contactEmail}
+                    {datoCopiado === "mail" && " ✓"}
+                  </button>
+                </>
+              )}
               {event.hasContract ? " · 📄 con contrato" : ""}
               {event.requiresInvoice ? " · 🧾 requiere factura" : ""}
             </p>
