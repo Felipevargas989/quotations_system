@@ -1296,7 +1296,7 @@ function EventModal({
                   title="Copiar teléfono"
                   className="flex items-center gap-1.5 text-blue-600 hover:underline"
                 >
-                  <Phone size={13} className="shrink-0 text-gray-400" />
+                  <Phone size={13} className="shrink-0" />
                   {formatPhone(event.phone)}
                   <span className="inline-block w-3 text-green-600">
                     {datoCopiado === "tel" ? "✓" : ""}
@@ -1312,7 +1312,7 @@ function EventModal({
                   title="Copiar correo"
                   className="flex items-center gap-1.5 text-blue-600 hover:underline"
                 >
-                  <Mail size={13} className="shrink-0 text-gray-400" />
+                  <Mail size={13} className="shrink-0" />
                   {event.contactEmail}
                   <span className="inline-block w-3 text-green-600">
                     {datoCopiado === "mail" ? "✓" : ""}
