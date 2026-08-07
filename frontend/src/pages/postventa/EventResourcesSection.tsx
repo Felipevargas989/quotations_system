@@ -114,6 +114,12 @@ export default function EventResourcesSection({
     () => new Map(resources.map((r) => [r.id, r])),
     [resources],
   );
+  // Igual que resById: el chip "auto" arma su tooltip en cada pintado y
+  // un find() por fila crece con el catálogo (revisión del 07-08).
+  const fixedById = useMemo(
+    () => new Map(fixedServices.map((fs) => [fs.id, fs])),
+    [fixedServices],
+  );
   const supName = (id: number | null | undefined) =>
     suppliers.find((s) => s.id === id)?.name;
 
@@ -610,11 +616,16 @@ export default function EventResourcesSection({
                       const r = resById.get(l.resource_id);
                       const hasListPrice =
                         r && (r.list_price_fixed || r.list_price_per_person);
-                      const isRebaja =
+                      // `!!` a propósito: `hasListPrice` puede valer el
+                      // NÚMERO 0 (precio por persona en 0 y fijo vacío) y
+                      // entonces `{isRebaja && ...}` pintaba un "0" suelto
+                      // entre las etiquetas (revisión del 07-08).
+                      const isRebaja = !!(
                         hasListPrice &&
                         ((l.price_fixed || 0) < (r?.list_price_fixed || 0) ||
                           (l.price_per_person || 0) <
-                            (r?.list_price_per_person || 0));
+                            (r?.list_price_per_person || 0))
+                      );
                       if (confirmLineId === l.id) {
                         return (
                           <tr key={l.id} className="bg-red-50/60">
@@ -634,63 +645,77 @@ export default function EventResourcesSection({
                           </tr>
                         );
                       }
+                      // El nombre manda su propia línea y las etiquetas van
+                      // abajo (07-08, pillada de Felipe en la #400): en una
+                      // columna angosta se partían por la mitad —"FL /
+                      // Eventos", "de Audiovisual / básico"— y una píldora
+                      // cortada en dos se lee pésimo. Se arman acá para no
+                      // repetir las mismas condiciones dos veces (una para
+                      // decidir si va el bloque y otra por etiqueta).
+                      const proveedor = r ? supName(r.supplier_id) : "";
+                      const fijoOrigen = l.origin_fixed_service_id
+                        ? fixedById.get(l.origin_fixed_service_id)
+                        : undefined;
+                      const etiquetas: React.ReactNode[] = [];
+                      if (proveedor)
+                        etiquetas.push(
+                          // Texto libre y sin límite de largo: acá NO va
+                          // `whitespace-nowrap`. La tabla es `table-fixed`
+                          // dentro de un `overflow-hidden`, así que un
+                          // nombre que no puede cortarse se recorta en
+                          // silencio (revisión del 07-08).
+                          <span
+                            key="prov"
+                            className="text-[11px] text-gray-400"
+                          >
+                            {proveedor}
+                          </span>,
+                        );
+                      if (isRebaja)
+                        etiquetas.push(
+                          <span
+                            key="rebaja"
+                            className="whitespace-nowrap rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700"
+                          >
+                            rebaja
+                          </span>,
+                        );
+                      if (l.origin_fixed_service_id)
+                        etiquetas.push(
+                          // Antes decía "de <nombre del servicio fijo>" y era
+                          // el elemento más ancho de la columna más angosta:
+                          // 200 px para decir algo binario. GRIS, no ámbar ni
+                          // morado: en esta misma pantalla el ámbar significa
+                          // "te falta importar" —lo contrario de lo que marca
+                          // este chip— y el morado es el color de la sección
+                          // ARRIENDO. El nombre completo viaja en el título y,
+                          // para quien no ve el tooltip, en el texto oculto.
+                          <span
+                            key="auto"
+                            className="cursor-help whitespace-nowrap rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
+                            title={
+                              fijoOrigen
+                                ? `Llegó solo al importar el servicio fijo "${fijoOrigen.nombre}"`
+                                : "Llegó solo al importar un servicio fijo del evento"
+                            }
+                          >
+                            auto
+                            <span className="sr-only">
+                              {fijoOrigen
+                                ? `: importado del servicio fijo ${fijoOrigen.nombre}`
+                                : ": importado de un servicio fijo"}
+                            </span>
+                          </span>,
+                        );
                       return (
                         <tr key={l.id}>
-                          {/* El nombre manda su propia línea y las
-                              etiquetas van abajo (07-08, pillada de
-                              Felipe en la #400): en una columna angosta
-                              se partían por la mitad — "FL / Eventos" y
-                              "de Audiovisual / básico"— y una píldora
-                              cortada en dos se lee pésimo. Cada pieza
-                              entera; si no caben todas, bajan enteras. */}
-                          <td className="px-3 py-2 align-top">
+                          <td className="px-3 py-2">
                             <div className="text-gray-900">
                               {r?.name || "Recurso eliminado"}
                             </div>
-                            {(l.origin_fixed_service_id ||
-                              isRebaja ||
-                              (r && supName(r.supplier_id))) && (
+                            {etiquetas.length > 0 && (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                {r && supName(r.supplier_id) && (
-                                  <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                                    {supName(r.supplier_id)}
-                                  </span>
-                                )}
-                                {isRebaja && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
-                                    rebaja
-                                  </span>
-                                )}
-                                {l.origin_fixed_service_id && (
-                                  /* Antes decía "de <nombre del servicio
-                                     fijo>" y era el elemento más ancho de
-                                     la columna más angosta —200 px para
-                                     decir algo binario— (Felipe, 07-08).
-                                     El nombre completo vive en el título;
-                                     acá basta con avisar que la línea
-                                     llegó sola.
-
-                                     GRIS, no ámbar ni morado: en esta
-                                     misma pantalla el ámbar significa
-                                     "te falta importar" —justo lo
-                                     contrario de lo que marca este
-                                     chip— y el morado es el color de la
-                                     sección ARRIENDO. El gris no agrega
-                                     ningún color a la pantalla y se lee
-                                     como lo que es: una nota, no una
-                                     alerta. */
-                                  <span
-                                    className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-500 whitespace-nowrap cursor-help"
-                                    title={`Llegó solo al importar el servicio fijo "${
-                                      fixedServices.find(
-                                        (fs) =>
-                                          fs.id === l.origin_fixed_service_id,
-                                      )?.nombre || "servicio fijo"
-                                    }"`}
-                                  >
-                                    auto
-                                  </span>
-                                )}
+                                {etiquetas}
                               </div>
                             )}
                           </td>
