@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { computeMoney } from "@dinero";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -384,6 +384,12 @@ export default function QuotationForm() {
   const boxPeople = (box: Pick<ServiceBox, "audience" | "people">) =>
     box.people ?? audienceCount(box);
 
+  // TECLADO DEL BUSCADOR (06-08, pedido de Felipe): la lista ofrecida se
+  // arma en el MISMO orden en que se ve, así las flechas recorren lo que
+  // el ojo recorre y Enter agrega exactamente lo resaltado.
+  const [idxItem, setIdxItem] = useState(0);
+  const buscadorItemRef = useRef<HTMLInputElement | null>(null);
+
   // La categoría del catálogo a la que apunta una caja: por id (foto
   // nueva) o por nombre (foto vieja). El id no cambia nunca — diseño de
   // Felipe 06-08 para que renombrar no rompa cotizaciones guardadas.
@@ -393,6 +399,43 @@ export default function QuotationForm() {
   });
   const catDeCaja = (box: any) => buscarCategoria(orderedCategories, cajaDe(box));
   const nomCat = (box: any) => nombreVigente(orderedCategories, cajaDe(box));
+
+  const ofrecidosDe = (box: any) => {
+    const filtrados = getFilteredProducts(nomCat(box))
+      .filter((p) => p.is_active !== false)
+      .filter((p) => !isLockedService(nomCat(box), p.codigo))
+      .filter((p) => matchesSearch(itemSearch, p.nombre));
+    const cat = catDeCaja(box);
+    const secs = cat
+      ? categorySections
+          .filter((sec) => sec.category_id === cat.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+      : [];
+    if (secs.length === 0)
+      return {
+        bloques: [{ key: "plano", name: "", items: filtrados }],
+        orden: filtrados,
+      };
+    const seccionDe = (codigo: string) =>
+      categoryLinks.find(
+        (l) =>
+          l.category_id === cat!.id &&
+          l.variable_service_id.toString() === codigo,
+      )?.section_id || 0;
+    const bloques = [
+      ...secs.map((sec) => ({
+        key: `s-${sec.id}`,
+        name: sec.name,
+        items: filtrados.filter((p) => seccionDe(p.codigo) === sec.id),
+      })),
+      {
+        key: "s-0",
+        name: "Sin sección",
+        items: filtrados.filter((p) => seccionDe(p.codigo) === 0),
+      },
+    ].filter((b) => b.items.length > 0);
+    return { bloques, orden: bloques.flatMap((b) => b.items) };
+  };
 
   // Ids de servicios de la sección fija de una categoría (por nombre).
   const defaultServiceIdsFor = (categoryName: string): number[] => {
@@ -3030,145 +3073,113 @@ export default function QuotationForm() {
                                   </button>
 
                                   {openDropdown === box.id &&
-                                    box.selectedCategory && (
-                                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
-                                        {/* In-memory search to filter items by name */}
-                                        <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                                          <input
-                                            type="text"
-                                            autoFocus
-                                            value={itemSearch}
-                                            onChange={(e) =>
-                                              setItemSearch(e.target.value)
-                                            }
-                                            placeholder="Buscar item por nombre..."
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                          />
-                                        </div>
-                                        {(() => {
-                                          const filteredProducts =
-                                            getFilteredProducts(nomCat(box))
-                                              // Hide deactivated items from the picker.
-                                              // Already-selected items still render via the
-                                              // button label above (full product list).
-                                              .filter(
-                                                (product) =>
-                                                  product.is_active !== false,
-                                              )
-                                              // La sección FIJA no se ofrece en el
-                                              // buscador: sus servicios entran solos a la
-                                              // cotización y no se pueden quitar.
-                                              .filter(
-                                                (product) =>
-                                                  !isLockedService(
-                                                    nomCat(box),
-                                                    product.codigo,
-                                                  ),
-                                              )
-                                              .filter((product) =>
-                                                matchesSearch(
-                                                  itemSearch,
-                                                  product.nombre,
-                                                ),
-                                              );
-
-                                          if (filteredProducts.length === 0) {
-                                            return (
-                                              <div className="px-3 py-2 text-sm text-gray-500">
-                                                No se encontraron items
-                                              </div>
-                                            );
-                                          }
-
-                                          const itemButton = (product: {
-                                            codigo: string;
-                                            nombre: string;
-                                            precio: number;
-                                          }) => (
-                                            <button
-                                              key={product.codigo}
-                                              type="button"
-                                              onClick={() => {
-                                                updateServiceBox(
-                                                  box.id,
-                                                  "selectedItem",
-                                                  product.codigo,
-                                                );
-                                                // El panel queda abierto y lo ESCRITO
-                                                // se borra solo tras pinchar (04-08).
-                                                setItemSearch("");
+                                    box.selectedCategory &&
+                                    (() => {
+                                      const { bloques, orden } =
+                                        ofrecidosDe(box);
+                                      const elegir = (codigo: string) => {
+                                        updateServiceBox(
+                                          box.id,
+                                          "selectedItem",
+                                          codigo,
+                                        );
+                                        setItemSearch("");
+                                        setIdxItem(0);
+                                        // El cursor NO se suelta: se sigue
+                                        // escribiendo el próximo servicio.
+                                        buscadorItemRef.current?.focus();
+                                      };
+                                      let corrido = -1;
+                                      return (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                                            <input
+                                              type="text"
+                                              autoFocus
+                                              ref={buscadorItemRef}
+                                              value={itemSearch}
+                                              onChange={(e) => {
+                                                setItemSearch(e.target.value);
+                                                setIdxItem(0);
                                               }}
-                                              className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                                            >
-                                              {product.nombre} - $
-                                              {product.precio.toLocaleString(
-                                                "es-CL",
-                                              )}
-                                            </button>
-                                          );
-
-                                          // Con secciones definidas, el listado se agrupa
-                                          // como la carta (Entradas, Principales...); una
-                                          // categoría sin secciones se ve igual que hoy.
-                                          const cat = orderedCategories.find(
-                                            (c) =>
-                                              c.name === nomCat(box),
-                                          );
-                                          const secs = cat
-                                            ? categorySections
-                                                .filter(
-                                                  (s) =>
-                                                    s.category_id === cat.id,
-                                                )
-                                                .sort(
-                                                  (a, b) =>
-                                                    a.sort_order - b.sort_order,
-                                                )
-                                            : [];
-                                          if (secs.length === 0) {
-                                            return filteredProducts.map(
-                                              itemButton,
-                                            );
-                                          }
-
-                                          const sectionOf = (codigo: string) =>
-                                            categoryLinks.find(
-                                              (l) =>
-                                                l.category_id === cat!.id &&
-                                                l.variable_service_id.toString() ===
-                                                  codigo,
-                                            )?.section_id || 0;
-
-                                          return [
-                                            ...secs.map((s) => ({
-                                              key: `s-${s.id}`,
-                                              name: s.name,
-                                              items: filteredProducts.filter(
-                                                (p) =>
-                                                  sectionOf(p.codigo) === s.id,
-                                              ),
-                                            })),
-                                            {
-                                              key: "s-0",
-                                              name: "Sin sección",
-                                              items: filteredProducts.filter(
-                                                (p) =>
-                                                  sectionOf(p.codigo) === 0,
-                                              ),
-                                            },
-                                          ]
-                                            .filter((g) => g.items.length > 0)
-                                            .map((g) => (
-                                              <div key={g.key}>
-                                                <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
-                                                  {g.name}
-                                                </div>
-                                                {g.items.map(itemButton)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "ArrowDown") {
+                                                  e.preventDefault();
+                                                  setIdxItem((i) =>
+                                                    Math.min(
+                                                      i + 1,
+                                                      orden.length - 1,
+                                                    ),
+                                                  );
+                                                } else if (e.key === "ArrowUp") {
+                                                  e.preventDefault();
+                                                  setIdxItem((i) =>
+                                                    Math.max(i - 1, 0),
+                                                  );
+                                                } else if (e.key === "Enter") {
+                                                  e.preventDefault();
+                                                  const p = orden[idxItem];
+                                                  if (p) elegir(p.codigo);
+                                                } else if (e.key === "Escape") {
+                                                  e.preventDefault();
+                                                  setOpenDropdown(null);
+                                                }
+                                              }}
+                                              placeholder="Buscar item por nombre..."
+                                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                          </div>
+                                          {orden.length === 0 ? (
+                                            <div className="px-3 py-2 text-sm text-gray-500">
+                                              No se encontraron items
+                                            </div>
+                                          ) : (
+                                            bloques.map((grp) => (
+                                              <div key={grp.key}>
+                                                {grp.name && (
+                                                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                                    {grp.name}
+                                                  </div>
+                                                )}
+                                                {grp.items.map((p: any) => {
+                                                  corrido += 1;
+                                                  const activo =
+                                                    corrido === idxItem;
+                                                  return (
+                                                    <button
+                                                      key={p.codigo}
+                                                      type="button"
+                                                      ref={(el) => {
+                                                        if (activo && el)
+                                                          el.scrollIntoView({
+                                                            block: "nearest",
+                                                          });
+                                                      }}
+                                                      onMouseEnter={() =>
+                                                        setIdxItem(corrido)
+                                                      }
+                                                      onClick={() =>
+                                                        elegir(p.codigo)
+                                                      }
+                                                      className={`w-full px-3 py-2 text-left focus:outline-none ${
+                                                        activo
+                                                          ? "bg-blue-50 text-blue-900"
+                                                          : "hover:bg-gray-100"
+                                                      }`}
+                                                    >
+                                                      {p.nombre} - $
+                                                      {p.precio.toLocaleString(
+                                                        "es-CL",
+                                                      )}
+                                                    </button>
+                                                  );
+                                                })}
                                               </div>
-                                            ));
-                                        })()}
-                                      </div>
-                                    )}
+                                            ))
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                 </div>
                                 {box.groupName && (
                                   <p className="mt-1 text-xs font-medium text-blue-600">

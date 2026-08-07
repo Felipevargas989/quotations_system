@@ -570,6 +570,46 @@ export default function ServiciosTab({
       ),
     );
 
+  // TECLADO DEL BUSCADOR (06-08, pedido de Felipe: "para ahorrarme ese
+  // clic"). La lista ofrecida se arma UNA vez y en el mismo orden en que
+  // se ve —agrupada por sección—, así las flechas recorren lo que el ojo
+  // recorre y Enter agrega exactamente lo resaltado.
+  const [idxItem, setIdxItem] = useState(0);
+  const buscadorItemRef = useRef<HTMLInputElement | null>(null);
+  const ofrecidosDe = (g: any) => {
+    const filtrados = productsOf(nomCat(g))
+      .filter((p) => p.is_active !== false)
+      .filter((p) => !isLockedService(nomCat(g), p.codigo))
+      .filter((p) => matchesSearch(itemSearch, p.nombre));
+    const cat = catDeCaja(g);
+    const secs = cat
+      ? categorySections
+          .filter((sec) => sec.category_id === cat.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+      : [];
+    if (secs.length === 0)
+      return { bloques: [{ key: "plano", name: "", items: filtrados }], orden: filtrados };
+    const seccionDe = (codigo: string) =>
+      categoryLinks.find(
+        (l) =>
+          l.category_id === cat!.id &&
+          l.variable_service_id.toString() === codigo,
+      )?.section_id || 0;
+    const bloques = [
+      ...secs.map((sec) => ({
+        key: `s-${sec.id}`,
+        name: sec.name,
+        items: filtrados.filter((p) => seccionDe(p.codigo) === sec.id),
+      })),
+      {
+        key: "s-0",
+        name: "Sin sección",
+        items: filtrados.filter((p) => seccionDe(p.codigo) === 0),
+      },
+    ].filter((b) => b.items.length > 0);
+    return { bloques, orden: bloques.flatMap((b) => b.items) };
+  };
+
   // Flechitas ▲▼ (06-08, pedido de Felipe): mover cajas sin arrastrar,
   // patrón del catálogo. Orden local puro — viaja en la foto al Guardar.
   const moverCaja = (gi: number, delta: -1 | 1) => {
@@ -1342,113 +1382,99 @@ export default function ServiciosTab({
                               />
                             </svg>
                           </button>
-                          {openItemPicker === gi && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
-                              <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                                <input
-                                  type="text"
-                                  autoFocus
-                                  value={itemSearch}
-                                  onChange={(e) =>
-                                    setItemSearch(e.target.value)
-                                  }
-                                  placeholder="Buscar item por nombre..."
-                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                              </div>
-                              {(() => {
-                                const filtered = productsOf(nomCat(g))
-                                  // Paridad con el cotizador: los desactivados no
-                                  // se ofrecen (los ya agregados no se tocan).
-                                  .filter((p) => p.is_active !== false)
-                                  // La sección FIJA no se ofrece en el buscador:
-                                  // sus servicios entran solos al crear la
-                                  // categoría y no se pueden quitar (cotizador).
-                                  .filter(
-                                    (p) =>
-                                      !isLockedService(nomCat(g), p.codigo),
-                                  )
-                                  .filter((p) =>
-                                    matchesSearch(itemSearch, p.nombre),
-                                  );
-                                if (filtered.length === 0) {
-                                  return (
+                          {openItemPicker === gi &&
+                            (() => {
+                              const { bloques, orden } = ofrecidosDe(g);
+                              const elegir = (codigo: string) => {
+                                addToGroup(gi, codigo);
+                                setItemSearch("");
+                                setIdxItem(0);
+                                // El cursor NO se suelta: se sigue
+                                // escribiendo el próximo servicio sin
+                                // volver a pinchar la barra.
+                                buscadorItemRef.current?.focus();
+                              };
+                              let corrido = -1;
+                              return (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[28rem] overflow-y-auto">
+                                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      ref={buscadorItemRef}
+                                      value={itemSearch}
+                                      onChange={(e) => {
+                                        setItemSearch(e.target.value);
+                                        setIdxItem(0);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "ArrowDown") {
+                                          e.preventDefault();
+                                          setIdxItem((i) =>
+                                            Math.min(i + 1, orden.length - 1),
+                                          );
+                                        } else if (e.key === "ArrowUp") {
+                                          e.preventDefault();
+                                          setIdxItem((i) => Math.max(i - 1, 0));
+                                        } else if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          const p = orden[idxItem];
+                                          if (p) elegir(p.codigo);
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          setOpenItemPicker(null);
+                                        }
+                                      }}
+                                      placeholder="Buscar item por nombre..."
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                  </div>
+                                  {orden.length === 0 ? (
                                     <div className="px-3 py-2 text-sm text-gray-500">
                                       No se encontraron items
                                     </div>
-                                  );
-                                }
-                                const itemButton = (p: {
-                                  codigo: string;
-                                  nombre: string;
-                                  precio: number;
-                                }) => (
-                                  <button
-                                    key={p.codigo}
-                                    type="button"
-                                    onClick={() => {
-                                      // Lo escrito se borra solo al pinchar
-                                      // (04-08); el panel queda abierto.
-                                      addToGroup(gi, p.codigo);
-                                      setItemSearch("");
-                                    }}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                                  >
-                                    {p.nombre} - $
-                                    {p.precio.toLocaleString("es-CL")}
-                                  </button>
-                                );
-                                // Con secciones definidas, el listado se agrupa
-                                // como la carta (Entradas, Principales...); una
-                                // categoría sin secciones se ve plana, como hoy.
-                                const cat = orderedCategories.find(
-                                  (c) => c.name === nomCat(g),
-                                );
-                                const secs = cat
-                                  ? categorySections
-                                      .filter((s) => s.category_id === cat.id)
-                                      .sort(
-                                        (a, b) => a.sort_order - b.sort_order,
-                                      )
-                                  : [];
-                                if (secs.length === 0) {
-                                  return filtered.map(itemButton);
-                                }
-                                const sectionOf = (codigo: string) =>
-                                  categoryLinks.find(
-                                    (l) =>
-                                      l.category_id === cat!.id &&
-                                      l.variable_service_id.toString() ===
-                                        codigo,
-                                  )?.section_id || 0;
-                                return [
-                                  ...secs.map((s) => ({
-                                    key: `s-${s.id}`,
-                                    name: s.name,
-                                    items: filtered.filter(
-                                      (p) => sectionOf(p.codigo) === s.id,
-                                    ),
-                                  })),
-                                  {
-                                    key: "s-0",
-                                    name: "Sin sección",
-                                    items: filtered.filter(
-                                      (p) => sectionOf(p.codigo) === 0,
-                                    ),
-                                  },
-                                ]
-                                  .filter((grp) => grp.items.length > 0)
-                                  .map((grp) => (
-                                    <div key={grp.key}>
-                                      <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
-                                        {grp.name}
+                                  ) : (
+                                    bloques.map((grp) => (
+                                      <div key={grp.key}>
+                                        {grp.name && (
+                                          <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                                            {grp.name}
+                                          </div>
+                                        )}
+                                        {grp.items.map((p: any) => {
+                                          corrido += 1;
+                                          const activo = corrido === idxItem;
+                                          return (
+                                            <button
+                                              key={p.codigo}
+                                              type="button"
+                                              ref={(el) => {
+                                                if (activo && el)
+                                                  el.scrollIntoView({
+                                                    block: "nearest",
+                                                  });
+                                              }}
+                                              onMouseEnter={() =>
+                                                setIdxItem(corrido)
+                                              }
+                                              onClick={() => elegir(p.codigo)}
+                                              className={`w-full px-3 py-2 text-left focus:outline-none ${
+                                                activo
+                                                  ? "bg-blue-50 text-blue-900"
+                                                  : "hover:bg-gray-100"
+                                              }`}
+                                            >
+                                              {p.nombre} - $
+                                              {p.precio.toLocaleString("es-CL")}
+                                            </button>
+                                          );
+                                        })}
                                       </div>
-                                      {grp.items.map(itemButton)}
-                                    </div>
-                                  ));
-                              })()}
-                            </div>
-                          )}
+                                    ))
+                                  )}
+                                </div>
+                              );
+                            })()}
                         </div>
                         <button
                           type="button"
