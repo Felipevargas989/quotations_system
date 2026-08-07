@@ -556,7 +556,7 @@ export default function PostVentaPage() {
     p >= 100 ? "bg-green-500" : p > 0 ? "bg-blue-500" : "bg-gray-300";
 
   const openEvent = (r: EventRow) => {
-    setTab("pagos");
+    setTab("seguimiento");
     navigate(`/post-venta/${r.quotationId}`);
   };
 
@@ -767,7 +767,16 @@ export default function PostVentaPage() {
                     <tr
                       key={r.quotationId}
                       onClick={() => openEvent(r)}
-                      className="hover:bg-gray-50 cursor-pointer"
+                      className={`cursor-pointer hover:bg-gray-50 ${(() => {
+                        // Un filo de color al borde izquierdo: se ve al
+                        // recorrer la lista sin tener que leer fila por
+                        // fila, y no ensucia el resto de la tabla.
+                        const p = pendienteDe(r.quotationId);
+                        if (!p) return "";
+                        return p.vencido
+                          ? "border-l-4 border-red-500 bg-red-50/30"
+                          : "border-l-4 border-amber-400 bg-amber-50/40";
+                      })()}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
                         <span className="inline-flex items-center gap-1.5">
@@ -775,10 +784,14 @@ export default function PostVentaPage() {
                           {(() => {
                             const p = pendienteDe(r.quotationId);
                             if (!p) return null;
+                            // Píldora rellena, no un signo suelto: en una
+                            // tabla llena de texto gris un símbolo del
+                            // mismo tamaño se pierde (07-08, Felipe: "no
+                            // está muy llamativa"). Roja si venció.
                             return (
                               <span
-                                className={`text-base leading-none ${
-                                  p.vencido ? "text-red-600" : "text-amber-500"
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${
+                                  p.vencido ? "bg-red-600" : "bg-amber-500"
                                 }`}
                                 title={
                                   p.vencido
@@ -786,7 +799,7 @@ export default function PostVentaPage() {
                                     : "Seguimiento comprometido para hoy"
                                 }
                               >
-                                ⚠
+                                ⚠ {p.vencido ? "Pendiente" : "Hoy"}
                               </span>
                             );
                           })()}
@@ -1045,6 +1058,24 @@ function EventModal({
     void clientePre.prefetchQuery(recursosQueryOpts(cid, String(quote.id)));
     void clientePre.prefetchQuery(docsQueryOpts(event.quotationId));
   }, [empresaPre?.id, quote, event.quotationId, clientePre]);
+
+  // ¿Este evento tiene un compromiso que ya venció o es hoy? Se lee del
+  // mismo mapa del tablero (React Query lo comparte, no hay consulta
+  // nueva) para pintar la pestaña Seguimiento en ámbar y hacerla vibrar.
+  const mapaSeguimiento = useQuery({
+    queryKey: ["seguimientos", "map"],
+    staleTime: 0,
+    queryFn: getFollowupsMap,
+  });
+  const pendienteAqui = (() => {
+    const f = mapaSeguimiento.data?.[event.quotationId]?.next_contact_date;
+    if (!f) return null;
+    const h = new Date();
+    const hoyISO = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+    const dia = f.slice(0, 10);
+    if (dia > hoyISO) return null;
+    return { dia, vencido: dia < hoyISO };
+  })();
 
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     // Seguimiento va PRIMERO (07-08, pedido de Felipe): es la historia
@@ -1467,19 +1498,45 @@ function EventModal({
         {/* Pestañas PEGAJOSAS (03-08): la página scrollea natural y
             estas se quedan arriba. El chip de saldo acompaña siempre. */}
         <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200 items-center sticky top-0 bg-white z-30 rounded-t-2xl">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 ${
-                tab === t.key
-                  ? "text-blue-600 border-blue-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          {tabs.map((t) => {
+            // La pestaña Seguimiento avisa sola cuando hay algo
+            // pendiente (07-08, pedido de Felipe): se pinta de ámbar
+            // —rojo si venció— y tiembla tres veces al abrir el evento.
+            // Deja de temblar cuando uno ya está parado en ella: el
+            // aviso cumplió su trabajo.
+            const alerta = t.key === "seguimiento" && pendienteAqui;
+            const activa = tab === t.key;
+            const color = alerta
+              ? pendienteAqui.vencido
+                ? activa
+                  ? "text-red-700 border-red-500"
+                  : "text-red-700 border-transparent hover:text-red-800"
+                : activa
+                  ? "text-amber-700 border-amber-500"
+                  : "text-amber-700 border-transparent hover:text-amber-800"
+              : activa
+                ? "text-blue-600 border-blue-600"
+                : "text-gray-500 border-transparent hover:text-gray-700";
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-4 py-3 text-sm font-semibold border-b-2 ${color} ${
+                  alerta && !activa ? "animate-vibrar" : ""
+                }`}
+                title={
+                  alerta
+                    ? pendienteAqui.vencido
+                      ? `Seguimiento pendiente desde el ${pendienteAqui.dia.slice(8, 10)}-${pendienteAqui.dia.slice(5, 7)}`
+                      : "Seguimiento comprometido para hoy"
+                    : undefined
+                }
+              >
+                {t.label}
+                {alerta && <span className="ml-1.5">⚠</span>}
+              </button>
+            );
+          })}
           <span
             className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${saldo > 0 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700"}`}
             title="Saldo pendiente del evento"
