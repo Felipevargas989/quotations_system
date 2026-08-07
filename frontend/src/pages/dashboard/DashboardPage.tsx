@@ -1553,7 +1553,7 @@ export default function DashboardPage() {
                           {/* Los tres filtros, con el desplegable de la
                               casa. La opción cero es el "todos": así se
                               limpia sin un botón aparte. */}
-                          <div className="flex flex-col items-end gap-1.5 mt-2">
+                          <div className="flex flex-wrap justify-end gap-1.5 mt-2">
                             <SectionChipSelect
                               value={
                                 filtroEvento
