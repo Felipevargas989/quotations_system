@@ -90,7 +90,6 @@ ChartJS.register(
   Legend,
 );
 
-
 import { useAuth } from "../../contexts/AuthContext";
 import { getDashboardStats } from "../../services/analytics.service";
 import NewAccount from "./components/NewAccount";
@@ -224,9 +223,7 @@ export default function DashboardPage() {
     const selectedOption = timeRangeOptions.find(
       (option) => option.value === selectedTimeRange,
     );
-    return (
-      selectedOption?.getDateRange() || timeRangeOptions[3].getDateRange()
-    );
+    return selectedOption?.getDateRange() || timeRangeOptions[3].getDateRange();
   };
 
   const EMPTY_DASHBOARD: DashboardData = {
@@ -470,40 +467,125 @@ export default function DashboardPage() {
     col: "monto" | "cliente";
     desc: boolean;
   }>({ col: "monto", desc: true });
-  const cerrarCosecha = () => {
-    setMesElegido(null);
+  const limpiarFiltros = () => {
     setFiltroEvento(null);
     setFiltroCliente(null);
     setFiltroEstado(null);
     setOrden({ col: "monto", desc: true });
+  };
+  // Cerrar con el botón es un gesto deliberado y limpia todo. Un clic en
+  // el blanco del gráfico NO lo es: cierra el panel y respeta los
+  // filtros, para no borrar tres selecciones por un roce (07-08).
+  const cerrarCosecha = () => {
+    setMesElegido(null);
+    limpiarFiltros();
   };
   // EL ESTADO DE LA COSECHA (07-08, diseño de Felipe). La máquina
   // sugiere con el cruce empresa+mandante+tipo; él corrige con el
   // desplegable. Se guarda para TODAS las cotizaciones de la misma
   // oportunidad de ese mes: FEPASA parte un evento en dos (adultos y
   // niños) y las dos son un solo llamado, así que se mueven juntas.
-  // Las tres cosechas —la del mes y las dos pestañas de año— salían de
-  // tres recorridos del historial completo en CADA render, incluso al
-  // abrir una sección sin relación (revisión del 07-08). Una pasada.
+  // Todo el cálculo de la cosecha en UNA pasada: las dos pestañas de
+  // año, las opciones de los filtros, el filtrado y el orden. Antes esto
+  // vivía suelto dentro del JSX y se rehacía en cada render, incluso al
+  // abrir una sección sin relación (revisiones del 07-08).
   const cosecha = useMemo(() => {
+    const vacio = {
+      filas: [],
+      todasDelMes: [],
+      anios: [],
+      tiposEvento: [],
+      tiposCliente: [],
+      estadosPresentes: [],
+      pendientes: 0,
+      pendientesMes: 0,
+      enGestion: 0,
+      enGestionMes: 0,
+    };
+    if (!mesElegido) return vacio;
     const todas = tendenciaQuery.data ?? [];
     const claveDe = (anterior: boolean) =>
-      anterior ? unAnioAntes(mesElegido?.base || "") : mesElegido?.base || "";
-    if (!mesElegido) return { filas: [], anios: [] };
-    const anios = [true, false].map((ant) => {
+      anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
+    const porAnio = [true, false].map((ant) => {
       const clave = claveDe(ant);
       return { ant, clave, filas: cosechaDelMes(todas, clave) };
     });
-    const mia = anios.find((a) => a.ant === mesElegido.anterior);
-    return {
-      filas: mia?.filas ?? [],
-      anios: anios.map((a) => ({ ant: a.ant, clave: a.clave, n: a.filas.length })),
+    const todasDelMes =
+      porAnio.find((a) => a.ant === mesElegido.anterior)?.filas ?? [];
+
+    // Las opciones salen del mes COMPLETO —si salieran de lo ya
+    // filtrado, elegir un tipo haría desaparecer los demás—, PERO el
+    // valor que está filtrando nunca se cae de la lista aunque ese mes
+    // no lo tenga. Sin esa red, saltar de Ago 25 a Ago 26 con "Paseo fin
+    // de año" puesto dejaba el chip diciendo "Todo evento" con el filtro
+    // igual aplicado: tabla vacía y ninguna forma de soltarlo.
+    const opcionesDe = (
+      saca: (f: FilaCosecha) => string,
+      activo: string | null,
+    ) => {
+      const vistos = new Set(todasDelMes.map(saca).filter(Boolean));
+      if (activo) vistos.add(activo);
+      return [...vistos].sort((a, b) => a.localeCompare(b, "es"));
     };
-  }, [tendenciaQuery.data, mesElegido]);
+    const tiposEvento = opcionesDe((f) => f.tipo, filtroEvento);
+    const tiposCliente = opcionesDe((f) => f.tipoCliente, filtroCliente);
+    // Mismo cuidado con el estado: marcar la última fila de un estado no
+    // puede hacer desaparecer el filtro que la estaba mostrando.
+    const estadosPresentes = ESTADOS_COSECHA.filter(
+      (e) =>
+        e.v === filtroEstado || todasDelMes.some((f) => f.efectivo === e.v),
+    );
+
+    const filas = todasDelMes
+      .filter(
+        (f) =>
+          (!filtroEvento || f.tipo === filtroEvento) &&
+          (!filtroCliente || f.tipoCliente === filtroCliente) &&
+          (!filtroEstado || f.efectivo === filtroEstado),
+      )
+      .sort((a, b) => {
+        const d =
+          orden.col === "monto"
+            ? a.monto - b.monto
+            : a.cliente.localeCompare(b.cliente, "es");
+        return orden.desc ? -d : d;
+      });
+
+    // Se cuentan las dos cosas: lo que se ve y el total del mes, para
+    // que "8 de 26 por llamar" no se confunda con "26 por llamar".
+    const cuantos = (lista: FilaCosecha[], e: EstadoCosecha) =>
+      lista.filter((f) => f.efectivo === e).length;
+    return {
+      filas,
+      todasDelMes,
+      anios: porAnio.map((a) => ({
+        ant: a.ant,
+        clave: a.clave,
+        n: a.filas.length,
+      })),
+      tiposEvento,
+      tiposCliente,
+      estadosPresentes,
+      pendientes: cuantos(filas, "no_ha_vuelto"),
+      pendientesMes: cuantos(todasDelMes, "no_ha_vuelto"),
+      enGestion: cuantos(filas, "en_gestion"),
+      enGestionMes: cuantos(todasDelMes, "en_gestion"),
+    };
+  }, [
+    tendenciaQuery.data,
+    mesElegido,
+    filtroEvento,
+    filtroCliente,
+    filtroEstado,
+    orden,
+  ]);
 
   // Quién dejó puesto el estado, para el tooltip: el uuid solo sirve
   // para saber si fuiste tú (migración 62; sin join a usuarios).
-  const anotadoPor = (f: { anotadoEl: string | null; anotadoPor: string | null }) => {
+  const anotadoPor = (f: {
+    anotadoEl: string | null;
+    anotadoPor: string | null;
+  }) => {
     const cuando = f.anotadoEl
       ? ` el ${new Date(f.anotadoEl).toLocaleDateString("es-CL", {
           day: "numeric",
@@ -533,16 +615,14 @@ export default function DashboardPage() {
       const llave = ["dashboard-tendencia"];
       await clienteQuery.cancelQueries({ queryKey: llave });
       const antes = clienteQuery.getQueriesData({ queryKey: llave });
-      clienteQuery.setQueriesData(
-        { queryKey: llave },
-        (viejo: unknown) =>
-          Array.isArray(viejo)
-            ? (viejo as QuotationWithClient[]).map((q) =>
-                p.ids.includes(String(q.id))
-                  ? { ...q, harvest_status: p.estado }
-                  : q,
-              )
-            : viejo,
+      clienteQuery.setQueriesData({ queryKey: llave }, (viejo: unknown) =>
+        Array.isArray(viejo)
+          ? (viejo as QuotationWithClient[]).map((q) =>
+              p.ids.includes(String(q.id))
+                ? { ...q, harvest_status: p.estado }
+                : q,
+            )
+          : viejo,
       );
       return { antes };
     },
@@ -781,8 +861,7 @@ export default function DashboardPage() {
       if (!f) {
         f = {
           id: key,
-          nombre:
-            supplierById.get(key)?.name || nombre || "Sin proveedor",
+          nombre: supplierById.get(key)?.name || nombre || "Sin proveedor",
           insumos: 0,
           sinPrecio: 0,
           recetas: 0,
@@ -838,11 +917,12 @@ export default function DashboardPage() {
       .slice(0, 10);
     // recursos del período agrupados por tipo
     const peopleByQ = new Map(
-      (wonEventsQuery.data || []).map((e) => [e.id, Number(e.people_count) || 0]),
+      (wonEventsQuery.data || []).map((e) => [
+        e.id,
+        Number(e.people_count) || 0,
+      ]),
     );
-    const resById = new Map(
-      (extra?.resourceDefs || []).map((r) => [r.id, r]),
-    );
+    const resById = new Map((extra?.resourceDefs || []).map((r) => [r.id, r]));
     const tipos = new Map<
       string,
       {
@@ -1135,111 +1215,114 @@ export default function DashboardPage() {
           data.totalRequests > 0 ? (won * 100) / data.totalRequests : 0;
         const ticket = won > 0 ? data.totalSales / won : 0;
         return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Ventas concretadas
-              </p>
-              <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(data.totalSales, company?.currency || "CLP")}
-              </p>
-              {/* 24-07: sin propina, igual que el margen. La propina va
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Ventas concretadas
+                  </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(
+                      data.totalSales,
+                      company?.currency || "CLP",
+                    )}
+                  </p>
+                  {/* 24-07: sin propina, igual que el margen. La propina va
                   entera al equipo, no es venta. */}
-              <p className="text-xs text-gray-500 mt-0.5">
-                del período, sin propina
-              </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    del período, sin propina
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-600" />
+              </div>
             </div>
-            <DollarSign className="h-8 w-8 text-green-600" />
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Eventos concretados
-              </p>
-              <p className="text-2xl font-bold text-purple-600">{won}</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                de {data.totalRequests} cotizadas
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Eventos concretados
+                  </p>
+                  <p className="text-2xl font-bold text-purple-600">{won}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    de {data.totalRequests} cotizadas
+                  </p>
+                </div>
+                <Calendar className="h-8 w-8 text-purple-600" />
+              </div>
             </div>
-            <Calendar className="h-8 w-8 text-purple-600" />
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Tasa de conversión
-              </p>
-              <p className="text-2xl font-bold text-blue-600">
-                {conversion.toLocaleString("es-CL", {
-                  maximumFractionDigits: 1,
-                })}
-                %
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                cotizada → concretada
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Tasa de conversión
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {conversion.toLocaleString("es-CL", {
+                      maximumFractionDigits: 1,
+                    })}
+                    %
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    cotizada → concretada
+                  </p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-blue-600" />
+              </div>
             </div>
-            <BarChart3 className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Ticket promedio
-              </p>
-              <p className="text-2xl font-bold text-indigo-600">
-                {formatCurrency(ticket, company?.currency || "CLP")}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">por evento</p>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Ticket promedio
+                  </p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {formatCurrency(ticket, company?.currency || "CLP")}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">por evento</p>
+                </div>
+                <ClipboardList className="h-8 w-8 text-indigo-600" />
+              </div>
             </div>
-            <ClipboardList className="h-8 w-8 text-indigo-600" />
-          </div>
-        </div>
 
-        {/* FASE 4: margen del período (ventas − costos = insumos +
+            {/* FASE 4: margen del período (ventas − costos = insumos +
             recursos asignados). "~" = algún costo todavía no está
             cerrado: evento sin provisionar o sin recursos cargados.
             24-07: las ventas vienen SIN propina desde el backend
             (analytics.service.ts usa saleWithoutTip), así que este
             margen ya es sin propina y aquí no hay nada que restar. */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Margen del período
-              </p>
-              <p
-                className={`text-2xl font-bold ${
-                  margenTotales.ventas - margenTotales.costo >= 0
-                    ? "text-emerald-600"
-                    : "text-red-600"
-                }`}
-              >
-                {margenTotales.estimado ? "~" : ""}
-                {formatCurrency(
-                  margenTotales.ventas - margenTotales.costo,
-                  company?.currency || "CLP",
-                )}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {margenTotales.ventas > 0
-                  ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta (sin propina)`
-                  : "Sin ventas en el período"}
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Margen del período
+                  </p>
+                  <p
+                    className={`text-2xl font-bold ${
+                      margenTotales.ventas - margenTotales.costo >= 0
+                        ? "text-emerald-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {margenTotales.estimado ? "~" : ""}
+                    {formatCurrency(
+                      margenTotales.ventas - margenTotales.costo,
+                      company?.currency || "CLP",
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {margenTotales.ventas > 0
+                      ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta (sin propina)`
+                      : "Sin ventas en el período"}
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-emerald-600" />
+              </div>
             </div>
-            <TrendingUp className="h-8 w-8 text-emerald-600" />
           </div>
-        </div>
-      </div>
         );
       })()}
 
@@ -1309,8 +1392,12 @@ export default function DashboardPage() {
         // `elems` que entrega Chart.js viene en modo "index" (trae las
         // dos barras de la columna), así que preguntamos aparte por la
         // barra realmente pinchada para saber de qué año hablamos.
-        const alPinchar = (e: ChartEvent, elems: ActiveElement[], chart: Chart) => {
-          if (!elems.length) return cerrarCosecha();
+        const alPinchar = (
+          e: ChartEvent,
+          elems: ActiveElement[],
+          chart: Chart,
+        ) => {
+          if (!elems.length) return setMesElegido(null);
           const exacta = chart.getElementsAtEventForMode(
             e.native as Event,
             "nearest",
@@ -1319,7 +1406,11 @@ export default function DashboardPage() {
           );
           const punto = exacta[0] ?? elems[0];
           const m = tendencia.mesesCot[punto.index];
-          if (m) setMesElegido({ base: m.clave, anterior: punto.datasetIndex === 0 });
+          if (m)
+            setMesElegido({
+              base: m.clave,
+              anterior: punto.datasetIndex === 0,
+            });
         };
         const opcionesBase = {
           responsive: true,
@@ -1346,7 +1437,10 @@ export default function DashboardPage() {
             ...opcionesBase.plugins,
             tooltip: {
               callbacks: {
-                label: (ctx: { dataset: { label?: string }; parsed: { y: number } }) =>
+                label: (ctx: {
+                  dataset: { label?: string };
+                  parsed: { y: number };
+                }) =>
                   `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y, company?.currency || "CLP")}`,
                 footer: comparativo.plugins.tooltip.callbacks.footer,
               },
@@ -1385,7 +1479,11 @@ export default function DashboardPage() {
                 "12 meses + 4 adelante · la línea tenue del año pasado es la meta a superar",
                 <BarChart3 className="h-5 w-5 text-blue-600" />,
                 <Bar
-                  data={barras(tendencia.cotCantidad, azul, tendencia.mesActualCot)}
+                  data={barras(
+                    tendencia.cotCantidad,
+                    azul,
+                    tendencia.mesActualCot,
+                  )}
                   options={opcionesCot}
                 />,
               )}
@@ -1394,7 +1492,11 @@ export default function DashboardPage() {
                 "12 meses + 4 de proyección (lo ya agendado) · solo confirmados",
                 <Calendar className="h-5 w-5 text-purple-600" />,
                 <Bar
-                  data={barras(tendencia.evCantidad, morado, tendencia.mesActualEv)}
+                  data={barras(
+                    tendencia.evCantidad,
+                    morado,
+                    tendencia.mesActualEv,
+                  )}
                   options={opcionesBase}
                 />,
               )}
@@ -1415,33 +1517,17 @@ export default function DashboardPage() {
                 const claveDe = (anterior: boolean) =>
                   anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
                 const clave = claveDe(mesElegido.anterior);
-                const todasDelMes = cosecha.filas;
-                // Las opciones salen del mes COMPLETO, no de lo ya
-                // filtrado: si salieran de lo filtrado, elegir un tipo
-                // haría desaparecer los demás del desplegable.
-                const opcionesDe = (saca: (f: FilaCosecha) => string) =>
-                  [...new Set(todasDelMes.map(saca).filter(Boolean))].sort(
-                    (a, b) => a.localeCompare(b, "es"),
-                  );
-                const tiposEvento = opcionesDe((f) => f.tipo);
-                const tiposCliente = opcionesDe((f) => f.tipoCliente);
-                const estadosPresentes = ESTADOS_COSECHA.filter((e) =>
-                  todasDelMes.some((f) => f.efectivo === e.v),
-                );
-                const filas = todasDelMes
-                  .filter(
-                    (f) =>
-                      (!filtroEvento || f.tipo === filtroEvento) &&
-                      (!filtroCliente || f.tipoCliente === filtroCliente) &&
-                      (!filtroEstado || f.efectivo === filtroEstado),
-                  )
-                  .sort((a, b) => {
-                    const s =
-                      orden.col === "monto"
-                        ? a.monto - b.monto
-                        : a.cliente.localeCompare(b.cliente, "es");
-                    return orden.desc ? -s : s;
-                  });
+                const {
+                  filas,
+                  todasDelMes,
+                  tiposEvento,
+                  tiposCliente,
+                  estadosPresentes,
+                  pendientes,
+                  pendientesMes,
+                  enGestion,
+                  enGestionMes,
+                } = cosecha;
                 // Encabezado que ordena. Primer clic en una columna nueva
                 // parte por lo más útil —el monto de mayor a menor, los
                 // nombres de la A a la Z—; el segundo la da vuelta.
@@ -1461,7 +1547,7 @@ export default function DashboardPage() {
                             : { col, desc: col === "monto" },
                         )
                       }
-                      className={`inline-flex items-center gap-0.5 uppercase tracking-wide hover:text-gray-700 ${
+                      className={`inline-flex items-center gap-0.5 hover:text-gray-700 ${
                         activa ? "text-gray-700" : ""
                       } ${aLaDerecha ? "flex-row-reverse" : ""}`}
                       title={`Ordenar por ${texto.toLowerCase()}`}
@@ -1478,16 +1564,12 @@ export default function DashboardPage() {
                   filtroCliente ||
                   filtroEstado
                 );
-                const cuantos = (e: EstadoCosecha) =>
-                  filas.filter((f) => f.efectivo === e).length;
-                const pendientes = cuantos("no_ha_vuelto");
-                const enGestion = cuantos("en_gestion");
                 // Las dos pestañas: el mismo mes de este año y del pasado,
                 // con su cuenta a la vista para saber cuál mirar.
                 const anios = cosecha.anios;
                 return (
                   <div className="bg-white rounded-lg shadow p-5">
-                    <div className="flex items-start justify-between gap-3 mb-1">
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
                       <div>
                         <h3 className="text-base font-bold text-gray-900">
                           Quién cotizó en {etiquetaMes(clave)}
@@ -1500,7 +1582,9 @@ export default function DashboardPage() {
                             <>
                               {" · "}
                               <b className="text-amber-700">
-                                {pendientes} por llamar
+                                {hayFiltro
+                                  ? `${pendientes} de ${pendientesMes} por llamar`
+                                  : `${pendientes} por llamar`}
                               </b>
                             </>
                           )}
@@ -1510,7 +1594,9 @@ export default function DashboardPage() {
                           {enGestion > 0 && (
                             <span className="text-blue-700">
                               {" · "}
-                              {enGestion} en gestión
+                              {hayFiltro
+                                ? `${enGestion} de ${enGestionMes} en gestión`
+                                : `${enGestion} en gestión`}
                             </span>
                           )}
                         </p>
@@ -1540,7 +1626,7 @@ export default function DashboardPage() {
                           tres filtros debajo, en el mismo orden (pedido
                           de Felipe, 07-08). Así el encabezado de la
                           izquierda queda solo con el título y las cuentas. */}
-                      <div className="shrink-0">
+                      <div className="ml-auto">
                         <div className="text-right">
                           <button
                             type="button"
@@ -1550,86 +1636,89 @@ export default function DashboardPage() {
                             Cerrar
                           </button>
                         </div>
-                          {/* Los tres filtros, con el desplegable de la
+                        {/* Los tres filtros, con el desplegable de la
                               casa. La opción cero es el "todos": así se
                               limpia sin un botón aparte. */}
-                          <div className="flex flex-wrap justify-end gap-1.5 mt-2">
-                            <SectionChipSelect
-                              value={
-                                filtroEvento
-                                  ? tiposEvento.indexOf(filtroEvento) + 1
-                                  : 0
-                              }
-                              options={tiposEvento.map((t, i) => ({
-                                id: i + 1,
-                                name: t,
-                              }))}
-                              zeroLabel="Todo evento"
-                              onChange={(id) =>
-                                setFiltroEvento(id === 0 ? null : tiposEvento[id - 1])
-                              }
-                              chipClass={
-                                filtroEvento
-                                  ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
-                                  : undefined
-                              }
-                              widthClass="w-[152px]"
-                              title="Filtrar por tipo de evento"
-                              ariaLabel="Filtrar por tipo de evento"
-                            />
-                            <SectionChipSelect
-                              value={
-                                filtroCliente
-                                  ? tiposCliente.indexOf(filtroCliente) + 1
-                                  : 0
-                              }
-                              options={tiposCliente.map((t, i) => ({
-                                id: i + 1,
-                                name: t,
-                              }))}
-                              zeroLabel="Todo cliente"
-                              onChange={(id) =>
-                                setFiltroCliente(
-                                  id === 0 ? null : tiposCliente[id - 1],
-                                )
-                              }
-                              chipClass={
-                                filtroCliente
-                                  ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
-                                  : undefined
-                              }
-                              widthClass="w-[152px]"
-                              title="Filtrar por tipo de cliente"
-                              ariaLabel="Filtrar por tipo de cliente"
-                            />
-                            <SectionChipSelect
-                              value={
-                                filtroEstado
-                                  ? estadosPresentes.findIndex(
-                                      (e) => e.v === filtroEstado,
-                                    ) + 1
-                                  : 0
-                              }
-                              options={estadosPresentes.map((e, i) => ({
-                                id: i + 1,
-                                name: e.l,
-                              }))}
-                              zeroLabel="Todo estado"
-                              onChange={(id) =>
-                                setFiltroEstado(
-                                  id === 0 ? null : estadosPresentes[id - 1].v,
-                                )
-                              }
-                              chipClass={
-                                filtroEstado
-                                  ? metaEstado(filtroEstado).chip + " font-semibold"
-                                  : undefined
-                              }
-                              widthClass="w-[152px]"
-                              title="Filtrar por estado de la cosecha"
-                              ariaLabel="Filtrar por estado de la cosecha"
-                            />
-                          </div>
+                        <div className="flex flex-wrap justify-end gap-1.5 mt-2">
+                          <SectionChipSelect
+                            value={
+                              filtroEvento
+                                ? tiposEvento.indexOf(filtroEvento) + 1
+                                : 0
+                            }
+                            options={tiposEvento.map((t, i) => ({
+                              id: i + 1,
+                              name: t,
+                            }))}
+                            zeroLabel="Todo evento"
+                            onChange={(id) =>
+                              setFiltroEvento(
+                                id === 0 ? null : tiposEvento[id - 1],
+                              )
+                            }
+                            chipClass={
+                              filtroEvento
+                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por tipo de evento"
+                            ariaLabel="Filtrar por tipo de evento"
+                          />
+                          <SectionChipSelect
+                            value={
+                              filtroCliente
+                                ? tiposCliente.indexOf(filtroCliente) + 1
+                                : 0
+                            }
+                            options={tiposCliente.map((t, i) => ({
+                              id: i + 1,
+                              name: t,
+                            }))}
+                            zeroLabel="Todo cliente"
+                            onChange={(id) =>
+                              setFiltroCliente(
+                                id === 0 ? null : tiposCliente[id - 1],
+                              )
+                            }
+                            chipClass={
+                              filtroCliente
+                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por tipo de cliente"
+                            ariaLabel="Filtrar por tipo de cliente"
+                          />
+                          <SectionChipSelect
+                            value={
+                              filtroEstado
+                                ? estadosPresentes.findIndex(
+                                    (e) => e.v === filtroEstado,
+                                  ) + 1
+                                : 0
+                            }
+                            options={estadosPresentes.map((e, i) => ({
+                              id: i + 1,
+                              name: e.l,
+                            }))}
+                            zeroLabel="Todo estado"
+                            onChange={(id) =>
+                              setFiltroEstado(
+                                id === 0 ? null : estadosPresentes[id - 1].v,
+                              )
+                            }
+                            chipClass={
+                              filtroEstado
+                                ? metaEstado(filtroEstado).chip +
+                                  " font-semibold"
+                                : undefined
+                            }
+                            widthClass="w-[152px]"
+                            title="Filtrar por estado de la cosecha"
+                            ariaLabel="Filtrar por estado de la cosecha"
+                          />
+                        </div>
                       </div>
                     </div>
                     {filas.length === 0 ? (
@@ -1661,18 +1750,48 @@ export default function DashboardPage() {
                           </colgroup>
                           <thead>
                             <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b">
-                              <th className="text-left font-semibold py-2 px-1">N°</th>
-                              <th className="text-left font-semibold px-1">
+                              <th className="text-left font-semibold py-2 px-1">
+                                N°
+                              </th>
+                              <th
+                                className="text-left font-semibold px-1"
+                                aria-sort={
+                                  orden.col !== "cliente"
+                                    ? "none"
+                                    : orden.desc
+                                      ? "descending"
+                                      : "ascending"
+                                }
+                              >
                                 {encabezadoOrden("cliente", "Cliente")}
                               </th>
-                              <th className="text-left font-semibold px-1">Tipo de cliente</th>
-                              <th className="text-left font-semibold px-1">Mandante</th>
-                              <th className="text-left font-semibold px-1">Tipo de evento</th>
-                              <th className="text-left font-semibold px-1">Cómo terminó</th>
-                              <th className="text-right font-semibold px-1">
+                              <th className="text-left font-semibold px-1">
+                                Tipo de cliente
+                              </th>
+                              <th className="text-left font-semibold px-1">
+                                Mandante
+                              </th>
+                              <th className="text-left font-semibold px-1">
+                                Tipo de evento
+                              </th>
+                              <th className="text-left font-semibold px-1">
+                                Cómo terminó
+                              </th>
+                              <th
+                                className="text-right font-semibold px-1"
+                                aria-sort={
+                                  orden.col !== "monto"
+                                    ? "none"
+                                    : orden.desc
+                                      ? "descending"
+                                      : "ascending"
+                                }
+                              >
                                 {encabezadoOrden("monto", "Monto", true)}
                               </th>
-                              <th className="text-left font-semibold px-1">¿Volvió a pedirlo?</th>
+                              <th className="text-left font-semibold px-1">
+                                ¿Volvió a pedirlo?
+                              </th>
                               <th className="text-right font-semibold px-1"></th>
                             </tr>
                           </thead>
@@ -1688,7 +1807,9 @@ export default function DashboardPage() {
                                 }`}
                                 title="Abrir la ficha del negocio en otra pestaña"
                               >
-                                <td className="py-2 px-1 text-gray-500">#{f.numero}</td>
+                                <td className="py-2 px-1 text-gray-500">
+                                  #{f.numero}
+                                </td>
                                 <td className="px-1 font-medium text-gray-900">
                                   <div className="truncate" title={f.cliente}>
                                     {f.cliente}
@@ -1717,7 +1838,9 @@ export default function DashboardPage() {
                                     title={f.mandante || undefined}
                                   >
                                     {f.mandante || (
-                                      <span className="text-gray-400 italic">sin mandante</span>
+                                      <span className="text-gray-400 italic">
+                                        sin mandante
+                                      </span>
                                     )}
                                   </div>
                                 </td>
@@ -1737,7 +1860,10 @@ export default function DashboardPage() {
                                   </span>
                                 </td>
                                 <td className="px-1 text-right font-semibold text-gray-900">
-                                  {formatCurrency(f.monto, company?.currency || "CLP")}
+                                  {formatCurrency(
+                                    f.monto,
+                                    company?.currency || "CLP",
+                                  )}
                                 </td>
                                 <td
                                   className="px-1"
@@ -1814,14 +1940,14 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-gray-400 mt-2">
                           El sistema <b>sugiere</b> el estado cruzando{" "}
                           <b>empresa + mandante + tipo de evento</b>: si hubo un
-                          pedido después de este mes, propone «Revendido»; si no,
-                          «No ha vuelto». <b>La última palabra es tuya</b> —
+                          pedido después de este mes, propone «Revendido»; si
+                          no, «No ha vuelto». <b>La última palabra es tuya</b> —
                           cámbialo en el desplegable y se guarda. Cada fila es
                           independiente: si un evento viene partido en dos
                           cotizaciones, marca las dos. Los tres filtros de
                           arriba se combinan y se mantienen al saltar de año;
-                          pincha «Cliente» o «Monto» para ordenar. Las fichas se abren en
-                          otra pestaña para no perder la lista.
+                          pincha «Cliente» o «Monto» para ordenar. Las fichas se
+                          abren en otra pestaña para no perder la lista.
                         </p>
                       </div>
                     )}
@@ -1835,7 +1961,11 @@ export default function DashboardPage() {
                 "El dinero que pusiste sobre la mesa · el mes en curso va a medias",
                 <BarChart3 className="h-5 w-5 text-blue-600" />,
                 <Bar
-                  data={barras(tendencia.cotMonto, azul, tendencia.mesActualCot)}
+                  data={barras(
+                    tendencia.cotMonto,
+                    azul,
+                    tendencia.mesActualCot,
+                  )}
                   options={opcionesPlata}
                 />,
               )}
@@ -1844,7 +1974,11 @@ export default function DashboardPage() {
                 "Eventos confirmados · los últimos 4 meses son lo ya agendado",
                 <Calendar className="h-5 w-5 text-purple-600" />,
                 <Bar
-                  data={barras(tendencia.evMonto, morado, tendencia.mesActualEv)}
+                  data={barras(
+                    tendencia.evMonto,
+                    morado,
+                    tendencia.mesActualEv,
+                  )}
                   options={opcionesPlata}
                 />,
               )}
@@ -1970,9 +2104,7 @@ export default function DashboardPage() {
               return {
                 text: `${((val * 100) / r.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`,
                 cls:
-                  val >= 0
-                    ? "text-emerald-700"
-                    : "text-red-600 font-semibold",
+                  val >= 0 ? "text-emerald-700" : "text-red-600 font-semibold",
               };
             },
             total: () => {
@@ -2033,92 +2165,92 @@ export default function DashboardPage() {
           },
         ];
         return (
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center space-x-2 mb-4">
-          <DollarSign className="h-5 w-5 text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
-            Ingresos y Caja por Mes
-          </h2>
-          <span className="text-sm text-gray-500">
-            (en miles de pesos
-            {recortada ? " · últimos 12 meses del período" : ""})
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-2 text-left font-medium sticky left-0 bg-white">
-                  Concepto
-                </th>
-                {meses.map((r) => (
-                  <th
-                    key={r.monthKey}
-                    className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
-                      isMonthInFuture(r.monthKey) ? "text-gray-300" : ""
-                    }`}
-                    title={r.month}
-                  >
-                    {shortMonth(r.monthKey)}
-                    {isMonthInFuture(r.monthKey) ? " ·f" : ""}
-                  </th>
-                ))}
-                <th className="py-2 pl-2 text-right font-bold text-gray-700 border-l border-gray-200">
-                  TOTAL
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filas.map((fila) => (
-                <tr key={fila.label} className="hover:bg-gray-50">
-                  <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
-                    {fila.label}
-                  </td>
-                  {meses.map((r) => {
-                    const c = fila.cell(r);
-                    return (
-                      <td
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center space-x-2 mb-4">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Ingresos y Caja por Mes
+              </h2>
+              <span className="text-sm text-gray-500">
+                (en miles de pesos
+                {recortada ? " · últimos 12 meses del período" : ""})
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                    <th className="py-2 pr-2 text-left font-medium sticky left-0 bg-white">
+                      Concepto
+                    </th>
+                    {meses.map((r) => (
+                      <th
                         key={r.monthKey}
-                        title={c.title}
-                        className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
-                          isMonthInFuture(r.monthKey)
-                            ? "text-gray-400"
-                            : c.cls || ""
+                        className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
+                          isMonthInFuture(r.monthKey) ? "text-gray-300" : ""
                         }`}
+                        title={r.month}
                       >
-                        {c.text}
+                        {shortMonth(r.monthKey)}
+                        {isMonthInFuture(r.monthKey) ? " ·f" : ""}
+                      </th>
+                    ))}
+                    <th className="py-2 pl-2 text-right font-bold text-gray-700 border-l border-gray-200">
+                      TOTAL
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filas.map((fila) => (
+                    <tr key={fila.label} className="hover:bg-gray-50">
+                      <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
+                        {fila.label}
                       </td>
-                    );
-                  })}
-                  {(() => {
-                    const t = fila.total();
-                    return (
-                      <td
-                        title={t.title}
-                        className={`py-1.5 pl-2 text-right tabular-nums whitespace-nowrap border-l border-gray-200 bg-gray-50 ${t.cls || ""}`}
-                      >
-                        {t.text}
-                      </td>
-                    );
-                  })()}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-2 text-[11px] text-gray-400">
-            Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
-            (venta agendada). Ventas y Margen van SIN propina: la propina la
-            paga el cliente pero va entera al equipo, no es venta ni margen.
-            Cobrado y Por cobrar sí la incluyen, porque es plata que se
-            factura; por eso Ventas y Cobrado no calzan al peso. El costo son
-            los insumos más los recursos asignados al evento. Costo con ~ =
-            todavía no está cerrado (evento sin provisionar en Compras, o sin
-            recursos cargados en Post-venta); sin ~ = insumos congelados y
-            recursos ya asignados. La merma va solo en el costo. Pasa el
-            mouse por una cifra para ver el monto exacto.
-          </p>
-        </div>
-      </div>
+                      {meses.map((r) => {
+                        const c = fila.cell(r);
+                        return (
+                          <td
+                            key={r.monthKey}
+                            title={c.title}
+                            className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
+                              isMonthInFuture(r.monthKey)
+                                ? "text-gray-400"
+                                : c.cls || ""
+                            }`}
+                          >
+                            {c.text}
+                          </td>
+                        );
+                      })}
+                      {(() => {
+                        const t = fila.total();
+                        return (
+                          <td
+                            title={t.title}
+                            className={`py-1.5 pl-2 text-right tabular-nums whitespace-nowrap border-l border-gray-200 bg-gray-50 ${t.cls || ""}`}
+                          >
+                            {t.text}
+                          </td>
+                        );
+                      })()}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] text-gray-400">
+                Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
+                (venta agendada). Ventas y Margen van SIN propina: la propina la
+                paga el cliente pero va entera al equipo, no es venta ni margen.
+                Cobrado y Por cobrar sí la incluyen, porque es plata que se
+                factura; por eso Ventas y Cobrado no calzan al peso. El costo
+                son los insumos más los recursos asignados al evento. Costo con
+                ~ = todavía no está cerrado (evento sin provisionar en Compras,
+                o sin recursos cargados en Post-venta); sin ~ = insumos
+                congelados y recursos ya asignados. La merma va solo en el
+                costo. Pasa el mouse por una cifra para ver el monto exacto.
+              </p>
+            </div>
+          </div>
         );
       })()}
 
@@ -2243,73 +2375,75 @@ export default function DashboardPage() {
           },
         ];
         return (
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Pipeline de Negocio
-            </h2>
-            <span className="text-sm text-gray-500">(en miles de pesos)</span>
-          </div>
-          {/* EL número del pipeline: lo que puedes ganar si empujas */}
-          <span className="text-sm font-semibold text-blue-900 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
-            Venta viva en juego:{" "}
-            {formatCurrency(ventaViva, company?.currency || "CLP")}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider border-b border-gray-200">
-                <th className="py-2 pr-2 text-left font-medium text-gray-500 sticky left-0 bg-white">
-                  Concepto
-                </th>
-                {cols.map((c) => (
-                  <th
-                    key={c.key}
-                    className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
-                      c.borde ? "border-l border-gray-200" : ""
-                    } ${zonaCls(c.zone, c.sub)}`}
-                  >
-                    {!c.sub && (
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full mr-1 ${getStatusColor(c.key)}`}
-                      />
-                    )}
-                    {c.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filas.map((fila) => (
-                <tr key={fila.label} className="hover:bg-gray-50">
-                  <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
-                    {fila.label}
-                  </td>
-                  {cols.map((c) => (
-                    <td
-                      key={c.key}
-                      title={fila.title(c.it)}
-                      className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
-                        c.borde ? "border-l border-gray-200" : ""
-                      } ${zonaCls(c.zone, c.sub)}`}
-                    >
-                      {fila.cell(c.it)}
-                    </td>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5 text-orange-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Pipeline de Negocio
+                </h2>
+                <span className="text-sm text-gray-500">
+                  (en miles de pesos)
+                </span>
+              </div>
+              {/* EL número del pipeline: lo que puedes ganar si empujas */}
+              <span className="text-sm font-semibold text-blue-900 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
+                Venta viva en juego:{" "}
+                {formatCurrency(ventaViva, company?.currency || "CLP")}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider border-b border-gray-200">
+                    <th className="py-2 pr-2 text-left font-medium text-gray-500 sticky left-0 bg-white">
+                      Concepto
+                    </th>
+                    {cols.map((c) => (
+                      <th
+                        key={c.key}
+                        className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
+                          c.borde ? "border-l border-gray-200" : ""
+                        } ${zonaCls(c.zone, c.sub)}`}
+                      >
+                        {!c.sub && (
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full mr-1 ${getStatusColor(c.key)}`}
+                          />
+                        )}
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filas.map((fila) => (
+                    <tr key={fila.label} className="hover:bg-gray-50">
+                      <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
+                        {fila.label}
+                      </td>
+                      {cols.map((c) => (
+                        <td
+                          key={c.key}
+                          title={fila.title(c.it)}
+                          className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
+                            c.borde ? "border-l border-gray-200" : ""
+                          } ${zonaCls(c.zone, c.sub)}`}
+                        >
+                          {fila.cell(c.it)}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-2 text-[11px] text-gray-400">
-            Cifras en MILES de pesos. Zonas: vivas (aún en juego) · ganadas
-            (aceptadas y realizadas) · perdidas (rechazadas y canceladas).
-            Del período seleccionado; el monto exacto está en el tooltip.
-          </p>
-        </div>
-      </div>
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] text-gray-400">
+                Cifras en MILES de pesos. Zonas: vivas (aún en juego) · ganadas
+                (aceptadas y realizadas) · perdidas (rechazadas y canceladas).
+                Del período seleccionado; el monto exacto está en el tooltip.
+              </p>
+            </div>
+          </div>
         );
       })()}
 
@@ -2368,7 +2502,11 @@ export default function DashboardPage() {
                               {etiquetaMotivo(m.motivo)}
                             </span>
                             <span className="text-gray-500 text-xs">
-                              {m.n} · {formatCurrency(m.monto, company?.currency || "CLP")}
+                              {m.n} ·{" "}
+                              {formatCurrency(
+                                m.monto,
+                                company?.currency || "CLP",
+                              )}
                             </span>
                           </div>
                           <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-1">
@@ -2382,8 +2520,8 @@ export default function DashboardPage() {
                     })}
                     {motivosPerdida.sinMotivo > 0 && (
                       <p className="text-[11px] text-gray-400 pt-1">
-                        {motivosPerdida.sinMotivo} sin motivo (anteriores a
-                        esta función).
+                        {motivosPerdida.sinMotivo} sin motivo (anteriores a esta
+                        función).
                       </p>
                     )}
                   </div>
@@ -2529,10 +2667,10 @@ export default function DashboardPage() {
                 </table>
                 <p className="mt-2 text-[11px] text-gray-400">
                   Compra estimada: recetas de los eventos concretados del
-                  período (merma incluida en el costo). Comprado real: fotos
-                  de provisión de Compras. Recetas y Servicios miden en
-                  cuántas preparaciones participa cada proveedor — pocos
-                  puntos de contacto = candidato a consolidar.
+                  período (merma incluida en el costo). Comprado real: fotos de
+                  provisión de Compras. Recetas y Servicios miden en cuántas
+                  preparaciones participa cada proveedor — pocos puntos de
+                  contacto = candidato a consolidar.
                 </p>
               </div>
 
@@ -2615,43 +2753,41 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {[...proveedores.tipos.entries()].map(
-                          ([tipo, t]) => (
-                            <React.Fragment key={tipo}>
-                              <tr className="bg-gray-50">
-                                <td className="py-1.5 pr-2 font-bold uppercase text-[11px] text-gray-700">
-                                  {tipo}
+                        {[...proveedores.tipos.entries()].map(([tipo, t]) => (
+                          <React.Fragment key={tipo}>
+                            <tr className="bg-gray-50">
+                              <td className="py-1.5 pr-2 font-bold uppercase text-[11px] text-gray-700">
+                                {tipo}
+                              </td>
+                              <td className="py-1.5 px-2" />
+                              <td className="py-1.5 pl-2 text-right tabular-nums font-bold">
+                                {formatCurrency(
+                                  t.gasto,
+                                  company?.currency || "CLP",
+                                )}
+                              </td>
+                            </tr>
+                            {[...t.items.values()].map((it) => (
+                              <tr
+                                key={`${tipo}-${it.nombre}`}
+                                className="hover:bg-gray-50"
+                              >
+                                <td className="py-1.5 pr-2 pl-4 text-gray-700">
+                                  {it.nombre}
                                 </td>
-                                <td className="py-1.5 px-2" />
-                                <td className="py-1.5 pl-2 text-right tabular-nums font-bold">
+                                <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">
+                                  {it.eventos}
+                                </td>
+                                <td className="py-1.5 pl-2 text-right tabular-nums">
                                   {formatCurrency(
-                                    t.gasto,
+                                    it.gasto,
                                     company?.currency || "CLP",
                                   )}
                                 </td>
                               </tr>
-                              {[...t.items.values()].map((it) => (
-                                <tr
-                                  key={`${tipo}-${it.nombre}`}
-                                  className="hover:bg-gray-50"
-                                >
-                                  <td className="py-1.5 pr-2 pl-4 text-gray-700">
-                                    {it.nombre}
-                                  </td>
-                                  <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">
-                                    {it.eventos}
-                                  </td>
-                                  <td className="py-1.5 pl-2 text-right tabular-nums">
-                                    {formatCurrency(
-                                      it.gasto,
-                                      company?.currency || "CLP",
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </React.Fragment>
-                          ),
-                        )}
+                            ))}
+                          </React.Fragment>
+                        ))}
                       </tbody>
                     </table>
                   )}
