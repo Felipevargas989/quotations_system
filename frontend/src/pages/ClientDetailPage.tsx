@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
+import DatoCopiable from "../components/DatoCopiable";
 import QuotationViewer from "../components/QuotationViewer";
 import { getQuotationById } from "../services/quotations.service";
 import {
@@ -254,23 +255,7 @@ export default function ClientDetailPage() {
   } | null>(null);
   // Portero de los formularios de persona (30-07): el guardado se
   // niega si el teléfono o el correo no parecen tales, y dice por qué.
-  const [contactFormError, setContactFormError] = useState<string | null>(
-    null,
-  );
-  // Correos y teléfonos de la tarjeta: pincharlos COPIA (decisión de
-  // Felipe 29-07 — antes eran mailto:/tel: y en el Mac abrían el app de
-  // correo o FaceTime cuando uno solo quería pegar el dato en otro lado).
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const copyDato = async (key: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey((p) => (p === key ? null : p)), 2000);
-    } catch {
-      /* sin permiso de portapapeles: no se rompe nada */
-    }
-  };
-
+  const [contactFormError, setContactFormError] = useState<string | null>(null);
   // Visor de resumen (el mismo del "ojo" del panel de cotizaciones).
   // fetchQuery cachea la cotización completa: reabrir el mismo visor
   // dentro de la ventana de frescura es instantáneo.
@@ -401,7 +386,10 @@ export default function ClientDetailPage() {
     setSavingNotes(true);
     setNotesSaved(false);
     try {
-      await updateClient({ notes: notesDraft } as ClientFormData, data.client.id);
+      await updateClient(
+        { notes: notesDraft } as ClientFormData,
+        data.client.id,
+      );
       queryClient.setQueryData<SummaryData>(
         ["clientSummary", id],
         (prev) =>
@@ -854,31 +842,27 @@ export default function ClientDetailPage() {
                       <Trash2 size={13} />
                     </button>
                   </p>
+                  {/* Fuera el azul: prometía un enlace y lo que hace es
+                      copiar. Ahora la acción la anuncia el ícono. */}
                   {c.email && (
-                    <button
-                      type="button"
-                      onClick={() => copyDato(`c${c.id}-mail`, c.email!)}
-                      title="Copiar correo"
-                      className="flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      <Mail size={13} /> {c.email}
-                      {copiedKey === `c${c.id}-mail` && (
-                        <Check size={13} className="text-green-600" />
-                      )}
-                    </button>
+                    <DatoCopiable
+                      valor={c.email}
+                      icono={
+                        <Mail size={13} className="shrink-0 text-gray-400" />
+                      }
+                      titulo="Copiar correo"
+                      className="text-gray-700 hover:text-gray-900"
+                    />
                   )}
                   {c.phone && (
-                    <button
-                      type="button"
-                      onClick={() => copyDato(`c${c.id}-tel`, c.phone!)}
-                      title="Copiar teléfono"
-                      className="flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      <Phone size={13} /> {formatPhone(c.phone)}
-                      {copiedKey === `c${c.id}-tel` && (
-                        <Check size={13} className="text-green-600" />
-                      )}
-                    </button>
+                    <DatoCopiable
+                      valor={formatPhone(c.phone)}
+                      icono={
+                        <Phone size={13} className="shrink-0 text-gray-400" />
+                      }
+                      titulo="Copiar teléfono"
+                      className="text-gray-700 hover:text-gray-900"
+                    />
                   )}
                 </>
               )}

@@ -61,6 +61,7 @@ import CocinaTab from "./CocinaTab";
 // la monta NegocioPage); todo lo exclusivo de ella se mudó allá.
 import ServiciosTab from "./ServiciosTab";
 import { getFollowupsMap } from "../../services/quotationFollowups.service";
+import DatoCopiable from "../../components/DatoCopiable";
 import {
   HiloSeguimiento,
   AdjuntosComerciales,
@@ -839,16 +840,23 @@ export default function PostVentaPage() {
                         <div className="text-sm text-gray-900">
                           {r.contactPerson || "—"}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {formatPhone(r.phone)}
-                        </div>
+                        {/* Copiables de un clic (07-08): son los datos
+                            que uno saca del tablero para pegarlos en un
+                            correo o un WhatsApp. El componente frena el
+                            clic para que no se abra el evento. */}
+                        {r.phone && (
+                          <DatoCopiable
+                            valor={formatPhone(r.phone)}
+                            titulo="Copiar teléfono"
+                            className="text-xs text-gray-500 hover:text-gray-700"
+                          />
+                        )}
                         {r.contactEmail && (
-                          <div
-                            className="text-xs text-gray-500 truncate max-w-[180px]"
-                            title={r.contactEmail}
-                          >
-                            {r.contactEmail}
-                          </div>
+                          <DatoCopiable
+                            valor={r.contactEmail}
+                            titulo="Copiar correo"
+                            className="max-w-[190px] text-xs text-gray-500 hover:text-gray-700"
+                          />
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">

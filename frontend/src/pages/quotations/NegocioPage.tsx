@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FileText, Mail } from "lucide-react";
+import { ChevronDown, FileText, Mail, Phone } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
@@ -33,6 +33,7 @@ import ServiciosTab from "../postventa/ServiciosTab";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
 import { formatPhone } from "../../utils/phone";
+import DatoCopiable from "../../components/DatoCopiable";
 // Los dos bloques del seguimiento se mudaron a su propio archivo el
 // 07-08: ahora los monta también Post-Venta.
 import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
@@ -333,11 +334,29 @@ export default function NegocioPage() {
                 #{fila?.quotation_number}
               </span>
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {contacto.name || "—"}
-              {contacto.phone ? ` · 📞 ${formatPhone(contacto.phone)}` : ""}
-              {contacto.email ? ` · ✉️ ${contacto.email}` : ""}
-            </p>
+            {/* El teléfono y el correo del mandante se copian de un
+                clic (07-08): son los datos que uno saca de acá para
+                pegarlos en otro lado. Mismo componente que la ficha del
+                cliente y el tablero de Post-Venta. */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+              <span>{contacto.name || "—"}</span>
+              {contacto.phone && (
+                <DatoCopiable
+                  valor={formatPhone(contacto.phone)}
+                  icono={<Phone size={13} className="shrink-0 text-gray-400" />}
+                  titulo="Copiar teléfono"
+                  className="hover:text-gray-700"
+                />
+              )}
+              {contacto.email && (
+                <DatoCopiable
+                  valor={contacto.email}
+                  icono={<Mail size={13} className="shrink-0 text-gray-400" />}
+                  titulo="Copiar correo"
+                  className="hover:text-gray-700"
+                />
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (
