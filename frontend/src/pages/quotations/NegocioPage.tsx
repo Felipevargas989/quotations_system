@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FileText, Mail } from "lucide-react";
+import { ChevronDown, FileText, Mail, Phone } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
@@ -338,45 +338,42 @@ export default function NegocioPage() {
                 #{fila?.quotation_number}
               </span>
             </h1>
-            {/* Teléfono y correo en azul y pinchables para COPIAR,
-                igual que en la ficha del cliente (07-08). */}
-            <p className="text-sm text-gray-500 mt-0.5">
-              {contacto.name || "—"}
+            {/* Apilados bajo el nombre (07-08, pedido de Felipe):
+                cada dato en su línea y el ícono como etiqueta, igual que
+                en la ficha del cliente y en Post-Venta. */}
+            <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+              <p>{contacto.name || "—"}</p>
               {contacto.phone && (
-                <>
-                  {" · "}
-                  <button
-                    type="button"
-                    // El número CRUDO: los espacios del formateado
-                    // rompen al pegarlo en un marcador.
-                    onClick={() => void copiarDato("tel", contacto.phone)}
-                    title="Copiar teléfono"
-                    className="text-blue-600 hover:underline"
-                  >
-                    {formatPhone(contacto.phone)}
-                    <span className="inline-block w-3 text-green-600">
-                      {datoCopiado === "tel" ? "✓" : ""}
-                    </span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  // El número CRUDO: los espacios del formateado rompen
+                  // al pegarlo en un marcador.
+                  onClick={() => void copiarDato("tel", contacto.phone)}
+                  title="Copiar teléfono"
+                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                >
+                  <Phone size={13} className="shrink-0 text-gray-400" />
+                  {formatPhone(contacto.phone)}
+                  <span className="inline-block w-3 text-green-600">
+                    {datoCopiado === "tel" ? "✓" : ""}
+                  </span>
+                </button>
               )}
               {contacto.email && (
-                <>
-                  {" · "}
-                  <button
-                    type="button"
-                    onClick={() => void copiarDato("mail", contacto.email)}
-                    title="Copiar correo"
-                    className="text-blue-600 hover:underline"
-                  >
-                    {contacto.email}
-                    <span className="inline-block w-3 text-green-600">
-                      {datoCopiado === "mail" ? "✓" : ""}
-                    </span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => void copiarDato("mail", contacto.email)}
+                  title="Copiar correo"
+                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                >
+                  <Mail size={13} className="shrink-0 text-gray-400" />
+                  {contacto.email}
+                  <span className="inline-block w-3 text-green-600">
+                    {datoCopiado === "mail" ? "✓" : ""}
+                  </span>
+                </button>
               )}
-            </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (

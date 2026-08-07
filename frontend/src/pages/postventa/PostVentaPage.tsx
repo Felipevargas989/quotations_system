@@ -20,6 +20,8 @@ import {
   Trash2,
   FileText,
   Undo2,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -1276,51 +1278,48 @@ function EventModal({
             </div>
             <p className="text-sm text-gray-500 mt-1">
               Cotización #{event.quotationNumber}
-              {event.contactPerson ? ` · Contacto ${event.contactPerson}` : ""}
-              {event.phone && (
-                <>
-                  {" · "}
-                  <button
-                    type="button"
-                    // El número CRUDO, no el formateado: los espacios de
-                    // "+56 9 8425 7069" rompen al pegarlo en un marcador
-                    // o en un campo de teléfono. Es lo que ya hacía la
-                    // ficha del cliente.
-                    onClick={() => void copiarDato("tel", event.phone || "")}
-                    title="Copiar teléfono"
-                    className="text-blue-600 hover:underline"
-                  >
-                    {formatPhone(event.phone)}
-                    {/* Ancho reservado: si el ✓ apareciera de la nada,
-                        empujaría todo lo que va a la derecha por dos
-                        segundos. */}
-                    <span className="inline-block w-3 text-green-600">
-                      {datoCopiado === "tel" ? "✓" : ""}
-                    </span>
-                  </button>
-                </>
-              )}
-              {event.contactEmail && (
-                <>
-                  {" · "}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void copiarDato("mail", event.contactEmail || "")
-                    }
-                    title="Copiar correo"
-                    className="text-blue-600 hover:underline"
-                  >
-                    {event.contactEmail}
-                    <span className="inline-block w-3 text-green-600">
-                      {datoCopiado === "mail" ? "✓" : ""}
-                    </span>
-                  </button>
-                </>
-              )}
               {event.hasContract ? " · 📄 con contrato" : ""}
               {event.requiresInvoice ? " · 🧾 requiere factura" : ""}
             </p>
+            {/* Apilados bajo el nombre (07-08, pedido de Felipe): así
+                cada dato tiene su línea y el ícono vuelve a servir de
+                etiqueta, como en la ficha del cliente. En línea corrida
+                los íconos sobraban; apilados, orientan. */}
+            <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+              <p>{event.contactPerson || "—"}</p>
+              {event.phone && (
+                <button
+                  type="button"
+                  // El número CRUDO: los espacios del formateado rompen
+                  // al pegarlo en un marcador.
+                  onClick={() => void copiarDato("tel", event.phone || "")}
+                  title="Copiar teléfono"
+                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                >
+                  <Phone size={13} className="shrink-0 text-gray-400" />
+                  {formatPhone(event.phone)}
+                  <span className="inline-block w-3 text-green-600">
+                    {datoCopiado === "tel" ? "✓" : ""}
+                  </span>
+                </button>
+              )}
+              {event.contactEmail && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copiarDato("mail", event.contactEmail || "")
+                  }
+                  title="Copiar correo"
+                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                >
+                  <Mail size={13} className="shrink-0 text-gray-400" />
+                  {event.contactEmail}
+                  <span className="inline-block w-3 text-green-600">
+                    {datoCopiado === "mail" ? "✓" : ""}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {!event.cancelled &&
