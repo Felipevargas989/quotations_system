@@ -214,4 +214,43 @@ describe('QuotationFollowupsService', () => {
       });
     });
   });
+
+  describe('update() — marcar cumplido', () => {
+    it('deja cerrar el pendiente aunque la nota sea de OTRO', async () => {
+      // El caso real del 07-08: las notas del hilo eran de Camila y
+      // Felipe apretó "Listo". Cerrar una tarea no es reescribir la
+      // nota de otro.
+      const findById = jest
+        .fn()
+        .mockResolvedValue({ id: 5, author_user_id: 'camila', company_id: 7 });
+      const update = jest.fn().mockResolvedValue({ id: 5 });
+      const service = buildService({ findById, update });
+
+      await service.update(
+        { company_id: 7, user_id: 'felipe' } as never,
+        5,
+        { next_contact_done_at: '2026-08-07T18:00:00Z' } as never,
+      );
+
+      const [, , fields] = update.mock.calls[0];
+      expect((fields as Record<string, unknown>).next_contact_done_at).toBe(
+        '2026-08-07T18:00:00Z',
+      );
+    });
+
+    it('sigue exigiendo autoría para cambiar el TEXTO', async () => {
+      const findById = jest
+        .fn()
+        .mockResolvedValue({ id: 5, author_user_id: 'camila', company_id: 7 });
+      const update = jest.fn();
+      const service = buildService({ findById, update });
+
+      await expect(
+        service.update({ company_id: 7, user_id: 'felipe' } as never, 5, {
+          note: 'reescribo lo que dijo otro',
+        } as never),
+      ).rejects.toThrow('Solo el autor puede modificar su nota');
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
 });

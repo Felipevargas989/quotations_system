@@ -123,7 +123,29 @@ export class QuotationFollowupsService {
   async update(user: User, id: number, dto: UpdateQuotationFollowupDto) {
     this.logger.info(`update followup ${id} company ${user.company_id}`);
     try {
-      await this.assertAuthor(user, id);
+      // Marcar "Listo" NO es editar la nota: es cerrar una tarea. La
+      // regla "solo el autor modifica su nota" protege las PALABRAS de
+      // otro —la historia no se reescribe— pero no puede impedir que
+      // quien hizo la llamada la dé por hecha (07-08: las notas eran de
+      // Camila y Felipe recibía 403 al apretar Listo). Cuando lo único
+      // que viaja es el cumplido, basta con que la nota sea de la
+      // empresa; para cualquier otro cambio sigue mandando la autoría.
+      const soloCumplido =
+        dto.next_contact_done_at !== undefined &&
+        dto.note === undefined &&
+        dto.tipo === undefined &&
+        dto.next_contact_date === undefined;
+      if (soloCumplido) {
+        const nota = await this.followupsRepository.findById(
+          user.company_id,
+          id,
+        );
+        if (!nota) {
+          throw new NotFoundException('Nota de seguimiento no encontrada');
+        }
+      } else {
+        await this.assertAuthor(user, id);
+      }
       const fields: UpdateFollowupPayload = {
         // La hora de edición la pone el servidor, no el cliente.
         updated_at: new Date().toISOString(),
