@@ -344,7 +344,7 @@ export default function NegocioPage() {
               {contacto.name || "—"}
               {contacto.phone && (
                 <>
-                  {" · 📞 "}
+                  {" · "}
                   <button
                     type="button"
                     // El número CRUDO: los espacios del formateado
@@ -362,7 +362,7 @@ export default function NegocioPage() {
               )}
               {contacto.email && (
                 <>
-                  {" · ✉️ "}
+                  {" · "}
                   <button
                     type="button"
                     onClick={() => void copiarDato("mail", contacto.email)}
