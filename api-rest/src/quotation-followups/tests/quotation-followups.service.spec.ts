@@ -226,11 +226,9 @@ describe('QuotationFollowupsService', () => {
       const update = jest.fn().mockResolvedValue({ id: 5 });
       const service = buildService({ findById, update });
 
-      await service.update(
-        { company_id: 7, user_id: 'felipe' } as never,
-        5,
-        { next_contact_done_at: '2026-08-07T18:00:00Z' } as never,
-      );
+      await service.update({ company_id: 7, user_id: 'felipe' } as never, 5, {
+        next_contact_done_at: '2026-08-07T18:00:00Z',
+      } as never);
 
       const [, , fields] = update.mock.calls[0];
       expect((fields as Record<string, unknown>).next_contact_done_at).toBe(
