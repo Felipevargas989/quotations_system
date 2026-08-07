@@ -1514,87 +1514,6 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </p>
-                        {/* Los tres filtros, con el desplegable de la
-                            casa. La opción cero es el "todos": así se
-                            limpia sin un botón aparte. */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          <SectionChipSelect
-                            value={
-                              filtroEvento
-                                ? tiposEvento.indexOf(filtroEvento) + 1
-                                : 0
-                            }
-                            options={tiposEvento.map((t, i) => ({
-                              id: i + 1,
-                              name: t,
-                            }))}
-                            zeroLabel="Todo evento"
-                            onChange={(id) =>
-                              setFiltroEvento(id === 0 ? null : tiposEvento[id - 1])
-                            }
-                            chipClass={
-                              filtroEvento
-                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
-                                : undefined
-                            }
-                            widthClass="w-[152px]"
-                            title="Filtrar por tipo de evento"
-                            ariaLabel="Filtrar por tipo de evento"
-                          />
-                          <SectionChipSelect
-                            value={
-                              filtroCliente
-                                ? tiposCliente.indexOf(filtroCliente) + 1
-                                : 0
-                            }
-                            options={tiposCliente.map((t, i) => ({
-                              id: i + 1,
-                              name: t,
-                            }))}
-                            zeroLabel="Todo cliente"
-                            onChange={(id) =>
-                              setFiltroCliente(
-                                id === 0 ? null : tiposCliente[id - 1],
-                              )
-                            }
-                            chipClass={
-                              filtroCliente
-                                ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
-                                : undefined
-                            }
-                            widthClass="w-[152px]"
-                            title="Filtrar por tipo de cliente"
-                            ariaLabel="Filtrar por tipo de cliente"
-                          />
-                          <SectionChipSelect
-                            value={
-                              filtroEstado
-                                ? estadosPresentes.findIndex(
-                                    (e) => e.v === filtroEstado,
-                                  ) + 1
-                                : 0
-                            }
-                            options={estadosPresentes.map((e, i) => ({
-                              id: i + 1,
-                              name: e.l,
-                            }))}
-                            zeroLabel="Todo estado"
-                            onChange={(id) =>
-                              setFiltroEstado(
-                                id === 0 ? null : estadosPresentes[id - 1].v,
-                              )
-                            }
-                            chipClass={
-                              filtroEstado
-                                ? metaEstado(filtroEstado).chip + " font-semibold"
-                                : undefined
-                            }
-                            widthClass="w-[152px]"
-                            title="Filtrar por estado de la cosecha"
-                            ariaLabel="Filtrar por estado de la cosecha"
-                          />
-                        </div>
-
                         <div className="flex gap-1.5 mt-2">
                           {anios.map((a) => (
                             <button
@@ -1617,13 +1536,101 @@ export default function DashboardPage() {
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={cerrarCosecha}
-                        className="text-gray-400 hover:text-gray-600 text-sm"
-                      >
-                        Cerrar
-                      </button>
+                      {/* La columna de la derecha: cerrar arriba y los
+                          tres filtros debajo, en el mismo orden (pedido
+                          de Felipe, 07-08). Así el encabezado de la
+                          izquierda queda solo con el título y las cuentas. */}
+                      <div className="shrink-0">
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={cerrarCosecha}
+                            className="text-gray-400 hover:text-gray-600 text-sm"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                          {/* Los tres filtros, con el desplegable de la
+                              casa. La opción cero es el "todos": así se
+                              limpia sin un botón aparte. */}
+                          <div className="flex flex-col items-end gap-1.5 mt-2">
+                            <SectionChipSelect
+                              value={
+                                filtroEvento
+                                  ? tiposEvento.indexOf(filtroEvento) + 1
+                                  : 0
+                              }
+                              options={tiposEvento.map((t, i) => ({
+                                id: i + 1,
+                                name: t,
+                              }))}
+                              zeroLabel="Todo evento"
+                              onChange={(id) =>
+                                setFiltroEvento(id === 0 ? null : tiposEvento[id - 1])
+                              }
+                              chipClass={
+                                filtroEvento
+                                  ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                  : undefined
+                              }
+                              widthClass="w-[152px]"
+                              title="Filtrar por tipo de evento"
+                              ariaLabel="Filtrar por tipo de evento"
+                            />
+                            <SectionChipSelect
+                              value={
+                                filtroCliente
+                                  ? tiposCliente.indexOf(filtroCliente) + 1
+                                  : 0
+                              }
+                              options={tiposCliente.map((t, i) => ({
+                                id: i + 1,
+                                name: t,
+                              }))}
+                              zeroLabel="Todo cliente"
+                              onChange={(id) =>
+                                setFiltroCliente(
+                                  id === 0 ? null : tiposCliente[id - 1],
+                                )
+                              }
+                              chipClass={
+                                filtroCliente
+                                  ? "bg-blue-50 border-blue-300 text-blue-800 font-semibold"
+                                  : undefined
+                              }
+                              widthClass="w-[152px]"
+                              title="Filtrar por tipo de cliente"
+                              ariaLabel="Filtrar por tipo de cliente"
+                            />
+                            <SectionChipSelect
+                              value={
+                                filtroEstado
+                                  ? estadosPresentes.findIndex(
+                                      (e) => e.v === filtroEstado,
+                                    ) + 1
+                                  : 0
+                              }
+                              options={estadosPresentes.map((e, i) => ({
+                                id: i + 1,
+                                name: e.l,
+                              }))}
+                              zeroLabel="Todo estado"
+                              onChange={(id) =>
+                                setFiltroEstado(
+                                  id === 0 ? null : estadosPresentes[id - 1].v,
+                                )
+                              }
+                              chipClass={
+                                filtroEstado
+                                  ? metaEstado(filtroEstado).chip + " font-semibold"
+                                  : undefined
+                              }
+                              widthClass="w-[152px]"
+                              title="Filtrar por estado de la cosecha"
+                              ariaLabel="Filtrar por estado de la cosecha"
+                            />
+                          </div>
+                      </div>
                     </div>
                     {filas.length === 0 ? (
                       <p className="text-sm text-gray-500 py-3">
