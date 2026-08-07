@@ -662,12 +662,23 @@ export default function EventResourcesSection({
                                   </span>
                                 )}
                                 {l.origin_fixed_service_id && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">
-                                    de{" "}
-                                    {fixedServices.find(
-                                      (fs) =>
-                                        fs.id === l.origin_fixed_service_id,
-                                    )?.nombre || "servicio fijo"}
+                                  /* Antes decía "de <nombre del servicio
+                                     fijo>" y era el elemento más ancho de
+                                     la columna más angosta —200 px para
+                                     decir algo binario— (Felipe, 07-08).
+                                     El nombre completo vive en el título;
+                                     acá basta con avisar que la línea
+                                     llegó sola. */
+                                  <span
+                                    className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 whitespace-nowrap cursor-help"
+                                    title={`Llegó solo al importar el servicio fijo "${
+                                      fixedServices.find(
+                                        (fs) =>
+                                          fs.id === l.origin_fixed_service_id,
+                                      )?.nombre || "servicio fijo"
+                                    }"`}
+                                  >
+                                    auto
                                   </span>
                                 )}
                               </div>
