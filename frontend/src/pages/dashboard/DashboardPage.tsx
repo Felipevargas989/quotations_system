@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { listPortalReceipts } from "../../services/portalReceipts.service";
 import {
   DollarSign,
@@ -18,6 +23,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import type { ActiveElement, Chart, ChartEvent } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -39,18 +45,27 @@ import {
 import { CompleteStatsResponse } from "../../types/analytics.types";
 import {
   agruparPorMes,
+  cosechaDelMes,
+  etiquetaMes,
+  unAnioAntes,
+  ETIQUETA_ESTADO,
   ES_EVENTO,
   indiceMesActual,
   primerMesConDatos,
   serieInteranual,
   ventanaMeses,
 } from "./tendencias";
-import { getQuotations } from "../../services/quotations.service";
+import {
+  getQuotations,
+  marcarRecontactado,
+} from "../../services/quotations.service";
 import {
   QuotationRequestType,
   QuotationStatus,
 } from "../../types/quotations.types";
 import { etiquetaMotivo } from "../../components/MotivoPerdida";
+import { getClientTypeColor } from "../../utils/clientTypeColor";
+import ConfirmInline from "../../components/ConfirmInline";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
@@ -428,6 +443,34 @@ export default function DashboardPage() {
       return data || [];
     },
   });
+  // LA COSECHA DEL MES (06-08, hallazgo de Felipe): pinchar una barra de
+  // cotizaciones abre la lista de quiénes pidieron ese mes — la lista de
+  // llamados de un año después.
+  // La cosecha se abre desde una barra. Guardamos la COLUMNA (el mes de
+  // la ventana) y cuál de las dos barras se pinchó: la firme es este año,
+  // la tenue es el mismo mes del año pasado. Sin esto se pinchaba la
+  // barra alta de 2025 y se abría la lista vacía de 2026 (Felipe, 06-08).
+  const [mesElegido, setMesElegido] = useState<{
+    base: string;
+    anterior: boolean;
+  } | null>(null);
+  // "Ya lo llamé" (07-08, pedido de Felipe): la lista de no-vueltos es la
+  // lista de llamados, y sin dónde anotar el intento, al día siguiente no
+  // se sabe por quién se iba. Se confirma con el ConfirmInline de la casa
+  // —la fila se transforma en la pregunta— y se puede deshacer.
+  const [confirmandoLlamada, setConfirmandoLlamada] = useState<string | null>(
+    null,
+  );
+  const clienteQuery = useQueryClient();
+  const llamadaMut = useMutation({
+    mutationFn: ({ id, marcado }: { id: string; marcado: boolean }) =>
+      marcarRecontactado(id, marcado),
+    onSuccess: () => {
+      setConfirmandoLlamada(null);
+      clienteQuery.invalidateQueries({ queryKey: ["dashboard-tendencia"] });
+    },
+  });
+
   const tieneAnterior = (
     mapa: Map<string, { n: number; monto: number }>,
     clave: string,
@@ -455,6 +498,8 @@ export default function DashboardPage() {
       cotMonto: serieInteranual(mesesCot, porEmision, "monto", desde),
       evCantidad: serieInteranual(mesesEv, porEvento, "n", desde),
       evMonto: serieInteranual(mesesEv, porEvento, "monto", desde),
+      // Los meses tal cual, para traducir un clic en la barra a su mes.
+      mesesCot,
       // El mes en curso va a medias; de ahí en adelante, proyección.
       mesActualCot: indiceMesActual(mesesCot),
       mesActualEv: indiceMesActual(mesesEv),
@@ -1166,6 +1211,22 @@ export default function DashboardPage() {
             },
           },
         };
+        // Pinchar una barra abre la lista de ESE mes y ESE año. El
+        // `elems` que entrega Chart.js viene en modo "index" (trae las
+        // dos barras de la columna), así que preguntamos aparte por la
+        // barra realmente pinchada para saber de qué año hablamos.
+        const alPinchar = (e: ChartEvent, elems: ActiveElement[], chart: Chart) => {
+          if (!elems.length) return setMesElegido(null);
+          const exacta = chart.getElementsAtEventForMode(
+            e.native as Event,
+            "nearest",
+            { intersect: true },
+            false,
+          );
+          const punto = exacta[0] ?? elems[0];
+          const m = tendencia.mesesCot[punto.index];
+          if (m) setMesElegido({ base: m.clave, anterior: punto.datasetIndex === 0 });
+        };
         const opcionesBase = {
           responsive: true,
           maintainAspectRatio: false,
@@ -1184,6 +1245,7 @@ export default function DashboardPage() {
           },
           scales: { y: { beginAtZero: true } },
         };
+        const opcionesCot = { ...opcionesBase, onClick: alPinchar };
         const opcionesPlata = {
           ...opcionesBase,
           plugins: {
@@ -1230,7 +1292,7 @@ export default function DashboardPage() {
                 <BarChart3 className="h-5 w-5 text-blue-600" />,
                 <Bar
                   data={barras(tendencia.cotCantidad, azul, tendencia.mesActualCot)}
-                  options={opcionesBase}
+                  options={opcionesCot}
                 />,
               )}
               {marco(
@@ -1243,6 +1305,257 @@ export default function DashboardPage() {
                 />,
               )}
             </div>
+
+            {/* LA COSECHA DEL MES (06-08, hallazgo de Felipe): "el año
+                pasado en agosto saqué 47 cotizaciones... ¿y a quién?".
+                Un año después, esa lista ES la lista de llamados. */}
+            {mesElegido &&
+              (() => {
+                const claveDe = (anterior: boolean) =>
+                  anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
+                const clave = claveDe(mesElegido.anterior);
+                const todas = tendenciaQuery.data ?? [];
+                const filas = cosechaDelMes(todas, clave);
+                // Una re-cotización de la misma venta no es un pendiente:
+                // el veredicto lo carga la última cotización de esa venta.
+                const abiertas = filas.filter(
+                  (f) => !f.volvioEl && !f.mismaVentaNumero,
+                );
+                const pendientes = abiertas.length;
+                const llamados = abiertas.filter((f) => f.recontactadoEl).length;
+                // Las dos pestañas: el mismo mes de este año y del pasado,
+                // con su cuenta a la vista para saber cuál mirar.
+                const anios = [true, false].map((ant) => ({
+                  ant,
+                  clave: claveDe(ant),
+                  n: cosechaDelMes(todas, claveDe(ant)).length,
+                }));
+                return (
+                  <div className="bg-white rounded-lg shadow p-5">
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900">
+                          Quién cotizó en {etiquetaMes(clave)}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {filas.length} cotización
+                          {filas.length === 1 ? "" : "es"}
+                          {pendientes > 0 && (
+                            <>
+                              {" · "}
+                              <b className="text-amber-700">
+                                {pendientes} sin volver a pedir lo mismo
+                              </b>
+                              {llamados > 0 && (
+                                <span className="text-blue-700">
+                                  {" · "}
+                                  {llamados} ya llamado
+                                  {llamados === 1 ? "" : "s"}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </p>
+                        <div className="flex gap-1.5 mt-2">
+                          {anios.map((a) => (
+                            <button
+                              key={a.clave}
+                              type="button"
+                              onClick={() =>
+                                setMesElegido({
+                                  base: mesElegido.base,
+                                  anterior: a.ant,
+                                })
+                              }
+                              className={`px-2.5 py-1 rounded-full text-xs border ${
+                                a.ant === mesElegido.anterior
+                                  ? "bg-blue-600 text-white border-blue-600 font-semibold"
+                                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                              }`}
+                            >
+                              {etiquetaMes(a.clave)} · {a.n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMesElegido(null)}
+                        className="text-gray-400 hover:text-gray-600 text-sm"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                    {filas.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-3">
+                        Sin cotizaciones ese mes.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto -mx-1">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b">
+                              <th className="text-left font-semibold py-2 px-1">N°</th>
+                              <th className="text-left font-semibold px-1">Cliente</th>
+                              <th className="text-left font-semibold px-1">Tipo de cliente</th>
+                              <th className="text-left font-semibold px-1">Mandante</th>
+                              <th className="text-left font-semibold px-1">Tipo de evento</th>
+                              <th className="text-left font-semibold px-1">Cómo terminó</th>
+                              <th className="text-right font-semibold px-1">Monto</th>
+                              <th className="text-left font-semibold px-1">¿Volvió a pedirlo?</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filas.map((f) => (
+                              <tr
+                                key={f.id}
+                                onClick={() => navigate(`/negocio/${f.id}`)}
+                                className={`border-b border-gray-50 cursor-pointer hover:bg-blue-50/50 ${
+                                  f.volvioEl ||
+                                  f.mismaVentaNumero ||
+                                  f.recontactadoEl
+                                    ? ""
+                                    : "bg-amber-50/40"
+                                }`}
+                                title="Abrir la ficha del negocio"
+                              >
+                                <td className="py-2 px-1 text-gray-500">#{f.numero}</td>
+                                <td className="px-1 font-medium text-gray-900">{f.cliente}</td>
+                                <td className="px-1">
+                                  {f.tipoCliente ? (
+                                    <span
+                                      className={`inline-block whitespace-nowrap px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getClientTypeColor(f.tipoCliente)}`}
+                                    >
+                                      {f.tipoCliente}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-1 text-gray-600">
+                                  {f.mandante || (
+                                    <span className="text-gray-400 italic">sin mandante</span>
+                                  )}
+                                </td>
+                                <td className="px-1 text-gray-600">{f.tipo}</td>
+                                <td className="px-1">
+                                  <span
+                                    className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
+                                      ETIQUETA_ESTADO[f.estado]?.c ||
+                                      "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    {ETIQUETA_ESTADO[f.estado]?.l || f.estado}
+                                  </span>
+                                </td>
+                                <td className="px-1 text-right font-semibold text-gray-900">
+                                  {formatCurrency(f.monto, company?.currency || "CLP")}
+                                </td>
+                                <td
+                                  className="px-1"
+                                  onClick={(ev) => ev.stopPropagation()}
+                                  role="presentation"
+                                >
+                                  {f.volvioEl ? (
+                                    <button
+                                      type="button"
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        if (f.volvioId) navigate(`/negocio/${f.volvioId}`);
+                                      }}
+                                      className="text-emerald-700 text-xs hover:underline"
+                                      title="Abrir la cotización nueva para comparar"
+                                    >
+                                      ✓ #{f.volvioNumero} ·{" "}
+                                      {etiquetaMes(String(f.volvioEl).slice(0, 7))}
+                                    </button>
+                                  ) : f.mismaVentaNumero ? (
+                                    <button
+                                      type="button"
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        if (f.mismaVentaId)
+                                          navigate(`/negocio/${f.mismaVentaId}`);
+                                      }}
+                                      className="text-gray-400 text-xs hover:underline"
+                                      title="Es la misma venta, re-cotizada"
+                                    >
+                                      ↺ misma venta · #{f.mismaVentaNumero}
+                                    </button>
+                                  ) : confirmandoLlamada === f.id ? (
+                                    <ConfirmInline
+                                      question={
+                                        f.recontactadoEl
+                                          ? "¿Quitar la marca?"
+                                          : "¿Ya lo llamaste?"
+                                      }
+                                      yesLabel={
+                                        f.recontactadoEl
+                                          ? "Sí, quitar"
+                                          : "Sí, lo llamé"
+                                      }
+                                      tono="normal"
+                                      busy={llamadaMut.isPending}
+                                      onYes={() =>
+                                        llamadaMut.mutate({
+                                          id: f.id,
+                                          marcado: !f.recontactadoEl,
+                                        })
+                                      }
+                                      onNo={() => setConfirmandoLlamada(null)}
+                                    />
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        setConfirmandoLlamada(f.id);
+                                      }}
+                                      className={`text-xs font-semibold rounded px-1 -mx-1 hover:underline ${
+                                        f.recontactadoEl
+                                          ? "text-blue-700"
+                                          : "text-amber-700"
+                                      }`}
+                                      title={
+                                        f.recontactadoEl
+                                          ? "Marcado como llamado. Pínchalo para quitar la marca."
+                                          : "Pínchalo cuando lo hayas llamado"
+                                      }
+                                    >
+                                      {f.recontactadoEl
+                                        ? `☎ llamado el ${new Date(
+                                            f.recontactadoEl,
+                                          ).toLocaleDateString("es-CL", {
+                                            day: "numeric",
+                                            month: "short",
+                                          })}`
+                                        : "⚠ no ha vuelto"}
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <p className="text-[11px] text-gray-400 mt-2">
+                          Se compara la misma combinación de cliente, mandante y
+                          tipo de evento: un paseo de fin de año y una cena del
+                          mismo contacto son ventas distintas.{" "}
+                          <b>Cuenta como regreso</b> si te pidieron lo mismo al
+                          menos 2 meses después y para un evento al menos 2
+                          meses distinto; si no, es la misma venta re-cotizada
+                          (<span className="text-gray-400">↺</span>) y el
+                          veredicto queda en la última del grupo. Pincha una
+                          fila para abrir su ficha, el número de al lado para
+                          abrir la otra cotización, o{" "}
+                          <b className="text-amber-700">no ha vuelto</b> para
+                          anotar que ya lo llamaste.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {marco(

@@ -92,6 +92,10 @@ export interface Quotation {
   // Motivo al rechazar o anular (migración 61): alimenta el cuadro
   // "Por qué perdimos" del Dashboard.
   loss_reason?: string | null;
+  // Intento de recontacto desde la cosecha del mes (migración 62):
+  // cuándo se trató de llamar y quién lo anotó. NULL = nunca se intentó.
+  recontacted_at?: string | null;
+  recontacted_by?: string | null;
   value_per_person: number;
   fixed_value: number;
   request_type: QuotationRequestType;

@@ -55,6 +55,22 @@ export const unmarkEventDone = async (quotationId: string) => {
   return response as { ok: boolean };
 };
 
+// Anota (o borra) el intento de llamar al cliente. Lo usa la cosecha
+// del mes en el Dashboard: la lista de "no ha vuelto" es la lista de
+// llamados, y sin dónde marcarlo al día siguiente no se sabe por quién
+// se iba (pedido de Felipe, 07-08-2026).
+export const marcarRecontactado = async (
+  quotationId: string,
+  marcado: boolean,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/recontactado`,
+    "POST",
+    { marcado },
+  );
+  return response as { ok: boolean; marcado: boolean };
+};
+
 export const deleteQuotation = async (quotationId: string) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}`,

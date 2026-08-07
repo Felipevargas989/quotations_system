@@ -8,9 +8,13 @@ export default function ConfirmInline({
   onYes,
   onNo,
   busy = false,
+  tono = "peligro",
 }: {
   readonly question: string;
   readonly yesLabel?: string;
+  // El rojo es para lo que destruye. Una marca que se puede deshacer
+  // (07-08: "ya lo llamé") pide el tono sereno (azul).
+  readonly tono?: "peligro" | "normal";
   readonly onYes: () => void;
   readonly onNo: () => void;
   readonly busy?: boolean;
@@ -22,7 +26,11 @@ export default function ConfirmInline({
         type="button"
         disabled={busy}
         onClick={onYes}
-        className="shrink-0 whitespace-nowrap px-2.5 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50"
+        className={`shrink-0 whitespace-nowrap px-2.5 py-1 text-white rounded-lg font-bold disabled:opacity-50 ${
+          tono === "peligro"
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-blue-600 hover:bg-blue-700"
+        }`}
       >
         {busy ? "…" : yesLabel}
       </button>
