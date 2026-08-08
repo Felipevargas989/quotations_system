@@ -1459,6 +1459,20 @@ export default function QuotationForm() {
     e.preventDefault();
     if (!user) return;
 
+    // El MANDANTE es obligatorio (07-08, decisión de Felipe). No es
+    // burocracia: sin él no se sabe a quién llamar, el hilo de
+    // seguimiento no tiene destinatario, los correos al cliente no
+    // salen —la regla del 30-07 es "correos a personas y punto"— y en
+    // la cosecha del mes el cruce cliente+mandante+tipo pierde una de
+    // sus tres patas. Las 325 cotizaciones de producción ya tienen uno:
+    // esto impide que aparezca la primera sin él.
+    if (!(formData.contact_name || "").trim()) {
+      toast.error(
+        "Falta el mandante: elige quién encarga el evento (o créalo con «+ Nuevo contacto»).",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {

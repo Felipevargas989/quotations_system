@@ -342,7 +342,7 @@ export default function NegocioPage() {
                 cada dato en su línea y el ícono como etiqueta, igual que
                 en la ficha del cliente y en Post-Venta. */}
             <div className="mt-1 space-y-0.5 text-sm text-gray-500">
-              {contacto.name && <p>{contacto.name}</p>}
+              <p>{contacto.name || "—"}</p>
               {contacto.phone && (
                 <button
                   type="button"

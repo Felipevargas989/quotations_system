@@ -1286,10 +1286,11 @@ function EventModal({
                 etiqueta, como en la ficha del cliente. En línea corrida
                 los íconos sobraban; apilados, orientan. */}
             <div className="mt-1 space-y-0.5 text-sm text-gray-500">
-              {/* Sin mandante no se dibuja la línea: un guion suelto
-                  bajo la cotización no dice nada (revisión del 07-08).
-                  El portal público puede crear cotizaciones así. */}
-              {event.contactPerson && <p>{event.contactPerson}</p>}
+              {/* Un guion cuando no hay mandante: la cotización se
+                  ve igual de completa y se nota que ese dato falta. Las
+                  nuevas ya no pueden nacer así —el cotizador lo exige—
+                  pero las viejas siguen existiendo (07-08). */}
+              <p>{event.contactPerson || "—"}</p>
               {event.phone && (
                 <button
                   type="button"
