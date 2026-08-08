@@ -1286,7 +1286,10 @@ function EventModal({
                 etiqueta, como en la ficha del cliente. En línea corrida
                 los íconos sobraban; apilados, orientan. */}
             <div className="mt-1 space-y-0.5 text-sm text-gray-500">
-              <p>{event.contactPerson || "—"}</p>
+              {/* Sin mandante no se dibuja la línea: un guion suelto
+                  bajo la cotización no dice nada (revisión del 07-08).
+                  El portal público puede crear cotizaciones así. */}
+              {event.contactPerson && <p>{event.contactPerson}</p>}
               {event.phone && (
                 <button
                   type="button"
@@ -1294,7 +1297,7 @@ function EventModal({
                   // al pegarlo en un marcador.
                   onClick={() => void copiarDato("tel", event.phone || "")}
                   title="Copiar teléfono"
-                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Phone size={13} className="shrink-0" />
                   {formatPhone(event.phone)}
@@ -1310,7 +1313,7 @@ function EventModal({
                     void copiarDato("mail", event.contactEmail || "")
                   }
                   title="Copiar correo"
-                  className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Mail size={13} className="shrink-0" />
                   {event.contactEmail}
