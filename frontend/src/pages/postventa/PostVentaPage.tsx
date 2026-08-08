@@ -1285,44 +1285,46 @@ function EventModal({
                 cada dato tiene su línea y el ícono vuelve a servir de
                 etiqueta, como en la ficha del cliente. En línea corrida
                 los íconos sobraban; apilados, orientan. */}
-            <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+            <div className="mt-1 text-sm text-gray-500">
               {/* Un guion cuando no hay mandante: la cotización se
                   ve igual de completa y se nota que ese dato falta. Las
                   nuevas ya no pueden nacer así —el cotizador lo exige—
                   pero las viejas siguen existiendo (07-08). */}
               <p>{event.contactPerson || "—"}</p>
-              {event.phone && (
-                <button
-                  type="button"
-                  // El número CRUDO: los espacios del formateado rompen
-                  // al pegarlo en un marcador.
-                  onClick={() => void copiarDato("tel", event.phone || "")}
-                  title="Copiar teléfono"
-                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
-                >
-                  <Phone size={13} className="shrink-0" />
-                  {formatPhone(event.phone)}
-                  <span className="inline-block w-3 text-green-600">
-                    {datoCopiado === "tel" ? "✓" : ""}
-                  </span>
-                </button>
-              )}
-              {event.contactEmail && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copiarDato("mail", event.contactEmail || "")
-                  }
-                  title="Copiar correo"
-                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
-                >
-                  <Mail size={13} className="shrink-0" />
-                  {event.contactEmail}
-                  <span className="inline-block w-3 text-green-600">
-                    {datoCopiado === "mail" ? "✓" : ""}
-                  </span>
-                </button>
-              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                {event.phone && (
+                  <button
+                    type="button"
+                    // El número CRUDO: los espacios del formateado rompen
+                    // al pegarlo en un marcador.
+                    onClick={() => void copiarDato("tel", event.phone || "")}
+                    title="Copiar teléfono"
+                    className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
+                  >
+                    <Phone size={13} className="shrink-0" />
+                    {formatPhone(event.phone)}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "tel" ? "✓" : ""}
+                    </span>
+                  </button>
+                )}
+                {event.contactEmail && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void copiarDato("mail", event.contactEmail || "")
+                    }
+                    title="Copiar correo"
+                    className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
+                  >
+                    <Mail size={13} className="shrink-0" />
+                    {event.contactEmail}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "mail" ? "✓" : ""}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

@@ -341,38 +341,40 @@ export default function NegocioPage() {
             {/* Apilados bajo el nombre (07-08, pedido de Felipe):
                 cada dato en su línea y el ícono como etiqueta, igual que
                 en la ficha del cliente y en Post-Venta. */}
-            <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+            <div className="mt-1 text-sm text-gray-500">
               <p>{contacto.name || "—"}</p>
-              {contacto.phone && (
-                <button
-                  type="button"
-                  // El número CRUDO: los espacios del formateado rompen
-                  // al pegarlo en un marcador.
-                  onClick={() => void copiarDato("tel", contacto.phone)}
-                  title="Copiar teléfono"
-                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
-                >
-                  <Phone size={13} className="shrink-0" />
-                  {formatPhone(contacto.phone)}
-                  <span className="inline-block w-3 text-green-600">
-                    {datoCopiado === "tel" ? "✓" : ""}
-                  </span>
-                </button>
-              )}
-              {contacto.email && (
-                <button
-                  type="button"
-                  onClick={() => void copiarDato("mail", contacto.email)}
-                  title="Copiar correo"
-                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
-                >
-                  <Mail size={13} className="shrink-0" />
-                  {contacto.email}
-                  <span className="inline-block w-3 text-green-600">
-                    {datoCopiado === "mail" ? "✓" : ""}
-                  </span>
-                </button>
-              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                {contacto.phone && (
+                  <button
+                    type="button"
+                    // El número CRUDO: los espacios del formateado rompen
+                    // al pegarlo en un marcador.
+                    onClick={() => void copiarDato("tel", contacto.phone)}
+                    title="Copiar teléfono"
+                    className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
+                  >
+                    <Phone size={13} className="shrink-0" />
+                    {formatPhone(contacto.phone)}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "tel" ? "✓" : ""}
+                    </span>
+                  </button>
+                )}
+                {contacto.email && (
+                  <button
+                    type="button"
+                    onClick={() => void copiarDato("mail", contacto.email)}
+                    title="Copiar correo"
+                    className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
+                  >
+                    <Mail size={13} className="shrink-0" />
+                    {contacto.email}
+                    <span className="inline-block w-3 text-green-600">
+                      {datoCopiado === "mail" ? "✓" : ""}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
