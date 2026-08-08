@@ -1298,7 +1298,7 @@ function EventModal({
                   // al pegarlo en un marcador.
                   onClick={() => void copiarDato("tel", event.phone || "")}
                   title="Copiar teléfono"
-                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Phone size={13} className="shrink-0" />
                   {formatPhone(event.phone)}
@@ -1314,7 +1314,7 @@ function EventModal({
                     void copiarDato("mail", event.contactEmail || "")
                   }
                   title="Copiar correo"
-                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Mail size={13} className="shrink-0" />
                   {event.contactEmail}

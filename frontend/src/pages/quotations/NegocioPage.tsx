@@ -350,7 +350,7 @@ export default function NegocioPage() {
                   // al pegarlo en un marcador.
                   onClick={() => void copiarDato("tel", contacto.phone)}
                   title="Copiar teléfono"
-                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Phone size={13} className="shrink-0" />
                   {formatPhone(contacto.phone)}
@@ -364,7 +364,7 @@ export default function NegocioPage() {
                   type="button"
                   onClick={() => void copiarDato("mail", contacto.email)}
                   title="Copiar correo"
-                  className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+                  className="flex w-fit items-center gap-1.5 text-blue-600 hover:underline"
                 >
                   <Mail size={13} className="shrink-0" />
                   {contacto.email}
