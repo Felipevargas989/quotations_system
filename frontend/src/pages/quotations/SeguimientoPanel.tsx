@@ -15,7 +15,7 @@
 //   · ARCHIVO (rechazada, cancelada): murió el deal y mató todo
 //     seguimiento (regla de Close de Felipe). Notas sueltas, compromisos
 //     inertes en gris.
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Mail,
   MessageSquare,
@@ -801,9 +801,21 @@ export function AdjuntosComerciales({
 
   // ARRASTRAR Y SOLTAR (06-08, pedido de Felipe): en Mac el pantallazo
   // queda flotando abajo a la derecha y se arrastra DIRECTO desde ahí,
-  // sin pasar por Descargas. El botón de siempre sigue igual: esto es
-  // una puerta más, no un reemplazo. De regalo, pegar con Ctrl+V.
+  // sin pasar por Descargas. El botón "Seleccionar archivo" es la otra
+  // puerta (10-08: pastilla de la casa, mismo recibidor).
   const [arrastrando, setArrastrando] = useState(false);
+  const profundidadDrag = useRef(0);
+  // Red de seguridad (10-08): un archivo soltado FUERA de la tarjeta no
+  // navega la pestaña al archivo.
+  useEffect(() => {
+    const frenar = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", frenar);
+    window.addEventListener("drop", frenar);
+    return () => {
+      window.removeEventListener("dragover", frenar);
+      window.removeEventListener("drop", frenar);
+    };
+  }, []);
   const recibir = (f: File | null | undefined) => {
     if (!f) return;
     setArchivo(f);
@@ -811,6 +823,7 @@ export function AdjuntosComerciales({
   };
   const alSoltar = (e: React.DragEvent) => {
     e.preventDefault();
+    profundidadDrag.current = 0;
     setArrastrando(false);
     const sueltos = Array.from(e.dataTransfer.files || []);
     recibir(sueltos[0]);
@@ -877,16 +890,20 @@ export function AdjuntosComerciales({
 
   return (
     <div
-      onDragOver={(e) => {
+      onDragEnter={(e) => {
         e.preventDefault();
         // Con el visor abierto la tarjeta NO recibe: el archivo caería
-        // invisible bajo el modal (revisión 06-08).
-        if (!arrastrando && !visor) setArrastrando(true);
+        // invisible bajo el modal (revisión 06-08). Contador de
+        // profundidad (10-08): sin parpadeo ni en Safari, y solo se
+        // enciende con ARCHIVOS.
+        if (visor || !e.dataTransfer.types?.includes("Files")) return;
+        profundidadDrag.current += 1;
+        setArrastrando(true);
       }}
-      onDragLeave={(e) => {
-        // Solo apagar cuando el puntero sale de la tarjeta completa.
-        if (!e.currentTarget.contains(e.relatedTarget as Node))
-          setArrastrando(false);
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={() => {
+        profundidadDrag.current = Math.max(0, profundidadDrag.current - 1);
+        if (profundidadDrag.current === 0) setArrastrando(false);
       }}
       onDrop={visor ? (e) => e.preventDefault() : alSoltar}
       className={`border rounded-xl flex flex-col transition-colors ${
@@ -958,21 +975,34 @@ export function AdjuntosComerciales({
           quedan anclados a la misma altura (pedido de Felipe 04-08). */}
       <div className="shrink-0 border-t border-gray-200 p-4 space-y-2.5 mt-3">
         {err && <p className="text-xs text-red-600">{err}</p>}
-        {arrastrando && (
-          <p className="text-xs font-semibold text-blue-600">
-            Suelta aquí el pantallazo ↓
-          </p>
-        )}
-        {archivo && !arrastrando && (
+        {archivo && (
           <p className="text-xs text-gray-600 truncate">
             Listo para subir: <b className="text-gray-800">{archivo.name}</b>
           </p>
         )}
-        <input
-          type="file"
-          onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-          className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-        />
+        <div className="flex items-center gap-2.5">
+          <label className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
+            Seleccionar archivo
+            <input
+              type="file"
+              className="sr-only"
+              onChange={(e) => {
+                recibir(e.target.files?.[0]);
+                // Valor limpio: re-elegir el MISMO archivo vuelve a sonar.
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <span
+            className={
+              arrastrando
+                ? "text-xs font-bold text-blue-600"
+                : "text-xs text-gray-400"
+            }
+          >
+            {arrastrando ? "¡Suéltalo aquí! ↓" : "o arrastra aquí"}
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <input
             type="text"

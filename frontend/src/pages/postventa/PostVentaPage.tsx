@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "../../components/toast/Toast";
 import EventoCajitas from "../../components/EventoCajitas";
 import CelebracionRealizada from "../../components/CelebracionRealizada";
@@ -1952,6 +1952,7 @@ function RegistrarPagoPanel({
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [arrastrando, setArrastrando] = useState(false);
 
   // Cuotas con saldo, de la más próxima (menor número) hacia adelante.
   const pending = event.payments
@@ -1988,7 +1989,38 @@ function RegistrarPagoPanel({
     setNotes("");
     setFile(null);
     setErr(null);
+    setArrastrando(false);
+    profundidadDrag.current = 0;
   };
+
+  // Un solo recibidor para botón y arrastre (revisión 10-08): valida
+  // tipo y tamaño AL LLEGAR el archivo, no recién al enviar.
+  const profundidadDrag = useRef(0);
+  const recibirComprobante = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!(f.type.startsWith("image/") || f.type === "application/pdf")) {
+      setErr("El comprobante debe ser imagen o PDF.");
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setErr("El comprobante no puede superar los 5 MB.");
+      return;
+    }
+    setErr(null);
+    setFile(f);
+  };
+  // Red de seguridad (revisión 10-08): un archivo soltado FUERA del
+  // panel no debe navegar la pestaña al archivo (perdería el formulario).
+  useEffect(() => {
+    const frenar = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", frenar);
+    window.addEventListener("drop", frenar);
+    return () => {
+      window.removeEventListener("dragover", frenar);
+      window.removeEventListener("drop", frenar);
+    };
+  }, []);
+
 
   // Monto válido: mayor que cero y hasta el saldo pendiente. Mientras
   // no lo sea, el botón queda bloqueado (el campo vibra y avisa).
@@ -2045,21 +2077,48 @@ function RegistrarPagoPanel({
         </button>
       ) : (
         <div
-          className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3 max-w-2xl"
+          className={`border rounded-xl p-4 space-y-3 max-w-2xl transition-colors ${
+            arrastrando
+              ? "border-blue-400 border-dashed bg-blue-50/60"
+              : "border-blue-200 bg-blue-50/40"
+          }`}
+          onDragEnter={(e) => {
+            // Contador de profundidad: sobrevive a Safari (relatedTarget
+            // nulo) y a los cruces por hijos, sin parpadeo. Solo se
+            // enciende con ARCHIVOS (no con texto o enlaces arrastrados).
+            e.preventDefault();
+            if (!e.dataTransfer.types?.includes("Files")) return;
+            profundidadDrag.current += 1;
+            setArrastrando(true);
+          }}
           onDragOver={(e) => e.preventDefault()}
+          onDragLeave={() => {
+            profundidadDrag.current = Math.max(0, profundidadDrag.current - 1);
+            if (profundidadDrag.current === 0) setArrastrando(false);
+          }}
           onDrop={(e) => {
             // Soltar el comprobante en cualquier parte del panel
             // (mismo gesto de los respaldos comerciales).
             e.preventDefault();
-            const f = e.dataTransfer.files?.[0];
-            if (f) setFile(f);
+            profundidadDrag.current = 0;
+            setArrastrando(false);
+            const sueltos = Array.from(e.dataTransfer.files || []);
+            recibirComprobante(sueltos[0]);
+            if (sueltos.length > 1)
+              toast.warn(
+                `Se tomó "${sueltos[0].name}". El comprobante va de a uno.`,
+              );
           }}
         >
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">Registrar pago</h4>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setArrastrando(false);
+                profundidadDrag.current = 0;
+              }}
               className="text-gray-400 hover:text-gray-600"
             >
               <X size={16} />
@@ -2118,12 +2177,30 @@ function RegistrarPagoPanel({
                 (imagen o PDF · máx. 5 MB)
               </span>
             </label>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="mt-1.5 block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-            />
+<div className="mt-1.5 flex items-center gap-2.5">
+              <label className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
+                Seleccionar archivo
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="sr-only"
+                  onChange={(e) => {
+                    recibirComprobante(e.target.files?.[0]);
+                    // Valor limpio: re-elegir el MISMO archivo vuelve a sonar.
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <span
+                className={
+                  arrastrando
+                    ? "text-xs font-bold text-blue-600"
+                    : "text-xs text-gray-400"
+                }
+              >
+                {arrastrando ? "¡Suéltalo aquí! ↓" : "o arrastra aquí"}
+              </span>
+            </div>
             {file && (
               <p className="text-xs text-gray-600 truncate mt-1">
                 Listo para subir: <b className="text-gray-800">{file.name}</b>
@@ -2632,6 +2709,33 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const [upOpen, setUpOpen] = useState(false);
   const [upCat, setUpCat] = useState<string>("");
   const [upFile, setUpFile] = useState<File | null>(null);
+  const [upArrastrando, setUpArrastrando] = useState(false);
+  const profundidadDragDoc = useRef(0);
+  // Recibidor único (revisión 10-08): valida al llegar; ocupado = no recibe.
+  const recibirDocumento = (f: File | null | undefined) => {
+    if (!f || subiendo) return;
+    if (!(f.type.startsWith("image/") || f.type === "application/pdf")) {
+      toast.error("El documento debe ser imagen o PDF.");
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error("El documento no puede superar los 5 MB.");
+      return;
+    }
+    setUpFile(f);
+  };
+  // Red de seguridad (revisión 10-08): un archivo soltado FUERA del
+  // panel no debe navegar la pestaña al archivo (perdería el formulario).
+  useEffect(() => {
+    const frenar = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", frenar);
+    window.addEventListener("drop", frenar);
+    return () => {
+      window.removeEventListener("dragover", frenar);
+      window.removeEventListener("drop", frenar);
+    };
+  }, []);
+
   const [upComment, setUpComment] = useState("");
   // Documento seleccionado para el visor.
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -2668,6 +2772,8 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       setUpOpen(false);
       setUpCat("");
       setUpFile(null);
+      setUpArrastrando(false);
+      profundidadDragDoc.current = 0;
       setUpComment("");
       load();
     } catch (e) {
@@ -2705,14 +2811,39 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
       {/* Tarjeta única de subida (calco del panel Registrar pago) */}
       {upOpen ? (
         <div
-          className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-2xl"
+          className={`border rounded-xl p-4 space-y-3 max-w-2xl transition-colors ${
+            upArrastrando
+              ? "border-blue-400 border-dashed bg-blue-50/60"
+              : "border-blue-200 bg-blue-50"
+          }`}
+          onDragEnter={(e) => {
+            // Contador de profundidad (Safari incluido); solo ARCHIVOS y
+            // solo si no hay una subida en vuelo.
+            e.preventDefault();
+            if (!e.dataTransfer.types?.includes("Files") || subiendo) return;
+            profundidadDragDoc.current += 1;
+            setUpArrastrando(true);
+          }}
           onDragOver={(e) => e.preventDefault()}
+          onDragLeave={() => {
+            profundidadDragDoc.current = Math.max(
+              0,
+              profundidadDragDoc.current - 1,
+            );
+            if (profundidadDragDoc.current === 0) setUpArrastrando(false);
+          }}
           onDrop={(e) => {
             // Soltar el archivo en cualquier parte de la tarjeta
             // (mismo gesto de los respaldos comerciales).
             e.preventDefault();
-            const f = e.dataTransfer.files?.[0];
-            if (f) setUpFile(f);
+            profundidadDragDoc.current = 0;
+            setUpArrastrando(false);
+            const sueltos = Array.from(e.dataTransfer.files || []);
+            recibirDocumento(sueltos[0]);
+            if (sueltos.length > 1)
+              toast.warn(
+                `Se tomó "${sueltos[0].name}". Los documentos van de a uno.`,
+              );
           }}
         >
           <p className="text-sm font-bold text-gray-900">Subir documento</p>
@@ -2739,12 +2870,29 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                 (imagen o PDF · máx. 5 MB)
               </span>
             </label>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setUpFile(e.target.files?.[0] || null)}
-              className="mt-1.5 block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-            />
+<div className="mt-1.5 flex items-center gap-2.5">
+              <label className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
+                Seleccionar archivo
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="sr-only"
+                  onChange={(e) => {
+                    recibirDocumento(e.target.files?.[0]);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <span
+                className={
+                  upArrastrando
+                    ? "text-xs font-bold text-blue-600"
+                    : "text-xs text-gray-400"
+                }
+              >
+                {upArrastrando ? "¡Suéltalo aquí! ↓" : "o arrastra aquí"}
+              </span>
+            </div>
             {upFile && (
               <p className="text-xs text-gray-600 truncate mt-1">
                 Listo para subir:{" "}
@@ -2776,6 +2924,8 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                 setUpCat("");
                 setUpFile(null);
                 setUpComment("");
+                setUpArrastrando(false);
+                profundidadDragDoc.current = 0;
               }}
               className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
             >
