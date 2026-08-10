@@ -48,6 +48,21 @@ import {
 const fmtQty = (n: number) =>
   Number(n.toFixed(2)).toLocaleString("es-CL", { maximumFractionDigits: 2 });
 
+// Cantidades en unidades de COCINA (10-08, pedido de Felipe): nadie
+// pesa "0,01 kg" ni mide "0,07 L". Bajo 1 kg → gramos; bajo 1 L → ml;
+// media unidad → ½. Solo cambia cómo se MUESTRA — la cantidad real y
+// los cálculos no se tocan. Los enteros salen limpios (4 L, 15 kg)
+// porque fmtQty ya recorta las comas de adorno.
+const fmtCocina = (n: number, familia: "masa" | "volumen" | "unidad") => {
+  if (familia === "masa" && n > 0 && n < 1)
+    return `${Math.round(n * 1000).toLocaleString("es-CL")} g`;
+  if (familia === "volumen" && n > 0 && n < 1)
+    return `${Math.round(n * 1000).toLocaleString("es-CL")} ml`;
+  if (familia === "unidad" && n % 1 === 0.5)
+    return `${n === 0.5 ? "½" : `${Math.floor(n)}½`} u`;
+  return `${fmtQty(n)} ${UNIT_FAMILY_INFO[familia].base}`;
+};
+
 export default function FichaCocinaSection({
   companyId,
   quote,
@@ -400,7 +415,7 @@ export default function FichaCocinaSection({
                   const base =
                     toBaseQty(line.qty_per_person, line.unit) * porciones;
                   parts.push(
-                    `${esc(sup.name.toLowerCase())} ${fmtQty(base)} ${UNIT_FAMILY_INFO[sup.unit_family].base}`,
+                    `${esc(sup.name.toLowerCase())} ${fmtCocina(base, sup.unit_family)}`,
                   );
                 } else if (
                   line.item_kind === "mobiliario" &&
@@ -456,7 +471,7 @@ export default function FichaCocinaSection({
         )
         .map(
           (c) =>
-            `<div class="brow"><span class="chk"><span></span></span><span class="bnombre">${esc(c.supply.name)}</span><span class="bqty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</span></div>`,
+            `<div class="brow"><span class="chk"><span></span></span><span class="bnombre">${esc(c.supply.name)}</span><span class="bqty">${fmtCocina(c.totalBase, c.supply.unit_family)}</span></div>`,
         )
         .join("");
     };
@@ -686,7 +701,7 @@ export default function FichaCocinaSection({
     }
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Ficha de Cocina — Evento #${quote.quotation_number}</title>
+<title>Cocina — ${esc(clientName || "Evento")} — #${quote.quotation_number}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#e5e7eb; padding:24px; color:#111827; }
@@ -726,7 +741,7 @@ export default function FichaCocinaSection({
   .platos .subsec td { font-size:9.5px; font-weight:800; letter-spacing:1.4px; color:#9ca3af; text-transform:uppercase; padding:10px 10px 2px; border-bottom:1px solid #e5e7eb; }
   .platos .plato { font-size:14.5px; font-weight:700; }
   .platos .qty { text-align:right; font-size:15px; font-weight:800; white-space:nowrap; width:80px; vertical-align:top; }
-  .platos .receta td { font-size:11px; color:#6b7280; padding:0 10px 2px; }
+  .platos .receta td { font-size:13px; color:#4b5563; padding:0 10px 3px; }
   .platos .receta.soloreceta td { padding-bottom:7px; border-bottom:1px solid #f3f4f6; }
   .platos .montar td { font-size:11px; font-weight:600; color:${brandP}; padding:0 10px 7px; border-bottom:1px solid #f3f4f6; }
   .platos tr:last-child td { border-bottom:none; }
@@ -746,7 +761,7 @@ export default function FichaCocinaSection({
      una lista de 40 ítems en una columna regalaba una página vacía). */
   .bodega-cols { columns:2; column-gap:28px; }
   .brow { display:flex; align-items:center; gap:6px; break-inside:avoid;
-    font-size:12.5px; padding:4.5px 0; border-bottom:1px solid #f3f4f6; }
+    font-size:14px; padding:5.5px 0; border-bottom:1px solid #f3f4f6; }
   .brow .bnombre { font-weight:600; flex:1; }
   .brow .bqty { font-weight:700; white-space:nowrap; }
 
