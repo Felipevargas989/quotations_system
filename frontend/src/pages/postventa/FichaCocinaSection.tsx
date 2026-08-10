@@ -58,8 +58,15 @@ const fmtCocina = (n: number, familia: "masa" | "volumen" | "unidad") => {
     return `${Math.round(n * 1000).toLocaleString("es-CL")} g`;
   if (familia === "volumen" && n > 0 && n < 1)
     return `${Math.round(n * 1000).toLocaleString("es-CL")} ml`;
-  if (familia === "unidad" && n % 1 === 0.5)
-    return `${n === 0.5 ? "½" : `${Math.floor(n)}½`} u`;
+  if (familia === "unidad") {
+    // Fracciones de cocina clásicas: ¼, ½, ¾ (solas o combinadas,
+    // 1,75 → 1¾). El resto sale con números, tope 2 decimales.
+    const frac = { 0.25: "¼", 0.5: "½", 0.75: "¾" }[n % 1];
+    if (frac) {
+      const entero = Math.floor(n);
+      return `${entero > 0 ? entero : ""}${frac} u`;
+    }
+  }
   return `${fmtQty(n)} ${UNIT_FAMILY_INFO[familia].base}`;
 };
 
