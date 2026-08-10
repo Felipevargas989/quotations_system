@@ -2044,7 +2044,17 @@ function RegistrarPagoPanel({
           + Registrar pago
         </button>
       ) : (
-        <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3 max-w-2xl">
+        <div
+          className="border border-blue-200 rounded-xl p-4 bg-blue-50/40 space-y-3 max-w-2xl"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            // Soltar el comprobante en cualquier parte del panel
+            // (mismo gesto de los respaldos comerciales).
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
+            if (f) setFile(f);
+          }}
+        >
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-gray-800">Registrar pago</h4>
             <button
@@ -2112,8 +2122,13 @@ function RegistrarPagoPanel({
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="w-full text-xs mt-1.5"
+              className="mt-1.5 block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
             />
+            {file && (
+              <p className="text-xs text-gray-600 truncate mt-1">
+                Listo para subir: <b className="text-gray-800">{file.name}</b>
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600">
@@ -2556,8 +2571,14 @@ function RefundRow({
                 type="file"
                 accept="image/*,application/pdf"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-xs"
+                className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
               />
+              {file && (
+                <p className="text-xs text-gray-600 truncate mt-1">
+                  Listo para subir:{" "}
+                  <b className="text-gray-800">{file.name}</b>
+                </p>
+              )}
             </div>
           </div>
           {err && <p className="text-xs text-red-600">{err}</p>}
@@ -2683,7 +2704,17 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
     <div className="space-y-4">
       {/* Tarjeta única de subida (calco del panel Registrar pago) */}
       {upOpen ? (
-        <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-2xl">
+        <div
+          className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3 max-w-2xl"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            // Soltar el archivo en cualquier parte de la tarjeta
+            // (mismo gesto de los respaldos comerciales).
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
+            if (f) setUpFile(f);
+          }}
+        >
           <p className="text-sm font-bold text-gray-900">Subir documento</p>
           <div>
             <label className="text-xs font-semibold text-gray-600">
@@ -2712,8 +2743,14 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => setUpFile(e.target.files?.[0] || null)}
-              className="w-full text-xs mt-1.5"
+              className="mt-1.5 block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
             />
+            {upFile && (
+              <p className="text-xs text-gray-600 truncate mt-1">
+                Listo para subir:{" "}
+                <b className="text-gray-800">{upFile.name}</b>
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600">
