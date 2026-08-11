@@ -23,8 +23,6 @@ export const EMAIL_SUBJECTS = {
   [EmailStructure.WEEKLY_DIGEST]: 'Tu semana en Eventia',
   [EmailStructure.PORTAL_RECEIPT_ADMIN]:
     'Comprobante recibido por el portal — por confirmar',
-  [EmailStructure.SUPER_ADMIN_NOTIFICATION]:
-    'Notificación para Super Administradores',
 };
 
 export const EMAILS_SEND_TO_CLIENT = [

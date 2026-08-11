@@ -16,7 +16,6 @@ import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
-import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { RegisterLeadDto } from './dto/register-lead.dto';
 import { TorreResponse, TorreUsuario } from './dto/torre.dto';
@@ -99,9 +98,9 @@ export class SuperAdminService {
         // Do not throw error, just log it
         this.logger.error(error);
       }
-      // Torre de Control (05-08): aviso 🏢 a los super-admins; el
-      // correo que falle jamás bota la suscripción.
-      await this.alertNuevaEmpresa(companyData.name);
+      // Torre de Control (05-08): aviso 🏢 SIN espera (cura 05-08) —
+      // la respuesta al visitante jamás espera a Resend.
+      void this.alertNuevaEmpresa(companyData.name);
       return {
         userData,
         companyData,
@@ -212,8 +211,9 @@ export class SuperAdminService {
 
   async createCompanyOnly(name: string) {
     const empresa = await this.superAdminRepository.createCompanyOnly(name);
-    // Torre de Control (05-08): aviso 🏢; nunca rompe la creación.
-    await this.alertNuevaEmpresa(name);
+    // Torre de Control (05-08): aviso 🏢 SIN espera; nunca rompe ni
+    // frena la creación (cura 05-08).
+    void this.alertNuevaEmpresa(name);
     return empresa;
   }
 
@@ -278,9 +278,12 @@ export class SuperAdminService {
   // en la base); companies pone el nombre de la empresa.
   async getTorre(): Promise<TorreResponse> {
     this.logger.info('getTorre (super-admin)');
-    const inicioMes = new Date();
-    inicioMes.setDate(1);
-    inicioMes.setHours(0, 0, 0, 0);
+    // Inicio de mes en UTC, EXACTAMENTE como las stats mensuales (cura
+    // 05-08): todo el sistema cuenta en UTC — coherencia manda.
+    const ahora = new Date();
+    const inicioMes = new Date(
+      Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1),
+    );
 
     const [base, leadsTotal, leadsMes] = await Promise.all([
       this.superAdminRepository.getTorreBase(),
@@ -288,6 +291,8 @@ export class SuperAdminService {
       this.superAdminRepository.countLeads(inicioMes.toISOString()),
     ]);
 
+    // Edge teórico OMITIDO a propósito (revisión 05-08): dos perfiles
+    // con el mismo correo — gana el último; no hay caso real hoy.
     const perfilPorEmail = new Map(
       base.profiles
         .filter((p) => p.email)
@@ -347,49 +352,16 @@ export class SuperAdminService {
   // falle no bota el registro (el lead vale más que el correo).
   async registerLead(dto: RegisterLeadDto) {
     const lead = await this.superAdminRepository.registerLead(dto);
-    await this.alertNuevoLead(dto);
+    // Disparo SIN espera (cura 05-08): la respuesta de la landing no
+    // espera a Resend; el helper traga y anota sus propios errores.
+    void this.alertNuevoLead(dto);
     return { success: true, id: lead.id };
   }
 
-  async notifySuperAdmins({ content }: NotifySuperAdminDto) {
-    this.logger.info(`notifySuperAdmins with content: ${content}`);
+  // notifySuperAdmins se JUBILÓ (cura 05-08) junto con la puerta
+  // @Public POST new-lead y el correo SUPER_ADMIN_NOTIFICATION:
+  // cero llamadores vivos. Las alertas de la torre lo reemplazan.
 
-    const emailsEnv = this.configService.get<string>('SUPER_ADMIN_EMAILS');
-
-    if (!emailsEnv) {
-      const errorMessage = 'SUPER_ADMIN_EMAILS env variable is not configured';
-      this.logger.error(errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    const recipients = emailsEnv
-      .split(',')
-      .map((email) => email.trim())
-      .filter((email) => email.length > 0);
-
-    if (recipients.length === 0) {
-      const errorMessage =
-        'SUPER_ADMIN_EMAILS env variable has no valid emails';
-      this.logger.error(errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    try {
-      await this.emailService.sendEmail(
-        recipients,
-        EmailStructure.SUPER_ADMIN_NOTIFICATION,
-        { content },
-      );
-      return {
-        success: true,
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Error notifying super admins: ${errorMessage}`);
-      throw error;
-    }
-  }
   // create(createSuperAdminDto: CreateSuperAdminDto) {
   //   return 'This action adds a new superAdmin';
   // }

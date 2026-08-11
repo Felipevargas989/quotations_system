@@ -1,8 +1,9 @@
 import { baseLayoutTemplate } from './baseLayout';
+import { escaparHtml } from './utils';
 
 // Torre de Control (tanda 1, 05-08): un interesado dejó sus datos en
 // "Prueba gratis". Plantilla simple estilo de la casa (referencia:
-// superAdminNotification / newAccount).
+// newAccount). TODO dato del visitante viaja escapado (cura 05-08).
 export interface SuperAdminNewLeadParams {
   nombre: string;
   telefono: string;
@@ -20,7 +21,7 @@ export const superAdminNewLeadTemplate = (
     valor
       ? `<tr>
           <td style="padding: 6px 14px; color: #6b7280; font-size: 14px;">${etiqueta}</td>
-          <td style="padding: 6px 14px; color: #111827; font-size: 14px; font-weight: 600;">${valor}</td>
+          <td style="padding: 6px 14px; color: #111827; font-size: 14px; font-weight: 600;">${escaparHtml(valor)}</td>
         </tr>`
       : '';
 

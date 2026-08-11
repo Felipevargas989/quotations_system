@@ -1,9 +1,11 @@
 import { baseLayoutTemplate } from './baseLayout';
+import { escaparHtml } from './utils';
 
 // Torre de Control (tanda 1, 05-08): se creó una empresa nueva en la
-// plataforma. Plantilla simple estilo de la casa.
+// plataforma. El nombre viene del visitante y viaja ESCAPADO de verdad
+// (cura 05-08: el viejo "nombreLimpio" era solo un coalesce mentiroso).
 export const superAdminNewCompanyTemplate = (nombre: string): string => {
-  const nombreLimpio = nombre || '';
+  const nombreEscapado = escaparHtml(nombre);
   const content = `
     <style>
       .company-title {
@@ -23,7 +25,7 @@ export const superAdminNewCompanyTemplate = (nombre: string): string => {
     </style>
     <h2 class="company-title">🏢 Nueva empresa en Eventia</h2>
     <p class="company-message">
-      Se creó la empresa <strong>${nombreLimpio}</strong>.
+      Se creó la empresa <strong>${nombreEscapado}</strong>.
     </p>
   `;
 

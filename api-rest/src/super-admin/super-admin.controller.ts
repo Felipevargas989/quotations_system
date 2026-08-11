@@ -13,7 +13,6 @@ import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
-import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { RegisterLeadDto } from './dto/register-lead.dto';
 import { SuperAdminService } from './super-admin.service';
 
@@ -95,16 +94,9 @@ export class SuperAdminController {
     return this.superAdminService.registerLead(registerLeadDto);
   }
 
-  // Techo estricto: acceso público de escritura (Fase 3).
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Public()
-  @Post('new-lead')
-  notifySuperAdmins(@Body() notifySuperAdminDto: NotifySuperAdminDto) {
-    this.logger.info(
-      `POST /super-admin/new-lead with body ${logSafe(notifySuperAdminDto)}`,
-    );
-    return this.superAdminService.notifySuperAdmins(notifySuperAdminDto);
-  }
+  // La puerta @Public POST /super-admin/new-lead se JUBILÓ (cura
+  // 05-08): cero llamadores vivos — el flujo real es POST /super-admin/
+  // lead, que guarda el lead Y dispara la alerta 🔔 en una llamada.
   // @Post()
   // create(@Body() createSuperAdminDto: CreateSuperAdminDto) {
   //   return this.superAdminService.create(createSuperAdminDto);

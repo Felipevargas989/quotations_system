@@ -42,7 +42,7 @@ import {
   SuperAdminNewLeadParams,
   superAdminNewLeadTemplate,
 } from './templates/superAdminNewLead';
-import { superAdminNotificationTemplate } from './templates/superAdminNotification';
+import { sanearAsunto } from './templates/utils';
 import { weeklyDigestTemplate } from './templates/weeklyDigest/template';
 import { WeeklyDigestParams } from './templates/weeklyDigest/types';
 import { WeeklyAnalyticsParams } from './templates/weekly_analytics/types';
@@ -453,14 +453,6 @@ export class EmailService {
     params: PortalReceiptAdminParams,
   ): Promise<void>;
   /**
-   * Sends a notification to super admins
-   */
-  async sendEmail(
-    to: (string | undefined | null)[] | undefined | null,
-    emailStructure: EmailStructure.SUPER_ADMIN_NOTIFICATION,
-    params: { content: string },
-  ): Promise<void>;
-  /**
    * Torre de Control: alerta de nuevo interesado ("Prueba gratis")
    */
   async sendEmail(
@@ -753,26 +745,14 @@ export class EmailService {
         break;
       }
 
-      case EmailStructure.SUPER_ADMIN_NOTIFICATION:
-        subject = EMAIL_SUBJECTS[EmailStructure.SUPER_ADMIN_NOTIFICATION];
-        sendTo = to as string[];
-        if (!(params as { content?: string })?.content) {
-          throw new Error(
-            'Content is required for SUPER_ADMIN_NOTIFICATION template',
-          );
-        }
-        html = superAdminNotificationTemplate(
-          (params as { content: string }).content,
-        );
-        break;
-
       // Torre de Control (tanda 1, 05-08): asuntos con el nombre a la
       // vista, como PORTAL_RECEIPT_ADMIN.
       case EmailStructure.SUPER_ADMIN_NEW_LEAD: {
         const lead = params as SuperAdminNewLeadParams;
-        subject = `🔔 Nuevo interesado en Eventia: ${
-          lead.nombre_empresa || lead.nombre
-        }`;
+        // Asunto saneado (cura 05-08): sin CR/LF ni largos infinitos.
+        subject = sanearAsunto(
+          `🔔 Nuevo interesado en Eventia: ${lead.nombre_empresa || lead.nombre}`,
+        );
         sendTo = to as string[];
         html = superAdminNewLeadTemplate(lead);
         break;
@@ -780,7 +760,7 @@ export class EmailService {
 
       case EmailStructure.SUPER_ADMIN_NEW_COMPANY: {
         const empresa = params as { name: string };
-        subject = `🏢 Nueva empresa en Eventia: ${empresa.name}`;
+        subject = sanearAsunto(`🏢 Nueva empresa en Eventia: ${empresa.name}`);
         sendTo = to as string[];
         html = superAdminNewCompanyTemplate(empresa.name);
         break;
@@ -813,12 +793,19 @@ export class EmailService {
         ? branding.replyTo
         : undefined;
 
-    await resend.emails.send({
+    const { error: resendError } = await resend.emails.send({
       from,
       to: sendTo,
       subject,
       html,
       ...(replyTo ? { replyTo } : {}),
     });
+    // Resend DEVUELVE el error en vez de lanzarlo (cura 05-08): sin
+    // esta bitácora, los envíos caídos morían mudos.
+    if (resendError) {
+      this.logger.error(
+        `Resend devolvió error para ${emailStructure}: ${resendError.message}`,
+      );
+    }
   }
 }

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AuthError, PostgrestError } from '@supabase/supabase-js';
+import {
+  AuthError,
+  User as AuthUser,
+  PostgrestError,
+} from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { logSafe } from '../logging/log-safe';
@@ -39,8 +43,13 @@ export const armarStatsMensuales = (
   ahora: Date,
 ): CompanyMonthlyStats[] => {
   const meses = mesesVentana(ahora);
+  // Semántica del viejo endpoint (cura 05-08): el corte de 30 días es
+  // la FECHA de hace 30 días completa (comparación por fecha-string,
+  // como hacía la query con 'YYYY-MM-DDT00:00:00.000Z') — sin perder
+  // parte del día borde.
   const hace30 = new Date(ahora);
   hace30.setDate(hace30.getDate() - 30);
+  const corte30 = hace30.toISOString().split('T')[0];
 
   return companies.map((company) => {
     const propias = quotations.filter((q) => q.company_id === company.id);
@@ -61,7 +70,9 @@ export const armarStatsMensuales = (
       monto: porMes.get(mes)?.monto ?? 0,
     }));
 
-    const ultimos30 = propias.filter((q) => new Date(q.created_at) >= hace30);
+    const ultimos30 = propias.filter(
+      (q) => q.created_at.slice(0, 10) >= corte30,
+    );
 
     return {
       company_id: company.id,
@@ -125,22 +136,36 @@ export class SuperAdminRepository {
         return { data: [], error: null };
       }
 
-      const { data: quotationsData, error: quotationsError } =
-        await this.supabase.client
-          .from('quotations')
-          .select('created_at, company_id, total_amount')
-          .gte('created_at', desde)
-          .order('created_at', { ascending: true });
+      // Cura 05-08: Supabase corta en 1000 filas por defecto — se
+      // recorre por páginas con .range() hasta que venga una corta.
+      const porPagina = 1000;
+      const quotationsData: {
+        created_at: string;
+        company_id: number;
+        total_amount: number | null;
+      }[] = [];
+      for (let desdeFila = 0; ; desdeFila += porPagina) {
+        const { data: tanda, error: quotationsError } =
+          await this.supabase.client
+            .from('quotations')
+            .select('created_at, company_id, total_amount')
+            .gte('created_at', desde)
+            .order('created_at', { ascending: true })
+            .range(desdeFila, desdeFila + porPagina - 1);
 
-      if (quotationsError) {
-        this.logger.error(
-          `Error in quotations query: ${quotationsError.message}`,
-        );
-        return { data: null, error: quotationsError };
+        if (quotationsError) {
+          this.logger.error(
+            `Error in quotations query: ${quotationsError.message}`,
+          );
+          return { data: null, error: quotationsError };
+        }
+
+        quotationsData.push(...(tanda ?? []));
+        if ((tanda ?? []).length < porPagina) break;
       }
 
       return {
-        data: armarStatsMensuales(companies, quotationsData ?? [], ahora),
+        data: armarStatsMensuales(companies, quotationsData, ahora),
         error: null,
       };
     } catch (error) {
@@ -172,27 +197,8 @@ export class SuperAdminRepository {
       const rangeEnd = new Date(endDate);
       rangeEnd.setHours(23, 59, 59, 999);
 
-      const { data, error } = await this.supabase.client.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-
-      if (error) {
-        this.logger.error(
-          `Error fetching auth users for sign-in stats: ${error.message}`,
-        );
-        return {
-          data: null,
-          totals: {
-            total_users: 0,
-            total_signed_in_in_period: 0,
-            total_never_signed_in: 0,
-          },
-          error,
-        };
-      }
-
-      const users = data?.users ?? [];
+      // Cura 05-08: todas las páginas, no solo la primera.
+      const users = await this.listarTodosLosUsuarios();
 
       const filteredUsers: UserLastSignInStats[] = users
         .filter((user) => !!user.last_sign_in_at)
@@ -251,6 +257,25 @@ export class SuperAdminRepository {
     }
   }
 
+  // Cura 05-08: Supabase entrega auth.users por PÁGINAS (perPage 1000).
+  // Este helper recorre todas hasta que venga una página corta; lo usan
+  // la torre y las estadísticas de inicio de sesión.
+  private async listarTodosLosUsuarios() {
+    const porPagina = 1000;
+    const usuarios: AuthUser[] = [];
+    for (let pagina = 1; ; pagina += 1) {
+      const { data, error } = await this.supabase.client.auth.admin.listUsers({
+        page: pagina,
+        perPage: porPagina,
+      });
+      if (error) throw error;
+      const tanda = data?.users ?? [];
+      usuarios.push(...tanda);
+      if (tanda.length < porPagina) break;
+    }
+    return usuarios;
+  }
+
   // Torre de Control (tanda 1, 05-08): los crudos de la torre en tres
   // consultas. OJO medido en la base: el id de user_profiles NO calza
   // con auth.users.id — el cruce confiable es por EMAIL, y lo hace el
@@ -258,15 +283,7 @@ export class SuperAdminRepository {
   async getTorreBase(): Promise<TorreBase> {
     this.logger.info('getTorreBase (super-admin)');
 
-    const { data: authData, error: authError } =
-      await this.supabase.client.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-    if (authError) {
-      this.logger.error(`getTorreBase auth error: ${authError.message}`);
-      throw authError;
-    }
+    const authUsers = await this.listarTodosLosUsuarios();
 
     const { data: profiles, error: profilesError } = await this.supabase.client
       .from('user_profiles')
@@ -290,7 +307,7 @@ export class SuperAdminRepository {
     }
 
     return {
-      authUsers: (authData?.users ?? []).map((u) => ({
+      authUsers: authUsers.map((u) => ({
         email: u.email ?? null,
         last_sign_in_at: u.last_sign_in_at ?? null,
         created_at: u.created_at ?? null,

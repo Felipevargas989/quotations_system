@@ -17,7 +17,8 @@ export enum EmailStructure {
   QUOTATION_STATUS_CHECK = 'quotationStatusCheck',
   WEEKLY_DIGEST = 'weeklyDigest',
   PORTAL_RECEIPT_ADMIN = 'portalReceiptAdmin',
-  SUPER_ADMIN_NOTIFICATION = 'superAdminNotification',
+  // SUPER_ADMIN_NOTIFICATION se jubiló (cura 05-08) junto con la
+  // puerta huérfana POST /super-admin/new-lead: cero llamadores vivos.
   // Torre de Control (tanda 1, 05-08): alertas a los super-admins.
   SUPER_ADMIN_NEW_LEAD = 'superAdminNewLead',
   SUPER_ADMIN_NEW_COMPANY = 'superAdminNewCompany',

@@ -77,6 +77,14 @@ describe('Barras mensuales (armarStatsMensuales)', () => {
         created_at: '2026-06-26T10:00:00.000Z',
         total_amount: 1000,
       },
+      // El DÍA BORDE completo cuenta (cura 05-08, semántica del viejo
+      // endpoint por fecha-string): hace 30 días a las 00:30 entra
+      // aunque "ahora" sean las 12:00.
+      {
+        company_id: 1,
+        created_at: '2026-07-06T00:30:00.000Z',
+        total_amount: 5,
+      },
       // Hace 10 días: cuenta en ambos.
       {
         company_id: 1,
@@ -93,8 +101,8 @@ describe('Barras mensuales (armarStatsMensuales)', () => {
 
     const [cabanas] = armarStatsMensuales(empresas, cotizaciones, ahora);
 
-    expect(cabanas.total_quotations).toBe(2);
-    expect(cabanas.total_amount).toBe(370);
+    expect(cabanas.total_quotations).toBe(3);
+    expect(cabanas.total_amount).toBe(375);
     // El dataset mensual sí ve la de hace 40 días.
     expect(cabanas.monthly.find((m) => m.mes === '2026-06')).toEqual({
       mes: '2026-06',
