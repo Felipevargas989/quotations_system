@@ -19,6 +19,7 @@ import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { NotifySuperAdminDto } from './dto/notify-super-admin.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { RegisterLeadDto } from './dto/register-lead.dto';
+import { TorreResponse, TorreUsuario } from './dto/torre.dto';
 import { SuperAdminRepository } from './super-admin.repository';
 
 @Injectable()
@@ -98,6 +99,9 @@ export class SuperAdminService {
         // Do not throw error, just log it
         this.logger.error(error);
       }
+      // Torre de Control (05-08): aviso 🏢 a los super-admins; el
+      // correo que falle jamás bota la suscripción.
+      await this.alertNuevaEmpresa(companyData.name);
       return {
         userData,
         companyData,
@@ -232,8 +236,131 @@ export class SuperAdminService {
     return this.superAdminRepository.listCompanies();
   }
 
-  createCompanyOnly(name: string) {
-    return this.superAdminRepository.createCompanyOnly(name);
+  async createCompanyOnly(name: string) {
+    const empresa = await this.superAdminRepository.createCompanyOnly(name);
+    // Torre de Control (05-08): aviso 🏢; nunca rompe la creación.
+    await this.alertNuevaEmpresa(name);
+    return empresa;
+  }
+
+  // ---------- Torre de Control (tanda 1, 05-08) ----------
+  // Destinatarios de las alertas: SIEMPRE del ConfigService (la misma
+  // allowlist de assertSuperAdmin), jamás correos escritos a fuego.
+  private superAdminRecipients(): string[] {
+    return (this.configService.get<string>('SUPER_ADMIN_EMAILS') || '')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
+  // Alerta 🔔 de lead nuevo. Con try/catch interno: el envío JAMÁS
+  // rompe el flujo (el lead vale más que el correo).
+  private async alertNuevoLead(dto: RegisterLeadDto): Promise<void> {
+    try {
+      const destinatarios = this.superAdminRecipients();
+      if (destinatarios.length === 0) return;
+      await this.emailService.sendEmail(
+        destinatarios,
+        EmailStructure.SUPER_ADMIN_NEW_LEAD,
+        {
+          nombre: dto.nombre,
+          telefono: dto.telefono,
+          email: dto.email,
+          nombre_empresa: dto.nombre_empresa,
+          personas_empresa: dto.personas_empresa,
+          ventas_anuales: dto.ventas_anuales,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `El lead quedó guardado pero la alerta falló: ${
+          error instanceof Error ? error.message : 'error desconocido'
+        }`,
+      );
+    }
+  }
+
+  // Alerta 🏢 de empresa nueva. Mismo contrato: jamás rompe el flujo.
+  private async alertNuevaEmpresa(nombre: string): Promise<void> {
+    try {
+      const destinatarios = this.superAdminRecipients();
+      if (destinatarios.length === 0) return;
+      await this.emailService.sendEmail(
+        destinatarios,
+        EmailStructure.SUPER_ADMIN_NEW_COMPANY,
+        { name: nombre },
+      );
+    } catch (error) {
+      this.logger.error(
+        `La empresa quedó creada pero la alerta falló: ${
+          error instanceof Error ? error.message : 'error desconocido'
+        }`,
+      );
+    }
+  }
+
+  // GET torre: la tabla "quién ha entrado" + las 6 tarjetas. El cruce
+  // auth.users ↔ user_profiles va por EMAIL (los ids no calzan, medido
+  // en la base); companies pone el nombre de la empresa.
+  async getTorre(): Promise<TorreResponse> {
+    this.logger.info('getTorre (super-admin)');
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+
+    const [base, leadsTotal, leadsMes] = await Promise.all([
+      this.superAdminRepository.getTorreBase(),
+      this.superAdminRepository.countLeads(),
+      this.superAdminRepository.countLeads(inicioMes.toISOString()),
+    ]);
+
+    const perfilPorEmail = new Map(
+      base.profiles
+        .filter((p) => p.email)
+        .map((p) => [String(p.email).toLowerCase(), p]),
+    );
+    const nombreEmpresa = new Map(base.companies.map((c) => [c.id, c.name]));
+
+    const usuarios: TorreUsuario[] = base.authUsers
+      .map((u) => {
+        const perfil = u.email
+          ? perfilPorEmail.get(u.email.toLowerCase())
+          : undefined;
+        return {
+          email: u.email || '',
+          nombre: perfil?.full_name || '',
+          empresa:
+            perfil?.company_id != null
+              ? nombreEmpresa.get(perfil.company_id) || ''
+              : '',
+          rol: perfil?.role || '',
+          ultimo_inicio_sesion: u.last_sign_in_at,
+          creado: u.created_at,
+        };
+      })
+      // Último inicio de sesión descendente; los que nunca han
+      // entrado, al final.
+      .sort((a, b) => {
+        if (!a.ultimo_inicio_sesion && !b.ultimo_inicio_sesion) return 0;
+        if (!a.ultimo_inicio_sesion) return 1;
+        if (!b.ultimo_inicio_sesion) return -1;
+        return a.ultimo_inicio_sesion < b.ultimo_inicio_sesion ? 1 : -1;
+      });
+
+    const delMes = (iso: string | null) =>
+      !!iso && new Date(iso).getTime() >= inicioMes.getTime();
+
+    return {
+      usuarios,
+      tarjetas: {
+        empresas_total: base.companies.length,
+        empresas_mes: base.companies.filter((c) => delMes(c.created_at)).length,
+        usuarios_total: base.authUsers.length,
+        usuarios_mes: base.authUsers.filter((u) => delMes(u.created_at)).length,
+        leads_total: leadsTotal,
+        leads_mes: leadsMes,
+      },
+    };
   }
 
   updateCompanyById(id: number, fields: Record<string, unknown>) {
@@ -241,19 +368,12 @@ export class SuperAdminService {
   }
 
   // Mudanza #1 de "una sola puerta" (28-07): guardar el lead Y avisar
-  // a los super-admins en UNA llamada. El aviso que falle no bota el
-  // registro (el lead vale más que el correo).
+  // a los super-admins en UNA llamada. Desde la Torre de Control
+  // (05-08) el aviso es la alerta 🔔 con los datos del lead; el que
+  // falle no bota el registro (el lead vale más que el correo).
   async registerLead(dto: RegisterLeadDto) {
     const lead = await this.superAdminRepository.registerLead(dto);
-    try {
-      await this.notifySuperAdmins({
-        content: 'Nuevo lead desde el formulario de la pagina',
-      });
-    } catch (error) {
-      this.logger.error(
-        `El lead quedó guardado pero el aviso falló: ${error instanceof Error ? error.message : 'error desconocido'}`,
-      );
-    }
+    await this.alertNuevoLead(dto);
     return { success: true, id: lead.id };
   }
 

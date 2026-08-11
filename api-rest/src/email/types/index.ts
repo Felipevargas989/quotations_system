@@ -18,4 +18,7 @@ export enum EmailStructure {
   WEEKLY_DIGEST = 'weeklyDigest',
   PORTAL_RECEIPT_ADMIN = 'portalReceiptAdmin',
   SUPER_ADMIN_NOTIFICATION = 'superAdminNotification',
+  // Torre de Control (tanda 1, 05-08): alertas a los super-admins.
+  SUPER_ADMIN_NEW_LEAD = 'superAdminNewLead',
+  SUPER_ADMIN_NEW_COMPANY = 'superAdminNewCompany',
 }

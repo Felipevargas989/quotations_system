@@ -73,6 +73,15 @@ export class SuperAdminController {
     return this.superAdminService.getStatsLastMonth();
   }
 
+  // Torre de Control (tanda 1, 05-08): quién ha entrado + tarjetas.
+  // Mismo escudo que el resto del área: allowlist SUPER_ADMIN_EMAILS.
+  @Get('torre')
+  getTorre(@CurrentUser() user: UserConCorreo) {
+    this.superAdminService.assertSuperAdmin(user.email);
+    this.logger.info(`GET /super-admin/torre`);
+    return this.superAdminService.getTorre();
+  }
+
   // Mudanza #1 de "una sola puerta" (28-07): la landing registra el
   // lead POR ACÁ (validado + guardado + aviso en una llamada), ya no
   // directo a Supabase desde el navegador.

@@ -8,6 +8,7 @@ import {
   QuotationDayStats,
   UserLastSignInStats,
 } from './dto/quotation-stats.dto';
+import { TorreBase } from './dto/torre.dto';
 
 @Injectable()
 export class SuperAdminRepository {
@@ -249,6 +250,70 @@ export class SuperAdminRepository {
         error: error as AuthError,
       };
     }
+  }
+
+  // Torre de Control (tanda 1, 05-08): los crudos de la torre en tres
+  // consultas. OJO medido en la base: el id de user_profiles NO calza
+  // con auth.users.id — el cruce confiable es por EMAIL, y lo hace el
+  // servicio; acá solo se trae cada lista completa.
+  async getTorreBase(): Promise<TorreBase> {
+    this.logger.info('getTorreBase (super-admin)');
+
+    const { data: authData, error: authError } =
+      await this.supabase.client.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+    if (authError) {
+      this.logger.error(`getTorreBase auth error: ${authError.message}`);
+      throw authError;
+    }
+
+    const { data: profiles, error: profilesError } = await this.supabase.client
+      .from('user_profiles')
+      .select('email, full_name, role, company_id');
+    if (profilesError) {
+      this.logger.error(
+        `getTorreBase profiles error: ${profilesError.message}`,
+      );
+      throw profilesError;
+    }
+
+    const { data: companies, error: companiesError } =
+      await this.supabase.client
+        .from('companies')
+        .select('id, name, created_at');
+    if (companiesError) {
+      this.logger.error(
+        `getTorreBase companies error: ${companiesError.message}`,
+      );
+      throw companiesError;
+    }
+
+    return {
+      authUsers: (authData?.users ?? []).map((u) => ({
+        email: u.email ?? null,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+        created_at: u.created_at ?? null,
+      })),
+      profiles: (profiles ?? []) as TorreBase['profiles'],
+      companies: (companies ?? []) as TorreBase['companies'],
+    };
+  }
+
+  // Conteo de leads; con `desdeIso` cuenta solo los del período.
+  async countLeads(desdeIso?: string): Promise<number> {
+    this.logger.info('countLeads (super-admin)');
+    let query = this.supabase.client
+      .from('leads')
+      .select('id', { count: 'exact', head: true });
+    if (desdeIso) query = query.gte('created_at', desdeIso);
+    const { count, error } = await query;
+    if (error) {
+      this.logger.error(`countLeads error: ${error.message}`);
+      throw error;
+    }
+    return count ?? 0;
   }
 
   // Mudanza #7 (28-07): empresas del área super-admin por el backend.

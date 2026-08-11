@@ -37,6 +37,11 @@ import { QuotationIsSentParams } from './templates/quotationIsSent/types';
 import { quotationStatusCheckTemplate } from './templates/quotationStatusCheck/template';
 import { QuotationStatusCheckParams } from './templates/quotationStatusCheck/types';
 import { soonEventsTemplate } from './templates/soonEvents';
+import { superAdminNewCompanyTemplate } from './templates/superAdminNewCompany';
+import {
+  SuperAdminNewLeadParams,
+  superAdminNewLeadTemplate,
+} from './templates/superAdminNewLead';
 import { superAdminNotificationTemplate } from './templates/superAdminNotification';
 import { weeklyDigestTemplate } from './templates/weeklyDigest/template';
 import { WeeklyDigestParams } from './templates/weeklyDigest/types';
@@ -456,6 +461,22 @@ export class EmailService {
     params: { content: string },
   ): Promise<void>;
   /**
+   * Torre de Control: alerta de nuevo interesado ("Prueba gratis")
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.SUPER_ADMIN_NEW_LEAD,
+    params: SuperAdminNewLeadParams,
+  ): Promise<void>;
+  /**
+   * Torre de Control: alerta de empresa nueva en la plataforma
+   */
+  async sendEmail(
+    to: (string | undefined | null)[] | undefined | null,
+    emailStructure: EmailStructure.SUPER_ADMIN_NEW_COMPANY,
+    params: { name: string },
+  ): Promise<void>;
+  /**
    * Implementation
    */
   async sendEmail(
@@ -744,6 +765,26 @@ export class EmailService {
           (params as { content: string }).content,
         );
         break;
+
+      // Torre de Control (tanda 1, 05-08): asuntos con el nombre a la
+      // vista, como PORTAL_RECEIPT_ADMIN.
+      case EmailStructure.SUPER_ADMIN_NEW_LEAD: {
+        const lead = params as SuperAdminNewLeadParams;
+        subject = `🔔 Nuevo interesado en Eventia: ${
+          lead.nombre_empresa || lead.nombre
+        }`;
+        sendTo = to as string[];
+        html = superAdminNewLeadTemplate(lead);
+        break;
+      }
+
+      case EmailStructure.SUPER_ADMIN_NEW_COMPANY: {
+        const empresa = params as { name: string };
+        subject = `🏢 Nueva empresa en Eventia: ${empresa.name}`;
+        sendTo = to as string[];
+        html = superAdminNewCompanyTemplate(empresa.name);
+        break;
+      }
 
       default:
         throw new Error(`Unknown email structure: ${emailStructure as string}`);
