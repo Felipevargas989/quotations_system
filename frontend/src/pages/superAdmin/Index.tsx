@@ -25,25 +25,42 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   ChartOptions,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 
-// Register Chart.js components
+// Register Chart.js components — barras mensuales (05-08): el gráfico
+// de líneas diarias era ilegible; Line/PointElement se jubilaron.
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
 );
+
+// Rótulo humano es-CL corto de un mes 'YYYY-MM': "mar 26", "ago 26".
+const MESES_CORTOS = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+const rotuloMes = (mes: string) =>
+  `${MESES_CORTOS[Number(mes.slice(5, 7)) - 1] || mes} ${mes.slice(2, 4)}`;
 
 // ---- Torre de Control (tanda 1, 05-08): las 6 tarjetas + la tabla
 // "quién ha entrado", directo del GET /super-admin/torre. ----
@@ -308,64 +325,29 @@ export default function SuperAdminPage() {
       { border: "rgb(251, 146, 60)", bg: "rgba(251, 146, 60, 0.1)" }, // orange
     ];
 
-    // Get all unique dates and sort them
-    const allDates = new Set<string>();
-    statsData.companies.forEach((company) => {
-      company.stats.forEach((stat) => {
-        allDates.add(stat.date);
-      });
-    });
-    const sortedDates = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+    // Barras mensuales (05-08): una barra por EMPRESA por mes, misma
+    // paleta de siempre por empresa. La serie "Total (Todas las
+    // empresas)" se jubiló — con barras agrupadas era ruido. Los 6
+    // meses vienen SIEMPRE del backend (huecos en 0).
+    const meses = statsData.companies[0]?.monthly.map((m) => m.mes) ?? [];
 
-    // Create datasets for each company
     const datasets = statsData.companies.map((company, index) => {
       const color = colors[index % colors.length];
-
-      // Create a map of date to count for this company
-      const dataMap = new Map(
-        company.stats.map((stat) => [stat.date, stat.count]),
-      );
-
-      // Fill in data for all dates (0 if no data for that date)
-      const data = sortedDates.map((date) => dataMap.get(date) || 0);
-
       return {
         label: company.company_name,
-        data,
+        data: company.monthly.map((m) => m.cantidad),
+        backgroundColor: color.border,
         borderColor: color.border,
-        backgroundColor: color.bg,
-        tension: 0.3,
-        fill: true,
       };
     });
 
-    // Add total quotations line (aggregated across all companies)
-    if (statsData.total_quotations?.length > 0) {
-      const totalDataMap = new Map(
-        statsData.total_quotations.map((stat) => [stat.date, stat.count]),
-      );
-
-      const totalData = sortedDates.map((date) => totalDataMap.get(date) || 0);
-
-      datasets.push({
-        label: "Total (Todas las empresas)",
-        data: totalData,
-        borderColor: "rgb(0, 0, 0)",
-        backgroundColor: "rgba(0, 0, 0, 0.05)",
-        tension: 0.3,
-        fill: false,
-      } as any);
-    }
-
     return {
-      labels: sortedDates.map((date) =>
-        format(new Date(date), "dd/MM", { locale: es }),
-      ),
+      labels: meses.map(rotuloMes),
       datasets,
     };
   };
 
-  const chartOptions: ChartOptions<"line"> = {
+  const chartOptions: ChartOptions<"bar"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -374,15 +356,22 @@ export default function SuperAdminPage() {
       },
       title: {
         display: true,
-        text: "Cotizaciones por Empresa - Últimos 30 Días",
+        text: "Cotizaciones por Empresa — por mes (últimos 6 meses)",
         font: {
           size: 16,
           weight: "bold",
         },
       },
       tooltip: {
-        mode: "index" as const,
-        intersect: false,
+        callbacks: {
+          // Cantidad y monto CLP del mes de ESA empresa.
+          label: (ctx) => {
+            const empresa = statsData?.companies?.[ctx.datasetIndex];
+            const mes = empresa?.monthly?.[ctx.dataIndex];
+            if (!empresa || !mes) return "";
+            return `${empresa.company_name}: ${mes.cantidad} cotizaciones — $${mes.monto.toLocaleString("es-CL")}`;
+          },
+        },
       },
     },
     scales: {
@@ -399,14 +388,9 @@ export default function SuperAdminPage() {
       x: {
         title: {
           display: true,
-          text: "Fecha",
+          text: "Mes",
         },
       },
-    },
-    interaction: {
-      mode: "nearest" as const,
-      axis: "x" as const,
-      intersect: false,
     },
   };
 
@@ -460,7 +444,7 @@ export default function SuperAdminPage() {
           </div>
         </div>
         <div className="h-[400px]">
-          <Line data={chartData} options={chartOptions} />
+          <Bar data={chartData} options={chartOptions} />
         </div>
 
         {/* Company Totals Summary */}

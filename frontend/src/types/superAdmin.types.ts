@@ -1,9 +1,11 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-export interface QuotationDayStats {
-  date: string;
-  count: number;
-  total_amount: number;
+// Barras mensuales (05-08): el balde diario se jubiló con el gráfico
+// de líneas. Espejo de api-rest/src/super-admin/dto/quotation-stats.dto.
+export interface QuotationMonthStats {
+  mes: string; // 'YYYY-MM'
+  cantidad: number;
+  monto: number;
 }
 
 export type UserLastSignInStats = Pick<
@@ -25,11 +27,13 @@ export interface QuotationStatsResponse {
   companies: {
     company_id: number;
     company_name: string;
-    stats: QuotationDayStats[];
+    // SIEMPRE los 6 meses de la ventana, huecos en 0.
+    monthly: QuotationMonthStats[];
+    // Significado histórico conservado: últimos 30 días (encabezado y
+    // tarjetas "Totales por Empresa").
     total_quotations: number;
     total_amount: number;
   }[];
-  total_quotations: QuotationDayStats[]; // Aggregated totals by day
   total_quotations_all_companies: number;
   total_amount_all_companies: number;
   user_sign_in_stats: UserSignInStats;
