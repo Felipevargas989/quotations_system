@@ -38,9 +38,11 @@ export class SuperAdminController {
     return this.superAdminService.createSuscription(createSuscriptionDto);
   }
 
-  @Public()
   // ---------- Mudanza #7 (28-07): empresas del área super-admin ----------
   // Todas exigen estar en SUPER_ADMIN_EMAILS (antes bastaba la sesión).
+  // (10-08: se retiró un @Public() huérfano que quedó pegado aquí en la
+  // Fase 3 — hacía que el guardia no cargara al usuario y la lista de
+  // empresas tronara con 500 al leerle el correo.)
   @Get('companies')
   listCompanies(@CurrentUser() user: UserConCorreo) {
     this.superAdminService.assertSuperAdmin(user.email);
