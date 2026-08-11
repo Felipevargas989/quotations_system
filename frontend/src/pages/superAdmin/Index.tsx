@@ -130,7 +130,9 @@ function TorreDeControl() {
       {torreQuery.isPending && (
         <p className="text-sm text-gray-500">Cargando…</p>
       )}
-      {torreQuery.isError && (
+      {/* Banner de error SOLO sin datos (cura 05-08); con datos viejos
+          en pantalla va la notita inline de abajo. */}
+      {torreQuery.isError && !torreQuery.data && (
         <div className="bg-white p-4 rounded-lg shadow flex items-center gap-3">
           <span className="text-sm text-red-600">
             No se pudo cargar la torre.
@@ -147,6 +149,18 @@ function TorreDeControl() {
 
       {torreQuery.data && (
         <>
+          {torreQuery.isError && (
+            <p className="text-xs text-amber-600 mb-2">
+              No se pudo actualizar — mostrando datos anteriores.{" "}
+              <button
+                type="button"
+                onClick={() => void torreQuery.refetch()}
+                className="font-semibold underline hover:no-underline"
+              >
+                Reintentar
+              </button>
+            </p>
+          )}
           {/* Las 6 tarjetas, estilo de las del Dashboard. */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             {casillas.map((c) => (
@@ -329,13 +343,15 @@ export default function SuperAdminPage() {
     // paleta de siempre por empresa. La serie "Total (Todas las
     // empresas)" se jubiló — con barras agrupadas era ruido. Los 6
     // meses vienen SIEMPRE del backend (huecos en 0).
-    const meses = statsData.companies[0]?.monthly.map((m) => m.mes) ?? [];
+    // Guardas contra una respuesta con forma vieja durante la ventana
+    // de despliegue (cura 05-08).
+    const meses = statsData.companies[0]?.monthly?.map((m) => m.mes) ?? [];
 
     const datasets = statsData.companies.map((company, index) => {
       const color = colors[index % colors.length];
       return {
         label: company.company_name,
-        data: company.monthly.map((m) => m.cantidad),
+        data: (company.monthly ?? []).map((m) => m.cantidad),
         backgroundColor: color.border,
         borderColor: color.border,
       };
