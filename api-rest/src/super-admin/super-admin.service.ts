@@ -145,33 +145,8 @@ export class SuperAdminService {
         0,
       );
 
-      // Aggregate total quotations and amounts across all companies by day
-      const totalQuotationsByDay = new Map<
-        string,
-        { count: number; total_amount: number }
-      >();
-
-      data.forEach((company) => {
-        company.stats.forEach((stat) => {
-          const current = totalQuotationsByDay.get(stat.date) || {
-            count: 0,
-            total_amount: 0,
-          };
-          totalQuotationsByDay.set(stat.date, {
-            count: current.count + stat.count,
-            total_amount: current.total_amount + stat.total_amount,
-          });
-        });
-      });
-
-      // Convert to array and sort by date
-      const total_quotations = Array.from(totalQuotationsByDay.entries())
-        .map(([date, data]) => ({
-          date,
-          count: data.count,
-          total_amount: data.total_amount,
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+      // La serie diaria agregada se jubiló (05-08): el gráfico ahora es
+      // de barras mensuales por empresa y la línea "Total" era ruido.
 
       const {
         data: usersLastSignIns,
@@ -194,7 +169,6 @@ export class SuperAdminService {
       const response: QuotationStatsResponse = {
         period,
         companies: data,
-        total_quotations,
         total_quotations_all_companies,
         total_amount_all_companies,
         user_sign_in_stats: {

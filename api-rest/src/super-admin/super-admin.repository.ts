@@ -5,10 +5,73 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import { logSafe } from '../logging/log-safe';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import {
-  QuotationDayStats,
+  CompanyMonthlyStats,
+  QuotationMonthStats,
   UserLastSignInStats,
 } from './dto/quotation-stats.dto';
 import { TorreBase } from './dto/torre.dto';
+
+// ---- Barras mensuales (05-08, pedido de Felipe): helpers PUROS. ----
+// Los 6 meses calendario de la ventana (5 atrás + el en curso), 'YYYY-MM'.
+export const mesesVentana = (ahora: Date): string[] => {
+  const meses: string[] = [];
+  for (let i = 5; i >= 0; i--) {
+    meses.push(
+      new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - i, 1))
+        .toISOString()
+        .slice(0, 7),
+    );
+  }
+  return meses;
+};
+
+// Reparte las cotizaciones en baldes MENSUALES por empresa (los 6 meses
+// SIEMPRE, huecos en 0 — sin meses fantasma) y calcula los totales de
+// los ÚLTIMOS 30 DÍAS del mismo dataset, que conservan su significado
+// histórico (los usan el encabezado y las tarjetas por empresa).
+export const armarStatsMensuales = (
+  companies: { id: number; name: string }[],
+  quotations: {
+    company_id: number;
+    created_at: string;
+    total_amount: number | null;
+  }[],
+  ahora: Date,
+): CompanyMonthlyStats[] => {
+  const meses = mesesVentana(ahora);
+  const hace30 = new Date(ahora);
+  hace30.setDate(hace30.getDate() - 30);
+
+  return companies.map((company) => {
+    const propias = quotations.filter((q) => q.company_id === company.id);
+
+    const porMes = new Map<string, { cantidad: number; monto: number }>();
+    propias.forEach((q) => {
+      const mes = new Date(q.created_at).toISOString().slice(0, 7);
+      const actual = porMes.get(mes) || { cantidad: 0, monto: 0 };
+      porMes.set(mes, {
+        cantidad: actual.cantidad + 1,
+        monto: actual.monto + (q.total_amount || 0),
+      });
+    });
+
+    const monthly: QuotationMonthStats[] = meses.map((mes) => ({
+      mes,
+      cantidad: porMes.get(mes)?.cantidad ?? 0,
+      monto: porMes.get(mes)?.monto ?? 0,
+    }));
+
+    const ultimos30 = propias.filter((q) => new Date(q.created_at) >= hace30);
+
+    return {
+      company_id: company.id,
+      company_name: company.name,
+      monthly,
+      total_quotations: ultimos30.length,
+      total_amount: ultimos30.reduce((s, q) => s + (q.total_amount || 0), 0),
+    };
+  });
+};
 
 @Injectable()
 export class SuperAdminRepository {
@@ -25,31 +88,23 @@ export class SuperAdminRepository {
     );
   }
 
+  // Barras mensuales (05-08): ventana de 6 meses calendario — desde el
+  // día 1 del mes que está 5 atrás hasta hoy. El reparto en baldes y
+  // los totales de 30 días viven en armarStatsMensuales (pura, con
+  // spec propio).
   async getStatsLastMonth(): Promise<{
-    data:
-      | {
-          company_id: number;
-          company_name: string;
-          stats: QuotationDayStats[];
-          total_quotations: number;
-          total_amount: number;
-        }[]
-      | null;
+    data: CompanyMonthlyStats[] | null;
     error: PostgrestError | null;
   }> {
-    this.logger.info(`getStatsLastMonth for all companies`);
+    this.logger.info(`getStatsLastMonth (mensual, 6 meses)`);
 
     try {
-      // Get the date range for last 30 days
-      const now = new Date();
-      const endDate = now.toISOString().split('T')[0]; // Today
+      const ahora = new Date();
+      const desde = new Date(
+        Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - 5, 1),
+      ).toISOString();
 
-      // Calculate 30 days ago
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-
-      this.logger.info(`Querying quotations from ${startDate} to ${endDate}`);
+      this.logger.info(`Querying quotations from ${desde}`);
 
       // Get all companies first
       const { data: companies, error: companiesError } =
@@ -70,13 +125,11 @@ export class SuperAdminRepository {
         return { data: [], error: null };
       }
 
-      // Get quotations for all companies in the date range
       const { data: quotationsData, error: quotationsError } =
         await this.supabase.client
           .from('quotations')
           .select('created_at, company_id, total_amount')
-          .gte('created_at', `${startDate}T00:00:00.000Z`)
-          .lte('created_at', `${endDate}T23:59:59.999Z`)
+          .gte('created_at', desde)
           .order('created_at', { ascending: true });
 
       if (quotationsError) {
@@ -86,64 +139,10 @@ export class SuperAdminRepository {
         return { data: null, error: quotationsError };
       }
 
-      // Process data for each company
-      const result = companies.map((company) => {
-        // Filter quotations for this company
-        const companyQuotations =
-          quotationsData?.filter((q) => q.company_id === company.id) || [];
-
-        // Group by day and count/sum amounts for this company
-        const dayStats = new Map<
-          string,
-          { count: number; total_amount: number }
-        >();
-
-        companyQuotations.forEach((quotation) => {
-          const date = new Date(quotation.created_at)
-            .toISOString()
-            .split('T')[0];
-          const current = dayStats.get(date) || { count: 0, total_amount: 0 };
-          dayStats.set(date, {
-            count: current.count + 1,
-            total_amount: current.total_amount + (quotation.total_amount || 0),
-          });
-        });
-
-        // Convert to array format and fill missing days with 0
-        const stats: QuotationDayStats[] = [];
-        const currentDate = new Date(thirtyDaysAgo);
-
-        while (currentDate <= now) {
-          const dateStr = currentDate.toISOString().split('T')[0];
-          const dayStat = dayStats.get(dateStr) || {
-            count: 0,
-            total_amount: 0,
-          };
-          stats.push({
-            date: dateStr,
-            count: dayStat.count,
-            total_amount: dayStat.total_amount,
-          });
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        // Calculate total quotations and total amount for this company
-        const total_quotations = companyQuotations.length;
-        const total_amount = companyQuotations.reduce(
-          (sum, q) => sum + ((q.total_amount as number) || 0),
-          0,
-        );
-
-        return {
-          company_id: company.id,
-          company_name: company.name,
-          stats,
-          total_quotations,
-          total_amount,
-        };
-      });
-
-      return { data: result, error: null };
+      return {
+        data: armarStatsMensuales(companies, quotationsData ?? [], ahora),
+        error: null,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
