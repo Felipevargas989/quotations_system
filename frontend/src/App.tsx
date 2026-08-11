@@ -11,6 +11,7 @@ import Layout from "./layout/Layout.tsx";
 import PermissionGuard from "./components/PermissionGuard";
 import { SECTION_ROLES } from "./constants/permissions";
 import { initGA } from "./lib/analytics.ts";
+import { usePageViews } from "./hooks/usePageViews.ts";
 
 // CARGA POR PARTES (Fase 3, 28-07). Antes TODAS las pantallas viajaban
 // en un solo archivo de 1,7 MB que el navegador descargaba entero al
@@ -94,6 +95,11 @@ const AnswersView = lazy(
 // esperas. Ahora todo el "preparando" es UNA sola textura de esqueleto.
 const PageLoader = () => <PageSkeleton />;
 
+function RastreadorDeRutas() {
+  usePageViews();
+  return null;
+}
+
 function App() {
   // Initialize Google Analytics
   useEffect(() => {
@@ -127,6 +133,9 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        {/* Contador por rutas (10-08): estaba escrito pero desenchufado.
+            Vive dentro del Router y no dibuja nada. */}
+        <RastreadorDeRutas />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />

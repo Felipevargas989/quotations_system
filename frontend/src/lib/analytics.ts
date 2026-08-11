@@ -1,8 +1,17 @@
-// Google Analytics configuration
-export const GA_TRACKING_ID = "G-YJZHR3XLTG"; // Replace with your actual GA4 Measurement ID
+// Google Analytics 4 — propiedad "Eventia" de Felipe (10-08-2026).
+// El ID anterior (G-YJZHR3XLTG) era de una cuenta ajena: las visitas
+// le llegaban a un desconocido. El ID de medición no es secreto.
+export const GA_TRACKING_ID = "G-95XN3KQF7Z";
+
+// Solo PRODUCCIÓN reporta: el laboratorio y el desarrollo local no
+// ensucian los datos con nuestras pruebas.
+const esProduccion = () =>
+  typeof window !== "undefined" &&
+  window.location.hostname.endsWith("eventi-app.com");
 
 // Initialize Google Analytics
 export const initGA = () => {
+  if (!esProduccion()) return;
   // Load the Google Analytics script
   const script = document.createElement("script");
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`;
