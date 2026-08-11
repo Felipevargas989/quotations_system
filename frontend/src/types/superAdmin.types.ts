@@ -34,3 +34,28 @@ export interface QuotationStatsResponse {
   total_amount_all_companies: number;
   user_sign_in_stats: UserSignInStats;
 }
+
+// ---- Torre de Control (tanda 1, 05-08): espejo del backend
+// (api-rest/src/super-admin/dto/torre.dto.ts). ----
+export interface TorreUsuario {
+  email: string;
+  nombre: string;
+  empresa: string;
+  rol: string;
+  ultimo_inicio_sesion: string | null;
+  creado: string | null;
+}
+
+export interface TorreTarjetas {
+  empresas_total: number;
+  empresas_mes: number;
+  usuarios_total: number;
+  usuarios_mes: number;
+  leads_total: number;
+  leads_mes: number;
+}
+
+export interface TorreResponse {
+  usuarios: TorreUsuario[];
+  tarjetas: TorreTarjetas;
+}

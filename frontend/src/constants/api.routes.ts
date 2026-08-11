@@ -81,6 +81,8 @@ export const API_ROUTES = {
   SUPER_ADMIN_NEW_LEAD: "/super-admin/new-lead",
   // Mudanza #1 "una sola puerta": registrar lead (guardar + avisar).
   SUPER_ADMIN_LEAD: "/super-admin/lead",
+  // Torre de Control (tanda 1, 05-08): tarjetas + quién ha entrado.
+  SUPER_ADMIN_TORRE: "/super-admin/torre",
 
   // analytics
   ANALYTICS_DASHBOARD: "/analytics/dashboard",

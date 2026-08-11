@@ -9,10 +9,12 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   getAllCompanies,
   createCompany,
   getStatsLastMonth,
+  getTorre,
 } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
 import { QuotationStatsResponse } from "../../types/superAdmin.types";
@@ -42,6 +44,179 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
+
+// ---- Torre de Control (tanda 1, 05-08): las 6 tarjetas + la tabla
+// "quién ha entrado", directo del GET /super-admin/torre. ----
+// Fecha humana es-CL: "hoy 19:09", "ayer", y más viejo "05-08"; el
+// title siempre lleva la fecha exacta completa.
+const fechaHumanaTorre = (iso: string | null) => {
+  if (!iso) return "nunca";
+  const d = new Date(iso);
+  const diaDe = (x: Date) =>
+    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(
+      x.getDate(),
+    ).padStart(2, "0")}`;
+  const hora = d.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (diaDe(d) === diaDe(new Date())) return `hoy ${hora}`;
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1);
+  if (diaDe(d) === diaDe(ayer)) return "ayer";
+  return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" });
+};
+
+const fechaExacta = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("es-CL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+function TorreDeControl() {
+  const torreQuery = useQuery({
+    queryKey: ["superAdmin", "torre"],
+    queryFn: getTorre,
+  });
+
+  const tarjetas = torreQuery.data?.tarjetas;
+  const casillas = [
+    { rotulo: "Empresas", valor: tarjetas?.empresas_total },
+    { rotulo: "Empresas del mes", valor: tarjetas?.empresas_mes },
+    { rotulo: "Usuarios", valor: tarjetas?.usuarios_total },
+    { rotulo: "Usuarios del mes", valor: tarjetas?.usuarios_mes },
+    { rotulo: "Interesados", valor: tarjetas?.leads_total },
+    { rotulo: "Interesados del mes", valor: tarjetas?.leads_mes },
+  ];
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Torre de Control
+        </h2>
+        <a
+          href="https://analytics.google.com/"
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm font-semibold text-blue-600 hover:underline"
+        >
+          🗺️ Mapa de visitas (Google Analytics)
+        </a>
+      </div>
+
+      {torreQuery.isPending && (
+        <p className="text-sm text-gray-500">Cargando…</p>
+      )}
+      {torreQuery.isError && (
+        <div className="bg-white p-4 rounded-lg shadow flex items-center gap-3">
+          <span className="text-sm text-red-600">
+            No se pudo cargar la torre.
+          </span>
+          <button
+            type="button"
+            onClick={() => void torreQuery.refetch()}
+            className="text-sm font-semibold text-blue-600 hover:underline"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {torreQuery.data && (
+        <>
+          {/* Las 6 tarjetas, estilo de las del Dashboard. */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            {casillas.map((c) => (
+              <div key={c.rotulo} className="bg-white p-4 rounded-lg shadow">
+                <p className="text-xs font-semibold text-gray-500 uppercase">
+                  {c.rotulo}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {(c.valor ?? 0).toLocaleString("es-CL")}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Quién ha entrado: como llega del backend (último inicio
+              de sesión descendente, nulls al final). */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Quién ha entrado
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "Nombre",
+                      "Correo",
+                      "Empresa",
+                      "Rol",
+                      "Último inicio de sesión",
+                      "Creado",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-6 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {torreQuery.data.usuarios.map((u) => (
+                    <tr key={u.email || u.creado || "?"}>
+                      <td className="px-6 py-2 text-sm text-gray-900">
+                        {u.nombre || "—"}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-500">
+                        {u.email || "—"}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-700">
+                        {u.empresa || "—"}
+                      </td>
+                      <td className="px-6 py-2 text-sm text-gray-500">
+                        {u.rol || "—"}
+                      </td>
+                      <td
+                        className="px-6 py-2 text-sm text-gray-700"
+                        title={fechaExacta(u.ultimo_inicio_sesion)}
+                      >
+                        {fechaHumanaTorre(u.ultimo_inicio_sesion)}
+                      </td>
+                      <td
+                        className="px-6 py-2 text-sm text-gray-500"
+                        title={fechaExacta(u.creado)}
+                      >
+                        {u.creado
+                          ? new Date(u.creado).toLocaleDateString("es-CL", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "2-digit",
+                            })
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function SuperAdminPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -518,6 +693,9 @@ export default function SuperAdminPage() {
             </div>
           </div>
         </div>
+
+        {/* Torre de Control (tanda 1, 05-08): arriba de lo existente. */}
+        <TorreDeControl />
 
         {/* Stats Chart */}
         {renderStatsChart()}

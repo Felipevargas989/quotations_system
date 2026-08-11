@@ -1,6 +1,9 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { CompaniesResponse } from "../types/companies.types";
-import { QuotationStatsResponse } from "../types/superAdmin.types";
+import {
+  QuotationStatsResponse,
+  TorreResponse,
+} from "../types/superAdmin.types";
 import { apiRequest } from "./api";
 import { getCompanyPublic } from "./companies.service";
 
@@ -74,6 +77,13 @@ export const updateCompany = async (
         error instanceof Error ? error.message : "An unexpected error occurred",
     };
   }
+};
+
+// Torre de Control (tanda 1, 05-08): tarjetas + "quién ha entrado".
+// Lanza el error tal cual: useQuery lo transforma en estados honestos.
+export const getTorre = async (): Promise<TorreResponse> => {
+  const data = await apiRequest(API_ROUTES.SUPER_ADMIN_TORRE, "GET");
+  return data as TorreResponse;
 };
 
 export const getStatsLastMonth =
