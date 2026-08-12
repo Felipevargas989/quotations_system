@@ -34,9 +34,14 @@ import {
 } from "../services/quotations.service.ts";
 import { formatISOUTCDateToString } from "../utils/dates.ts";
 import { matchesSearch } from "../utils/searchMatch";
+import { SECTION_ROLES } from "../constants/permissions";
 
 export default function RequestsPage() {
   const { user, userRole, company } = useAuth();
+  // Convertir un requerimiento en cotización es pega de venta.
+  const puedeCotizar = SECTION_ROLES.quotations_edit.includes(
+    userRole as never,
+  );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Confirmación de eliminar anclada al basurero (Tanda 3a).
@@ -82,8 +87,9 @@ export default function RequestsPage() {
       if (error) throw error;
 
       // Sale de la pantalla al instante y se confirma con el servidor.
-      queryClient.setQueryData<QuotationWithClient[]>(["requirements"], (prev) =>
-        (prev ?? []).filter((r) => r.id !== requestId),
+      queryClient.setQueryData<QuotationWithClient[]>(
+        ["requirements"],
+        (prev) => (prev ?? []).filter((r) => r.id !== requestId),
       );
       queryClient.invalidateQueries({ queryKey: ["requirements"] });
       toast.success("Requerimiento eliminado.");
@@ -224,14 +230,19 @@ export default function RequestsPage() {
             {/* Convertir en cotización: vivía en la tabla de pendientes
                 del panel de cotizaciones (eliminada el 22-07); ahora la
                 conversión vive aquí, en su casa natural. */}
-            <button
-              onClick={() => navigate(`/quotation-form/${request.id}`)}
-              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
-              title="Crear la cotización a partir de este requerimiento"
-            >
-              <PlusCircle size={14} />
-              <span>Crear Cotización</span>
-            </button>
+            {/* Recepción registra el requerimiento; convertirlo en
+                cotización es pega de venta (12-08). Sin el permiso, el
+                botón no aparece: la ruta la rebotaría igual. */}
+            {puedeCotizar && (
+              <button
+                onClick={() => navigate(`/quotation-form/${request.id}`)}
+                className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
+                title="Crear la cotización a partir de este requerimiento"
+              >
+                <PlusCircle size={14} />
+                <span>Crear Cotización</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setEditingRequest(request);

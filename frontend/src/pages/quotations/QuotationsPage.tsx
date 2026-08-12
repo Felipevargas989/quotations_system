@@ -19,7 +19,7 @@ import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
-import { ROLE_GROUPS } from "../../constants/permissions";
+import { ROLE_GROUPS, SECTION_ROLES } from "../../constants/permissions";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
@@ -115,9 +115,11 @@ const ORDEN_ETIQUETA: Record<string, string> = {
   monto: "Monto",
 };
 
-
 export default function QuotationsPage() {
   const { user, userRole, company } = useAuth();
+  // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
+  // la mandaba a una ruta que la rebota.
+  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const navigate = useNavigate();
@@ -189,9 +191,7 @@ export default function QuotationsPage() {
   >(() => {
     try {
       const v = user ? localStorage.getItem(ORDEN_TABLERO_KEY(user.id)) : null;
-      return v === "fecha" || v === "numero" || v === "urgencia"
-        ? v
-        : "monto";
+      return v === "fecha" || v === "numero" || v === "urgencia" ? v : "monto";
     } catch {
       return "monto";
     }
@@ -313,10 +313,6 @@ export default function QuotationsPage() {
     return !!s && s.urgencia >= 103;
   };
 
-
-
-
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "solicitada":
@@ -418,9 +414,7 @@ export default function QuotationsPage() {
               );
             }
 
-            toast.success(
-              "Cotización aceptada (el plan de pagos ya existía).",
-            );
+            toast.success("Cotización aceptada (el plan de pagos ya existía).");
             await fetchQuotations();
             await fetchRequirements();
             return;
@@ -535,7 +529,6 @@ export default function QuotationsPage() {
   // Fila clickeable (patrón Post-Venta): con permiso → edición; sin
   // permiso (aceptadas para roles no operativos) → visor de solo lectura.
   // El click siempre hace algo útil, sin avisos de permiso.
-
 
   // Número: exacto (decisión 21-07). Nombre: búsqueda inteligente (sin
   // tildes, palabras en cualquier orden).
@@ -694,7 +687,9 @@ export default function QuotationsPage() {
     <div className="space-y-6">
       {pidiendoMotivo && (
         <MotivoPerdida
-          tipo={pidiendoMotivo.newStatus === "cancelada" ? "anulacion" : "rechazo"}
+          tipo={
+            pidiendoMotivo.newStatus === "cancelada" ? "anulacion" : "rechazo"
+          }
           guardando={guardandoMotivo}
           onCancelar={() => setPidiendoMotivo(null)}
           onConfirmar={(motivo, comentario) =>
@@ -755,51 +750,51 @@ export default function QuotationsPage() {
           {/* Un solo chip de orden con menú de la casa: tres botones
               eran bulla. */}
           <span className="relative inline-block shrink-0">
-              <button
-                type="button"
-                onClick={() => setOrdenMenuAbierto((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50"
-                title="Ordenar tarjetas dentro de cada columna"
-              >
-                <ArrowUpDown size={14} />
-                {ORDEN_ETIQUETA[ordenTablero]}
-                <ChevronDown size={12} />
-              </button>
-              {ordenMenuAbierto && (
-                <>
-                  <span
-                    className="fixed inset-0 z-10 block"
-                    onClick={() => setOrdenMenuAbierto(false)}
-                  />
-                  <span className="absolute right-0 top-full mt-1 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
-                    {(
-                      [
-                        ["urgencia", "Urgencia"],
-                        ["fecha", "Fecha evento"],
-                        ["numero", "N°"],
-                        ["monto", "Monto"],
-                      ] as const
-                    ).map(([v, l]) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => {
-                          setOrdenMenuAbierto(false);
-                          cambiarOrdenTablero(v);
-                        }}
-                        className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 ${
-                          ordenTablero === v
-                            ? "font-semibold text-blue-600"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        {l}
-                      </button>
-                    ))}
-                  </span>
-                </>
-              )}
-            </span>
+            <button
+              type="button"
+              onClick={() => setOrdenMenuAbierto((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              title="Ordenar tarjetas dentro de cada columna"
+            >
+              <ArrowUpDown size={14} />
+              {ORDEN_ETIQUETA[ordenTablero]}
+              <ChevronDown size={12} />
+            </button>
+            {ordenMenuAbierto && (
+              <>
+                <span
+                  className="fixed inset-0 z-10 block"
+                  onClick={() => setOrdenMenuAbierto(false)}
+                />
+                <span className="absolute right-0 top-full mt-1 z-20 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                  {(
+                    [
+                      ["urgencia", "Urgencia"],
+                      ["fecha", "Fecha evento"],
+                      ["numero", "N°"],
+                      ["monto", "Monto"],
+                    ] as const
+                  ).map(([v, l]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        setOrdenMenuAbierto(false);
+                        cambiarOrdenTablero(v);
+                      }}
+                      className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 ${
+                        ordenTablero === v
+                          ? "font-semibold text-blue-600"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </span>
+              </>
+            )}
+          </span>
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
             type="button"
@@ -826,13 +821,18 @@ export default function QuotationsPage() {
                 {requirements.length}
               </button>
             )}
-            <button
-              onClick={() => navigate("/quotation-form")}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
-            >
-              <Plus size={20} />
-              <span>Nueva Cotización</span>
-            </button>
+            {/* Sin permiso de edición no hay botón: no se ofrecen
+                puertas cerradas (12-08). Recepción mira el tablero pero
+                no cotiza. */}
+            {puedeEditar && (
+              <button
+                onClick={() => navigate("/quotation-form")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
+              >
+                <Plus size={20} />
+                <span>Nueva Cotización</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -840,186 +840,180 @@ export default function QuotationsPage() {
       {/* Tablero (Etapa 2): el embudo vivo en 3 columnas. Sin arrastre
           por ahora — el estado se cambia con la píldora de siempre. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-          {[
-            QuotationStatus.SOLICITADA,
-            QuotationStatus.ENVIADA,
-            QuotationStatus.EN_NEGOCIACION,
-          ].map((col) => {
-            const tarjetas = filteredQuotations
-              .filter((q) => q.quotation_status === col)
-              .sort(compararTarjetas);
-            const suma = tarjetas.reduce(
-              (s, q) => s + (q.total_amount || 0),
-              0,
-            );
-            return (
-              <div
-                key={col}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (dragId) setDropCol(col);
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node))
-                    setDropCol((v) => (v === col ? null : v));
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const id = dragId;
-                  setDragId(null);
-                  setDropCol(null);
-                  if (!id) return;
-                  const q = quotations.find((x) => x.id === id);
-                  if (q && q.quotation_status !== col)
-                    void handleStatusChange(id, col);
-                }}
-                // Borde superior con el color del estado (pedido de
-                // Felipe 04-08: mataba el "mucho gris" — gesto Clientify).
-                className={`rounded-xl p-3 border-t-4 transition-colors ${
-                  (
-                    {
-                      solicitada: "border-yellow-200",
-                      enviada: "border-blue-400",
-                      en_negociacion: "border-purple-400",
-                    } as Record<string, string>
-                  )[col] || "border-gray-300"
-                } ${
-                  dropCol === col && dragId
-                    ? "bg-blue-50 ring-2 ring-blue-300"
-                    : "bg-gray-100"
-                }`}
-              >
-                <div className="flex items-baseline justify-between px-1 pb-2">
-                  <h3 className="text-sm font-bold text-gray-700">
-                    {STATUS_EMOJI[col]} {STATUS_LABEL[col]} ({tarjetas.length})
-                  </h3>
-                  <span className="text-xs font-semibold text-gray-500">
-                    ${suma.toLocaleString("es-CL")}
-                  </span>
-                </div>
-                <div className="space-y-2.5">
-                  {/* La marca de aterrizaje: sabes dónde caerá. */}
-                  {dropCol === col && dragId && (
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg h-14 bg-blue-50/60 flex items-center justify-center text-xs font-semibold text-blue-500">
-                      Soltar aquí → {STATUS_LABEL[col]}
-                    </div>
-                  )}
-                  {/* Sin esto, la columna decía "sin cotizaciones"
+        {[
+          QuotationStatus.SOLICITADA,
+          QuotationStatus.ENVIADA,
+          QuotationStatus.EN_NEGOCIACION,
+        ].map((col) => {
+          const tarjetas = filteredQuotations
+            .filter((q) => q.quotation_status === col)
+            .sort(compararTarjetas);
+          const suma = tarjetas.reduce((s, q) => s + (q.total_amount || 0), 0);
+          return (
+            <div
+              key={col}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (dragId) setDropCol(col);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node))
+                  setDropCol((v) => (v === col ? null : v));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = dragId;
+                setDragId(null);
+                setDropCol(null);
+                if (!id) return;
+                const q = quotations.find((x) => x.id === id);
+                if (q && q.quotation_status !== col)
+                  void handleStatusChange(id, col);
+              }}
+              // Borde superior con el color del estado (pedido de
+              // Felipe 04-08: mataba el "mucho gris" — gesto Clientify).
+              className={`rounded-xl p-3 border-t-4 transition-colors ${
+                (
+                  {
+                    solicitada: "border-yellow-200",
+                    enviada: "border-blue-400",
+                    en_negociacion: "border-purple-400",
+                  } as Record<string, string>
+                )[col] || "border-gray-300"
+              } ${
+                dropCol === col && dragId
+                  ? "bg-blue-50 ring-2 ring-blue-300"
+                  : "bg-gray-100"
+              }`}
+            >
+              <div className="flex items-baseline justify-between px-1 pb-2">
+                <h3 className="text-sm font-bold text-gray-700">
+                  {STATUS_EMOJI[col]} {STATUS_LABEL[col]} ({tarjetas.length})
+                </h3>
+                <span className="text-xs font-semibold text-gray-500">
+                  ${suma.toLocaleString("es-CL")}
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                {/* La marca de aterrizaje: sabes dónde caerá. */}
+                {dropCol === col && dragId && (
+                  <div className="border-2 border-dashed border-blue-300 rounded-lg h-14 bg-blue-50/60 flex items-center justify-center text-xs font-semibold text-blue-500">
+                    Soltar aquí → {STATUS_LABEL[col]}
+                  </div>
+                )}
+                {/* Sin esto, la columna decía "sin cotizaciones"
                       MIENTRAS cargaba — mentira de 1 segundo que
                       asustó a Felipe (04-08). Con "Requieren"
                       restaurado, el semáforo también necesita su mapa
                       antes de filtrar (si no, clasifica a ciegas). */}
-                  {loading ||
-                  (soloSeguimiento && seguimientosQuery.isPending) ? (
-                    <p className="text-xs text-gray-400 px-1 py-3">Cargando…</p>
-                  ) : tarjetas.length === 0 ? (
-                    <p className="text-xs text-gray-400 px-1 py-3">
-                      Sin cotizaciones aquí.
-                    </p>
-                  ) : (
-                    tarjetas.map((quotation) => {
-                      const sem = semaforoDe(quotation);
-                      const contact = contactOf(quotation);
-                      // Alto valor (opción 6 de Felipe): borde dorado
-                      // de lejos + estrella ámbar de cerca.
-                      const altoValor =
-                        umbralAltoValor > 0 &&
-                        quotation.total_amount >= umbralAltoValor;
-                      return (
-                        <div
-                          key={quotation.id}
-                          draggable
-                          onDragStart={(e) => {
-                            setDragId(quotation.id);
-                            e.dataTransfer.effectAllowed = "move";
-                          }}
-                          onDragEnd={() => {
-                            setDragId(null);
-                            setDropCol(null);
-                          }}
-                          onClick={() => navigate(`/negocio/${quotation.id}`)}
-                          className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
-                            altoValor
-                              ? "border-l-4 border-l-amber-400"
-                              : ""
-                          } ${dragId === quotation.id ? "opacity-40" : ""}`}
-                        >
-                          {/* Orden de Felipe (03-08): estado arriba
+                {loading || (soloSeguimiento && seguimientosQuery.isPending) ? (
+                  <p className="text-xs text-gray-400 px-1 py-3">Cargando…</p>
+                ) : tarjetas.length === 0 ? (
+                  <p className="text-xs text-gray-400 px-1 py-3">
+                    Sin cotizaciones aquí.
+                  </p>
+                ) : (
+                  tarjetas.map((quotation) => {
+                    const sem = semaforoDe(quotation);
+                    const contact = contactOf(quotation);
+                    // Alto valor (opción 6 de Felipe): borde dorado
+                    // de lejos + estrella ámbar de cerca.
+                    const altoValor =
+                      umbralAltoValor > 0 &&
+                      quotation.total_amount >= umbralAltoValor;
+                    return (
+                      <div
+                        key={quotation.id}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragId(quotation.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setDropCol(null);
+                        }}
+                        onClick={() => navigate(`/negocio/${quotation.id}`)}
+                        className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
+                          altoValor ? "border-l-4 border-l-amber-400" : ""
+                        } ${dragId === quotation.id ? "opacity-40" : ""}`}
+                      >
+                        {/* Orden de Felipe (03-08): estado arriba
                               (control para mover, compacto — la columna
                               ya dice el estado); abajo el semáforo junto
                               al Ver — la gestión y la acción, juntas. */}
-                          {/* Protección de click SOLO en los botones:
+                        {/* Protección de click SOLO en los botones:
                               el resto de la tarjeta navega a la ficha
                               (pedido de Felipe 04-08). */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-bold text-gray-700">
-                              #{quotation.quotation_number}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-gray-700">
+                            #{quotation.quotation_number}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {altoValor && (
+                              <Star
+                                size={14}
+                                className="text-amber-400 fill-amber-400"
+                                aria-label="Cotización de alto valor"
+                              />
+                            )}
+                            <span onClick={(e) => e.stopPropagation()}>
+                              {estadoPill(quotation, "icono")}
                             </span>
-                            <span className="flex items-center gap-1">
-                              {altoValor && (
-                                <Star
-                                  size={14}
-                                  className="text-amber-400 fill-amber-400"
-                                  aria-label="Cotización de alto valor"
-                                />
-                              )}
-                              <span onClick={(e) => e.stopPropagation()}>
-                                {estadoPill(quotation, "icono")}
-                              </span>
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm font-medium text-gray-900 truncate">
-                            {quotation.clients?.name}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {/* El mandante solo si aporta algo distinto
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-gray-900 truncate">
+                          {quotation.clients?.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {/* El mandante solo si aporta algo distinto
                                 del cliente (nada de "Jose · Jose"). */}
-                            {contact.name &&
-                            contact.name !== quotation.clients?.name
-                              ? `${contact.name} · `
-                              : ""}
-                            {formatISOUTCDateToString(quotation.event_date)}
-                          </p>
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-gray-900">
-                              ${quotation.total_amount.toLocaleString("es-CL")}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {sem && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/negocio/${quotation.id}`);
-                                  }}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
-                                  title="Abrir bitácora de seguimiento"
-                                >
-                                  <MessageSquare size={12} className="shrink-0" />
-                                  {sem.texto}
-                                </button>
-                              )}
+                          {contact.name &&
+                          contact.name !== quotation.clients?.name
+                            ? `${contact.name} · `
+                            : ""}
+                          {formatISOUTCDateToString(quotation.event_date)}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-gray-900">
+                            ${quotation.total_amount.toLocaleString("es-CL")}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {sem && (
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleViewQuotation(quotation);
+                                  navigate(`/negocio/${quotation.id}`);
                                 }}
-                                className="text-sm font-semibold text-blue-600 hover:underline"
-                                title="Ver el documento de la cotización"
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
+                                title="Abrir bitácora de seguimiento"
                               >
-                                PDF
+                                <MessageSquare size={12} className="shrink-0" />
+                                {sem.texto}
                               </button>
-                            </div>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewQuotation(quotation);
+                              }}
+                              className="text-sm font-semibold text-blue-600 hover:underline"
+                              title="Ver el documento de la cotización"
+                            >
+                              PDF
+                            </button>
                           </div>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Búsqueda global (camino a tablero-único): lo cerrado también
           aparece — con puente a Post-Venta donde corresponde. */}
@@ -1152,7 +1146,6 @@ export default function QuotationsPage() {
           )}
         </div>
       )}
-
 
       {/* Ventanita de la casa (Tanda 3a): confirmar la vuelta de
           post-venta a pre-venta (reemplaza al confirm() del navegador). */}

@@ -70,7 +70,9 @@ const CompanyConfiguration = lazy(
 );
 const Calendar = lazy(importCalendar);
 const Plans = lazy(() => import("./pages/plans/Plans.tsx"));
-const ConfirmationPage = lazy(() => import("./pages/plans/ConfirmationPage.tsx"));
+const ConfirmationPage = lazy(
+  () => import("./pages/plans/ConfirmationPage.tsx"),
+);
 const CreateQuotationPublic = lazy(
   () => import("./pages/quotations/CreateQuotationPublic.tsx"),
 );
@@ -83,10 +85,12 @@ const CustomerSatisfactionSurveysPage = lazy(
   () => import("./pages/customerSatisfactionSurveys/index.tsx"),
 );
 const TemplateView = lazy(
-  () => import("./pages/customerSatisfactionSurveys/components/TemplateView.tsx"),
+  () =>
+    import("./pages/customerSatisfactionSurveys/components/TemplateView.tsx"),
 );
 const AnswersView = lazy(
-  () => import("./pages/customerSatisfactionSurveys/components/AnswersView.tsx"),
+  () =>
+    import("./pages/customerSatisfactionSurveys/components/AnswersView.tsx"),
 );
 
 // Lo que se ve el instante entre pedir una pantalla y que llegue.
@@ -200,11 +204,14 @@ function App() {
                 }
               />
 
-              {/* New Quotation Form (no ID) */}
+              {/* El COTIZADOR pide quotations_edit, no quotations
+                  (12-08): recepción ve el tablero y la ficha, pero acá
+                  se cambian ítems y descuentos. Si escribe la dirección
+                  a mano, la pantalla la rebota. */}
               <Route
                 path="quotation-form"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations_edit}>
                     <QuotationForm />
                   </PermissionGuard>
                 }
@@ -214,7 +221,7 @@ function App() {
               <Route
                 path="quotation-form/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations_edit}>
                     <QuotationForm />
                   </PermissionGuard>
                 }

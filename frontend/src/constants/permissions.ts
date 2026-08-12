@@ -8,6 +8,11 @@ export type Section =
   | "dashboard"
   | "requests"
   | "quotations"
+  // VER cotizaciones (tablero, ficha, visor) y EDITARLAS son dos cosas
+  // distintas desde el 12-08. Antes iban juntas, y por eso no se podía
+  // dejar mirar sin entregar también el cotizador — donde se cambian
+  // ítems y descuentos. Recepción mira; no edita.
+  | "quotations_edit"
   | "clients"
   | "payments"
   | "admin"
@@ -23,12 +28,26 @@ export type Section =
 
 // Define which roles can access which sections
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
-  recepcion: ["requests", "clients", "configuration"],
-  vendedor: ["requests", "clients", "quotations", "configuration"],
+  // Recepción (12-08, definido con Felipe): contesta el teléfono, toma
+  // solicitudes y hace seguimiento. Ve todo lo que el cliente YA SABE
+  // —su cotización, su precio, en qué va— y nada de lo que solo sabe la
+  // empresa: márgenes, cobranza, totales del negocio.
+  // El calendario entra porque sin él no puede responder "¿tienen el 20
+  // libre?", que es la pregunta más común del mostrador; y no escribe
+  // nada en la base, es solo-mirar por naturaleza.
+  recepcion: ["requests", "clients", "quotations", "calendar", "configuration"],
+  vendedor: [
+    "requests",
+    "clients",
+    "quotations",
+    "quotations_edit",
+    "configuration",
+  ],
   operaciones: [
     "requests",
     "clients",
     "quotations",
+    "quotations_edit",
     "payments",
     "configuration",
     "calendar",
@@ -39,6 +58,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "requests",
     "clients",
     "quotations",
+    "quotations_edit",
     "payments",
     "admin",
     "user_management",
@@ -81,7 +101,9 @@ export const ROLE_GROUPS = {
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
   dashboard: ROLE_GROUPS.ADMIN_ONLY,
   requests: ROLE_GROUPS.ALL_ROLES,
-  quotations: ROLE_GROUPS.SALES_AND_UP,
+  // Ver: recepción incluida. Editar: de vendedor para arriba.
+  quotations: ROLE_GROUPS.RECEPTION_AND_UP,
+  quotations_edit: ROLE_GROUPS.SALES_AND_UP,
   clients: ROLE_GROUPS.ALL_ROLES,
   payments: ROLE_GROUPS.OPERATIONS_AND_UP,
   admin: ROLE_GROUPS.ADMIN_ONLY,
@@ -89,7 +111,7 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   configuration: ROLE_GROUPS.ALL_ROLES,
   services: ROLE_GROUPS.ADMIN_ONLY,
   company_configuration: ROLE_GROUPS.ADMIN_ONLY,
-  calendar: ROLE_GROUPS.SALES_AND_UP,
+  calendar: ROLE_GROUPS.RECEPTION_AND_UP,
   plans: ROLE_GROUPS.ALL_ROLES,
   analytics: ROLE_GROUPS.ADMIN_ONLY,
   logistics: ROLE_GROUPS.OPERATIONS_AND_UP,

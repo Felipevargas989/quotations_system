@@ -38,6 +38,7 @@ import { useCopiarDato } from "../../hooks/useCopiarDato";
 // 07-08: ahora los monta también Post-Venta.
 import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
 import { normalizeText } from "../../utils/searchMatch";
+import { SECTION_ROLES } from "../../constants/permissions";
 
 const COLOR_ESTADO: Record<string, string> = {
   solicitada: "bg-yellow-100 text-yellow-800",
@@ -115,7 +116,7 @@ export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, company } = useAuth();
+  const { user, company, userRole } = useAuth();
   const [tab, setTab] = useState<"seguimiento" | "cotizacion">("seguimiento");
   // Cambio de estado desde la ficha (pedido de Felipe 04-08), con el
   // MISMO ritual del tablero: aceptar revisa si ya hay plan de pagos
@@ -186,6 +187,9 @@ export default function NegocioPage() {
   // Copiar teléfono/correo del mandante, igual que en la ficha del
   // cliente: el dato en azul, un clic lo copia y confirma con un ✓.
   const { copiado: datoCopiado, copiar: copiarDato } = useCopiarDato();
+
+  // Recepción entra a la ficha para hacer seguimiento, no para editar.
+  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
 
   const refrescarEstado = async () => {
     await queryClient.invalidateQueries({ queryKey: ["quotations"] });
@@ -499,7 +503,11 @@ export default function NegocioPage() {
             [
               ["seguimiento", "Seguimiento"],
               // Mismo nombre que en Post-Venta: ES la misma pieza.
-              ["cotizacion", "Servicios"],
+              // Y por eso mismo se le esconde a recepción (12-08): esta
+              // pestaña NO es un resumen, es el editor completo — cambia
+              // ítems y descuentos, con auto-guardado. Recepción hace
+              // seguimiento y mira la oferta por el visor del tablero.
+              ...(puedeEditar ? ([["cotizacion", "Servicios"]] as const) : []),
             ] as const
           ).map(([k, l]) => (
             <button
@@ -525,6 +533,7 @@ export default function NegocioPage() {
             </div>
           )}
           {tab === "cotizacion" &&
+            puedeEditar &&
             fila &&
             (detalle ? (
               /* La MISMA fábrica de servicios de Post-Venta (pedido de
