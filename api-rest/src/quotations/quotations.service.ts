@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -828,6 +829,10 @@ export class QuotationsService {
     id: string,
     updateQuotationDto: UpdateQuotationDto,
     companyId: number,
+    // Rol de quien edita. Opcional a propósito: los llamados internos
+    // del propio backend (cron de seguimiento, portal de pagos) no
+    // tienen rol y no deben quedar bloqueados.
+    role?: string,
   ) {
     try {
       // 0. Get quotation
@@ -840,6 +845,20 @@ export class QuotationsService {
 
       if (!quotation) {
         throw new Error('Quotation not found');
+      }
+
+      // Recepción trabaja REQUERIMIENTOS, no cotizaciones (12-08,
+      // espejo de la regla que ya rige al crear). Una cotización ya
+      // nacida no la toca: ahí viven los ítems, los descuentos y la
+      // plata. Se comprueba acá y no en el controlador porque el tipo
+      // no viaja en el parche — hay que mirar la cotización guardada.
+      if (
+        role === UserRole.RECEPCION &&
+        quotation.request_type !== RequestType.REQUERIMIENTO
+      ) {
+        throw new ForbiddenException(
+          'Recepción puede editar requerimientos, no cotizaciones.',
+        );
       }
 
       // FASE 1: si el parche toca la plata, la cuenta se rehace ANTES de

@@ -164,10 +164,15 @@ export class QuotationsController {
     this.logger.info(
       `PATCH /quotations/${id} with updateQuotationDto ${JSON.stringify(updateQuotationDto)}`,
     );
+    // Espejo del candado de create (28-07): recepción trabaja
+    // requerimientos, no cotizaciones. Acá el tipo NO viene en el
+    // cuerpo —hay que ir a buscarlo—, así que la comprobación vive en
+    // el servicio, que ya carga la cotización de todos modos (12-08).
     return this.quotationsService.update(
       id,
       updateQuotationDto,
       user.company_id,
+      (user as User & { role?: string }).role,
     );
   }
 
