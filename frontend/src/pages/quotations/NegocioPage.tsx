@@ -382,7 +382,12 @@ export default function NegocioPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (
+            {/* El chip cambia de estado solo si quien mira puede
+                editar (12-08). Sin permiso cae al chip fijo de abajo,
+                que ya existía para las cerradas: se lee el estado y no
+                se ofrece una puerta que el servidor cierra con 403. */}
+            {puedeEditar &&
+            ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (
               <span className="relative inline-block">
                 <button
                   type="button"
@@ -479,6 +484,7 @@ export default function NegocioPage() {
         {/* Las cajitas del evento: pieza única compartida con
             Post-Venta (diseño de Felipe 04-08). */}
         <EventoCajitas
+          puedeEditarFecha={puedeEditar}
           quotationId={fila.id}
           tipo={String(fila.event_type || "")}
           fechaInicio={fila.event_date}
@@ -529,7 +535,12 @@ export default function NegocioPage() {
           {tab === "seguimiento" && fila && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               <HiloSeguimiento quotation={fila} />
-              <AdjuntosComerciales quotationId={fila.id} />
+              {/* Los respaldos (contratos, OC, facturas) son de
+                  operaciones para arriba: sus tres endpoints niegan a
+                  recepción. Se esconde entera — dejarla puesta era
+                  ofrecer un formulario de subida que guardaba el archivo
+                  en el bucket y DESPUÉS rebotaba con 403 (12-08). */}
+              {puedeEditar && <AdjuntosComerciales quotationId={fila.id} />}
             </div>
           )}
           {tab === "cotizacion" &&

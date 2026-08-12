@@ -28,6 +28,10 @@ export default function EventoCajitas({
   pagado,
   saldo,
   onFechaGuardada,
+  // Quien no puede editar la cotización tampoco le mueve la fecha: el
+  // servidor rechaza el PATCH con 403 (12-08). Por omisión SÍ se puede,
+  // que es como la monta Post-Venta.
+  puedeEditarFecha = true,
 }: {
   readonly quotationId: string;
   readonly tipo: string;
@@ -40,6 +44,7 @@ export default function EventoCajitas({
   readonly pagado?: number;
   readonly saldo?: number;
   readonly onFechaGuardada: () => void;
+  readonly puedeEditarFecha?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const [inicio, setInicio] = useState(aYmd(fechaInicio));
@@ -171,14 +176,16 @@ export default function EventoCajitas({
                 al {formatISOUTCDateToString(multiDia as unknown as Date)}
               </p>
             )}
-            <button
-              type="button"
-              onClick={abrir}
-              className="absolute top-2.5 right-2.5 text-gray-300 hover:text-gray-500"
-              title="Cambiar la fecha del evento"
-            >
-              <Pencil size={14} />
-            </button>
+            {puedeEditarFecha && (
+              <button
+                type="button"
+                onClick={abrir}
+                className="absolute top-2.5 right-2.5 text-gray-300 hover:text-gray-500"
+                title="Cambiar la fecha del evento"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
           </>
         )}
       </div>

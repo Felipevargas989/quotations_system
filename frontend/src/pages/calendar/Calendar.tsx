@@ -3,13 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  isValid,
-  parseISO,
-} from "date-fns";
+import { format, startOfMonth, endOfMonth, isValid, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Calendar as CalendarIcon,
@@ -23,6 +17,7 @@ import {
 } from "../../types/quotations.types";
 import { getQuotations } from "../../services/quotations.service";
 import { useAuth } from "../../contexts/AuthContext";
+import { SECTION_ROLES } from "../../constants/permissions";
 // import { findAllEvents } from "../../services/calendar.service";
 
 // El filtro se recuerda por usuario (mismo patrón de Post-Venta).
@@ -82,7 +77,8 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     searchParams.get("date") ? initialDate : null,
   );
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
   const [selectedStatuses, setSelectedStatuses] =
     useState<QuotationStatus[]>(getInitialStatuses());
   const [filterRestored, setFilterRestored] = useState(false);
@@ -375,7 +371,15 @@ export default function CalendarPage() {
   };
 
   const handleNavigateToQuotation = (quotationId: string) => {
-    window.open(`/quotation-form/${quotationId}`, "_blank");
+    // Recepción también ve el calendario desde el 12-08, y no puede
+    // entrar al cotizador: se la manda a la ficha del negocio, que sí
+    // abre y le sirve más (ahí está el hilo de seguimiento). Sin esto
+    // se le abría una pestaña nueva en "Permisos Insuficientes", que es
+    // la peor forma de descubrir que algo no era para uno.
+    const destino = puedeEditar
+      ? `/quotation-form/${quotationId}`
+      : `/negocio/${quotationId}`;
+    window.open(destino, "_blank");
   };
 
   const eventsForSelectedDate = selectedDate

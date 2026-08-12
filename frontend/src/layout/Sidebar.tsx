@@ -23,7 +23,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { userRole } = useAuth();
 
   const canAccess = (section: string): boolean => {
-    if (!userRole) return true; // Mientras carga, mostrar todo por defecto
+    // Mientras el rol viene en camino NO se muestra nada (12-08). El
+    // "mostrar todo por defecto" de antes le hacía ver a recepción, por
+    // un parpadeo, Dashboard / Post-Venta / Catálogo / Logística; un
+    // clic en esa ventana la dejaba en "Permisos Insuficientes". Y si la
+    // consulta del rol falla, el menú se queda vacío en vez de mentir.
+    if (!userRole) return false;
     return canAccessSection(userRole, section as any);
   };
 

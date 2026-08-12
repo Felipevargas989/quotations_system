@@ -120,6 +120,8 @@ export default function QuotationsPage() {
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // Post-Venta vive detrás de "payments" (operaciones para arriba).
+  const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const navigate = useNavigate();
@@ -371,11 +373,12 @@ export default function QuotationsPage() {
     if (!pidiendoMotivo) return;
     setGuardandoMotivo(true);
     try {
-      await applyStatusChange(
+      const cambio = await applyStatusChange(
         pidiendoMotivo.quotationId,
         pidiendoMotivo.newStatus,
         motivo,
       );
+      if (!cambio) return;
       if (comentario)
         await createFollowup({
           quotation_id: pidiendoMotivo.quotationId,
@@ -417,13 +420,15 @@ export default function QuotationsPage() {
             toast.success("Cotización aceptada (el plan de pagos ya existía).");
             await fetchQuotations();
             await fetchRequirements();
-            return;
+            return true;
           }
 
           // Show payment plan editor first
           setQuotationForPaymentPlan(quotation);
           setShowPaymentPlanEditor(true);
-          return; // Don't update status yet
+          // Todavía no cambió nada: el estado se graba cuando se guarde
+          // el plan de pagos.
+          return false; // Don't update status yet
         }
       }
 
@@ -445,6 +450,7 @@ export default function QuotationsPage() {
       );
       await fetchQuotations();
       await fetchRequirements();
+      return true;
     } catch (error) {
       // El backend puede rechazar con un motivo claro (ej: la guardia de
       // estados cuando hay pagos registrados) — mostrarlo tal cual.
@@ -458,6 +464,7 @@ export default function QuotationsPage() {
         }`,
       );
       await fetchQuotations();
+      return false;
     }
   };
 
@@ -540,68 +547,83 @@ export default function QuotationsPage() {
   const estadoPill = (
     quotation: QuotationWithClient,
     modo: "pill" | "icono" = "pill",
-  ) => (
-    <span className="relative inline-block">
-      {modo === "icono" ? (
-        <button
-          type="button"
-          onClick={() =>
-            setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
-          }
-          className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400"
-          title="Cambiar estado"
+  ) =>
+    // Sin permiso de editar, el estado INFORMA y no ofrece nada (12-08):
+    // el servidor rechaza el cambio con 403, así que el menú era una
+    // puerta pintada. En modo icono no se dibuja nada — la columna del
+    // tablero ya dice el estado.
+    !puedeEditar ? (
+      modo === "icono" ? null : (
+        <span
+          className={`inline-block w-40 truncate px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
         >
-          <ChevronDown size={14} />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() =>
-            setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
-          }
-          className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
-          title="Cambiar estado"
-        >
-          <span className="truncate">
-            {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-            {STATUS_LABEL[quotation.quotation_status] ||
-              quotation.quotation_status}
-          </span>
-          <ChevronDown size={12} className="shrink-0" />
-        </button>
-      )}
-      {statusMenuId === quotation.id && (
-        <>
-          <span
-            className="fixed inset-0 z-10 block"
-            onClick={() => setStatusMenuId(null)}
-          />
-          {/* whitespace-normal: la celda es nowrap y sin esto las
+          {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+          {STATUS_LABEL[quotation.quotation_status] ||
+            quotation.quotation_status}
+        </span>
+      )
+    ) : (
+      <span className="relative inline-block">
+        {modo === "icono" ? (
+          <button
+            type="button"
+            onClick={() =>
+              setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
+            }
+            className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400"
+            title="Cambiar estado"
+          >
+            <ChevronDown size={14} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() =>
+              setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
+            }
+            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+            title="Cambiar estado"
+          >
+            <span className="truncate">
+              {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
+              {STATUS_LABEL[quotation.quotation_status] ||
+                quotation.quotation_status}
+            </span>
+            <ChevronDown size={12} className="shrink-0" />
+          </button>
+        )}
+        {statusMenuId === quotation.id && (
+          <>
+            <span
+              className="fixed inset-0 z-10 block"
+              onClick={() => setStatusMenuId(null)}
+            />
+            {/* whitespace-normal: la celda es nowrap y sin esto las
               opciones se forman en una línea horizontal. */}
-          <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
-            {statusOptionsFor(quotation).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => {
-                  setStatusMenuId(null);
-                  if (st !== quotation.quotation_status)
-                    void handleStatusChange(quotation.id, st);
-                }}
-                className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
-              >
-                <span
-                  className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+            <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
+              {statusOptionsFor(quotation).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => {
+                    setStatusMenuId(null);
+                    if (st !== quotation.quotation_status)
+                      void handleStatusChange(quotation.id, st);
+                  }}
+                  className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                 >
-                  {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
-                </span>
-              </button>
-            ))}
-          </span>
-        </>
-      )}
-    </span>
-  );
+                  <span
+                    className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+                  >
+                    {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
+                  </span>
+                </button>
+              ))}
+            </span>
+          </>
+        )}
+      </span>
+    );
 
   // Predicado de búsqueda compartido por las vivas y el archivo.
   const coincideBusqueda = (quotation: QuotationWithClient) =>
@@ -862,6 +884,9 @@ export default function QuotationsPage() {
               }}
               onDrop={(e) => {
                 e.preventDefault();
+                // Red por si el arrastre llega igual (arrastrar archivos
+                // desde el escritorio también dispara onDrop).
+                if (!puedeEditar) return;
                 const id = dragId;
                 setDragId(null);
                 setDropCol(null);
@@ -924,7 +949,10 @@ export default function QuotationsPage() {
                     return (
                       <div
                         key={quotation.id}
-                        draggable
+                        // En un tablero, arrastrar es EL gesto. Sin
+                        // permiso no se arrastra: así tampoco se ilumina
+                        // la columna ni aparece el "Soltar aquí".
+                        draggable={puedeEditar}
                         onDragStart={(e) => {
                           setDragId(quotation.id);
                           e.dataTransfer.effectAllowed = "move";
@@ -1044,16 +1072,21 @@ export default function QuotationsPage() {
                     ${q.total_amount.toLocaleString("es-CL")}
                   </span>
                   {estadoPill(q)}
-                  {(q.quotation_status === QuotationStatus.ACEPTADA ||
-                    q.quotation_status === QuotationStatus.REALIZADA) && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/post-venta/${q.id}`)}
-                      className="text-sm font-semibold text-blue-600 hover:underline"
-                    >
-                      → Post-Venta
-                    </button>
-                  )}
+                  {/* Post-Venta es de operaciones para arriba: sin
+                      ese permiso el enlace terminaba en "Permisos
+                      Insuficientes" (12-08). Recepción se queda con el
+                      resumen y con la ficha, que sí abre. */}
+                  {puedeVerPostVenta &&
+                    (q.quotation_status === QuotationStatus.ACEPTADA ||
+                      q.quotation_status === QuotationStatus.REALIZADA) && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/post-venta/${q.id}`)}
+                        className="text-sm font-semibold text-blue-600 hover:underline"
+                      >
+                        → Post-Venta
+                      </button>
+                    )}
                   <button
                     onClick={() => handleViewQuotation(q)}
                     className="text-sm font-semibold text-blue-600 hover:underline"

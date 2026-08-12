@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { SECTION_ROLES } from "../constants/permissions";
 import ConfirmInline from "../components/ConfirmInline";
 import { useCopiarDato } from "../hooks/useCopiarDato";
 import QuotationViewer from "../components/QuotationViewer";
@@ -134,7 +135,12 @@ const STATUS_LABELS: Record<string, string> = {
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { company } = useAuth();
+  const { company, userRole } = useAuth();
+  // La ficha del cliente tiene tres puertas al cotizador (nueva, lápiz y
+  // duplicar). Recepción entra acá a buscar datos y a mirar el historial,
+  // no a cotizar: sin esto, el lápiz la mandaba a "Permisos Insuficientes"
+  // (pillado por Felipe en el laboratorio, 12-08).
+  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
   const queryClient = useQueryClient();
 
   // Ficha 360° vía React Query (Etapa 1, 21-07-2026): la primera visita
@@ -609,17 +615,19 @@ export default function ClientDetailPage() {
             {lastCreated ? ` (${fmtDate(lastCreated.toISOString())})` : ""}
             {dormido ? " · cliente dormido" : ""}
           </span>
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/quotation-form", {
-                state: { clientId: client.id },
-              })
-            }
-            className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
-          >
-            <Plus size={16} /> Nueva cotización
-          </button>
+          {puedeEditar && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/quotation-form", {
+                  state: { clientId: client.id },
+                })
+              }
+              className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+            >
+              <Plus size={16} /> Nueva cotización
+            </button>
+          )}
           {/* Eliminar cliente (03-08): la ficha es la ÚNICA puerta.
               Misma regla de siempre: con cotizaciones no se elimina. */}
           <span className="relative">
@@ -1090,28 +1098,36 @@ export default function ClientDetailPage() {
                             >
                               <Eye size={15} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(`/quotation-form/${q.id}`)
-                              }
-                              className="text-gray-400 hover:text-blue-600"
-                              title="Editar cotización"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate("/quotation-form", {
-                                  state: { duplicateFrom: q.id },
-                                })
-                              }
-                              className="text-gray-400 hover:text-blue-600"
-                              title="Duplicar: nueva cotización a partir de esta (sin fecha, número nuevo)"
-                            >
-                              <Copy size={15} />
-                            </button>
+                            {/* El ojo se queda para todos: mirar el
+                                resumen es justo lo que recepción necesita
+                                para atender el teléfono. El lápiz y el
+                                duplicar llevan al cotizador. */}
+                            {puedeEditar && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate(`/quotation-form/${q.id}`)
+                                  }
+                                  className="text-gray-400 hover:text-blue-600"
+                                  title="Editar cotización"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate("/quotation-form", {
+                                      state: { duplicateFrom: q.id },
+                                    })
+                                  }
+                                  className="text-gray-400 hover:text-blue-600"
+                                  title="Duplicar: nueva cotización a partir de esta (sin fecha, número nuevo)"
+                                >
+                                  <Copy size={15} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
