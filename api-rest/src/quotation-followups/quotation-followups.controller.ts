@@ -10,16 +10,19 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateQuotationFollowupDto } from './dto/create-quotation-followup.dto';
 import { UpdateQuotationFollowupDto } from './dto/update-quotation-followup.dto';
 import { QuotationFollowupsService } from './quotation-followups.service';
 
-// Bitácora comercial (03-08): el seguimiento de venta es de quien
-// vende — vendedor, operaciones y administración (misma regla que la
-// lista de cotizaciones que lo muestra).
-@Roles(...SALES_AND_UP)
+// Bitácora comercial (03-08): el seguimiento es de quien atiende al
+// cliente. Desde el 12-08 eso INCLUYE a recepción: llamar y anotar en
+// qué quedó la conversación es literalmente su pega, y esta es la
+// única pestaña que ve de la ficha. Sin esto, la abría en un 403.
+// Escribir su nota sí; tocar las de otros no — de eso se encarga la
+// regla de autoría del servicio, que no distingue rangos.
+@Roles(...RECEPTION_AND_UP)
 @Controller('quotation-followups')
 export class QuotationFollowupsController {
   constructor(

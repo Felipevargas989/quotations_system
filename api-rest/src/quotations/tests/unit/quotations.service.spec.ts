@@ -1,14 +1,19 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { EmailService } from 'src/email/email.service';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentsService } from 'src/payments/payments.service';
-import { QuotationStatus } from 'src/quotations/constants/constants';
+import {
+  QuotationStatus,
+  RequestType,
+} from 'src/quotations/constants/constants';
 import { UpdateQuotationDto } from 'src/quotations/dto/update-quotation.dto';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { RefundsService } from 'src/refunds/refunds.service';
 import { StorageService } from 'src/storage/storage.service';
+import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { PortalReceiptsRepository } from '../../portal-receipts.controller';
 import { QuotationsService } from '../../quotations.service';
@@ -158,6 +163,57 @@ describe('QuotationsService', () => {
       await expect(service.update('1', {}, 1)).rejects.toThrow(
         'Quotation not found',
       );
+    });
+
+    // El candado de recepción (12-08). Se prueba acá porque la regla
+    // mira el tipo GUARDADO de la cotización, no el parche: el
+    // controlador no puede decidirlo solo.
+    describe('candado de recepción', () => {
+      it('recepción NO puede editar una cotización', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.EN_NEGOCIACION,
+            request_type: RequestType.COTIZACION,
+          },
+          error: null,
+        });
+
+        await expect(
+          service.update('1', {}, 1, UserRole.RECEPCION),
+        ).rejects.toThrow(ForbiddenException);
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+      });
+
+      it('recepción SÍ puede editar un requerimiento', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.EN_NEGOCIACION,
+            request_type: RequestType.REQUERIMIENTO,
+          },
+          error: null,
+        });
+
+        await service.update('1', {}, 1, UserRole.RECEPCION);
+
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
+
+      // Los llamados internos del backend (cron de seguimiento, portal
+      // de pagos) no traen rol. Si el candado los frenara, se caería el
+      // seguimiento automático — por eso esta prueba.
+      it('sin rol (llamado interno) pasa igual', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.EN_NEGOCIACION,
+            request_type: RequestType.COTIZACION,
+          },
+          error: null,
+        });
+
+        await service.update('1', {}, 1);
+
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
     });
 
     it('when quotation status is differente from ACEPTADA and ENVIADA, it should execute the repo.update function', async () => {

@@ -19,3 +19,8 @@ export const SALES_AND_UP = [
   UserRole.OPERACIONES,
   UserRole.ADMINISTRADOR,
 ];
+
+// Todo el que atiende al cliente, recepción incluida (12-08). Espejo
+// de ROLE_GROUPS.RECEPTION_AND_UP en el frontend: los dos lados tienen
+// que decir lo mismo o la pantalla muestra algo que el servidor niega.
+export const RECEPTION_AND_UP = [UserRole.RECEPCION, ...SALES_AND_UP];
