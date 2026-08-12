@@ -219,8 +219,13 @@ export default function QuotationsPage() {
   // ---- Cotizaciones y requerimientos vía React Query (Etapa 2) ----
   // El tablero es la única vista: el embudo vivo, siempre. Volver a
   // esta pantalla pinta al instante desde caché y revalida detrás.
+  // Embudo y rechazadas viajan JUNTAS en una sola llamada (12-08).
+  // Antes eran dos: y la de rechazadas —175 filas en producción, cinco
+  // veces el embudo— se pedía SIEMPRE, aunque la franja estuviera
+  // plegada, solo para poner el número en su título. Mismo bulto, un
+  // viaje menos; y desde Chile cada viaje al servidor cuesta ~430 ms.
   const quotationsQuery = useQuery({
-    queryKey: ["quotations", "embudo"],
+    queryKey: ["quotations", "embudo-y-rechazadas"],
     enabled: !!user,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<QuotationWithClient[]> => {
@@ -228,11 +233,16 @@ export default function QuotationsPage() {
         QuotationStatus.SOLICITADA,
         QuotationStatus.ENVIADA,
         QuotationStatus.EN_NEGOCIACION,
+        QuotationStatus.RECHAZADA,
       ]);
       return data;
     },
   });
-  const quotations = quotationsQuery.data ?? [];
+  // El tablero sigue viendo SOLO el embudo vivo: las rechazadas se
+  // reparten abajo. Sin este filtro aparecerían como una columna más.
+  const quotations = (quotationsQuery.data ?? []).filter(
+    (q) => q.quotation_status !== QuotationStatus.RECHAZADA,
+  );
   const loading = quotationsQuery.isPending;
 
   const { data: requirements = [] } = useQuery({
@@ -641,17 +651,10 @@ export default function QuotationsPage() {
   // Camino a tablero-único: las rechazadas viven plegadas bajo el
   // tablero, y la búsqueda también revisa el archivo completo para que
   // NADA sea inencontrable (aceptadas/realizadas enlazan a Post-Venta).
-  const rechazadasQuery = useQuery({
-    queryKey: ["quotations", "rechazadas"],
-    enabled: !!user,
-    queryFn: async (): Promise<QuotationWithClient[]> => {
-      const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
-        QuotationStatus.RECHAZADA,
-      ]);
-      return data;
-    },
-  });
-  const rechazadas = (rechazadasQuery.data ?? []).filter(coincideBusqueda);
+  // Ya vienen en la misma llamada de arriba: acá solo se separan.
+  const rechazadas = (quotationsQuery.data ?? [])
+    .filter((q) => q.quotation_status === QuotationStatus.RECHAZADA)
+    .filter(coincideBusqueda);
   const [verRechazadas, setVerRechazadas] = useState(
     filtrosIniciales.verRechazadas ?? false,
   );
@@ -1129,7 +1132,7 @@ export default function QuotationsPage() {
             <div className="px-4 pb-3 divide-y divide-gray-200">
               {rechazadas.length === 0 ? (
                 <p className="py-2 text-xs text-gray-400">
-                  {rechazadasQuery.isPending
+                  {quotationsQuery.isPending
                     ? "Cargando…"
                     : "Ninguna cotización rechazada."}
                 </p>
