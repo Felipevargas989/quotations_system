@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { ADMIN_ONLY, Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -159,13 +159,19 @@ export class SectionsController {
     this.logger.setContext(SectionsController.name);
   }
 
-  @Roles(...SALES_AND_UP)
+  // Las DOS lecturas se abren a recepción (12-08). Es el ORDEN de la
+  // carta —categorías, secciones y a qué sección va cada servicio—, sin
+  // un solo precio. El visor de la cotización lo pide para agrupar el
+  // "Incluye:" por secciones; con el 403 el error se tragaba en silencio
+  // y tanto la pantalla como el PDF salían con todo en una línea
+  // corrida. Escribir secciones sigue siendo de administrador.
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     return this.repo.findAll(user.company_id);
   }
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Get('menu-order')
   menuOrder(@CurrentUser() user: User) {
     return this.repo.menuOrder(user.company_id);
