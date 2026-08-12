@@ -209,22 +209,30 @@ export class ClientsRepository {
   // encuestas de satisfacción, todo en una sola llamada.
   async findSummary(id: string, companyId: number) {
     this.logger.info(`findSummary client ${id} companyId ${companyId}`);
-    const { data: client, error: clientError } = await this.supabase.client
-      .from('clients')
-      .select('*, client_contacts(id, name, email, phone, is_primary)')
-      .eq('id', id)
-      .eq('company_id', companyId)
-      .single();
+    // Las cuatro consultas iban en fila india y la ficha tardaba ~800 ms
+    // (medido en los registros el 12-08). En la base cada una tarda menos
+    // de un milisegundo: lo que se pagaba eran cuatro idas y vueltas.
+    // Ahora van en dos tandas — dentro de cada una no dependen entre sí.
+    const [
+      { data: client, error: clientError },
+      { data: quotations, error: qError },
+    ] = await Promise.all([
+      this.supabase.client
+        .from('clients')
+        .select('*, client_contacts(id, name, email, phone, is_primary)')
+        .eq('id', id)
+        .eq('company_id', companyId)
+        .single(),
+      this.supabase.client
+        .from('quotations')
+        .select(
+          'id, quotation_number, quotation_status, event_type, event_date, total_amount, people_count, children_count, contact_name, created_at',
+        )
+        .eq('client_id', id)
+        .eq('company_id', companyId)
+        .order('event_date', { ascending: false }),
+    ]);
     if (clientError) throw clientError;
-
-    const { data: quotations, error: qError } = await this.supabase.client
-      .from('quotations')
-      .select(
-        'id, quotation_number, quotation_status, event_type, event_date, total_amount, people_count, children_count, contact_name, created_at',
-      )
-      .eq('client_id', id)
-      .eq('company_id', companyId)
-      .order('event_date', { ascending: false });
     if (qError) throw qError;
 
     const qIds = ((quotations ?? []) as { id: string }[]).map((q) => q.id);
@@ -235,20 +243,26 @@ export class ClientsRepository {
     }[] = [];
     let surveys: { quotation_id: string; answers: unknown }[] = [];
     if (qIds.length) {
-      // Cuotas impagas (pendiente/vencido) = saldo vivo del cliente.
-      const { data: cuotas, error: pError } = await this.supabase.client
-        .from('payments')
-        .select('quotation_id, amount, status')
-        .in('quotation_id', qIds)
-        .in('status', ['pendiente', 'vencido']);
+      // Segunda tanda: estas dos SÍ necesitan los ids de arriba, pero no
+      // se necesitan entre ellas.
+      const [
+        { data: cuotas, error: pError },
+        { data: responses, error: sError },
+      ] = await Promise.all([
+        // Cuotas impagas (pendiente/vencido) = saldo vivo del cliente.
+        this.supabase.client
+          .from('payments')
+          .select('quotation_id, amount, status')
+          .in('quotation_id', qIds)
+          .in('status', ['pendiente', 'vencido']),
+        this.supabase.client
+          .from('customer_satisfaction_survey_responses')
+          .select('quotation_id, answers')
+          .in('quotation_id', qIds),
+      ]);
       if (pError) throw pError;
-      pendingPayments = cuotas ?? [];
-
-      const { data: responses, error: sError } = await this.supabase.client
-        .from('customer_satisfaction_survey_responses')
-        .select('quotation_id, answers')
-        .in('quotation_id', qIds);
       if (sError) throw sError;
+      pendingPayments = cuotas ?? [];
       surveys = responses ?? [];
     }
 

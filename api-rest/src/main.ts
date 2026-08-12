@@ -50,6 +50,13 @@ async function bootstrap() {
       'Cache-Control',
     ],
     credentials: true, // Allow cookies and authorization headers
+    // Cuánto puede el navegador recordar este permiso antes de volver a
+    // pedirlo (12-08). Sin esto Chrome lo reptie cada 5 segundos: en los
+    // registros se veía un OPTIONS antes de CADA consulta, o sea el
+    // doble de viajes. Y desde Chile un viaje al servidor cuesta ~430 ms
+    // aunque el servidor conteste en 3. 24 horas es el techo que aceptan
+    // los navegadores.
+    maxAge: 86400,
   });
 
   app.useLogger(app.get(Logger));
