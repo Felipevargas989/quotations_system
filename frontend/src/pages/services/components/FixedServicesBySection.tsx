@@ -26,6 +26,7 @@ import {
 import { FixedService } from "../../../types/services.types";
 import ConfirmInline from "../../../components/ConfirmInline";
 import SectionChipSelect from "../../../components/selects/SectionChipSelect";
+import { servicioEnUso } from "../serviciosEnUso";
 
 // SERVICIOS FIJOS EN UNA SOLA CAJA (migración 53, diseño de Felipe
 // 30-07 tras dos vueltas): las secciones NO son cajas apiladas — son
@@ -310,7 +311,7 @@ export default function FixedServicesBySection({
           >
             <Edit size={16} />
           </button>
-          {usedCodes.has(s.code || "") ? (
+          {servicioEnUso(usedCodes, s) ? (
             <span className="text-gray-300 cursor-not-allowed">
               <Trash2 size={16} />
             </span>

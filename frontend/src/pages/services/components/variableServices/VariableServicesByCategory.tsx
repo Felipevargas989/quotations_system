@@ -25,6 +25,7 @@ import {
   VariableServiceCategoryLink,
 } from "../../../../types/services.types";
 import { reorderServicesInCategory } from "../../../../services/services.service";
+import { servicioEnUso } from "../../serviciosEnUso";
 import {
   createCategorySection,
   deleteCategorySection,
@@ -897,7 +898,7 @@ export default function VariableServicesByCategory({
                         >
                           <Edit size={16} />
                         </button>
-                        {usedCodes.has(service.code || "") ? (
+                        {servicioEnUso(usedCodes, service) ? (
                           <span className="text-gray-300 cursor-not-allowed">
                             <Trash2 size={16} />
                           </span>

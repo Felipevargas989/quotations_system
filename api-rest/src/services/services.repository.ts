@@ -110,16 +110,47 @@ export class ServicesRepository {
   // contención (@>) baja recursivo por los arreglos, así que una sola
   // consulta cubre el formato por bloques {day, items:[{codigo}]}.
   // El código viaja como texto — así lo guarda el cotizador.
+  // LAS COTIZACIONES GUARDAN DOS COSAS DISTINTAS BAJO "codigo" (13-08).
+  // Las nuevas anotan el ID del servicio ("2042"); las viejas anotaron
+  // el código del catálogo ("SF008"). Medido en producción: de 424
+  // referencias vivas, 120 calzan por id y 42 por código. Buscar solo
+  // por id dejaba borrar servicios que SÍ están en cotizaciones
+  // antiguas — "Sillas Chivari", "Arco de Flores" y 40 más. Se
+  // consultan las dos llaves y manda la mayor (no se suman: una misma
+  // cotización podría traer las dos formas y el aviso mentiría).
+  private async clavesDeServicio(
+    tabla: 'variable_services' | 'fixed_services',
+    companyId: Company['id'],
+    id: number,
+  ): Promise<string[]> {
+    const { data } = await this.supabase.client
+      .from(tabla)
+      .select('code')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    const code = String((data as { code?: string } | null)?.code || '').trim();
+    return [...new Set([String(id), code].filter(Boolean))];
+  }
+
   async variableServiceUsage(companyId: Company['id'], id: number) {
-    const codigo = String(id);
-    const [enBloques, enMenus] = await Promise.all([
-      this.supabase.client
-        .from('quotations')
-        .select('id', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .contains('items', {
-          variable_services: [{ items: [{ codigo }] }],
-        }),
+    const claves = await this.clavesDeServicio(
+      'variable_services',
+      companyId,
+      id,
+    );
+    const [conteos, enMenus] = await Promise.all([
+      Promise.all(
+        claves.map((codigo) =>
+          this.supabase.client
+            .from('quotations')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', companyId)
+            .contains('items', {
+              variable_services: [{ items: [{ codigo }] }],
+            }),
+        ),
+      ),
       this.supabase.client
         .from('service_group_items')
         .select('id, service_groups!inner(company_id)', {
@@ -130,19 +161,24 @@ export class ServicesRepository {
         .eq('service_groups.company_id', companyId),
     ]);
     return {
-      cotizaciones: enBloques.count ?? 0,
+      cotizaciones: Math.max(0, ...conteos.map((c) => c.count ?? 0)),
       menus: enMenus.count ?? 0,
     };
   }
 
   async fixedServiceUsage(companyId: Company['id'], id: number) {
-    const codigo = String(id);
-    const { count } = await this.supabase.client
-      .from('quotations')
-      .select('id', { count: 'exact', head: true })
-      .eq('company_id', companyId)
-      .contains('items', { fixed_services: [{ codigo }] });
-    return count ?? 0;
+    // Mismo caso de las dos llaves: ver clavesDeServicio.
+    const claves = await this.clavesDeServicio('fixed_services', companyId, id);
+    const conteos = await Promise.all(
+      claves.map((codigo) =>
+        this.supabase.client
+          .from('quotations')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .contains('items', { fixed_services: [{ codigo }] }),
+      ),
+    );
+    return Math.max(0, ...conteos.map((c) => c.count ?? 0));
   }
 
   removeVariableService(companyId: Company['id'], id: VariableService['id']) {
