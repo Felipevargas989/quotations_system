@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
 import { matchesSearch } from "../../utils/searchMatch";
+import { verEnLista } from "../../utils/verEnLista";
 
 export default function SelectWithSearch({
   options,
@@ -12,6 +13,7 @@ export default function SelectWithSearch({
   noResultsText = "No se encontraron resultados",
   disabled = false,
   required = false,
+  keepOpenOnSelect = false,
 }: SelectWithSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -62,7 +64,7 @@ export default function SelectWithSearch({
   // Búsqueda inteligente del sistema: sin tildes, por palabras en
   // cualquier orden (utils/searchMatch).
   const filteredOptions = options.filter((option) =>
-    matchesSearch(searchText, option.label),
+    matchesSearch(searchText, option.label, option.hint, option.group),
   );
 
   // Get selected option label
@@ -137,8 +139,26 @@ export default function SelectWithSearch({
     }
   };
 
+  // La opción marcada se mantiene A LA VISTA al navegar con flechas.
+  // Sin esto, bajar más allá de lo visible dejaba la selección fuera de
+  // pantalla — justo lo que Felipe pilló el 07-08 en el buscador de
+  // ítems, y cuya cura (utils/verEnLista) vivía solo en esa copia.
+  // verEnLista mueve SOLO la lista, nunca la página.
+  const marcadaRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (isOpen && highlightedIndex >= 0) verEnLista(marcadaRef.current);
+  }, [highlightedIndex, isOpen]);
+
   const handleSelectOption = (optionValue: string) => {
     onChange(optionValue);
+    // Los selectores que AGREGAN (ítems, insumos, servicios sueltos)
+    // se quedan abiertos: casi nunca se agrega uno solo.
+    if (keepOpenOnSelect) {
+      setSearchText("");
+      setHighlightedIndex(-1);
+      searchInputRef.current?.focus();
+      return;
+    }
     setIsOpen(false);
     setSearchText("");
     setHighlightedIndex(-1);
@@ -229,24 +249,52 @@ export default function SelectWithSearch({
           </div>
 
           {/* Options list (alto adaptado al espacio real disponible) */}
-          <div className="overflow-y-auto" style={{ maxHeight: listMaxH }}>
+          <div
+            className="overflow-y-auto"
+            style={{ maxHeight: listMaxH }}
+            data-lista-scroll
+          >
             {filteredOptions.length > 0 ? (
-              filteredOptions.map((option, index) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`
-                    w-full px-3 py-2 text-left text-gray-900 hover:bg-blue-50
-                    focus:bg-blue-50 focus:outline-none transition-colors
-                    ${index === highlightedIndex ? "bg-blue-50" : ""}
-                    ${option.value === value ? "bg-blue-100 font-medium" : ""}
-                  `}
-                  onClick={() => handleSelectOption(option.value)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  {option.label}
-                </button>
-              ))
+              filteredOptions.map((option, index) => {
+                // Encabezado de sección al cambiar de grupo (13-08).
+                const anterior = filteredOptions[index - 1];
+                const abreGrupo =
+                  !!option.group && option.group !== anterior?.group;
+                return (
+                  <div key={option.value}>
+                    {abreGrupo && (
+                      <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
+                        {option.group}
+                      </div>
+                    )}
+                    <button
+                      ref={index === highlightedIndex ? marcadaRef : undefined}
+                      type="button"
+                      className={`
+                        w-full px-3 py-2 text-left text-gray-900 hover:bg-blue-50
+                        focus:bg-blue-50 focus:outline-none transition-colors
+                        flex items-center gap-2
+                        ${index === highlightedIndex ? "bg-blue-50" : ""}
+                        ${option.value === value ? "bg-blue-100 font-medium" : ""}
+                      `}
+                      onClick={() => handleSelectOption(option.value)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                    >
+                      {option.dotClass && (
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${option.dotClass}`}
+                        />
+                      )}
+                      <span className="flex-1">{option.label}</span>
+                      {option.hint && (
+                        <span className="text-xs text-gray-400 shrink-0">
+                          {option.hint}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })
             ) : (
               <div className="px-3 py-2 text-gray-500 text-sm text-center">
                 {noResultsText}

@@ -107,7 +107,7 @@ and no close-on-click-outside) — every one of them already handled inside
 
 | Piece | Use it for | In |
 |---|---|---|
-| `components/selects/SelectWithSearch` | **any dropdown with search** — opens up when there's no room below, sizes itself against the nearest scroll container, keyboard nav, closes on outside click | 15 screens |
+| `components/selects/SelectWithSearch` | **any dropdown with search** — arrows/Enter/Escape with the marked option kept in view (`verEnLista`), opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint` (grey note on the right), `dotClass` (colour dot) and `keepOpenOnSelect` for pickers that ADD | 15 screens |
 | `components/MultiSelect` | multiple choice with chips | 3 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
@@ -124,10 +124,14 @@ due dates are UTC midnight; `new Date()` shifts them a day in Chile),
 (the single source of truth for quotation totals), `utils/apiErrors`
 (`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen).
 
-Known debt (13-08-2026): **8 dropdowns are still hand-rolled** —
-QuotationForm ×4, ServiciosTab ×3, PostVentaPage ×1 — living alongside the
-shared component. Migrate them opportunistically when touching those
-screens; do not add a ninth.
+Known debt (13-08-2026): **9 dropdowns are still hand-rolled** —
+QuotationForm ×4, ServiciosTab ×3, PostVentaPage ×1, Calendar ×1 — living
+alongside the shared component. As of 13-08 `SelectWithSearch` carries
+every feature they had (that is why `group`, `hint`, `dotClass` and
+`keepOpenOnSelect` exist), so migrating one is now a straight win rather
+than a trade-off. Do it when you touch those screens, validating each;
+do not add a tenth. The Calendar one is MULTI-select — its home is
+`MultiSelect`, not this piece.
 
 - **Route-level code splitting**: pages behind login are `React.lazy` in `App.tsx`
   (Suspense fallback `PageLoader`). New authenticated pages must be lazy too.
