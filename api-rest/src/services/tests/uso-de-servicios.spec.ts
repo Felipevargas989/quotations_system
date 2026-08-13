@@ -10,19 +10,25 @@ import { ServicesRepository } from '../services.repository';
 // Buscar solo por id dejaba borrar servicios que SÍ aparecen en
 // cotizaciones antiguas (pillada de Felipe con "Bollería variedades").
 // Estas pruebas fijan que se miren las DOS.
+// La forma del filtro que arma el repositorio, para no leer a ciegas.
+type FiltroContains = {
+  fixed_services?: { codigo?: string }[];
+  variable_services?: { items?: { codigo?: string }[] }[];
+};
+
 describe('Uso de servicios: se miran el id y el código', () => {
   // Doble de Supabase: devuelve un conteo distinto según qué "codigo"
   // se busque, para poder afirmar que se consultaron ambos.
   const armar = (conteos: Record<string, number>, code: string | null) => {
     const buscados: string[] = [];
-    const cadena = (n: number) => {
+    const cadena = () => {
       const c: Record<string, unknown> = {
         select: jest.fn(() => c),
         eq: jest.fn(() => c),
         maybeSingle: jest
           .fn()
           .mockResolvedValue({ data: { code }, error: null }),
-        contains: jest.fn((_col: string, filtro: Record<string, any>) => {
+        contains: jest.fn((_col: string, filtro: FiltroContains) => {
           const codigo =
             filtro.fixed_services?.[0]?.codigo ??
             filtro.variable_services?.[0]?.items?.[0]?.codigo;
@@ -32,7 +38,7 @@ describe('Uso de servicios: se miran el id y el código', () => {
       };
       return c;
     };
-    const client = { from: jest.fn(() => cadena(0)) };
+    const client = { from: jest.fn(() => cadena()) };
     const repo = new ServicesRepository(
       { client } as never,
       { setContext: jest.fn(), info: jest.fn(), error: jest.fn() } as never,
