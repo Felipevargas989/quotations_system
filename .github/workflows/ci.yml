@@ -70,3 +70,10 @@ jobs:
         run: npm run build
       - name: Pruebas (vitest)
         run: npm run test
+      # Portero de desplegables (13-08): mismo principio que el techo de
+      # lint del backend. Hay una pieza de la casa para desplegables con
+      # buscador y otra para elección múltiple, y aun así se siguieron
+      # escribiendo copias a mano. El script explica los techos y qué
+      # hacer cuando frena.
+      - name: Portero de desplegables (la deuda solo baja)
+        run: bash scripts/portero-desplegables.sh

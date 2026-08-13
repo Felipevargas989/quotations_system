@@ -124,14 +124,36 @@ due dates are UTC midnight; `new Date()` shifts them a day in Chile),
 (the single source of truth for quotation totals), `utils/apiErrors`
 (`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen).
 
-Known debt (13-08-2026): **9 dropdowns are still hand-rolled** —
-QuotationForm ×4, ServiciosTab ×3, PostVentaPage ×1, Calendar ×1 — living
-alongside the shared component. As of 13-08 `SelectWithSearch` carries
-every feature they had (that is why `group`, `hint`, `dotClass` and
-`keepOpenOnSelect` exist), so migrating one is now a straight win rather
-than a trade-off. Do it when you touch those screens, validating each;
-do not add a tenth. The Calendar one is MULTI-select — its home is
-`MultiSelect`, not this piece.
+**A guard enforces this — `npm run portero`, and a CI step.** Prose in a
+doc is a sign, not a barrier: the Calendar filter was hand-rolled next
+to `MultiSelect` by someone who never read this section. The guard works
+like the backend's lint ceiling — it does not judge today's code, it
+only stops the number from GROWING. Two ceilings, both in
+`frontend/scripts/portero-desplegables.sh`: hand-rolled dropdowns *with
+a search box* (the literal copies of `SelectWithSearch`), and
+hand-rolled floating panels in general (wider on purpose, so a new
+multi-select or menu is caught too). When it stops you, the answer is
+almost always `SelectWithSearch` or `MultiSelect`; if neither fits,
+**grow the shared piece** so all its screens benefit — do not write a
+copy.
+
+Known debt, measured 13-08-2026 (an earlier count in this file was
+wrong — it double-counted a tab bar and missed a dead file):
+
+- **6 hand-rolled dropdowns with search** — `QuotationForm` ×3,
+  `ServiciosTab` ×3. These are the literal copies; this number should
+  reach zero.
+- **1 hand-rolled multi-select** — `Calendar`'s status filter. Its home
+  is `MultiSelect`, not `SelectWithSearch`.
+- **1 dead file** — `pages/services/components/variableServices/CategorySelector.tsx`,
+  169 lines, imported by nobody.
+
+As of 13-08 `SelectWithSearch` carries every feature the copies had
+(that is why `group`, `hint`, `dotClass` and `keepOpenOnSelect` exist),
+so migrating one is now a straight win rather than a trade-off. Do it
+when you touch those screens, validating each, and lower the ceiling in
+the guard when you do — otherwise the ground gained is silently
+available to lose again.
 
 - **Route-level code splitting**: pages behind login are `React.lazy` in `App.tsx`
   (Suspense fallback `PageLoader`). New authenticated pages must be lazy too.
