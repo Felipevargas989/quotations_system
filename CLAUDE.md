@@ -126,16 +126,37 @@ due dates are UTC midnight; `new Date()` shifts them a day in Chile),
 
 **A guard enforces this — `npm run portero`, and a CI step.** Prose in a
 doc is a sign, not a barrier: the Calendar filter was hand-rolled next
-to `MultiSelect` by someone who never read this section. The guard works
-like the backend's lint ceiling — it does not judge today's code, it
-only stops the number from GROWING. Two ceilings, both in
-`frontend/scripts/portero-desplegables.sh`: hand-rolled dropdowns *with
-a search box* (the literal copies of `SelectWithSearch`), and
-hand-rolled floating panels in general (wider on purpose, so a new
-multi-select or menu is caught too). When it stops you, the answer is
-almost always `SelectWithSearch` or `MultiSelect`; if neither fits,
-**grow the shared piece** so all its screens benefit — do not write a
-copy.
+to `MultiSelect` by someone who never read this section. The guard lives
+in `frontend/scripts/portero-kit-de-la-casa.sh` and works like the
+backend's lint ceiling — it does not judge today's code, it only stops
+each number from GROWING.
+
+It is **generic on purpose**: one `revisar` line per piece, so a new
+house component is protected from day one by adding a line — never by
+writing a second guard. Ceilings measured 13-08-2026:
+
+| Rule | Ceiling | Reuse instead |
+|---|---|---|
+| hand-rolled dropdown with a search box | 6 | `SelectWithSearch` |
+| native `<select>` | 0 | `SelectWithSearch` |
+| hand-rolled floating panel (any) | 21 | `SelectWithSearch` / `MultiSelect` |
+| `alert()` | 0 | `Toast` |
+| `confirm()` | 0 | `ConfirmInline` |
+| native `type="number"` | 0 | `NumberInput` |
+
+The floating-panel rule is deliberately wider than the others: it is
+what would have caught the Calendar multi-select, which has no search
+box. It also counts legitimate action menus — that a new panel forces a
+moment's pause is the point.
+
+The guard strips comments (with multi-line block state) before
+counting, so the half-dozen comments that *mention* `confirm()` or
+`<select>` are not miscounted as debt. When adding a rule, only add one
+whose hand-rolled form is recognisable by a reliable regex — a guard
+with false alarms gets ignored, and then it protects nothing.
+
+When it stops you and neither piece fits, **grow the shared piece** so
+all its screens benefit — do not write a copy.
 
 Known debt, measured 13-08-2026 (an earlier count in this file was
 wrong — it double-counted a tab bar and missed a dead file):

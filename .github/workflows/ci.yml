@@ -70,10 +70,12 @@ jobs:
         run: npm run build
       - name: Pruebas (vitest)
         run: npm run test
-      # Portero de desplegables (13-08): mismo principio que el techo de
-      # lint del backend. Hay una pieza de la casa para desplegables con
-      # buscador y otra para elección múltiple, y aun así se siguieron
-      # escribiendo copias a mano. El script explica los techos y qué
-      # hacer cuando frena.
-      - name: Portero de desplegables (la deuda solo baja)
-        run: bash scripts/portero-desplegables.sh
+      # Portero del kit de la casa (13-08): mismo principio que el techo
+      # de lint del backend. El sistema tiene piezas propias —desplegable
+      # con buscador, elección múltiple, avisos, confirmaciones, campo
+      # numérico— y aun así se seguían escribiendo copias a mano al lado.
+      # Es GENÉRICO: cada pieza nueva se protege agregando una línea al
+      # script, no escribiendo otro portero. Ahí están los techos y el
+      # mensaje de qué usar cuando frena.
+      - name: Portero del kit de la casa (la deuda solo baja)
+        run: bash scripts/portero-kit-de-la-casa.sh

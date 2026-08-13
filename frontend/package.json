@@ -15,7 +15,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "portero": "bash scripts/portero-desplegables.sh",
+    "portero": "bash scripts/portero-kit-de-la-casa.sh",
     "preview": "vite preview"
   },
   "dependencies": {
