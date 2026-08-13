@@ -1206,7 +1206,12 @@ export class QuotationsService {
     // documentos, seguimiento, cocina, insumos y recursos.
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
-    if (error) throw error;
+    // findOne usa .single(), así que un id inexistente vuelve como error
+    // (PGRST116) y no como null. Eso NO es asunto del candado: se deja
+    // seguir para que el repositorio conteste lo de siempre. Cualquier
+    // otro fallo de lectura sí frena: si no puedo saber si el evento
+    // está realizado, no lo borro.
+    if (error && error.code !== 'PGRST116') throw error;
     if (
       quotation &&
       quotation.company_id === companyId &&

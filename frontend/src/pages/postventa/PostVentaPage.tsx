@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "../../components/toast/Toast";
 import EventoCajitas from "../../components/EventoCajitas";
+import { esEventoCongelado } from "../../utils/eventoCongelado";
 import CelebracionRealizada from "../../components/CelebracionRealizada";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { useNavigate, useParams } from "react-router-dom";
@@ -1409,7 +1410,7 @@ function EventModal({
               <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">
                 CANCELADO
               </span>
-            ) : !canCancel || confirmDone ? null : confirmCancel ? (
+            ) : !canCancel || confirmDone || event.done ? null : confirmCancel ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">
                   ¿Anular este evento?
@@ -1540,6 +1541,7 @@ function EventModal({
             fecha (editable) que antes ni se mostraba. */}
         {quote && (
           <EventoCajitas
+            puedeEditarFecha={!esEventoCongelado(quote.quotation_status)}
             quotationId={event.quotationId}
             tipo={String(quote.event_type || "")}
             fechaInicio={quote.event_date}

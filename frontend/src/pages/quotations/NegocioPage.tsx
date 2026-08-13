@@ -37,6 +37,7 @@ import { useCopiarDato } from "../../hooks/useCopiarDato";
 // Los dos bloques del seguimiento se mudaron a su propio archivo el
 // 07-08: ahora los monta también Post-Venta.
 import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
+import { esEventoCongelado } from "../../utils/eventoCongelado";
 import { normalizeText } from "../../utils/searchMatch";
 import { SECTION_ROLES } from "../../constants/permissions";
 
@@ -484,7 +485,9 @@ export default function NegocioPage() {
         {/* Las cajitas del evento: pieza única compartida con
             Post-Venta (diseño de Felipe 04-08). */}
         <EventoCajitas
-          puedeEditarFecha={puedeEditar}
+          puedeEditarFecha={
+            puedeEditar && !esEventoCongelado(fila.quotation_status)
+          }
           quotationId={fila.id}
           tipo={String(fila.event_type || "")}
           fechaInicio={fila.event_date}

@@ -154,6 +154,12 @@ export default function QuotationsPage() {
   // solo desde Aceptada (o si ya lo está). Realizada no se elige desde
   // aquí — solo se muestra (y permite revertir a Aceptada si fue error).
   const statusOptionsFor = (q: QuotationWithClient) => {
+    // EL CANDADO (13-08): un evento realizado no ofrece NINGUNA salida
+    // acá. Buscando por nombre aparecía en "Cerradas que coinciden" con
+    // el desplegable completo, y "Aceptada" lo des-realizaba de un clic
+    // —sin confirmación y bastando el rol vendedor—, saltándose la
+    // llave. Devolver un solo estado deja la píldora fija.
+    if (q.quotation_status === "realizada") return ["realizada"];
     const base = [
       "solicitada",
       "enviada",
@@ -167,7 +173,6 @@ export default function QuotationsPage() {
       q.quotation_status === "cancelada"
     )
       base.push("cancelada");
-    if (q.quotation_status === "realizada") base.push("realizada");
     return base;
   };
 

@@ -71,6 +71,7 @@ import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
+import { esEventoCongelado } from "../../utils/eventoCongelado";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
 import { getBaseCatalogo } from "../../services/logistics.service";
@@ -1616,9 +1617,20 @@ export default function QuotationForm() {
     );
   };
 
+  // El evento REALIZADO congela el cotizador entero, para TODOS los
+  // cargos (13-08, regla de Felipe: "no hay nada en el cotizador que se
+  // debiera modificar"). Hasta hoy esta condición solo miraba
+  // "aceptada", así que un evento ya realizado quedaba MÁS abierto que
+  // uno en curso: cualquiera con permiso de edición le movía ítems,
+  // fecha, personas, descuento y propina.
+  const eventoCongelado = esEventoCongelado(quotation?.quotation_status);
   const isRestrictedEditing =
-    quotation?.quotation_status === QuotationStatus.ACEPTADA &&
-    !(userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES);
+    eventoCongelado ||
+    (quotation?.quotation_status === QuotationStatus.ACEPTADA &&
+      !(
+        userRole === UserRole.ADMINISTRADOR ||
+        userRole === UserRole.OPERACIONES
+      ));
 
   if (servicesLoading) {
     return (
@@ -2086,8 +2098,16 @@ export default function QuotationForm() {
           )}
 
           {isRestrictedEditing && (
-            <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-              🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas
+            <div
+              className={
+                eventoCongelado
+                  ? "bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium"
+                  : "bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium"
+              }
+            >
+              {eventoCongelado
+                ? "🔒 Evento realizado: la cotización quedó congelada"
+                : "🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas"}
             </div>
           )}
         </div>
@@ -2097,6 +2117,7 @@ export default function QuotationForm() {
           {isEditingExisting &&
             id &&
             userRole === UserRole.ADMINISTRADOR &&
+            !eventoCongelado &&
             (confirmDeleteQ ? (
               <ConfirmInline
                 question="¿Eliminar esta cotización? No se puede deshacer."

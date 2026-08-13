@@ -10,6 +10,10 @@ import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import { updateQuotation } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
+import {
+  AVISO_EVENTO_CONGELADO,
+  esEventoCongelado,
+} from "../../utils/eventoCongelado";
 import { NumberInput } from "../../components/inputs";
 import { getFixedSections } from "../../services/services.service";
 import { getCategorySections } from "../../services/sections.service";
@@ -48,6 +52,14 @@ export default function ServiciosTab({
   readonly paidAmount: number;
   readonly onSaved: () => void;
 }) {
+  // EL CANDADO, LADO PANTALLA (13-08): el servidor ya rechaza todo
+  // cambio sobre un evento realizado. Sin este reflejo, el
+  // auto-guardado de más abajo disparaba solo a los 1,5 s, el 400 se
+  // perdía en un catch mudo y aparecía "No se pudo guardar — reintenta",
+  // que manda a repetir algo que nunca va a funcionar (lo pilló la
+  // revisión del 13-08).
+  const congelado = esEventoCongelado(quote.quotation_status);
+
   // Contadores de la cotización: total = adultos + niños (Cotizador 2.0).
   const initKids = Number(quote.children_count || 0);
   const initAdults = Math.max(0, Number(quote.people_count || 0) - initKids);
@@ -689,6 +701,7 @@ export default function ServiciosTab({
   // manual (tiene su indicador propio); todo lo demás — payload, cuenta
   // compartida, avisos de plan de pagos y refetch — es EXACTAMENTE igual.
   const save = async (): Promise<boolean> => {
+    if (congelado) return false;
     // Evento provisionado: bajar personas es solo para administradores.
     if (
       provInfo.provisioned_at &&
@@ -858,6 +871,7 @@ export default function ServiciosTab({
       huellaRef.current = huellaActual();
       return;
     }
+    if (congelado) return;
     const timer = setTimeout(() => void autoRef.current(), 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -875,6 +889,7 @@ export default function ServiciosTab({
       primerTexto.current = false;
       return;
     }
+    if (congelado) return;
     const timer = setTimeout(() => void autoRef.current(), 20000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1056,6 +1071,16 @@ export default function ServiciosTab({
 
   return (
     <div>
+      {congelado && (
+        <div className="mb-4 rounded-lg border border-gray-300 bg-gray-50 p-3 text-xs text-gray-700">
+          <span className="font-bold">Evento congelado</span>{" "}
+          {AVISO_EVENTO_CONGELADO}
+        </div>
+      )}
+      <div
+        aria-disabled={congelado}
+        className={congelado ? "pointer-events-none opacity-60" : undefined}
+      >
       {/* Aviso: evento ya provisionado */}
       {provInfo.provisioned_at && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -2287,6 +2312,7 @@ export default function ServiciosTab({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

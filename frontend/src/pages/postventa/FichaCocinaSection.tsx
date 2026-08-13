@@ -9,6 +9,10 @@ import {
   X,
 } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
+import {
+  AVISO_EVENTO_CONGELADO,
+  esEventoCongelado,
+} from "../../utils/eventoCongelado";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   KitchenNote,
@@ -88,6 +92,13 @@ export default function FichaCocinaSection({
     fixed: Record<string, number>;
   };
 }) {
+  // EL CANDADO, LADO PANTALLA (13-08): el servidor rechaza horarios y
+  // notas de un evento realizado. Sin esto la ficha MENTÍA: el horario
+  // se pintaba al tiro (patrón optimista) y el rechazo se perdía sin
+  // aviso, así que quedaba 13:30 en pantalla y 13:00 en la base.
+  // Imprimir NO se congela: reimprimir un evento pasado es archivo.
+  const congelado = esEventoCongelado(quote.quotation_status);
+
   const { company } = useAuth();
   const quotationId = String(quote.id);
   const [times, setTimes] = useState<Record<string, string>>({});
@@ -903,6 +914,18 @@ ${paginas}
           : "Ponle horario a cada servicio y revisa el contenido; la ficha se imprime siempre con los datos vigentes: cambió algo → volver a imprimir."}
       </p>
 
+      {congelado && (
+        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 text-xs text-gray-700">
+          <span className="font-bold">Evento congelado</span>{" "}
+          {AVISO_EVENTO_CONGELADO} La ficha se puede seguir imprimiendo.
+        </div>
+      )}
+      <div
+        aria-disabled={congelado}
+        className={
+          congelado ? "space-y-3 pointer-events-none opacity-60" : "space-y-3"
+        }
+      >
       {!multiDay ? (
         <>
           {/* ---- Un día (03-08): la pantalla es la PREVISUALIZACIÓN del
@@ -1186,6 +1209,7 @@ ${paginas}
           })}
         </>
       )}
+    </div>
     </div>
   );
 }

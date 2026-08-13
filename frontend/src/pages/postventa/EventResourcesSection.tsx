@@ -90,6 +90,9 @@ export default function EventResourcesSection({
   readonly onCostChange: (total: number) => void;
 }) {
   const queryClient = useQueryClient();
+  // El servidor ya rechaza escribir recursos de un evento realizado
+  // (13-08). Acá se apagan los controles para no ofrecer botones que
+  // rebotan: quitar un recurso no hacía nada y no avisaba.
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -426,7 +429,18 @@ export default function EventResourcesSection({
           </span>
         )}
         {err && <span className="text-xs text-red-600">{err}</span>}
+        {congelado && (
+          <span className="text-xs font-semibold text-gray-500">
+            congelado
+          </span>
+        )}
       </div>
+      <div
+        aria-disabled={congelado}
+        className={
+          congelado ? "space-y-3 pointer-events-none opacity-60" : "space-y-3"
+        }
+      >
       <p className="text-xs text-gray-500 -mt-1">
         Incluye los recursos de los servicios fijos del evento (importados
         automáticamente) más lo que agregues. El precio llega desde la lista del
@@ -828,6 +842,7 @@ export default function EventResourcesSection({
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

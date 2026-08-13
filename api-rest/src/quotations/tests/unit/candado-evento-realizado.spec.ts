@@ -153,6 +153,27 @@ describe('Candado del evento realizado', () => {
       expect(repo.remove).toHaveBeenCalledWith('1', 1);
     });
 
+    it('borrar algo que ya no existe NO revienta (lo pilló la cuadrilla)', async () => {
+      // findOne usa .single(): un id inexistente vuelve como error
+      // PGRST116, no como null. La primera versión del candado lo
+      // relanzaba y convertía un borrado inocuo en un error 500.
+      repo.findOne.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116', message: 'no rows' },
+      } as any);
+      await service.remove('fantasma', 1);
+      expect(repo.remove).toHaveBeenCalledWith('fantasma', 1);
+    });
+
+    it('si la lectura falla de verdad, NO borra (ante la duda, no)', async () => {
+      repo.findOne.mockResolvedValue({
+        data: null,
+        error: { code: '08006', message: 'connection failure' },
+      } as any);
+      await expect(service.remove('1', 1)).rejects.toBeDefined();
+      expect(repo.remove).not.toHaveBeenCalled();
+    });
+
     it('un realizado de OTRA empresa no se cuela por el candado', async () => {
       // El candado compara company_id: si no calza, deja seguir para
       // que el repositorio responda lo suyo (no encontrado).
