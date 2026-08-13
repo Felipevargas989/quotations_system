@@ -691,6 +691,9 @@ export default function QuotationForm() {
       if (!target.closest(".dropdown-container")) {
         setOpenDropdown(null);
         setOpenFixedPicker(null);
+        // El de servicios sueltos del paquete se suma al guardián
+        // (13-08): sin esto quedaba abierto al pinchar fuera.
+        setPkgSvcOpen(false);
       }
     };
 
@@ -2073,7 +2076,7 @@ export default function QuotationForm() {
               </div>
             )}
 
-            <div className="relative">
+            <div className="relative dropdown-container">
               <button
                 type="button"
                 onClick={() => setPkgSvcOpen((v) => !v)}
