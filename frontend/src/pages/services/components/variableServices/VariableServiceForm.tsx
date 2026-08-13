@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useEffect, useRef } from "react";
 import { X, Save, Plus, ChefHat } from "lucide-react";
 import {
   CreateVariableService,
@@ -25,7 +25,10 @@ interface VariableServiceFormProps {
   // Catálogo que la página YA tiene en memoria (30-07): el formulario
   // dejó de descargar todo el catálogo solo para marcar checkboxes.
   readonly allCategories: ServiceCategorySetting[];
-  readonly allCategoryLinks: { variable_service_id: number; category_id: number }[];
+  readonly allCategoryLinks: {
+    variable_service_id: number;
+    category_id: number;
+  }[];
 }
 
 export default function VariableServiceForm({
@@ -50,6 +53,13 @@ export default function VariableServiceForm({
   useLayoutEffect(() => {
     if (isOpen) setTab(isEditing ? initialTab : "datos");
   }, [isOpen, isEditing, initialTab]);
+  useLayoutEffect(() => {
+    if (isOpen) {
+      autoSnapRef.current = null;
+      huboGuardadosRef.current = false;
+      setAutoEstado("idle");
+    }
+  }, [isOpen]);
   const defaultFormData = {
     name: undefined,
     price: undefined,
@@ -59,6 +69,20 @@ export default function VariableServiceForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-guardado de Datos generales, SOLO al editar (13-08, pedido de
+  // Felipe): mismo ritmo que la receta — cada cambio se guarda solo.
+  // La foto de llegada se aprende al abrir; después, cualquier
+  // diferencia espera 1,2 s de calma y viaja. La lista de la página NO
+  // se recarga con el modal abierto (repintaría el formulario y pisaría
+  // lo que se está tipeando): se refresca al cerrar.
+  const [autoEstado, setAutoEstado] = useState<
+    "idle" | "guardando" | "ok" | "error"
+  >("idle");
+  const [autoHora, setAutoHora] = useState("");
+  const autoSnapRef = useRef<string | null>(null);
+  const autoTimerRef = useRef<number | null>(null);
+  const huboGuardadosRef = useRef(false);
 
   // Category entities and the ones selected for this service.
   const [categories, setCategories] = useState<ServiceCategorySetting[]>([]);
@@ -75,11 +99,13 @@ export default function VariableServiceForm({
   // pisaba las marcas sin guardar — el "pestañeo" del modal.
   useLayoutEffect(() => {
     if (!isOpen) return;
-    const cats = allCategories.slice().sort(
-      (a, b) =>
-        (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-        (b.sort_order ?? Number.MAX_SAFE_INTEGER),
-    );
+    const cats = allCategories
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+          (b.sort_order ?? Number.MAX_SAFE_INTEGER),
+      );
     setCategories(cats);
 
     if (isEditing && service) {
@@ -148,6 +174,60 @@ export default function VariableServiceForm({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen || !isEditing || !service) return;
+    const foto = JSON.stringify({
+      n: formData.name,
+      p: formData.price,
+      nc: formData.no_cost || false,
+      c: [...selectedCategoryIds].sort((a, b) => a - b),
+    });
+    if (autoSnapRef.current === null) {
+      autoSnapRef.current = foto;
+      return;
+    }
+    if (foto === autoSnapRef.current) return;
+    if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current);
+    autoTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        // Estados a medio escribir no viajan: nombre vacío, precio no
+        // numérico o cero categorías se quedan esperando sin alarma.
+        const nombre = (formData.name || "").trim();
+        if (
+          !nombre ||
+          typeof formData.price !== "number" ||
+          Number.isNaN(formData.price) ||
+          selectedCategoryIds.length === 0
+        )
+          return;
+        setAutoEstado("guardando");
+        try {
+          await updateVariableService(service.id, {
+            name: nombre,
+            price: formData.price,
+            no_cost: formData.no_cost || false,
+          });
+          await setServiceCategories(service.id, selectedCategoryIds);
+          autoSnapRef.current = foto;
+          huboGuardadosRef.current = true;
+          setAutoEstado("ok");
+          setAutoHora(
+            new Date().toLocaleTimeString("es-CL", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }),
+          );
+        } catch {
+          setAutoEstado("error");
+        }
+      })();
+    }, 1200);
+    return () => {
+      if (autoTimerRef.current) window.clearTimeout(autoTimerRef.current);
+    };
+  }, [isOpen, isEditing, service, formData, selectedCategoryIds]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -197,6 +277,9 @@ export default function VariableServiceForm({
   };
 
   const handleClose = () => {
+    // Los auto-guardados no recargaron la lista (habrían repintado el
+    // formulario): se salda la deuda al cerrar.
+    if (huboGuardadosRef.current) onSuccess();
     resetForm();
     onClose();
   };
@@ -240,7 +323,9 @@ export default function VariableServiceForm({
             onClick={() => isEditing && setTab("receta")}
             disabled={!isEditing}
             title={
-              isEditing ? undefined : "Guarda el servicio primero para definir su receta"
+              isEditing
+                ? undefined
+                : "Guarda el servicio primero para definir su receta"
             }
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
               tab === "receta"
@@ -262,167 +347,185 @@ export default function VariableServiceForm({
             />
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-800 text-sm">{error}</p>
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Nombre *
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name || ""}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Nombre del servicio"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="price"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Precio
+                </label>
+                <NumberInput
+                  value={formData.price}
+                  onChange={(value) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      price: value ? Number(value) : undefined,
+                    }));
+                  }}
+                  min={0}
+                  formatThousands={true}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
             <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Nombre *
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categorías * (al menos una)
               </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name || ""}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nombre del servicio"
-              />
+              <div className="border border-gray-300 rounded-lg p-3 max-h-56 overflow-y-auto space-y-1">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No hay categorías. Crea una abajo.
+                  </p>
+                ) : (
+                  categories.map((cat) => (
+                    <label
+                      key={cat.id}
+                      className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCategoryIds.includes(cat.id)}
+                        onChange={() => toggleCategory(cat.id)}
+                        className="h-4 w-4 text-blue-600 rounded"
+                      />
+                      <span className="text-sm text-gray-800">
+                        {cat.name}
+                        {cat.is_active === false && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            (inactiva)
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+
+              {/* Inline create new category */}
+              <div className="flex items-center space-x-2 mt-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddCategory();
+                    }
+                  }}
+                  placeholder="Nueva categoría..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  disabled={addingCategory || !newCategoryName.trim()}
+                  className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-1 text-sm"
+                >
+                  <Plus size={16} />
+                  <span>Agregar</span>
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                El servicio aparecerá en cada categoría marcada, sin duplicarse.
+              </p>
             </div>
 
-            <div>
-              <label
-                htmlFor="price"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Precio
-              </label>
-              <NumberInput
-                value={formData.price}
-                onChange={(value) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    price: value ? Number(value) : undefined,
-                  }));
-                }}
-                min={0}
-                formatThousands={true}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Categorías * (al menos una)
-            </label>
-            <div className="border border-gray-300 rounded-lg p-3 max-h-56 overflow-y-auto space-y-1">
-              {categories.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No hay categorías. Crea una abajo.
-                </p>
-              ) : (
-                categories.map((cat) => (
-                  <label
-                    key={cat.id}
-                    className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCategoryIds.includes(cat.id)}
-                      onChange={() => toggleCategory(cat.id)}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <span className="text-sm text-gray-800">
-                      {cat.name}
-                      {cat.is_active === false && (
-                        <span className="ml-2 text-xs text-gray-400">
-                          (inactiva)
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
-
-            {/* Inline create new category */}
-            <div className="flex items-center space-x-2 mt-2">
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddCategory();
-                  }
-                }}
-                placeholder="Nueva categoría..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleAddCategory}
-                disabled={addingCategory || !newCategoryName.trim()}
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-1 text-sm"
-              >
-                <Plus size={16} />
-                <span>Agregar</span>
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              El servicio aparecerá en cada categoría marcada, sin duplicarse.
-            </p>
-          </div>
-
-          {/* Sin costo en Eventia (migración 57): Ticket diario,
+            {/* Sin costo en Eventia (migración 57): Ticket diario,
               alojamientos… — cuenta $0 real y deja de figurar como
               pendiente de receta. */}
-          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.no_cost || false}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, no_cost: e.target.checked }))
-              }
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>
-              No lleva costo en Eventia
-              <span className="block text-xs text-gray-500">
-                Cuenta costo $0 real y no aparece como pendiente de receta.
-              </span>
-            </span>
-          </label>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-            >
-              {isSubmitting ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Save size={16} />
-              )}
+            <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.no_cost || false}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    no_cost: e.target.checked,
+                  }))
+                }
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
               <span>
-                {(() => {
-                  if (isSubmitting) return "Procesando...";
-                  if (isEditing) return "Actualizar";
-                  return "Crear";
-                })()}
+                No lleva costo en Eventia
+                <span className="block text-xs text-gray-500">
+                  Cuenta costo $0 real y no aparece como pendiente de receta.
+                </span>
               </span>
-            </button>
-          </div>
-        </form>
+            </label>
+
+            <div className="flex justify-end items-center space-x-3 pt-6 border-t">
+              {isEditing && (
+                <span className="mr-auto text-xs">
+                  {autoEstado === "guardando" && (
+                    <span className="text-gray-400">Guardando…</span>
+                  )}
+                  {autoEstado === "ok" && (
+                    <span className="text-gray-400">Guardado ✓ {autoHora}</span>
+                  )}
+                  {autoEstado === "error" && (
+                    <span className="font-semibold text-amber-600">
+                      No se pudo guardar — reintenta o usa Actualizar
+                    </span>
+                  )}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {isSubmitting ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <Save size={16} />
+                )}
+                <span>
+                  {(() => {
+                    if (isSubmitting) return "Procesando...";
+                    if (isEditing) return "Actualizar";
+                    return "Crear";
+                  })()}
+                </span>
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>
