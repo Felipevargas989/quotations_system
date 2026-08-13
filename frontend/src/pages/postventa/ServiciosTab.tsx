@@ -32,6 +32,7 @@ import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch } from "../../utils/searchMatch";
 import { verEnLista } from "../../utils/verEnLista";
 import { getQuotationProvisioning } from "../../services/logistics.service";
+import { recursosQueryOpts } from "./EventResourcesSection";
 // El formateador de pesos vive en la página madre y se comparte con el
 // resto de Post-Venta; acá solo se importa.
 import { clp } from "./PostVentaPage";
@@ -86,13 +87,15 @@ export default function ServiciosTab({
   const [provInfo, setProvInfo] = useState<{
     provisioned_at: string | null;
     provisioned_people: number | null;
-  }>({ provisioned_at: null, provisioned_people: null });
+    provisioned_cost: number | null;
+  }>({ provisioned_at: null, provisioned_people: null, provisioned_cost: null });
   useEffect(() => {
     getQuotationProvisioning(String(quote.id))
       .then((p) =>
         setProvInfo({
           provisioned_at: p.provisioned_at,
           provisioned_people: p.provisioned_people,
+          provisioned_cost: p.provisioned_cost,
         }),
       )
       .catch(() => {});
@@ -417,6 +420,7 @@ export default function ServiciosTab({
     const sinCostoVar = new Set(base.nameIds?.sinCostoVariable ?? []);
     return {
       costo: r.costoInsumos + r.costoFijos,
+      costoInsumos: r.costoInsumos,
       sinReceta: [...new Set(acc.noRecipe)].filter(
         (n) => !sinCostoVar.has(canonicalServiceName(n)),
       ),
@@ -876,7 +880,36 @@ export default function ServiciosTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obs]);
 
-  // Quitar un servicio pasa por confirmacion inline (es delicado aunque
+  // ---- Post-Venta: el margen deja la estimación y usa la REALIDAD ----
+  // (12-08, pillada de Felipe: cargar recursos no movía este cuadro).
+  // La MISMA cuenta del cuadrito de Gestión: foto de Compras (o insumos
+  // si no está provisionado) + recursos del evento. Los costos de los
+  // fijos ya viajan DENTRO de los recursos importados — sumarles además
+  // la estimación de catálogo sería contarlos dos veces.
+  const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
+    quote.quotation_status,
+  );
+  const recursosEvento = useQuery({
+    ...recursosQueryOpts(company?.id ? Number(company.id) : 0, String(quote.id)),
+    enabled: enPostVenta && !!company?.id,
+  });
+  const costoRecursos = useMemo(() => {
+    const lineas = recursosEvento.data?.lines ?? [];
+    return lineas.reduce(
+      (s: number, l: { price_fixed?: number | null; price_per_person?: number | null; quantity?: number | null }) =>
+        s +
+        ((l.price_fixed || 0) + (l.price_per_person || 0) * personas) *
+          (l.quantity || 1),
+      0,
+    );
+  }, [recursosEvento.data, personas]);
+  const provisionado =
+    !!provInfo.provisioned_at && provInfo.provisioned_cost !== null;
+  const costoBaseReal = provisionado
+    ? (provInfo.provisioned_cost as number)
+    : (margenEvento?.costoInsumos ?? 0);
+
+    // Quitar un servicio pasa por confirmacion inline (es delicado aunque
   // el cambio recien se aplique al Guardar).
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   // Fila de un servicio FIJO (04-08, unificada con varRow para que la
@@ -2104,7 +2137,11 @@ export default function ServiciosTab({
                   // venta; el descuento se muestra con y sin efecto.
                   const venta = total - tipAmount;
                   const ventaSinDesc = venta + descAmount;
-                  const costo = margenEvento.costo;
+                  // Post-Venta: cuenta REAL (misma de Gestión); antes de
+                  // vender: estimación de catálogo, como el cotizador.
+                  const costo = enPostVenta
+                    ? costoBaseReal + costoRecursos
+                    : margenEvento.costo;
                   const margen = venta - costo;
                   const pct = venta > 0 ? (margen / venta) * 100 : 0;
                   const margenSinDesc = ventaSinDesc - costo;
@@ -2127,10 +2164,33 @@ export default function ServiciosTab({
                           <span className="text-gray-600">Monto cotizado</span>
                           <span className="text-gray-900">{fmt(venta)}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Costo estimado</span>
-                          <span className="text-gray-900">{fmt(costo)}</span>
-                        </div>
+                        {enPostVenta ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                {provisionado
+                                  ? "Insumos (foto de Compras)"
+                                  : "Insumos (estimados)"}
+                              </span>
+                              <span className="text-gray-900">
+                                {fmt(costoBaseReal)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                Recursos del evento
+                              </span>
+                              <span className="text-gray-900">
+                                {fmt(costoRecursos)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Costo estimado</span>
+                            <span className="text-gray-900">{fmt(costo)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between border-t pt-1 font-semibold">
                           <span className="text-gray-700">Margen</span>
                           <span
@@ -2152,7 +2212,7 @@ export default function ServiciosTab({
                           </div>
                         </div>
                       )}
-                      {margenEvento.sinReceta.length > 0 && (
+                      {(!enPostVenta || !provisionado) && margenEvento.sinReceta.length > 0 && (
                         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                           ⚠ {margenEvento.sinReceta.length} servicio
                           {margenEvento.sinReceta.length > 1 ? "s" : ""} sin
@@ -2162,8 +2222,13 @@ export default function ServiciosTab({
                         </p>
                       )}
                       <p className="mt-2 text-[11px] text-gray-400">
-                        Estimación de catálogo (recetas + costos fijos), no el
-                        costo real de compra. La propina no entra en el cálculo.
+                        {enPostVenta
+                          ? `Cuenta real del evento (la misma de Gestión): ${
+                              provisionado
+                                ? "foto de Compras"
+                                : "insumos estimados"
+                            } + recursos cargados. La propina no entra en el cálculo.`
+                          : "Estimación de catálogo (recetas + costos fijos), no el costo real de compra. La propina no entra en el cálculo."}
                       </p>
                     </>
                   );
