@@ -2025,62 +2025,74 @@ export default function QuotationForm() {
               placeholder="Buscar servicio…"
               className="w-full px-3 py-2 mb-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <div className="border border-gray-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-100">
-              {variableServices
+            {(() => {
+              // El recuadro con borde SOLO cuando hay algo dentro: si
+              // no, se veían dos cajas vacías apiladas —el buscador y un
+              // marco con una frase adentro— que parecían dos campos
+              // (pillada de Felipe, 13-08). Sin nada que mostrar, la
+              // ayuda va como texto suelto.
+              const visibles = variableServices
                 .filter((v) =>
                   pkgSvcSearch.trim()
-                    ? matchesSearch(v.name, pkgSvcSearch)
+                    ? matchesSearch(pkgSvcSearch, v.name)
                     : (pkgServices[v.id] || 0) > 0,
                 )
-                .slice(0, 40)
-                .map((v) => {
-                  const id = v.id;
-                  const cant = pkgServices[id] || 0;
-                  return (
-                    <div
-                      key={v.id}
-                      className="flex items-center gap-2 px-3 py-2"
-                    >
-                      <span className="flex-1 text-sm text-gray-900">
-                        {v.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPkgServices((p) => {
-                            const n = { ...p };
-                            if (cant <= 1) delete n[id];
-                            else n[id] = cant - 1;
-                            return n;
-                          })
-                        }
-                        disabled={cant === 0}
-                        className="w-7 h-7 rounded border border-gray-300 text-gray-600 disabled:opacity-30"
-                      >
-                        −
-                      </button>
-                      <span className="w-6 text-center text-sm tabular-nums">
-                        {cant}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPkgServices((p) => ({ ...p, [id]: cant + 1 }))
-                        }
-                        className="w-7 h-7 rounded border border-gray-300 text-gray-600"
-                      >
-                        +
-                      </button>
-                    </div>
-                  );
-                })}
-              {!pkgSvcSearch.trim() &&
-                Object.keys(pkgServices).length === 0 && (
-                  <p className="px-3 py-2 text-xs text-gray-400">
-                    Busca un servicio para agregarlo al paquete.
+                .slice(0, 40);
+
+              if (visibles.length === 0)
+                return (
+                  <p className="text-xs text-gray-400">
+                    {pkgSvcSearch.trim()
+                      ? "Ningún servicio con ese nombre."
+                      : "Escribe arriba para buscar un servicio y agregarlo."}
                   </p>
-                )}
-            </div>
+                );
+
+              return (
+                <div className="border border-gray-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-100">
+                  {visibles.map((v) => {
+                    const cant = pkgServices[v.id] || 0;
+                    return (
+                      <div
+                        key={v.id}
+                        className="flex items-center gap-2 px-3 py-2"
+                      >
+                        <span className="flex-1 text-sm text-gray-900">
+                          {v.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPkgServices((p) => {
+                              const n = { ...p };
+                              if (cant <= 1) delete n[v.id];
+                              else n[v.id] = cant - 1;
+                              return n;
+                            })
+                          }
+                          disabled={cant === 0}
+                          className="w-7 h-7 rounded border border-gray-300 text-gray-600 disabled:opacity-30"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-sm tabular-nums">
+                          {cant}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPkgServices((p) => ({ ...p, [v.id]: cant + 1 }))
+                          }
+                          className="w-7 h-7 rounded border border-gray-300 text-gray-600"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
