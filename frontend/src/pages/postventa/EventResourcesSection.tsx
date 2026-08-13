@@ -90,9 +90,6 @@ export default function EventResourcesSection({
   readonly onCostChange: (total: number) => void;
 }) {
   const queryClient = useQueryClient();
-  // El servidor ya rechaza escribir recursos de un evento realizado
-  // (13-08). Acá se apagan los controles para no ofrecer botones que
-  // rebotan: quitar un recurso no hacía nada y no avisaba.
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 

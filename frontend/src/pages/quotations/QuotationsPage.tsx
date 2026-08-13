@@ -595,18 +595,25 @@ export default function QuotationsPage() {
         ) : (
           <button
             type="button"
+            disabled={quotation.quotation_status === "realizada"}
             onClick={() =>
               setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
             }
-            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
-            title="Cambiar estado"
+            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)} disabled:cursor-default`}
+            title={
+              quotation.quotation_status === "realizada"
+                ? "Evento realizado: la cotización quedó congelada"
+                : "Cambiar estado"
+            }
           >
             <span className="truncate">
               {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
               {STATUS_LABEL[quotation.quotation_status] ||
                 quotation.quotation_status}
             </span>
-            <ChevronDown size={12} className="shrink-0" />
+            {quotation.quotation_status !== "realizada" && (
+              <ChevronDown size={12} className="shrink-0" />
+            )}
           </button>
         )}
         {statusMenuId === quotation.id && (

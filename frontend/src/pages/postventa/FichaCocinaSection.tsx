@@ -838,7 +838,8 @@ ${paginas}
           type="time"
           value={times[s.key] || ""}
           onChange={(e) => saveTime(s.key, e.target.value)}
-          className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white"
+          disabled={congelado}
+          className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
           aria-label={`Horario de ${s.label}`}
         />
       </div>
@@ -917,15 +918,9 @@ ${paginas}
       {congelado && (
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 text-xs text-gray-700">
           <span className="font-bold">Evento congelado</span>{" "}
-          {AVISO_EVENTO_CONGELADO} La ficha se puede seguir imprimiendo.
+          {AVISO_EVENTO_CONGELADO} Los horarios y las notas quedaron fijos; la ficha se puede seguir revisando e imprimiendo.
         </div>
       )}
-      <div
-        aria-disabled={congelado}
-        className={
-          congelado ? "space-y-3 pointer-events-none opacity-60" : "space-y-3"
-        }
-      >
       {!multiDay ? (
         <>
           {/* ---- Un día (03-08): la pantalla es la PREVISUALIZACIÓN del
@@ -990,13 +985,14 @@ ${paginas}
               onKeyDown={(e) => {
                 if (e.key === "Enter") addNote();
               }}
+              disabled={congelado}
               placeholder="Agregar nota (ej: 2 alérgicos al maní, carne a punto…)"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100"
             />
             <button
               type="button"
               onClick={addNote}
-              disabled={!newNote.trim()}
+              disabled={congelado || !newNote.trim()}
               className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
             >
               + Agregar
@@ -1016,7 +1012,8 @@ ${paginas}
                   <button
                     type="button"
                     onClick={() => removeNote(n.id)}
-                    className="text-gray-300 hover:text-red-500 shrink-0"
+                    disabled={congelado}
+                    className="text-gray-300 hover:text-red-500 shrink-0 disabled:invisible"
                     aria-label="Eliminar nota"
                   >
                     <X size={14} />
@@ -1169,7 +1166,8 @@ ${paginas}
                             <button
                               type="button"
                               onClick={() => removeNote(x.id)}
-                              className="text-gray-300 hover:text-red-500 shrink-0"
+                              disabled={congelado}
+                              className="text-gray-300 hover:text-red-500 shrink-0 disabled:invisible"
                               aria-label="Eliminar nota"
                             >
                               <X size={14} />
@@ -1190,13 +1188,14 @@ ${paginas}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") addNoteDay(n);
                         }}
+                        disabled={congelado}
                         placeholder={`Agregar nota del día ${n}…`}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm disabled:bg-gray-100"
                       />
                       <button
                         type="button"
                         onClick={() => addNoteDay(n)}
-                        disabled={!(noteDrafts[n] || "").trim()}
+                        disabled={congelado || !(noteDrafts[n] || "").trim()}
                         className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-40"
                       >
                         + Agregar
@@ -1209,7 +1208,6 @@ ${paginas}
           })}
         </>
       )}
-    </div>
     </div>
   );
 }

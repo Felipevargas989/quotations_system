@@ -828,6 +828,12 @@ export default function ServiciosTab({
     });
 
   const autoGuardar = async () => {
+    // El freno va ACÁ y no solo en los temporizadores (revisión 13-08):
+    // el onBlur del textarea llama a esta función directo, y con teclado
+    // se puede llegar al campo aunque el mouse esté apagado. Salir sin
+    // tocar el estado evita el cartel "no se pudo guardar — reintenta",
+    // que mandaba a repetir algo que el servidor nunca va a aceptar.
+    if (congelado) return;
     if (vueloRef.current) {
       pendienteRef.current = true;
       return;
@@ -871,7 +877,6 @@ export default function ServiciosTab({
       huellaRef.current = huellaActual();
       return;
     }
-    if (congelado) return;
     const timer = setTimeout(() => void autoRef.current(), 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -889,7 +894,6 @@ export default function ServiciosTab({
       primerTexto.current = false;
       return;
     }
-    if (congelado) return;
     const timer = setTimeout(() => void autoRef.current(), 20000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
