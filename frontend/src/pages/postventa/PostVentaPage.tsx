@@ -25,7 +25,7 @@ import {
   Mail,
 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatISOUTCDateToString } from "../../utils/dates";
 import { useAuth } from "../../contexts/AuthContext";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import FileViewLink from "../../components/FileViewLink";
@@ -158,10 +158,14 @@ const MONEY_OPTIONS: MultiSelectOption[] = [
 // Exportado: ServiciosTab (archivo propio desde el 04-08) usa el mismo
 // formateador para que los montos se vean idénticos en toda Post-Venta.
 export const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
+// SIEMPRE en UTC (12-08): las fechas de evento y de cuota viven como
+// medianoche UTC. `new Date()` las corría a hora chilena y la lista
+// mostraba un día MENOS que la ficha (pillada de Felipe: la #423
+// decía 13-17 afuera y 14-18 adentro; la ficha era la correcta).
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
   try {
-    return format(new Date(d), "dd/MM/yyyy", { locale: es });
+    return formatISOUTCDateToString(d);
   } catch {
     return "—";
   }
@@ -1410,7 +1414,9 @@ function EventModal({
               <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">
                 CANCELADO
               </span>
-            ) : !canCancel || confirmDone || event.done ? null : confirmCancel ? (
+            ) : !canCancel ||
+              confirmDone ||
+              event.done ? null : confirmCancel ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">
                   ¿Anular este evento?
@@ -2023,7 +2029,6 @@ function RegistrarPagoPanel({
     };
   }, []);
 
-
   // Monto válido: mayor que cero y hasta el saldo pendiente. Mientras
   // no lo sea, el botón queda bloqueado (el campo vibra y avisa).
   const amountValid = !!amount && amount > 0 && amount <= maxAmount;
@@ -2179,7 +2184,7 @@ function RegistrarPagoPanel({
                 (imagen o PDF · máx. 5 MB)
               </span>
             </label>
-<div className="mt-1.5 flex items-center gap-2.5">
+            <div className="mt-1.5 flex items-center gap-2.5">
               <label className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
                 Seleccionar archivo
                 <input
@@ -2654,8 +2659,7 @@ function RefundRow({
               />
               {file && (
                 <p className="text-xs text-gray-600 truncate mt-1">
-                  Listo para subir:{" "}
-                  <b className="text-gray-800">{file.name}</b>
+                  Listo para subir: <b className="text-gray-800">{file.name}</b>
                 </p>
               )}
             </div>
@@ -2872,7 +2876,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
                 (imagen o PDF · máx. 5 MB)
               </span>
             </label>
-<div className="mt-1.5 flex items-center gap-2.5">
+            <div className="mt-1.5 flex items-center gap-2.5">
               <label className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
                 Seleccionar archivo
                 <input
@@ -2897,8 +2901,7 @@ function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
             </div>
             {upFile && (
               <p className="text-xs text-gray-600 truncate mt-1">
-                Listo para subir:{" "}
-                <b className="text-gray-800">{upFile.name}</b>
+                Listo para subir: <b className="text-gray-800">{upFile.name}</b>
               </p>
             )}
           </div>

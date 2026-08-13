@@ -22,9 +22,7 @@ import {
   getUsedServiceCodes,
   createCategory,
 } from "../../services/services.service";
-import MultiSelect, {
-  MultiSelectOption,
-} from "../../components/MultiSelect";
+import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import ExcelUpload from "./components/ExcelUpload";
 import VariableServicesByCategory from "./components/variableServices/VariableServicesByCategory";
 import FixedServicesBySection from "./components/FixedServicesBySection";
@@ -370,7 +368,9 @@ export default function ServicesPage() {
       await loadServices();
     } catch (err) {
       const data = (
-        err as { response?: { data?: { message?: string; service_ids?: number[] } } }
+        err as {
+          response?: { data?: { message?: string; service_ids?: number[] } };
+        }
       )?.response?.data;
       if (data?.service_ids?.length) {
         const names = data.service_ids
@@ -398,7 +398,14 @@ export default function ServicesPage() {
       }
     } catch (error) {
       console.error("Error al eliminar el servicio", error);
-      toast.error("No se pudo eliminar el servicio.");
+      // El servidor ahora rebota los servicios ocupados con un motivo
+      // claro ("se usa en N cotizaciones…"): mostrarlo tal cual. Antes
+      // este catch NO cortaba y el "Servicio eliminado." salía igual,
+      // mintiendo encima del error (13-08).
+      const motivo = (error as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(motivo || "No se pudo eliminar el servicio.");
+      return;
     }
     toast.success("Servicio eliminado.");
     await loadServices();
@@ -455,51 +462,51 @@ export default function ServicesPage() {
               </button>
             )}
           </div>
-        <div className="relative" ref={createMenuRef}>
-          <button
-            onClick={() => setShowCreateMenu((v) => !v)}
-            className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
-          >
-            <Plus size={16} />
-            <span>Nuevo servicio</span>
-          </button>
-          {showCreateMenu && (
-            <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateMenu(false);
-                  handleCreateService(ServiceType.VARIABLE);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
-              >
-                <Tag size={15} className="text-blue-600" /> Servicio variable
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateMenu(false);
-                  handleCreateService(ServiceType.FIXED);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
-              >
-                <Pin size={15} className="text-green-600" /> Servicio fijo
-              </button>
-              <div className="my-1 border-t border-gray-100" />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateMenu(false);
-                  setShowUpload(true);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
-              >
-                <FileSpreadsheet size={15} className="text-gray-500" />{" "}
-                Importar desde Excel
-              </button>
-            </div>
-          )}
-        </div>
+          <div className="relative" ref={createMenuRef}>
+            <button
+              onClick={() => setShowCreateMenu((v) => !v)}
+              className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+            >
+              <Plus size={16} />
+              <span>Nuevo servicio</span>
+            </button>
+            {showCreateMenu && (
+              <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-gray-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateMenu(false);
+                    handleCreateService(ServiceType.VARIABLE);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  <Tag size={15} className="text-blue-600" /> Servicio variable
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateMenu(false);
+                    handleCreateService(ServiceType.FIXED);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  <Pin size={15} className="text-green-600" /> Servicio fijo
+                </button>
+                <div className="my-1 border-t border-gray-100" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateMenu(false);
+                    setShowUpload(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  <FileSpreadsheet size={15} className="text-gray-500" />{" "}
+                  Importar desde Excel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -540,18 +547,18 @@ export default function ServicesPage() {
       {/* Buscador del catálogo (en el lugar del antiguo subtítulo
           "Servicios Variables"): filtra variables Y fijos a la vez. */}
       <div className="flex flex-wrap items-center gap-3">
-      <div className="relative max-w-xs flex-1 min-w-[220px]">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          size={16}
-        />
-        <input
-          value={svcSearch}
-          onChange={(e) => setSvcSearch(e.target.value)}
-          placeholder="Buscar servicio…"
-          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
+        <div className="relative max-w-xs flex-1 min-w-[220px]">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={16}
+          />
+          <input
+            value={svcSearch}
+            onChange={(e) => setSvcSearch(e.target.value)}
+            placeholder="Buscar servicio…"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
         <div className="min-w-[240px]">
           <MultiSelect
             options={RECIPE_FILTER_OPTIONS}
