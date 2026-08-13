@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { format, startOfMonth, endOfMonth, isValid, parseISO } from "date-fns";
@@ -447,6 +447,33 @@ export default function CalendarPage() {
     ? getQuotationsForDate(selectedDate)
     : [];
 
+  // PRECALENTADO (12-08, "se demoran los chips"): apenas llega el mes,
+  // los detalles de sus eventos se piden por detrás en ratos ociosos —
+  // al pinchar un día, las categorías ya están (clave compartida con la
+  // ficha y Post-Venta, así el caché le sirve a todos).
+  const clientePre = useQueryClient();
+  useEffect(() => {
+    const eventos = (quotations ?? []).slice(0, 25);
+    let i = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const pedirSiguiente = () => {
+      if (i >= eventos.length) return;
+      const q = eventos[i++];
+      void clientePre.prefetchQuery({
+        queryKey: ["quotation", q.id],
+        queryFn: async () => {
+          const { data } = await getQuotationById(String(q.id));
+          return data || null;
+        },
+        staleTime: 60_000,
+      });
+      timers.push(setTimeout(pedirSiguiente, 250));
+    };
+    timers.push(setTimeout(pedirSiguiente, 800));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotations]);
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
@@ -850,16 +877,16 @@ function TarjetaEvento({
       }}
       className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
     >
-      <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 flex items-center gap-2">
-          {q.clients.name}
-          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex items-start justify-between gap-3 mb-1.5">
+        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 flex items-center gap-2 min-w-0">
+          <span className="truncate">{q.clients.name}</span>
+          <ExternalLink className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
         </h3>
-        <span className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-gray-400">
+        <span className="flex flex-col items-end gap-1 shrink-0">
+          {pill}
+          <span className="text-[11px] text-gray-400">
             N°{q.quotation_number}
           </span>
-          {pill}
         </span>
       </div>
       <p className="text-sm font-bold text-gray-900">
@@ -868,7 +895,7 @@ function TarjetaEvento({
       </p>
       <p className="text-sm text-gray-600 mt-0.5">{q.event_type}</p>
       {categorias.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
           {categorias.map((c) => (
             <span
               key={c}
