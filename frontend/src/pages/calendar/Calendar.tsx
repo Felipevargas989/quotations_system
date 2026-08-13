@@ -17,7 +17,11 @@ import {
   QuotationStatus,
   QuotationWithClient,
 } from "../../types/quotations.types";
-import { getQuotations } from "../../services/quotations.service";
+import {
+  getQuotationById,
+  getQuotations,
+} from "../../services/quotations.service";
+import { recursosQueryOpts } from "../postventa/EventResourcesSection";
 import { useAuth } from "../../contexts/AuthContext";
 import { SECTION_ROLES } from "../../constants/permissions";
 // import { findAllEvents } from "../../services/calendar.service";
@@ -430,9 +434,13 @@ export default function CalendarPage() {
     const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
       q.quotation_status,
     );
-    const destino =
-      puedeEditar && enPostVenta ? `/post-venta/${q.id}` : `/negocio/${q.id}`;
-    navigate(destino);
+    // Post-Venta abre en PESTAÑA NUEVA (pedido de Felipe 12-08); la
+    // ficha del negocio sigue en la misma, como el tablero.
+    if (puedeEditar && enPostVenta) {
+      window.open(`/post-venta/${q.id}`, "_blank");
+      return;
+    }
+    navigate(`/negocio/${q.id}`);
   };
 
   const eventsForSelectedDate = selectedDate
@@ -583,66 +591,24 @@ export default function CalendarPage() {
             {selectedDate && eventsForSelectedDate.length > 0 && (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {eventsForSelectedDate.map((quotation) => (
-                  <button
+                  <TarjetaEvento
                     key={quotation.id}
-                    onClick={() => handleNavigateToQuotation(quotation)}
-                    className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
-                          {quotation.clients.name}
-                        </h3>
-                        <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
+                    q={quotation}
+                    pill={
                       <span
                         className={`px-2 py-1 text-xs rounded-full text-white ${getStatusColor(quotation.quotation_status)}`}
                       >
                         {getStatusLabel(quotation.quotation_status)}
                       </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <span className="font-medium">Tipo:</span>{" "}
-                      {quotation.event_type}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <span className="font-medium">Personas:</span>{" "}
-                      {quotation.people_count}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Cotización:</span> N°
-                      {quotation.quotation_number}
-                    </p>
-                    {quotation.observations && (
-                      <p className="text-sm text-gray-500 mt-2 italic">
-                        {quotation.observations}
-                      </p>
-                    )}
-                  </button>
+                    }
+                    companyId={company?.id ? Number(company.id) : 0}
+                    onOpen={() => handleNavigateToQuotation(quotation)}
+                  />
                 ))}
               </div>
             )}
           </div>
 
-          {selectedStatuses.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex flex-wrap gap-2">
-                {statusOptions
-                  .filter((option) => selectedStatuses.includes(option.value))
-                  .map((option) => (
-                    <div
-                      key={option.value}
-                      className="flex items-center gap-1.5"
-                    >
-                      <div className={`w-2 h-2 rounded-full ${option.color}`} />
-                      <span className="text-xs text-gray-600">
-                        {option.label}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -686,6 +652,13 @@ export default function CalendarPage() {
 
         .custom-calendar .react-calendar__tile--active:enabled:hover {
           background: #dbeafe !important;
+        }
+
+        /* El foco pegado dejaba una caja gris fantasma en la celda
+           pinchada (pillado por Felipe en el 24): mismo remedio que la
+           flecha. El hover de más abajo sigue mandando al posar. */
+        .custom-calendar .react-calendar__tile:enabled:focus {
+          background: transparent;
         }
 
         .custom-calendar .react-calendar__tile:enabled:hover {
@@ -809,6 +782,142 @@ export default function CalendarPage() {
           color: #6b7280;
         }
       `}</style>
+    </div>
+  );
+}
+
+
+// ---- Tarjeta del panel lateral, v2 (12-08, jerarquía de Felipe) ----
+// N° gris a la esquina · cliente grande · PERSONAS Y MONTO en negrita ·
+// chips de categorías (detalle al seleccionar, clave compartida de la
+// casa) · personal asignado solo en Post-Venta · comentarios plegados.
+function TarjetaEvento({
+  q,
+  pill,
+  companyId,
+  onOpen,
+}: {
+  readonly q: QuotationWithClient;
+  readonly pill: React.ReactNode;
+  readonly companyId: number;
+  readonly onOpen: () => void;
+}) {
+  const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
+    q.quotation_status,
+  );
+  const [verMas, setVerMas] = useState(false);
+  // Detalle SOLO al estar visible la tarjeta (día seleccionado); misma
+  // clave que la ficha y Post-Venta: el caché trabaja para todos.
+  const detalleQuery = useQuery({
+    queryKey: ["quotation", q.id],
+    queryFn: async () => {
+      const { data } = await getQuotationById(String(q.id));
+      return data || null;
+    },
+  });
+  const categorias = [
+    ...new Set(
+      ((detalleQuery.data?.items?.variable_services as
+        | { category?: string }[]
+        | undefined) ?? [])
+        .map((g) => g.category)
+        .filter((c): c is string => !!c),
+    ),
+  ];
+  const recursosQuery = useQuery({
+    ...recursosQueryOpts(companyId, String(q.id)),
+    enabled: enPostVenta && !!companyId,
+  });
+  const personal = (() => {
+    if (!recursosQuery.data) return null;
+    const { lines, resources } = recursosQuery.data;
+    return lines
+      .filter(
+        (l) =>
+          resources.find((r) => r.id === l.resource_id)?.type === "personal",
+      )
+      .reduce((s, l) => s + (l.quantity || 1), 0);
+  })();
+  const obs = (q.observations || "").trim();
+
+  return (
+    <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen();
+      }}
+      className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+    >
+      <div className="flex items-start justify-between mb-1">
+        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 flex items-center gap-2">
+          {q.clients.name}
+          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </h3>
+        <span className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-gray-400">
+            N°{q.quotation_number}
+          </span>
+          {pill}
+        </span>
+      </div>
+      <p className="text-sm font-bold text-gray-900">
+        {q.people_count} personas · $
+        {Math.round(q.total_amount || 0).toLocaleString("es-CL")}
+      </p>
+      <p className="text-sm text-gray-600 mt-0.5">{q.event_type}</p>
+      {categorias.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {categorias.map((c) => (
+            <span
+              key={c}
+              className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+      {enPostVenta && personal !== null && (
+        <p
+          className={`text-xs mt-2 ${
+            personal > 0 ? "text-gray-600" : "text-amber-700"
+          }`}
+        >
+          👥 {personal > 0 ? `Personal: ${personal} asignados` : "Sin personal asignado"}
+        </p>
+      )}
+      {obs && (
+        <div className="mt-2">
+          <p
+            className={`text-sm text-gray-500 italic ${
+              verMas ? "" : "line-clamp-3"
+            }`}
+          >
+            {obs}
+          </p>
+          {obs.length > 160 && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setVerMas((v) => !v);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  setVerMas((v) => !v);
+                }
+              }}
+              className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+            >
+              {verMas ? "ver menos" : "ver más"}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
