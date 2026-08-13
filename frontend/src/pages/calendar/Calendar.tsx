@@ -453,7 +453,14 @@ export default function CalendarPage() {
   // ficha y Post-Venta, así el caché le sirve a todos).
   const clientePre = useQueryClient();
   useEffect(() => {
-    const eventos = (quotations ?? []).slice(0, 25);
+    // Los del día seleccionado van AL FRENTE de la fila; parte al tiro
+    // y con paso corto — al pinchar, las categorías ya llegaron.
+    const seleccionados = new Set(eventsForSelectedDate.map((q) => q.id));
+    const eventos = [...(quotations ?? [])]
+      .sort((a, b) =>
+        Number(seleccionados.has(b.id)) - Number(seleccionados.has(a.id)),
+      )
+      .slice(0, 25);
     let i = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const pedirSiguiente = () => {
@@ -467,12 +474,12 @@ export default function CalendarPage() {
         },
         staleTime: 60_000,
       });
-      timers.push(setTimeout(pedirSiguiente, 250));
+      timers.push(setTimeout(pedirSiguiente, 120));
     };
-    timers.push(setTimeout(pedirSiguiente, 800));
+    pedirSiguiente();
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quotations]);
+  }, [quotations, selectedDate]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -892,6 +899,12 @@ function TarjetaEvento({
         {Math.round(q.total_amount || 0).toLocaleString("es-CL")}
       </p>
       <p className="text-sm text-gray-600 mt-0.5">{q.event_type}</p>
+      {detalleQuery.isPending && (
+        <div className="flex gap-1.5 mt-1.5">
+          <span className="w-20 h-5 rounded-full bg-gray-200 animate-pulse" />
+          <span className="w-16 h-5 rounded-full bg-gray-200 animate-pulse" />
+        </div>
+      )}
       {categorias.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {categorias.map((c) => (
