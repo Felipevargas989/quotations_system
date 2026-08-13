@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -8,7 +8,9 @@ import { es } from "date-fns/locale";
 import {
   Calendar as CalendarIcon,
   CalendarDays,
+  ChevronDown,
   ExternalLink,
+  Star,
 } from "lucide-react";
 import {
   QuotationRequestType,
@@ -29,6 +31,7 @@ type Value = ValuePiece | [ValuePiece, ValuePiece];
 
 export default function CalendarPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Parse date from query parameter
   const getInitialDate = (): Date => {
@@ -77,11 +80,17 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     searchParams.get("date") ? initialDate : null,
   );
-  const { user, userRole } = useAuth();
+  const { user, userRole, company } = useAuth();
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // Estrella de alto valor: misma regla del tablero (umbral 0/null =
+  // sin estrellas).
+  const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const [selectedStatuses, setSelectedStatuses] =
     useState<QuotationStatus[]>(getInitialStatuses());
   const [filterRestored, setFilterRestored] = useState(false);
+  // Chip desplegable de estados (12-08): un solo chip de la casa con
+  // casillas combinables — reemplaza a los 7 chips gigantes.
+  const [filtroMenuAbierto, setFiltroMenuAbierto] = useState(false);
 
   // Restaurar la memoria del filtro (solo si la URL no manda ?filter).
   useEffect(() => {
@@ -118,7 +127,6 @@ export default function CalendarPage() {
       /* ignorar */
     }
   }, [user, filterRestored, selectedStatuses]);
-  const [currentMonthEventsCount, setCurrentMonthEventsCount] = useState(0);
 
   const statusOptions = [
     {
@@ -160,47 +168,34 @@ export default function CalendarPage() {
 
   // Eventos del calendario vía React Query (Etapa 3): la clave parte
   // con "quotations", así los guardados que invalidan cotizaciones
-  // refrescan también el calendario. Al cambiar los filtros se sigue
-  // mostrando el mes anterior mientras llega la nueva selección.
+  // refrescan también el calendario.
+  // Desde el chip desplegable (12-08) se piden TODOS los estados en UNA
+  // llamada: el menú necesita el conteo por estado del mes visible, y de
+  // paso el filtro pasa a ser instantáneo (antes cada cambio de chip
+  // refetcheaba). El filtro se aplica en el cliente.
   const calendarQuery = useQuery({
-    queryKey: [
-      "quotations",
-      "calendar",
-      [...selectedStatuses].sort().join(","),
-    ],
+    queryKey: ["quotations", "calendar"],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<QuotationWithClient[]> => {
       const response = await getQuotations(
         QuotationRequestType.COTIZACION,
-        selectedStatuses,
+        statusOptions.map((o) => o.value),
       );
       return (response.data || []).filter((q) => q.event_date != null);
     },
   });
-  const quotations = calendarQuery.data ?? [];
+  const todasLasCotizaciones = useMemo(
+    () => calendarQuery.data ?? [],
+    [calendarQuery.data],
+  );
+  const quotations = useMemo(
+    () =>
+      todasLasCotizaciones.filter((q) =>
+        selectedStatuses.includes(q.quotation_status as QuotationStatus),
+      ),
+    [todasLasCotizaciones, selectedStatuses],
+  );
   const loading = calendarQuery.isPending;
-
-  useEffect(() => {
-    const currentMonth = activeMonth;
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-
-    const monthStartStr = format(monthStart, "yyyy-MM-dd");
-    const monthEndStr = format(monthEnd, "yyyy-MM-dd");
-    const count = quotations.filter((q) => {
-      // Cuenta el evento si su RANGO toca el mes visible.
-      const startStr = String(q.event_date).split("T")[0];
-      const rawEnd = q.event_end_date
-        ? String(q.event_end_date).split("T")[0]
-        : startStr;
-      const endStr = rawEnd >= startStr ? rawEnd : startStr;
-      return startStr <= monthEndStr && endStr >= monthStartStr;
-    }).length;
-
-    setCurrentMonthEventsCount(count);
-  }, [activeMonth, quotations]);
-
-  // (fetchQuotations eliminado: React Query reacciona sola a los filtros.)
 
   // Colores sólidos por estado para las bandas (hex, no clases tailwind).
   const STATUS_HEX: Record<string, string> = {
@@ -221,6 +216,49 @@ export default function CalendarPage() {
       : start;
     return { start, end: rawEnd >= start ? rawEnd : start };
   };
+
+  // ¿El rango del evento toca el mes visible?
+  const tocaMesVisible = (
+    q: QuotationWithClient,
+    inicioMes: string,
+    finMes: string,
+  ) => {
+    const { start, end } = eventRange(q);
+    return start <= finMes && end >= inicioMes;
+  };
+
+  // Título único (12-08): conteo Y venta del MES VISIBLE con el filtro
+  // activo. La venta se mide SIN propina (regla de la casa 24-07):
+  // total_amount − tip_amount de lo que ya viaja en la consulta — sin
+  // consultas nuevas.
+  const resumenMes = useMemo(() => {
+    const inicioMes = format(startOfMonth(activeMonth), "yyyy-MM-dd");
+    const finMes = format(endOfMonth(activeMonth), "yyyy-MM-dd");
+    const delMes = quotations.filter((q) =>
+      tocaMesVisible(q, inicioMes, finMes),
+    );
+    const venta = delMes.reduce(
+      (s, q) => s + Math.max(0, (q.total_amount || 0) - (q.tip_amount || 0)),
+      0,
+    );
+    return { eventos: delMes.length, venta };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotations, activeMonth]);
+
+  // Conteo por estado del mes visible, para el menucito del chip:
+  // "Aceptada (3)". Sale de la MISMA llamada (todos los estados).
+  const conteoPorEstado = useMemo(() => {
+    const inicioMes = format(startOfMonth(activeMonth), "yyyy-MM-dd");
+    const finMes = format(endOfMonth(activeMonth), "yyyy-MM-dd");
+    const mapa: Record<string, number> = {};
+    todasLasCotizaciones.forEach((q) => {
+      if (tocaMesVisible(q, inicioMes, finMes)) {
+        mapa[q.quotation_status] = (mapa[q.quotation_status] || 0) + 1;
+      }
+    });
+    return mapa;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todasLasCotizaciones, activeMonth]);
 
   // Asignación de PISTAS (filas) para que las bandas de eventos que se topan
   // no se pisen: cada evento toma la primera pista libre en todo su rango.
@@ -262,21 +300,15 @@ export default function CalendarPage() {
     });
   };
 
-  const tileClassName = ({ date, view }: { date: Date; view: string }) => {
-    if (view === "month") {
-      const dayQuotations = getQuotationsForDate(date);
-      if (dayQuotations.length > 0) {
-        return "has-events";
-      }
-    }
-    return "";
-  };
+  // (tileClassName jubilado 12-08: "tiene eventos" lo dicen las
+  // pastillas solas — sistema "estilo Google" elegido por Felipe.)
 
   // Bandas continuas estilo agenda: cada evento es una barra que atraviesa
   // sus días. En cada casilla se dibuja el SEGMENTO que le toca: punta
   // redondeada solo en el primer y último día, y el nombre en el primer día
   // de cada tramo semanal. Máximo 3 pistas visibles + "+N más".
   const MAX_BAND_LANES = 3;
+  const LANE_STEP = 18; // compacto (12-08): filas uniformes sin scroll
   const tileContent = ({ date, view }: { date: Date; view: string }) => {
     if (view !== "month") return null;
     const dayQuotations = getQuotationsForDate(date);
@@ -290,16 +322,27 @@ export default function CalendarPage() {
       .filter((b) => b.lane < MAX_BAND_LANES)
       .map(({ q, lane }) => {
         const { start, end } = eventRange(q);
+        const muestraTexto = tileStr === start || isMonday;
         return {
           id: q.id,
           lane,
           color: STATUS_HEX[q.quotation_status] || "#6b7280",
           rl: tileStr === start,
           rr: tileStr === end,
-          label:
-            tileStr === start || isMonday
-              ? `#${q.quotation_number} ${q.clients?.name || ""}`.trim()
-              : "",
+          // Tooltip al posar (12-08): cliente completo, tipo, personas
+          // y monto.
+          tooltip: `${q.clients?.name || "Sin cliente"}\n${q.event_type} · ${
+            q.people_count
+          } personas\n$${(q.total_amount || 0).toLocaleString("es-CL")}`,
+          // Estrella de alto valor (misma regla del tablero), donde va
+          // el texto para no repetirla casilla por casilla.
+          star:
+            muestraTexto &&
+            umbralAltoValor > 0 &&
+            (q.total_amount || 0) >= umbralAltoValor,
+          label: muestraTexto
+            ? `#${q.quotation_number} ${q.clients?.name || ""}`.trim()
+            : "",
         };
       });
     const extra = dayQuotations.filter(
@@ -311,14 +354,22 @@ export default function CalendarPage() {
         {bands.map((b) => (
           <div
             key={b.id}
+            title={b.tooltip}
             className={`ev-band${b.rl ? " ev-rl" : ""}${b.rr ? " ev-rr" : ""}`}
-            style={{ top: b.lane * 20, background: b.color }}
+            style={{ top: b.lane * LANE_STEP, background: b.color }}
           >
+            {b.star && (
+              <Star
+                size={11}
+                className="inline -mt-0.5 mr-0.5 text-amber-400 fill-amber-400"
+                aria-label="Evento de alto valor"
+              />
+            )}
             {b.label && <span>{b.label}</span>}
           </div>
         ))}
         {extra > 0 && (
-          <div className="ev-more" style={{ top: MAX_BAND_LANES * 20 }}>
+          <div className="ev-more" style={{ top: MAX_BAND_LANES * LANE_STEP }}>
             +{extra} más
           </div>
         )}
@@ -370,26 +421,23 @@ export default function CalendarPage() {
     setActiveMonth(today);
   };
 
-  const handleNavigateToQuotation = (quotationId: string) => {
-    // Recepción también ve el calendario desde el 12-08, y no puede
-    // entrar al cotizador: se la manda a la ficha del negocio, que sí
-    // abre y le sirve más (ahí está el hilo de seguimiento). Sin esto
-    // se le abría una pestaña nueva en "Permisos Insuficientes", que es
-    // la peor forma de descubrir que algo no era para uno.
-    const destino = puedeEditar
-      ? `/quotation-form/${quotationId}`
-      : `/negocio/${quotationId}`;
-    window.open(destino, "_blank");
+  // Clic CON DESTINO (12-08): nunca más al cotizador. Aceptada,
+  // realizada y anulada viven en Post-Venta (mismo destino del
+  // tablero); lo en juego (solicitada/enviada/en_negociacion/
+  // rechazada) va a la ficha del negocio. Recepción no edita: siempre
+  // a la ficha, que sí le abre (pillada 12-08).
+  const handleNavigateToQuotation = (q: QuotationWithClient) => {
+    const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
+      q.quotation_status,
+    );
+    const destino =
+      puedeEditar && enPostVenta ? `/post-venta/${q.id}` : `/negocio/${q.id}`;
+    navigate(destino);
   };
 
   const eventsForSelectedDate = selectedDate
     ? getQuotationsForDate(selectedDate)
     : [];
-
-  const currentMonthName =
-    value instanceof Date
-      ? format(value, "MMMM yyyy", { locale: es })
-      : format(new Date(), "MMMM yyyy", { locale: es });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -402,54 +450,90 @@ export default function CalendarPage() {
                 Calendario de Eventos
               </h1>
             </div>
-            <div className="ml-11 mt-2 flex items-center gap-2">
-              <span className="text-sm text-gray-600 capitalize">
-                {currentMonthName}:
+            {/* Título único con venta (12-08): mes VISIBLE + conteo +
+                venta sin propina, siguiendo al filtro activo. */}
+            <p className="ml-11 mt-2 text-sm text-gray-600">
+              {format(activeMonth, "MMMM 'de' yyyy", { locale: es })} ·{" "}
+              <span className="font-semibold text-gray-800">
+                {resumenMes.eventos}{" "}
+                {resumenMes.eventos === 1 ? "evento" : "eventos"}
+              </span>{" "}
+              ·{" "}
+              <span className="font-semibold text-gray-800">
+                ${resumenMes.venta.toLocaleString("es-CL")}
               </span>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                {currentMonthEventsCount}{" "}
-                {currentMonthEventsCount === 1 ? "evento" : "eventos"}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGoToToday}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <CalendarDays className="h-4 w-4" />
-              Hoy
-            </button>
-          </div>
-        </div>
-
-        {/* Chips siempre visibles (decisión de Felipe 29-07): filtran y
-            a la vez son la leyenda de colores de las bandas. */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          {statusOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleStatusToggle(option.value)}
-              className={`px-3 py-1.5 text-sm font-semibold rounded-full border-2 transition-all ${
-                selectedStatuses.includes(option.value)
-                  ? `${option.color} text-white border-transparent`
-                  : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-          {selectedStatuses.length === 0 && (
-            <p className="text-sm text-amber-600">
-              Selecciona al menos un estado para ver eventos
             </p>
-          )}
+            {selectedStatuses.length === 0 && (
+              <p className="ml-11 mt-1 text-sm text-amber-600">
+                Selecciona al menos un estado para ver eventos
+              </p>
+            )}
+          </div>
+          {/* Chip desplegable de estados (12-08): patrón del chip de
+              orden del tablero, con casillas combinables y conteo del
+              mes visible. Reemplaza a los 7 chips gigantes. */}
+          <div className="relative">
+            <button
+              onClick={() => setFiltroMenuAbierto((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              title="Estados visibles en el calendario"
+            >
+              Estados:{" "}
+              {selectedStatuses.length === statusOptions.length
+                ? "Todos"
+                : selectedStatuses.length}
+              <ChevronDown size={12} />
+            </button>
+            {filtroMenuAbierto && (
+              <>
+                <span
+                  className="fixed inset-0 z-10 block"
+                  onClick={() => setFiltroMenuAbierto(false)}
+                />
+                <span className="absolute right-0 top-full mt-1 z-20 w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                  {statusOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedStatuses.includes(option.value)}
+                        onChange={() => handleStatusToggle(option.value)}
+                        className="w-4 h-4 accent-blue-600"
+                      />
+                      <span
+                        className={`w-2 h-2 rounded-full ${option.color}`}
+                      />
+                      <span className="flex-1">{option.label}</span>
+                      <span className="text-xs text-gray-400">
+                        ({conteoPorEstado[option.value] || 0})
+                      </span>
+                    </label>
+                  ))}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 relative">
+            {/* Botón Hoy junto a las flechas (12-08): la barra de
+                navegación le deja el rincón libre (margin-right en el
+                CSS de abajo). Vuelve al mes actual y selecciona hoy. */}
+            {!loading && (
+              <button
+                onClick={handleGoToToday}
+                className="absolute right-6 top-6 z-20 flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                title="Volver al mes actual y seleccionar hoy"
+              >
+                <CalendarDays className="h-4 w-4" />
+                Hoy
+              </button>
+            )}
             {loading ? (
               <div className="flex items-center justify-center h-96">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -461,7 +545,6 @@ export default function CalendarPage() {
                 value={value}
                 activeStartDate={activeMonth}
                 locale="es-ES"
-                tileClassName={tileClassName}
                 tileContent={tileContent}
                 className="w-full border-none custom-calendar"
               />
@@ -502,7 +585,7 @@ export default function CalendarPage() {
                 {eventsForSelectedDate.map((quotation) => (
                   <button
                     key={quotation.id}
-                    onClick={() => handleNavigateToQuotation(quotation.id)}
+                    onClick={() => handleNavigateToQuotation(quotation)}
                     className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -569,10 +652,12 @@ export default function CalendarPage() {
           border: none;
         }
 
+        /* Filas de altura UNIFORME y compacta (12-08): el mes entero
+           a la vista en un notebook normal. */
         .custom-calendar .react-calendar__tile {
           padding: 0;
           position: relative;
-          height: 118px;
+          height: 96px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -585,22 +670,22 @@ export default function CalendarPage() {
         .custom-calendar .react-calendar__tile abbr {
           position: relative;
           z-index: 10;
-          margin-top: 0.3em;
+          margin-top: 0.2em;
           font-weight: 500;
         }
 
+        /* SELECCIONADO (12-08, sistema "estilo Google" de Felipe):
+           marco azul + fondo suave — adiós al azul macizo que tapaba
+           las pastillas. Sin regla de color en el número: el rojo de
+           los fines de semana sobrevive a la selección. */
         .custom-calendar .react-calendar__tile--active {
-          background: #2563eb !important;
-          color: white;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-        }
-
-        .custom-calendar .react-calendar__tile--active abbr {
-          color: white;
+          background: #eff6ff !important;
+          color: #111827;
+          box-shadow: inset 0 0 0 2px #3b82f6;
         }
 
         .custom-calendar .react-calendar__tile--active:enabled:hover {
-          background: #1d4ed8 !important;
+          background: #dbeafe !important;
         }
 
         .custom-calendar .react-calendar__tile:enabled:hover {
@@ -612,46 +697,67 @@ export default function CalendarPage() {
           padding: 0.8em;
         }
 
+        /* La barra de navegación deja libre el rincón derecho para el
+           botón Hoy (12-08: "junto a las flechas"). */
+        .custom-calendar .react-calendar__navigation {
+          margin-right: 96px;
+        }
+
+        /* Flecha con caja gris pegada (12-08): la librería dejaba un
+           fondo de foco que no se limpiaba al hacer clic. */
+        .custom-calendar .react-calendar__navigation button:enabled:focus {
+          background: transparent;
+        }
+
+        .custom-calendar .react-calendar__navigation button:enabled:hover {
+          background: #f3f4f6;
+          border-radius: 8px;
+        }
+
+        /* Encabezados LUN-DOM sobrios (12-08): sin el subrayado del
+           abbr con title. */
+        .custom-calendar .react-calendar__month-view__weekdays {
+          font-size: 11px;
+          font-weight: 600;
+          color: #6b7280;
+          text-transform: uppercase;
+        }
+
+        .custom-calendar .react-calendar__month-view__weekdays__weekday abbr {
+          text-decoration: none;
+          cursor: default;
+        }
+
         .custom-calendar .react-calendar__month-view__days__day--weekend {
           color: #dc2626;
         }
 
+        /* HOY (sistema "estilo Google"): el número en una moneda azul
+           sólida chica — nada más en la celda (ni anillo ni fondo; el
+           amarillo de la librería también se apaga). */
         .custom-calendar .react-calendar__tile--now {
-          background: #dbeafe;
-          border-radius: 8px;
-          /* inset shadow en vez de borde: no corre las bandas ni un pixel */
-          box-shadow: inset 0 0 0 2px #3b82f6;
+          background: transparent;
         }
 
         .custom-calendar .react-calendar__tile--now abbr {
-          color: #1d4ed8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 9999px;
+          background: #2563eb;
+          color: #fff;
           font-weight: 600;
         }
 
-        /* La selección es la capa de arriba: si el día seleccionado es
-           también "hoy", mandan el bloque azul y el número en blanco */
-        .custom-calendar .react-calendar__tile--now.react-calendar__tile--active {
-          background: #2563eb !important;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-        }
+        /* Hoy + seleccionado: la moneda (regla del abbr de arriba) y el
+           marco (regla --active, que gana el fondo con su !important)
+           conviven sin pelearse. */
 
-        .custom-calendar .react-calendar__tile--now.react-calendar__tile--active abbr {
-          color: white;
-        }
-
-        /* Días con eventos: tinte suave SIN borde ni transform (los bordes
-           corren las bandas y el scale rompe la continuidad entre casillas) */
-        .custom-calendar .react-calendar__tile.has-events {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        }
-
-        .custom-calendar .react-calendar__tile.has-events:enabled:hover {
-          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        }
-
-        .custom-calendar .react-calendar__tile--active.has-events {
-          background: #2563eb !important;
-        }
+        /* "Tiene eventos" lo dicen las pastillas solas (12-08): la
+           mancha celeste degradada se eliminó — celdas blancas, grilla
+           pareja tenga el día 0, 1 o 3 pastillas. */
 
         /* Bandas continuas de eventos (segmentos por casilla que se empalman
            con la casilla vecina; puntas redondeadas solo al inicio y al fin
@@ -660,7 +766,8 @@ export default function CalendarPage() {
           position: absolute;
           left: 0;
           right: 0;
-          top: 38px;
+          /* Bajo la moneda de "hoy" (28px + respiro). */
+          top: 32px;
           bottom: 0;
           z-index: 5;
         }
@@ -669,15 +776,17 @@ export default function CalendarPage() {
           position: absolute;
           left: 0;
           right: 0;
-          height: 17px;
+          height: 16px;
           font-size: 10px;
-          line-height: 15px;
+          line-height: 14px;
           font-weight: 600;
           color: #fff;
           overflow: hidden;
           white-space: nowrap;
           text-align: left;
           padding: 1px 5px;
+          /* El tooltip necesita hover; el clic igual burbujea al día. */
+          pointer-events: auto;
         }
 
         .ev-band.ev-rl {

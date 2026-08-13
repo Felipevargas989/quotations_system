@@ -143,7 +143,9 @@ export default function QuotationsPage() {
     en_negociacion: "En Negociación",
     aceptada: "Aceptada",
     rechazada: "Rechazada",
-    cancelada: "Cancelada",
+    // Palabra oficial coronada por Felipe (12-08): "Anulada" en TODA la
+    // interfaz; el valor técnico 'cancelada' de la base no se toca.
+    cancelada: "Anulada",
     realizada: "Realizada",
   };
   // Reglas del ciclo de vida (afinadas por Felipe 04-08): Cancelada y
