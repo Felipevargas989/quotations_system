@@ -23,10 +23,10 @@ import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
 import { getEventDateUtc } from '../utils/dates';
 import {
+  EVENTO_REALIZADO_CONGELADO,
   PaymentPlanType,
   QuotationStatus,
   RequestType,
-  EVENTO_REALIZADO_CONGELADO,
 } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';

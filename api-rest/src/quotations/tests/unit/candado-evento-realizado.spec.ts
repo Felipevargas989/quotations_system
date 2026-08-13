@@ -63,7 +63,11 @@ describe('Candado del evento realizado', () => {
         },
         {
           provide: PinoLogger,
-          useValue: { setContext: jest.fn(), error: jest.fn(), info: jest.fn() },
+          useValue: {
+            setContext: jest.fn(),
+            error: jest.fn(),
+            info: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -115,8 +119,14 @@ describe('Candado del evento realizado', () => {
     // ventana, saltándose la llave de "volver a aceptada".
     const salidas: [string, QuotationStatus][] = [
       ['aceptada (des-realizar desde el tablero)', QuotationStatus.ACEPTADA],
-      ['cancelada (anular un evento que ya ocurrió)', QuotationStatus.CANCELADA],
-      ['en_negociacion (y perder el plan de pagos)', QuotationStatus.EN_NEGOCIACION],
+      [
+        'cancelada (anular un evento que ya ocurrió)',
+        QuotationStatus.CANCELADA,
+      ],
+      [
+        'en_negociacion (y perder el plan de pagos)',
+        QuotationStatus.EN_NEGOCIACION,
+      ],
       ['rechazada', QuotationStatus.RECHAZADA],
     ];
     it.each(salidas)('un realizado NO puede pasar a %s', async (_, destino) => {
@@ -131,9 +141,7 @@ describe('Candado del evento realizado', () => {
   describe('el borrado', () => {
     it('no borra un evento realizado', async () => {
       repo.findOne.mockResolvedValue(cotizacion(QuotationStatus.REALIZADA));
-      await expect(service.remove('1', 1)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.remove('1', 1)).rejects.toThrow(BadRequestException);
       expect(repo.remove).not.toHaveBeenCalled();
     });
 
