@@ -22,7 +22,7 @@ export class ServiceGroupCollectionsService {
       `create service group collection with dto ${JSON.stringify(createDto)}`,
     );
     try {
-      const { items, ...collection } = createDto;
+      const { items, services, ...collection } = createDto;
 
       // create the collection first to obtain its generated id
       const { data: createdCollection, error: collectionError } =
@@ -43,6 +43,19 @@ export class ServiceGroupCollectionsService {
         await this.repository.createCollectionItems(collectionItems);
 
       if (itemsError) throw itemsError;
+
+      // Servicios sueltos (alojamiento, fiesta): opcionales.
+      if (services?.length) {
+        const { error: servicesError } =
+          await this.repository.createCollectionServices(
+            services.map((s) => ({
+              collection_id: createdCollection.id,
+              variable_service_id: s.variable_service_id,
+              quantity: s.quantity,
+            })),
+          );
+        if (servicesError) throw servicesError;
+      }
 
       return createdCollection;
     } catch (error) {

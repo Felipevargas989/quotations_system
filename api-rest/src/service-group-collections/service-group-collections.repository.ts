@@ -5,6 +5,7 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import {
   ServiceGroupCollection,
   ServiceGroupCollectionItem,
+  ServiceGroupCollectionService,
 } from './entities/service-group-collection.entity';
 
 @Injectable()
@@ -38,6 +39,17 @@ export class ServiceGroupCollectionsRepository {
       .insert(items);
   }
 
+  // Servicios sueltos del paquete (13-08): alojamiento, fiesta, lo que
+  // no sea un menú.
+  createCollectionServices(
+    services: Omit<ServiceGroupCollectionService, 'id' | 'created_at'>[],
+  ) {
+    this.logger.info(`createCollectionServices with total ${services.length}`);
+    return this.supabase.client
+      .from('service_group_collection_services')
+      .insert(services);
+  }
+
   findAll(companyId: Company['id']) {
     this.logger.info(
       `findAll service group collections with companyId ${companyId}`,
@@ -45,7 +57,8 @@ export class ServiceGroupCollectionsRepository {
     return this.supabase.client
       .from('service_group_collections')
       .select(
-        '*, groups:service_group_collection_items(group:service_groups(*, items:service_group_items(quantity, service:variable_services(*))))',
+        '*, groups:service_group_collection_items(group:service_groups(*, items:service_group_items(quantity, service:variable_services(*))))' +
+          ', services:service_group_collection_services(quantity, service:variable_services(*))',
       )
       .eq('company_id', companyId);
   }
