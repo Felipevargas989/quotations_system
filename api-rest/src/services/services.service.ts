@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
@@ -465,13 +470,47 @@ export class ServicesService {
     }
   }
 
-  async removeVariableService(id: VariableService['id']) {
+  // La regla que Felipe daba por existente y nunca estuvo (13-08): un
+  // servicio OCUPADO no se borra, se desactiva. Ocupado = aparece en
+  // los items de alguna cotización, o vive en algún menú. Sin esto,
+  // borrar un servicio le arrancaba en cascada su receta y su lugar en
+  // los menús, sin ningún aviso. Las cotizaciones viejas no se rompen
+  // (guardan copia), pero la operación futura quedaba coja.
+  async removeVariableService(
+    companyId: Company['id'],
+    id: VariableService['id'],
+  ) {
     this.logger.info(`removeVariableService with id ${id}`);
-    return await this.servicesRepository.removeVariableService(id);
+    const uso = await this.servicesRepository.variableServiceUsage(
+      companyId,
+      id,
+    );
+    if (uso.cotizaciones > 0 || uso.menus > 0) {
+      const partes: string[] = [];
+      if (uso.cotizaciones > 0)
+        partes.push(
+          `${uso.cotizaciones} cotización${uso.cotizaciones === 1 ? '' : 'es'}`,
+        );
+      if (uso.menus > 0)
+        partes.push(`${uso.menus} menú${uso.menus === 1 ? '' : 's'}`);
+      throw new BadRequestException(
+        `Este servicio se usa en ${partes.join(' y ')}. No se puede eliminar: desactívalo para sacarlo del catálogo sin perder su historia.`,
+      );
+    }
+    return await this.servicesRepository.removeVariableService(companyId, id);
   }
 
-  async removeFixedService(id: FixedService['id']) {
+  async removeFixedService(companyId: Company['id'], id: FixedService['id']) {
     this.logger.info(`removeFixedService with id ${id}`);
-    return await this.servicesRepository.removeFixedService(id);
+    const enCotizaciones = await this.servicesRepository.fixedServiceUsage(
+      companyId,
+      id,
+    );
+    if (enCotizaciones > 0) {
+      throw new BadRequestException(
+        `Este servicio se usa en ${enCotizaciones} cotización${enCotizaciones === 1 ? '' : 'es'}. No se puede eliminar: desactívalo para sacarlo del catálogo sin perder su historia.`,
+      );
+    }
+    return await this.servicesRepository.removeFixedService(companyId, id);
   }
 }

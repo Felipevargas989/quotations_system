@@ -282,15 +282,27 @@ export class ServicesController {
     );
   }
 
+  // Borrar servicios era la ÚNICA puerta de este controlador sin rol y
+  // sin empresa (13-08): cualquier usuario logueado —de cualquier
+  // empresa— podía borrar un servicio ajeno por su número. Mismo tipo
+  // de hoyo que el GET /quotations/:id que sigue congelado.
+  @Roles(...ADMIN_ONLY)
   @Delete('variable/:id')
-  removeVariableService(@Param('id') id: VariableService['id']) {
+  removeVariableService(
+    @Param('id') id: VariableService['id'],
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`removeVariableService with id ${id}`);
-    return this.servicesService.removeVariableService(+id);
+    return this.servicesService.removeVariableService(user.company_id, +id);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Delete('fixed/:id')
-  removeFixedService(@Param('id') id: FixedService['id']) {
+  removeFixedService(
+    @Param('id') id: FixedService['id'],
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`removeFixedService with id ${id}`);
-    return this.servicesService.removeFixedService(+id);
+    return this.servicesService.removeFixedService(user.company_id, +id);
   }
 }

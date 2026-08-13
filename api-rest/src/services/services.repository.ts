@@ -105,14 +105,62 @@ export class ServicesRepository {
       .eq('id', id);
   }
 
-  removeVariableService(id: VariableService['id']) {
-    this.logger.info(`removeVariableService with id ${id}`);
-    return this.supabase.client.from('variable_services').delete().eq('id', id);
+  // ¿En cuántas cotizaciones y menús vive este servicio? Las
+  // cotizaciones guardan los items como JSON; el operador de
+  // contención (@>) baja recursivo por los arreglos, así que una sola
+  // consulta cubre el formato por bloques {day, items:[{codigo}]}.
+  // El código viaja como texto — así lo guarda el cotizador.
+  async variableServiceUsage(companyId: Company['id'], id: number) {
+    const codigo = String(id);
+    const [enBloques, enMenus] = await Promise.all([
+      this.supabase.client
+        .from('quotations')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .contains('items', {
+          variable_services: [{ items: [{ codigo }] }],
+        }),
+      this.supabase.client
+        .from('service_group_items')
+        .select('id, service_groups!inner(company_id)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('variable_service_id', id)
+        .eq('service_groups.company_id', companyId),
+    ]);
+    return {
+      cotizaciones: enBloques.count ?? 0,
+      menus: enMenus.count ?? 0,
+    };
   }
 
-  removeFixedService(id: FixedService['id']) {
+  async fixedServiceUsage(companyId: Company['id'], id: number) {
+    const codigo = String(id);
+    const { count } = await this.supabase.client
+      .from('quotations')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .contains('items', { fixed_services: [{ codigo }] });
+    return count ?? 0;
+  }
+
+  removeVariableService(companyId: Company['id'], id: VariableService['id']) {
+    this.logger.info(`removeVariableService with id ${id}`);
+    return this.supabase.client
+      .from('variable_services')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+  }
+
+  removeFixedService(companyId: Company['id'], id: FixedService['id']) {
     this.logger.info(`removeFixedService with id ${id}`);
-    return this.supabase.client.from('fixed_services').delete().eq('id', id);
+    return this.supabase.client
+      .from('fixed_services')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
   }
 
   findAllServiceCategories(companyId: Company['id']) {
