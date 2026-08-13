@@ -324,6 +324,11 @@ export default function QuotationForm() {
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  // Servicios sueltos del paquete (13-08): id → cantidad. Es lo que
+  // permite meter el alojamiento (× N noches) y la fiesta sin
+  // disfrazarlos de menú.
+  const [pkgServices, setPkgServices] = useState<Record<number, number>>({});
+  const [pkgSvcSearch, setPkgSvcSearch] = useState("");
   const [savingCollection, setSavingCollection] = useState(false);
   // Only one package can be active at a time; it overrides the current services.
   const [selectedCollection, setSelectedCollection] = useState<{
@@ -1073,15 +1078,47 @@ export default function QuotationForm() {
       .map((item) => (item.group ? buildBoxFromGroup(item.group) : null))
       .filter((box): box is ServiceBox => box !== null);
 
-    if (boxes.length === 0) return;
+    // Servicios SUELTOS del paquete (13-08): el alojamiento y la fiesta
+    // no son menús. Antes había que disfrazarlos —un menú de un solo
+    // servicio, o una copia de la cena con la fiesta adentro— y esa
+    // copia era la trampa: cambiar la cena obligaba a acordarse de
+    // tocar las dos. Ahora entran como lo que son, cada uno en su caja
+    // y agrupados por su categoría.
+    const porCategoria = new Map<string, SelectedService[]>();
+    (collection.services || []).forEach((s) => {
+      if (!s.service) return;
+      const cat = s.service.category || "";
+      const lista = porCategoria.get(cat) || [];
+      lista.push({
+        codigo: s.service.id.toString(),
+        nombre: s.service.name,
+        precio: s.service.price,
+        categoria: cat,
+        quantity: s.quantity,
+      });
+      porCategoria.set(cat, lista);
+    });
+    const cajasSueltas: ServiceBox[] = [...porCategoria.entries()].map(
+      ([cat, servicios], i) => ({
+        id: `pkg-svc-${i}-${Date.now()}`,
+        selectedCategory: cat,
+        selectedItem: "",
+        services: servicios,
+      }),
+    );
 
-    setServiceBoxes(boxes);
+    const todas = [...boxes, ...cajasSueltas];
+    if (todas.length === 0) return;
+
+    setServiceBoxes(todas);
     setSelectedCollection({ id: collection.id, name: collection.name });
   };
 
   const openCollectionModal = () => {
     setSelectedGroupIds([]);
     setCollectionName("");
+    setPkgServices({});
+    setPkgSvcSearch("");
     setShowCollectionModal(true);
   };
 
@@ -1098,13 +1135,22 @@ export default function QuotationForm() {
 
     setSavingCollection(true);
     try {
+      const sueltos = Object.entries(pkgServices)
+        .filter(([, cant]) => cant > 0)
+        .map(([id, cant]) => ({
+          variable_service_id: Number(id),
+          quantity: cant,
+        }));
       await saveCollection({
         name: collectionName.trim(),
         items: selectedGroupIds.map((id) => ({ service_group_id: id })),
+        ...(sueltos.length ? { services: sueltos } : {}),
       });
       setShowCollectionModal(false);
       setCollectionName("");
       setSelectedGroupIds([]);
+      setPkgServices({});
+      setPkgSvcSearch("");
       toast.success("Paquete guardado.");
     } catch (error) {
       toast.error("No se pudo guardar el paquete.");
@@ -1628,8 +1674,7 @@ export default function QuotationForm() {
     eventoCongelado ||
     (quotation?.quotation_status === QuotationStatus.ACEPTADA &&
       !(
-        userRole === UserRole.ADMINISTRADOR ||
-        userRole === UserRole.OPERACIONES
+        userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES
       ));
 
   if (servicesLoading) {
@@ -1925,8 +1970,8 @@ export default function QuotationForm() {
             </div>
 
             <p className="text-sm text-gray-600 mb-4">
-              Un paquete agrupa varios grupos. Al seleccionarlo, el formulario
-              se llena automáticamente con todos sus grupos.
+              Un paquete agrupa menús de varias categorías y, si hace falta,
+              servicios sueltos. Al elegirlo, el formulario se llena con todo.
             </p>
 
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1942,7 +1987,7 @@ export default function QuotationForm() {
             />
 
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Grupos incluidos
+              Menús incluidos
             </label>
             <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
               {serviceGroups.map((group) => (
@@ -1962,6 +2007,79 @@ export default function QuotationForm() {
                   </span>
                 </label>
               ))}
+            </div>
+
+            {/* Servicios sueltos (13-08): lo que no es un menú pero va
+                en el programa — el alojamiento por N noches, la fiesta.
+                Antes había que disfrazarlos de menú. */}
+            <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+              Servicios sueltos{" "}
+              <span className="font-normal text-gray-500">
+                (opcional — alojamiento, fiesta…)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={pkgSvcSearch}
+              onChange={(e) => setPkgSvcSearch(e.target.value)}
+              placeholder="Buscar servicio…"
+              className="w-full px-3 py-2 mb-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="border border-gray-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-100">
+              {variableServices
+                .filter((v) =>
+                  pkgSvcSearch.trim()
+                    ? matchesSearch(v.name, pkgSvcSearch)
+                    : (pkgServices[v.id] || 0) > 0,
+                )
+                .slice(0, 40)
+                .map((v) => {
+                  const id = v.id;
+                  const cant = pkgServices[id] || 0;
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex items-center gap-2 px-3 py-2"
+                    >
+                      <span className="flex-1 text-sm text-gray-900">
+                        {v.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPkgServices((p) => {
+                            const n = { ...p };
+                            if (cant <= 1) delete n[id];
+                            else n[id] = cant - 1;
+                            return n;
+                          })
+                        }
+                        disabled={cant === 0}
+                        className="w-7 h-7 rounded border border-gray-300 text-gray-600 disabled:opacity-30"
+                      >
+                        −
+                      </button>
+                      <span className="w-6 text-center text-sm tabular-nums">
+                        {cant}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPkgServices((p) => ({ ...p, [id]: cant + 1 }))
+                        }
+                        className="w-7 h-7 rounded border border-gray-300 text-gray-600"
+                      >
+                        +
+                      </button>
+                    </div>
+                  );
+                })}
+              {!pkgSvcSearch.trim() &&
+                Object.keys(pkgServices).length === 0 && (
+                  <p className="px-3 py-2 text-xs text-gray-400">
+                    Busca un servicio para agregarlo al paquete.
+                  </p>
+                )}
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -2248,10 +2366,7 @@ export default function QuotationForm() {
                         }}
                         className="flex-1 text-left text-sm"
                       >
-                        <span className="text-gray-900">{collection.name}</span>{" "}
-                        <span className="text-gray-500">
-                          ({collection.groups?.length || 0} grupos)
-                        </span>
+                        <span className="text-gray-900">{collection.name}</span>
                       </button>
                       <button
                         type="button"
