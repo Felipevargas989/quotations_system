@@ -506,18 +506,22 @@ export function HiloSeguimiento({
             >
               Reprogramar
             </button>
-            {/* La segunda puerta para apagarlo (las dos que pidió
-                Felipe): cuando uno cumplió y no tiene nada que anotar.
-                No borra la fecha — deja constancia de cuándo se dio por
-                hecho. */}
-            <button
-              type="button"
-              disabled={marcandoListo}
-              onClick={darPorCumplido}
-              className="font-semibold underline hover:no-underline disabled:opacity-50"
-            >
-              {marcandoListo ? "…" : "Listo"}
-            </button>
+            {/* La puerta "Listo" es SOLO del evento ganado (nació el
+                07-08 para Post-Venta; reafirmado por Felipe el 12-08):
+                ahí agendar es voluntario, así que cumplir sin anotar
+                nada es legítimo. En VENTA no se dibuja — un negocio
+                vivo sale por gestión nueva o reprogramación, nunca a
+                silencio: se agenda hasta aceptar o rechazar. */}
+            {eventoGanado && (
+              <button
+                type="button"
+                disabled={marcandoListo}
+                onClick={darPorCumplido}
+                className="font-semibold underline hover:no-underline disabled:opacity-50"
+              >
+                {marcandoListo ? "…" : "Listo"}
+              </button>
+            )}
           </div>
         )}
       <div className="flex-1 overflow-y-auto max-h-[420px] px-4">
