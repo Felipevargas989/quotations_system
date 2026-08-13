@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { NumberInput } from "./inputs";
+import { formatFechaEvento } from "../utils/dates";
 
 // Plan de pagos al aceptar: una lista simple de cuotas — comentario, fecha y
 // MONTO en pesos (el % se calcula solo, informativo). Parte con una sola
@@ -37,12 +38,10 @@ export default function PaymentPlanEditor({
 }: PaymentPlanEditorProps) {
   const total = quotation.total_amount || 0;
   const today = format(new Date(), "yyyy-MM-dd");
+  // 13-08: leía la fecha del evento en hora chilena y la mostraba un
+  // día antes. Va en UTC, como se guarda.
   const eventDateTxt = quotation.event_date
-    ? new Date(quotation.event_date).toLocaleDateString("es-CL", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+    ? formatFechaEvento(quotation.event_date)
     : null;
 
   const [rows, setRows] = useState<PlanRow[]>([

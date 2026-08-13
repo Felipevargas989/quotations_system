@@ -15,6 +15,7 @@ import { getQuotationById } from "../../services/quotations.service";
 import { Quotation } from "../../types/quotations.types";
 import { getCompanyById } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
+import { formatFechaEvento } from "../../utils/dates";
 
 export default function CustomerSatisfactionSurveyPublicPage() {
   const [template, setTemplate] = useState<SurveyTemplate | null>(null);
@@ -243,14 +244,10 @@ export default function CustomerSatisfactionSurveyPublicPage() {
                       Fecha del Evento:
                     </span>
                     <p className="text-gray-900">
-                      {new Date(quotation.event_date).toLocaleDateString(
-                        "es-ES",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        },
-                      )}
+                      {/* 13-08: leía la fecha en hora chilena (un día
+                          antes) y encima en español de España. Es la
+                          cara pública: la ve el cliente. */}
+                      {formatFechaEvento(quotation.event_date, "largoSinDia")}
                     </p>
                   </div>
                 </div>

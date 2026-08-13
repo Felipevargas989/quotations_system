@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { SECTION_ROLES } from "../constants/permissions";
+import { formatFechaEvento, formatMomento } from "../utils/dates";
 import ConfirmInline from "../components/ConfirmInline";
 import { useCopiarDato } from "../hooks/useCopiarDato";
 import QuotationViewer from "../components/QuotationViewer";
@@ -93,12 +94,12 @@ interface SummaryData {
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
-const fmtDate = (iso?: string | null) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-CL");
-};
+// 13-08: acá vivía un fmtDate propio que leía TODO en hora chilena, y
+// se usaba para dos cosas distintas: la fecha del evento (que se guarda
+// a medianoche UTC y por eso salía un día ANTES en la tabla de eventos
+// del cliente) y el momento de la última cotización creada (que sí va
+// en hora chilena). Ahora cada uno llama a la función que le
+// corresponde — ver utils/dates.
 
 // Mismos colores de estado que la lista de cotizaciones.
 const getStatusColor = (status: string) => {
@@ -612,7 +613,7 @@ export default function ClientDetailPage() {
             className={`text-sm ${dormido ? "text-amber-600 font-semibold" : "text-gray-500"}`}
           >
             Última cotización: {recencyLabel}
-            {lastCreated ? ` (${fmtDate(lastCreated.toISOString())})` : ""}
+            {lastCreated ? ` (${formatMomento(lastCreated)})` : ""}
             {dormido ? " · cliente dormido" : ""}
           </span>
           {puedeEditar && (
@@ -1059,7 +1060,7 @@ export default function ClientDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                          {fmtDate(q.event_date)}
+                          {formatFechaEvento(q.event_date)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {q.contact_name || "—"}
