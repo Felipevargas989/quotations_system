@@ -139,6 +139,12 @@ export default function Layout() {
                         {canAccess("admin") && (
                           <Link
                             to="/admin/users"
+                            onMouseEnter={() => {
+                              // Precalentado por cursor (12-08): ver Sidebar.
+                              import("../pages/UserManagementPage.tsx").catch(
+                                () => {},
+                              );
+                            }}
                             onClick={() => setShowUserMenu(false)}
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
@@ -149,6 +155,11 @@ export default function Layout() {
                         {canAccess("configuration") && (
                           <Link
                             to="/configuration"
+                            onMouseEnter={() => {
+                              import(
+                                "../pages/configuration/ConfigurationPage"
+                              ).catch(() => {});
+                            }}
                             onClick={() => setShowUserMenu(false)}
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
@@ -159,6 +170,11 @@ export default function Layout() {
                         {canAccess("company_configuration") && (
                           <Link
                             to="/company-configuration"
+                            onMouseEnter={() => {
+                              import(
+                                "../pages/configuration/companyConfiguration/CompanyConfiguration.tsx"
+                              ).catch(() => {});
+                            }}
                             onClick={() => setShowUserMenu(false)}
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
