@@ -832,7 +832,6 @@ function TarjetaEvento({
   const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
     q.quotation_status,
   );
-  const [verMas, setVerMas] = useState(false);
   // Detalle SOLO al estar visible la tarjeta (día seleccionado); misma
   // clave que la ficha y Post-Venta: el caché trabaja para todos.
   const detalleQuery = useQuery({
@@ -865,7 +864,6 @@ function TarjetaEvento({
       )
       .reduce((s, l) => s + (l.quantity || 1), 0);
   })();
-  const obs = (q.observations || "").trim();
 
   return (
     <div
@@ -914,36 +912,6 @@ function TarjetaEvento({
         >
           👥 {personal > 0 ? `Personal: ${personal} asignados` : "Sin personal asignado"}
         </p>
-      )}
-      {obs && (
-        <div className="mt-2">
-          <p
-            className={`text-sm text-gray-500 italic ${
-              verMas ? "" : "line-clamp-3"
-            }`}
-          >
-            {obs}
-          </p>
-          {obs.length > 160 && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => {
-                e.stopPropagation();
-                setVerMas((v) => !v);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.stopPropagation();
-                  setVerMas((v) => !v);
-                }
-              }}
-              className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
-            >
-              {verMas ? "ver menos" : "ver más"}
-            </span>
-          )}
-        </div>
       )}
     </div>
   );
