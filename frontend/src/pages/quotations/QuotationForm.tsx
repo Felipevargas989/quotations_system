@@ -328,8 +328,6 @@ export default function QuotationForm() {
   // permite meter el alojamiento (× N noches) y la fiesta sin
   // disfrazarlos de menú.
   const [pkgServices, setPkgServices] = useState<Record<number, number>>({});
-  const [pkgSvcSearch, setPkgSvcSearch] = useState("");
-  const [pkgSvcOpen, setPkgSvcOpen] = useState(false);
   const [savingCollection, setSavingCollection] = useState(false);
   // Only one package can be active at a time; it overrides the current services.
   const [selectedCollection, setSelectedCollection] = useState<{
@@ -691,9 +689,6 @@ export default function QuotationForm() {
       if (!target.closest(".dropdown-container")) {
         setOpenDropdown(null);
         setOpenFixedPicker(null);
-        // El de servicios sueltos del paquete se suma al guardián
-        // (13-08): sin esto quedaba abierto al pinchar fuera.
-        setPkgSvcOpen(false);
       }
     };
 
@@ -1122,7 +1117,6 @@ export default function QuotationForm() {
     setSelectedGroupIds([]);
     setCollectionName("");
     setPkgServices({});
-    setPkgSvcSearch("");
     setShowCollectionModal(true);
   };
 
@@ -1161,7 +1155,6 @@ export default function QuotationForm() {
       setCollectionName("");
       setSelectedGroupIds([]);
       setPkgServices({});
-      setPkgSvcSearch("");
       toast.success("Paquete guardado.");
     } catch (error) {
       toast.error("No se pudo guardar el paquete.");
@@ -2076,60 +2069,24 @@ export default function QuotationForm() {
               </div>
             )}
 
-            <div className="relative dropdown-container">
-              <button
-                type="button"
-                onClick={() => setPkgSvcOpen((v) => !v)}
-                className="w-full px-3 py-2 text-sm text-left text-gray-500 bg-white border border-gray-300 rounded-lg flex items-center justify-between hover:bg-gray-50"
-              >
-                <span>Agregar servicio…</span>
-                <ChevronDown size={16} className="text-gray-400" />
-              </button>
-              {pkgSvcOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={pkgSvcSearch}
-                      onChange={(e) => setPkgSvcSearch(e.target.value)}
-                      placeholder="Buscar servicio por nombre..."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  {(() => {
-                    const disponibles = variableServices
-                      .filter((v) => v.is_active !== false)
-                      .filter((v) => matchesSearch(pkgSvcSearch, v.name))
-                      .slice(0, 60);
-                    if (disponibles.length === 0)
-                      return (
-                        <div className="px-3 py-2 text-sm text-gray-500">
-                          No se encontraron servicios
-                        </div>
-                      );
-                    return disponibles.map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() =>
-                          setPkgServices((p) => ({
-                            ...p,
-                            [v.id]: (p[v.id] || 0) + 1,
-                          }))
-                        }
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex justify-between gap-2"
-                      >
-                        <span className="text-gray-900">{v.name}</span>
-                        <span className="text-gray-400 shrink-0">
-                          {v.category}
-                        </span>
-                      </button>
-                    ));
-                  })()}
-                </div>
-              )}
-            </div>
+            <SelectWithSearch
+              options={variableServices
+                .filter((v) => v.is_active !== false)
+                .map((v) => ({
+                  value: String(v.id),
+                  label: `${v.name} · ${v.category}`,
+                }))}
+              value=""
+              onChange={(id) =>
+                setPkgServices((p) => ({
+                  ...p,
+                  [Number(id)]: (p[Number(id)] || 0) + 1,
+                }))
+              }
+              placeholder="Agregar servicio…"
+              searchPlaceholder="Buscar servicio por nombre…"
+              noResultsText="No se encontraron servicios"
+            />
 
             <div className="flex justify-end space-x-3 pt-4">
               <button

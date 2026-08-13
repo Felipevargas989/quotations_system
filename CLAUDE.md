@@ -94,6 +94,41 @@ Backend env (`api-rest/.env`, see `.env.example`): `SUPABASE_URL`,
 - **Styling**: Tailwind CSS. Icons via `lucide-react`. Charts via `chart.js`/`react-chartjs-2`.
 - **External data**: bulk service import reads `.xlsx` via `xlsx` (the old Google
   Sheets integration was removed 2026-07-28 — it was dead code).
+## The house kit — REUSE BEFORE YOU WRITE UI
+
+**Rule: before writing any piece of interface, check `src/components/` and
+`src/utils/` first.** These pieces already solved the edge cases — a
+hand-rolled copy will rediscover them one bug report at a time. This is not
+a style preference: on 13-08-2026 a dropdown was hand-rolled next to an
+existing one and cost four rounds of corrections (search arguments
+inverted, an empty bordered box, the panel pushing the modal's buttons,
+and no close-on-click-outside) — every one of them already handled inside
+`SelectWithSearch`.
+
+| Piece | Use it for | In |
+|---|---|---|
+| `components/selects/SelectWithSearch` | **any dropdown with search** — opens up when there's no room below, sizes itself against the nearest scroll container, keyboard nav, closes on outside click | 15 screens |
+| `components/MultiSelect` | multiple choice with chips | 3 |
+| `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
+| `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
+| `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
+| `components/QuantitySelector` | quantity steppers | 2 |
+| `components/PageSkeleton` | loading state of a whole page | 3 |
+| `components/PermissionGuard` | gate a route/section by role | — |
+
+Utilities worth knowing before reinventing: `utils/searchMatch`
+(`matchesSearch(query, ...targets)` — **query first**, accent/order
+insensitive), `utils/dates` (`formatISOUTCDateToString` — event and
+due dates are UTC midnight; `new Date()` shifts them a day in Chile),
+`utils/phone` (Chilean canonical `+56XXXXXXXXX`), `utils/quotationMoney`
+(the single source of truth for quotation totals), `utils/apiErrors`
+(`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen).
+
+Known debt (13-08-2026): **8 dropdowns are still hand-rolled** —
+QuotationForm ×4, ServiciosTab ×3, PostVentaPage ×1 — living alongside the
+shared component. Migrate them opportunistically when touching those
+screens; do not add a ninth.
+
 - **Route-level code splitting**: pages behind login are `React.lazy` in `App.tsx`
   (Suspense fallback `PageLoader`). New authenticated pages must be lazy too.
 
