@@ -41,6 +41,16 @@
 
 set -uo pipefail
 
+# ── Anclarse a su propia casa ────────────────────────────────────────
+# Corrido desde otra carpeta, el portero no encontraba src/, contaba
+# CERO en todo y daba "OK, la deuda bajó" — un portero que aprueba
+# cuando no sabe dónde está es peor que no tener portero. Ahora se para
+# solo en frontend/, corran el comando desde donde lo corran.
+cd "$(dirname "$0")/.." || { echo "ERROR: no encuentro la carpeta frontend/"; exit 1; }
+
+# Y si aun así no ve el código, se detiene en vez de aprobar a ciegas.
+[ -d src ] || { echo "ERROR: no existe src/ — el portero no puede revisar nada"; exit 1; }
+
 fallas=0
 resumen=""
 
