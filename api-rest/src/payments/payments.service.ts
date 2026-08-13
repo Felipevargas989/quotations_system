@@ -118,11 +118,18 @@ export class PaymentsService {
     }
 
     // 5. Update the quotation status to 'aceptada'
-    await this.quotationsRepository.update(
-      createPaymentPlanDto.quotation_id,
-      { quotation_status: QuotationStatus.ACEPTADA },
-      companyId,
-    );
+    // PUERTA DE ATRÁS TAPADA (13-08): esta escritura era incondicional,
+    // así que rehacer el plan de cobranza de un evento YA REALIZADO lo
+    // des-realizaba en silencio, saltándose la llave. Rehacer el plan
+    // sigue permitido —la cobranza no se congela, puede faltar cobrar—;
+    // lo que no puede es devolver el evento a "aceptada".
+    if (quotation?.quotation_status !== QuotationStatus.REALIZADA) {
+      await this.quotationsRepository.update(
+        createPaymentPlanDto.quotation_id,
+        { quotation_status: QuotationStatus.ACEPTADA },
+        companyId,
+      );
+    }
   }
 
   async createPayment(

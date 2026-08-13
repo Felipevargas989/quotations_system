@@ -724,6 +724,7 @@ export default function GestionTab({
           fixedServices={fijosServicios}
           noCostIds={new Set(nameIds.sinCostoFijoIds)}
           onCostChange={setCostoRecursos}
+          congelado={quote.quotation_status === "realizada"}
         />
       )}
       </div>

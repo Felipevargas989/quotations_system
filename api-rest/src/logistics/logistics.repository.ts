@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { EVENTO_REALIZADO_CONGELADO } from 'src/quotations/constants/constants';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import {
   CreateFurnitureItemDto,
@@ -39,6 +40,51 @@ export class LogisticsRepository {
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(LogisticsRepository.name);
+  }
+
+  // ---------- EL CANDADO DEL EVENTO REALIZADO (13-08) ----------
+  // Mismo criterio que en cotizaciones (ver constants.ts): un evento
+  // que ya ocurrió es historia. Acá se cierra su contenido operativo:
+  // recursos del evento (que definen el costo y por tanto el margen) y
+  // la ficha de cocina. Las notas de cocina también, porque son todas
+  // PREVIAS al evento — dejarlas abiertas después no tiene sentido.
+  // Queda ABIERTO a propósito: reimprimir la ficha (es un acto de
+  // archivo, no una edición) y TOMAR la foto de costos (provisionar),
+  // que es justamente lo que congela el margen.
+  private async assertEventosEditables(
+    companyId: number,
+    quotationIds: (string | null | undefined)[],
+  ) {
+    const ids = [...new Set(quotationIds.filter(Boolean))] as string[];
+    if (!ids.length) return;
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('quotation_status', 'realizada')
+      .in('id', ids)
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length) {
+      throw new BadRequestException(EVENTO_REALIZADO_CONGELADO);
+    }
+  }
+
+  // Las escrituras que llegan con el id de la FILA (no del evento)
+  // necesitan resolver a qué evento pertenece antes de preguntar.
+  private async eventoDeFila(
+    tabla: string,
+    companyId: number,
+    id: number,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from(tabla)
+      .select('quotation_id')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { quotation_id?: string } | null)?.quotation_id ?? null;
   }
 
   async findAllSuppliers(companyId: number) {
@@ -146,6 +192,7 @@ export class LogisticsRepository {
       `clearProvisioned company ${companyId} (${ids.length} eventos)`,
     );
     if (!ids.length) return { updated: 0 };
+    await this.assertEventosEditables(companyId, ids);
     const { error } = await this.supabase.client
       .from('quotations')
       .update({
@@ -218,6 +265,7 @@ export class LogisticsRepository {
       `deleteSupplyProvisions company ${companyId} (${quotationIds.length} eventos)`,
     );
     if (!quotationIds.length) return { deleted: true };
+    await this.assertEventosEditables(companyId, quotationIds);
     let q = this.supabase.client
       .from('event_supply_provisions')
       .delete()
@@ -258,6 +306,10 @@ export class LogisticsRepository {
       `addEventResources company ${companyId} (${dto.rows.length} filas)`,
     );
     if (!dto.rows.length) return { added: 0 };
+    await this.assertEventosEditables(
+      companyId,
+      dto.rows.map((r) => (r as { quotation_id?: string }).quotation_id),
+    );
     const { error } = await this.supabase.client
       .from('event_resources')
       .insert(dto.rows.map((r) => ({ ...r, company_id: companyId })));
@@ -271,6 +323,9 @@ export class LogisticsRepository {
     dto: UpdateEventResourceDto,
   ) {
     this.logger.info(`updateEventResource ${id} company ${companyId}`);
+    await this.assertEventosEditables(companyId, [
+      await this.eventoDeFila('event_resources', companyId, id),
+    ]);
     const { error } = await this.supabase.client
       .from('event_resources')
       .update(dto)
@@ -282,6 +337,9 @@ export class LogisticsRepository {
 
   async deleteEventResource(companyId: number, id: number) {
     this.logger.info(`deleteEventResource ${id} company ${companyId}`);
+    await this.assertEventosEditables(companyId, [
+      await this.eventoDeFila('event_resources', companyId, id),
+    ]);
     const { error } = await this.supabase.client
       .from('event_resources')
       .delete()
@@ -306,6 +364,7 @@ export class LogisticsRepository {
 
   async setServiceTime(companyId: number, dto: SetServiceTimeDto) {
     this.logger.info(`setServiceTime ${dto.quotation_id}`);
+    await this.assertEventosEditables(companyId, [dto.quotation_id]);
     const { error } = await this.supabase.client
       .from('event_service_times')
       .upsert(
@@ -330,6 +389,7 @@ export class LogisticsRepository {
 
   async addKitchenNote(companyId: number, dto: AddKitchenNoteDto) {
     this.logger.info(`addKitchenNote ${dto.quotation_id}`);
+    await this.assertEventosEditables(companyId, [dto.quotation_id]);
     const { error } = await this.supabase.client
       .from('event_kitchen_notes')
       .insert({
@@ -344,6 +404,9 @@ export class LogisticsRepository {
 
   async deleteKitchenNote(companyId: number, id: number) {
     this.logger.info(`deleteKitchenNote ${id} company ${companyId}`);
+    await this.assertEventosEditables(companyId, [
+      await this.eventoDeFila('event_kitchen_notes', companyId, id),
+    ]);
     const { error } = await this.supabase.client
       .from('event_kitchen_notes')
       .delete()

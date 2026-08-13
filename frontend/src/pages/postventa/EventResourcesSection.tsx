@@ -74,11 +74,16 @@ export default function EventResourcesSection({
   fixedServices,
   noCostIds,
   onCostChange,
+  congelado = false,
 }: {
   readonly companyId: number;
   readonly quotationId: string;
   readonly personas: number;
   readonly fixedServices: EventFixedService[];
+  // Evento ya realizado (13-08): su contenido está congelado en el
+  // servidor. Acá importa sobre todo por el auto-importe de más
+  // abajo, que escribe con solo abrir la pestaña.
+  readonly congelado?: boolean;
   // Fijos marcados "sin costo en Eventia" (migración 57): la
   // advertencia de sin-costo-definido los deja pasar.
   readonly noCostIds?: ReadonlySet<number>;
@@ -236,8 +241,12 @@ export default function EventResourcesSection({
 
   // Primera vez (evento sin recursos): importar automáticamente los recursos
   // de sus servicios fijos.
+  // OJO (13-08): este efecto es el ÚNICO punto del sistema que escribe
+  // por el solo hecho de ABRIR una pantalla. En un evento realizado el
+  // servidor lo rechaza, así que sin este freno entrar a Gestión
+  // dejaría el cartel rojo de "no se pudieron importar" para siempre.
   useEffect(() => {
-    if (loading) return;
+    if (loading || congelado) return;
     if (lines.length === 0 && pendingServices.length > 0) {
       importFromFixed(pendingServices);
     }

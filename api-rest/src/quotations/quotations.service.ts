@@ -26,6 +26,7 @@ import {
   PaymentPlanType,
   QuotationStatus,
   RequestType,
+  EVENTO_REALIZADO_CONGELADO,
 } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
@@ -847,6 +848,17 @@ export class QuotationsService {
         throw new Error('Quotation not found');
       }
 
+      // EL CANDADO DEL EVENTO REALIZADO (13-08): ver la regla completa
+      // en constants.ts. Esta es LA puerta ancha del sistema —por acá
+      // guardan la pestaña Servicios, el cotizador entero, la fecha de
+      // la cabecera y el desplegable de estado del tablero—, así que
+      // cerrarla acá cierra las cinco de una vez. Va antes que el
+      // filtro de rol a propósito: un evento realizado está congelado
+      // para todos, incluido el administrador.
+      if (quotation.quotation_status === QuotationStatus.REALIZADA) {
+        throw new BadRequestException(EVENTO_REALIZADO_CONGELADO);
+      }
+
       // Recepción trabaja REQUERIMIENTOS, no cotizaciones (12-08,
       // espejo de la regla que ya rige al crear). Una cotización ya
       // nacida no la toca: ahí viven los ítems, los descuentos y la
@@ -1186,7 +1198,22 @@ export class QuotationsService {
     }
   }
 
-  remove(id: string, companyId: number) {
+  async remove(id: string, companyId: number) {
+    // El candado también tapa el borrado (13-08). La guardia que ya
+    // existía (assertDeletable) solo cuenta pagos, reembolsos y
+    // encuestas respondidas: un evento realizado pagado al contado y
+    // sin encuesta se borraba sin resistencia, arrastrando en cascada
+    // documentos, seguimiento, cocina, insumos y recursos.
+    const { data: quotation, error } =
+      await this.quotationsRepository.findOne(id);
+    if (error) throw error;
+    if (
+      quotation &&
+      quotation.company_id === companyId &&
+      quotation.quotation_status === QuotationStatus.REALIZADA
+    ) {
+      throw new BadRequestException(EVENTO_REALIZADO_CONGELADO);
+    }
     return this.quotationsRepository.remove(id, companyId);
   }
 
