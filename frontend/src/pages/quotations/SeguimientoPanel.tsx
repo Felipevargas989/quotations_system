@@ -634,10 +634,10 @@ export function HiloSeguimiento({
                           {/* En vivos, editar también exige tipo y fecha
                               (misma regla de Close); en muertos la nota
                               es de archivo y solo se toca el texto. */}
-                          {compromisoVivo && (
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {chipsTipo(editTipo, setEditTipo)}
-                              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                          {compromisoVivo && chipsTipo(editTipo, setEditTipo, true)}
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {compromisoVivo && (
+                              <label className="flex items-center gap-1.5 text-xs text-gray-600 mr-1">
                                 Próx. contacto
                                 <input
                                   type="date"
@@ -648,9 +648,7 @@ export function HiloSeguimiento({
                                   className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
                                 />
                               </label>
-                            </div>
-                          )}
-                          <div className="flex justify-end gap-2">
+                            )}
                             <button
                               type="button"
                               onClick={() => setEditId(null)}
@@ -691,7 +689,7 @@ export function HiloSeguimiento({
                           {e.nota.note}
                         </p>
                       )}
-                      {chipCompromiso(e.nota)}
+                      {editId !== e.nota.id && chipCompromiso(e.nota)}
                     </div>
                   </div>
                 );
