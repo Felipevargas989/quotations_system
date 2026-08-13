@@ -1,0 +1,10 @@
+# Cabeceras de caché (12-08-2026, hallazgo #1 de velocidad).
+#
+# Los archivos de /assets llevan su huella en el nombre
+# (Calendar-Bo_SbAvT.js): si cambia el contenido, cambia el nombre.
+# Guardarlos un año en el navegador es seguro y ahorra un viaje al
+# servidor por archivo en cada navegación. La portada (index.html)
+# NO se toca acá: sigue revalidando siempre, así que las versiones
+# nuevas llegan igual de inmediato.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
