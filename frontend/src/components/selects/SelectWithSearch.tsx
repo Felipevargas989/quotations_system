@@ -241,18 +241,8 @@ export default function SelectWithSearch({
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <div className="flex items-center space-x-1">
-          {value && !disabled && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClear();
-              }}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          )}
+          {/* Hueco para que la X no se monte sobre el texto. */}
+          {value && !disabled && <span className="w-4" aria-hidden="true" />}
           <ChevronDown
             size={16}
             className={`text-gray-400 transition-transform ${
@@ -261,6 +251,22 @@ export default function SelectWithSearch({
           />
         </div>
       </button>
+
+      {/* La X para limpiar va FUERA del botón principal, flotando sobre
+          él. Antes era un <button> DENTRO de otro <button>: HTML
+          inválido que React reclama en consola, que los navegadores
+          reparan cada uno a su manera y que dejaba al botón principal
+          con dos nombres accesibles. (13-08-2026) */}
+      {value && !disabled && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Limpiar selección"
+        >
+          <X size={16} />
+        </button>
+      )}
 
       {/* Dropdown (hacia abajo, o hacia arriba si abajo no cabe) */}
       {isOpen && (
