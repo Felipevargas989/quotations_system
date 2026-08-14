@@ -137,12 +137,16 @@ writing a second guard. Ceilings measured 13-08-2026:
 
 | Rule | Ceiling | Reuse instead |
 |---|---|---|
-| hand-rolled dropdown with a search box | 6 | `SelectWithSearch` |
+| hand-rolled dropdown with a search box | 4 | `SelectWithSearch` |
 | native `<select>` | 0 | `SelectWithSearch` |
-| hand-rolled floating panel (any) | 21 | `SelectWithSearch` / `MultiSelect` |
+| hand-rolled floating panel (any) | 19 | `SelectWithSearch` / `MultiSelect` |
 | `alert()` | 0 | `Toast` |
 | `confirm()` | 0 | `ConfirmInline` |
 | native `type="number"` | 0 | `NumberInput` |
+
+**Lowering a ceiling is part of migrating, not a follow-up.** The guard
+prints the new numbers when the debt drops; apply them in the same
+commit or the ground gained is left free to lose again.
 
 The floating-panel rule is deliberately wider than the others: it is
 what would have caught the Calendar multi-select, which has no search

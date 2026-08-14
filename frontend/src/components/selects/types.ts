@@ -24,4 +24,13 @@ export interface SelectWithSearchProps {
   // Deja la lista abierta tras elegir: para los selectores que AGREGAN
   // (ítems, insumos) en vez de fijar un valor. Por omisión se cierra.
   readonly keepOpenOnSelect?: boolean;
+
+  // Tamaño del texto del botón. Los desplegables que viven en una
+  // columna apretada usan el chico para calzar con lo de al lado.
+  readonly tamano?: "sm" | "base";
+
+  // Pie con "N resultados". Encendido por omisión —las 15 pantallas que
+  // ya usan la pieza lo tienen— pero ninguna de las copias escritas a
+  // mano lo lleva, y en listas largas roba alto útil.
+  readonly mostrarConteo?: boolean;
 }

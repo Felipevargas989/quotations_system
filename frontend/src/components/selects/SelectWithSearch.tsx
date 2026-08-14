@@ -13,6 +13,8 @@ export default function SelectWithSearch({
   disabled = false,
   required = false,
   keepOpenOnSelect = false,
+  tamano = "base",
+  mostrarConteo = true,
 }: SelectWithSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -151,7 +153,8 @@ export default function SelectWithSearch({
           w-full px-3 py-2 border border-gray-300 rounded-lg
           focus:ring-2 focus:ring-blue-500 focus:border-transparent
           cursor-pointer bg-white flex items-center justify-between
-          ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+          ${tamano === "sm" ? "text-sm" : ""}
+          ${disabled ? "bg-gray-100 cursor-not-allowed" : ""}
           ${required && !value ? "border-red-300" : ""}
         `}
         onClick={() => !disabled && (isOpen ? cerrar() : abrir())}
@@ -160,13 +163,18 @@ export default function SelectWithSearch({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
+        {/* Si hay algo guardado pero ya no está en el catálogo —una
+            categoría que se renombró o se dio de baja después de que
+            esta cotización se creó— se muestra el nombre GUARDADO tal
+            cual, no el placeholder. Fingir que no hay nada elegido
+            haría creer que el dato se perdió. */}
         <span
           className={`truncate text-left ${
-            selectedOption ? "text-gray-900" : "text-gray-500"
+            value ? "text-gray-900" : "text-gray-500"
           }`}
-          title={selectedOption?.label}
+          title={selectedOption?.label ?? value}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption?.label ?? (value || placeholder)}
         </span>
         <div className="flex items-center space-x-1">
           {/* Hueco para que la X no se monte sobre el texto. */}
@@ -291,14 +299,17 @@ export default function SelectWithSearch({
                 );
               })
             ) : (
-              <div className="px-3 py-2 text-gray-500 text-sm text-center">
+              // A la izquierda, como las seis copias escritas a mano:
+              // centrado parecía un cartel y no la continuación natural
+              // de la lista.
+              <div className="px-3 py-2 text-gray-500 text-sm">
                 {noResultsText}
               </div>
             )}
           </div>
 
           {/* Results count */}
-          {filteredOptions.length > 0 && (
+          {mostrarConteo && filteredOptions.length > 0 && (
             <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-200 bg-gray-50">
               {filteredOptions.length} resultado
               {filteredOptions.length !== 1 ? "s" : ""}

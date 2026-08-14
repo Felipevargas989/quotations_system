@@ -42,6 +42,7 @@ const abrir = async (usuario: ReturnType<typeof userEvent.setup>) => {
 // Las opciones se buscan DENTRO de la lista: el botón principal también
 // muestra el nombre de lo elegido, así que buscar en toda la pantalla
 // encontraría el mismo nombre dos veces.
+const buscador = () => screen.getByPlaceholderText("Buscar...");
 const lista = () =>
   within(document.querySelector("[data-lista-scroll]") as HTMLElement);
 
@@ -269,6 +270,70 @@ describe("SelectWithSearch — secciones y apuntes", () => {
 
     expect(screen.getByRole("button", { name: /Flan/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Pollo/ })).toBeNull();
+  });
+});
+
+describe("SelectWithSearch — lo que pedían los desplegables de categoría", () => {
+  it("muestra el nombre GUARDADO aunque ya no esté en el catálogo", async () => {
+    // Una cotización vieja puede tener una categoría que después se
+    // renombró o se dio de baja. Mostrar el placeholder haría creer que
+    // el dato se perdió.
+    render(
+      <SelectWithSearch
+        options={PLATOS}
+        value="Categoría que ya no existe"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const boton = botonPrincipal();
+    expect(boton).toHaveTextContent("Categoría que ya no existe");
+    expect(boton.querySelector("span")?.className).toContain("text-gray-900");
+  });
+
+  it("sin valor muestra el placeholder en gris", () => {
+    render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} />);
+    const boton = botonPrincipal();
+    expect(boton).toHaveTextContent("Seleccionar opción");
+    expect(boton.querySelector("span")?.className).toContain("text-gray-500");
+  });
+
+  it("acepta texto chico", () => {
+    render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} tamano="sm" />);
+    expect(botonPrincipal().className).toContain("text-sm");
+  });
+
+  it("el pie de resultados se puede apagar", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <SelectWithSearch
+        options={PLATOS}
+        onChange={vi.fn()}
+        mostrarConteo={false}
+      />,
+    );
+    await abrir(usuario);
+
+    expect(screen.queryByText(/4 resultados/)).toBeNull();
+  });
+
+  it("por omisión el pie sigue ahí (las 15 pantallas no cambian)", async () => {
+    const usuario = userEvent.setup();
+    render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} />);
+    await abrir(usuario);
+
+    expect(screen.getByText("4 resultados")).toBeTruthy();
+  });
+
+  it("el aviso de sin resultados va a la izquierda", async () => {
+    const usuario = userEvent.setup();
+    render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} />);
+    await abrir(usuario);
+    await usuario.type(buscador(), "sushi");
+
+    expect(
+      screen.getByText("No se encontraron resultados").className,
+    ).not.toContain("text-center");
   });
 });
 

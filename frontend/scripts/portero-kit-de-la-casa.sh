@@ -132,7 +132,7 @@ echo ""
 
 # ── SelectWithSearch — elegir UNA cosa, con buscador ─────────────────
 
-revisar "lista plegable con buscador a mano" 6 \
+revisar "lista plegable con buscador a mano" 4 \
   "<SelectWithSearch /> — trae buscador sin tildes, flechas, Enter, Escape, se abre hacia arriba si no cabe, se mide contra el modal y se cierra al pinchar fuera" \
   'sticky top-0 bg-white p-2 border-b'
 
@@ -147,7 +147,7 @@ revisar "lista nativa <select>" 0 \
 # acciones legítimos, y está bien: que un panel nuevo obligue a
 # detenerse un segundo es justamente la idea.
 
-revisar "panel flotante a mano (cualquiera)" 21 \
+revisar "panel flotante a mano (cualquiera)" 19 \
   "<SelectWithSearch /> si es elegir UNA, <MultiSelect /> si es elegir VARIAS. Si de verdad es otra cosa (un menú de acciones), sube el techo acá y explica por qué en el commit" \
   'absolute.*z-[0-9]+.*bg-white.*shadow-(lg|md|xl)'
 

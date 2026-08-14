@@ -285,7 +285,6 @@ export default function QuotationForm() {
   const [itemSearch, setItemSearch] = useState("");
   // Búsqueda del desplegable de Categoría (04-08): mismo patrón sticky
   // del buscador de ítems — con 12 categorías igual ayuda y uniforma.
-  const [catSearch, setCatSearch] = useState("");
   // Desplegable de servicios FIJOS con secciones (30-07, calco del de
   // items de variables): botón + buscador pegajoso + rótulos.
   const [openFixedPicker, setOpenFixedPicker] = useState<number | null>(null);
@@ -2858,103 +2857,48 @@ export default function QuotationForm() {
                               </label>
                             </div>
                             {/* 28-07 (pedido de Felipe): antes era un <select>
-                          nativo del navegador y desentonaba con los demás
-                          desplegables. Mismo patrón custom de la casa. */}
+                          nativo del navegador y desentonaba con los demás.
+                          13-08: pasa a la PIEZA de la casa — eran 95 líneas
+                          escritas a mano sin teclado; ahora se maneja con
+                          flechas y Enter como el resto del sistema. El
+                          envoltorio conserva dropdown-container para que el
+                          listener global siga cerrando los desplegables
+                          artesanales que quedan al lado. */}
                             <div className="relative dropdown-container">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenDropdown(
-                                    openDropdown === `cat-${box.id}`
-                                      ? null
-                                      : `cat-${box.id}`,
+                              <SelectWithSearch
+                                options={serviceCategories
+                                  // Las desactivadas quedan afuera, SALVO la
+                                  // ya elegida de esta caja: si no, una
+                                  // cotización vieja perdería su categoría.
+                                  .filter(
+                                    (category) =>
+                                      !inactiveCategorySet.has(category) ||
+                                      category === box.selectedCategory,
+                                  )
+                                  .map((category) => ({
+                                    value: category,
+                                    label: category,
+                                  }))}
+                                value={box.selectedCategory}
+                                onChange={(category) => {
+                                  updateServiceBox(
+                                    box.id,
+                                    "selectedCategory",
+                                    category,
                                   );
-                                  setCatSearch("");
                                 }}
+                                placeholder="Seleccionar categoría"
+                                searchPlaceholder="Buscar categoría..."
+                                noResultsText="No se encontraron categorías"
+                                // Una vez elegida no se cambia: se borra la
+                                // caja y se hace otra.
                                 disabled={
                                   box.selectedCategory !== "" ||
                                   isRestrictedEditing
                                 }
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
-                              >
-                                <span
-                                  className={
-                                    box.selectedCategory
-                                      ? "text-gray-900"
-                                      : "text-gray-500"
-                                  }
-                                >
-                                  {box.selectedCategory ||
-                                    "Seleccionar categoría"}
-                                </span>
-                                <svg
-                                  className="w-4 h-4 text-gray-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                  />
-                                </svg>
-                              </button>
-                              {openDropdown === `cat-${box.id}` && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                                  {/* Buscador pegajoso (04-08): mismo patrón
-                                del buscador de ítems. */}
-                                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      value={catSearch}
-                                      onChange={(e) =>
-                                        setCatSearch(e.target.value)
-                                      }
-                                      placeholder="Buscar categoría..."
-                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                  </div>
-                                  {(() => {
-                                    const cats = serviceCategories
-                                      .filter(
-                                        (category) =>
-                                          !inactiveCategorySet.has(category) ||
-                                          category === box.selectedCategory,
-                                      )
-                                      .filter((category) =>
-                                        matchesSearch(catSearch, category),
-                                      );
-                                    if (cats.length === 0)
-                                      return (
-                                        <div className="px-3 py-2 text-sm text-gray-500">
-                                          No se encontraron categorías
-                                        </div>
-                                      );
-                                    return cats.map((category) => (
-                                      <button
-                                        key={category}
-                                        type="button"
-                                        onClick={() => {
-                                          updateServiceBox(
-                                            box.id,
-                                            "selectedCategory",
-                                            category,
-                                          );
-                                          // Lo escrito se borra solo al pinchar.
-                                          setCatSearch("");
-                                          setOpenDropdown(null);
-                                        }}
-                                        className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
-                                      >
-                                        {category}
-                                      </button>
-                                    ));
-                                  })()}
-                                </div>
-                              )}
+                                tamano="sm"
+                                mostrarConteo={false}
+                              />
                             </div>
                           </div>
                           {/* Nacimiento progresivo (04-08, Felipe: "no traer

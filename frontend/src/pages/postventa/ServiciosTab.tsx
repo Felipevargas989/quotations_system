@@ -34,6 +34,7 @@ import { UserRole } from "../../constants/users";
 import QuantitySelector from "../../components/QuantitySelector";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { matchesSearch } from "../../utils/searchMatch";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { verEnLista } from "../../utils/verEnLista";
 import { getQuotationProvisioning } from "../../services/logistics.service";
 import { recursosQueryOpts } from "./EventResourcesSection";
@@ -241,7 +242,6 @@ export default function ServiciosTab({
   // Desplegables artesanales (04-08, trasplante del cotizador): cuál está
   // abierto y qué se busca adentro. Se cierran al hacer clic afuera.
   // El de categoría es POR CAJA: cada grupo recién nacido tiene el suyo.
-  const [openCatPicker, setOpenCatPicker] = useState<number | null>(null);
   // Basurero de caja (04-08): confirmación inline solo si hay ítems.
   const [confirmGroupKey, setConfirmGroupKey] = useState<number | null>(null);
   const [openItemPicker, setOpenItemPicker] = useState<number | null>(null);
@@ -250,14 +250,12 @@ export default function ServiciosTab({
   const [fixedSearch, setFixedSearch] = useState("");
   // Búsqueda del desplegable de Categoría (04-08): mismo patrón sticky
   // del buscador de ítems, paridad con el cotizador.
-  const [catSearch, setCatSearch] = useState("");
   // Cierre al clic afuera: misma mecánica del cotizador (listener global
   // que respeta los envoltorios .dropdown-container).
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       if (!target.closest(".dropdown-container")) {
-        setOpenCatPicker(null);
         setOpenItemPicker(null);
         setOpenFixedPicker(false);
       }
@@ -462,7 +460,6 @@ export default function ServiciosTab({
     setConfirmGroupKey(null);
     setAddingToGroup(null);
     setOpenItemPicker(null);
-    setOpenCatPicker(null);
   };
   const removeFixed = (i: number) =>
     setFixed((prev) => prev.filter((_, idx) => idx !== i));
@@ -568,7 +565,6 @@ export default function ServiciosTab({
           : g,
       ),
     );
-    setOpenCatPicker(null);
     setAddingToGroup(gi);
     // El desplegable del grupo nuevo se abre de una, con el buscador listo.
     setOpenItemPicker(gi);
@@ -665,7 +661,6 @@ export default function ServiciosTab({
     setConfirmRowKey(null);
     setAddingToGroup(null);
     setOpenItemPicker(null);
-    setOpenCatPicker(null);
   };
 
   // Personas del grupo: igual al cotizador — escribir el número de su
@@ -1247,84 +1242,34 @@ export default function ServiciosTab({
                         Categoría
                       </label>
                     </div>
+                    {/* Migrado a la pieza de la casa (13-08). Antes eran
+                        78 líneas escritas a mano sin teclado: ahora se
+                        maneja con flechas y Enter como el resto del
+                        sistema. El envoltorio conserva la clase
+                        dropdown-container para que, mientras queden
+                        desplegables artesanales al lado, el listener
+                        global los siga cerrando igual que antes. */}
                     <div className="relative dropdown-container">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenCatPicker(openCatPicker === gi ? null : gi);
-                          setCatSearch("");
-                        }}
+                      <SelectWithSearch
+                        options={catNames
+                          // Las desactivadas quedan afuera, SALVO la ya
+                          // elegida de esta caja: si no, un evento viejo
+                          // perdería su categoría al abrirlo.
+                          .filter(
+                            (c) => !inactiveCategorySet.has(c) || c === g.category,
+                          )
+                          .map((c) => ({ value: c, label: c }))}
+                        value={g.category}
+                        onChange={(c) => setGroupCategory(gi, c)}
+                        placeholder="Seleccionar categoría"
+                        searchPlaceholder="Buscar categoría..."
+                        noResultsText="No se encontraron categorías"
+                        // Una vez elegida, la categoría de la caja no se
+                        // cambia: se borra la caja y se hace otra.
                         disabled={g.category !== ""}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center bg-white"
-                      >
-                        <span
-                          className={
-                            g.category ? "text-gray-900" : "text-gray-500"
-                          }
-                        >
-                          {g.category || "Seleccionar categoría"}
-                        </span>
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </button>
-                      {openCatPicker === gi && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                          {/* Buscador pegajoso (04-08): mismo patrón del
-                        buscador de ítems, paridad con el cotizador. */}
-                          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                            <input
-                              type="text"
-                              autoFocus
-                              value={catSearch}
-                              onChange={(e) => setCatSearch(e.target.value)}
-                              placeholder="Buscar categoría..."
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                          {(() => {
-                            const cats = catNames
-                              // Paridad con el cotizador: desactivadas afuera,
-                              // salvo la ya elegida de esta caja.
-                              .filter(
-                                (c) =>
-                                  !inactiveCategorySet.has(c) ||
-                                  c === g.category,
-                              )
-                              .filter((c) => matchesSearch(catSearch, c));
-                            if (cats.length === 0)
-                              return (
-                                <div className="px-3 py-2 text-sm text-gray-500">
-                                  No se encontraron categorías
-                                </div>
-                              );
-                            return cats.map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                onClick={() => {
-                                  // Lo escrito se borra solo al pinchar.
-                                  setGroupCategory(gi, c);
-                                  setCatSearch("");
-                                }}
-                                className="w-full px-3 py-2 text-sm text-left hover:bg-blue-50"
-                              >
-                                {c}
-                              </button>
-                            ));
-                          })()}
-                        </div>
-                      )}
+                        tamano="sm"
+                        mostrarConteo={false}
+                      />
                     </div>
                   </div>
                   {/* Nacimiento progresivo (04-08, Felipe: "no traer los
