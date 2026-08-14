@@ -19,6 +19,7 @@ import { HealthController } from './health/health.controller';
 import { LogisticsModule } from './logistics/logistics.module';
 import { MovilModule } from './movil/movil.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PeopleModule } from './people/people.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationFollowupsModule } from './quotation-followups/quotation-followups.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -84,6 +85,7 @@ import { UsersModule } from './users/users.module';
     CustomerSatisfactionSurveyModule,
     BackupModule,
     LogisticsModule,
+    PeopleModule,
   ],
   controllers: [HealthController],
   providers: [
