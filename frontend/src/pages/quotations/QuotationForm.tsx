@@ -3410,13 +3410,17 @@ export default function QuotationForm() {
                             className="flex items-center gap-2 py-2 border-b border-gray-100"
                           >
                             {/* Migrado a la pieza de la casa (14-08). Eran
-                                105 líneas. Dos particularidades que NO se
-                                pueden perder: el picker está amarrado al
-                                ÍNDICE de la fila vacía (por eso `abierto`
-                                compara contra `index`), y este agregador
-                                NO limpia el buscador al agregar — deja la
-                                lista filtrada para seguir sumando
-                                parecidos, al revés que el de Post-Venta. */}
+                                105 líneas. La particularidad que NO se puede
+                                perder: el picker está amarrado al ÍNDICE de
+                                la fila vacía, por eso `abierto` compara
+                                contra `index` y no contra un booleano.
+
+                                Antes este era el ÚNICO de los cuatro que no
+                                borraba lo escrito tras agregar. Se emparejó
+                                con los otros tres (14-08, Felipe: "después
+                                de seleccionar no aparece el texto que había
+                                ingresado, lo que está perfecto"): no era una
+                                decisión, era un olvido. */}
                             <div className="relative dropdown-container flex-1">
                               <AgregadorDeItems
                                 opciones={fixedServices
@@ -3449,7 +3453,6 @@ export default function QuotationForm() {
                                 disabled={isRestrictedEditing}
                                 tamano="sm"
                                 fondoBlanco={false}
-                                limpiarAlAgregar={false}
                                 className="w-full"
                               />
                             </div>
