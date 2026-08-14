@@ -101,6 +101,10 @@ export const API_ROUTES = {
   // refunds
   REFUNDS: "/refunds",
 
+  // people (modulo de gestion de personas)
+  PEOPLE: "/people",
+  PEOPLE_ROLES: "/people/roles",
+
   // customer satisfaction survey
   CUSTOMER_SATISFACTION_SURVEY_ANSWERS: "/customer-satisfaction-survey/answers",
   CUSTOMER_SATISFACTION_SURVEY_TEMPLATE:

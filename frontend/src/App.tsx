@@ -41,6 +41,7 @@ const importQuotationForm = () => import("./pages/quotations/QuotationForm");
 const importClients = () => import("./pages/ClientsPage");
 const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
+const importPersonas = () => import("./pages/personas/PersonasPage");
 const importServices = () => import("./pages/services");
 const importCalendar = () => import("./pages/calendar/Calendar.tsx");
 
@@ -54,6 +55,7 @@ const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
 const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
+const PersonasPage = lazy(importPersonas);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
@@ -121,6 +123,7 @@ function App() {
         importQuotations,
         importPostVenta,
         importLogistica,
+        importPersonas,
         importClients,
         importQuotationForm,
         importServices,
@@ -292,6 +295,17 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
                     <LogisticaPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* Personas - solo administrador: ahi viven los RUT y las
+                  cuentas bancarias de toda la gente que trabaja. */}
+              <Route
+                path="personas"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                    <PersonasPage />
                   </PermissionGuard>
                 }
               />

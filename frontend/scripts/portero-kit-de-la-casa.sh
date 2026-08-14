@@ -61,8 +61,15 @@ resumen=""
 # cada línea encontrada se le borra la parte comentada y se vuelve a
 # preguntar si el patrón sigue ahí.
 
+# El segundo argumento, opcional, son los archivos DONDE LA PIEZA VIVE:
+# ahí el patrón tiene que aparecer, es su casa. Las piezas de
+# `src/components/` ya quedan fuera por el `-not -path` de abajo, pero
+# las que viven en `src/utils/` —los diccionarios— hay que nombrarlas.
+
 buscar() {
-  local patron="$1"
+  local patron="$1" casaDeLaPieza="${2:-}"
+  local salida
+  salida=$(
   find src \( -name "*.tsx" -o -name "*.ts" \) -not -path "src/components/*" 2>/dev/null \
     | sort \
     | xargs awk -v pat="$patron" '
@@ -93,15 +100,21 @@ buscar() {
 
           if (linea ~ pat) printf "%s:%d:%s\n", FILENAME, FNR, original
         }'
+  )
+  if [ -n "$casaDeLaPieza" ]; then
+    printf '%s' "$salida" | grep -vE "$casaDeLaPieza" || true
+  else
+    printf '%s' "$salida"
+  fi
 }
 
 # ── El verificador ───────────────────────────────────────────────────
-#   revisar "<nombre>" <techo> "<qué usar>" "<patrón>"
+#   revisar "<nombre>" <techo> "<qué usar>" "<patrón>" ["<casa de la pieza>"]
 
 revisar() {
-  local nombre="$1" techo="$2" remedio="$3" patron="$4"
+  local nombre="$1" techo="$2" remedio="$3" patron="$4" casa="${5:-}"
   local hallazgos cuantos
-  hallazgos=$(buscar "$patron")
+  hallazgos=$(buscar "$patron" "$casa")
   cuantos=$(printf '%s' "$hallazgos" | grep -c . )
 
   local marca="ok"
@@ -170,6 +183,51 @@ revisar "confirm() del navegador" 0 \
 revisar 'campo numérico nativo (type="number")' 0 \
   "<NumberInput /> — maneja la coma decimal chilena y convierte el punto en coma" \
   'type="number"'
+
+# ══ LAS PIEZAS DEL MÓDULO DE PERSONAS (14-08) ════════════════════════
+#
+# Estas cuatro reglas se escriben ANTES de que exista la primera copia.
+# Es la primera vez que el candado se pone al derecho: en el desplegable
+# con buscador llegamos cuando ya había seis copias, y en el estado de la
+# cotización cuando "Realizada" ya era cinco verdes distintos.
+
+# ── RutInput — el RUT y su dígito verificador ────────────────────────
+# La regla del módulo 11, la K en mayúscula y los RUT reservados que
+# pasan la matemática (el 55.555.555-5 del SII) viven adentro de la
+# pieza. Una copia a mano los redescubre de a un rechazo del banco.
+
+revisar "dígito verificador del RUT a mano" 0 \
+  "<RutInput /> y utils/rut.ts — ahí viven el módulo 11 y los RUT reservados" \
+  'digitoVerificador|dígito verificador|modulo 11|módulo 11' \
+  'src/utils/rut\.(ts|test\.ts)'
+
+# ── utils/bancos — la lista de bancos ────────────────────────────────
+# Circulan por internet listas de códigos que todavía traen Banco
+# Security, Scotiabank Azul y Corpbanca como vigentes. Si alguien pega
+# una de esas, la transferencia no llega.
+
+revisar "lista de bancos escrita a mano" 0 \
+  "utils/bancos.ts — la lista viene de la CMF y ya trae las equivalencias" \
+  'BancoEstado.*Santander|Santander.*BancoEstado|Banco Security|Scotiabank Azul|Corpbanca' \
+  'src/utils/bancos\.(ts|test\.ts)'
+
+# ── utils/estadoPersona — activa / no disponible / bloqueada ─────────
+# "No disponible" NO es una mala nota. Si se escribe suelto en una
+# pantalla, en un año nadie sabe a quién se puede volver a llamar.
+
+revisar "estado de persona escrito a mano" 0 \
+  "utils/estadoPersona.ts — un solo lugar para el nombre y el color" \
+  '"No disponible"|"Bloqueada"|>No disponible<|>Bloqueada<' \
+  'src/utils/estadoPersona\.(ts|test\.ts)'
+
+# ── El campo de hora ─────────────────────────────────────────────────
+# Techo 1 A PROPÓSITO: hoy existe UNO hecho a mano en la ficha de cocina
+# de Post-Venta. Cuando llegue la etapa de horarios se hace la pieza, se
+# migra ese, y este techo baja a 0.
+
+revisar 'campo de hora nativo (type="time")' 1 \
+  "cuando se haga la pieza de hora, migrar también el de la ficha de cocina" \
+  'type="time"'
 
 # ══ VEREDICTO ════════════════════════════════════════════════════════
 

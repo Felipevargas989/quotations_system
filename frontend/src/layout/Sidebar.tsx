@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Receipt,
   Package,
+  Contact,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -89,6 +90,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Package,
       section: "logistics",
       precargar: () => import("../pages/logistica/LogisticaPage"),
+    },
+    {
+      // Despues de Logistica (decision de Felipe, 14-08). Solo la ve
+      // administrador: aca estan los datos bancarios de la gente.
+      name: "Personas",
+      href: "/personas",
+      icon: Contact,
+      section: "people",
+      precargar: () => import("../pages/personas/PersonasPage.tsx"),
     },
     {
       name: "Calendario",
