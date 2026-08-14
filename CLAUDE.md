@@ -107,7 +107,9 @@ and no close-on-click-outside) — every one of them already handled inside
 
 | Piece | Use it for | In |
 |---|---|---|
-| `components/selects/SelectWithSearch` | **any dropdown with search** — arrows/Enter/Escape with the marked option kept in view (`verEnLista`), opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint` (grey note on the right), `dotClass` (colour dot) and `keepOpenOnSelect` for pickers that ADD | 15 screens |
+| `components/selects/SelectWithSearch` | **pick ONE value** — arrows/Enter/Escape with the marked option kept in view, opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint`, `dotClass`, `tamano`, `mostrarConteo`; shows the saved label even when it left the catalog | 17 screens |
+| `components/selects/AgregadorDeItems` | **ADD several to a list** — never shows the selection, stays open with the cursor in the search box, marks the first row for type+Enter, tall list, always opens downward, controlled `abierto`/`onAbiertoChange` so the screen owns open/close | 4 |
+| `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
 | `components/MultiSelect` | multiple choice with chips | 3 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
@@ -137,9 +139,9 @@ writing a second guard. Ceilings measured 13-08-2026:
 
 | Rule | Ceiling | Reuse instead |
 |---|---|---|
-| hand-rolled dropdown with a search box | 4 | `SelectWithSearch` |
+| hand-rolled dropdown with a search box | **0** | `SelectWithSearch` / `AgregadorDeItems` |
 | native `<select>` | 0 | `SelectWithSearch` |
-| hand-rolled floating panel (any) | 19 | `SelectWithSearch` / `MultiSelect` |
+| hand-rolled floating panel (any) | 15 | `SelectWithSearch` / `MultiSelect` |
 | `alert()` | 0 | `Toast` |
 | `confirm()` | 0 | `ConfirmInline` |
 | native `type="number"` | 0 | `NumberInput` |

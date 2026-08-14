@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { computeMoney } from "@dinero";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -64,9 +64,8 @@ import {
 import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
-import { matchesSearch } from "../../utils/searchMatch";
-import { verEnLista } from "../../utils/verEnLista";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -282,13 +281,11 @@ export default function QuotationForm() {
   } | null>(null);
   const [confirmGroupDel, setConfirmGroupDel] = useState<number | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
-  const [itemSearch, setItemSearch] = useState("");
   // Búsqueda del desplegable de Categoría (04-08): mismo patrón sticky
   // del buscador de ítems — con 12 categorías igual ayuda y uniforma.
   // Desplegable de servicios FIJOS con secciones (30-07, calco del de
   // items de variables): botón + buscador pegajoso + rótulos.
   const [openFixedPicker, setOpenFixedPicker] = useState<number | null>(null);
-  const [fixedSearch, setFixedSearch] = useState("");
   const { data: fixedSections = [] } = useQuery({
     queryKey: ["fixedSections"],
     queryFn: getFixedSections,
@@ -389,8 +386,6 @@ export default function QuotationForm() {
   // TECLADO DEL BUSCADOR (06-08, pedido de Felipe): la lista ofrecida se
   // arma en el MISMO orden en que se ve, así las flechas recorren lo que
   // el ojo recorre y Enter agrega exactamente lo resaltado.
-  const [idxItem, setIdxItem] = useState(0);
-  const buscadorItemRef = useRef<HTMLInputElement | null>(null);
 
   // La categoría del catálogo a la que apunta una caja: por id (foto
   // nueva) o por nombre (foto vieja). El id no cambia nunca — diseño de
@@ -406,55 +401,52 @@ export default function QuotationForm() {
     buscarCategoria(orderedCategories, cajaDe(box));
   const nomCat = (box: any) => nombreVigente(orderedCategories, cajaDe(box));
 
-  const ofrecidosDe = (box: any) => {
-    // El buscador entiende SECCIONES además de nombres (07-08, pedido
-    // de Felipe): escribir "postres" trae todo lo de esa sección aunque
-    // ningún plato diga "postre". `matchesSearch` ya acepta varios
-    // textos y exige que todas las palabras aparezcan en alguno, así que
-    // "principales pollo" también acierta. Por eso el filtro por nombre
-    // se aplica DESPUÉS de saber en qué sección cae cada item.
+  // LAS OPCIONES DEL AGREGADOR, sin filtrar.
+  //
+  // Antes filtraba por dentro con `itemSearch`; ahora el filtrado vive
+  // en la pieza (AgregadorDeItems) y acá solo se arma la lista ORDENADA
+  // por sección, con el nombre de la sección como `group`.
+  //
+  // El buscador sigue entendiendo SECCIONES (07-08, pedido de Felipe):
+  // escribir "postres" trae todo lo de esa sección aunque ningún plato
+  // diga "postre". Sale gratis porque la pieza busca en la etiqueta Y en
+  // el grupo — exactamente los dos textos que se pasaban antes.
+  const opcionesDe = (box: any) => {
     const ofrecidos = getFilteredProducts(nomCat(box))
       .filter((p) => p.is_active !== false)
       .filter((p) => !isLockedService(nomCat(box), p.codigo));
-    const filtrados = ofrecidos.filter((p) =>
-      matchesSearch(itemSearch, p.nombre),
-    );
+    const comoOpcion = (p: any, seccion?: string) => ({
+      value: p.codigo,
+      label: p.nombre,
+      hint: `$${(p.precio || 0).toLocaleString("es-CL")}`,
+      group: seccion,
+    });
+
     const cat = catDeCaja(box);
     const secs = cat
       ? categorySections
           .filter((sec) => sec.category_id === cat.id)
           .sort((a, b) => a.sort_order - b.sort_order)
       : [];
-    if (secs.length === 0)
-      return {
-        bloques: [{ key: "plano", name: "", items: filtrados }],
-        orden: filtrados,
-      };
+
+    // Sin secciones: lista plana, SIN rótulos.
+    if (secs.length === 0) return ofrecidos.map((p) => comoOpcion(p));
+
     const seccionDe = (codigo: string) =>
       categoryLinks.find(
         (l) =>
           l.category_id === cat!.id &&
           l.variable_service_id.toString() === codigo,
       )?.section_id || 0;
-    const deSeccion = (id: number, nombre: string) =>
-      ofrecidos.filter(
-        (p) =>
-          seccionDe(p.codigo) === id &&
-          matchesSearch(itemSearch, p.nombre, nombre),
-      );
-    const bloques = [
-      ...secs.map((sec) => ({
-        key: `s-${sec.id}`,
-        name: sec.name,
-        items: deSeccion(sec.id, sec.name),
-      })),
-      {
-        key: "s-0",
-        name: "Sin sección",
-        items: deSeccion(0, "Sin sección"),
-      },
-    ].filter((b) => b.items.length > 0);
-    return { bloques, orden: bloques.flatMap((b) => b.items) };
+    const deSeccion = (id: number) =>
+      ofrecidos.filter((p) => seccionDe(p.codigo) === id);
+
+    return [
+      ...secs.flatMap((sec) =>
+        deSeccion(sec.id).map((p) => comoOpcion(p, sec.name)),
+      ),
+      ...deSeccion(0).map((p) => comoOpcion(p, "Sin sección")),
+    ];
   };
 
   // Ids de servicios de la sección fija de una categoría (por nombre).
@@ -3157,156 +3149,38 @@ export default function QuotationForm() {
                                 <label className="block text-xs font-medium text-gray-600 mb-1">
                                   Item
                                 </label>
+                                {/* Migrado a la pieza de la casa (14-08).
+                                    Eran 151 líneas. SIN fondo blanco a
+                                    propósito: en las cajas de audiencia
+                                    "niños" el recuadro es ámbar y el
+                                    selector debe fundirse con él, no
+                                    recortar un rectángulo blanco. */}
                                 <div className="relative dropdown-container">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenDropdown(
-                                        openDropdown === box.id ? null : box.id,
-                                      );
-                                      // Reset the in-memory search each time the dropdown toggles
-                                      setItemSearch("");
-                                    }}
+                                  <AgregadorDeItems
+                                    opciones={opcionesDe(box)}
+                                    onAgregar={(codigo) =>
+                                      updateServiceBox(
+                                        box.id,
+                                        "selectedItem",
+                                        codigo,
+                                      )
+                                    }
+                                    // Solo abre con categoría elegida: sin
+                                    // ella no hay catálogo que ofrecer.
+                                    abierto={
+                                      openDropdown === box.id &&
+                                      !!box.selectedCategory
+                                    }
+                                    onAbiertoChange={(v) =>
+                                      setOpenDropdown(v ? box.id : null)
+                                    }
+                                    placeholder="Seleccionar item"
+                                    searchPlaceholder="Buscar item por nombre..."
+                                    noResultsText="No se encontraron items"
                                     disabled={isRestrictedEditing}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
-                                  >
-                                    <span className="text-gray-500">
-                                      Seleccionar item
-                                    </span>
-                                    <svg
-                                      className="w-4 h-4 text-gray-400"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 9l-7 7-7-7"
-                                      />
-                                    </svg>
-                                  </button>
-
-                                  {openDropdown === box.id &&
-                                    box.selectedCategory &&
-                                    (() => {
-                                      const { bloques, orden } =
-                                        ofrecidosDe(box);
-                                      const elegir = (codigo: string) => {
-                                        updateServiceBox(
-                                          box.id,
-                                          "selectedItem",
-                                          codigo,
-                                        );
-                                        setItemSearch("");
-                                        setIdxItem(0);
-                                        // El cursor NO se suelta: se sigue
-                                        // escribiendo el próximo servicio.
-                                        buscadorItemRef.current?.focus();
-                                      };
-                                      let corrido = -1;
-                                      return (
-                                        <div
-                                          className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto"
-                                          data-lista-scroll
-                                        >
-                                          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                                            <input
-                                              type="text"
-                                              autoFocus
-                                              ref={buscadorItemRef}
-                                              value={itemSearch}
-                                              onChange={(e) => {
-                                                setItemSearch(e.target.value);
-                                                setIdxItem(0);
-                                              }}
-                                              onKeyDown={(e) => {
-                                                if (e.key === "ArrowDown") {
-                                                  e.preventDefault();
-                                                  setIdxItem((i) =>
-                                                    Math.min(
-                                                      i + 1,
-                                                      orden.length - 1,
-                                                    ),
-                                                  );
-                                                } else if (
-                                                  e.key === "ArrowUp"
-                                                ) {
-                                                  e.preventDefault();
-                                                  setIdxItem((i) =>
-                                                    Math.max(i - 1, 0),
-                                                  );
-                                                } else if (e.key === "Enter") {
-                                                  e.preventDefault();
-                                                  const p = orden[idxItem];
-                                                  if (p) elegir(p.codigo);
-                                                } else if (e.key === "Escape") {
-                                                  e.preventDefault();
-                                                  setOpenDropdown(null);
-                                                }
-                                              }}
-                                              placeholder="Buscar item por nombre..."
-                                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                          </div>
-                                          {orden.length === 0 ? (
-                                            <div className="px-3 py-2 text-sm text-gray-500">
-                                              No se encontraron items
-                                            </div>
-                                          ) : (
-                                            bloques.map((grp) => (
-                                              <div key={grp.key}>
-                                                {grp.name && (
-                                                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
-                                                    {grp.name}
-                                                  </div>
-                                                )}
-                                                {grp.items.map((p: any) => {
-                                                  // El índice de ESTA vuelta, congelado
-                                                  // en una constante. Si el handler
-                                                  // cierra sobre `corrido` —que es un
-                                                  // let que sigue contando— lee su
-                                                  // valor FINAL y todos los items
-                                                  // apuntan al último (07-08: se
-                                                  // autoseleccionaba el último y con
-                                                  // un Enter se agregaba un item que
-                                                  // nadie eligió).
-                                                  const pos = (corrido += 1);
-                                                  const activo =
-                                                    pos === idxItem;
-                                                  return (
-                                                    <button
-                                                      key={p.codigo}
-                                                      type="button"
-                                                      ref={(el) =>
-                                                        activo && verEnLista(el)
-                                                      }
-                                                      onMouseEnter={() =>
-                                                        setIdxItem(pos)
-                                                      }
-                                                      onClick={() =>
-                                                        elegir(p.codigo)
-                                                      }
-                                                      className={`w-full px-3 py-2 text-left focus:outline-none ${
-                                                        activo
-                                                          ? "bg-blue-50 text-blue-900"
-                                                          : "hover:bg-gray-100"
-                                                      }`}
-                                                    >
-                                                      {p.nombre} - $
-                                                      {p.precio.toLocaleString(
-                                                        "es-CL",
-                                                      )}
-                                                    </button>
-                                                  );
-                                                })}
-                                              </div>
-                                            ))
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
+                                    fondoBlanco={false}
+                                    className="w-full"
+                                  />
                                 </div>
                                 {box.groupName && (
                                   <p className="mt-1 text-xs font-medium text-blue-600">
@@ -3535,110 +3409,49 @@ export default function QuotationForm() {
                             key={index}
                             className="flex items-center gap-2 py-2 border-b border-gray-100"
                           >
+                            {/* Migrado a la pieza de la casa (14-08). Eran
+                                105 líneas. Dos particularidades que NO se
+                                pueden perder: el picker está amarrado al
+                                ÍNDICE de la fila vacía (por eso `abierto`
+                                compara contra `index`), y este agregador
+                                NO limpia el buscador al agregar — deja la
+                                lista filtrada para seguir sumando
+                                parecidos, al revés que el de Post-Venta. */}
                             <div className="relative dropdown-container flex-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenFixedPicker(
-                                    openFixedPicker === index ? null : index,
-                                  );
-                                  setFixedSearch("");
-                                }}
+                              <AgregadorDeItems
+                                opciones={fixedServices
+                                  .filter((f) => f.is_active !== false)
+                                  .sort(
+                                    (a, b) =>
+                                      fixedOrderOf(a.codigo) -
+                                      fixedOrderOf(b.codigo),
+                                  )
+                                  .map((f) => ({
+                                    value: f.codigo,
+                                    label: f.nombre,
+                                    // El `|| 0` no sobra: hay fijos sin precio.
+                                    hint: `$${(f.precio || 0).toLocaleString("es-CL")}`,
+                                    group:
+                                      fixedSections.length > 0
+                                        ? fixedSectionNameOf(f.codigo)
+                                        : undefined,
+                                  }))}
+                                onAgregar={(codigo) =>
+                                  handleFixedServiceSelect(codigo)
+                                }
+                                abierto={openFixedPicker === index}
+                                onAbiertoChange={(v) =>
+                                  setOpenFixedPicker(v ? index : null)
+                                }
+                                placeholder="Seleccionar servicio fijo…"
+                                searchPlaceholder="Buscar servicio por nombre..."
+                                noResultsText="No se encontraron servicios"
                                 disabled={isRestrictedEditing}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-left flex justify-between items-center"
-                              >
-                                <span className="text-gray-500">
-                                  Seleccionar servicio fijo…
-                                </span>
-                                <svg
-                                  className="w-4 h-4 text-gray-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                  />
-                                </svg>
-                              </button>
-                              {openFixedPicker === index && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto">
-                                  <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      value={fixedSearch}
-                                      onChange={(e) =>
-                                        setFixedSearch(e.target.value)
-                                      }
-                                      placeholder="Buscar servicio por nombre..."
-                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                  </div>
-                                  {(() => {
-                                    const disponibles = fixedServices
-                                      .filter((f) => f.is_active !== false)
-                                      .filter((f) =>
-                                        matchesSearch(fixedSearch, f.nombre),
-                                      )
-                                      .sort(
-                                        (a, b) =>
-                                          fixedOrderOf(a.codigo) -
-                                          fixedOrderOf(b.codigo),
-                                      );
-                                    if (disponibles.length === 0) {
-                                      return (
-                                        <div className="px-3 py-2 text-sm text-gray-500">
-                                          No se encontraron servicios
-                                        </div>
-                                      );
-                                    }
-                                    const botonDe = (
-                                      f: (typeof disponibles)[number],
-                                    ) => (
-                                      <button
-                                        key={f.codigo}
-                                        type="button"
-                                        onClick={() => {
-                                          // Agrega y deja la ventanita abierta,
-                                          // como variables.
-                                          handleFixedServiceSelect(f.codigo);
-                                        }}
-                                        className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                                      >
-                                        {f.nombre} - $
-                                        {(f.precio || 0).toLocaleString(
-                                          "es-CL",
-                                        )}
-                                      </button>
-                                    );
-                                    if (fixedSections.length === 0) {
-                                      return disponibles.map(botonDe);
-                                    }
-                                    let prev = "";
-                                    return disponibles.map((f) => {
-                                      const nombre = fixedSectionNameOf(
-                                        f.codigo,
-                                      );
-                                      const header = nombre !== prev;
-                                      prev = nombre;
-                                      return (
-                                        <div key={f.codigo}>
-                                          {header && (
-                                            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
-                                              {nombre}
-                                            </div>
-                                          )}
-                                          {botonDe(f)}
-                                        </div>
-                                      );
-                                    });
-                                  })()}
-                                </div>
-                              )}
+                                tamano="sm"
+                                fondoBlanco={false}
+                                limpiarAlAgregar={false}
+                                className="w-full"
+                              />
                             </div>
                           </div>
                         )}
