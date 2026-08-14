@@ -39,27 +39,9 @@ import { useCopiarDato } from "../../hooks/useCopiarDato";
 import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
 import { normalizeText } from "../../utils/searchMatch";
+import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
 import { SECTION_ROLES } from "../../constants/permissions";
 
-const COLOR_ESTADO: Record<string, string> = {
-  solicitada: "bg-yellow-100 text-yellow-800",
-  enviada: "bg-blue-100 text-blue-800",
-  en_negociacion: "bg-purple-100 text-purple-800",
-  aceptada: "bg-green-100 text-green-800",
-  rechazada: "bg-red-100 text-red-800",
-  cancelada: "bg-gray-200 text-gray-600",
-  realizada: "bg-emerald-100 text-emerald-800",
-};
-
-const ESTADO_ETIQUETA: Record<string, string> = {
-  solicitada: "📋 Solicitada",
-  enviada: "📤 Enviada",
-  en_negociacion: "💬 En Negociación",
-  aceptada: "✅ Aceptada",
-  rechazada: "❌ Rechazada",
-  cancelada: "🚫 Cancelada",
-  realizada: "🎉 Realizada",
-};
 
 // Mandante con su teléfono/correo (misma regla que el tablero).
 const contactoDe = (q: QuotationWithClient) => {
@@ -393,11 +375,10 @@ export default function NegocioPage() {
                 <button
                   type="button"
                   onClick={() => setEstadoMenu((v) => !v)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-full ${COLOR_ESTADO[fila?.quotation_status || ""] || "bg-gray-100 text-gray-700"}`}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
                   title="Cambiar estado"
                 >
-                  {ESTADO_ETIQUETA[fila?.quotation_status || ""] ||
-                    fila?.quotation_status}
+                  {etiquetaEstado(fila?.quotation_status || "")}
                   <ChevronDown size={12} className="shrink-0" />
                 </button>
                 {estadoMenu && (
@@ -427,9 +408,9 @@ export default function NegocioPage() {
                           className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                         >
                           <span
-                            className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${COLOR_ESTADO[st]}`}
+                            className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(st)}`}
                           >
-                            {ESTADO_ETIQUETA[st]}
+                            {etiquetaEstado(st)}
                           </span>
                         </button>
                       ))}
@@ -439,11 +420,10 @@ export default function NegocioPage() {
               </span>
             ) : (
               <span
-                className={`px-2.5 py-1 text-xs font-semibold rounded-full ${COLOR_ESTADO[fila?.quotation_status || ""] || "bg-gray-100 text-gray-700"}`}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
                 title="Las cerradas se gestionan en Post-Venta"
               >
-                {ESTADO_ETIQUETA[fila?.quotation_status || ""] ||
-                  fila?.quotation_status}
+                {etiquetaEstado(fila?.quotation_status || "")}
               </span>
             )}
             {wspHref && (

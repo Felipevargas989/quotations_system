@@ -43,7 +43,7 @@ import {
   newAccumulator,
 } from "../../utils/eventConsolidation";
 import { CompleteStatsResponse } from "../../types/analytics.types";
-import { etiquetaEstado } from "../../utils/estadoCotizacion";
+import { etiquetaEstado, puntoEstado } from "../../utils/estadoCotizacion";
 import {
   agruparPorMes,
   cosechaDelMes,
@@ -377,18 +377,6 @@ export default function DashboardPage() {
   });
   const comprobantesPortal = (receiptsQuery.data ?? []).length;
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      solicitada: "bg-yellow-500",
-      enviada: "bg-blue-500",
-      en_negociacion: "bg-purple-500",
-      aceptada: "bg-green-500",
-      realizada: "bg-teal-600",
-      rechazada: "bg-red-500",
-      cancelada: "bg-gray-400",
-    };
-    return colors[status as keyof typeof colors] || "bg-gray-500";
-  };
 
   // Tablas de análisis (ex-Analytics) bajo el MISMO período (Fase 2).
   const statsQuery = useQuery({
@@ -2422,7 +2410,7 @@ export default function DashboardPage() {
                       >
                         {!c.sub && (
                           <span
-                            className={`inline-block w-2 h-2 rounded-full mr-1 ${getStatusColor(c.key)}`}
+                            className={`inline-block w-2 h-2 rounded-full mr-1 ${puntoEstado(c.key)}`}
                           />
                         )}
                         {c.label}
