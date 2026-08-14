@@ -35,6 +35,18 @@ export interface OpcionesListaBuscable {
   readonly buscarEnHint?: boolean;
 
   /**
+   * Si el buscador también mira el nombre de la SECCIÓN (`group`).
+   *
+   * En los buscadores de ítems sí, y es pedido de Felipe (07-08):
+   * escribir "postres" trae toda esa sección aunque ningún plato diga
+   * "postre". En los de servicios FIJOS no: ahí nunca se buscó por
+   * sección, y encenderlo trae un efecto feo — los fijos sin sección
+   * llevan el rótulo literal "Sin sección", así que escribir "sin"
+   * traería todos ellos de golpe.
+   */
+  readonly buscarEnGrupo?: boolean;
+
+  /**
    * Si las flechas dan la vuelta al llegar a los extremos.
    *
    * La lista plegable sí (elegir uno de pocos). El agregador no: sus
@@ -62,6 +74,7 @@ export function useListaBuscable({
   opciones,
   abierta,
   buscarEnHint = true,
+  buscarEnGrupo = true,
   darLaVuelta = true,
   marcarPrimero = false,
   alCerrar,
@@ -76,11 +89,14 @@ export function useListaBuscable({
   const filtradas = useMemo(
     () =>
       opciones.filter((o) =>
-        buscarEnHint
-          ? matchesSearch(texto, o.label, o.hint, o.group)
-          : matchesSearch(texto, o.label, o.group),
+        matchesSearch(
+          texto,
+          o.label,
+          buscarEnHint ? o.hint : undefined,
+          buscarEnGrupo ? o.group : undefined,
+        ),
       ),
-    [opciones, texto, buscarEnHint],
+    [opciones, texto, buscarEnHint, buscarEnGrupo],
   );
 
   /** Deja el buscador vacío y la marca donde corresponda empezar. */

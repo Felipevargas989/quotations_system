@@ -72,6 +72,12 @@ export interface AgregadorDeItemsProps {
   /** Si el buscador se vacía tras cada agregado. Encendido por omisión.
    *  Apagarlo deja la lista filtrada para seguir sumando parecidos. */
   readonly limpiarAlAgregar?: boolean;
+
+  /** Si el buscador mira también el nombre de la sección. Encendido por
+   *  omisión (los buscadores de ítems lo necesitan); los de servicios
+   *  fijos lo apagan, porque ahí nunca se buscó por sección y el rótulo
+   *  literal "Sin sección" haría que escribir "sin" trajera todos. */
+  readonly buscarPorSeccion?: boolean;
 }
 
 export default function AgregadorDeItems({
@@ -87,12 +93,14 @@ export default function AgregadorDeItems({
   fondoBlanco = true,
   className = "",
   limpiarAlAgregar = true,
+  buscarPorSeccion = true,
 }: AgregadorDeItemsProps) {
   const lista = useListaBuscable({
     opciones,
     abierta: abierto,
     // El apunte gris es el precio: buscar por precio sería un accidente.
     buscarEnHint: false,
+    buscarEnGrupo: buscarPorSeccion,
     // En listas largas, dar la vuelta desorienta.
     darLaVuelta: false,
     // Escribir tres letras y apretar Enter, sin tocar las flechas.
@@ -152,8 +160,22 @@ export default function AgregadorDeItems({
           z-10 y no z-50 — un panel abierto detrás de una ventana debe
           quedar detrás, no montarse sobre el velo oscuro. */}
       {abierto && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto">
-          <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+        // `data-lista-scroll` va ACÁ, en el elemento que de verdad
+        // scrollea: verEnLista mide `offsetTop` contra él, y como el
+        // panel es `absolute` también es el ancestro posicionado, así
+        // que la cuenta calza. Ponerlo en un div interior —como estuvo
+        // un rato el 14-08— rompía dos cosas a la vez: el
+        // desplazamiento no encontraba dónde scrollear, y ese div
+        // posicionado se pintaba ENCIMA de la cabecera del buscador,
+        // dejando las opciones montadas sobre el texto (pillada de
+        // Felipe en el laboratorio, con pantallazo).
+        <div
+          className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto"
+          data-lista-scroll
+        >
+          {/* z-10 dentro del panel: la cabecera pegajosa tiene que
+              pintarse SOBRE las opciones que pasan por debajo. */}
+          <div className="sticky top-0 z-10 bg-white p-2 border-b border-gray-200">
             <div className="relative">
               <Search
                 size={16}
@@ -171,10 +193,7 @@ export default function AgregadorDeItems({
             </div>
           </div>
 
-          {/* `relative` para que verEnLista mida contra ESTA lista y no
-              contra el panel: si no, la cuenta viene inflada con el alto
-              del buscador y la lista se desplaza de más. */}
-          <div className="relative" data-lista-scroll>
+          <div>
             {lista.filtradas.length > 0 ? (
               lista.filtradas.map((opcion, i) => {
                 const anterior = lista.filtradas[i - 1];
@@ -192,9 +211,14 @@ export default function AgregadorDeItems({
                       type="button"
                       onClick={() => agregar(opcion.value)}
                       onMouseEnter={() => lista.setMarcada(i)}
+                      // El hover es AZUL, no gris: con `hover:bg-gray-100`
+                      // la fila bajo el mouse le ganaba en especificidad a
+                      // `bg-blue-50` y la marca se veía gris. Y sin
+                      // `text-sm`, para que las filas conserven el tamaño
+                      // que tenían las copias escritas a mano.
                       className={`
-                        w-full px-3 py-2 text-left text-sm text-gray-900
-                        hover:bg-gray-100 focus:outline-none transition-colors
+                        w-full px-3 py-2 text-left text-gray-900
+                        hover:bg-blue-50 focus:outline-none transition-colors
                         ${i === lista.marcada ? "bg-blue-50 text-blue-900" : ""}
                       `}
                     >

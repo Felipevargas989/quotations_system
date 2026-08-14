@@ -355,3 +355,59 @@ describe("AgregadorDeItems — secciones", () => {
     expect(l.querySelectorAll(".uppercase")).toHaveLength(0);
   });
 });
+
+describe("AgregadorDeItems — lo que encontró la verificación adversarial", () => {
+  it("la marca de scroll va en el elemento que DE VERDAD scrollea", async () => {
+    // Estuvo en un div interior sin overflow: verEnLista no encontraba
+    // dónde desplazar, y ese div —al estar posicionado— se pintaba
+    // ENCIMA de la cabecera del buscador, dejando las opciones montadas
+    // sobre el texto (pillada de Felipe con pantallazo, 14-08).
+    render(<Caja />);
+    const marcado = document.querySelector("[data-lista-scroll]")!;
+    expect(marcado.className).toContain("overflow-y-auto");
+    expect(marcado.className).toContain("max-h-");
+  });
+
+  it("la cabecera del buscador se pinta SOBRE las opciones", () => {
+    render(<Caja />);
+    const cabecera = document.querySelector(".sticky")!;
+    expect(cabecera.className).toContain("z-10");
+    expect(cabecera.className).toContain("bg-white");
+  });
+
+  it("el hover es AZUL, no gris: no le puede ganar a la marca", () => {
+    // `hover:bg-gray-100` le ganaba en especificidad a `bg-blue-50`, así
+    // que la fila bajo el mouse se veía gris en vez de marcada.
+    render(<Caja />);
+    const fila = opcion(/Pollo al jugo/);
+    expect(fila.className).toContain("hover:bg-blue-50");
+    expect(fila.className).not.toContain("hover:bg-gray-100");
+  });
+
+  it("las filas NO llevan tamaño chico impuesto", () => {
+    // Las copias escritas a mano no lo llevaban: heredaban el base.
+    render(<Caja />);
+    expect(opcion(/Pollo al jugo/).className).not.toContain("text-sm");
+  });
+
+  it("con buscarPorSeccion apagado, el nombre de la sección NO trae nada", async () => {
+    // En los buscadores de servicios FIJOS nunca se buscó por sección, y
+    // el rótulo literal "Sin sección" haría que escribir "sin" trajera
+    // todos los fijos sin sección.
+    const usuario = userEvent.setup();
+    render(<Caja buscarPorSeccion={false} />);
+
+    await usuario.type(buscador(), "postres");
+
+    expect(screen.getByText("No se encontraron resultados")).toBeTruthy();
+  });
+
+  it("encendido (por omisión) sí trae la sección completa", async () => {
+    const usuario = userEvent.setup();
+    render(<Caja />);
+
+    await usuario.type(buscador(), "postres");
+
+    expect(opcion(/Flan/)).toBeTruthy();
+  });
+});
