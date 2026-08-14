@@ -41,6 +41,11 @@ import {
 import { CreatePayment } from "../../types/payments.types";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
+import {
+  chipEstado,
+  etiquetaConEmoji,
+  etiquetaEstado,
+} from "../../utils/estadoCotizacion";
 import { filtrosGuardados, guardarFiltros } from "./filtrosTablero";
 
 // La Lista se jubiló (04-08, decisión de Felipe): el tablero es la
@@ -128,26 +133,6 @@ export default function QuotationsPage() {
   const queryClient = useQueryClient();
   // Menú de estado de la casa (Tanda 3b): reemplaza al <select> nativo.
   const [statusMenuId, setStatusMenuId] = useState<string | null>(null);
-  const STATUS_EMOJI: Record<string, string> = {
-    solicitada: "📋",
-    enviada: "📤",
-    en_negociacion: "💬",
-    aceptada: "✅",
-    rechazada: "❌",
-    cancelada: "🚫",
-    realizada: "🎉",
-  };
-  const STATUS_LABEL: Record<string, string> = {
-    solicitada: "Solicitada",
-    enviada: "Enviada",
-    en_negociacion: "En Negociación",
-    aceptada: "Aceptada",
-    rechazada: "Rechazada",
-    // Palabra oficial coronada por Felipe (12-08): "Anulada" en TODA la
-    // interfaz; el valor técnico 'cancelada' de la base no se toca.
-    cancelada: "Anulada",
-    realizada: "Realizada",
-  };
   // Reglas del ciclo de vida (afinadas por Felipe 04-08): Cancelada y
   // Realizada son destinos EXCLUSIVOS de lo aceptado — lo que nunca se
   // ganó se rechaza, no se cancela. Cancelada: solo administradores y
@@ -332,26 +317,6 @@ export default function QuotationsPage() {
     return !!s && s.urgencia >= 103;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "solicitada":
-        return "bg-yellow-100 text-yellow-800";
-      case "enviada":
-        return "bg-blue-100 text-blue-800";
-      case "en_negociacion":
-        return "bg-purple-100 text-purple-800";
-      case "aceptada":
-        return "bg-green-100 text-green-800";
-      case "rechazada":
-        return "bg-red-100 text-red-800";
-      case "cancelada":
-        return "bg-gray-200 text-gray-600";
-      case "realizada":
-        return "bg-emerald-100 text-emerald-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     // Guardia de estados: volver de post-venta (aceptada/realizada/
@@ -572,11 +537,9 @@ export default function QuotationsPage() {
     !puedeEditar ? (
       modo === "icono" ? null : (
         <span
-          className={`inline-block w-40 truncate px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)}`}
+          className={`inline-block w-40 truncate px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(quotation.quotation_status)}`}
         >
-          {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-          {STATUS_LABEL[quotation.quotation_status] ||
-            quotation.quotation_status}
+          {etiquetaEstado(quotation.quotation_status)}
         </span>
       )
     ) : (
@@ -599,7 +562,7 @@ export default function QuotationsPage() {
             onClick={() =>
               setStatusMenuId((v) => (v === quotation.id ? null : quotation.id))
             }
-            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(quotation.quotation_status)} disabled:cursor-default`}
+            className={`flex items-center justify-between gap-1 w-40 px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(quotation.quotation_status)} disabled:cursor-default`}
             title={
               quotation.quotation_status === "realizada"
                 ? "Evento realizado: la cotización quedó congelada"
@@ -607,9 +570,7 @@ export default function QuotationsPage() {
             }
           >
             <span className="truncate">
-              {STATUS_EMOJI[quotation.quotation_status] || ""}{" "}
-              {STATUS_LABEL[quotation.quotation_status] ||
-                quotation.quotation_status}
+              {etiquetaEstado(quotation.quotation_status)}
             </span>
             {quotation.quotation_status !== "realizada" && (
               <ChevronDown size={12} className="shrink-0" />
@@ -637,9 +598,9 @@ export default function QuotationsPage() {
                   className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                 >
                   <span
-                    className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(st)}`}
+                    className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(st)}`}
                   >
-                    {STATUS_EMOJI[st]} {STATUS_LABEL[st]}
+                    {etiquetaEstado(st)}
                   </span>
                 </button>
               ))}
@@ -930,7 +891,7 @@ export default function QuotationsPage() {
             >
               <div className="flex items-baseline justify-between px-1 pb-2">
                 <h3 className="text-sm font-bold text-gray-700">
-                  {STATUS_EMOJI[col]} {STATUS_LABEL[col]} ({tarjetas.length})
+                  {etiquetaConEmoji(col)} ({tarjetas.length})
                 </h3>
                 <span className="text-xs font-semibold text-gray-500">
                   ${suma.toLocaleString("es-CL")}
@@ -940,7 +901,7 @@ export default function QuotationsPage() {
                 {/* La marca de aterrizaje: sabes dónde caerá. */}
                 {dropCol === col && dragId && (
                   <div className="border-2 border-dashed border-blue-300 rounded-lg h-14 bg-blue-50/60 flex items-center justify-center text-xs font-semibold text-blue-500">
-                    Soltar aquí → {STATUS_LABEL[col]}
+                    Soltar aquí → {etiquetaEstado(col)}
                   </div>
                 )}
                 {/* Sin esto, la columna decía "sin cotizaciones"

@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { SECTION_ROLES } from "../constants/permissions";
 import { formatFechaEvento, formatMomento } from "../utils/dates";
+import { chipEstado, etiquetaEstado } from "../utils/estadoCotizacion";
 import ConfirmInline from "../components/ConfirmInline";
 import { useCopiarDato } from "../hooks/useCopiarDato";
 import QuotationViewer from "../components/QuotationViewer";
@@ -102,36 +103,7 @@ const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 // corresponde — ver utils/dates.
 
 // Mismos colores de estado que la lista de cotizaciones.
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "solicitada":
-      return "bg-yellow-100 text-yellow-800";
-    case "enviada":
-      return "bg-blue-100 text-blue-800";
-    case "en_negociacion":
-      return "bg-purple-100 text-purple-800";
-    case "aceptada":
-      return "bg-green-100 text-green-800";
-    case "rechazada":
-      return "bg-red-100 text-red-800";
-    case "cancelada":
-      return "bg-gray-200 text-gray-600";
-    case "realizada":
-      return "bg-emerald-100 text-emerald-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-};
 
-const STATUS_LABELS: Record<string, string> = {
-  solicitada: "Solicitada",
-  enviada: "Enviada",
-  en_negociacion: "En Negociación",
-  aceptada: "Aceptada",
-  rechazada: "Rechazada",
-  cancelada: "Cancelada",
-  realizada: "Realizada",
-};
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -1080,10 +1052,9 @@ export default function ClientDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(q.quotation_status)}`}
+                            className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${chipEstado(q.quotation_status)}`}
                           >
-                            {STATUS_LABELS[q.quotation_status] ||
-                              q.quotation_status}
+                            {etiquetaEstado(q.quotation_status)}
                           </span>
                         </td>
                         <td

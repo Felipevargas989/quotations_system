@@ -1,4 +1,5 @@
 import { QuotationStatusStats } from "../../../types/analytics.types";
+import { etiquetaEstado } from "../../../utils/estadoCotizacion";
 
 // Analytics 100% en tablas (Felipe, 23-07): la dona decía menos que
 // estas mismas filas. Punto de color = el color histórico del estado.
@@ -7,45 +8,6 @@ interface QuotationStatusStatsProps {
   readonly stats: QuotationStatusStats[];
 }
 
-const statusDot = (status: string) => {
-  switch (status) {
-    case "solicitada":
-      return "#F59E0B";
-    case "enviada":
-      return "#3B82F6";
-    case "en_negociacion":
-      return "#8B5CF6";
-    case "aceptada":
-      return "#10B981";
-    case "rechazada":
-      return "#EF4444";
-    case "realizada":
-      return "#0D9488";
-    default:
-      return "#6B7280";
-  }
-};
-
-const statusLabel = (status: string) => {
-  switch (status) {
-    case "solicitada":
-      return "Solicitada";
-    case "enviada":
-      return "Enviada";
-    case "en_negociacion":
-      return "En Negociación";
-    case "aceptada":
-      return "Aceptada";
-    case "rechazada":
-      return "Rechazada";
-    case "cancelada":
-      return "Cancelada";
-    case "realizada":
-      return "Realizada";
-    default:
-      return status;
-  }
-};
 
 export default function QuotationStatusStatsComponent({
   stats,
@@ -88,11 +50,11 @@ export default function QuotationStatusStatsComponent({
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{
-                          backgroundColor: statusDot(r.quotation_status),
+                          backgroundColor: etiquetaEstado(r.quotation_status),
                         }}
                       />
                       <span className="font-medium text-gray-800">
-                        {statusLabel(r.quotation_status)}
+                        {etiquetaEstado(r.quotation_status)}
                       </span>
                     </span>
                   </td>

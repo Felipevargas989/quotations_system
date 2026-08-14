@@ -1,3 +1,8 @@
+import {
+  ESTADOS_COTIZACION,
+  chipEstado,
+  etiquetaEstado,
+} from "../../utils/estadoCotizacion";
 // TENDENCIA INTERANUAL (06-08-2026, diseño de Felipe). Los gráficos de
 // tendencia dejan de obedecer al filtro del período: su trabajo no es
 // analizar un rango sino mostrar el pulso del negocio contra el año
@@ -331,12 +336,12 @@ export const cosechaDelMes = (
 /** Cómo terminó cada cotización, en cristiano. Importa en la cosecha:
  * llamar a quien ya te compró y realizó el evento no es lo mismo que
  * insistirle a quien te rechazó (pregunta de Felipe, 06-08). */
-export const ETIQUETA_ESTADO: Record<string, { l: string; c: string }> = {
-  solicitada: { l: "Solicitada", c: "bg-gray-100 text-gray-700" },
-  enviada: { l: "Enviada", c: "bg-blue-50 text-blue-700" },
-  en_negociacion: { l: "En negociación", c: "bg-indigo-50 text-indigo-700" },
-  aceptada: { l: "Aceptada", c: "bg-emerald-50 text-emerald-700" },
-  realizada: { l: "Realizada", c: "bg-emerald-100 text-emerald-800" },
-  rechazada: { l: "Rechazada", c: "bg-red-50 text-red-700" },
-  cancelada: { l: "Anulada", c: "bg-orange-50 text-orange-700" },
-};
+// Nombre y color salen del diccionario (utils/estadoCotizacion). Acá
+// vivía una copia con una paleta más apagada —"En negociación" era
+// índigo y en el resto del sistema es morado—, y con su propia
+// ortografía. Se mantiene el nombre ETIQUETA_ESTADO y su forma {l, c}
+// para no tocar las pantallas que ya lo leen.
+export const ETIQUETA_ESTADO: Record<string, { l: string; c: string }> =
+  Object.fromEntries(
+    ESTADOS_COTIZACION.map((v) => [v, { l: etiquetaEstado(v), c: chipEstado(v) }]),
+  );

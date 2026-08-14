@@ -24,6 +24,12 @@ import {
 import { recursosQueryOpts } from "../postventa/EventResourcesSection";
 import { useAuth } from "../../contexts/AuthContext";
 import { SECTION_ROLES } from "../../constants/permissions";
+import {
+  ESTADOS_COTIZACION,
+  etiquetaEstado,
+  hexEstado,
+  puntoEstado,
+} from "../../utils/estadoCotizacion";
 // import { findAllEvents } from "../../services/calendar.service";
 
 // El filtro se recuerda por usuario (mismo patrón de Post-Venta).
@@ -132,43 +138,13 @@ export default function CalendarPage() {
     }
   }, [user, filterRestored, selectedStatuses]);
 
-  const statusOptions = [
-    {
-      value: QuotationStatus.SOLICITADA,
-      label: "Solicitada",
-      color: "bg-yellow-500",
-    },
-    {
-      value: QuotationStatus.ENVIADA,
-      label: "Enviada",
-      color: "bg-blue-500",
-    },
-    {
-      value: QuotationStatus.EN_NEGOCIACION,
-      label: "En Negociación",
-      color: "bg-purple-500",
-    },
-    {
-      value: QuotationStatus.ACEPTADA,
-      label: "Aceptada",
-      color: "bg-green-500",
-    },
-    {
-      value: QuotationStatus.REALIZADA,
-      label: "Realizada",
-      color: "bg-emerald-500",
-    },
-    {
-      value: QuotationStatus.RECHAZADA,
-      label: "Rechazada",
-      color: "bg-red-500",
-    },
-    {
-      value: QuotationStatus.CANCELADA,
-      label: "Anulada",
-      color: "bg-gray-500",
-    },
-  ];
+  // Nombre y punto de color salen del diccionario (utils/estadoCotizacion):
+  // acá vivía una copia con sus propias etiquetas y colores.
+  const statusOptions = ESTADOS_COTIZACION.map((v) => ({
+    value: v as unknown as QuotationStatus,
+    label: etiquetaEstado(v),
+    color: puntoEstado(v),
+  }));
 
   // Eventos del calendario vía React Query (Etapa 3): la clave parte
   // con "quotations", así los guardados que invalidan cotizaciones
@@ -202,15 +178,6 @@ export default function CalendarPage() {
   const loading = calendarQuery.isPending;
 
   // Colores sólidos por estado para las bandas (hex, no clases tailwind).
-  const STATUS_HEX: Record<string, string> = {
-    solicitada: "#eab308",
-    enviada: "#3b82f6",
-    en_negociacion: "#a855f7",
-    aceptada: "#22c55e",
-    rechazada: "#ef4444",
-    cancelada: "#9ca3af",
-    realizada: "#10b981",
-  };
 
   // Rango [inicio, fin] de un evento en texto yyyy-mm-dd (fin >= inicio).
   const eventRange = (q: QuotationWithClient) => {
@@ -330,7 +297,7 @@ export default function CalendarPage() {
         return {
           id: q.id,
           lane,
-          color: STATUS_HEX[q.quotation_status] || "#6b7280",
+          color: hexEstado(q.quotation_status),
           rl: tileStr === start,
           rr: tileStr === end,
           // Tooltip al posar (12-08): cliente completo, tipo, personas

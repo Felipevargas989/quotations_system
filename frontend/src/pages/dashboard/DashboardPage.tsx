@@ -43,6 +43,7 @@ import {
   newAccumulator,
 } from "../../utils/eventConsolidation";
 import { CompleteStatsResponse } from "../../types/analytics.types";
+import { etiquetaEstado } from "../../utils/estadoCotizacion";
 import {
   agruparPorMes,
   cosechaDelMes,
@@ -2279,7 +2280,7 @@ export default function DashboardPage() {
           { key: "aceptada", label: "Aceptada", zone: "ganada" },
           { key: "realizada", label: "Realizada", zone: "ganada" },
           { key: "rechazada", label: "Rechazada", zone: "perdida" },
-          { key: "cancelada", label: "Cancelada", zone: "perdida" },
+          { key: "cancelada", label: etiquetaEstado("cancelada"), zone: "perdida" },
         ] as const;
         const by = new Map(data.salesPipeline.map((i) => [i.status, i]));
         const item = (k: string) =>
