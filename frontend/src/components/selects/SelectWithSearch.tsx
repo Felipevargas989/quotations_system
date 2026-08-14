@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
-import { matchesSearch } from "../../utils/searchMatch";
-import { verEnLista } from "../../utils/verEnLista";
+import { useListaBuscable } from "../../hooks/useListaBuscable";
 
 export default function SelectWithSearch({
   options,
@@ -16,8 +15,24 @@ export default function SelectWithSearch({
   keepOpenOnSelect = false,
 }: SelectWithSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+  // La mecánica —filtrar, teclado, mantener a la vista lo marcado y
+  // cerrarse al pinchar fuera— es la MISMA que usa el agregador. Vive
+  // en un solo lugar a propósito: el 13-08 se descubrió que el teclado
+  // llevaba meses muerto acá mientras las copias a mano lo tenían bien,
+  // y arreglarlo en un sitio no sirve si el de al lado escribe su
+  // propia versión.
+  const lista = useListaBuscable({
+    opciones: options,
+    abierta: isOpen,
+    alCerrar: () => setIsOpen(false),
+  });
+  const {
+    texto: searchText,
+    marcada: highlightedIndex,
+    filtradas: filteredOptions,
+  } = lista;
+
   // Drop-up inteligente: si abajo no hay espacio para la lista, se
   // abre hacia ARRIBA (caso típico: campo al fondo de una ventana con
   // scroll interno, ej. Proveedor en Nuevo insumo). 22-07-2026.
@@ -28,8 +43,8 @@ export default function SelectWithSearch({
   // espacio no es la ventana (pillada de Felipe 03-08: el panel se
   // abría hacia arriba y el modal se lo recortaba con buscador y todo).
   const [listMaxH, setListMaxH] = useState(240);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = lista.refRaiz;
+  const searchInputRef = lista.refBuscador;
 
   // Alto estimado de la lista desplegada (buscador + max-h-60).
   const LIST_HEIGHT = 320;
@@ -61,43 +76,11 @@ export default function SelectWithSearch({
     setListMaxH(Math.max(120, Math.min(240, disponible)));
   }, [isOpen]);
 
-  // Búsqueda inteligente del sistema: sin tildes, por palabras en
-  // cualquier orden (utils/searchMatch).
-  const filteredOptions = options.filter((option) =>
-    matchesSearch(searchText, option.label, option.hint, option.group),
-  );
-
   // Get selected option label
   const selectedOption = options.find((option) => option.value === value);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-        setSearchText("");
-        setHighlightedIndex(-1);
-      }
-    };
-    // (no usa cerrar() a propósito: este efecto se registra una sola
-    // vez y no debe depender de una función que se recrea en cada
-    // pintada)
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Focus search input when dropdown opens
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
+  // (filtrado, cierre al pinchar fuera, foco al abrir y desplazamiento
+  // de lo marcado viven ahora en useListaBuscable)
 
   // EL TECLADO, EN LOS DOS SITIOS DONDE VIVE EL FOCO
   //
@@ -120,56 +103,10 @@ export default function SelectWithSearch({
     }
   };
 
-  // Con la lista ABIERTA, el foco está en el buscador. Acá sí vive todo.
-  const teclaEnLista = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filteredOptions.length - 1 ? prev + 1 : 0,
-        );
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredOptions.length - 1,
-        );
-        break;
-      case "Enter":
-        // preventDefault también evita que Enter envíe el formulario
-        // que rodea al desplegable.
-        e.preventDefault();
-        if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-          handleSelectOption(filteredOptions[highlightedIndex].value);
-        }
-        break;
-      case "Escape":
-        e.preventDefault();
-        cerrar();
-        break;
-    }
-    // OJO: acá NO va Backspace. La versión anterior cerraba el panel al
-    // apretar Backspace con el buscador vacío; como el manejador estaba
-    // muerto, eso nunca llegó a pasar. Encenderlo ahora habría añadido
-    // un comportamiento que ninguna pantalla pidió: borrar lo escrito y
-    // pasarse una tecla cerraría la lista.
-  };
-
-  // La opción marcada se mantiene A LA VISTA al navegar con flechas.
-  // Sin esto, bajar más allá de lo visible dejaba la selección fuera de
-  // pantalla — justo lo que Felipe pilló el 07-08 en el buscador de
-  // ítems, y cuya cura (utils/verEnLista) vivía solo en esa copia.
-  // verEnLista mueve SOLO la lista, nunca la página.
-  // `searchText` está en las dependencias a propósito: al filtrar, la
-  // lista cambia de contenido pero la marca puede quedarse en el mismo
-  // número, y entonces el efecto no volvía a correr — se filtraba con
-  // la lista scrolleada a la mitad y la fila marcada quedaba fuera de
-  // pantalla. En las copias a mano esto salía gratis porque usaban un
-  // ref-callback que corre en cada pintada. (13-08-2026)
-  const marcadaRef = useRef<HTMLButtonElement | null>(null);
-  useEffect(() => {
-    if (isOpen && highlightedIndex >= 0) verEnLista(marcadaRef.current);
-  }, [highlightedIndex, isOpen, searchText]);
+  // Con la lista ABIERTA el foco está en el buscador, y ahí manda el
+  // gancho compartido (mismo teclado que el agregador).
+  const teclaEnLista = (e: React.KeyboardEvent) =>
+    lista.teclaEnLista(e, handleSelectOption);
 
   // Abrir y cerrar pasan SIEMPRE por acá, para que el panel no se
   // reabra nunca con lo escrito de la vez anterior: antes se limpiaba
@@ -177,14 +114,12 @@ export default function SelectWithSearch({
   // al reabrir la lista aparecía filtrada por un texto viejo y parecía
   // que faltaran opciones. (13-08-2026)
   const abrir = () => {
-    setSearchText("");
-    setHighlightedIndex(-1);
+    lista.reiniciar();
     setIsOpen(true);
   };
 
   const cerrar = () => {
-    setSearchText("");
-    setHighlightedIndex(-1);
+    lista.reiniciar();
     setIsOpen(false);
   };
 
@@ -193,26 +128,19 @@ export default function SelectWithSearch({
     // Los selectores que AGREGAN (ítems, insumos, servicios sueltos)
     // se quedan abiertos: casi nunca se agrega uno solo.
     if (keepOpenOnSelect) {
-      setSearchText("");
-      setHighlightedIndex(-1);
+      lista.reiniciar();
       searchInputRef.current?.focus();
       return;
     }
-    setIsOpen(false);
-    setSearchText("");
-    setHighlightedIndex(-1);
+    cerrar();
   };
 
   const handleClear = () => {
     onChange("");
-    setSearchText("");
-    setHighlightedIndex(-1);
+    lista.reiniciar();
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchText(e.target.value);
-    setHighlightedIndex(-1);
-  };
+  const handleSearchChange = lista.alEscribir;
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
@@ -320,7 +248,7 @@ export default function SelectWithSearch({
                       </div>
                     )}
                     <button
-                      ref={index === highlightedIndex ? marcadaRef : undefined}
+                      ref={index === highlightedIndex ? lista.refMarcada : undefined}
                       type="button"
                       // EL FONDO AZUL SIGNIFICA UNA SOLA COSA: dónde
                       // estás parado. Antes había DOS fondos sueltos —
@@ -338,7 +266,7 @@ export default function SelectWithSearch({
                         ${option.value === value ? "font-medium" : ""}
                       `}
                       onClick={() => handleSelectOption(option.value)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onMouseEnter={() => lista.setMarcada(index)}
                     >
                       {option.dotClass && (
                         <span

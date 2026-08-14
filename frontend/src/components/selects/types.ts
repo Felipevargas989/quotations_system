@@ -1,4 +1,4 @@
-interface SelectOption {
+export interface SelectOption {
   value: string;
   label: string;
   // Rótulo de sección: las opciones con el mismo `group` salen juntas
