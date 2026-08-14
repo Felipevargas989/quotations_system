@@ -325,11 +325,13 @@ export default function QuotationForm() {
   // disfrazarlos de menú.
   const [pkgServices, setPkgServices] = useState<Record<number, number>>({});
   const [savingCollection, setSavingCollection] = useState(false);
-  // Only one package can be active at a time; it overrides the current services.
-  const [selectedCollection, setSelectedCollection] = useState<{
-    id: number;
-    name: string;
-  } | null>(null);
+  // Los paquetes aplicados a esta cotización, en el orden en que se
+  // fueron cargando. Es una LISTA y no uno solo desde el 14-08: un
+  // paquete es una plantilla, no un reemplazo, y un grupo largo puede
+  // necesitar varios (dos de siete días y uno de tres, por ejemplo).
+  const [paquetesAplicados, setPaquetesAplicados] = useState<
+    { id: number; name: string }[]
+  >([]);
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
@@ -1061,8 +1063,13 @@ export default function QuotationForm() {
     }
   };
 
-  // Selecting a package OVERRIDES the current services with one box per group.
-  // Only one package can be active at a time.
+  // Aplicar un paquete AGREGA sus cajas al final. No borra nada.
+  //
+  // Hasta el 14-08 reemplazaba todo lo cargado. Felipe lo cambió con un
+  // argumento simple: "un paquete es una base de trabajo, una plantilla;
+  // yo después asigno los días o reparto lo que está. Que borre lo que
+  // hay no suma nada". Y hay un caso concreto: un grupo de quince días
+  // puede armarse con dos paquetes de siete y uno de tres.
   const loadCollectionAsBoxes = (collection: ServiceGroupCollection) => {
     const boxes = (collection.groups || [])
       .map((item) => (item.group ? buildBoxFromGroup(item.group) : null))
@@ -1100,8 +1107,17 @@ export default function QuotationForm() {
     const todas = [...boxes, ...cajasSueltas];
     if (todas.length === 0) return;
 
-    setServiceBoxes(todas);
-    setSelectedCollection({ id: collection.id, name: collection.name });
+    setServiceBoxes((prev) => [
+      // Las cajas en blanco —sin categoría y sin servicios— son el
+      // andamio de una cotización recién abierta, no contenido: se van.
+      // Todo lo demás se conserva y el paquete entra debajo.
+      ...prev.filter((b) => b.selectedCategory || b.services.length > 0),
+      ...todas,
+    ]);
+    setPaquetesAplicados((prev) => [
+      ...prev,
+      { id: collection.id, name: collection.name },
+    ]);
   };
 
   const openCollectionModal = () => {
@@ -2316,12 +2332,12 @@ export default function QuotationForm() {
                       <ConfirmInline
                         question={
                           confirmPkg.action === "replace"
-                            ? "¿Reemplazar los servicios actuales?"
+                            ? "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza."
                             : `¿Eliminar "${collection.name}"?`
                         }
                         yesLabel={
                           confirmPkg.action === "replace"
-                            ? "Sí, reemplazar"
+                            ? "Agregar"
                             : "Sí, eliminar"
                         }
                         onYes={async () => {
@@ -2331,9 +2347,9 @@ export default function QuotationForm() {
                             setOpenDropdown(null);
                           } else {
                             await removeServiceGroupCollection(collection.id);
-                            if (selectedCollection?.id === collection.id) {
-                              setSelectedCollection(null);
-                            }
+                            setPaquetesAplicados((prev) =>
+                              prev.filter((p) => p.id !== collection.id),
+                            );
                             setConfirmPkg(null);
                           }
                         }}
@@ -2732,12 +2748,19 @@ export default function QuotationForm() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Servicios
                 </h3>
-                {selectedCollection && (
-                  <span className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium">
+                {/* Un chip por paquete aplicado: con la suma pueden ser
+                    varios (un grupo de quince días = dos de siete y uno
+                    de tres). Se repite el nombre si se aplicó dos veces,
+                    que es justamente lo que hay que poder ver. */}
+                {paquetesAplicados.map((p, i) => (
+                  <span
+                    key={`${p.id}-${i}`}
+                    className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium"
+                  >
                     <Package size={14} />
-                    <span>{selectedCollection.name}</span>
+                    <span>{p.name}</span>
                   </span>
-                )}
+                ))}
               </div>
             </div>
 
