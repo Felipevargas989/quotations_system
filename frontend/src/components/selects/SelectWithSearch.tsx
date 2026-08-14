@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
 import { matchesSearch } from "../../utils/searchMatch";
 import { verEnLista } from "../../utils/verEnLista";
@@ -316,12 +316,20 @@ export default function SelectWithSearch({
                     <button
                       ref={index === highlightedIndex ? marcadaRef : undefined}
                       type="button"
+                      // EL FONDO AZUL SIGNIFICA UNA SOLA COSA: dónde
+                      // estás parado. Antes había DOS fondos sueltos —
+                      // uno para la marcada y otro para la ya elegida—
+                      // y se pintaban juntos: con la lista abierta se
+                      // veían dos filas azules y no se entendía cuál
+                      // iba a elegir el Enter (pillada de Felipe,
+                      // 13-08). Ahora lo elegido se muestra con un
+                      // visto, que no compite con la marca.
                       className={`
-                        w-full px-3 py-2 text-left text-gray-900 hover:bg-blue-50
-                        focus:bg-blue-50 focus:outline-none transition-colors
+                        w-full px-3 py-2 text-left text-gray-900
+                        hover:bg-blue-50 focus:outline-none transition-colors
                         flex items-center gap-2
                         ${index === highlightedIndex ? "bg-blue-50" : ""}
-                        ${option.value === value ? "bg-blue-100 font-medium" : ""}
+                        ${option.value === value ? "font-medium" : ""}
                       `}
                       onClick={() => handleSelectOption(option.value)}
                       onMouseEnter={() => setHighlightedIndex(index)}
@@ -336,6 +344,13 @@ export default function SelectWithSearch({
                         <span className="text-xs text-gray-400 shrink-0">
                           {option.hint}
                         </span>
+                      )}
+                      {option.value === value && (
+                        <Check
+                          size={15}
+                          className="text-blue-600 shrink-0"
+                          aria-label="Elegida"
+                        />
                       )}
                     </button>
                   </div>
