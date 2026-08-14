@@ -82,6 +82,9 @@ export default function SelectWithSearch({
         setHighlightedIndex(-1);
       }
     };
+    // (no usa cerrar() a propósito: este efecto se registra una sola
+    // vez y no debe depender de una función que se recrea en cada
+    // pintada)
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -96,16 +99,29 @@ export default function SelectWithSearch({
     }
   }, [isOpen]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-        e.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
+  // EL TECLADO, EN LOS DOS SITIOS DONDE VIVE EL FOCO
+  //
+  // Antes había UN solo manejador colgado del botón. Pero al abrir, el
+  // foco salta al buscador (más abajo), y el buscador es HERMANO del
+  // botón, no hijo: las teclas nunca llegaban. Resultado: con la lista
+  // abierta, flechas, Enter y Escape no hacían absolutamente nada en
+  // las 15 pantallas que usan esta pieza. Las copias escritas a mano
+  // del cotizador y de Post-Venta sí lo tenían bien puesto — o sea, la
+  // pieza de la casa estaba PEOR que las copias. (13-08-2026)
 
+  // Con la lista CERRADA, el foco está en el botón. Enter y Espacio ya
+  // los maneja el navegador solo (disparan el clic del <button>): si
+  // además los atendiéramos acá, el panel se abriría y cerraría en la
+  // misma tecla. Por eso acá solo vive la flecha abajo.
+  const teclaEnBoton = (e: React.KeyboardEvent) => {
+    if (!isOpen && e.key === "ArrowDown") {
+      e.preventDefault();
+      abrir();
+    }
+  };
+
+  // Con la lista ABIERTA, el foco está en el buscador. Acá sí vive todo.
+  const teclaEnLista = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
@@ -120,6 +136,8 @@ export default function SelectWithSearch({
         );
         break;
       case "Enter":
+        // preventDefault también evita que Enter envíe el formulario
+        // que rodea al desplegable.
         e.preventDefault();
         if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
           handleSelectOption(filteredOptions[highlightedIndex].value);
@@ -127,16 +145,14 @@ export default function SelectWithSearch({
         break;
       case "Escape":
         e.preventDefault();
-        setIsOpen(false);
-        setSearchText("");
-        setHighlightedIndex(-1);
-        break;
-      case "Backspace":
-        if (searchText === "") {
-          setIsOpen(false);
-        }
+        cerrar();
         break;
     }
+    // OJO: acá NO va Backspace. La versión anterior cerraba el panel al
+    // apretar Backspace con el buscador vacío; como el manejador estaba
+    // muerto, eso nunca llegó a pasar. Encenderlo ahora habría añadido
+    // un comportamiento que ninguna pantalla pidió: borrar lo escrito y
+    // pasarse una tecla cerraría la lista.
   };
 
   // La opción marcada se mantiene A LA VISTA al navegar con flechas.
@@ -144,10 +160,33 @@ export default function SelectWithSearch({
   // pantalla — justo lo que Felipe pilló el 07-08 en el buscador de
   // ítems, y cuya cura (utils/verEnLista) vivía solo en esa copia.
   // verEnLista mueve SOLO la lista, nunca la página.
+  // `searchText` está en las dependencias a propósito: al filtrar, la
+  // lista cambia de contenido pero la marca puede quedarse en el mismo
+  // número, y entonces el efecto no volvía a correr — se filtraba con
+  // la lista scrolleada a la mitad y la fila marcada quedaba fuera de
+  // pantalla. En las copias a mano esto salía gratis porque usaban un
+  // ref-callback que corre en cada pintada. (13-08-2026)
   const marcadaRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (isOpen && highlightedIndex >= 0) verEnLista(marcadaRef.current);
-  }, [highlightedIndex, isOpen]);
+  }, [highlightedIndex, isOpen, searchText]);
+
+  // Abrir y cerrar pasan SIEMPRE por acá, para que el panel no se
+  // reabra nunca con lo escrito de la vez anterior: antes se limpiaba
+  // al cerrar por clic afuera pero no al cerrar con el botón, así que
+  // al reabrir la lista aparecía filtrada por un texto viejo y parecía
+  // que faltaran opciones. (13-08-2026)
+  const abrir = () => {
+    setSearchText("");
+    setHighlightedIndex(-1);
+    setIsOpen(true);
+  };
+
+  const cerrar = () => {
+    setSearchText("");
+    setHighlightedIndex(-1);
+    setIsOpen(false);
+  };
 
   const handleSelectOption = (optionValue: string) => {
     onChange(optionValue);
@@ -187,8 +226,8 @@ export default function SelectWithSearch({
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
           ${required && !value ? "border-red-300" : ""}
         `}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        onKeyDown={handleKeyDown}
+        onClick={() => !disabled && (isOpen ? cerrar() : abrir())}
+        onKeyDown={teclaEnBoton}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -242,15 +281,22 @@ export default function SelectWithSearch({
                 type="text"
                 value={searchText}
                 onChange={handleSearchChange}
+                onKeyDown={teclaEnLista}
                 placeholder={searchPlaceholder}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
-          {/* Options list (alto adaptado al espacio real disponible) */}
+          {/* Options list (alto adaptado al espacio real disponible).
+              El `relative` NO es decorativo: verEnLista mide la fila
+              marcada con offsetTop, que se cuenta desde el ancestro
+              posicionado. Sin él, el ancestro era el panel completo y
+              la medida venía inflada con el alto del buscador (~62 px),
+              así que la lista se desplazaba de más y la fila marcada
+              quedaba corrida. (13-08-2026) */}
           <div
-            className="overflow-y-auto"
+            className="relative overflow-y-auto"
             style={{ maxHeight: listMaxH }}
             data-lista-scroll
           >
