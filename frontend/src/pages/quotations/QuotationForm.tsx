@@ -3450,10 +3450,6 @@ export default function QuotationForm() {
                                 placeholder="Seleccionar servicio fijo…"
                                 searchPlaceholder="Buscar servicio por nombre..."
                                 noResultsText="No se encontraron servicios"
-                                // Acá NUNCA se buscó por sección, y el rótulo
-                                // literal "Sin sección" haría que escribir "sin"
-                                // trajera todos los fijos sin sección.
-                                buscarPorSeccion={false}
                                 disabled={isRestrictedEditing}
                                 tamano="sm"
                                 fondoBlanco={false}
