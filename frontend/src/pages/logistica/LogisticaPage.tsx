@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { Armchair, Package, ShoppingCart, Truck, Users } from "lucide-react";
+import { Package, ShoppingCart, Truck, Users } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ComprasTab from "./components/ComprasTab";
 import ProveedoresTab from "./components/ProveedoresTab";
 import InsumosTab from "./components/InsumosTab";
-import MobiliarioTab from "./components/MobiliarioTab";
 import RecursosTab from "./components/RecursosTab";
 
-type TabKey = "compras" | "insumos" | "mobiliario" | "proveedores" | "recursos";
+type TabKey = "compras" | "insumos" | "proveedores" | "recursos";
 
 const TABS: { key: TabKey; label: string; Icon: typeof ShoppingCart }[] = [
   { key: "compras", label: "Compras", Icon: ShoppingCart },
   { key: "insumos", label: "Insumos", Icon: Package },
-  { key: "mobiliario", label: "Mobiliario", Icon: Armchair },
   { key: "proveedores", label: "Proveedores", Icon: Truck },
   { key: "recursos", label: "Servicios externos", Icon: Users },
 ];
@@ -26,9 +24,12 @@ export default function LogisticaPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Logística</h1>
+        {/* 15-08 (Felipe): el módulo se llama Proveedores — todo lo que se
+            le COMPRA a alguien. El mobiliario se fue a Inventario: eso ya
+            es nuestro y solo se cuenta y cuida. */}
+        <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
         <p className="text-sm text-gray-500">
-          Planificación de compras, insumos, proveedores y recursos de gestión
+          Compras, insumos, proveedores y servicios externos
         </p>
       </div>
 
@@ -59,7 +60,6 @@ export default function LogisticaPage() {
           <>
             {tab === "compras" && <ComprasTab companyId={companyId} />}
             {tab === "insumos" && <InsumosTab companyId={companyId} />}
-            {tab === "mobiliario" && <MobiliarioTab companyId={companyId} />}
             {tab === "proveedores" && <ProveedoresTab companyId={companyId} />}
             {tab === "recursos" && <RecursosTab companyId={companyId} />}
           </>

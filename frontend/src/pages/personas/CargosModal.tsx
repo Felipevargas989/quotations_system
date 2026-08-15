@@ -167,25 +167,30 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
                   </>
                 ) : (
                   <>
-                    <span className="flex-1 text-gray-900">{c.name}</span>
+                    <span className="flex-1 min-w-0 truncate text-gray-900">{c.name}</span>
                     {/* El valor sugerido SE EDITA ACÁ desde el 15-08: los
                         cargos salieron de Logística y esta es su única
                         puerta. Sigue siendo una sugerencia — quien decide
                         si una jornada cuesta es la persona (planta o
                         freelance ese día). */}
-                    <NumberInput
-                      value={c.list_price_fixed ?? undefined}
-                      min={0}
-                      currency
-                      placeholder="0"
-                      onCommit={(v) => {
-                        const val = v ?? null;
-                        if (val !== c.list_price_fixed)
-                          cambiarValorSugerido.mutate({ id: c.id, valor: val });
-                      }}
-                      className="w-28 px-2 py-1 text-sm text-right"
-                      aria-label={`Valor sugerido de ${c.name}`}
-                    />
+                    {/* NumberInput trae un contenedor w-full: hay que
+                        encajonarlo para que el nombre, la caja y los
+                        iconos queden en UNA linea (Felipe, 15-08). */}
+                    <div className="w-24 shrink-0">
+                      <NumberInput
+                        value={c.list_price_fixed ?? undefined}
+                        min={0}
+                        currency
+                        placeholder="0"
+                        onCommit={(v) => {
+                          const val = v ?? null;
+                          if (val !== c.list_price_fixed)
+                            cambiarValorSugerido.mutate({ id: c.id, valor: val });
+                        }}
+                        className="px-2 py-1 text-sm text-right"
+                        aria-label={`Valor sugerido de ${c.name}`}
+                      />
+                    </div>
                     <button
                       onClick={() => {
                         setEditandoId(c.id);

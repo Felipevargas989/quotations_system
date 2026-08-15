@@ -2,6 +2,12 @@
 
 > **En el menú se llama "Personal"** (renombrado por Felipe el 15-08).
 > La dirección interna sigue siendo `/personas`.
+>
+> **El mapa de módulos quedó así el 15-08**: *Proveedores* (ex Logística:
+> compras, insumos, proveedores, servicios externos — todo lo que se le
+> COMPRA a alguien) · *Inventario* (el mobiliario: lo que ya es nuestro) ·
+> *Personal* (la gente). Los cargos se administran SOLO en Personal →
+> Cargos; los servicios externos SOLO en Proveedores.
 
 **Acordado el 14 de agosto de 2026, en conversación con Felipe.**
 

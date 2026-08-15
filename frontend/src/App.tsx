@@ -42,6 +42,7 @@ const importClients = () => import("./pages/ClientsPage");
 const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
+const importInventario = () => import("./pages/inventario/InventarioPage");
 const importServices = () => import("./pages/services");
 const importCalendar = () => import("./pages/calendar/Calendar.tsx");
 
@@ -56,6 +57,7 @@ const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
 const PersonasPage = lazy(importPersonas);
+const InventarioPage = lazy(importInventario);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
@@ -295,6 +297,17 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
                     <LogisticaPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* Inventario (15-08): el mobiliario, separado de Proveedores.
+                  Mismo permiso que logística. */}
+              <Route
+                path="inventario"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
+                    <InventarioPage />
                   </PermissionGuard>
                 }
               />

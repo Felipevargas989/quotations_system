@@ -11,6 +11,8 @@ import {
   Receipt,
   Package,
   Contact,
+  Truck,
+  Armchair,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -85,11 +87,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       precargar: () => import("../pages/services"),
     },
     {
-      name: "Logística",
+      // 15-08 (Felipe): Proveedores = lo que se COMPRA. La dirección
+      // interna no cambia.
+      name: "Proveedores",
       href: "/logistica",
-      icon: Package,
+      icon: Truck,
       section: "logistics",
       precargar: () => import("../pages/logistica/LogisticaPage"),
+    },
+    {
+      // Inventario = lo que YA es nuestro (mobiliario). Mismo permiso que
+      // Proveedores: lo maneja operaciones.
+      name: "Inventario",
+      href: "/inventario",
+      icon: Armchair,
+      section: "logistics",
+      precargar: () => import("../pages/inventario/InventarioPage.tsx"),
     },
     {
       // Despues de Logistica (decision de Felipe, 14-08). Solo la ve
