@@ -532,7 +532,7 @@ export default function GestionTab({
                     const sinConfirmar = insumos.filter(
                       (c) => !provisionDe(c.supply.id),
                     ).length;
-                    return `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"} · ${fmtMoney(costoInsumos)}${
+                    return `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"}${
                       sinConfirmar > 0
                         ? ` · ${sinConfirmar} por confirmar`
                         : " · cantidades confirmadas"
@@ -543,15 +543,25 @@ export default function GestionTab({
             </p>
           </div>
         </div>
-        {insumos.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setVerInsumos(true)}
-            className="text-sm font-semibold text-blue-600 hover:text-blue-800 shrink-0"
-          >
-            Ver detalle
-          </button>
-        )}
+        {/* El total a la derecha, alineado con los subtotales de los
+            otros bloques, y "Ver detalle" a su izquierda (Felipe, 15-08:
+            coherencia visual). */}
+        <div className="flex items-center gap-4 shrink-0">
+          {insumos.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setVerInsumos(true)}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              Ver detalle
+            </button>
+          )}
+          {insumos.length > 0 && (
+            <span className="font-bold text-gray-900 tabular-nums">
+              {fmtMoney(costoInsumos)}
+            </span>
+          )}
+        </div>
       </div>
 
       {verInsumos && (

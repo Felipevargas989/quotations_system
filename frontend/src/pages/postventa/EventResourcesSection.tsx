@@ -813,7 +813,7 @@ export default function EventResourcesSection({
             };
           })}
           pie={{
-            etiqueta: "Total arriendos",
+            etiqueta: "Total servicios externos",
             valores: [null, null, clp(totalArriendos)],
           }}
         />
