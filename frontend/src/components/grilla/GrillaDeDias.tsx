@@ -98,9 +98,12 @@ export default function GrillaDeDias({
                   key={d}
                   className="px-2 py-2 text-center font-medium text-gray-600"
                 >
-                  {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — no al
-                      número (corrección de Felipe, 15-08). */}
+                  {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — y el
+                      espaciador invisible del mismo ancho al otro lado
+                      mantiene el nombre CENTRADO igual que el número y el
+                      mes (corrección de Felipe, 15-08). */}
                   <div className="flex items-center justify-center gap-1 text-[11px] text-gray-400 leading-none">
+                    {quitable && <span className="w-4" aria-hidden="true" />}
                     <span>{r.dia}</span>
                     {quitable && (
                       <button
