@@ -469,6 +469,8 @@ export default function GestionTab({
           fixedServices={fijosServicios}
           noCostIds={new Set(nameIds.sinCostoFijoIds)}
           onCostChange={setCostoRecursos}
+          eventDate={isoDate(quote.event_date)}
+          eventEndDate={isoDate(quote.event_end_date)}
           congelado={quote.quotation_status === "realizada"}
         />
       )}

@@ -307,7 +307,7 @@ debajo del otro:
 | | Bloque | Cuándo aparece |
 |---|---|---|
 | 1 | **Personal** | Siempre. La grilla preliminar completa: cargos × días, cantidades y valores, con enlace "Poner nombres →" a la semanal |
-| 2 | **Arriendos y servicios externos** — con su día y su proveedor | **Solo si hay alguno** |
+| 2 | **Arriendos y servicios externos** — la MISMA grilla de días que personal | **Solo si hay alguno** — llega por un fijo vendido que lo trae, o a mano con el botón |
 | 3 | **Insumos** — resumen de dos líneas | Siempre, chico |
 | 4 | **Mobiliario** | Abajo |
 
@@ -324,6 +324,25 @@ llenamos innecesariamente la pantalla"*.
   que entra y sale, somos intermediarios"*.
 - **Insumos deja de ocupar media pantalla**: pasa a ser una línea con un
   botón que abre un modal.
+
+### La matemática de los arriendos (15-08)
+
+El día es la unidad que multiplica (opción A: *"para el arriendo no es lo
+mismo un día que tres"*), **pero en los servicios mixtos el fijo es POR
+EVENTO**, no por día — solo la parte por persona multiplica:
+
+| Tipo | Fórmula | Ejemplo (80 personas) |
+|---|---|---|
+| Solo fijo (toldo) | fijo × unidades-día | $100.000 × 3 días = $300.000 |
+| Solo variable (masajes) | variable × personas × unidades-día | $8.000 × 80 × 2 = $1.280.000 |
+| **Mixto** (catering) | **fijo UNA VEZ** + variable × personas × unidades-día | $50.000 + $1.000 × 80 × 2 = $210.000 |
+
+Cuando un fijo vendido trae un arriendo: en un evento de **un día** cae a
+ese día solo; en uno de varios cae "sin día" y Felipe lo ubica.
+
+⚠ Los arriendos viejos sin día están contados UNA vez; al repartirlos en
+varios días su costo sube — que es lo correcto, pero el margen de ese
+evento se mueve.
 
 ### El modal de insumos
 

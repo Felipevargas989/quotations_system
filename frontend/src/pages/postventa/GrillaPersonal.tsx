@@ -118,6 +118,15 @@ export default function GrillaPersonal({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  const eliminarSinDia = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await deleteEventResource(id);
+      if (error) throw error;
+    },
+    onSuccess: refrescar,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   // Cambiar el valor de un cargo toca TODAS sus líneas: el valor es del
   // cargo en este evento, no de un día suelto.
   const cambiarValor = useMutation({
@@ -324,10 +333,21 @@ export default function GrillaPersonal({
                       {pendiente > 0 && (
                         <span
                           className="ml-2 inline-flex items-center gap-1 text-[11px] text-amber-700"
-                          title="Esta cantidad viene de antes y no dice qué día: repártela con los + de cada día y luego déjala en 0"
+                          title="Esta cantidad viene de antes y no dice qué día: repártela con los + de cada día y luego elimínala acá"
                         >
                           <AlertTriangle className="w-3 h-3" />
                           {pendiente} sin repartir
+                          {!congelado && f.sinRepartir && (
+                            <button
+                              type="button"
+                              onClick={() => eliminarSinDia.mutate(f.sinRepartir!.id)}
+                              aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
+                              title="Ya la repartí: eliminar la cantidad sin día"
+                              className="text-amber-700 hover:text-red-600"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
                         </span>
                       )}
                     </td>
