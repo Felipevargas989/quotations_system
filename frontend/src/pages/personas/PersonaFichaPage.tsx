@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, MessageCircle, Phone, Trash2 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import Estrellas from "../../components/Estrellas";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
 import MiniCalendario from "./MiniCalendario";
@@ -18,11 +19,18 @@ import {
   updatePerson,
 } from "../../services/people.service";
 import type { Persona, PersonaFormData } from "../../types/people.types";
+import type { EstadoPersona } from "../../utils/estadoPersona";
 import { datosParaPagarCompletos } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { chipTipoPersona, etiquetaTipoPersona } from "../../utils/estadoPersona";
+import {
+  ESTADOS_PERSONA,
+  chipTipoPersona,
+  etiquetaEstadoPersona,
+  etiquetaTipoPersona,
+} from "../../utils/estadoPersona";
 import { hoyEnChile } from "../../utils/dates";
 import { formatearRut } from "../../utils/rut";
+import { formatPhone, telHref } from "../../utils/phone";
 
 // LA FICHA DE UNA PERSONA — pantalla propia, no una ventanita
 //
@@ -61,6 +69,12 @@ export default function PersonaFichaPage() {
     enabled: Number.isFinite(personId),
   });
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
+  // Para la caja "Este mes": cuántos días tiene asignados.
+  const domingo = domingoDe(hoyEnChile());
+  const { data: staffDelMes = [] } = useQuery({
+    queryKey: ["people", "staff-semana", domingo, RANGO],
+    queryFn: () => getStaffSemana(domingo, sumarDias(domingo, RANGO - 1)),
+  });
 
   const guardar = useMutation({
     mutationFn: (datos: PersonaFormData) => updatePerson(personId, datos),
@@ -87,6 +101,18 @@ export default function PersonaFichaPage() {
     },
   });
 
+  // El estado se cambia desde la cabecera: se manda la ficha completa
+  // con el status nuevo, para no pisar nada de lo que ya estaba.
+  const cambiarEstado = useMutation({
+    mutationFn: (status: EstadoPersona) =>
+      updatePerson(personId, { ...(persona as Persona), status }),
+    onSuccess: () => {
+      toast.success("Situación actualizada.");
+      void qc.invalidateQueries({ queryKey: ["people"] });
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   if (isLoading) return <PageSkeleton />;
   if (!persona) {
     return (
@@ -105,9 +131,13 @@ export default function PersonaFichaPage() {
 
   const completa = datosParaPagarCompletos(persona);
 
+  const telefonoWsp = (persona.phone ?? "").replace(/\D/g, "");
+  const diasEsteMes = staffDelMes.filter(
+    (a) => a.person_id === persona.id,
+  ).length;
+
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-      {/* El mismo volver de Post-Venta: texto azul, no un icono suelto. */}
+    <div className="p-4 sm:p-6">
       <button
         type="button"
         onClick={() => navegar("/personas")}
@@ -116,86 +146,149 @@ export default function PersonaFichaPage() {
         ← Volver a Personal
       </button>
 
-      <div className="flex items-start gap-3 mb-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-gray-900">{persona.name}</h1>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${chipTipoPersona(
-                persona.default_kind ?? "freelance",
-              )}`}
-            >
-              {etiquetaTipoPersona(persona.default_kind ?? "freelance")}
-            </span>
-            <Estrellas value={null} tamano="sm" />
+      {/* LA MISMA TARJETA DE COTIZACIONES (Felipe, 15-08): todo adentro,
+          a todo el ancho, con la botonera arriba a la derecha, la fila
+          de datos clave y las pestañas dentro de la misma tarjeta. */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {persona.name}
+                </h1>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${chipTipoPersona(
+                    persona.default_kind ?? "freelance",
+                  )}`}
+                >
+                  {etiquetaTipoPersona(persona.default_kind ?? "freelance")}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                {persona.rut ? formatearRut(persona.rut) : "sin RUT"}
+              </p>
+              {persona.phone && (
+                <a
+                  href={telHref(persona.phone)}
+                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline mt-1"
+                >
+                  <Phone className="w-4 h-4" />
+                  {formatPhone(persona.phone)}
+                </a>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-44">
+                <SelectWithSearch
+                  options={ESTADOS_PERSONA.map((e) => ({
+                    value: e,
+                    label: etiquetaEstadoPersona(e),
+                  }))}
+                  value={persona.status ?? "activa"}
+                  onChange={(v) => cambiarEstado.mutate(v as EstadoPersona)}
+                  mostrarConteo={false}
+                  tamano="sm"
+                />
+              </div>
+              {telefonoWsp && (
+                <a
+                  href={`https://wa.me/${
+                    telefonoWsp.length === 9 ? "56" + telefonoWsp : telefonoWsp
+                  }`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              )}
+              {borrando ? (
+                <ConfirmInline
+                  question={`¿Eliminar a ${persona.name}?`}
+                  yesLabel="Eliminar"
+                  tono="peligro"
+                  busy={borrar.isPending}
+                  onYes={() => borrar.mutate()}
+                  onNo={() => setBorrando(false)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setBorrando(true)}
+                  className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                  aria-label={`Eliminar a ${persona.name}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {persona.rut ? formatearRut(persona.rut) : "sin RUT"}
-            {persona.management_resources?.name && (
-              <>
-                <span className="mx-1.5 text-gray-300">·</span>
-                {persona.management_resources.name}
-              </>
-            )}
-          </p>
-        </div>
-        <div className="shrink-0">
-          {borrando ? (
-            <ConfirmInline
-              question={`¿Eliminar a ${persona.name}?`}
-              yesLabel="Eliminar"
-              tono="peligro"
-              busy={borrar.isPending}
-              onYes={() => borrar.mutate()}
-              onNo={() => setBorrando(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setBorrando(true)}
-              className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-              aria-label={`Eliminar a ${persona.name}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+
+          {!completa && (
+            <div className="flex items-start gap-2 mt-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                Le faltan datos para poder transferirle. Mejor completarlos
+                antes del día de pago.
+              </span>
+            </div>
           )}
+
+          {/* Las cuatro cajas de datos clave, como en Cotizaciones. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+            <Caja
+              etiqueta="Cargo habitual"
+              valor={persona.management_resources?.name ?? "—"}
+            />
+            <Caja
+              etiqueta="Cómo trabaja"
+              valor={etiquetaTipoPersona(persona.default_kind ?? "freelance")}
+              apunte={
+                persona.default_starts_at && persona.default_ends_at
+                  ? `${persona.default_starts_at.slice(0, 5)}–${persona.default_ends_at.slice(0, 5)}`
+                  : "horario de la casa"
+              }
+            />
+            <Caja
+              etiqueta="Evaluación"
+              valor={<Estrellas value={null} conNumero />}
+            />
+            <Caja
+              etiqueta="Este mes"
+              valor={`${String(diasEsteMes)} ${diasEsteMes === 1 ? "día" : "días"}`}
+              apunte="asignados"
+            />
+          </div>
         </div>
-      </div>
 
-      {!completa && (
-        <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>
-            Le faltan datos para poder transferirle. Mejor completarlos antes
-            del día de pago.
-          </span>
+        <div className="flex items-center gap-1 px-6 border-b border-gray-200">
+          {(
+            [
+              ["datos", "Datos"],
+              ["calendario", "Su calendario"],
+            ] as const
+          ).map(([id2, texto]) => (
+            <button
+              key={id2}
+              type="button"
+              onClick={() => setPestana(id2)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                pestana === id2
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {texto}
+            </button>
+          ))}
         </div>
-      )}
 
-      <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
-        {(
-          [
-            ["datos", "Datos"],
-            ["calendario", "Su calendario"],
-          ] as const
-        ).map(([id2, texto]) => (
-          <button
-            key={id2}
-            type="button"
-            onClick={() => setPestana(id2)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              pestana === id2
-                ? "border-blue-600 text-blue-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {texto}
-          </button>
-        ))}
-      </div>
-
-      {pestana === "datos" ? (
-        <PersonaForm
+        <div className="p-6">
+          {pestana === "datos" ? (
+            <PersonaForm
           persona={persona}
           cargos={cargos}
           guardando={guardar.isPending}
@@ -203,9 +296,32 @@ export default function PersonaFichaPage() {
           onGuardar={(datos) => guardar.mutate(datos)}
           onCancelar={() => navegar("/personas")}
         />
-      ) : (
-        <CalendarioDePersona persona={persona} />
-      )}
+          ) : (
+            <CalendarioDePersona persona={persona} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Una de las cajas de datos clave, igual que en Cotizaciones. */
+function Caja({
+  etiqueta,
+  valor,
+  apunte,
+}: {
+  readonly etiqueta: string;
+  readonly valor: React.ReactNode;
+  readonly apunte?: string;
+}) {
+  return (
+    <div className="border border-gray-200 rounded-lg px-3 py-2">
+      <p className="text-xs text-gray-500">{etiqueta}</p>
+      <div className="text-base font-semibold text-gray-900 mt-0.5">
+        {valor}
+      </div>
+      {apunte && <p className="text-xs text-gray-400">{apunte}</p>}
     </div>
   );
 }

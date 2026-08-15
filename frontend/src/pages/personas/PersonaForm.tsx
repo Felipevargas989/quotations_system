@@ -48,6 +48,8 @@ interface Props {
   readonly errorServidor?: string | null;
   readonly onGuardar: (datos: PersonaFormData) => void;
   readonly onCancelar: () => void;
+  /** El estado se maneja en la cabecera de la ficha; acá solo el motivo. */
+  readonly sinSelectorDeEstado?: boolean;
 }
 
 const vacia: PersonaFormData = {
@@ -76,6 +78,7 @@ export default function PersonaForm({
   errorServidor = null,
   onGuardar,
   onCancelar,
+  sinSelectorDeEstado = false,
 }: Props) {
   const [datos, setDatos] = useState<PersonaFormData>(vacia);
   const [rutOk, setRutOk] = useState(true);
@@ -456,19 +459,26 @@ export default function PersonaForm({
         </p>
       </fieldset>
 
-      {/* ---------- Si se puede llamar ---------- */}
+      {/* ---------- Si se puede llamar ----------
+           El SELECTOR de estado vive arriba, en la cabecera de la ficha
+           (Felipe, 15-08): es una decisión rápida y frecuente, no un
+           dato que se llena una vez. Acá abajo queda solo el motivo,
+           que sí es de escribir. En "Nueva persona" el selector sigue
+           acá, porque todavía no hay cabecera. */}
       <fieldset className="border-t border-gray-200 pt-4">
         <legend className="text-sm font-semibold text-gray-900 mb-3">
           Situación
         </legend>
-        <div className="sm:w-1/2">
-          <SelectWithSearch
-            options={opcionesEstado}
-            value={datos.status ?? "activa"}
-            onChange={(v) => cambiar({ status: v as EstadoPersona })}
-            mostrarConteo={false}
-          />
-        </div>
+        {!sinSelectorDeEstado && (
+          <div className="sm:w-1/2">
+            <SelectWithSearch
+              options={opcionesEstado}
+              value={datos.status ?? "activa"}
+              onChange={(v) => cambiar({ status: v as EstadoPersona })}
+              mostrarConteo={false}
+            />
+          </div>
+        )}
 
         {bloqueada && (
           <div className="mt-3">
