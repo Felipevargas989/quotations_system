@@ -31,6 +31,10 @@ export default function HoraInput({
   return (
     <input
       type="time"
+      // De a 15 minutos (Felipe, 15-08): nadie entra a las 09:07. El
+      // desplegable del navegador y las flechas saltan por cuartos de
+      // hora; un valor viejo con otros minutos igual se muestra y vale.
+      step={900}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
       disabled={disabled}

@@ -262,9 +262,29 @@ export class PeopleRepository {
       .eq('company_id', companyId)
       .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
       .maybeSingle();
-    if (error) throw error;
+    if (error) {
+      // Al MOVER de día puede chocar con un día donde ya está.
+      if (error.code === YA_EXISTE) {
+        throw new ConflictException('Esa persona ya está puesta ese día');
+      }
+      throw error;
+    }
     if (!data) throw new NotFoundException('No existe esa asignación');
     return data as unknown as EventStaff;
+  }
+
+  /** Los días de planta (sin evento) desde una fecha: la marca de agua
+   *  por persona para que la carga automática solo mire hacia adelante. */
+  async findPlantaDesde(companyId: number, desde: string) {
+    this.logger.info(`findPlantaDesde ${desde}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('person_id, day')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .gte('day', desde);
+    if (error) throw error;
+    return data as { person_id: number; day: string }[];
   }
 
   async removeStaff(id: number, companyId: number) {

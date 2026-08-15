@@ -89,14 +89,26 @@ etapa 7 quedó absorbida por la 3.
 | Cuántos pozos de propina | **Uno para toda la ficha** | **Uno por día y por local** |
 | ¿Suma al costo de un evento? | Sí | No |
 
-**La planta se carga sola (15-08)**: cada persona de planta guarda en su
-ficha sus **días libres** de la semana (`people.days_off`, 0=domingo…
-6=sábado). El botón **"Cargar planta"** de la sábana llena el rango
-visible completo con toda la planta activa, saltándose los libres de
-cada uno y los días donde ya está; esas jornadas nacen **confirmadas**
-(es su horario normal, no una oferta). A alguien de libre igual se le
-puede poner a mano en un día — a veces se le paga ese día aparte — pero
-el buscador de la casilla lo avisa con "⚠ LIBRE este día".
+**La planta se carga sola, sin botón (15-08)**: en la ficha de cada
+persona de planta se marcan sus **días laborales** de la semana (en la
+base se guardan los libres: `people.days_off`, 0=domingo…6=sábado — la
+vista solo invierte). Al **abrir la sábana o mover el rango**, el
+backend extiende la planta activa hacia adelante hasta el final
+visible, saltándose los libres de cada uno; esas jornadas nacen
+**confirmadas** (es su horario normal, no una oferta). La carga es solo
+**hacia adelante** — desde hoy o desde el último día ya cargado de cada
+persona — así que un día borrado a mano **no se recrea**. A alguien de
+libre igual se le puede poner a mano en un día — a veces se le paga ese
+día aparte — pero el buscador de la casilla lo avisa con "⚠ LIBRE este
+día".
+
+**Mover de día (15-08)**: "pasa mucho que cambiamos días para
+adecuarnos al trabajo" — en la casilla abierta, cada asignado lleva un
+botón de calendario que despliega los días del rango visible; se pincha
+el nuevo y la asignación se muda con su horario y todo. Los libres de
+la persona salen en ámbar, y si en el día de destino ya estaba, el
+backend lo rechaza con aviso. Los relojes de todo el sistema van **de a
+15 minutos**.
 
 ### Los tres números del personal
 

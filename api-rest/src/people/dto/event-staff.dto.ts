@@ -56,6 +56,12 @@ export class CreateEventStaffDto {
 }
 
 export class UpdateEventStaffDto {
+  // Mover la asignación a OTRO día (Felipe, 15-08: "pasa mucho que
+  // cambiamos días para adecuarnos al trabajo").
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  day?: string;
+
   @IsOptional()
   @IsInt()
   role_id?: number | null;
@@ -87,4 +93,10 @@ export class UpdateEventStaffDto {
   @IsOptional()
   @IsString()
   notes?: string | null;
+}
+
+/** Hasta qué día extender la planta. La sábana lo manda sola al abrirse. */
+export class CargarPlantaDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  hasta: string;
 }

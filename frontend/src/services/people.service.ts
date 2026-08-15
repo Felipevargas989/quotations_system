@@ -93,11 +93,20 @@ export const addStaff = async (fila: {
   amount?: number | null;
 }) => (await apiRequest(API_ROUTES.PEOPLE_STAFF, "POST", fila)) as Asignacion;
 
+/** La sábana lo llama sola al abrirse: extiende la planta hacia
+ *  adelante hasta el final del rango visible, saltando días libres. */
+export const cargarPlanta = async (hasta: string) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE_STAFF}/cargar-planta`, "POST", {
+    hasta,
+  })) as { creadas: number };
+
 export const updateStaff = async (
   id: number,
   cambios: Partial<
     Pick<
       Asignacion,
+      // "day" permite MOVER la asignación a otro día (Felipe, 15-08).
+      | "day"
       | "role_id"
       | "kind"
       | "status"

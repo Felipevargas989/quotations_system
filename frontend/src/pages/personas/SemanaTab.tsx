@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../../services/logistics.service";
 import {
   addStaff,
+  cargarPlanta,
   getStaffSemana,
   peopleQueryOptions,
   removeStaff,
@@ -158,46 +159,27 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
-  // LA PLANTA SE CARGA SOLA (Felipe, 15-08): toda persona de planta
-  // activa entra a cada día del rango, MENOS sus días libres y los días
-  // donde ya está. Nace confirmada: es su jornada normal, no una oferta.
-  const cargarPlanta = useMutation({
-    mutationFn: async () => {
-      const plantas = personas.filter(
-        (p) => p.status === "activa" && p.default_kind === "planta",
-      );
-      const existentes = new Set(
-        staff
-          .filter((a) => a.quotation_id === null)
-          .map((a) => `${a.person_id}|${iso(a.day)}`),
-      );
-      let creadas = 0;
-      for (const p of plantas) {
-        for (const d of dias) {
-          const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay();
-          if (p.days_off?.includes(diaSemana)) continue;
-          if (existentes.has(`${p.id}|${d}`)) continue;
-          await addStaff({
-            quotation_id: null,
-            person_id: p.id,
-            day: d,
-            status: "confirmado",
-          });
-          creadas += 1;
-        }
-      }
-      return creadas;
-    },
-    onSuccess: (n) => {
-      refrescar();
-      toast.success(
-        n === 0
-          ? "La planta ya estaba cargada en este rango."
-          : `${n} ${n === 1 ? "jornada de planta cargada" : "jornadas de planta cargadas"}.`,
-      );
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
+  // LA PLANTA SE CARGA SOLA, SIN BOTÓN (Felipe, 15-08: "la carga
+  // debería ser automática"): al abrir la sábana o mover el rango, el
+  // backend extiende la planta hacia adelante hasta el final visible,
+  // saltando los días libres de cada uno. Solo hacia adelante — un día
+  // borrado a mano no se recrea. Silencioso: si no había nada que
+  // cargar, no molesta con avisos.
+  const rangosCargados = useRef(new Set<string>());
+  useEffect(() => {
+    if (rangosCargados.current.has(hasta)) return;
+    rangosCargados.current.add(hasta);
+    cargarPlanta(hasta)
+      .then((r) => {
+        if (r.creadas > 0) refrescar();
+      })
+      .catch(() => {
+        // Si falló (red, backend), que el próximo cambio de rango o
+        // recarga lo reintente.
+        rangosCargados.current.delete(hasta);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasta]);
 
   const cambiar = useMutation({
     mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
@@ -454,25 +436,14 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             grupoAccion:
               f.quotationId === null &&
               filas.findIndex((x) => x.quotationId === null) === fi ? (
-                <div className="flex items-center gap-2 font-normal normal-case">
-                  <button
-                    type="button"
-                    onClick={() => cargarPlanta.mutate()}
-                    disabled={cargarPlanta.isPending}
-                    title="Carga a toda la planta activa en el rango, saltando sus días libres"
-                    className="px-2 py-1 text-xs font-medium text-blue-700 border border-blue-200 rounded-md hover:bg-blue-50 disabled:opacity-50"
-                  >
-                    {cargarPlanta.isPending ? "Cargando…" : "Cargar planta"}
-                  </button>
-                  <div className="w-40">
-                    <SelectWithSearchCargos
-                      catalogo={catalogo}
-                      yaVisibles={filas
-                        .filter((x) => x.quotationId === null)
-                        .map((x) => x.cargoId)}
-                      onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
-                    />
-                  </div>
+                <div className="w-44 font-normal normal-case">
+                  <SelectWithSearchCargos
+                    catalogo={catalogo}
+                    yaVisibles={filas
+                      .filter((x) => x.quotationId === null)
+                      .map((x) => x.cargoId)}
+                    onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                  />
                 </div>
               ) : undefined,
             titulo: (
@@ -567,6 +538,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       {casilla && (
         <CasillaAbierta
           dia={casilla.dia}
+          dias={dias}
           fila={casilla.fila}
           asignados={enCasilla(casilla.fila, casilla.dia)}
           personas={personas}
@@ -881,6 +853,7 @@ function HorarioDelDia({
 /** La casilla abierta: quiénes van ese día, en ese cargo, en ese evento. */
 function CasillaAbierta({
   dia,
+  dias,
   fila,
   asignados,
   personas,
@@ -890,6 +863,8 @@ function CasillaAbierta({
   onCambiar,
 }: {
   readonly dia: string;
+  /** El rango visible de la sábana, para mover a otro día. */
+  readonly dias: readonly string[];
   readonly fila: FilaSemana;
   readonly asignados: Asignacion[];
   readonly personas: readonly Persona[];
@@ -899,6 +874,7 @@ function CasillaAbierta({
   readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [moviendo, setMoviendo] = useState<number | null>(null);
   const r = rotulo(dia);
   const necesita = fila.necesita.get(dia) || 0;
   const puestos = new Set(asignados.map((a) => a.person_id));
@@ -984,6 +960,19 @@ function CasillaAbierta({
               </button>
               <button
                 type="button"
+                onClick={() => setMoviendo(moviendo === a.id ? null : a.id)}
+                title="Mover a otro día"
+                aria-label={`Mover a ${a.people?.name} a otro día`}
+                className={`p-1 rounded ${
+                  moviendo === a.id
+                    ? "text-blue-700 bg-blue-50"
+                    : "text-gray-400 hover:text-blue-700 hover:bg-blue-50"
+                }`}
+              >
+                <CalendarDays className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => onSacar(a.id)}
                 aria-label={`Sacar a ${a.people?.name}`}
                 className="p-1 text-gray-300 hover:text-red-600 rounded"
@@ -991,6 +980,44 @@ function CasillaAbierta({
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+
+            {/* MOVER DE DÍA (Felipe, 15-08: "pasa mucho que cambiamos
+                días para adecuarnos al trabajo"): se elige el día nuevo
+                del rango visible y la asignación se muda con su horario
+                y todo. Si allá ya estaba, el backend lo dice y no pasa
+                nada. Los libres de la persona salen en ámbar. */}
+            {moviendo === a.id && (
+              <div className="flex flex-wrap items-center gap-1 pt-1">
+                <span className="text-xs text-gray-500 mr-1">Mover al:</span>
+                {dias
+                  .filter((d) => d !== dia)
+                  .map((d) => {
+                    const rd = rotulo(d);
+                    const persona = personas.find((p) => p.id === a.person_id);
+                    const libre = persona?.days_off?.includes(
+                      new Date(`${d}T00:00:00Z`).getUTCDay(),
+                    );
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => {
+                          onCambiar(a.id, { day: d });
+                          setMoviendo(null);
+                        }}
+                        title={libre ? "Es su día libre" : undefined}
+                        className={`px-1.5 py-0.5 text-[11px] rounded border ${
+                          libre
+                            ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                            : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200"
+                        }`}
+                      >
+                        {rd.dia} {rd.num}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
 
             {/* El horario del DÍA (etapa 4): editable para todos — planta
                 y freelance — porque cuando el cliente parte antes, se

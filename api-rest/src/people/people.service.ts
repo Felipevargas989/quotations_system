@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
@@ -178,6 +182,66 @@ export class PeopleService {
   }
 
   /**
+   * LA PLANTA SE CARGA SOLA (Felipe, 15-08: "la carga debería ser
+   * automática, sin el botón"). La sábana llama esto al abrirse y la
+   * planta activa queda puesta hasta el final del rango visible,
+   * saltándose los días libres de cada uno.
+   *
+   * Solo HACIA ADELANTE: se parte de hoy o del último día ya cargado de
+   * cada persona, lo que esté más adelante. Por eso un día borrado a
+   * mano NO se recrea — queda detrás de la marca de agua. Y las
+   * jornadas nacen confirmadas: es su horario normal, no una oferta.
+   */
+  async cargarPlanta(companyId: number, hasta: string) {
+    const hoy = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'America/Santiago',
+    });
+    if (hasta < hoy) return { creadas: 0 };
+    const personas = (await this.repo.findAll(companyId)).filter(
+      (p) => p.status === 'activa' && p.default_kind === 'planta',
+    );
+    if (personas.length === 0) return { creadas: 0 };
+
+    const futuras = await this.repo.findPlantaDesde(companyId, hoy);
+    const marca = new Map<number, string>();
+    for (const f of futuras) {
+      const previa = marca.get(f.person_id);
+      if (!previa || f.day > previa) marca.set(f.person_id, f.day);
+    }
+
+    let creadas = 0;
+    for (const p of personas) {
+      const cargadaHasta = marca.get(p.id);
+      for (let d = hoy; d <= hasta; d = diaSiguiente(d)) {
+        if (cargadaHasta && d <= cargadaHasta) continue;
+        const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay();
+        if (p.days_off?.includes(diaSemana)) continue;
+        try {
+          await this.repo.addStaff({
+            company_id: companyId,
+            quotation_id: null,
+            person_id: p.id,
+            day: d,
+            kind: 'planta',
+            role_id: p.default_role_id ?? null,
+            amount: null,
+            status: 'confirmado',
+            starts_at: p.default_starts_at?.slice(0, 5) ?? '09:00',
+            ends_at: p.default_ends_at?.slice(0, 5) ?? '19:00',
+            break_minutes: p.default_break_minutes ?? 60,
+          });
+          creadas += 1;
+        } catch (e) {
+          // Otra sesión lo cargó un instante antes: no es problema.
+          if (!(e instanceof ConflictException)) throw e;
+        }
+      }
+    }
+    this.logger.info(`cargarPlanta hasta ${hasta}: ${creadas} creadas`);
+    return { creadas };
+  }
+
+  /**
    * Un cargo no se borra: se apaga.
    *
    * Si hay gente que lo tiene como cargo por defecto, borrarlo dejaría
@@ -191,3 +255,7 @@ export class PeopleService {
   }
 }
 
+const diaSiguiente = (iso: string) =>
+  new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86_400_000)
+    .toISOString()
+    .slice(0, 10);

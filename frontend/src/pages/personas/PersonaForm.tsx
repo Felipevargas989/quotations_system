@@ -412,27 +412,31 @@ export default function PersonaForm({
         </div>
         {datos.default_kind === "planta" && (
           <div className="mt-4">
-            <label className={etiqueta}>Días libres</label>
+            <label className={etiqueta}>Días que trabaja</label>
+            {/* Se marcan los días LABORALES, no los libres (corrección
+                de Felipe, 15-08: "es más intuitivo"). En la base igual
+                se guardan los libres (days_off): acá solo se invierte
+                la vista. */}
             <div className="flex gap-1">
               {["D", "L", "M", "M", "J", "V", "S"].map((letra, dia) => {
-                const libre = (datos.days_off ?? []).includes(dia);
+                const trabaja = !(datos.days_off ?? []).includes(dia);
                 return (
                   <button
                     key={dia}
                     type="button"
                     onClick={() => {
-                      const actuales = datos.days_off ?? [];
+                      const libres = datos.days_off ?? [];
                       cambiar({
-                        days_off: libre
-                          ? actuales.filter((x) => x !== dia)
-                          : [...actuales, dia].sort(),
+                        days_off: trabaja
+                          ? [...libres, dia].sort((a, b) => a - b)
+                          : libres.filter((x) => x !== dia),
                       });
                     }}
-                    aria-label={`${["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dia]} ${libre ? "libre" : "trabaja"}`}
+                    aria-label={`${["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dia]} ${trabaja ? "trabaja" : "libre"}`}
                     className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
-                      libre
-                        ? "bg-amber-100 text-amber-800 border border-amber-300"
-                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                      trabaja
+                        ? "bg-blue-600 text-white border border-blue-600"
+                        : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
                     }`}
                   >
                     {letra}
@@ -441,7 +445,7 @@ export default function PersonaForm({
               })}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Los marcados en ámbar son sus libres: la carga automática de
+              Los apagados son sus días libres: la carga automática de la
               planta se los salta.
             </p>
           </div>

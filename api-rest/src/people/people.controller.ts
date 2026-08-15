@@ -17,6 +17,7 @@ import { CreatePersonDto } from './dto/create-person.dto';
 import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import {
+  CargarPlantaDto,
   CreateEventStaffDto,
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
@@ -90,6 +91,14 @@ export class PeopleController {
   addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff ${logSafe(dto)}`);
     return this.peopleService.addStaff(dto, user.company_id);
+  }
+
+  // La sábana lo llama SOLA al abrirse: extiende la planta hacia
+  // adelante hasta el final del rango visible (Felipe, 15-08).
+  @Post('staff/cargar-planta')
+  cargarPlanta(@Body() dto: CargarPlantaDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/staff/cargar-planta hasta ${dto.hasta}`);
+    return this.peopleService.cargarPlanta(user.company_id, dto.hasta);
   }
 
   @Patch('staff/:id')
