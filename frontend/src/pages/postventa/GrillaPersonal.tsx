@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarPlus, Minus, Plus, Users, X } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Users, X } from "lucide-react";
+import GrillaDeDias, {
+  type FilaGrillaDias,
+} from "../../components/grilla/GrillaDeDias";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
@@ -25,9 +28,8 @@ import { recursosQueryOpts } from "./EventResourcesSection";
 // gente es una tarea de la semana, no de un evento. Esta grilla es la que
 // alimenta esa planificación.
 //
-// La cantidad de una línea siempre fue el total del evento ("se necesitan
-// diez personas, pero NO diez personas el mismo día"): acá vive repartida
-// por día, y el costo es la suma — cantidad × valor, día por día.
+// La tabla es la pieza de la casa `GrillaDeDias`, compartida con los
+// arriendos: mismos anchos, así las columnas coinciden entre bloques.
 //
 // Ver docs/arquitectura/10_MODULO_DE_PERSONAS.md
 
@@ -38,17 +40,9 @@ const diasEntre = (desde: string, hasta: string | null): string[] => {
   const fin = new Date(`${hasta || desde}T00:00:00Z`).getTime();
   if (isNaN(ini) || isNaN(fin) || fin < ini) return [desde];
   const out: string[] = [];
-  for (let t = ini; t <= fin; t += DIA_MS) out.push(new Date(t).toISOString().slice(0, 10));
+  for (let t = ini; t <= fin; t += DIA_MS)
+    out.push(new Date(t).toISOString().slice(0, 10));
   return out;
-};
-
-const rotulo = (isoDia: string) => {
-  const d = new Date(`${isoDia}T12:00:00Z`);
-  return {
-    dia: d.toLocaleDateString("es-CL", { weekday: "short", timeZone: "UTC" }).replace(".", ""),
-    num: d.getUTCDate(),
-    mes: d.toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" }).replace(".", ""),
-  };
 };
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
@@ -77,7 +71,9 @@ export default function GrillaPersonal({
   // acá hasta que el primer + cree su primera línea.
   const [cargosNuevos, setCargosNuevos] = useState<number[]>([]);
   // El valor elegido a mano para un cargo sin líneas todavía.
-  const [preciosLocales, setPreciosLocales] = useState<Map<number, number>>(new Map());
+  const [preciosLocales, setPreciosLocales] = useState<Map<number, number>>(
+    new Map(),
+  );
 
   const lines = data?.lines ?? [];
   const resources = data?.resources ?? [];
@@ -98,7 +94,9 @@ export default function GrillaPersonal({
         return;
       }
       if (p.linea) {
-        const { error } = await updateEventResource(p.linea.id, { quantity: p.cantidad });
+        const { error } = await updateEventResource(p.linea.id, {
+          quantity: p.cantidad,
+        });
         if (error) throw error;
         return;
       }
@@ -132,7 +130,9 @@ export default function GrillaPersonal({
   const cambiarValor = useMutation({
     mutationFn: async (p: { lineas: EventResource[]; precio: number }) => {
       for (const l of p.lineas) {
-        const { error } = await updateEventResource(l.id, { price_fixed: p.precio });
+        const { error } = await updateEventResource(l.id, {
+          price_fixed: p.precio,
+        });
         if (error) throw error;
       }
     },
@@ -144,7 +144,12 @@ export default function GrillaPersonal({
   const filas = useMemo(() => {
     const m = new Map<
       number,
-      { nombre: string; precio: number; porDia: Map<string, EventResource>; sinRepartir?: EventResource }
+      {
+        nombre: string;
+        precio: number;
+        porDia: Map<string, EventResource>;
+        sinRepartir?: EventResource;
+      }
     >();
     for (const l of lines) {
       const r = resources.find((x) => x.id === l.resource_id);
@@ -193,11 +198,16 @@ export default function GrillaPersonal({
   const cargosDisponibles: SelectOption[] = useMemo(() => {
     const enFilas = new Set(filas.map((f) => f.id));
     return resources
-      .filter((r) => r.type === "personal" && r.is_active !== false && !enFilas.has(r.id))
+      .filter(
+        (r) =>
+          r.type === "personal" && r.is_active !== false && !enFilas.has(r.id),
+      )
       .map((r) => ({
         value: String(r.id),
         label: r.name,
-        hint: r.list_price_fixed ? clp(Number(r.list_price_fixed)) : "sin valor sugerido",
+        hint: r.list_price_fixed
+          ? clp(Number(r.list_price_fixed))
+          : "sin valor sugerido",
       }));
   }, [resources, filas]);
 
@@ -209,18 +219,91 @@ export default function GrillaPersonal({
 
   const agregarDia = (haciaAtras: boolean) => {
     const base = haciaAtras ? dias[0] : dias[dias.length - 1];
-    const t = new Date(`${base}T00:00:00Z`).getTime() + (haciaAtras ? -DIA_MS : DIA_MS);
+    const t =
+      new Date(`${base}T00:00:00Z`).getTime() + (haciaAtras ? -DIA_MS : DIA_MS);
     setExtras((a) => [...a, new Date(t).toISOString().slice(0, 10)]);
   };
 
   const quitarDia = (d: string) => {
     const conCantidad = filas.some((f) => (f.porDia.get(d)?.quantity || 0) > 0);
     if (conCantidad) {
-      toast.error("Ese día tiene gente asignada: primero deja sus cantidades en 0.");
+      toast.error(
+        "Ese día tiene gente asignada: primero deja sus cantidades en 0.",
+      );
       return;
     }
     setExtras((a) => a.filter((x) => x !== d));
   };
+
+  // ---- Adaptación a la pieza de la casa ----
+  const filasGrilla: FilaGrillaDias[] = filas.map((f) => {
+    const total = totalDe(f);
+    const pendiente = f.sinRepartir?.quantity || 0;
+    const lineasDelCargo = [
+      ...f.porDia.values(),
+      ...(f.sinRepartir ? [f.sinRepartir] : []),
+    ];
+    return {
+      id: f.id,
+      titulo: (
+        <>
+          {f.nombre}
+          {pendiente > 0 && (
+            <span
+              className="ml-2 inline-flex items-center gap-1 text-[11px] text-amber-700"
+              title="Esta cantidad viene de antes y no dice qué día: repártela con los + de cada día y luego elimínala acá"
+            >
+              <AlertTriangle className="w-3 h-3" />
+              {pendiente} sin repartir
+              {!congelado && f.sinRepartir && (
+                <button
+                  type="button"
+                  onClick={() => eliminarSinDia.mutate(f.sinRepartir!.id)}
+                  aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
+                  title="Ya la repartí: eliminar la cantidad sin día"
+                  className="text-amber-700 hover:text-red-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </span>
+          )}
+        </>
+      ),
+      cantidadEn: (d) => f.porDia.get(d)?.quantity || 0,
+      onCambiar: (d, nueva) =>
+        guardar.mutate({
+          resourceId: f.id,
+          day: d,
+          cantidad: nueva,
+          linea: f.porDia.get(d),
+          precio: f.precio,
+        }),
+      valores: [
+        <span key="t" className="font-medium text-gray-900">
+          {total}
+        </span>,
+        <NumberInput
+          key="v"
+          value={f.precio || undefined}
+          min={0}
+          currency
+          placeholder="0"
+          disabled={congelado}
+          onCommit={(v) => {
+            const precio = v || 0;
+            if (precio === f.precio) return;
+            setPreciosLocales((m) => new Map(m).set(f.id, precio));
+            if (lineasDelCargo.length > 0)
+              cambiarValor.mutate({ lineas: lineasDelCargo, precio });
+          }}
+          className="w-24 px-2 py-1 text-sm text-right"
+          aria-label={`Valor de ${f.nombre}`}
+        />,
+        clp(total * f.precio),
+      ],
+    };
+  });
 
   return (
     <div className="space-y-3">
@@ -282,183 +365,30 @@ export default function GrillaPersonal({
           que sea — y reparte cuántos van cada día.
         </p>
       ) : (
-        <div className="border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-3 py-2 text-left font-medium text-gray-500 sticky left-0 bg-gray-50">
-                  Cargo
-                </th>
-                {dias.map((d) => {
-                  const r = rotulo(d);
-                  const esExtra = !diasDelEvento.has(d);
-                  return (
-                    <th key={d} className="px-2 py-2 text-center font-medium text-gray-600 min-w-[4.5rem]">
-                      <div className="text-[11px] text-gray-400 leading-none">{r.dia}</div>
-                      <div className="leading-tight">
-                        {r.num}
-                        {esExtra && !congelado && (
-                          <button
-                            type="button"
-                            onClick={() => quitarDia(d)}
-                            aria-label={`Quitar el día ${d}`}
-                            title="Quitar este día agregado"
-                            className="ml-1 text-gray-300 hover:text-red-600 align-middle"
-                          >
-                            <X className="w-3 h-3 inline" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-gray-400 leading-none">{r.mes}</div>
-                    </th>
-                  );
-                })}
-                <th className="px-2 py-2 text-right font-medium text-gray-500 w-16">Total</th>
-                <th className="px-2 py-2 text-right font-medium text-gray-500 w-28">Valor c/u</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-500 w-28">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filas.map((f) => {
-                const total = totalDe(f);
-                const pendiente = f.sinRepartir?.quantity || 0;
-                const lineasDelCargo = [
-                  ...f.porDia.values(),
-                  ...(f.sinRepartir ? [f.sinRepartir] : []),
-                ];
-                return (
-                  <tr key={f.id}>
-                    <td className="px-3 py-2 text-gray-900 sticky left-0 bg-white">
-                      {f.nombre}
-                      {pendiente > 0 && (
-                        <span
-                          className="ml-2 inline-flex items-center gap-1 text-[11px] text-amber-700"
-                          title="Esta cantidad viene de antes y no dice qué día: repártela con los + de cada día y luego elimínala acá"
-                        >
-                          <AlertTriangle className="w-3 h-3" />
-                          {pendiente} sin repartir
-                          {!congelado && f.sinRepartir && (
-                            <button
-                              type="button"
-                              onClick={() => eliminarSinDia.mutate(f.sinRepartir!.id)}
-                              aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
-                              title="Ya la repartí: eliminar la cantidad sin día"
-                              className="text-amber-700 hover:text-red-600"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                        </span>
-                      )}
-                    </td>
-                    {dias.map((d) => {
-                      const linea = f.porDia.get(d);
-                      const cant = linea?.quantity || 0;
-                      return (
-                        <td key={d} className="px-1 py-1 text-center">
-                          <div className="inline-flex items-center gap-0.5">
-                            <button
-                              type="button"
-                              disabled={congelado || cant <= 0}
-                              onClick={() =>
-                                guardar.mutate({
-                                  resourceId: f.id,
-                                  day: d,
-                                  cantidad: cant - 1,
-                                  linea,
-                                  precio: f.precio,
-                                })
-                              }
-                              aria-label={`Uno menos de ${f.nombre} el ${d}`}
-                              className="p-0.5 text-gray-300 hover:text-red-600 disabled:opacity-30"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span
-                              className={`w-6 text-center tabular-nums ${
-                                cant > 0 ? "text-gray-900 font-medium" : "text-gray-300"
-                              }`}
-                            >
-                              {cant > 0 ? cant : "·"}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={congelado}
-                              onClick={() =>
-                                guardar.mutate({
-                                  resourceId: f.id,
-                                  day: d,
-                                  cantidad: cant + 1,
-                                  linea,
-                                  precio: f.precio,
-                                })
-                              }
-                              aria-label={`Uno más de ${f.nombre} el ${d}`}
-                              className="p-0.5 text-gray-300 hover:text-blue-600 disabled:opacity-30"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </td>
-                      );
-                    })}
-                    <td className="px-2 py-2 text-right tabular-nums font-medium text-gray-900">
-                      {total}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <NumberInput
-                        value={f.precio || undefined}
-                        min={0}
-                        currency
-                        placeholder="0"
-                        onCommit={(v) => {
-                          const precio = v || 0;
-                          if (precio === f.precio) return;
-                          setPreciosLocales((m) => new Map(m).set(f.id, precio));
-                          if (lineasDelCargo.length > 0)
-                            cambiarValor.mutate({ lineas: lineasDelCargo, precio });
-                        }}
-                        className="w-24 px-2 py-1 text-sm text-right"
-                        aria-label={`Valor de ${f.nombre}`}
-                        disabled={congelado}
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                      {clp(total * f.precio)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="bg-gray-50 border-t border-gray-200">
-                <td className="px-3 py-2 text-gray-500 sticky left-0 bg-gray-50">
-                  Jornadas del día
-                </td>
-                {dias.map((d) => {
-                  const n = filas.reduce((s, f) => s + (f.porDia.get(d)?.quantity || 0), 0);
-                  return (
-                    <td
-                      key={d}
-                      className={`px-2 py-2 text-center tabular-nums ${
-                        n > 0 ? "text-gray-900 font-semibold" : "text-gray-300"
-                      }`}
-                    >
-                      {n > 0 ? n : "·"}
-                    </td>
-                  );
-                })}
-                <td className="px-2 py-2 text-right tabular-nums font-semibold text-gray-900">
-                  {filas.reduce((s, f) => s + totalDe(f), 0)}
-                </td>
-                <td />
-                <td className="px-3 py-2 text-right tabular-nums font-bold text-gray-900">
-                  {clp(costoPersonal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <GrillaDeDias
+          dias={dias}
+          diasFijos={diasDelEvento}
+          congelado={congelado}
+          onQuitarDia={quitarDia}
+          columnaTitulo="Cargo"
+          titulosValores={["Total", "Valor c/u", "Subtotal"]}
+          filas={filasGrilla}
+          pie={{
+            etiqueta: "Jornadas del día",
+            porDia: (d) => {
+              const n = filas.reduce(
+                (s, f) => s + (f.porDia.get(d)?.quantity || 0),
+                0,
+              );
+              return n > 0 ? n : "·";
+            },
+            valores: [
+              filas.reduce((s, f) => s + totalDe(f), 0),
+              null,
+              clp(costoPersonal),
+            ],
+          }}
+        />
       )}
     </div>
   );

@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmInline from "../../components/ConfirmInline";
-import {
-  AlertTriangle,
-  CalendarPlus,
-  Check,
-  Minus,
-  Plus,
-  Users,
-  X,
-} from "lucide-react";
+import { AlertTriangle, CalendarPlus, Check, Users, X } from "lucide-react";
+import GrillaDeDias, {
+  type FilaGrillaDias,
+} from "../../components/grilla/GrillaDeDias";
 import {
   EventResource,
   addEventResource,
@@ -43,19 +38,6 @@ const diasEntre = (desde: string, hasta: string | null): string[] => {
   for (let t = ini; t <= fin; t += DIA_MS)
     out.push(new Date(t).toISOString().slice(0, 10));
   return out;
-};
-
-const rotulo = (isoDia: string) => {
-  const d = new Date(`${isoDia}T12:00:00Z`);
-  return {
-    dia: d
-      .toLocaleDateString("es-CL", { weekday: "short", timeZone: "UTC" })
-      .replace(".", ""),
-    num: d.getUTCDate(),
-    mes: d
-      .toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" })
-      .replace(".", ""),
-  };
 };
 
 export interface EventFixedService {
@@ -608,233 +590,141 @@ export default function EventResourcesSection({
       )}
 
       {/* La grilla solo existe cuando hay algo: "no llenamos
-          innecesariamente la pantalla" (Felipe, 15-08). */}
+          innecesariamente la pantalla" (Felipe, 15-08). Es la pieza de la
+          casa GrillaDeDias, la misma del Personal: anchos idénticos, así
+          las columnas coinciden entre los dos bloques. */}
       {filas.length > 0 && (
-        <div className="border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-3 py-2 text-left font-medium text-gray-500 sticky left-0 bg-gray-50 min-w-[11rem]">
-                  Ítem
-                </th>
-                {dias.map((d) => {
-                  const r = rotulo(d);
-                  const esExtra = !diasDelEvento.has(d);
-                  return (
-                    <th
-                      key={d}
-                      className="px-2 py-2 text-center font-medium text-gray-600 min-w-[4.5rem]"
-                    >
-                      <div className="text-[11px] text-gray-400 leading-none">
-                        {r.dia}
-                      </div>
-                      <div className="leading-tight">
-                        {r.num}
-                        {esExtra && !congelado && (
+        <GrillaDeDias
+          dias={dias}
+          diasFijos={diasDelEvento}
+          congelado={congelado}
+          onQuitarDia={quitarDia}
+          columnaTitulo="Ítem"
+          titulosValores={["Fijo", "Por pers.", "Subtotal"]}
+          filas={filas.map((f): FilaGrillaDias => {
+            const pendiente = f.sinRepartir.reduce(
+              (s2, l) => s2 + (l.quantity || 0),
+              0,
+            );
+            const origen = f.lineas
+              .map((l) =>
+                l.origin_fixed_service_id
+                  ? fixedById.get(l.origin_fixed_service_id)?.nombre
+                  : null,
+              )
+              .find(Boolean);
+            return {
+              id: f.id,
+              masDeshabilitado: f.huerfana,
+              titulo: (
+                <>
+                  <div className="text-gray-900">{f.nombre}</div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {f.proveedor && (
+                      <span className="text-[11px] text-gray-400">
+                        {f.proveedor}
+                      </span>
+                    )}
+                    {f.auto && (
+                      <span
+                        className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700"
+                        title={
+                          origen
+                            ? `importado del servicio fijo ${origen}`
+                            : "importado de un servicio fijo"
+                        }
+                      >
+                        auto
+                      </span>
+                    )}
+                    {f.pp > 0 && (
+                      <span className="text-[11px] text-gray-400">
+                        × {personas} pers. · fijo por evento
+                      </span>
+                    )}
+                    {pendiente > 0 && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] text-amber-700"
+                        title="Cantidad sin día: repártela con los + de cada día y luego elimínala acá"
+                      >
+                        <AlertTriangle className="w-3 h-3" />
+                        {pendiente} sin día
+                        {!congelado && (
                           <button
                             type="button"
-                            onClick={() => quitarDia(d)}
-                            aria-label={`Quitar el día ${d}`}
-                            className="ml-1 text-gray-300 hover:text-red-600 align-middle"
+                            onClick={() => eliminarSinRepartir(f)}
+                            aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
+                            title="Ya la repartí: eliminar la cantidad sin día"
+                            className="text-amber-700 hover:text-red-600"
                           >
-                            <X className="w-3 h-3 inline" />
+                            <X className="w-3 h-3" />
                           </button>
                         )}
-                      </div>
-                      <div className="text-[11px] text-gray-400 leading-none">
-                        {r.mes}
-                      </div>
-                    </th>
-                  );
-                })}
-                <th className="px-2 py-2 text-right font-medium text-gray-500 w-24">
-                  Fijo
-                </th>
-                <th className="px-2 py-2 text-right font-medium text-gray-500 w-24">
-                  Por pers.
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-gray-500 w-28">
-                  Subtotal
-                </th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filas.map((f) => {
-                const pendiente = f.sinRepartir.reduce(
-                  (s, l) => s + (l.quantity || 0),
-                  0,
-                );
-                const origen = f.lineas
-                  .map((l) =>
-                    l.origin_fixed_service_id
-                      ? fixedById.get(l.origin_fixed_service_id)?.nombre
-                      : null,
-                  )
-                  .find(Boolean);
-                return (
-                  <tr key={f.id}>
-                    <td className="px-3 py-2 sticky left-0 bg-white">
-                      <div className="text-gray-900">{f.nombre}</div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {f.proveedor && (
-                          <span className="text-[11px] text-gray-400">
-                            {f.proveedor}
-                          </span>
-                        )}
-                        {f.auto && (
-                          <span
-                            className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700"
-                            title={
-                              origen
-                                ? `importado del servicio fijo ${origen}`
-                                : "importado de un servicio fijo"
-                            }
-                          >
-                            auto
-                          </span>
-                        )}
-                        {f.pp > 0 && (
-                          <span className="text-[11px] text-gray-400">
-                            × {personas} pers. · fijo por evento
-                          </span>
-                        )}
-                        {pendiente > 0 && (
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] text-amber-700"
-                            title="Cantidad sin día: repártela con los + de cada día y luego elimínala acá"
-                          >
-                            <AlertTriangle className="w-3 h-3" />
-                            {pendiente} sin día
-                            {!congelado && (
-                              <button
-                                type="button"
-                                onClick={() => eliminarSinRepartir(f)}
-                                aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
-                                title="Ya la repartí: eliminar la cantidad sin día"
-                                className="text-amber-700 hover:text-red-600"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {dias.map((d) => {
-                      const linea = f.porDia.get(d);
-                      const cant = linea?.quantity || 0;
-                      return (
-                        <td key={d} className="px-1 py-1 text-center">
-                          <div className="inline-flex items-center gap-0.5">
-                            <button
-                              type="button"
-                              disabled={congelado || cant <= 0}
-                              onClick={() => cambiarCantidad(f, d, cant - 1)}
-                              aria-label={`Uno menos de ${f.nombre} el ${d}`}
-                              className="p-0.5 text-gray-300 hover:text-red-600 disabled:opacity-30"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span
-                              className={`w-6 text-center tabular-nums ${
-                                cant > 0
-                                  ? "text-gray-900 font-medium"
-                                  : "text-gray-300"
-                              }`}
-                            >
-                              {cant > 0 ? cant : "·"}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={congelado || f.huerfana}
-                              onClick={() => cambiarCantidad(f, d, cant + 1)}
-                              aria-label={`Uno más de ${f.nombre} el ${d}`}
-                              className="p-0.5 text-gray-300 hover:text-blue-600 disabled:opacity-30"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </td>
-                      );
-                    })}
-                    <td className="px-2 py-1.5 text-right">
-                      <NumberInput
-                        value={f.fijo || undefined}
-                        min={0}
-                        currency
-                        placeholder="0"
-                        disabled={congelado || f.huerfana}
-                        onCommit={(v) => {
-                          const val = v || 0;
-                          if (val !== f.fijo)
-                            cambiarPrecio(f, "price_fixed", val);
-                        }}
-                        className="w-24 px-2 py-1 text-sm text-right"
-                        aria-label={`Precio fijo de ${f.nombre}`}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <NumberInput
-                        value={f.pp || undefined}
-                        min={0}
-                        currency
-                        placeholder="0"
-                        disabled={congelado || f.huerfana}
-                        onCommit={(v) => {
-                          const val = v || 0;
-                          if (val !== f.pp)
-                            cambiarPrecio(f, "price_per_person", val);
-                        }}
-                        className="w-24 px-2 py-1 text-sm text-right"
-                        aria-label={`Precio por persona de ${f.nombre}`}
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                      {clp(subtotalDe(f))}
-                    </td>
-                    <td className="px-1 py-1 text-center">
-                      {confirmRowId === f.id ? (
-                        <ConfirmInline
-                          question={`¿Quitar ${f.nombre}?`}
-                          yesLabel="Quitar"
-                          tono="peligro"
-                          onYes={() => eliminarFila(f)}
-                          onNo={() => setConfirmRowId(null)}
-                        />
-                      ) : (
-                        !congelado && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmRowId(f.id)}
-                            aria-label={`Quitar ${f.nombre}`}
-                            className="p-1 text-gray-300 hover:text-red-600 rounded"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="bg-gray-50 border-t border-gray-200">
-                <td
-                  colSpan={1 + dias.length + 2}
-                  className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase"
-                >
-                  Total arriendos
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums font-bold text-gray-900">
-                  {clp(totalArriendos)}
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                      </span>
+                    )}
+                  </div>
+                </>
+              ),
+              cantidadEn: (d) => f.porDia.get(d)?.quantity || 0,
+              onCambiar: (d, nueva) => cambiarCantidad(f, d, nueva),
+              valores: [
+                <NumberInput
+                  key="f"
+                  value={f.fijo || undefined}
+                  min={0}
+                  currency
+                  placeholder="0"
+                  disabled={congelado || f.huerfana}
+                  onCommit={(v) => {
+                    const val = v || 0;
+                    if (val !== f.fijo) cambiarPrecio(f, "price_fixed", val);
+                  }}
+                  className="w-24 px-2 py-1 text-sm text-right"
+                  aria-label={`Precio fijo de ${f.nombre}`}
+                />,
+                <NumberInput
+                  key="p"
+                  value={f.pp || undefined}
+                  min={0}
+                  currency
+                  placeholder="0"
+                  disabled={congelado || f.huerfana}
+                  onCommit={(v) => {
+                    const val = v || 0;
+                    if (val !== f.pp)
+                      cambiarPrecio(f, "price_per_person", val);
+                  }}
+                  className="w-24 px-2 py-1 text-sm text-right"
+                  aria-label={`Precio por persona de ${f.nombre}`}
+                />,
+                clp(subtotalDe(f)),
+              ],
+              accion:
+                confirmRowId === f.id ? (
+                  <ConfirmInline
+                    question={`¿Quitar ${f.nombre}?`}
+                    yesLabel="Quitar"
+                    tono="peligro"
+                    onYes={() => eliminarFila(f)}
+                    onNo={() => setConfirmRowId(null)}
+                  />
+                ) : congelado ? undefined : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRowId(f.id)}
+                    aria-label={`Quitar ${f.nombre}`}
+                    className="p-1 text-gray-300 hover:text-red-600 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ),
+            };
+          })}
+          pie={{
+            etiqueta: "Total arriendos",
+            valores: [null, null, clp(totalArriendos)],
+          }}
+        />
       )}
 
       {!congelado && (
