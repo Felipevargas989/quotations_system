@@ -152,7 +152,7 @@ export default function GrillaDeDias({
                         disabled={congelado || cant <= 0}
                         onClick={() => f.onCambiar(d, cant - 1)}
                         aria-label={`Uno menos el ${d}`}
-                        className="p-0.5 text-gray-300 hover:text-red-600 disabled:opacity-30"
+                        className="p-1 rounded border border-gray-200 bg-white text-gray-600 hover:text-red-600 hover:border-red-300 disabled:opacity-25"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -170,7 +170,7 @@ export default function GrillaDeDias({
                         disabled={congelado || f.masDeshabilitado}
                         onClick={() => f.onCambiar(d, cant + 1)}
                         aria-label={`Uno más el ${d}`}
-                        className="p-0.5 text-gray-300 hover:text-blue-600 disabled:opacity-30"
+                        className="p-1 rounded border border-gray-200 bg-white text-gray-600 hover:text-blue-600 hover:border-blue-300 disabled:opacity-25"
                       >
                         <Plus className="w-3 h-3" />
                       </button>

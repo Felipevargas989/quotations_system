@@ -433,29 +433,39 @@ export default function EventResourcesSection({
     cantidad: number,
   ) => {
     const linea = f.porDia.get(d);
+    const antes = linea?.quantity || 0;
+    const sumando = cantidad > antes;
     setErr(null);
     if (linea && cantidad <= 0) {
       const { error } = await deleteEventResource(linea.id);
       if (error) setErr("No se pudo guardar");
-      load();
-      return;
-    }
-    if (linea) {
+    } else if (linea) {
       await saveLine(linea.id, { quantity: cantidad });
-      return;
+    } else if (cantidad > 0) {
+      const { error } = await addEventResource({
+        company_id: companyId,
+        quotation_id: quotationId,
+        resource_id: f.id,
+        quantity: cantidad,
+        price_fixed: f.fijo,
+        price_per_person: f.pp,
+        day: d,
+      });
+      if (error) setErr("No se pudo agregar");
+      else flashSaved();
     }
-    if (cantidad <= 0) return;
-    const { error } = await addEventResource({
-      company_id: companyId,
-      quotation_id: quotationId,
-      resource_id: f.id,
-      quantity: cantidad,
-      price_fixed: f.fijo,
-      price_per_person: f.pp,
-      day: d,
-    });
-    if (error) setErr("No se pudo agregar");
-    else flashSaved();
+    // Al SUMAR, primero se MUEVE desde el contador "por ubicar": el aviso
+    // baja solo y desaparece al llegar a 0 (Felipe, 15-08).
+    if (sumando) {
+      const pool = f.sinRepartir.find((l) => (l.quantity || 0) > 0);
+      if (pool) {
+        if ((pool.quantity || 0) > 1)
+          await updateEventResource(pool.id, {
+            quantity: (pool.quantity || 0) - 1,
+          });
+        else await deleteEventResource(pool.id);
+      }
+    }
     load();
   };
 
@@ -659,7 +669,7 @@ export default function EventResourcesSection({
                     {pendiente > 0 && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] text-amber-700"
-                        title={`Este ítem traía ${pendiente} sin fecha (de antes de que la grilla tuviera días). Ponlos en los días con el + y después borra este aviso con la ✕.`}
+                        title={`Este ítem trae ${pendiente} sin fecha. Al sumar con el + se van ubicando solos y este aviso desaparece. La ✕ descarta los que no vayas a usar.`}
                       >
                         <AlertTriangle className="w-3 h-3" />
                         {pendiente} por ubicar en los días
@@ -668,7 +678,7 @@ export default function EventResourcesSection({
                             type="button"
                             onClick={() => eliminarSinRepartir(f)}
                             aria-label={`Descartar los ${pendiente} sin fecha de ${f.nombre}`}
-                            title="Ya los ubiqué: borrar este aviso"
+                            title="Descartar los que quedan"
                             className="text-amber-700 hover:text-red-600"
                           >
                             <X className="w-3 h-3" />

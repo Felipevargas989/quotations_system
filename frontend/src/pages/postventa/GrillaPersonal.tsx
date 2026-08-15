@@ -97,30 +97,42 @@ export default function GrillaPersonal({
       cantidad: number;
       linea?: EventResource;
       precio: number;
+      // El contador "por ubicar": al SUMAR en un día, primero se MUEVE
+      // desde acá — así el aviso baja solo y desaparece al llegar a 0
+      // (Felipe, 15-08: "debería borrarse solo").
+      pendiente?: EventResource;
     }) => {
+      const antes = p.linea?.quantity || 0;
+      const sumando = p.cantidad > antes;
       if (p.linea && p.cantidad <= 0) {
         const { error } = await deleteEventResource(p.linea.id);
         if (error) throw error;
-        return;
-      }
-      if (p.linea) {
+      } else if (p.linea) {
         const { error } = await updateEventResource(p.linea.id, {
           quantity: p.cantidad,
         });
         if (error) throw error;
-        return;
+      } else if (p.cantidad > 0) {
+        const { error } = await addEventResource({
+          company_id: companyId,
+          quotation_id: quotationId,
+          resource_id: p.resourceId,
+          quantity: p.cantidad,
+          price_fixed: p.precio,
+          price_per_person: 0,
+          day: p.day,
+        });
+        if (error) throw error;
       }
-      if (p.cantidad <= 0) return;
-      const { error } = await addEventResource({
-        company_id: companyId,
-        quotation_id: quotationId,
-        resource_id: p.resourceId,
-        quantity: p.cantidad,
-        price_fixed: p.precio,
-        price_per_person: 0,
-        day: p.day,
-      });
-      if (error) throw error;
+      if (sumando && p.pendiente && (p.pendiente.quantity || 0) > 0) {
+        if ((p.pendiente.quantity || 0) > 1) {
+          await updateEventResource(p.pendiente.id, {
+            quantity: (p.pendiente.quantity || 0) - 1,
+          });
+        } else {
+          await deleteEventResource(p.pendiente.id);
+        }
+      }
     },
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
@@ -265,7 +277,7 @@ export default function GrillaPersonal({
           {pendiente > 0 && (
             <span
               className="ml-2 inline-flex items-center gap-1 text-[11px] text-amber-700"
-              title={`Este cargo traía ${pendiente} sin fecha (de antes de que la grilla tuviera días). Ponlos en los días con el + y después borra este aviso con la ✕.`}
+              title={`Este cargo trae ${pendiente} sin fecha. Al sumar con el + se van ubicando solos y este aviso desaparece. La ✕ descarta los que no vayas a usar.`}
             >
               <AlertTriangle className="w-3 h-3" />
               {pendiente} por ubicar en los días
@@ -274,7 +286,7 @@ export default function GrillaPersonal({
                   type="button"
                   onClick={() => eliminarSinDia.mutate(f.sinRepartir!.id)}
                   aria-label={`Descartar los sin fecha de ${f.nombre}`}
-                  title="Ya los ubiqué: borrar este aviso"
+                  title="Descartar los que quedan"
                   className="text-amber-700 hover:text-red-600"
                 >
                   <X className="w-3 h-3" />
@@ -292,6 +304,7 @@ export default function GrillaPersonal({
           cantidad: nueva,
           linea: f.porDia.get(d),
           precio: f.precio,
+          pendiente: f.sinRepartir,
         }),
       valores: [
         <span key="t" className="font-medium text-gray-900">
