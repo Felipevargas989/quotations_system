@@ -38,6 +38,13 @@ Run from `startApi.sh` / `startFront.sh` at the root, or directly in each subdir
 - `npm run lint` — ESLint, `--max-warnings 0`
 - There is no frontend test suite.
 
+⚠ **The backend type-check MUST be run from inside `api-rest/`**:
+`cd api-rest && npx tsc --noEmit -p tsconfig.json`. Running `npx tsc
+--noEmit` from the repo root checks NOTHING and passes green — on
+15-08-2026 that false green let a commit through that had deleted 18
+service methods, and Railway caught it instead. The build that matters
+is `npm run build` (nest build) inside `api-rest/`.
+
 **Pre-commit** (`.pre-commit-config.yaml`) only runs Prettier `format` on each subdir plus
 basic file hygiene. ESLint/type-check/test hooks are intentionally commented out, so CI does
 not enforce them — run lint/tests manually before committing.
