@@ -107,7 +107,7 @@ const rellenarSemana = (persona: Persona): HorarioSemanal | null => {
  *  mueva al escribir una hora, y para que el total caiga alineado bajo
  *  la columna de las horas. */
 const FILA =
-  "grid grid-cols-[7rem_6rem_0.75rem_6rem_4.5rem_auto_3.5rem] items-center gap-2";
+  "grid grid-cols-[7rem_9rem_0.75rem_9rem_4.5rem_auto_3.5rem] items-center gap-2";
 
 export default function PersonaForm({
   persona,
@@ -582,11 +582,10 @@ export default function PersonaForm({
             {/* El total, en la MISMA rejilla: cae justo debajo de la
                 columna de las horas (Felipe, 15-08). */}
             <div className={`${FILA} mt-2 border-t border-gray-200 pt-2`}>
-              <span className="text-sm text-gray-500">
-                {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"}
-              </span>
-              <span className="col-span-5 text-sm text-gray-500">
-                a la semana
+              <span className="col-span-5" />
+              <span className="text-sm text-gray-500 text-right whitespace-nowrap">
+                {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"} a la
+                semana
               </span>
               <span className="text-sm font-bold tabular-nums text-gray-900 text-right">
                 {formatoHoras(horasDeLaSemana)}
