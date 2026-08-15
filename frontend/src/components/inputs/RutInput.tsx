@@ -161,6 +161,7 @@ const RutInput = forwardRef<HTMLInputElement, RutInputProps>(
       transition-colors duration-200
       ${mostrarAviso ? "border-red-500" : "border-gray-300"}
       ${disabled ? "bg-gray-100 cursor-not-allowed opacity-60" : "bg-white"}
+      disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60
     `.trim();
 
     return (

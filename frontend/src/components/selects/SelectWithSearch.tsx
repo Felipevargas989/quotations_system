@@ -155,6 +155,7 @@ export default function SelectWithSearch({
           cursor-pointer bg-white flex items-center justify-between
           ${tamano === "sm" ? "text-sm" : ""}
           ${disabled ? "bg-gray-100 cursor-not-allowed" : ""}
+          disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60
           ${required && !value ? "border-red-300" : ""}
         `}
         onClick={() => !disabled && (isOpen ? cerrar() : abrir())}
