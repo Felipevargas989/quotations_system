@@ -983,14 +983,24 @@ function CasillaAbierta({
                 {etiquetaTipoPersona(a.kind)}
               </span>
               <span className="flex-1" />
-              <NumberInput
-                value={a.amount ?? (a.kind === "planta" ? undefined : fila.precio)}
-                onChange={(v: number | undefined) =>
-                  onCambiar(a.id, { amount: v ?? null })
-                }
-                aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
-                className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-              />
+              {/* La caja del dinero: angosta y con el $ adentro, para
+                  que se sepa qué va ahí (Felipe, 15-08). El NumberInput
+                  ocupa todo el ancho de su contenedor, así que el ancho
+                  se fija ACÁ, no en su className. */}
+              <div className="w-24 relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                  $
+                </span>
+                <NumberInput
+                  value={a.amount ?? (a.kind === "planta" ? undefined : fila.precio)}
+                  onChange={(v: number | undefined) =>
+                    onCambiar(a.id, { amount: v ?? null })
+                  }
+                  placeholder="0"
+                  aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
+                  className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() =>
