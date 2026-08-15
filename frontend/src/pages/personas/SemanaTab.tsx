@@ -111,9 +111,11 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   });
   const { data: personas = [] } = useQuery(peopleQueryOptions);
 
+  // Poner o sacar gente NO cambia las necesidades (esas viven en
+  // Recursos): se refresca solo el staff de ESTA semana — una consulta,
+  // no el catálogo entero de todos los eventos.
   const refrescar = () => {
-    qc.invalidateQueries({ queryKey: ["people", "staff-semana"] });
-    qc.invalidateQueries({ queryKey: ["people", "necesidades"] });
+    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo] });
   };
 
   const poner = useMutation({

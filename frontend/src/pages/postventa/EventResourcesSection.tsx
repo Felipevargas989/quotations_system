@@ -192,6 +192,21 @@ export default function EventResourcesSection({
       queryKey: ["postventa", "recursos", companyId, quotationId],
     });
 
+  // Tras un clic en cantidades solo cambian LAS LÍNEAS: se sincronizan
+  // ellas solas (una consulta) en vez de recargar las cuatro
+  // ("la navegabilidad es lenta", Felipe 15-08). `load()` queda para lo
+  // que sí toca el catálogo: importar y crear.
+  const setLines = (fn: (ls: EventResource[]) => EventResource[]) =>
+    queryClient.setQueryData(
+      ["postventa", "recursos", companyId, quotationId],
+      (prev: { lines: EventResource[] } | undefined) =>
+        prev && { ...prev, lines: fn(prev.lines) },
+    );
+  const sincronizarLineas = async () => {
+    const l = await getEventResources(companyId, quotationId);
+    setLines(() => l);
+  };
+
   const resById = useMemo(
     () => new Map(resources.map((r) => [r.id, r])),
     [resources],
@@ -433,31 +448,76 @@ export default function EventResourcesSection({
     cantidad: number,
   ) => {
     const linea = f.porDia.get(d);
+    // Una línea con id negativo es optimista: aún no existe en el servidor.
+    if (linea && linea.id < 0) return;
     const antes = linea?.quantity || 0;
     const sumando = cantidad > antes;
+    const pool = sumando
+      ? f.sinRepartir.find((l) => (l.quantity || 0) > 0)
+      : undefined;
     setErr(null);
-    if (linea && cantidad <= 0) {
-      const { error } = await deleteEventResource(linea.id);
-      if (error) setErr("No se pudo guardar");
-    } else if (linea) {
-      await saveLine(linea.id, { quantity: cantidad });
-    } else if (cantidad > 0) {
-      const { error } = await addEventResource({
-        company_id: companyId,
-        quotation_id: quotationId,
-        resource_id: f.id,
-        quantity: cantidad,
-        price_fixed: f.fijo,
-        price_per_person: f.pp,
-        day: d,
-      });
-      if (error) setErr("No se pudo agregar");
-      else flashSaved();
-    }
-    // Al SUMAR, primero se MUEVE desde el contador "por ubicar": el aviso
-    // baja solo y desaparece al llegar a 0 (Felipe, 15-08).
-    if (sumando) {
-      const pool = f.sinRepartir.find((l) => (l.quantity || 0) > 0);
+
+    // 1) La pantalla se mueve AL INSTANTE (parche optimista)…
+    setLines((ls) => {
+      let out = ls;
+      if (linea) {
+        out =
+          cantidad <= 0
+            ? out.filter((l) => l.id !== linea.id)
+            : out.map((l) =>
+                l.id === linea.id ? { ...l, quantity: cantidad } : l,
+              );
+      } else if (cantidad > 0) {
+        out = [
+          ...out,
+          {
+            id: -Math.floor(Math.random() * 1e9),
+            quotation_id: quotationId,
+            resource_id: f.id,
+            quantity: cantidad,
+            price_fixed: f.fijo,
+            price_per_person: f.pp,
+            origin_fixed_service_id: null,
+            day: d,
+          } as EventResource,
+        ];
+      }
+      if (pool) {
+        out =
+          (pool.quantity || 0) > 1
+            ? out.map((l) =>
+                l.id === pool.id
+                  ? { ...l, quantity: (l.quantity || 0) - 1 }
+                  : l,
+              )
+            : out.filter((l) => l.id !== pool.id);
+      }
+      return out;
+    });
+
+    // 2) …y el servidor se pone al día atrás.
+    try {
+      if (linea && cantidad <= 0) {
+        const { error } = await deleteEventResource(linea.id);
+        if (error) throw error;
+      } else if (linea) {
+        const { error } = await updateEventResource(linea.id, {
+          quantity: cantidad,
+        });
+        if (error) throw error;
+      } else if (cantidad > 0) {
+        const { error } = await addEventResource({
+          company_id: companyId,
+          quotation_id: quotationId,
+          resource_id: f.id,
+          quantity: cantidad,
+          price_fixed: f.fijo,
+          price_per_person: f.pp,
+          day: d,
+        });
+        if (error) throw error;
+      }
+      // Al SUMAR, primero se MUEVE desde el contador "por ubicar".
       if (pool) {
         if ((pool.quantity || 0) > 1)
           await updateEventResource(pool.id, {
@@ -465,8 +525,12 @@ export default function EventResourcesSection({
           });
         else await deleteEventResource(pool.id);
       }
+      flashSaved();
+    } catch {
+      setErr("No se pudo guardar");
+    } finally {
+      await sincronizarLineas();
     }
-    load();
   };
 
   const cambiarPrecio = async (
@@ -478,15 +542,19 @@ export default function EventResourcesSection({
   };
 
   const eliminarFila = async (f: FilaArriendo) => {
-    for (const l of f.lineas) await deleteEventResource(l.id);
+    const ids = new Set(f.lineas.map((l) => l.id));
+    setLines((ls) => ls.filter((l) => !ids.has(l.id)));
     setNuevos((a) => a.filter((x) => x !== f.id));
     setConfirmRowId(null);
-    load();
+    for (const l of f.lineas) await deleteEventResource(l.id);
+    await sincronizarLineas();
   };
 
   const eliminarSinRepartir = async (f: FilaArriendo) => {
+    const ids = new Set(f.sinRepartir.map((l) => l.id));
+    setLines((ls) => ls.filter((l) => !ids.has(l.id)));
     for (const l of f.sinRepartir) await deleteEventResource(l.id);
-    load();
+    await sincronizarLineas();
   };
 
   const inicioEvento = iso(eventDate);

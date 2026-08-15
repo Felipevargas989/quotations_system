@@ -12,6 +12,7 @@ import { toast } from "../../components/toast/Toast";
 import {
   addEventResource,
   deleteEventResource,
+  getEventResources,
   updateEventResource,
   type EventResource,
 } from "../../services/logistics.service";
@@ -90,6 +91,19 @@ export default function GrillaPersonal({
 
   const refrescar = () => qc.invalidateQueries({ queryKey: opts.queryKey });
 
+  // LA CLAVE DE LA VELOCIDAD (15-08, "la navegabilidad es lenta"):
+  // tras cada clic se sincronizan SOLO las líneas — una consulta — en vez
+  // de invalidar la receta completa, que recargaba recursos, proveedores
+  // e ítems de costo: cuatro consultas por clic.
+  const sincronizarLineas = async () => {
+    const l = await getEventResources(companyId, quotationId);
+    qc.setQueryData(
+      opts.queryKey,
+      (prev: { lines: EventResource[] } | undefined) =>
+        prev && { ...prev, lines: l },
+    );
+  };
+
   const guardar = useMutation({
     mutationFn: async (p: {
       resourceId: number;
@@ -102,6 +116,9 @@ export default function GrillaPersonal({
       // (Felipe, 15-08: "debería borrarse solo").
       pendiente?: EventResource;
     }) => {
+      // Una línea con id negativo es optimista: todavía no existe en el
+      // servidor. El clic siguiente llega tras la sincronización.
+      if (p.linea && p.linea.id < 0) return;
       const antes = p.linea?.quantity || 0;
       const sumando = p.cantidad > antes;
       if (p.linea && p.cantidad <= 0) {
@@ -134,8 +151,59 @@ export default function GrillaPersonal({
         }
       }
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // La pantalla ya se movió (abajo, el parche optimista); acá solo se
+    // reconcilia con los ids reales del servidor.
+    onSettled: () => sincronizarLineas(),
+    onMutate: async (p) => {
+      await qc.cancelQueries({ queryKey: opts.queryKey });
+      const previo = qc.getQueryData(opts.queryKey);
+      qc.setQueryData(
+        opts.queryKey,
+        (old: { lines: EventResource[] } | undefined) => {
+          if (!old) return old;
+          let ls = old.lines;
+          if (p.linea) {
+            ls =
+              p.cantidad <= 0
+                ? ls.filter((l) => l.id !== p.linea!.id)
+                : ls.map((l) =>
+                    l.id === p.linea!.id ? { ...l, quantity: p.cantidad } : l,
+                  );
+          } else if (p.cantidad > 0) {
+            ls = [
+              ...ls,
+              {
+                id: -Math.floor(Math.random() * 1e9),
+                quotation_id: quotationId,
+                resource_id: p.resourceId,
+                quantity: p.cantidad,
+                price_fixed: p.precio,
+                price_per_person: 0,
+                origin_fixed_service_id: null,
+                day: p.day,
+              } as EventResource,
+            ];
+          }
+          const sumando = p.cantidad > (p.linea?.quantity || 0);
+          if (sumando && p.pendiente && (p.pendiente.quantity || 0) > 0) {
+            ls =
+              (p.pendiente.quantity || 0) > 1
+                ? ls.map((l) =>
+                    l.id === p.pendiente!.id
+                      ? { ...l, quantity: (l.quantity || 0) - 1 }
+                      : l,
+                  )
+                : ls.filter((l) => l.id !== p.pendiente!.id);
+          }
+          return { ...old, lines: ls };
+        },
+      );
+      return { previo };
+    },
+    onError: (e: unknown, _p, ctx) => {
+      if (ctx?.previo) qc.setQueryData(opts.queryKey, ctx.previo);
+      toast.error(humanizeApiError(e));
+    },
   });
 
   const eliminarSinDia = useMutation({
