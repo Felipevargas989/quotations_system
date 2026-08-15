@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { X } from "lucide-react";
 import QuantitySelector from "../QuantitySelector";
 
@@ -40,10 +40,17 @@ export interface FilaGrillaDias {
   readonly onCambiar: (dia: string, nueva: number) => void;
   /** Apaga el + de toda la fila (ej: recurso huérfano). */
   readonly masDeshabilitado?: boolean;
-  /** Las tres celdas de la derecha, en el orden de `titulosValores`. */
-  readonly valores: readonly [ReactNode, ReactNode, ReactNode];
+  /** Las tres celdas de la derecha, en el orden de `titulosValores`.
+   *  v2.0: opcionales — la sábana de planificación no las lleva. */
+  readonly valores?: readonly [ReactNode, ReactNode, ReactNode];
   /** La celda de acción del final (ej: quitar la fila). */
   readonly accion?: ReactNode;
+  /** v2.0: banda de grupo (ej: el evento). Filas contiguas con el mismo
+   *  grupo comparten UNA banda. */
+  readonly grupo?: string;
+  /** v2.0: pinta la celda a su manera (la sábana pone su tiene/necesita).
+   *  Sin esto, la celda es el contador de siempre. */
+  readonly renderCelda?: (dia: string) => ReactNode;
 }
 
 export interface PieGrillaDias {
@@ -62,6 +69,7 @@ export default function GrillaDeDias({
   titulosValores,
   filas,
   pie,
+  resaltarDia,
 }: {
   readonly dias: readonly string[];
   /** Los días propios del evento: no llevan ✕. */
@@ -69,9 +77,12 @@ export default function GrillaDeDias({
   readonly congelado?: boolean;
   readonly onQuitarDia: (dia: string) => void;
   readonly columnaTitulo: string;
-  readonly titulosValores: readonly [string, string, string];
+  /** v2.0: opcionales — sin ellos no se pintan las columnas de valores. */
+  readonly titulosValores?: readonly [string, string, string];
   readonly filas: readonly FilaGrillaDias[];
   readonly pie?: PieGrillaDias;
+  /** v2.0: el día a resaltar (normalmente hoy). */
+  readonly resaltarDia?: string;
 }) {
   return (
     <div className="border border-gray-200 rounded-xl overflow-x-auto">
@@ -81,10 +92,14 @@ export default function GrillaDeDias({
           {dias.map((d) => (
             <col key={d} />
           ))}
-          <col className="w-28" />
-          <col className="w-28" />
-          <col className="w-28" />
-          <col className="w-10" />
+          {titulosValores && (
+            <>
+              <col className="w-28" />
+              <col className="w-28" />
+              <col className="w-28" />
+              <col className="w-10" />
+            </>
+          )}
         </colgroup>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
@@ -97,7 +112,9 @@ export default function GrillaDeDias({
               return (
                 <th
                   key={d}
-                  className="px-2 py-2 text-center font-medium text-gray-600"
+                  className={`px-2 py-2 text-center font-medium ${
+                    d === resaltarDia ? "text-blue-700" : "text-gray-600"
+                  }`}
                 >
                   {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — y el
                       espaciador invisible del mismo ancho al otro lado
@@ -125,7 +142,7 @@ export default function GrillaDeDias({
                 </th>
               );
             })}
-            {titulosValores.map((t, i) => (
+            {titulosValores?.map((t, i) => (
               <th
                 key={`${t}-${String(i)}`}
                 className="px-2 py-2 text-right font-medium text-gray-500"
@@ -133,14 +150,33 @@ export default function GrillaDeDias({
                 {t}
               </th>
             ))}
-            <th />
+            {titulosValores && <th />}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {filas.map((f) => (
-            <tr key={f.id}>
-              <td className="px-3 py-2 text-gray-900">{f.titulo}</td>
+          {filas.map((f, i) => (
+            <Fragment key={f.id}>
+              {f.grupo && filas[i - 1]?.grupo !== f.grupo && (
+                <tr className="bg-gray-50/70">
+                  <td
+                    colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
+                    className="px-3 py-1.5 text-xs font-semibold text-gray-700"
+                  >
+                    {f.grupo}
+                  </td>
+                </tr>
+              )}
+            <tr>
+              <td className={`px-3 py-2 text-gray-900 ${f.grupo ? "pl-6" : ""}`}>
+                {f.titulo}
+              </td>
               {dias.map((d) => {
+                if (f.renderCelda)
+                  return (
+                    <td key={d} className="px-1 py-1 text-center">
+                      {f.renderCelda(d)}
+                    </td>
+                  );
                 const cant = f.cantidadEn(d);
                 return (
                   <td key={d} className="px-2 py-1.5">
@@ -158,16 +194,19 @@ export default function GrillaDeDias({
                   </td>
                 );
               })}
-              {f.valores.map((v, i) => (
+              {f.valores?.map((v, vi) => (
                 <td
-                  key={`v-${String(i)}`}
+                  key={`v-${String(vi)}`}
                   className="px-2 py-1.5 text-right tabular-nums text-gray-700"
                 >
                   {v}
                 </td>
               ))}
-              <td className="px-1 py-1 text-center">{f.accion}</td>
+              {titulosValores && (
+                <td className="px-1 py-1 text-center">{f.accion}</td>
+              )}
             </tr>
+            </Fragment>
           ))}
         </tbody>
         {pie && (
@@ -186,15 +225,15 @@ export default function GrillaDeDias({
               ) : (
                 <td colSpan={dias.length} />
               )}
-              {pie.valores.map((v, i) => (
+              {pie.valores.map((v, pi) => (
                 <td
-                  key={`p-${String(i)}`}
+                  key={`p-${String(pi)}`}
                   className="px-2 py-2 text-right tabular-nums font-bold text-gray-900"
                 >
                   {v}
                 </td>
               ))}
-              <td />
+              {titulosValores && <td />}
             </tr>
           </tfoot>
         )}

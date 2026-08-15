@@ -7,6 +7,9 @@ import {
   formatoHoras,
   horasTrabajadas,
 } from "../../components/inputs";
+import GrillaDeDias, {
+  type FilaGrillaDias,
+} from "../../components/grilla/GrillaDeDias";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
@@ -315,53 +318,62 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
 
       {filas.length === 0 ? (
         <p className="text-center py-16 text-gray-500">
-          Nada que armar esta semana: no hay eventos con personal costeado.
+          Nada que armar en este rango: no hay eventos con personal costeado.
         </p>
       ) : (
-        <div className="border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-3 py-2 text-left font-medium text-gray-500 sticky left-0 bg-gray-50 min-w-[11rem]">
-                  Evento · cargo
-                </th>
-                {dias.map((d) => {
-                  const r = rotulo(d);
-                  const esHoy = d === hoyEnChile();
-                  return (
-                    <th
-                      key={d}
-                      className={`px-2 py-2 text-center font-medium min-w-[4.5rem] ${
-                        esHoy ? "text-blue-700" : "text-gray-600"
-                      }`}
-                    >
-                      <div className="text-[11px] text-gray-400 leading-none">{r.dia}</div>
-                      <div className="leading-tight">{r.num}</div>
-                      <div className="text-[11px] text-gray-400 leading-none">{r.mes}</div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {grupos.map(([evento, filasDelEvento]) => (
-                <FilasDeEvento
-                  key={evento}
-                  evento={evento}
-                  filas={filasDelEvento}
-                  dias={dias}
-                  enCasilla={enCasilla}
-                  casilla={casilla}
-                  onAbrir={(dia, fila) =>
-                    setCasilla(
-                      casilla?.dia === dia && casilla.fila === fila ? null : { dia, fila },
-                    )
+        <GrillaDeDias
+          dias={dias}
+          diasFijos={new Set(dias)}
+          onQuitarDia={() => {}}
+          columnaTitulo="Evento · cargo"
+          resaltarDia={hoyEnChile()}
+          filas={filas.map((f): FilaGrillaDias => ({
+            id: `${f.quotationId}|${f.cargoId}`,
+            grupo: f.evento,
+            titulo: (
+              <>
+                {f.cargo}
+                {f.sinRepartir > 0 && (
+                  <span
+                    className="ml-2 text-[11px] text-amber-700"
+                    title="Cupos sin día asignado: repártelos en la grilla del evento (Post-Venta → Gestión)"
+                  >
+                    +{f.sinRepartir} sin día
+                  </span>
+                )}
+              </>
+            ),
+            cantidadEn: (d) => f.necesita.get(d) || 0,
+            onCambiar: () => {},
+            // La celda de la sábana: tiene/necesita, ámbar donde falta,
+            // verde donde está cubierto. Pincha y se abre la casilla.
+            renderCelda: (d) => {
+              const necesita = f.necesita.get(d) || 0;
+              const tiene = enCasilla(f, d).length;
+              if (necesita === 0 && tiene === 0)
+                return <span className="text-gray-200">·</span>;
+              const falta = necesita - tiene;
+              const abierta = casilla?.dia === d && casilla.fila === f;
+              return (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCasilla(abierta ? null : { dia: d, fila: f })
                   }
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
+                    abierta
+                      ? "bg-blue-600 text-white"
+                      : falta > 0
+                        ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  }`}
+                >
+                  {tiene}/{necesita}
+                </button>
+              );
+            },
+          }))}
+        />
       )}
 
       {casilla && (
@@ -379,76 +391,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         />
       )}
     </div>
-  );
-}
-
-function FilasDeEvento({
-  evento,
-  filas,
-  dias,
-  enCasilla,
-  casilla,
-  onAbrir,
-}: {
-  readonly evento: string;
-  readonly filas: FilaSemana[];
-  readonly dias: string[];
-  readonly enCasilla: (f: FilaSemana, d: string) => Asignacion[];
-  readonly casilla: { dia: string; fila: FilaSemana } | null;
-  readonly onAbrir: (dia: string, fila: FilaSemana) => void;
-}) {
-  return (
-    <>
-      <tr className="bg-gray-50/60">
-        <td
-          colSpan={1 + dias.length}
-          className="px-3 py-1.5 text-xs font-semibold text-gray-700 sticky left-0"
-        >
-          {evento}
-        </td>
-      </tr>
-      {filas.map((f) => (
-        <tr key={`${f.quotationId}|${f.cargoId}`}>
-          <td className="px-3 py-2 text-gray-900 sticky left-0 bg-white pl-6">
-            {f.cargo}
-            {f.sinRepartir > 0 && (
-              <span className="ml-2 text-[11px] text-amber-700" title="Cupos sin día asignado">
-                +{f.sinRepartir} sin día
-              </span>
-            )}
-          </td>
-          {dias.map((d) => {
-            const necesita = f.necesita.get(d) || 0;
-            const tiene = enCasilla(f, d).length;
-            const abierta = casilla?.dia === d && casilla.fila === f;
-            if (necesita === 0 && tiene === 0)
-              return (
-                <td key={d} className="px-2 py-2 text-center text-gray-200">
-                  ·
-                </td>
-              );
-            const falta = necesita - tiene;
-            return (
-              <td key={d} className="px-1 py-1 text-center">
-                <button
-                  type="button"
-                  onClick={() => onAbrir(d, f)}
-                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
-                    abierta
-                      ? "bg-blue-600 text-white"
-                      : falta > 0
-                        ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
-                        : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                  }`}
-                >
-                  {tiene}/{necesita}
-                </button>
-              </td>
-            );
-          })}
-        </tr>
-      ))}
-    </>
   );
 }
 
