@@ -106,7 +106,6 @@ export default function GestionTab({
   // Secciones plegables (acordado 22-07): parten PLEGADAS mostrando el
   // resumen en una línea, para que los recursos del evento queden a mano.
   // Abiertos por defecto (03-08): el plegado era por el modal angosto.
-  const [openInsumos, setOpenInsumos] = useState(true);
   const [openMobiliario, setOpenMobiliario] = useState(true);
   const [verInsumos, setVerInsumos] = useState(false);
 
@@ -589,28 +588,6 @@ export default function GestionTab({
                 precios se trabajan en Logística → Compras.
               </p>
               {insumos.length > 0 && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setOpenInsumos((v) => !v)}
-                  className="w-full flex items-center gap-1.5 py-1 mb-1 text-left hover:bg-gray-50 rounded-md px-1"
-                >
-                  {openInsumos ? (
-                    <ChevronDown size={15} className="text-gray-500" />
-                  ) : (
-                    <ChevronRight size={15} className="text-gray-500" />
-                  )}
-                  <span className="text-xs font-bold uppercase text-gray-500">
-                    Insumos
-                  </span>
-                  <span className="text-[11px] text-gray-400">
-                    · {insumos.length} ítem{insumos.length === 1 ? "" : "s"}
-                  </span>
-                  <span className="ml-auto text-sm font-bold text-gray-900">
-                    {fmtMoney(costoInsumos)}
-                  </span>
-                </button>
-                {openInsumos && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
@@ -626,65 +603,65 @@ export default function GestionTab({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody>
                       {agruparPorProveedor(insumos, nombreProveedor).map(
-                        ([prov, items]) => (
+                        ([prov, items], gi) => (
                           <Fragment key={prov}>
-                            <tr className="bg-gray-50/70">
+                            {/* El proveedor es un SEPARADOR: línea gruesa,
+                                nombre en negrita y su subtotal en la misma
+                                línea — sin fila extra ni fondo gris que
+                                compita con el encabezado (Felipe, 15-08). */}
+                            <tr
+                              className={
+                                gi > 0 ? "border-t-4 border-gray-200" : ""
+                              }
+                            >
                               <td
-                                colSpan={3}
-                                className="px-3 py-1.5 text-xs font-semibold text-gray-600"
+                                colSpan={2}
+                                className="px-3 pt-3 pb-1 text-sm font-bold text-gray-900"
                               >
                                 {prov}
                               </td>
-                            </tr>
-                            {items.map((c) => (
-                        <tr key={c.supply.id}>
-                          <td className="px-3 py-2">
-                            <span className="text-gray-900">
-                              {c.supply.name}
-                            </span>
-                            {c.services.length > 1 && (
-                              <>
-                                <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                                  consolidado · {c.services.length} servicios
-                                </span>
-                                <div className="text-[11px] text-gray-400">
-                                  {c.services.join(" + ")}
-                                </div>
-                              </>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
-                            {fmtQty(c.totalBase)}{" "}
-                            {UNIT_FAMILY_INFO[c.supply.unit_family].base}
-                          </td>
-                          <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                            {c.supply.price ? fmtMoney(c.costTotal) : "—"}
-                          </td>
-                        </tr>
-                            ))}
-                            <tr className="bg-gray-50/40">
-                              <td
-                                colSpan={2}
-                                className="px-3 py-1.5 text-right text-[11px] font-semibold text-gray-500"
-                              >
-                                Subtotal {prov}
-                              </td>
-                              <td className="px-3 py-1.5 text-right text-sm font-semibold text-gray-700 whitespace-nowrap">
+                              <td className="px-3 pt-3 pb-1 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
                                 {fmtMoney(
                                   items.reduce(
-                                    (t, c) => t + (c.supply.price ? c.costTotal : 0),
+                                    (t, c) =>
+                                      t + (c.supply.price ? c.costTotal : 0),
                                     0,
                                   ),
                                 )}
                               </td>
                             </tr>
+                            {items.map((c) => (
+                              <tr
+                                key={c.supply.id}
+                                className="border-t border-gray-100"
+                              >
+                                <td className="px-3 py-1.5 pl-6">
+                                  <span className="text-gray-700">
+                                    {c.supply.name}
+                                  </span>
+                                  {c.services.length > 1 && (
+                                    <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                                      consolidado · {c.services.length}{" "}
+                                      servicios
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 text-right whitespace-nowrap text-gray-700">
+                                  {fmtQty(c.totalBase)}{" "}
+                                  {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                                </td>
+                                <td className="px-3 py-1.5 text-right text-gray-500 whitespace-nowrap">
+                                  {c.supply.price ? fmtMoney(c.costTotal) : "—"}
+                                </td>
+                              </tr>
+                            ))}
                           </Fragment>
                         ),
                       )}
                     </tbody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                       <tr>
                         <td
                           colSpan={2}
@@ -699,9 +676,7 @@ export default function GestionTab({
                     </tfoot>
                   </table>
                 </div>
-                )}
-              </div>
-            )}
+              )}
               {sinReceta.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <p className="text-xs font-semibold text-amber-800">
