@@ -161,8 +161,17 @@ export default function PersonaForm({
 
   const bloqueada = datos.status === "bloqueada";
   const faltaMotivo = bloqueada && !(datos.blocked_reason || "").trim();
+  // La CuentaRUT ES el RUT sin el dígito: sin RUT no hay qué guardar. El
+  // 15-08 este caso llegaba hasta el servidor y volvía como error; el
+  // formulario debe frenarlo antes y explicarlo al lado del campo.
+  const cuentaRutSinRut = esCuentaRut && !numeroCuentaRut;
   const puedeGuardar =
-    !!datos.name.trim() && rutOk && !faltaMotivo && !problemaTelefono && !guardando;
+    !!datos.name.trim() &&
+    rutOk &&
+    !faltaMotivo &&
+    !problemaTelefono &&
+    !cuentaRutSinRut &&
+    !guardando;
 
   const enviar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,11 +308,15 @@ export default function PersonaForm({
             readOnly={esCuentaRut}
           />
           {esCuentaRut ? (
-            <p className="text-xs text-gray-500 mt-1 flex items-start gap-1">
+            <p
+              className={`text-xs mt-1 flex items-start gap-1 ${
+                numeroCuentaRut ? "text-gray-500" : "text-amber-700 font-medium"
+              }`}
+            >
               <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               {numeroCuentaRut
                 ? "Se llenó solo: la CuentaRUT es el RUT sin el último dígito."
-                : "Escribe el RUT arriba y el número se llena solo."}
+                : "La CuentaRUT necesita el RUT primero: escríbelo arriba, o deja el tipo de cuenta vacío y complétalo después."}
             </p>
           ) : (
             <p className="text-xs text-gray-500 mt-1">
