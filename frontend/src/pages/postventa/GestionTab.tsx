@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import {
@@ -15,8 +15,7 @@ import {
   QuotationProvisioning,
   getAcceptedEvents,
   getQuotationProvisioning,
-  getEventSupplyProvisions,
-  upsertEventSupplyProvisions,
+  getSuppliers,
 } from "../../services/logistics.service";
 import {
   FurnitureItem,
@@ -55,7 +54,6 @@ export const gestionQueryOpts = (
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
 import GrillaPersonal from "./GrillaPersonal";
-import { NumberInput } from "../../components/inputs";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
@@ -80,6 +78,23 @@ const fmtQty = (n: number) =>
 
 const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
+/** Agrupa los insumos consolidados por proveedor, alfabético, con
+ *  "Sin proveedor" al final. */
+function agruparPorProveedor<T extends { supply: { supplier_id: number | null } }>(
+  items: T[],
+  nombreDe: (id: number | null | undefined) => string,
+): [string, T[]][] {
+  const m = new Map<string, T[]>();
+  for (const c of items) {
+    const k = nombreDe(c.supply.supplier_id);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k)!.push(c);
+  }
+  return [...m.entries()].sort(([a], [b]) =>
+    a === "Sin proveedor" ? 1 : b === "Sin proveedor" ? -1 : a.localeCompare(b),
+  );
+}
+
 export default function GestionTab({
   quote,
 }: {
@@ -95,34 +110,16 @@ export default function GestionTab({
   const [openMobiliario, setOpenMobiliario] = useState(true);
   const [verInsumos, setVerInsumos] = useState(false);
 
-  // Lo confirmado "a pedir" vive en las PROVISIONES — la misma foto que
-  // lee Compras. Gestión decide qué comprar; Compras compra.
-  const provisionesQuery = useQuery({
-    queryKey: ["gestion", "provisiones", companyId],
-    queryFn: () => getEventSupplyProvisions(companyId ?? 0),
+  // Para agrupar el modal de insumos por proveedor (15-08): informativo,
+  // las cantidades a pedir se trabajan en Compras.
+  const proveedoresQuery = useQuery({
+    queryKey: ["gestion", "proveedores", companyId],
+    queryFn: () => getSuppliers(companyId ?? 0),
     enabled: companyId !== null,
   });
-  const provisionDe = (supplyId: number) =>
-    (provisionesQuery.data ?? []).find(
-      (pr) =>
-        String(pr.quotation_id) === String(quote.id) &&
-        pr.supply_id === supplyId,
-    );
-  const confirmarPedido = async (supplyId: number, qty: number, costoUnitario: number, supplierId: number | null) => {
-    if (companyId === null) return;
-    await upsertEventSupplyProvisions([
-      {
-        company_id: companyId,
-        quotation_id: String(quote.id),
-        supply_id: supplyId,
-        qty_base: qty,
-        cost: Math.round(qty * costoUnitario),
-        supplier_id: supplierId,
-        supplier_name: null,
-      },
-    ]);
-    provisionesQuery.refetch();
-  };
+  const nombreProveedor = (id: number | null | undefined) =>
+    (proveedoresQuery.data ?? []).find((sup) => sup.id === id)?.name ??
+    "Sin proveedor";
   // Escape cierra el modal (15-08: "no logro ni cerrarlo").
   useEffect(() => {
     if (!verInsumos) return;
@@ -528,16 +525,7 @@ export default function GestionTab({
             <p className="text-xs text-gray-500 truncate">
               {insumos.length === 0
                 ? "Sin recetas que consolidar"
-                : (() => {
-                    const sinConfirmar = insumos.filter(
-                      (c) => !provisionDe(c.supply.id),
-                    ).length;
-                    return `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"}${
-                      sinConfirmar > 0
-                        ? ` · ${sinConfirmar} por confirmar`
-                        : " · cantidades confirmadas"
-                    }`;
-                  })()}
+                : `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"}`}
               {sinReceta.length > 0 &&
                 ` · ⚠ ${sinReceta.length} ${sinReceta.length === 1 ? "servicio" : "servicios"} sin receta`}
             </p>
@@ -596,10 +584,9 @@ export default function GestionTab({
             </div>
             <div className="px-5 py-4 space-y-4 overflow-y-auto">
               <p className="text-xs text-gray-500">
-                La receta calcula con {personas} personas; acá confirmas
-                cuánto pedir — redondeos, lo que ya hay en bodega. Lo
-                confirmado es lo que ve Compras. Los precios se trabajan en
-                Compras.
+                Calculado de las recetas × {personas} personas, agrupado por
+                proveedor. Solo informativo: las cantidades a pedir y los
+                precios se trabajan en Logística → Compras.
               </p>
               {insumos.length > 0 && (
               <div>
@@ -632,10 +619,7 @@ export default function GestionTab({
                           Insumo
                         </th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                          Receta
-                        </th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                          A pedir
+                          Cantidad
                         </th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                           Costo
@@ -643,7 +627,18 @@ export default function GestionTab({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {insumos.map((c) => (
+                      {agruparPorProveedor(insumos, nombreProveedor).map(
+                        ([prov, items]) => (
+                          <Fragment key={prov}>
+                            <tr className="bg-gray-50/70">
+                              <td
+                                colSpan={3}
+                                className="px-3 py-1.5 text-xs font-semibold text-gray-600"
+                              >
+                                {prov}
+                              </td>
+                            </tr>
+                            {items.map((c) => (
                         <tr key={c.supply.id}>
                           <td className="px-3 py-2">
                             <span className="text-gray-900">
@@ -664,36 +659,30 @@ export default function GestionTab({
                             {fmtQty(c.totalBase)}{" "}
                             {UNIT_FAMILY_INFO[c.supply.unit_family].base}
                           </td>
-                          <td className="px-2 py-1.5 text-right">
-                            <div className="inline-flex items-center gap-1.5">
-                              <NumberInput
-                                value={provisionDe(c.supply.id)?.qty_base ?? undefined}
-                                min={0}
-                                placeholder={fmtQty(c.totalBase)}
-                                onCommit={(v) => {
-                                  if (v === undefined) return;
-                                  confirmarPedido(
-                                    c.supply.id,
-                                    v,
-                                    c.supply.price || 0,
-                                    c.supply.supplier_id ?? null,
-                                  );
-                                }}
-                                className="w-24 px-2 py-1 text-sm text-right"
-                                aria-label={`Cantidad a pedir de ${c.supply.name}`}
-                              />
-                              {provisionDe(c.supply.id) ? (
-                                <span className="text-emerald-600" title="Confirmado — Compras ya lo ve">✓</span>
-                              ) : (
-                                <span className="text-gray-300" title="Sin confirmar">·</span>
-                              )}
-                            </div>
-                          </td>
                           <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
                             {c.supply.price ? fmtMoney(c.costTotal) : "—"}
                           </td>
                         </tr>
-                      ))}
+                            ))}
+                            <tr className="bg-gray-50/40">
+                              <td
+                                colSpan={2}
+                                className="px-3 py-1.5 text-right text-[11px] font-semibold text-gray-500"
+                              >
+                                Subtotal {prov}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-sm font-semibold text-gray-700 whitespace-nowrap">
+                                {fmtMoney(
+                                  items.reduce(
+                                    (t, c) => t + (c.supply.price ? c.costTotal : 0),
+                                    0,
+                                  ),
+                                )}
+                              </td>
+                            </tr>
+                          </Fragment>
+                        ),
+                      )}
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>

@@ -353,10 +353,10 @@ evento se mueve.
 ⚠ **Corregido el 14-08: los precios NO se tocan acá.** Se había acordado
 que el modal actualizara el catálogo; Felipe lo repensó operativamente:
 *"en compras debe estar la actualización de precios y cantidades, que es
-donde trabajamos esta parte del evento"*. El modal de Gestión sirve para
-**confirmar cuánto pedir**: la columna "A pedir" escribe en las
-provisiones — la misma foto que lee Compras. Gestión decide, Compras
-compra.
+donde trabajamos esta parte del evento"*. El modal de Gestión es **solo
+informativo** (decisión final de Felipe, 15-08): cantidad según receta y
+costo, **agrupado por proveedor con subtotales**. Las cantidades a pedir
+y los precios se trabajan en Logística → Compras.
 
 El resumen en Gestión son dos líneas:
 
