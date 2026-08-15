@@ -89,6 +89,15 @@ etapa 7 quedó absorbida por la 3.
 | Cuántos pozos de propina | **Uno para toda la ficha** | **Uno por día y por local** |
 | ¿Suma al costo de un evento? | Sí | No |
 
+**La planta se carga sola (15-08)**: cada persona de planta guarda en su
+ficha sus **días libres** de la semana (`people.days_off`, 0=domingo…
+6=sábado). El botón **"Cargar planta"** de la sábana llena el rango
+visible completo con toda la planta activa, saltándose los libres de
+cada uno y los días donde ya está; esas jornadas nacen **confirmadas**
+(es su horario normal, no una oferta). A alguien de libre igual se le
+puede poner a mano en un día — a veces se le paga ese día aparte — pero
+el buscador de la casilla lo avisa con "⚠ LIBRE este día".
+
 ### Los tres números del personal
 
 Son distintos y **se les permite no calzar** — esa diferencia es justo lo

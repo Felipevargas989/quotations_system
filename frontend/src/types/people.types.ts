@@ -48,6 +48,8 @@ export interface Persona {
   default_starts_at: string | null;
   default_ends_at: string | null;
   default_break_minutes: number | null;
+  /** Días libres semanales (0=domingo..6=sábado). */
+  days_off: number[] | null;
 
   status: EstadoPersona;
   blocked_reason: string | null;
@@ -76,6 +78,7 @@ export interface PersonaFormData {
   default_starts_at?: string | null;
   default_ends_at?: string | null;
   default_break_minutes?: number | null;
+  days_off?: number[] | null;
   status?: EstadoPersona;
   blocked_reason?: string | null;
   notes?: string | null;

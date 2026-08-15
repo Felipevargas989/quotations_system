@@ -158,6 +158,47 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
+  // LA PLANTA SE CARGA SOLA (Felipe, 15-08): toda persona de planta
+  // activa entra a cada día del rango, MENOS sus días libres y los días
+  // donde ya está. Nace confirmada: es su jornada normal, no una oferta.
+  const cargarPlanta = useMutation({
+    mutationFn: async () => {
+      const plantas = personas.filter(
+        (p) => p.status === "activa" && p.default_kind === "planta",
+      );
+      const existentes = new Set(
+        staff
+          .filter((a) => a.quotation_id === null)
+          .map((a) => `${a.person_id}|${iso(a.day)}`),
+      );
+      let creadas = 0;
+      for (const p of plantas) {
+        for (const d of dias) {
+          const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay();
+          if (p.days_off?.includes(diaSemana)) continue;
+          if (existentes.has(`${p.id}|${d}`)) continue;
+          await addStaff({
+            quotation_id: null,
+            person_id: p.id,
+            day: d,
+            status: "confirmado",
+          });
+          creadas += 1;
+        }
+      }
+      return creadas;
+    },
+    onSuccess: (n) => {
+      refrescar();
+      toast.success(
+        n === 0
+          ? "La planta ya estaba cargada en este rango."
+          : `${n} ${n === 1 ? "jornada de planta cargada" : "jornadas de planta cargadas"}.`,
+      );
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   const cambiar = useMutation({
     mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
       updateStaff(p.id, p.cambios),
@@ -413,14 +454,25 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             grupoAccion:
               f.quotationId === null &&
               filas.findIndex((x) => x.quotationId === null) === fi ? (
-                <div className="w-44 font-normal normal-case">
-                  <SelectWithSearchCargos
-                    catalogo={catalogo}
-                    yaVisibles={filas
-                      .filter((x) => x.quotationId === null)
-                      .map((x) => x.cargoId)}
-                    onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
-                  />
+                <div className="flex items-center gap-2 font-normal normal-case">
+                  <button
+                    type="button"
+                    onClick={() => cargarPlanta.mutate()}
+                    disabled={cargarPlanta.isPending}
+                    title="Carga a toda la planta activa en el rango, saltando sus días libres"
+                    className="px-2 py-1 text-xs font-medium text-blue-700 border border-blue-200 rounded-md hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    {cargarPlanta.isPending ? "Cargando…" : "Cargar planta"}
+                  </button>
+                  <div className="w-40">
+                    <SelectWithSearchCargos
+                      catalogo={catalogo}
+                      yaVisibles={filas
+                        .filter((x) => x.quotationId === null)
+                        .map((x) => x.cargoId)}
+                      onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                    />
+                  </div>
                 </div>
               ) : undefined,
             titulo: (
@@ -853,12 +905,17 @@ function CasillaAbierta({
 
   // Los bloqueados y los no disponibles no se ofrecen — pero no se borran:
   // siguen en la libreta, y en la nómina si se les debe.
+  const diaSemana = new Date(`${dia}T00:00:00Z`).getUTCDay();
   const disponibles: SelectOption[] = personas
     .filter((p) => p.status === "activa" && !puestos.has(p.id))
     .map((p) => ({
       value: String(p.id),
       label: p.name,
       hint: [
+        // Si es su día libre se avisa PRIMERO — se puede poner igual
+        // (a veces se le paga el día libre como freelance), pero a
+        // sabiendas.
+        p.days_off?.includes(diaSemana) ? "⚠ LIBRE este día" : undefined,
         p.management_resources?.name,
         p.default_kind === "planta" ? "planta" : undefined,
         p.rut ? formatearRut(p.rut) : "sin RUT",

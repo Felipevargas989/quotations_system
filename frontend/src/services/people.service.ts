@@ -89,6 +89,7 @@ export const addStaff = async (fila: {
   day: string;
   role_id?: number | null;
   kind?: string;
+  status?: string;
   amount?: number | null;
 }) => (await apiRequest(API_ROUTES.PEOPLE_STAFF, "POST", fila)) as Asignacion;
 

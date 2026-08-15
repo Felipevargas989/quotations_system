@@ -63,6 +63,7 @@ const vacia: PersonaFormData = {
   default_starts_at: null,
   default_ends_at: null,
   default_break_minutes: null,
+  days_off: null,
   status: "activa",
   blocked_reason: "",
   notes: "",
@@ -98,6 +99,7 @@ export default function PersonaForm({
       default_starts_at: persona.default_starts_at?.slice(0, 5) ?? null,
       default_ends_at: persona.default_ends_at?.slice(0, 5) ?? null,
       default_break_minutes: persona.default_break_minutes ?? null,
+      days_off: persona.days_off ?? null,
       status: persona.status,
       blocked_reason: persona.blocked_reason ?? "",
       notes: persona.notes ?? "",
@@ -408,6 +410,42 @@ export default function PersonaForm({
             09:00 a 19:00 con 1 h de colación. El día siempre manda.
           </p>
         </div>
+        {datos.default_kind === "planta" && (
+          <div className="mt-4">
+            <label className={etiqueta}>Días libres</label>
+            <div className="flex gap-1">
+              {["D", "L", "M", "M", "J", "V", "S"].map((letra, dia) => {
+                const libre = (datos.days_off ?? []).includes(dia);
+                return (
+                  <button
+                    key={dia}
+                    type="button"
+                    onClick={() => {
+                      const actuales = datos.days_off ?? [];
+                      cambiar({
+                        days_off: libre
+                          ? actuales.filter((x) => x !== dia)
+                          : [...actuales, dia].sort(),
+                      });
+                    }}
+                    aria-label={`${["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dia]} ${libre ? "libre" : "trabaja"}`}
+                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                      libre
+                        ? "bg-amber-100 text-amber-800 border border-amber-300"
+                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {letra}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Los marcados en ámbar son sus libres: la carga automática de
+              planta se los salta.
+            </p>
+          </div>
+        )}
         <p className="text-xs text-gray-500 mt-2">
           Son valores <strong>por defecto</strong>: el día que trabaje de otra
           cosa, se cambia en ese día y no acá.

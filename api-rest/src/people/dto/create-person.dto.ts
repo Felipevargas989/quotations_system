@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsEmail,
   IsIn,
   IsInt,
@@ -90,6 +91,13 @@ export class CreatePersonDto {
   @IsOptional()
   @IsInt()
   default_break_minutes?: number | null;
+
+  // Días libres semanales (0=domingo..6=sábado): la carga automática de
+  // planta se los salta.
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  days_off?: number[] | null;
 
   @IsIn(['activa', 'no_disponible', 'bloqueada'])
   @IsOptional()
