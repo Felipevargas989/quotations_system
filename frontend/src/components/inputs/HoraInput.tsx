@@ -31,9 +31,13 @@ export default function HoraInput({
   readonly className?: string;
   readonly "aria-label"?: string;
 }) {
+  // ANCHO FIJO (Felipe, 15-08: "las columnas de los relojes se mueven
+  // cada vez que escriba las horas"). El campo nativo se encoge y se
+  // estira según lo escrito; con un ancho suficiente para "08:00 a.m."
+  // las columnas quedan quietas.
   const base = compacta
-    ? "border border-gray-200 rounded px-1.5 py-0.5 text-xs bg-white"
-    : "border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    ? "w-24 border border-gray-200 rounded px-1.5 py-0.5 text-xs bg-white"
+    : "w-32 border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent";
   return (
     <input
       type="time"

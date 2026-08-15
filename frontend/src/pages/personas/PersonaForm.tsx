@@ -8,7 +8,12 @@ import {
 } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
-import type { Cargo, Persona, PersonaFormData } from "../../types/people.types";
+import type {
+  Cargo,
+  HorarioSemanal,
+  Persona,
+  PersonaFormData,
+} from "../../types/people.types";
 import {
   BANCOS,
   CODIGO_BANCOESTADO,
@@ -76,6 +81,34 @@ const vacia: PersonaFormData = {
   notes: "",
 };
 
+/** Deja escrito el horario de cada día que la persona trabaja: el suyo
+ *  si lo tiene, y si no el único de su ficha o el estándar de la casa. */
+const rellenarSemana = (persona: Persona): HorarioSemanal | null => {
+  if (persona.default_kind !== "planta") {
+    return persona.weekly_schedule ?? null;
+  }
+  const salida: HorarioSemanal = { ...(persona.weekly_schedule ?? {}) };
+  for (const dia of [0, 1, 2, 3, 4, 5, 6]) {
+    if (persona.days_off?.includes(dia)) {
+      delete salida[String(dia)];
+      continue;
+    }
+    const suyo = salida[String(dia)] ?? {};
+    salida[String(dia)] = {
+      in: suyo.in ?? persona.default_starts_at?.slice(0, 5) ?? "09:00",
+      out: suyo.out ?? persona.default_ends_at?.slice(0, 5) ?? "19:00",
+      break: suyo.break ?? persona.default_break_minutes ?? 60,
+    };
+  }
+  return Object.keys(salida).length > 0 ? salida : null;
+};
+
+/** La rejilla de la jornada semanal: columnas FIJAS para que nada se
+ *  mueva al escribir una hora, y para que el total caiga alineado bajo
+ *  la columna de las horas. */
+const FILA =
+  "grid grid-cols-[7rem_6rem_0.75rem_6rem_4.5rem_auto_3.5rem] items-center gap-2";
+
 export default function PersonaForm({
   persona,
   cargos,
@@ -108,7 +141,11 @@ export default function PersonaForm({
       default_ends_at: persona.default_ends_at?.slice(0, 5) ?? null,
       default_break_minutes: persona.default_break_minutes ?? null,
       days_off: persona.days_off ?? null,
-      weekly_schedule: persona.weekly_schedule ?? null,
+      // EL HORARIO SIEMPRE A LA VISTA (15-08): los días que trabaja y
+      // no tenían horario propio se rellenan con el que les toca —
+      // antes quedaban en blanco y la fila mostraba "—" en las horas,
+      // aunque el total sí los contaba.
+      weekly_schedule: rellenarSemana(persona),
       status: persona.status,
       blocked_reason: persona.blocked_reason ?? "",
       notes: persona.notes ?? "",
@@ -450,7 +487,7 @@ export default function PersonaForm({
                   });
                 };
                 return (
-                  <div key={dia} className="flex items-center gap-2">
+                  <div key={dia} className={FILA}>
                     <button
                       type="button"
                       onClick={() => {
@@ -483,7 +520,7 @@ export default function PersonaForm({
                         }
                       }}
                       aria-label={`${nombre} ${trabaja ? "trabaja" : "libre"}`}
-                      className={`w-28 px-2 py-1.5 rounded-lg text-sm font-medium text-left transition-colors ${
+                      className={`px-2 py-1.5 rounded-lg text-sm font-medium text-left transition-colors ${
                         trabaja
                           ? "bg-blue-600 text-white border border-blue-600"
                           : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
@@ -497,17 +534,21 @@ export default function PersonaForm({
                           value={suyo.in ?? null}
                           onChange={(v) => ponerHorario({ in: v })}
                           compacta
+                          className="w-full"
                           aria-label={`Entrada del ${nombre.toLowerCase()}`}
                         />
-                        <span className="text-xs text-gray-400">a</span>
+                        <span className="text-xs text-gray-400 text-center">
+                          a
+                        </span>
                         <HoraInput
                           value={suyo.out ?? null}
                           onChange={(v) => ponerHorario({ out: v })}
                           compacta
+                          className="w-full"
                           aria-label={`Salida del ${nombre.toLowerCase()}`}
                         />
                         <span className="text-xs text-gray-500">colación</span>
-                        <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
+                        <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs w-fit">
                           {([0, 30, 60] as const).map((min) => (
                             <button
                               key={min}
@@ -524,25 +565,33 @@ export default function PersonaForm({
                             </button>
                           ))}
                         </div>
-                        <span className="text-sm tabular-nums text-gray-600 w-14 text-right">
+                        <span className="text-sm tabular-nums text-gray-600 text-right">
                           {formatoHoras(horas)}
                         </span>
                       </>
                     ) : (
-                      <span className="text-xs text-gray-400">libre</span>
+                      <span className="col-span-6 text-xs text-gray-400">
+                        libre
+                      </span>
                     )}
                   </div>
                 );
               })}
             </div>
 
-            {/* El total de la semana: el número que dice de una si la
-                jornada de esa persona está bien armada. */}
-            <p className="text-sm text-gray-700 mt-2">
-              <strong>{formatoHoras(horasDeLaSemana)}</strong> a la semana
-              <span className="mx-1 text-gray-300">·</span>
-              {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"}
-            </p>
+            {/* El total, en la MISMA rejilla: cae justo debajo de la
+                columna de las horas (Felipe, 15-08). */}
+            <div className={`${FILA} mt-2 border-t border-gray-200 pt-2`}>
+              <span className="text-sm text-gray-500">
+                {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"}
+              </span>
+              <span className="col-span-5 text-sm text-gray-500">
+                a la semana
+              </span>
+              <span className="text-sm font-bold tabular-nums text-gray-900 text-right">
+                {formatoHoras(horasDeLaSemana)}
+              </span>
+            </div>
             <p className="text-xs text-gray-500 mt-1">
               Los apagados son sus días libres: la planta no se proyecta
               esos días.
