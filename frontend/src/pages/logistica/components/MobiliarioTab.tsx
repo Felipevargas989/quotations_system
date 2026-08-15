@@ -588,6 +588,26 @@ export default function MobiliarioTab({
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-gray-50 border-t border-gray-200">
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase"
+                  >
+                    Total valorizado
+                  </td>
+                  <td className="px-4 py-2 text-right font-bold text-gray-900 tabular-nums whitespace-nowrap">
+                    {"$" +
+                      Math.round(
+                        filtered.reduce(
+                          (t, r) => t + (r.stock || 0) * (r.unit_cost || 0),
+                          0,
+                        ),
+                      ).toLocaleString("es-CL")}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
