@@ -75,10 +75,13 @@ export default function GrillaDeDias({
   return (
     <div className="border border-gray-200 rounded-xl overflow-x-auto">
       <table className="w-full text-sm table-fixed min-w-[56rem]">
+        {/* Los DÍAS tienen ancho fijo y el TÍTULO absorbe lo que sobra
+            (corrección de Felipe, 15-08: con pocos días las columnas se
+            comían todo el ancho y las filas quedaban enormes). */}
         <colgroup>
-          <col className="w-56" />
+          <col />
           {dias.map((d) => (
-            <col key={d} />
+            <col key={d} className="w-24" />
           ))}
           <col className="w-28" />
           <col className="w-28" />

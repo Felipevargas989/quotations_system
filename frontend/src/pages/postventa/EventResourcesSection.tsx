@@ -656,24 +656,19 @@ export default function EventResourcesSection({
                         auto
                       </span>
                     )}
-                    {f.pp > 0 && (
-                      <span className="text-[11px] text-gray-400">
-                        × {personas} pers. · fijo por evento
-                      </span>
-                    )}
                     {pendiente > 0 && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] text-amber-700"
-                        title="Cantidad sin día: repártela con los + de cada día y luego elimínala acá"
+                        title={`Este ítem traía ${pendiente} sin fecha (de antes de que la grilla tuviera días). Ponlos en los días con el + y después borra este aviso con la ✕.`}
                       >
                         <AlertTriangle className="w-3 h-3" />
-                        {pendiente} sin día
+                        {pendiente} por ubicar en los días
                         {!congelado && (
                           <button
                             type="button"
                             onClick={() => eliminarSinRepartir(f)}
-                            aria-label={`Eliminar la cantidad sin día de ${f.nombre}`}
-                            title="Ya la repartí: eliminar la cantidad sin día"
+                            aria-label={`Descartar los ${pendiente} sin fecha de ${f.nombre}`}
+                            title="Ya los ubiqué: borrar este aviso"
                             className="text-amber-700 hover:text-red-600"
                           >
                             <X className="w-3 h-3" />
