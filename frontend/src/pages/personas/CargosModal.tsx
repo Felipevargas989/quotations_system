@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Power, X } from "lucide-react";
+import { NumberInput } from "../../components/inputs";
 import { toast } from "../../components/toast/Toast";
 import {
   createRole,
@@ -63,6 +64,16 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
       await refrescar();
       setEditandoId(null);
       toast.success("Cargo renombrado.");
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  const cambiarValorSugerido = useMutation({
+    mutationFn: ({ id, valor }: { id: number; valor: number | null }) =>
+      updateRole(id, { list_price_fixed: valor }),
+    onSuccess: async () => {
+      await refrescar();
+      toast.success("Valor guardado.");
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -157,21 +168,24 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
                 ) : (
                   <>
                     <span className="flex-1 text-gray-900">{c.name}</span>
-                    {/* El precio es de Recursos: acá solo se mira. Es una
-                        SUGERENCIA, no decide nada — quien decide si una
-                        jornada cuesta es la persona (planta o freelance). */}
-                    <span
-                      className="text-xs text-gray-400 tabular-nums"
-                      title={
-                        c.list_price_fixed
-                          ? "Precio sugerido. Se edita en Recursos."
-                          : "Sin precio sugerido todavía"
-                      }
-                    >
-                      {c.list_price_fixed
-                        ? `$${Math.round(c.list_price_fixed).toLocaleString("es-CL")}`
-                        : "—"}
-                    </span>
+                    {/* El valor sugerido SE EDITA ACÁ desde el 15-08: los
+                        cargos salieron de Logística y esta es su única
+                        puerta. Sigue siendo una sugerencia — quien decide
+                        si una jornada cuesta es la persona (planta o
+                        freelance ese día). */}
+                    <NumberInput
+                      value={c.list_price_fixed ?? undefined}
+                      min={0}
+                      currency
+                      placeholder="0"
+                      onCommit={(v) => {
+                        const val = v ?? null;
+                        if (val !== c.list_price_fixed)
+                          cambiarValorSugerido.mutate({ id: c.id, valor: val });
+                      }}
+                      className="w-28 px-2 py-1 text-sm text-right"
+                      aria-label={`Valor sugerido de ${c.name}`}
+                    />
                     <button
                       onClick={() => {
                         setEditandoId(c.id);
@@ -225,9 +239,9 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
           )}
 
           <p className="text-xs text-gray-500">
-            El precio es una <strong>sugerencia</strong> y se edita en
-            Recursos. No decide nada: lo que hace que una jornada cueste plata
-            es que la persona sea freelance ese día, no el cargo.
+            El valor es una <strong>sugerencia</strong> para ahorrar tecleo.
+            No decide nada: lo que hace que una jornada cueste plata es que la
+            persona sea freelance ese día, no el cargo.
           </p>
           <p className="text-xs text-gray-500">
             Si lleva propina o no <strong>no se decide acá</strong>: se decide

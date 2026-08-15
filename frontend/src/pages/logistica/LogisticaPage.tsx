@@ -14,7 +14,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof ShoppingCart }[] = [
   { key: "insumos", label: "Insumos", Icon: Package },
   { key: "mobiliario", label: "Mobiliario", Icon: Armchair },
   { key: "proveedores", label: "Proveedores", Icon: Truck },
-  { key: "recursos", label: "Recursos de gestión", Icon: Users },
+  { key: "recursos", label: "Servicios externos", Icon: Users },
 ];
 
 export default function LogisticaPage() {

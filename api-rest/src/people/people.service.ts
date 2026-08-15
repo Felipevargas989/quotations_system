@@ -112,7 +112,7 @@ export class PeopleService {
 
   updateRole(
     id: number,
-    cambios: { name?: string; is_active?: boolean },
+    cambios: { name?: string; is_active?: boolean; list_price_fixed?: number | null },
     companyId: number,
   ) {
     const limpios = { ...cambios };

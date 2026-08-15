@@ -176,7 +176,7 @@ export class PeopleRepository {
 
   async updateRole(
     id: number,
-    cambios: Partial<Pick<Cargo, 'name' | 'is_active'>>,
+    cambios: Partial<Pick<Cargo, 'name' | 'is_active' | 'list_price_fixed'>>,
     companyId: number,
   ) {
     this.logger.info(`updateRole ${id} with ${JSON.stringify(cambios)}`);

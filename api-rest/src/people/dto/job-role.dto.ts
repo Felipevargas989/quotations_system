@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsNumber,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -25,4 +26,10 @@ export class UpdateJobRoleDto {
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
+
+  // El valor sugerido del cargo. Se edita desde Personal → Cargos desde
+  // el 15-08: los cargos salieron de Logística y esta es su única puerta.
+  @IsNumber()
+  @IsOptional()
+  list_price_fixed?: number | null;
 }

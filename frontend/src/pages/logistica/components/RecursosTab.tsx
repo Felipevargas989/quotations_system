@@ -36,7 +36,8 @@ export default function RecursosTab({
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ManagementResource | null>(null);
   const [name, setName] = useState("");
-  const [type, setType] = useState<ResourceType>("personal");
+  // Todo lo de esta pestaña es un servicio externo.
+  const type: ResourceType = "arriendo";
   const [priceFixed, setPriceFixed] = useState<number>(0);
   const [pricePerPerson, setPricePerPerson] = useState<number>(0);
   const [supplierId, setSupplierId] = useState<string>("");
@@ -91,7 +92,6 @@ export default function RecursosTab({
   const open = (r?: ManagementResource) => {
     setEditing(r || null);
     setName(r?.name || "");
-    setType(r?.type || "personal");
     setPriceFixed(r?.list_price_fixed || 0);
     setPricePerPerson(r?.list_price_per_person || 0);
     setSupplierId(r?.supplier_id ? String(r.supplier_id) : "");
@@ -109,10 +109,10 @@ export default function RecursosTab({
       list_price_fixed: priceFixed > 0 ? priceFixed : null,
       // Regla: el personal nunca se cobra por persona (evita errores de tipeo)
       list_price_per_person:
-        type !== "personal" && pricePerPerson > 0 ? pricePerPerson : null,
+        pricePerPerson > 0 ? pricePerPerson : null,
       // Regla: el personal no lleva proveedor (se contrata directo)
       supplier_id:
-        type !== "personal" && supplierId ? Number(supplierId) : null,
+        supplierId ? Number(supplierId) : null,
     };
     const { error } = editing
       ? await updateManagementResource(editing.id, fields)
@@ -138,6 +138,11 @@ export default function RecursosTab({
   const q = search.trim();
   const inactiveCount = rows.filter((r) => !r.is_active).length;
   const filtered = rows
+    // Los CARGOS (type personal) salieron de acá el 15-08: se administran
+    // en el módulo Personal → Cargos, que es su única puerta. Esta pestaña
+    // es el catálogo de SERVICIOS EXTERNOS. La tabla de fondo sigue siendo
+    // una sola.
+    .filter((r) => r.type !== "personal")
     .filter((r) => showInactive || r.is_active)
     .filter((r) => !q || matchesSearch(q, r.name));
 
@@ -396,27 +401,6 @@ export default function RecursosTab({
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Tipo *
-                </label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  {(Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[]).map(
-                    (t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setType(t)}
-                        className={`px-2 py-2 rounded-lg border text-xs font-semibold ${
-                          type === t
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        {RESOURCE_TYPE_LABEL[t]}
-                      </button>
-                    ),
-                  )}
-                </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">
@@ -436,39 +420,23 @@ export default function RecursosTab({
                     </p>
                   </div>
                   <div>
-                    {type === "personal" ? (
-                      <>
-                        <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">
-                          —
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-gray-400">
-                          El personal se cobra por evento
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <NumberInput
-                          value={pricePerPerson || undefined}
-                          onChange={(v) => setPricePerPerson(v || 0)}
-                          min={0}
-                          formatThousands
-                          placeholder="0"
-                        />
-                        <p className="mt-0.5 text-[11px] text-gray-400">
-                          Por persona (ej: c/silla)
-                        </p>
-                      </>
-                    )}
+                    <NumberInput
+                      value={pricePerPerson || undefined}
+                      onChange={(v) => setPricePerPerson(v || 0)}
+                      min={0}
+                      formatThousands
+                      placeholder="0"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      Por persona (ej: c/silla)
+                    </p>
                   </div>
                 </div>
                 <p className="mt-1 text-xs text-gray-400">
-                  {type === "personal"
-                    ? "Vacío = el valor se asigna en cada evento."
-                    : "Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."}
+                  {"Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."}
                 </p>
               </div>
-              {/* El personal se contrata directo, no lleva proveedor */}
-              {type !== "personal" && (
+              {(
                 <div>
                   <label className="text-xs font-semibold text-gray-600">
                     Proveedor (opcional)
