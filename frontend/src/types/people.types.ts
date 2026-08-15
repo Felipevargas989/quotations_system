@@ -50,6 +50,8 @@ export interface Persona {
   default_break_minutes: number | null;
   /** Días libres semanales (0=domingo..6=sábado). */
   days_off: number[] | null;
+  /** El horario habitual POR DÍA DE LA SEMANA: clave "0".."6". */
+  weekly_schedule: HorarioSemanal | null;
 
   status: EstadoPersona;
   blocked_reason: string | null;
@@ -79,6 +81,7 @@ export interface PersonaFormData {
   default_ends_at?: string | null;
   default_break_minutes?: number | null;
   days_off?: number[] | null;
+  weekly_schedule?: HorarioSemanal | null;
   status?: EstadoPersona;
   blocked_reason?: string | null;
   notes?: string | null;
@@ -98,6 +101,15 @@ export const datosParaPagarCompletos = (p: Persona): boolean =>
  *
  * El cargo y planta/freelance se guardan acá porque son valores DEL DÍA.
  */
+/** El horario de un día de la semana. Lo que falte cae al horario
+ *  único de la ficha, y de ahí al estándar de la casa. */
+export interface HorarioDeDia {
+  in?: string;
+  out?: string;
+  break?: number;
+}
+export type HorarioSemanal = Record<string, HorarioDeDia>;
+
 export interface Asignacion {
   id: number;
   /** NULL = restaurante: el evento permanente, sin fechas. */

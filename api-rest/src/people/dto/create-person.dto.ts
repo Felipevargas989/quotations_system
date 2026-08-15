@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsEmail,
+  IsObject,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -98,6 +99,16 @@ export class CreatePersonDto {
   @IsArray()
   @IsInt({ each: true })
   days_off?: number[] | null;
+
+  // El horario habitual por día de la semana: { "6": { in, out, break } }.
+  // Se valida como objeto y el servicio lo limpia — es una foto chica y
+  // se guarda entera.
+  @IsOptional()
+  @IsObject()
+  weekly_schedule?: Record<
+    string,
+    { in?: string; out?: string; break?: number }
+  > | null;
 
   @IsIn(['activa', 'no_disponible', 'bloqueada'])
   @IsOptional()

@@ -8,7 +8,7 @@ import Estrellas from "../../components/Estrellas";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
-import MiniCalendario from "./MiniCalendario";
+import MiniCalendario, { horarioHabitual } from "./MiniCalendario";
 import {
   addStaff,
   deletePerson,
@@ -17,8 +17,13 @@ import {
   removeStaff,
   rolesQueryOptions,
   updatePerson,
+  updateStaff,
 } from "../../services/people.service";
-import type { Persona, PersonaFormData } from "../../types/people.types";
+import type {
+  Asignacion,
+  Persona,
+  PersonaFormData,
+} from "../../types/people.types";
 import type { EstadoPersona } from "../../utils/estadoPersona";
 import { datosParaPagarCompletos } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -330,6 +335,7 @@ function Caja({
 function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   const qc = useQueryClient();
   const [domingo, setDomingo] = useState(() => domingoDe(hoyEnChile()));
+  const [editandoDia, setEditandoDia] = useState<string | null>(null);
 
   const dias = useMemo(
     () => Array.from({ length: RANGO }, (_, i) => sumarDias(domingo, i)),
@@ -350,26 +356,110 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   );
   const enEventos = suyas.filter((a) => a.quotation_id !== null);
 
-  const refrescar = () =>
-    qc.invalidateQueries({ queryKey: ["people", "staff-semana"] });
+  const clave = ["people", "staff-semana", domingo, RANGO] as const;
+  const refrescar = () => qc.invalidateQueries({ queryKey: clave });
 
+  // MARCAR ES INSTANTÁNEO (Felipe, 15-08: "es lento el asignar días").
+  // El día se pinta al toque con una jornada provisoria de id negativo,
+  // y el guardado ocurre por detrás. Si falla, se devuelve solo.
   const marcar = useMutation({
     mutationFn: (dia: string) =>
       addStaff({ quotation_id: null, person_id: persona.id, day: dia }),
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    onMutate: async (dia: string) => {
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      const hab = horarioHabitual(persona, dia);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) => [
+        ...viejo,
+        {
+          id: -Date.now(),
+          quotation_id: null,
+          person_id: persona.id,
+          day: dia,
+          role_id: persona.default_role_id ?? null,
+          kind: persona.default_kind ?? "freelance",
+          starts_at: hab.in,
+          ends_at: hab.out,
+          break_minutes: hab.break,
+          status: "confirmado",
+          amount: null,
+          notes: null,
+          tip_amount: null,
+          tip_pool_id: null,
+          payroll_id: null,
+          tip_payroll_id: null,
+        } as Asignacion,
+      ]);
+      return { antes };
+    },
+    onError: (e: unknown, _dia, ctx) => {
+      if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
+
   const desmarcar = useMutation({
     mutationFn: (dia: string) => {
       const suya = suyas.find(
-        (a) =>
-          String(a.day).slice(0, 10) === dia && a.quotation_id === null,
+        (a) => String(a.day).slice(0, 10) === dia && a.quotation_id === null,
       );
-      if (!suya) throw new Error("Ese día ya no está");
+      if (!suya || suya.id < 0) throw new Error("Ese día se está guardando");
       return removeStaff(suya.id);
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    onMutate: async (dia: string) => {
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.filter(
+          (a) =>
+            !(
+              String(a.day).slice(0, 10) === dia &&
+              a.quotation_id === null &&
+              a.person_id === persona.id
+            ),
+        ),
+      );
+      return { antes };
+    },
+    onError: (e: unknown, _dia, ctx) => {
+      if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
+  });
+
+  // El horario de un día suelto, también al toque.
+  const cambiarHorario = useMutation({
+    mutationFn: (v: {
+      dia: string;
+      cambios: Parameters<typeof updateStaff>[1];
+    }) => {
+      const suya = suyas.find(
+        (a) => String(a.day).slice(0, 10) === v.dia && a.quotation_id === null,
+      );
+      if (!suya || suya.id < 0) throw new Error("Ese día se está guardando");
+      return updateStaff(suya.id, v.cambios);
+    },
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.map((a) =>
+          String(a.day).slice(0, 10) === v.dia &&
+          a.quotation_id === null &&
+          a.person_id === persona.id
+            ? { ...a, ...v.cambios }
+            : a,
+        ),
+      );
+      return { antes };
+    },
+    onError: (e: unknown, _v, ctx) => {
+      if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
 
   const r0 = new Date(`${domingo}T12:00:00Z`);
@@ -410,9 +500,15 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         dias={dias}
         persona={persona}
         diasQueViene={dePlanta}
+        asignaciones={suyas}
+        editando={editandoDia}
         onMarcar={(d) => marcar.mutate(d)}
         onDesmarcar={(d) => desmarcar.mutate(d)}
-        onCerrar={() => setDomingo(domingoDe(hoyEnChile()))}
+        onEditar={setEditandoDia}
+        onCambiarHorario={(dia, cambios) =>
+          cambiarHorario.mutate({ dia, cambios })
+        }
+        onCerrar={() => setEditandoDia(null)}
       />
 
       {/* Los días de EVENTO se muestran, pero no se marcan acá: esos

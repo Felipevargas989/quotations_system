@@ -171,14 +171,11 @@ export class PeopleService {
       // nace POR CONFIRMAR: "yo planifico y luego las personas
       // confirman" (Felipe). El check de la casilla lo confirma.
       status: dto.status ?? 'por_confirmar',
-      // EL HORARIO VIENE PUESTO (Felipe, 15-08): el día manda, después el
-      // habitual de la persona, y al final el estándar 09:00–19:00 con
-      // 1 h de colación. Solo se toca la excepción.
-      starts_at:
-        dto.starts_at ?? persona.default_starts_at?.slice(0, 5) ?? '09:00',
-      ends_at: dto.ends_at ?? persona.default_ends_at?.slice(0, 5) ?? '19:00',
-      break_minutes:
-        dto.break_minutes ?? persona.default_break_minutes ?? 60,
+      // EL HORARIO VIENE PUESTO. La escalera (15-08): lo del día manda
+      // sobre el del DÍA DE LA SEMANA, ese sobre el horario único de la
+      // ficha, y al final el estándar de la casa. Solo se toca la
+      // excepción.
+      ...horarioDelDia(persona, dto.day, dto),
     });
   }
 
@@ -238,9 +235,9 @@ export class PeopleService {
             role_id: p.default_role_id ?? null,
             amount: null,
             status: 'confirmado',
-            starts_at: p.default_starts_at?.slice(0, 5) ?? '09:00',
-            ends_at: p.default_ends_at?.slice(0, 5) ?? '19:00',
-            break_minutes: p.default_break_minutes ?? 60,
+            // El horario del DÍA DE LA SEMANA que corresponda: el
+            // sábado no se entra a la misma hora que el lunes.
+            ...horarioDelDia(p, d),
           });
           creadas += 1;
         } catch (e) {
@@ -605,4 +602,45 @@ const minutosTrabajados = (
   if (minutos < 0) minutos += 24 * 60;
   minutos -= colacion || 0;
   return Math.max(0, minutos);
+};
+
+/**
+ * El horario que le toca a una persona un día dado, bajando la
+ * escalera: lo que venga escrito para ese día > su horario de ESE día
+ * de la semana > su horario único de la ficha > el estándar de la casa
+ * (09:00 a 19:00 con una hora de colación).
+ */
+export const horarioDelDia = (
+  persona: {
+    weekly_schedule?: Record<
+      string,
+      { in?: string; out?: string; break?: number }
+    > | null;
+    default_starts_at?: string | null;
+    default_ends_at?: string | null;
+    default_break_minutes?: number | null;
+  },
+  dia: string,
+  escrito?: {
+    starts_at?: string | null;
+    ends_at?: string | null;
+    break_minutes?: number | null;
+  },
+) => {
+  const diaSemana = String(new Date(`${dia}T00:00:00Z`).getUTCDay());
+  const suyo = persona.weekly_schedule?.[diaSemana];
+  return {
+    starts_at:
+      escrito?.starts_at ??
+      suyo?.in ??
+      persona.default_starts_at?.slice(0, 5) ??
+      '09:00',
+    ends_at:
+      escrito?.ends_at ??
+      suyo?.out ??
+      persona.default_ends_at?.slice(0, 5) ??
+      '19:00',
+    break_minutes:
+      escrito?.break_minutes ?? suyo?.break ?? persona.default_break_minutes ?? 60,
+  };
 };

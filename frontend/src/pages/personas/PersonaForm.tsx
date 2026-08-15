@@ -66,6 +66,7 @@ const vacia: PersonaFormData = {
   default_ends_at: null,
   default_break_minutes: null,
   days_off: null,
+  weekly_schedule: null,
   status: "activa",
   blocked_reason: "",
   notes: "",
@@ -103,6 +104,7 @@ export default function PersonaForm({
       default_ends_at: persona.default_ends_at?.slice(0, 5) ?? null,
       default_break_minutes: persona.default_break_minutes ?? null,
       days_off: persona.days_off ?? null,
+      weekly_schedule: persona.weekly_schedule ?? null,
       status: persona.status,
       blocked_reason: persona.blocked_reason ?? "",
       notes: persona.notes ?? "",
@@ -415,41 +417,96 @@ export default function PersonaForm({
         </div>
         {datos.default_kind === "planta" && (
           <div className="mt-4">
-            <label className={etiqueta}>Días que trabaja</label>
+            <label className={etiqueta}>Días que trabaja y a qué hora</label>
             {/* Se marcan los días LABORALES, no los libres (corrección
                 de Felipe, 15-08: "es más intuitivo"). En la base igual
                 se guardan los libres (days_off): acá solo se invierte
-                la vista. */}
-            <div className="flex gap-1">
-              {["D", "L", "M", "M", "J", "V", "S"].map((letra, dia) => {
-                const trabaja = !(datos.days_off ?? []).includes(dia);
-                return (
-                  <button
-                    key={dia}
-                    type="button"
-                    onClick={() => {
-                      const libres = datos.days_off ?? [];
-                      cambiar({
-                        days_off: trabaja
-                          ? [...libres, dia].sort((a, b) => a - b)
-                          : libres.filter((x) => x !== dia),
-                      });
-                    }}
-                    aria-label={`${["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dia]} ${trabaja ? "trabaja" : "libre"}`}
-                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
-                      trabaja
-                        ? "bg-blue-600 text-white border border-blue-600"
-                        : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    {letra}
-                  </button>
-                );
-              })}
+                la vista.
+
+                Y cada día lleva SU horario (15-08): "distintos días
+                llegan a distintas horas" — el sábado se entra a las 10
+                y de lunes a viernes a las 8. Vacío = usa el horario
+                habitual de más arriba. */}
+            <div className="space-y-1">
+              {["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map(
+                (nombre, dia) => {
+                  const trabaja = !(datos.days_off ?? []).includes(dia);
+                  const suyo = (datos.weekly_schedule ?? {})[String(dia)] ?? {};
+                  const ponerHorario = (cambio: {
+                    in?: string | null;
+                    out?: string | null;
+                  }) => {
+                    const actual = { ...(datos.weekly_schedule ?? {}) };
+                    const dd = { ...(actual[String(dia)] ?? {}) };
+                    if (cambio.in !== undefined) {
+                      if (cambio.in) dd.in = cambio.in;
+                      else delete dd.in;
+                    }
+                    if (cambio.out !== undefined) {
+                      if (cambio.out) dd.out = cambio.out;
+                      else delete dd.out;
+                    }
+                    if (Object.keys(dd).length === 0) delete actual[String(dia)];
+                    else actual[String(dia)] = dd;
+                    cambiar({
+                      weekly_schedule:
+                        Object.keys(actual).length > 0 ? actual : null,
+                    });
+                  };
+                  return (
+                    <div key={dia} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const libres = datos.days_off ?? [];
+                          cambiar({
+                            days_off: trabaja
+                              ? [...libres, dia].sort((a, b) => a - b)
+                              : libres.filter((x) => x !== dia),
+                          });
+                        }}
+                        aria-label={`${nombre} ${trabaja ? "trabaja" : "libre"}`}
+                        className={`w-28 px-2 py-1.5 rounded-lg text-sm font-medium text-left transition-colors ${
+                          trabaja
+                            ? "bg-blue-600 text-white border border-blue-600"
+                            : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        {nombre}
+                      </button>
+                      {trabaja ? (
+                        <>
+                          <HoraInput
+                            value={suyo.in ?? null}
+                            onChange={(v) => ponerHorario({ in: v })}
+                            compacta
+                            aria-label={`Entrada del ${nombre.toLowerCase()}`}
+                          />
+                          <span className="text-xs text-gray-400">a</span>
+                          <HoraInput
+                            value={suyo.out ?? null}
+                            onChange={(v) => ponerHorario({ out: v })}
+                            compacta
+                            aria-label={`Salida del ${nombre.toLowerCase()}`}
+                          />
+                          {!suyo.in && !suyo.out && (
+                            <span className="text-xs text-gray-400">
+                              el horario habitual
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">libre</span>
+                      )}
+                    </div>
+                  );
+                },
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Los apagados son sus días libres: la carga automática de la
-              planta se los salta.
+              planta se los salta. La hora en blanco usa el horario
+              habitual de arriba.
             </p>
           </div>
         )}

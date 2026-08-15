@@ -39,6 +39,13 @@ export class Person {
   /** Días libres semanales (0=domingo..6=sábado). La carga automática de
    *  planta se los salta. */
   days_off?: number[] | null;
+  /** El horario habitual POR DÍA DE LA SEMANA (15-08): el sábado no se
+   *  entra a la misma hora que el lunes. Clave "0".."6". Sin entrada
+   *  para un día, se usa el horario único de la ficha. */
+  weekly_schedule?: Record<
+    string,
+    { in?: string; out?: string; break?: number }
+  > | null;
 
   status: EstadoPersona;
   blocked_reason?: string | null;
