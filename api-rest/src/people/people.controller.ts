@@ -15,6 +15,10 @@ import { logSafe } from '../logging/log-safe';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
+import {
+  CreateEventStaffDto,
+  UpdateEventStaffDto,
+} from './dto/event-staff.dto';
 import { PeopleService } from './people.service';
 
 @Controller('people')
@@ -57,6 +61,37 @@ export class PeopleController {
   deactivateRole(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /people/roles/${id} (apagar)`);
     return this.peopleService.deactivateRole(+id, user.company_id);
+  }
+
+  // ---- Quién trabaja cada día ----
+  // Antes de las rutas con :id, para que "staff" no se lea como un id.
+
+  @Get('staff')
+  findStaff(@Query('evento') evento: string, @CurrentUser() user: User) {
+    this.logger.info(`GET /people/staff evento ${evento}`);
+    return this.peopleService.findStaff(user.company_id, evento);
+  }
+
+  @Post('staff')
+  addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/staff ${logSafe(dto)}`);
+    return this.peopleService.addStaff(dto, user.company_id);
+  }
+
+  @Patch('staff/:id')
+  updateStaff(
+    @Param('id') id: string,
+    @Body() dto: UpdateEventStaffDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /people/staff/${id}`);
+    return this.peopleService.updateStaff(+id, dto, user.company_id);
+  }
+
+  @Delete('staff/:id')
+  removeStaff(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`DELETE /people/staff/${id}`);
+    return this.peopleService.removeStaff(+id, user.company_id);
   }
 
   // ---- Personas ----

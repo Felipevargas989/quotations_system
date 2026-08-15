@@ -104,6 +104,7 @@ export const API_ROUTES = {
   // people (modulo de gestion de personas)
   PEOPLE: "/people",
   PEOPLE_ROLES: "/people/roles",
+  PEOPLE_STAFF: "/people/staff",
 
   // customer satisfaction survey
   CUSTOMER_SATISFACTION_SURVEY_ANSWERS: "/customer-satisfaction-survey/answers",

@@ -1,6 +1,7 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 import type {
+  Asignacion,
   Persona,
   PersonaFormData,
   Cargo,
@@ -70,3 +71,41 @@ export const rolesQueryOptions = {
   queryKey: ["people", "roles"] as const,
   queryFn: () => getRoles(),
 };
+
+/* ------------------------------------------------------------------ *
+ * QUIÉN TRABAJA CADA DÍA
+ * ------------------------------------------------------------------ */
+
+export const getStaff = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE_STAFF}?evento=${encodeURIComponent(quotationId)}`,
+    "GET",
+  )) as Asignacion[];
+
+export const addStaff = async (fila: {
+  quotation_id: string;
+  person_id: number;
+  day: string;
+  role_id?: number | null;
+  kind?: string;
+  amount?: number | null;
+}) => (await apiRequest(API_ROUTES.PEOPLE_STAFF, "POST", fila)) as Asignacion;
+
+export const updateStaff = async (
+  id: number,
+  cambios: Partial<Pick<Asignacion, "role_id" | "kind" | "status" | "amount">>,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE_STAFF}/${id}`,
+    "PATCH",
+    cambios,
+  )) as Asignacion;
+
+export const removeStaff = async (id: number) =>
+  apiRequest(`${API_ROUTES.PEOPLE_STAFF}/${id}`, "DELETE");
+
+export const staffQueryOptions = (quotationId: string) => ({
+  queryKey: ["people", "staff", quotationId] as const,
+  queryFn: () => getStaff(quotationId),
+  enabled: !!quotationId,
+});

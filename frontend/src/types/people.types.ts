@@ -78,3 +78,30 @@ export interface PersonaFormData {
  *  Sirve para avisarlo en la lista antes de que llegue el día de pago. */
 export const datosParaPagarCompletos = (p: Persona): boolean =>
   !!p.rut && !!p.bank_code && !!p.account_type && !!p.account_number;
+
+/**
+ * UNA PERSONA TRABAJANDO UN DÍA DE UN EVENTO.
+ *
+ * Es el equivalente de la hoja "trabajadores" del Excel: una fila por
+ * persona y por día. La nómina, el detalle del garzón y el costo real son
+ * VISTAS de esto — no guardan nada propio.
+ *
+ * El cargo y planta/freelance se guardan acá porque son valores DEL DÍA.
+ */
+export interface Asignacion {
+  id: number;
+  quotation_id: string;
+  person_id: number;
+  day: string;
+  role_id: number | null;
+  kind: TipoPersona;
+  starts_at: string | null;
+  ends_at: string | null;
+  break_minutes: number | null;
+  status: "confirmado" | "por_confirmar";
+  /** La jornada de ese día. NULL en planta: no cuesta un peso extra. */
+  amount: number | null;
+  notes: string | null;
+  people?: { id: number; name: string; rut: string | null; default_kind: TipoPersona } | null;
+  management_resources?: { id: number; name: string } | null;
+}

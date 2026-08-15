@@ -5,6 +5,10 @@ import { UpdatePersonDto } from './dto/update-person.dto';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
 import { normalizarRut } from './utils/rut';
+import type {
+  CreateEventStaffDto,
+  UpdateEventStaffDto,
+} from './dto/event-staff.dto';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
  *
@@ -116,6 +120,46 @@ export class PeopleService {
     return this.repo.updateRole(id, limpios, companyId);
   }
 
+  // ------------------------------------------------------------------
+  // QUIÉN TRABAJA CADA DÍA
+  // ------------------------------------------------------------------
+
+  findStaff(companyId: number, quotationId: string) {
+    return this.repo.findStaff(companyId, quotationId);
+  }
+
+  /**
+   * Al poner a alguien en un día, el cargo y planta/freelance vienen POR
+   * DEFECTO de su ficha, pero quedan guardados en el día — porque ahí se
+   * pueden cambiar sin tocar a la persona.
+   *
+   * Y si es planta, la jornada es NULL: no cuesta un peso extra. El día
+   * que un planta trabaje en su día libre se marca freelance en ESE día
+   * y ahí sí se le paga.
+   */
+  async addStaff(dto: CreateEventStaffDto, companyId: number) {
+    const persona = await this.repo.findOne(dto.person_id, companyId);
+    const kind = dto.kind ?? persona.default_kind ?? 'freelance';
+    return this.repo.addStaff({
+      ...dto,
+      company_id: companyId,
+      kind,
+      role_id: dto.role_id ?? persona.default_role_id ?? null,
+      amount: kind === 'planta' ? null : (dto.amount ?? null),
+    });
+  }
+
+  updateStaff(id: number, dto: UpdateEventStaffDto, companyId: number) {
+    const cambios: Record<string, unknown> = { ...dto };
+    // Pasar a planta borra la jornada: deja de costar.
+    if (dto.kind === 'planta') cambios.amount = null;
+    return this.repo.updateStaff(id, cambios, companyId);
+  }
+
+  removeStaff(id: number, companyId: number) {
+    return this.repo.removeStaff(id, companyId);
+  }
+
   /**
    * Un cargo no se borra: se apaga.
    *
@@ -129,3 +173,4 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
+

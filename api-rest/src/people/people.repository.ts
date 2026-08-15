@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { Cargo, Person } from './entities/person.entity';
+import { Cargo, EventStaff, Person } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 
 /** Código de Postgres para "ya existe uno igual". */
@@ -197,6 +197,70 @@ export class PeopleRepository {
     }
     if (!data) throw new NotFoundException('No existe ese cargo');
     return data as unknown as Cargo;
+  }
+
+  // ------------------------------------------------------------------
+  // QUIÉN TRABAJA CADA DÍA
+  // ------------------------------------------------------------------
+
+  async findStaff(companyId: number, quotationId: string) {
+    this.logger.info(`findStaff evento ${quotationId}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .order('day');
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
+  async addStaff(row: Record<string, unknown>) {
+    this.logger.info(`addStaff ${JSON.stringify(row)}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .insert([row])
+      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .single();
+    if (error) {
+      if (error.code === YA_EXISTE) {
+        throw new ConflictException('Esa persona ya está puesta ese día');
+      }
+      throw error;
+    }
+    return data as unknown as EventStaff;
+  }
+
+  async updateStaff(
+    id: number,
+    cambios: Record<string, unknown>,
+    companyId: number,
+  ) {
+    this.logger.info(`updateStaff ${id}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .update(cambios)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe esa asignación');
+    return data as unknown as EventStaff;
+  }
+
+  async removeStaff(id: number, companyId: number) {
+    this.logger.info(`removeStaff ${id}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe esa asignación');
+    return data;
   }
 
   /** Cuánta gente lo tiene como cargo por defecto. Un cargo en uso NO se

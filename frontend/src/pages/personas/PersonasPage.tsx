@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import { toast } from "../../components/toast/Toast";
+import ArmarEventoTab from "./ArmarEventoTab";
 import CargosModal from "./CargosModal";
 import PersonaForm from "./PersonaForm";
 import {
@@ -47,6 +49,8 @@ export default function PersonasPage() {
   const [borrando, setBorrando] = useState<number | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [viendoCargos, setViendoCargos] = useState(false);
+  const [pestana, setPestana] = useState<"directorio" | "armar">("directorio");
+  const { company } = useAuth();
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
@@ -135,6 +139,31 @@ export default function PersonasPage() {
           </button>
         </div>
       </div>
+
+      {/* Dos mesas de trabajo: la libreta y el armado de eventos. */}
+      <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+        {([
+          ["directorio", "Directorio"],
+          ["armar", "Armar eventos"],
+        ] as const).map(([id, texto]) => (
+          <button
+            key={id}
+            onClick={() => setPestana(id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              pestana === id
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {texto}
+          </button>
+        ))}
+      </div>
+
+      {pestana === "armar" ? (
+        <ArmarEventoTab companyId={Number(company?.id ?? 0)} />
+      ) : (
+      <>
 
       {/* El aviso que evita el problema del viernes */}
       {sinDatosDePago.length > 0 && (
@@ -278,6 +307,9 @@ export default function PersonasPage() {
             );
           })}
         </ul>
+      )}
+
+      </>
       )}
 
       {viendoCargos && <CargosModal onCerrar={() => setViendoCargos(false)} />}

@@ -64,3 +64,37 @@ export class Cargo {
   last_price: number | null;
   created_at: Date;
 }
+
+/**
+ * UNA PERSONA TRABAJANDO UN DÍA DE UN EVENTO.
+ *
+ * Es el equivalente de la hoja "trabajadores" del Excel: una fila por
+ * persona y por día. La nómina, el detalle del garzón y el costo real son
+ * VISTAS de esta tabla — no guardan nada propio.
+ *
+ * `role_id` y `kind` se guardan acá porque son valores DEL DÍA: Camila
+ * Ganga fue Recepción el 2 de agosto y Garzón el 6; Camila Carvajal, de
+ * planta, cobró jornada el día que trabajó en su día libre.
+ */
+export class EventStaff {
+  id: number;
+  company_id: Company['id'];
+  quotation_id: string;
+  person_id: number;
+
+  day: string;
+  role_id: number | null;
+  kind: TipoPersona;
+
+  starts_at: string | null;
+  ends_at: string | null;
+  break_minutes: number | null;
+
+  status: 'confirmado' | 'por_confirmar';
+  /** La jornada de ese día. NULL en planta: no cuesta un peso extra. */
+  amount: number | null;
+  notes: string | null;
+
+  created_at: Date;
+  updated_at: Date;
+}
