@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import {
@@ -15,6 +15,8 @@ import {
   QuotationProvisioning,
   getAcceptedEvents,
   getQuotationProvisioning,
+  getEventSupplyProvisions,
+  upsertEventSupplyProvisions,
 } from "../../services/logistics.service";
 import {
   FurnitureItem,
@@ -53,6 +55,7 @@ export const gestionQueryOpts = (
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
 import GrillaPersonal from "./GrillaPersonal";
+import { NumberInput } from "../../components/inputs";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
@@ -91,6 +94,44 @@ export default function GestionTab({
   const [openInsumos, setOpenInsumos] = useState(true);
   const [openMobiliario, setOpenMobiliario] = useState(true);
   const [verInsumos, setVerInsumos] = useState(false);
+
+  // Lo confirmado "a pedir" vive en las PROVISIONES — la misma foto que
+  // lee Compras. Gestión decide qué comprar; Compras compra.
+  const provisionesQuery = useQuery({
+    queryKey: ["gestion", "provisiones", companyId],
+    queryFn: () => getEventSupplyProvisions(companyId ?? 0),
+    enabled: companyId !== null,
+  });
+  const provisionDe = (supplyId: number) =>
+    (provisionesQuery.data ?? []).find(
+      (pr) =>
+        String(pr.quotation_id) === String(quote.id) &&
+        pr.supply_id === supplyId,
+    );
+  const confirmarPedido = async (supplyId: number, qty: number, costoUnitario: number, supplierId: number | null) => {
+    if (companyId === null) return;
+    await upsertEventSupplyProvisions([
+      {
+        company_id: companyId,
+        quotation_id: String(quote.id),
+        supply_id: supplyId,
+        qty_base: qty,
+        cost: Math.round(qty * costoUnitario),
+        supplier_id: supplierId,
+        supplier_name: null,
+      },
+    ]);
+    provisionesQuery.refetch();
+  };
+  // Escape cierra el modal (15-08: "no logro ni cerrarlo").
+  useEffect(() => {
+    if (!verInsumos) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVerInsumos(false);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [verInsumos]);
   const [photoView, setPhotoView] = useState<{
     url: string;
     title: string;
@@ -487,7 +528,16 @@ export default function GestionTab({
             <p className="text-xs text-gray-500 truncate">
               {insumos.length === 0
                 ? "Sin recetas que consolidar"
-                : `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"} · ${fmtMoney(costoInsumos)}`}
+                : (() => {
+                    const sinConfirmar = insumos.filter(
+                      (c) => !provisionDe(c.supply.id),
+                    ).length;
+                    return `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"} · ${fmtMoney(costoInsumos)}${
+                      sinConfirmar > 0
+                        ? ` · ${sinConfirmar} por confirmar`
+                        : " · cantidades confirmadas"
+                    }`;
+                  })()}
               {sinReceta.length > 0 &&
                 ` · ⚠ ${sinReceta.length} ${sinReceta.length === 1 ? "servicio" : "servicios"} sin receta`}
             </p>
@@ -505,8 +555,13 @@ export default function GestionTab({
       </div>
 
       {verInsumos && (
-        <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-4">
+        <div
+          className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setVerInsumos(false);
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-4 max-h-[88vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">
                 Insumos del evento
@@ -529,11 +584,12 @@ export default function GestionTab({
                 </button>
               </div>
             </div>
-            <div className="px-5 py-4 space-y-4">
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
               <p className="text-xs text-gray-500">
-                Calculado de las recetas × {personas} personas. Solo lectura:
-                las cantidades a pedir y los precios se trabajan en Logística
-                → Compras.
+                La receta calcula con {personas} personas; acá confirmas
+                cuánto pedir — redondeos, lo que ya hay en bodega. Lo
+                confirmado es lo que ve Compras. Los precios se trabajan en
+                Compras.
               </p>
               {insumos.length > 0 && (
               <div>
@@ -566,7 +622,10 @@ export default function GestionTab({
                           Insumo
                         </th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                          Cantidad total
+                          Receta
+                        </th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                          A pedir
                         </th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                           Costo
@@ -594,6 +653,31 @@ export default function GestionTab({
                           <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
                             {fmtQty(c.totalBase)}{" "}
                             {UNIT_FAMILY_INFO[c.supply.unit_family].base}
+                          </td>
+                          <td className="px-2 py-1.5 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <NumberInput
+                                value={provisionDe(c.supply.id)?.qty_base ?? undefined}
+                                min={0}
+                                placeholder={fmtQty(c.totalBase)}
+                                onCommit={(v) => {
+                                  if (v === undefined) return;
+                                  confirmarPedido(
+                                    c.supply.id,
+                                    v,
+                                    c.supply.price || 0,
+                                    c.supply.supplier_id ?? null,
+                                  );
+                                }}
+                                className="w-24 px-2 py-1 text-sm text-right"
+                                aria-label={`Cantidad a pedir de ${c.supply.name}`}
+                              />
+                              {provisionDe(c.supply.id) ? (
+                                <span className="text-emerald-600" title="Confirmado — Compras ya lo ve">✓</span>
+                              ) : (
+                                <span className="text-gray-300" title="Sin confirmar">·</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
                             {c.supply.price ? fmtMoney(c.costTotal) : "—"}

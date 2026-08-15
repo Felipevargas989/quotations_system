@@ -122,7 +122,7 @@ export type ResourceType = "personal" | "arriendo";
 
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
   personal: "Personal",
-  arriendo: "Arriendos y servicios externos",
+  arriendo: "Servicios externos",
 };
 
 export interface ManagementResource {

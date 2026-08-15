@@ -294,7 +294,7 @@ Los datos, las estrellas con sus últimas evaluaciones, y el estado.
   tienen que decir qué días. Para el arriendo no es lo mismo un día que
   tres.
 - **El tipo "compra" desaparece** (decidido el 14-08). Quedan dos:
-  **personal** y **arriendos y servicios externos** — ahí caben los toldos,
+  **personal** y **servicios externos** — ahí caben los toldos,
   las vans, el audiovisual, los masajes: todo lo que se contrata afuera.
   *"Las compras no tienen sentido"*. Medido en producción antes de
   decidirlo: 7 cosas en el catálogo y **cero usos** desde que existe.
@@ -307,7 +307,7 @@ debajo del otro:
 | | Bloque | Cuándo aparece |
 |---|---|---|
 | 1 | **Personal** | Siempre. La grilla preliminar completa: cargos × días, cantidades y valores, con enlace "Poner nombres →" a la semanal |
-| 2 | **Arriendos y servicios externos** — la MISMA grilla de días que personal | **Solo si hay alguno** — llega por un fijo vendido que lo trae, o a mano con el botón |
+| 2 | **Servicios externos** — la MISMA grilla de días que personal | **Solo si hay alguno** — llega por un fijo vendido que lo trae, o a mano con el botón |
 | 3 | **Insumos** — resumen de dos líneas | Siempre, chico |
 | 4 | **Mobiliario** | Abajo |
 
@@ -353,8 +353,10 @@ evento se mueve.
 ⚠ **Corregido el 14-08: los precios NO se tocan acá.** Se había acordado
 que el modal actualizara el catálogo; Felipe lo repensó operativamente:
 *"en compras debe estar la actualización de precios y cantidades, que es
-donde trabajamos esta parte del evento"*. El modal de Gestión sirve solo
-para **confirmar cuánto pedir**.
+donde trabajamos esta parte del evento"*. El modal de Gestión sirve para
+**confirmar cuánto pedir**: la columna "A pedir" escribe en las
+provisiones — la misma foto que lee Compras. Gestión decide, Compras
+compra.
 
 El resumen en Gestión son dos líneas:
 

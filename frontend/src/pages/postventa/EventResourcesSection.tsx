@@ -619,7 +619,7 @@ export default function EventResourcesSection({
       <div className="flex items-center gap-2 border-b border-gray-200 pb-2 min-h-[54px]">
         <Users size={17} className="text-gray-600" />
         <h4 className="text-base font-bold text-gray-900">
-          Arriendos y servicios externos
+          Servicios externos
         </h4>
         {saved && (
           <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
@@ -828,7 +828,7 @@ export default function EventResourcesSection({
               if (!v) return;
               setNuevos((a) => [...a, Number(v)]);
             }}
-            placeholder="+ Agregar arriendo o servicio externo…"
+            placeholder="+ Agregar servicio externo…"
             searchPlaceholder="Buscar…"
             noResultsText="Sin resultados — los recursos se crean en Logística → Recursos"
           />
