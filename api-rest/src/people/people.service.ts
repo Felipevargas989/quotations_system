@@ -128,6 +128,10 @@ export class PeopleService {
     return this.repo.findStaff(companyId, quotationId);
   }
 
+  findStaffRange(companyId: number, desde: string, hasta: string) {
+    return this.repo.findStaffRange(companyId, desde, hasta);
+  }
+
   /**
    * Al poner a alguien en un día, el cargo y planta/freelance vienen POR
    * DEFECTO de su ficha, pero quedan guardados en el día — porque ahí se

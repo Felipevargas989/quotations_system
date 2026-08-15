@@ -95,7 +95,9 @@ export default function EventResourcesSection({
   // Mini-form de creación al vuelo (inline)
   const [newOpen, setNewOpen] = useState(false);
   const [nName, setNName] = useState("");
-  const [nType, setNType] = useState<ResourceType>("personal");
+  // Todo lo que se crea acá es un arriendo/servicio externo: el
+  // personal nace en el catálogo de cargos (Personas → Cargos).
+  const [nType] = useState<ResourceType>("arriendo");
   const [nPriceFixed, setNPriceFixed] = useState<number>(0);
   const [nPricePerPerson, setNPricePerPerson] = useState<number>(0);
   const [nSupplier, setNSupplier] = useState("");
@@ -131,12 +133,21 @@ export default function EventResourcesSection({
     ((l.price_fixed || 0) + (l.price_per_person || 0) * personas) *
     (l.quantity || 1);
 
+  // El costo COMPLETO del evento (personal incluido): es lo que viaja a
+  // la rentabilidad por onCostChange. En pantalla, cada grupo muestra su
+  // subtotal y el pie muestra solo lo visible (arriendos).
   const total = lines.reduce((s, l) => s + lineTotal(l), 0);
+  const totalVisible = lines
+    .filter((l) => resById.get(l.resource_id)?.type !== "personal")
+    .reduce((s, l) => s + lineTotal(l), 0);
 
   // Agrupación para la tabla: por tipo (personal → arriendo) y,
   // dentro de cada grupo, ordenado por proveedor (sin proveedor al final).
   const grouped = useMemo(() => {
-    const order: ResourceType[] = ["personal", "arriendo"];
+    // Solo arriendos: el personal se planifica en la grilla de Personal
+    // de esta misma pestaña (14-08). Sus líneas EXISTEN igual y se suman
+    // al costo total del evento — solo que no se muestran acá.
+    const order: ResourceType[] = ["arriendo"];
     const byType = (t: ResourceType | undefined) =>
       lines.filter((l) => resById.get(l.resource_id)?.type === t);
     const sortLines = (ls: EventResource[]) =>
@@ -393,6 +404,9 @@ export default function EventResourcesSection({
     const order: ResourceType[] = ["personal", "arriendo"];
     return [...resources]
       .filter((r) => r.is_active !== false)
+      // Solo arriendos: los cargos de personal se agregan desde la grilla
+      // de Personal, no acá (14-08).
+      .filter((r) => r.type !== "personal")
       // AQUÍ APARECEN TODOS LOS CARGOS, tengan precio o no.
       //
       // Hubo un filtro que escondía los cargos sin precio, con la idea de
@@ -434,7 +448,7 @@ export default function EventResourcesSection({
       <div className="flex items-center gap-2 border-b border-gray-200 pb-2 min-h-[54px]">
         <Users size={17} className="text-gray-600" />
         <h4 className="text-base font-bold text-gray-900">
-          Recursos del evento
+          Arriendos y servicios externos
         </h4>
         {saved && (
           <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
@@ -499,7 +513,7 @@ export default function EventResourcesSection({
         options={options}
         value=""
         onChange={addLine}
-        placeholder="Buscar y agregar recurso (garzón, audiovisual…)"
+        placeholder="Buscar y agregar arriendo o servicio externo…"
         searchPlaceholder="Buscar recurso…"
         noResultsText="Sin resultados"
       />
@@ -517,25 +531,10 @@ export default function EventResourcesSection({
           <input
             value={nName}
             onChange={(e) => setNName(e.target.value)}
-            placeholder="Nombre (ej: Garzón turno completo)"
+            placeholder="Nombre (ej: Toldo 10x5, Transporte en van)"
             className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
           />
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setNType(t)}
-                className={`px-2 py-1 rounded-md border text-xs font-semibold ${
-                  nType === t
-                    ? "border-blue-600 bg-white text-blue-700"
-                    : "border-gray-300 text-gray-500"
-                }`}
-              >
-                {RESOURCE_TYPE_LABEL[t]}
-              </button>
-            ))}
-          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <NumberInput
@@ -847,10 +846,10 @@ export default function EventResourcesSection({
           {/* Total general de recursos */}
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-2">
             <span className="text-xs font-semibold text-gray-500 uppercase">
-              Total recursos
+              Total arriendos
             </span>
             <span className="font-bold text-gray-900 whitespace-nowrap">
-              {clp(total)}
+              {clp(totalVisible)}
             </span>
           </div>
         </div>

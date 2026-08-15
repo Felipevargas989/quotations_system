@@ -203,6 +203,24 @@ export class PeopleRepository {
   // QUIÉN TRABAJA CADA DÍA
   // ------------------------------------------------------------------
 
+  /** Todo lo asignado en un rango de fechas, de TODOS los eventos. Es lo
+   *  que alimenta la planificación semanal: Felipe no llena un evento, se
+   *  sienta el lunes y llena la semana. */
+  async findStaffRange(companyId: number, desde: string, hasta: string) {
+    this.logger.info(`findStaffRange ${desde} a ${hasta}`);
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select(
+        '*, people(id, name, rut, default_kind), management_resources(id, name)',
+      )
+      .eq('company_id', companyId)
+      .gte('day', desde)
+      .lte('day', hasta)
+      .order('day');
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
   async findStaff(companyId: number, quotationId: string) {
     this.logger.info(`findStaff evento ${quotationId}`);
     const { data, error } = await this.supabase.client

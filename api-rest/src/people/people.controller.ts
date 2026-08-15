@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -67,9 +68,22 @@ export class PeopleController {
   // Antes de las rutas con :id, para que "staff" no se lea como un id.
 
   @Get('staff')
-  findStaff(@Query('evento') evento: string, @CurrentUser() user: User) {
-    this.logger.info(`GET /people/staff evento ${evento}`);
-    return this.peopleService.findStaff(user.company_id, evento);
+  findStaff(
+    @Query('evento') evento: string | undefined,
+    @Query('desde') desde: string | undefined,
+    @Query('hasta') hasta: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    // Por evento (la ficha) o por rango (la planificación semanal).
+    if (evento) {
+      this.logger.info(`GET /people/staff evento ${evento}`);
+      return this.peopleService.findStaff(user.company_id, evento);
+    }
+    if (desde && hasta) {
+      this.logger.info(`GET /people/staff ${desde} a ${hasta}`);
+      return this.peopleService.findStaffRange(user.company_id, desde, hasta);
+    }
+    throw new BadRequestException('Falta el evento o el rango de fechas');
   }
 
   @Post('staff')

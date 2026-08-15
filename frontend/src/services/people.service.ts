@@ -104,6 +104,13 @@ export const updateStaff = async (
 export const removeStaff = async (id: number) =>
   apiRequest(`${API_ROUTES.PEOPLE_STAFF}/${id}`, "DELETE");
 
+/** Todo lo asignado en un rango de días, de TODOS los eventos. */
+export const getStaffSemana = async (desde: string, hasta: string) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE_STAFF}?desde=${desde}&hasta=${hasta}`,
+    "GET",
+  )) as Asignacion[];
+
 export const staffQueryOptions = (quotationId: string) => ({
   queryKey: ["people", "staff", quotationId] as const,
   queryFn: () => getStaff(quotationId),

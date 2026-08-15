@@ -5,7 +5,7 @@ import { AlertTriangle, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-rea
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import { toast } from "../../components/toast/Toast";
-import ArmarEventoTab from "./ArmarEventoTab";
+import SemanaTab from "./SemanaTab";
 import CargosModal from "./CargosModal";
 import PersonaForm from "./PersonaForm";
 import {
@@ -144,7 +144,7 @@ export default function PersonasPage() {
       <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
         {([
           ["directorio", "Directorio"],
-          ["armar", "Armar eventos"],
+          ["armar", "Semana"],
         ] as const).map(([id, texto]) => (
           <button
             key={id}
@@ -161,7 +161,7 @@ export default function PersonasPage() {
       </div>
 
       {pestana === "armar" ? (
-        <ArmarEventoTab companyId={Number(company?.id ?? 0)} />
+        <SemanaTab companyId={Number(company?.id ?? 0)} />
       ) : (
       <>
 

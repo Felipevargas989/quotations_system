@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { staffQueryOptions } from "../../services/people.service";
 import { useQuery } from "@tanstack/react-query";
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import {
@@ -9,7 +7,7 @@ import {
   ChevronRight,
   Download,
   Package,
-  Users,
+  X,
 } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
@@ -54,6 +52,7 @@ export const gestionQueryOpts = (
 // La propina no es venta ni margen (24-07, Felipe): el porqué y la
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
+import GrillaPersonal from "./GrillaPersonal";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
@@ -78,42 +77,6 @@ const fmtQty = (n: number) =>
 
 const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
-/**
- * EL PERSONAL, RESUMIDO.
- *
- * La grilla de verdad vive en Personas → Armar eventos, porque conseguir
- * gente es una tarea de la semana y no de un evento: Felipe no se sienta a
- * llenar el Joker No 1, se sienta el lunes y llena lo que viene. Acá solo
- * se mira el estado y se va para allá.
- */
-function ResumenPersonal({ quotationId }: { readonly quotationId: string }) {
-  const { data: staff = [] } = useQuery(staffQueryOptions(quotationId));
-  const porConfirmar = staff.filter((a) => a.status === "por_confirmar").length;
-  return (
-    <div className="flex items-center justify-between gap-3 border border-gray-200 rounded-xl px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Users size={17} className="text-gray-600" />
-        <div>
-          <p className="text-base font-bold text-gray-900">Personal</p>
-          <p className="text-xs text-gray-500">
-            {staff.length === 0
-              ? "Todavía no hay nadie asignado a este evento"
-              : `${staff.length} ${staff.length === 1 ? "jornada asignada" : "jornadas asignadas"}${
-                  porConfirmar > 0 ? ` · ${porConfirmar} por confirmar` : ""
-                }`}
-          </p>
-        </div>
-      </div>
-      <Link
-        to="/personas"
-        className="text-sm font-semibold text-blue-600 hover:text-blue-800 shrink-0"
-      >
-        Armar →
-      </Link>
-    </div>
-  );
-}
-
 export default function GestionTab({
   quote,
 }: {
@@ -127,6 +90,7 @@ export default function GestionTab({
   // Abiertos por defecto (03-08): el plegado era por el modal angosto.
   const [openInsumos, setOpenInsumos] = useState(true);
   const [openMobiliario, setOpenMobiliario] = useState(true);
+  const [verInsumos, setVerInsumos] = useState(false);
   const [photoView, setPhotoView] = useState<{
     url: string;
     title: string;
@@ -482,8 +446,19 @@ export default function GestionTab({
           Ver docs/arquitectura/10_MODULO_DE_PERSONAS.md */}
       <div className="space-y-6">
 
-      {/* ---------- Bloque 1: el personal ---------- */}
-      <ResumenPersonal quotationId={String(quote.id)} />
+      {/* ---------- Bloque 1: el personal (preliminar, SIN nombres) ------
+          Qué equipo necesita el evento y cuánto cuesta: cargos, días y
+          valores. Los nombres van en Personas → Semana, porque conseguir
+          gente es tarea de la semana, no de un evento. */}
+      {companyId !== null && isoDate(quote.event_date) && (
+        <GrillaPersonal
+          companyId={companyId}
+          quotationId={String(quote.id)}
+          eventDate={isoDate(quote.event_date) as string}
+          eventEndDate={isoDate(quote.event_end_date) || null}
+          congelado={quote.quotation_status === "realizada"}
+        />
+      )}
 
       {/* ---------- Bloque 2: arriendos y servicios externos ---------- */}
       {companyId !== null && (
@@ -498,42 +473,67 @@ export default function GestionTab({
         />
       )}
 
-      {/* ---------- Bloque 3: Insumos y equipo ---------- */}
-      <div className="space-y-4">
-        {/* Patrón de encabezado del modal (mismo que Recursos del evento y
-            Ficha de cocina): icono + título text-base + divisoria. */}
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 min-h-[54px]">
-          <Package size={17} className="text-gray-600" />
-          <h4 className="text-base font-bold text-gray-900">
-            Insumos y equipo
-          </h4>
-          {!empty && (
-            <button
-              type="button"
-              onClick={downloadExcel}
-              className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
-            >
-              <Download size={15} /> Excel
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 -mt-2">
-          Calculado de las recetas × {personas} personas. Solo lectura.
-        </p>
-
-        {empty ? (
-          <div className="text-center py-8 text-gray-500">
-            <Package className="mx-auto mb-3 text-gray-300" size={34} />
-            <p className="font-medium">Sin recetas que consolidar</p>
-            <p className="text-sm mt-1 max-w-sm mx-auto">
-              Los servicios de este evento aún no tienen receta definida. Se
-              configuran una sola vez en Servicios (gorro de chef /
-              calculadora).
+      {/* ---------- Bloque 3: Insumos — resumen de dos líneas ----------
+          "No puede ocupar media pantalla algo que solo se mira" (Felipe,
+          14-08). El detalle vive en un modal, y las cantidades a pedir y
+          los precios se trabajan en Logística → Compras, no acá. */}
+      <div className="flex items-center justify-between gap-3 border border-gray-200 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Package size={17} className="text-gray-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-base font-bold text-gray-900">Insumos</p>
+            <p className="text-xs text-gray-500 truncate">
+              {insumos.length === 0
+                ? "Sin recetas que consolidar"
+                : `${insumos.length} ${insumos.length === 1 ? "insumo" : "insumos"} · ${fmtMoney(costoInsumos)}`}
+              {sinReceta.length > 0 &&
+                ` · ⚠ ${sinReceta.length} ${sinReceta.length === 1 ? "servicio" : "servicios"} sin receta`}
             </p>
           </div>
-        ) : (
-          <>
-            {insumos.length > 0 && (
+        </div>
+        {insumos.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setVerInsumos(true)}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-800 shrink-0"
+          >
+            Ver detalle
+          </button>
+        )}
+      </div>
+
+      {verInsumos && (
+        <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-4">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Insumos del evento
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={downloadExcel}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
+                >
+                  <Download size={15} /> Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerInsumos(false)}
+                  aria-label="Cerrar"
+                  className="p-1 text-gray-400 hover:text-gray-700 rounded"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <p className="text-xs text-gray-500">
+                Calculado de las recetas × {personas} personas. Solo lectura:
+                las cantidades a pedir y los precios se trabajan en Logística
+                → Compras.
+              </p>
+              {insumos.length > 0 && (
               <div>
                 <button
                   type="button"
@@ -617,8 +617,24 @@ export default function GestionTab({
                 )}
               </div>
             )}
+              {sinReceta.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs font-semibold text-amber-800">
+              ⚠ Servicios sin receta (no incluidos en el cálculo):
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {sinReceta.join(" · ")}
+            </p>
+          </div>
+        )}
+            </div>
+          </div>
+        </div>
+      )}
 
-            {mobiliario.length > 0 && (
+      {/* ---------- Bloque 4: Mobiliario ---------- */}
+      <div className="space-y-2">
+        {mobiliario.length > 0 && (
               <div>
                 <button
                   type="button"
@@ -759,21 +775,7 @@ export default function GestionTab({
                 )}
               </div>
             )}
-          </>
-        )}
-
-        {sinReceta.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-xs font-semibold text-amber-800">
-              ⚠ Servicios sin receta (no incluidos en el cálculo):
-            </p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              {sinReceta.join(" · ")}
-            </p>
-          </div>
-        )}
       </div>
-
 
       </div>
 

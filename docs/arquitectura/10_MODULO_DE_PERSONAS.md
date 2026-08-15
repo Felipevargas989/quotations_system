@@ -216,27 +216,27 @@ llena solo.
 
 ## 5. LAS PANTALLAS
 
-### La grilla — vive en el MÓDULO DE PERSONAS
+### Las DOS grillas — desenredo final (15-08)
 
-⚠ **Corregido el 14-08.** Estaba escrito "vive en Gestión" y se construyó
-así; Felipe lo corrigió: *"para eso hicimos un módulo aparte"*. Y tiene
-razón por una razón de trabajo, no de orden: **conseguir gente no es una
-tarea por evento, es una tarea de la semana.** Él no se sienta a llenar el
-Joker No 1; se sienta el lunes y llena lo que viene. Metida dentro de un
-evento, hay que entrar y salir de cada uno.
+Hubo un enredo con dónde vivía "la grilla", y la respuesta es que **son
+dos, para dos momentos distintos**:
 
-Días en las columnas, cargos en las filas. Arriba cuántos tienes, abajo
-cuántos necesitas, y aviso donde falta. Un evento de 15 días es la misma
-pantalla con 15 columnas.
+| | **Gestión** (por evento) | **Personas → Semana** |
+|---|---|---|
+| Qué se hace | Planificación **preliminar, sin nombres** | Los **nombres** |
+| Contenido | Días × cargos con cantidades y **valores** | La semana entera, con los huecos de **todos** los eventos |
+| Ahí se puede | Agregar cargos, agregar/quitar días (preparativos, desarme), poner el valor de cada cargo | Buscar gente, ponerla, confirmarla, cambiar planta/freelance del día |
+| Pregunta | *"¿qué equipo necesita este evento y cuánto cuesta?"* | *"¿a quién tengo que conseguir esta semana?"* |
 
-Se pincha una casilla y se abren las personas de ese día con su horario,
-su tipo y su estado.
+La semanal corre de **domingo a sábado**, como la semana real del negocio
+(capítulo 10). Es la mesa del lunes: Felipe no se sienta a llenar el Joker
+No 1, se sienta a llenar la semana.
 
-**Es UNA sola pantalla**, no un resumen y otra donde se carga: repartir por
-día y poner nombres se hacen en el mismo lugar.
+Se pincha una casilla y se abren las personas de ese día: quién va, su
+tipo (planta/freelance del día), su monto, confirmada o por confirmar.
 
-**En Gestión queda solo el resumen** —"personal: 15 jornadas · faltan 3"—
-con un enlace. Nada que se escriba.
+Los cupos sin día asignado se avisan en la semanal y **se reparten en la
+grilla del evento**, no ahí.
 
 **Los días se pueden agregar aunque la cotización diga otra cosa** — hacen
 falta para los días de preparativo y de desarme, que hoy no están en
@@ -306,7 +306,7 @@ debajo del otro:
 
 | | Bloque | Cuándo aparece |
 |---|---|---|
-| 1 | **Personas** | Siempre. Solo el resumen y el enlace a la grilla |
+| 1 | **Personal** | Siempre. La grilla preliminar completa: cargos × días, cantidades y valores, con enlace "Poner nombres →" a la semanal |
 | 2 | **Arriendos y servicios externos** — con su día y su proveedor | **Solo si hay alguno** |
 | 3 | **Insumos** — resumen de dos líneas | Siempre, chico |
 | 4 | **Mobiliario** | Abajo |
@@ -413,7 +413,7 @@ Cada etapa se prueba sola y no rompe lo anterior.
 |---|---|---|
 | **1** | La ficha de la persona: datos y bancarios. Campo de RUT y los dos desplegables | Cargar gente y dejar de pedirle los datos al garzón |
 | **2** | Estados y estrellas | Bloquear, marcar no disponible, ordenar por estrellas |
-| **3** | Recursos con día. **La grilla en Personas** | Asignar personas a días y ver la cobertura |
+| **3** | Recursos con día. La grilla preliminar en **Gestión** y la semanal con nombres en **Personas** | Asignar personas a días y ver la cobertura |
 | **4** | Horas, colación, ciclo de la ficha | Ajustar horas reales y cerrar |
 | **5** | El reparto de propinas | Repartir con plantillas y que cuadre al peso |
 | **6** | La nómina, el pago y el detalle | Pagar una tanda completa |
