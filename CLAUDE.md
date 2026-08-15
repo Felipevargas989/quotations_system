@@ -94,6 +94,38 @@ Backend env (`api-rest/.env`, see `.env.example`): `SUPABASE_URL`,
 - **Styling**: Tailwind CSS. Icons via `lucide-react`. Charts via `chart.js`/`react-chartjs-2`.
 - **External data**: bulk service import reads `.xlsx` via `xlsx` (the old Google
   Sheets integration was removed 2026-07-28 — it was dead code).
+## ANTES DE PROGRAMAR: LEER LA ARQUITECTURA ACORDADA
+
+**Regla de la casa, puesta por Felipe el 14-08-2026.** Cuando un módulo
+tiene una arquitectura conversada y escrita, **se lee ANTES de escribir
+código** — completa, no de memoria.
+
+Sus palabras: *"revisa la arquitectura hablada siempre antes de construir,
+por si olvidas por los límites de tu memoria"*.
+
+No es ceremonia. El mismo día que se puso la regla pasaron estas tres:
+
+1. Se creó una tabla de cargos que **el sistema ya tenía** en otra parte —
+   el frankenstein exacto que ese módulo venía a evitar.
+2. Se preguntó de nuevo si la cantidad de un recurso era por día o total,
+   **cuando ya estaba decidido y escrito** ("se necesitan diez personas,
+   pero no diez personas el mismo día").
+3. Se inventó una regla —"el precio decide si un cargo se contrata"— que
+   contradecía algo ya acordado: que planta o freelance es un atributo de
+   **la persona**, no del cargo.
+
+Las tres se habrían evitado leyendo el documento.
+
+| Módulo | Documento |
+|---|---|
+| Gestión de Personas | `00_DOCUMENTACION/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
+| Homologación de piezas | `00_DOCUMENTACION/09_PLAN_DE_HOMOLOGACION.md` |
+
+**Si el documento contradice lo que uno cree recordar, manda el
+documento.** Y si la conversación cambia una decisión, **se actualiza el
+documento en el mismo movimiento** — un acuerdo que solo vive en el chat
+se pierde en la próxima sesión.
+
 ## The house kit — REUSE BEFORE YOU WRITE UI
 
 **Rule: before writing any piece of interface, check `src/components/` and

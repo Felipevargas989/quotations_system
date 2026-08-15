@@ -9,7 +9,7 @@ import {
   IsString,
   IsUUID,
   ValidateNested,
-} from 'class-validator';
+  Matches,} from 'class-validator';
 
 // Mudanza #6 "una sola puerta" (28-07): COMPRAS, provisiones, recursos
 // de evento, ficha de cocina, recetas y costos fijos — el resto de
@@ -112,6 +112,13 @@ export class EventResourceRowDto {
   @IsOptional()
   @IsInt()
   origin_fixed_service_id?: number | null;
+
+  // El día del evento al que corresponde esta cantidad. NULL = sin
+  // repartir. La cantidad de una línea SIEMPRE fue el total del evento;
+  // repartirla no cambia el costo, solo dice cuándo va cada uno.
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  day?: string | null;
 }
 
 export class AddEventResourcesDto {
@@ -125,6 +132,10 @@ export class UpdateEventResourceDto {
   @IsOptional()
   @IsNumber()
   quantity?: number;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  day?: string | null;
 
   @IsOptional()
   @IsNumber()
