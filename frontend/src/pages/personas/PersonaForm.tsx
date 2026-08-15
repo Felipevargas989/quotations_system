@@ -236,7 +236,9 @@ export default function PersonaForm({
   const problemaTelefono = phoneProblem(datos.phone || "");
 
   const bloqueada = datos.status === "bloqueada";
-  const faltaMotivo = bloqueada && !(datos.blocked_reason || "").trim();
+  // El motivo de bloqueo se escribe en la CABECERA de la ficha, junto
+  // al estado (15-08): acá ya no hay campo, así que tampoco frena el
+  // guardado.
   // La CuentaRUT ES el RUT sin el dígito: sin RUT no hay qué guardar. El
   // 15-08 este caso llegaba hasta el servidor y volvía como error; el
   // formulario debe frenarlo antes y explicarlo al lado del campo.
@@ -244,7 +246,6 @@ export default function PersonaForm({
   const puedeGuardar =
     !!datos.name.trim() &&
     rutOk &&
-    !faltaMotivo &&
     !problemaTelefono &&
     !cuentaRutSinRut &&
     !guardando;
@@ -649,57 +650,9 @@ export default function PersonaForm({
         </p>
       </fieldset>
 
-      {/* ---------- Si se puede llamar ----------
-           El SELECTOR de estado vive arriba, en la cabecera de la ficha
-           (Felipe, 15-08): es una decisión rápida y frecuente, no un
-           dato que se llena una vez. Acá abajo queda solo el motivo,
-           que sí es de escribir. En "Nueva persona" el selector sigue
-           acá, porque todavía no hay cabecera. */}
-      <fieldset
-        disabled={datosBajoLlave}
-        className={`border-t border-gray-200 pt-4 ${
-          datosBajoLlave ? "opacity-70" : ""
-        }`}
-      >
-        <legend className="text-sm font-semibold text-gray-900 mb-3">
-          Situación
-        </legend>
-        {!sinSelectorDeEstado && (
-          <div className="sm:w-1/2">
-            <SelectWithSearch
-              options={opcionesEstado}
-              value={datos.status ?? "activa"}
-              onChange={(v) => cambiar({ status: v as EstadoPersona })}
-              mostrarConteo={false}
-            />
-          </div>
-        )}
-
-        {bloqueada && (
-          <div className="mt-3">
-            <label htmlFor="p-motivo" className={etiqueta}>
-              ¿Por qué se bloquea? <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="p-motivo"
-              type="text"
-              value={datos.blocked_reason || ""}
-              onChange={(e) => cambiar({ blocked_reason: e.target.value })}
-              className={`${caja} ${faltaMotivo ? "border-red-500" : ""}`}
-              placeholder="No llegó a dos eventos seguidos"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              En ocho meses nadie se acuerda del motivo. Bloquear no impide
-              pagarle lo que ya trabajó.
-            </p>
-          </div>
-        )}
-      </fieldset>
-
-      <fieldset
-        disabled={datosBajoLlave}
-        className={datosBajoLlave ? "opacity-70" : ""}
-      >
+      {/* Las notas quedan siempre abiertas (Felipe, 15-08): son un
+          apunte de trabajo, no un dato que mande plata a nadie. */}
+      <div>
         <label htmlFor="p-notas" className={etiqueta}>
           Notas
         </label>
@@ -711,7 +664,7 @@ export default function PersonaForm({
           className={caja}
           placeholder="Solo fines de semana · no maneja · vive en Chillán…"
         />
-      </fieldset>
+      </div>
 
       <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
         <button

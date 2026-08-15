@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, MessageCircle, Phone, Trash2 } from "lucide-react";
+import { AlertTriangle, Phone, Trash2 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import Estrellas from "../../components/Estrellas";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import ChipDeEstado from "../../components/ChipDeEstado";
+import IconoWhatsApp from "../../components/IconoWhatsApp";
 import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
 import MiniCalendario, { horarioHabitual } from "./MiniCalendario";
@@ -29,6 +30,7 @@ import { datosParaPagarCompletos } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import {
   ESTADOS_PERSONA,
+  chipEstadoPersona,
   chipTipoPersona,
   etiquetaEstadoPersona,
   etiquetaTipoPersona,
@@ -123,6 +125,19 @@ export default function PersonaFichaPage() {
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  const guardarMotivo = useMutation({
+    mutationFn: (blocked_reason: string) =>
+      updatePerson(personId, {
+        ...(persona as Persona),
+        blocked_reason: blocked_reason || null,
+      }),
+    onSuccess: () => {
+      toast.success("Motivo guardado.");
+      void qc.invalidateQueries({ queryKey: ["people"] });
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   if (isLoading) return <PageSkeleton />;
   if (!persona) {
     return (
@@ -190,18 +205,16 @@ export default function PersonaFichaPage() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <div className="w-44">
-                <SelectWithSearch
-                  options={ESTADOS_PERSONA.map((e) => ({
-                    value: e,
-                    label: etiquetaEstadoPersona(e),
-                  }))}
-                  value={persona.status ?? "activa"}
-                  onChange={(v) => cambiarEstado.mutate(v as EstadoPersona)}
-                  mostrarConteo={false}
-                  tamano="sm"
-                />
-              </div>
+              <ChipDeEstado
+                value={persona.status ?? "activa"}
+                opciones={ESTADOS_PERSONA.map((e) => ({
+                  value: e,
+                  label: etiquetaEstadoPersona(e),
+                  clases: chipEstadoPersona(e),
+                }))}
+                onChange={(v) => cambiarEstado.mutate(v as EstadoPersona)}
+                titulo="Cambiar su situación"
+              />
               {telefonoWsp && (
                 <a
                   href={`https://wa.me/${
@@ -209,9 +222,9 @@ export default function PersonaFichaPage() {
                   }`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-white text-sm font-semibold hover:brightness-95"
                 >
-                  <MessageCircle className="w-4 h-4" />
+                  <IconoWhatsApp />
                   WhatsApp
                 </a>
               )}
@@ -236,6 +249,35 @@ export default function PersonaFichaPage() {
               )}
             </div>
           </div>
+
+          {/* Bloquear pide motivo: en ocho meses nadie se acuerda de
+              por qué. Vive junto al estado, que es donde se bloquea. */}
+          {persona.status === "bloqueada" && (
+            <div className="mt-3">
+              <label
+                htmlFor="motivo-bloqueo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                ¿Por qué está bloqueada?
+              </label>
+              <input
+                id="motivo-bloqueo"
+                type="text"
+                defaultValue={persona.blocked_reason ?? ""}
+                onBlur={(e) => {
+                  const motivo = e.target.value.trim();
+                  if (motivo !== (persona.blocked_reason ?? "")) {
+                    guardarMotivo.mutate(motivo);
+                  }
+                }}
+                placeholder="No llegó a dos eventos seguidos"
+                className="w-full sm:w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Bloquear no impide pagarle lo que ya trabajó.
+              </p>
+            </div>
+          )}
 
           {!completa && (
             <div className="flex items-start gap-2 mt-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
