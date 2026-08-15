@@ -98,11 +98,10 @@ export default function GrillaDeDias({
                   key={d}
                   className="px-2 py-2 text-center font-medium text-gray-600"
                 >
-                  <div className="text-[11px] text-gray-400 leading-none">
-                    {r.dia}
-                  </div>
-                  <div className="flex items-center justify-center gap-1 leading-tight">
-                    <span>{r.num}</span>
+                  {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — no al
+                      número (corrección de Felipe, 15-08). */}
+                  <div className="flex items-center justify-center gap-1 text-[11px] text-gray-400 leading-none">
+                    <span>{r.dia}</span>
                     {quitable && (
                       <button
                         type="button"
@@ -115,6 +114,7 @@ export default function GrillaDeDias({
                       </button>
                     )}
                   </div>
+                  <div className="leading-tight">{r.num}</div>
                   <div className="text-[11px] text-gray-400 leading-none">
                     {r.mes}
                   </div>

@@ -35,6 +35,16 @@ import { recursosQueryOpts } from "./EventResourcesSection";
 
 const DIA_MS = 86_400_000;
 
+
+const sumarDias = (isoDia: string, n: number) =>
+  new Date(new Date(`${isoDia}T00:00:00Z`).getTime() + n * DIA_MS)
+    .toISOString()
+    .slice(0, 10);
+
+// Máximo 4 días antes del inicio y 4 después del término (Felipe, 15-08):
+// preparativos y desarme razonables, no un calendario infinito.
+const TOPE_DIAS_EXTRA = 4;
+
 const diasEntre = (desde: string, hasta: string | null): string[] => {
   const ini = new Date(`${desde}T00:00:00Z`).getTime();
   const fin = new Date(`${hasta || desde}T00:00:00Z`).getTime();
@@ -217,11 +227,15 @@ export default function GrillaPersonal({
 
   const costoPersonal = filas.reduce((s, f) => s + totalDe(f) * f.precio, 0);
 
+  const limiteAntes = sumarDias(eventDate, -TOPE_DIAS_EXTRA);
+  const limiteDespues = sumarDias(iso(eventEndDate) || eventDate, TOPE_DIAS_EXTRA);
+  const puedeAntes = dias.length > 0 && dias[0] > limiteAntes;
+  const puedeDespues = dias.length > 0 && dias[dias.length - 1] < limiteDespues;
+
   const agregarDia = (haciaAtras: boolean) => {
+    if (haciaAtras ? !puedeAntes : !puedeDespues) return;
     const base = haciaAtras ? dias[0] : dias[dias.length - 1];
-    const t =
-      new Date(`${base}T00:00:00Z`).getTime() + (haciaAtras ? -DIA_MS : DIA_MS);
-    setExtras((a) => [...a, new Date(t).toISOString().slice(0, 10)]);
+    setExtras((a) => [...a, sumarDias(base, haciaAtras ? -1 : 1)]);
   };
 
   const quitarDia = (d: string) => {
@@ -342,16 +356,18 @@ export default function GrillaPersonal({
             <button
               type="button"
               onClick={() => agregarDia(true)}
-              title="Agregar un día antes (preparativos)"
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              disabled={!puedeAntes}
+              title={puedeAntes ? "Agregar un día antes (preparativos)" : "Máximo 4 días antes del evento"}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CalendarPlus className="w-3.5 h-3.5" /> día antes
             </button>
             <button
               type="button"
               onClick={() => agregarDia(false)}
-              title="Agregar un día después (desarme)"
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              disabled={!puedeDespues}
+              title={puedeDespues ? "Agregar un día después (desarme)" : "Máximo 4 días después del evento"}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CalendarPlus className="w-3.5 h-3.5" /> día después
             </button>
