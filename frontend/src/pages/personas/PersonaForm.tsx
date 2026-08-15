@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Info, Lock } from "lucide-react";
 import RutInput from "../../components/inputs/RutInput";
-import { HoraInput } from "../../components/inputs";
+import {
+  HoraInput,
+  formatoHoras,
+  horasTrabajadas,
+} from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import type { Cargo, Persona, PersonaFormData } from "../../types/people.types";
@@ -161,6 +165,24 @@ export default function PersonaForm({
     label: etiquetaTipoPersona(t),
     hint: explicacionTipoPersona(t),
   }));
+
+  // El total de la semana y cuántos días trabaja: se recalculan solos
+  // con cada cambio de horario.
+  const diasQueTrabaja = [0, 1, 2, 3, 4, 5, 6].filter(
+    (d) => !(datos.days_off ?? []).includes(d),
+  ).length;
+  const horasDeLaSemana = [0, 1, 2, 3, 4, 5, 6].reduce((t, d) => {
+    if ((datos.days_off ?? []).includes(d)) return t;
+    const suyo = (datos.weekly_schedule ?? {})[String(d)] ?? {};
+    return (
+      t +
+      (horasTrabajadas(
+        suyo.in ?? datos.default_starts_at?.slice(0, 5) ?? "09:00",
+        suyo.out ?? datos.default_ends_at?.slice(0, 5) ?? "19:00",
+        suyo.break ?? datos.default_break_minutes ?? 60,
+      ) ?? 0)
+    );
+  }, 0);
 
   const opcionesEstado: SelectOption[] = ESTADOS_PERSONA.map((e) => ({
     value: e,
@@ -372,49 +394,6 @@ export default function PersonaForm({
             />
           </div>
         </div>
-        <div className="mt-4">
-          <label className={etiqueta}>Horario habitual (opcional)</label>
-          <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600">
-            <HoraInput
-              value={datos.default_starts_at ?? null}
-              onChange={(v) => cambiar({ default_starts_at: v })}
-              aria-label="Entrada habitual"
-            />
-            <span className="text-gray-400">a</span>
-            <HoraInput
-              value={datos.default_ends_at ?? null}
-              onChange={(v) => cambiar({ default_ends_at: v })}
-              aria-label="Salida habitual"
-            />
-            <span className="text-gray-400">· colación</span>
-            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
-              {[
-                [0, "—"],
-                [30, "30 m"],
-                [60, "1 h"],
-              ].map(([min, texto]) => (
-                <button
-                  key={min}
-                  type="button"
-                  onClick={() =>
-                    cambiar({ default_break_minutes: Number(min) || null })
-                  }
-                  className={`px-2 py-1 ${
-                    (datos.default_break_minutes || 0) === min
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  {texto}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Se usa al asignarla a un día. Vacío = el estándar de la casa:
-            09:00 a 19:00 con 1 h de colación. El día siempre manda.
-          </p>
-        </div>
         {datos.default_kind === "planta" && (
           <div className="mt-4">
             <label className={etiqueta}>Días que trabaja y a qué hora</label>
@@ -428,85 +407,145 @@ export default function PersonaForm({
                 y de lunes a viernes a las 8. Vacío = usa el horario
                 habitual de más arriba. */}
             <div className="space-y-1">
-              {["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map(
-                (nombre, dia) => {
-                  const trabaja = !(datos.days_off ?? []).includes(dia);
-                  const suyo = (datos.weekly_schedule ?? {})[String(dia)] ?? {};
-                  const ponerHorario = (cambio: {
-                    in?: string | null;
-                    out?: string | null;
-                  }) => {
-                    const actual = { ...(datos.weekly_schedule ?? {}) };
-                    const dd = { ...(actual[String(dia)] ?? {}) };
-                    if (cambio.in !== undefined) {
-                      if (cambio.in) dd.in = cambio.in;
-                      else delete dd.in;
-                    }
-                    if (cambio.out !== undefined) {
-                      if (cambio.out) dd.out = cambio.out;
-                      else delete dd.out;
-                    }
-                    if (Object.keys(dd).length === 0) delete actual[String(dia)];
-                    else actual[String(dia)] = dd;
-                    cambiar({
-                      weekly_schedule:
-                        Object.keys(actual).length > 0 ? actual : null,
-                    });
-                  };
-                  return (
-                    <div key={dia} className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const libres = datos.days_off ?? [];
+              {[
+                "Domingo",
+                "Lunes",
+                "Martes",
+                "Miércoles",
+                "Jueves",
+                "Viernes",
+                "Sábado",
+              ].map((nombre, dia) => {
+                const trabaja = !(datos.days_off ?? []).includes(dia);
+                const suyo = (datos.weekly_schedule ?? {})[String(dia)] ?? {};
+                const horas = horasTrabajadas(
+                  suyo.in ?? null,
+                  suyo.out ?? null,
+                  suyo.break ?? 60,
+                );
+                const ponerHorario = (cambio: {
+                  in?: string | null;
+                  out?: string | null;
+                  break?: number | null;
+                }) => {
+                  const actual = { ...(datos.weekly_schedule ?? {}) };
+                  const dd = { ...(actual[String(dia)] ?? {}) };
+                  if (cambio.in !== undefined) {
+                    if (cambio.in) dd.in = cambio.in;
+                    else delete dd.in;
+                  }
+                  if (cambio.out !== undefined) {
+                    if (cambio.out) dd.out = cambio.out;
+                    else delete dd.out;
+                  }
+                  if (cambio.break !== undefined) {
+                    if (cambio.break === null) delete dd.break;
+                    else dd.break = cambio.break;
+                  }
+                  if (Object.keys(dd).length === 0) delete actual[String(dia)];
+                  else actual[String(dia)] = dd;
+                  cambiar({
+                    weekly_schedule:
+                      Object.keys(actual).length > 0 ? actual : null,
+                  });
+                };
+                return (
+                  <div key={dia} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const libres = datos.days_off ?? [];
+                        if (trabaja) {
+                          // Pasa a libre: se le quita el horario también,
+                          // para que no quede un dato colgando.
+                          const actual = { ...(datos.weekly_schedule ?? {}) };
+                          delete actual[String(dia)];
                           cambiar({
-                            days_off: trabaja
-                              ? [...libres, dia].sort((a, b) => a - b)
-                              : libres.filter((x) => x !== dia),
+                            days_off: [...libres, dia].sort((a, b) => a - b),
+                            weekly_schedule:
+                              Object.keys(actual).length > 0 ? actual : null,
                           });
-                        }}
-                        aria-label={`${nombre} ${trabaja ? "trabaja" : "libre"}`}
-                        className={`w-28 px-2 py-1.5 rounded-lg text-sm font-medium text-left transition-colors ${
-                          trabaja
-                            ? "bg-blue-600 text-white border border-blue-600"
-                            : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
-                        }`}
-                      >
-                        {nombre}
-                      </button>
-                      {trabaja ? (
-                        <>
-                          <HoraInput
-                            value={suyo.in ?? null}
-                            onChange={(v) => ponerHorario({ in: v })}
-                            compacta
-                            aria-label={`Entrada del ${nombre.toLowerCase()}`}
-                          />
-                          <span className="text-xs text-gray-400">a</span>
-                          <HoraInput
-                            value={suyo.out ?? null}
-                            onChange={(v) => ponerHorario({ out: v })}
-                            compacta
-                            aria-label={`Salida del ${nombre.toLowerCase()}`}
-                          />
-                          {!suyo.in && !suyo.out && (
-                            <span className="text-xs text-gray-400">
-                              el horario habitual
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-400">libre</span>
-                      )}
-                    </div>
-                  );
-                },
-              )}
+                        } else {
+                          // AL MARCARLO SE LLENA SOLO (Felipe, 15-08): así
+                          // nunca queda en blanco ni hay que adivinar qué
+                          // pasa si se deja vacío.
+                          cambiar({
+                            days_off: libres.filter((x) => x !== dia),
+                            weekly_schedule: {
+                              ...(datos.weekly_schedule ?? {}),
+                              [String(dia)]: {
+                                in: datos.default_starts_at?.slice(0, 5) ?? "09:00",
+                                out: datos.default_ends_at?.slice(0, 5) ?? "19:00",
+                                break: datos.default_break_minutes ?? 60,
+                              },
+                            },
+                          });
+                        }
+                      }}
+                      aria-label={`${nombre} ${trabaja ? "trabaja" : "libre"}`}
+                      className={`w-28 px-2 py-1.5 rounded-lg text-sm font-medium text-left transition-colors ${
+                        trabaja
+                          ? "bg-blue-600 text-white border border-blue-600"
+                          : "bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100"
+                      }`}
+                    >
+                      {nombre}
+                    </button>
+                    {trabaja ? (
+                      <>
+                        <HoraInput
+                          value={suyo.in ?? null}
+                          onChange={(v) => ponerHorario({ in: v })}
+                          compacta
+                          aria-label={`Entrada del ${nombre.toLowerCase()}`}
+                        />
+                        <span className="text-xs text-gray-400">a</span>
+                        <HoraInput
+                          value={suyo.out ?? null}
+                          onChange={(v) => ponerHorario({ out: v })}
+                          compacta
+                          aria-label={`Salida del ${nombre.toLowerCase()}`}
+                        />
+                        <span className="text-xs text-gray-500">colación</span>
+                        <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
+                          {([0, 30, 60] as const).map((min) => (
+                            <button
+                              key={min}
+                              type="button"
+                              onClick={() => ponerHorario({ break: min })}
+                              aria-label={`Colación del ${nombre.toLowerCase()}: ${String(min)} minutos`}
+                              className={`px-1.5 py-1 ${
+                                (suyo.break ?? 60) === min
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-white text-gray-500 hover:bg-gray-50"
+                              }`}
+                            >
+                              {min === 0 ? "—" : min === 30 ? "30 m" : "1 h"}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="text-sm tabular-nums text-gray-600 w-14 text-right">
+                          {formatoHoras(horas)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">libre</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* El total de la semana: el número que dice de una si la
+                jornada de esa persona está bien armada. */}
+            <p className="text-sm text-gray-700 mt-2">
+              <strong>{formatoHoras(horasDeLaSemana)}</strong> a la semana
+              <span className="mx-1 text-gray-300">·</span>
+              {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"}
+            </p>
             <p className="text-xs text-gray-500 mt-1">
-              Los apagados son sus días libres: la carga automática de la
-              planta se los salta. La hora en blanco usa el horario
-              habitual de arriba.
+              Los apagados son sus días libres: la planta no se proyecta
+              esos días.
             </p>
           </div>
         )}
