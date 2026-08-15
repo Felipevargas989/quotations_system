@@ -77,10 +77,15 @@ estado, jornada y propina.
 
 El contenedor. Hay dos clases y funcionan igual salvo en dos cosas:
 
-| | Ficha de **evento** | Ficha de **restaurante** |
+⚠ **Simplificado el 15-08**: el restaurante ya no es una ficha aparte —
+es **el evento permanente**. Vive siempre en la sábana (quotation NULL),
+sin fecha de inicio ni término, y solo se le liquidan los pagos. La
+etapa 7 quedó absorbida por la 3.
+
+| | Ficha de **evento** | **Restaurante** (evento permanente) |
 |---|---|---|
-| De dónde salen los días | De la cotización | Los pone Felipe |
-| Período | Lo que dure el evento | **Semanal** |
+| De dónde salen los días | De la cotización | No tiene: está siempre |
+| Período | Lo que dure el evento | **Indefinido** |
 | Cuántos pozos de propina | **Uno para toda la ficha** | **Uno por día y por local** |
 | ¿Suma al costo de un evento? | Sí | No |
 

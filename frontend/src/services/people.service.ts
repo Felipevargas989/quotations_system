@@ -83,7 +83,8 @@ export const getStaff = async (quotationId: string) =>
   )) as Asignacion[];
 
 export const addStaff = async (fila: {
-  quotation_id: string;
+  /** Sin evento = restaurante, el evento permanente. */
+  quotation_id?: string | null;
   person_id: number;
   day: string;
   role_id?: number | null;

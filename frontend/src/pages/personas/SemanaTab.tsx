@@ -69,7 +69,8 @@ const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : null);
 
 interface FilaSemana {
-  quotationId: string;
+  /** null = el restaurante: el evento permanente. */
+  quotationId: string | null;
   evento: string;
   cargoId: number;
   cargo: string;
@@ -138,7 +139,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         quotation_id: p.fila.quotationId,
         person_id: p.personId,
         day: p.dia,
-        role_id: p.fila.cargoId,
+        // El restaurante no impone cargo: queda el habitual de la persona.
+        role_id: p.fila.cargoId || undefined,
         amount: p.fila.precio || null,
       }),
     onSuccess: refrescar,
@@ -210,9 +212,25 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       }
     }
 
-    return [...m.values()].sort(
-      (a, b) => a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
+    const deEventos = [...m.values()].sort(
+      (a, b) =>
+        a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
     );
+
+    // EL RESTAURANTE: el evento permanente (15-08). Siempre presente —
+    // por eso la sábana se muestra aunque no haya ningún evento. Una sola
+    // fila-equipo: se pone gente sin cuota, y la nómina liquidará sus
+    // jornadas y propinas como las de cualquier evento.
+    const restaurante: FilaSemana = {
+      quotationId: null,
+      evento: "Restaurante",
+      cargoId: 0,
+      cargo: "Equipo",
+      precio: 0,
+      necesita: new Map(),
+      sinRepartir: 0,
+    };
+    return [restaurante, ...deEventos];
   }, [lineas, catalogo, eventos, staff, domingo, hasta]);
 
   const puestos = useMemo(() => {
@@ -226,7 +244,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   }, [staff]);
 
   const enCasilla = (f: FilaSemana, d: string) =>
-    puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? [];
+    f.quotationId === null
+      ? staff.filter((a) => a.quotation_id === null && iso(a.day) === d)
+      : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
 
   const faltan = filas.reduce(
     (s, f) =>
@@ -316,11 +336,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         </p>
       )}
 
-      {filas.length === 0 ? (
-        <p className="text-center py-16 text-gray-500">
-          Nada que armar en este rango: no hay eventos con personal costeado.
-        </p>
-      ) : (
+      {(
         <GrillaDeDias
           dias={dias}
           diasFijos={new Set(dias)}
@@ -350,10 +366,30 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             renderCelda: (d) => {
               const necesita = f.necesita.get(d) || 0;
               const tiene = enCasilla(f, d).length;
+              const abierta = casilla?.dia === d && casilla.fila === f;
+              // El restaurante no tiene cuota: muestra cuántos van, o un
+              // + para empezar a poner gente.
+              if (f.quotationId === null)
+                return (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCasilla(abierta ? null : { dia: d, fila: f })
+                    }
+                    className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
+                      abierta
+                        ? "bg-blue-600 text-white"
+                        : tiene > 0
+                          ? "bg-blue-50 text-blue-800 hover:bg-blue-100"
+                          : "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                    }`}
+                  >
+                    {tiene > 0 ? tiene : "+"}
+                  </button>
+                );
               if (necesita === 0 && tiene === 0)
                 return <span className="text-gray-200">·</span>;
               const falta = necesita - tiene;
-              const abierta = casilla?.dia === d && casilla.fila === f;
               return (
                 <button
                   type="button"
@@ -506,7 +542,10 @@ function CasillaAbierta({
         <h3 className="font-semibold text-gray-900">
           {fila.cargo} · {r.dia} {r.num} de {r.mes}
           <span className="ml-2 text-sm font-normal text-gray-500">
-            {fila.evento} · {asignados.length} de {necesita}
+            {fila.evento} ·{" "}
+            {fila.quotationId === null
+              ? `${asignados.length} en el día`
+              : `${asignados.length} de ${necesita}`}
           </span>
         </h3>
         <button onClick={onCerrar} aria-label="Cerrar" className="p-1 text-gray-400 hover:text-gray-700">

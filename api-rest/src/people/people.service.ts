@@ -146,6 +146,7 @@ export class PeopleService {
     const kind = dto.kind ?? persona.default_kind ?? 'freelance';
     return this.repo.addStaff({
       ...dto,
+      quotation_id: dto.quotation_id ?? null,
       company_id: companyId,
       kind,
       role_id: dto.role_id ?? persona.default_role_id ?? null,

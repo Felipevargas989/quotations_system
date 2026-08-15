@@ -90,7 +90,8 @@ export const datosParaPagarCompletos = (p: Persona): boolean =>
  */
 export interface Asignacion {
   id: number;
-  quotation_id: string;
+  /** NULL = restaurante: el evento permanente, sin fechas. */
+  quotation_id: string | null;
   person_id: number;
   day: string;
   role_id: number | null;

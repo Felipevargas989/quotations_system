@@ -11,8 +11,10 @@ import {
 /** Una persona trabajando un día de un evento. El cargo y planta/freelance
  *  se guardan acá porque son valores DEL DÍA, no de la persona. */
 export class CreateEventStaffDto {
+  // Sin evento = RESTAURANTE, el evento permanente (15-08).
+  @IsOptional()
   @IsUUID()
-  quotation_id: string;
+  quotation_id?: string | null;
 
   @IsInt()
   person_id: number;
