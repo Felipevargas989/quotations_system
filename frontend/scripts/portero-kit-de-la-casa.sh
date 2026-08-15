@@ -225,7 +225,7 @@ revisar "estado de persona escrito a mano" 0 \
 # de Post-Venta. Cuando llegue la etapa de horarios se hace la pieza, se
 # migra ese, y este techo baja a 0.
 
-revisar 'campo de hora nativo (type="time")' 1 \
+revisar 'campo de hora nativo (type="time")' 0 \
   "cuando se haga la pieza de hora, migrar también el de la ficha de cocina" \
   'type="time"'
 

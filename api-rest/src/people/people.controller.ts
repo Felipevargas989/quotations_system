@@ -21,6 +21,16 @@ import {
   CreateEventStaffDto,
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
+import {
+  CerrarFichaDto,
+  CreatePayrollDto,
+  CreatePoolDto,
+  CreateReviewDto,
+  PagoDto,
+  RepartirDto,
+  UpdatePoolDto,
+  UpsertSheetDto,
+} from './dto/etapas.dto';
 import { PeopleService } from './people.service';
 
 @Controller('people')
@@ -115,6 +125,106 @@ export class PeopleController {
   removeStaff(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /people/staff/${id}`);
     return this.peopleService.removeStaff(+id, user.company_id);
+  }
+
+  // ---- El ciclo de la ficha ----
+
+  @Get('sheets')
+  findSheets(@CurrentUser() user: User) {
+    return this.peopleService.findSheets(user.company_id);
+  }
+
+  @Post('sheets')
+  upsertSheet(@Body() dto: UpsertSheetDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/sheets ${dto.quotation_id} ${dto.status}`);
+    return this.peopleService.upsertSheet(dto, user.company_id);
+  }
+
+  @Post('sheets/cerrar')
+  cerrarFicha(@Body() dto: CerrarFichaDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/sheets/cerrar ${dto.quotation_id}`);
+    return this.peopleService.cerrarFicha(dto, user.company_id);
+  }
+
+  // ---- Los pozos y el reparto ----
+
+  @Get('pools')
+  findPools(@CurrentUser() user: User) {
+    return this.peopleService.findPools(user.company_id);
+  }
+
+  @Post('pools')
+  createPool(@Body() dto: CreatePoolDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/pools ${logSafe(dto)}`);
+    return this.peopleService.createPool(dto, user.company_id);
+  }
+
+  @Patch('pools/:id')
+  updatePool(
+    @Param('id') id: string,
+    @Body() dto: UpdatePoolDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.peopleService.updatePool(+id, dto, user.company_id);
+  }
+
+  @Delete('pools/:id')
+  removePool(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.peopleService.removePool(+id, user.company_id);
+  }
+
+  @Post('pools/:id/repartir')
+  repartir(
+    @Param('id') id: string,
+    @Body() dto: RepartirDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /people/pools/${id}/repartir`);
+    return this.peopleService.repartir(+id, dto, user.company_id);
+  }
+
+  // ---- Las estrellas ----
+
+  @Get('reviews')
+  findReviews(@CurrentUser() user: User, @Query('persona') persona?: string) {
+    return this.peopleService.findReviews(
+      user.company_id,
+      persona ? +persona : undefined,
+    );
+  }
+
+  @Post('reviews')
+  createReview(@Body() dto: CreateReviewDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/reviews persona ${dto.person_id}`);
+    return this.peopleService.createReview(dto, user.company_id);
+  }
+
+  // ---- La nómina y el pago ----
+
+  @Get('payrolls')
+  findPayrolls(@CurrentUser() user: User) {
+    return this.peopleService.findPayrolls(user.company_id);
+  }
+
+  @Post('payrolls')
+  createPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/payrolls ${logSafe(dto)}`);
+    return this.peopleService.createPayroll(dto, user.company_id);
+  }
+
+  @Get('payrolls/:id')
+  getPayroll(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.peopleService.getPayroll(+id, user.company_id);
+  }
+
+  @Patch('payrolls/:id/pago')
+  marcarPago(
+    @Param('id') id: string,
+    @Body() dto: PagoDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /people/payrolls/${id}/pago persona ${dto.person_id}`);
+    return this.peopleService.marcarPago(+id, dto, user.company_id);
   }
 
   // ---- Personas ----

@@ -4,6 +4,16 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import {
+  CerrarFichaDto,
+  CreatePayrollDto,
+  CreatePoolDto,
+  CreateReviewDto,
+  PagoDto,
+  RepartirDto,
+  UpdatePoolDto,
+  UpsertSheetDto,
+} from './dto/etapas.dto';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
@@ -241,6 +251,267 @@ export class PeopleService {
     return { creadas };
   }
 
+  // ================= EL CICLO DE LA FICHA =================
+  // armando → confirmado → trabajado → cerrada. "Cerrada" solo entra
+  // por cerrarFicha(), que valida el candado de la plata.
+
+  findSheets(companyId: number) {
+    return this.repo.findSheets(companyId);
+  }
+
+  upsertSheet(dto: UpsertSheetDto, companyId: number) {
+    return this.repo.upsertSheet(companyId, dto.quotation_id, {
+      status: dto.status,
+      closed_at: null,
+    });
+  }
+
+  /**
+   * EL CANDADO ES INTERNO (la lección del 24 de enero: $15.715 en el
+   * aire con la casilla en verde): se revisa que LA PLATA repartida
+   * sume el pozo, no que los porcentajes sumen 100. Si no cuadra, el
+   * botón no se puede apretar — acá se rechaza, sin semáforos.
+   */
+  async cerrarFicha(dto: CerrarFichaDto, companyId: number) {
+    const sheet = await this.repo.findSheetByQuotation(
+      companyId,
+      dto.quotation_id,
+    );
+    if (!sheet || sheet.status !== 'trabajado') {
+      throw new BadRequestException(
+        'La ficha se cierra desde "trabajado": primero se ajustan las horas reales',
+      );
+    }
+    const pools = (await this.repo.findPools(companyId)).filter(
+      (p) => p.quotation_id === dto.quotation_id,
+    );
+    const sinRepartir = pools.filter(
+      (p) =>
+        Number(p.first_amount) + Number(p.second_amount) > 0 &&
+        !p.distributed_at,
+    );
+    if (sinRepartir.length > 0) {
+      throw new BadRequestException(
+        'Hay un pozo de propina sin repartir: se reparte y recién ahí se cierra',
+      );
+    }
+    const staff = await this.repo.findStaff(companyId, dto.quotation_id);
+    const repartido = staff.reduce((t, a) => t + Number(a.tip_amount ?? 0), 0);
+    const pozo = pools.reduce(
+      (t, p) => t + Number(p.first_amount) + Number(p.second_amount),
+      0,
+    );
+    if (Math.round(repartido) !== Math.round(pozo)) {
+      throw new BadRequestException(
+        `La plata repartida ($${repartido}) no suma el pozo ($${pozo})`,
+      );
+    }
+    return this.repo.upsertSheet(companyId, dto.quotation_id, {
+      status: 'cerrada',
+      closed_at: new Date().toISOString(),
+    });
+  }
+
+  // ================= LOS POZOS Y EL REPARTO =================
+
+  findPools(companyId: number) {
+    return this.repo.findPools(companyId);
+  }
+
+  createPool(dto: CreatePoolDto, companyId: number) {
+    if (!dto.quotation_id && !dto.day) {
+      throw new BadRequestException(
+        'Un pozo es de un evento o de un día de la planta',
+      );
+    }
+    return this.repo.createPool({
+      company_id: companyId,
+      quotation_id: dto.quotation_id ?? null,
+      day: dto.day ?? null,
+      area: dto.area ?? null,
+      first_amount: dto.first_amount ?? 0,
+      second_amount: dto.second_amount ?? 0,
+    });
+  }
+
+  updatePool(id: number, dto: UpdatePoolDto, companyId: number) {
+    return this.repo.updatePool(id, { ...dto }, companyId);
+  }
+
+  async removePool(id: number, companyId: number) {
+    await this.repo.clearTips(id, companyId);
+    return this.repo.removePool(id, companyId);
+  }
+
+  /**
+   * EL REPARTO: por cargo según los porcentajes, y DENTRO del cargo
+   * por horas trabajadas. Al peso y SIN SOBRANTES — el redondeo
+   * reparte los pesos que faltan de a uno (en el Excel, Joker No 1
+   * dejó $8 en el aire y 8 de 9 eventos descuadraban).
+   *
+   * Se puede volver a repartir mientras la ficha no esté cerrada y la
+   * propina no haya caído en una nómina.
+   */
+  async repartir(poolId: number, dto: RepartirDto, companyId: number) {
+    const pool = await this.repo.findPool(poolId, companyId);
+    const pozo = Math.round(
+      Number(pool.first_amount) + Number(pool.second_amount),
+    );
+    if (pozo <= 0) throw new BadRequestException('El pozo está en cero');
+
+    const totalPct = dto.porcentajes.reduce((t, p) => t + p.pct, 0);
+    if (Math.abs(totalPct - 100) > 0.001) {
+      throw new BadRequestException(
+        `Los porcentajes suman ${totalPct}, no 100`,
+      );
+    }
+
+    let filas: Awaited<ReturnType<typeof this.repo.findStaff>>;
+    if (pool.quotation_id) {
+      const sheet = await this.repo.findSheetByQuotation(
+        companyId,
+        pool.quotation_id,
+      );
+      if (sheet?.status === 'cerrada') {
+        throw new BadRequestException('La ficha ya está cerrada');
+      }
+      filas = await this.repo.findStaff(companyId, pool.quotation_id);
+    } else {
+      filas = await this.repo.findPlantaDelDia(companyId, pool.day!);
+    }
+    if (filas.some((f) => f.tip_payroll_id !== null)) {
+      throw new BadRequestException(
+        'Hay propinas de este grupo ya liquidadas en una nómina',
+      );
+    }
+
+    // El pozo por cargo (mayor resto), y dentro del cargo por horas.
+    const conPct = dto.porcentajes.filter((p) => p.pct > 0);
+    const montosCargo = repartirAlPeso(
+      pozo,
+      conPct.map((p) => p.pct),
+    );
+    const asignado = new Map<number, number>();
+    conPct.forEach((p, i) => {
+      const delCargo = filas.filter(
+        (f) => (f.role_id ?? null) === (p.role_id ?? null),
+      );
+      if (delCargo.length === 0) {
+        throw new BadRequestException(
+          `Hay un ${String(p.pct)}% asignado a un cargo sin nadie puesto`,
+        );
+      }
+      const montos = repartirAlPeso(
+        montosCargo[i],
+        delCargo.map((f) =>
+          minutosTrabajados(f.starts_at, f.ends_at, f.break_minutes),
+        ),
+      );
+      delCargo.forEach((f, j) =>
+        asignado.set(f.id, (asignado.get(f.id) ?? 0) + montos[j]),
+      );
+    });
+
+    await this.repo.clearTips(poolId, companyId);
+    for (const [id, monto] of asignado) {
+      await this.repo.updateStaff(
+        id,
+        { tip_amount: monto, tip_pool_id: poolId },
+        companyId,
+      );
+    }
+    await this.repo.updatePool(
+      poolId,
+      { distributed_at: new Date().toISOString() },
+      companyId,
+    );
+    const repartido = [...asignado.values()].reduce((t, m) => t + m, 0);
+    this.logger.info(`repartir pozo ${poolId}: $${repartido} en ${asignado.size} filas`);
+    return { repartido, filas: asignado.size };
+  }
+
+  // ================= LAS ESTRELLAS =================
+
+  findReviews(companyId: number, personId?: number) {
+    return this.repo.findReviews(companyId, personId);
+  }
+
+  createReview(dto: CreateReviewDto, companyId: number) {
+    if (!dto.stars && !dto.note) {
+      throw new BadRequestException('Una evaluación lleva estrellas o nota');
+    }
+    return this.repo.createReview({ ...dto, company_id: companyId });
+  }
+
+  // ================= LA NÓMINA Y EL PAGO =================
+
+  /**
+   * La nómina NO es una semana: es un selector de qué se liquida.
+   * Toma todo lo PENDIENTE que calce con el filtro (jornadas y
+   * propinas por separado), lo marca, y dice qué dejó fuera (pozos
+   * sin repartir). No bloquea: quien bloquea es el cierre de la ficha.
+   */
+  async createPayroll(dto: CreatePayrollDto, companyId: number) {
+    const filtro = {
+      hasta: dto.hasta,
+      desde: dto.desde,
+      quotationIds: dto.quotation_ids,
+    };
+    const jornadas = await this.repo.jornadasPendientes(companyId, filtro);
+    const propinas = await this.repo.propinasPendientes(companyId, filtro);
+    if (jornadas.length === 0 && propinas.length === 0) {
+      throw new BadRequestException(
+        'No hay nada pendiente que liquidar con ese filtro',
+      );
+    }
+    const payroll = await this.repo.createPayroll({
+      company_id: companyId,
+      label: dto.label,
+    });
+    await this.repo.stampRows(
+      jornadas.map((j) => j.id),
+      { payroll_id: payroll.id },
+      companyId,
+    );
+    await this.repo.stampRows(
+      propinas.map((p) => p.id),
+      { tip_payroll_id: payroll.id },
+      companyId,
+    );
+    const personIds = [
+      ...new Set([...jornadas, ...propinas].map((r) => r.person_id)),
+    ];
+    await this.repo.insertPagos(
+      personIds.map((person_id) => ({
+        company_id: companyId,
+        payroll_id: payroll.id,
+        person_id,
+      })),
+    );
+    const fuera = await this.repo.poolsSinRepartir(companyId, filtro);
+    return { ...payroll, personas: personIds.length, fuera };
+  }
+
+  findPayrolls(companyId: number) {
+    return this.repo.findPayrolls(companyId);
+  }
+
+  async getPayroll(id: number, companyId: number) {
+    const payroll = await this.repo.findPayroll(id, companyId);
+    const { jornadas, propinas } = await this.repo.rowsDeNomina(id, companyId);
+    const pagos = await this.repo.findPagos(id, companyId);
+    return { ...payroll, jornadas, propinas, pagos };
+  }
+
+  /** "Ya la pagué" se marca EN EL MOMENTO, no después — por eso ahora
+   *  existe "pendiente". Jornada y propina por separado. */
+  marcarPago(payrollId: number, dto: PagoDto, companyId: number) {
+    const cambios: Record<string, unknown> = { paid_at: new Date().toISOString() };
+    if (dto.jornada_paid !== undefined) cambios.jornada_paid = dto.jornada_paid;
+    if (dto.propina_paid !== undefined) cambios.propina_paid = dto.propina_paid;
+    return this.repo.upsertPago(companyId, payrollId, dto.person_id, cambios);
+  }
+
   /**
    * Un cargo no se borra: se apaga.
    *
@@ -259,3 +530,46 @@ const diaSiguiente = (iso: string) =>
   new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86_400_000)
     .toISOString()
     .slice(0, 10);
+
+/**
+ * Reparte un total entero según pesos, SIN SOBRANTES: piso primero y
+ * los pesos que faltan de a uno, a los restos más grandes. Si todos
+ * los pesos son cero (horas desconocidas), reparte parejo.
+ */
+export const repartirAlPeso = (
+  total: number,
+  pesos: number[],
+): number[] => {
+  const suma = pesos.reduce((t, p) => t + p, 0);
+  const efectivos = suma > 0 ? pesos : pesos.map(() => 1);
+  const sumaEf = suma > 0 ? suma : pesos.length;
+  const exactos = efectivos.map((p) => (total * p) / sumaEf);
+  const pisos = exactos.map(Math.floor);
+  let faltan = total - pisos.reduce((t, p) => t + p, 0);
+  const orden = exactos
+    .map((e, i) => ({ resto: e - pisos[i], i }))
+    .sort((a, b) => b.resto - a.resto);
+  for (const { i } of orden) {
+    if (faltan <= 0) break;
+    pisos[i] += 1;
+    faltan -= 1;
+  }
+  return pisos;
+};
+
+/** Minutos trabajados descontando colación; 9 h si no hay horario
+ *  (el estándar de la casa). Gemelo del cálculo del frontend. */
+const minutosTrabajados = (
+  entrada: string | null,
+  salida: string | null,
+  colacion: number | null,
+): number => {
+  if (!entrada || !salida) return 540;
+  const [eh, em] = entrada.split(':').map(Number);
+  const [sh, sm] = salida.split(':').map(Number);
+  if ([eh, em, sh, sm].some(Number.isNaN)) return 540;
+  let minutos = sh * 60 + sm - (eh * 60 + em);
+  if (minutos < 0) minutos += 24 * 60;
+  minutos -= colacion || 0;
+  return Math.max(0, minutos);
+};

@@ -102,6 +102,71 @@ export class EventStaff {
   amount: number | null;
   notes: string | null;
 
+  /** Propina del día ya repartida, al peso. NULL = sin repartir. */
+  tip_amount: number | null;
+  tip_pool_id: number | null;
+  /** En qué nómina cayó cada cosa. NULL = pendiente — no hay que
+   *  acordarse de nada (regla de la casa: la nómina es un selector). */
+  payroll_id: number | null;
+  tip_payroll_id: number | null;
+
   created_at: Date;
   updated_at: Date;
+}
+
+/** El ciclo de la ficha de un evento: armando → confirmado →
+ *  trabajado → cerrada. El paso "trabajado" es el que hoy no existe
+ *  y la razón de que el Excel no sepa a quién se le debe. */
+export class StaffSheet {
+  id: number;
+  company_id: Company['id'];
+  quotation_id: string;
+  status: 'armando' | 'confirmado' | 'trabajado' | 'cerrada';
+  closed_at: string | null;
+  created_at: Date;
+}
+
+/** Un pozo de propina: de un evento (quotation_id) o de un día de la
+ *  planta (day, con área opcional). Llega en DOS entregas. */
+export class TipPool {
+  id: number;
+  company_id: Company['id'];
+  quotation_id: string | null;
+  day: string | null;
+  area: string | null;
+  first_amount: number;
+  second_amount: number;
+  distributed_at: string | null;
+  created_at: Date;
+}
+
+/** Una evaluación por persona por evento, al cerrar la ficha. La nota
+ *  puede ir SIN estrella ("solo fines de semana", "no maneja"). */
+export class PersonReview {
+  id: number;
+  company_id: Company['id'];
+  person_id: number;
+  quotation_id: string | null;
+  stars: number | null;
+  note: string | null;
+  created_at: Date;
+}
+
+export class Payroll {
+  id: number;
+  company_id: Company['id'];
+  label: string;
+  created_at: Date;
+}
+
+/** El pago persona a persona de una nómina. Jornada y propina van POR
+ *  SEPARADO: los eventos cruzan de semana y la propina llega al final. */
+export class PayrollPerson {
+  id: number;
+  company_id: Company['id'];
+  payroll_id: number;
+  person_id: number;
+  jornada_paid: boolean;
+  propina_paid: boolean;
+  paid_at: string | null;
 }

@@ -152,6 +152,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
 | `components/QuantitySelector` | quantity steppers | 3 |
 | `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
+| `components/Estrellas` | star ratings (display avg or click-to-rate); "sin evaluar" is NOT zero stars | 2 |
 | `components/PageSkeleton` | loading state of a whole page | 3 |
 | `components/PermissionGuard` | gate a route/section by role | — |
 

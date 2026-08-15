@@ -9,6 +9,7 @@ import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
+import { getStaff } from "../../services/people.service";
 import {
   addEventResource,
   deleteEventResource,
@@ -88,6 +89,16 @@ export default function GrillaPersonal({
 
   const lines = data?.lines ?? [];
   const resources = data?.resources ?? [];
+
+  // EL COSTO REAL (etapa 8): el costo de personal deja de ser una
+  // estimación y pasa a ser lo que realmente se paga — la suma de las
+  // jornadas con nombre puesto (la sábana). La propina NO entra al
+  // margen: es plata que entra y sale, somos intermediarios.
+  const { data: staffReal = [] } = useQuery({
+    queryKey: ["people", "staff-evento", quotationId],
+    queryFn: () => getStaff(quotationId),
+  });
+  const costoReal = staffReal.reduce((t, a) => t + Number(a.amount ?? 0), 0);
 
   const refrescar = () => qc.invalidateQueries({ queryKey: opts.queryKey });
 
@@ -486,6 +497,25 @@ export default function GrillaPersonal({
             ],
           }}
         />
+      )}
+      {costoReal > 0 && (
+        <p className="text-sm text-right text-gray-600 mt-2">
+          Costo real con nombres puestos:{" "}
+          <strong className="text-gray-900">{clp(costoReal)}</strong>
+          <span className="mx-1 text-gray-300">·</span>
+          cotizado {clp(costoPersonal)}
+          <span className="mx-1 text-gray-300">·</span>
+          <span
+            className={
+              costoReal - costoPersonal > 0
+                ? "text-red-700 font-medium"
+                : "text-emerald-700 font-medium"
+            }
+          >
+            {costoReal - costoPersonal >= 0 ? "+" : "−"}
+            {clp(Math.abs(costoReal - costoPersonal))}
+          </span>
+        </p>
       )}
     </div>
   );

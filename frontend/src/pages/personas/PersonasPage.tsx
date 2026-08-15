@@ -6,11 +6,15 @@ import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import { toast } from "../../components/toast/Toast";
 import SemanaTab from "./SemanaTab";
+import FichasTab from "./FichasTab";
+import NominaTab from "./NominaTab";
+import Estrellas from "../../components/Estrellas";
 import CargosModal from "./CargosModal";
 import PersonaForm from "./PersonaForm";
 import {
   createPerson,
   deletePerson,
+  getReviews,
   peopleQueryOptions,
   rolesQueryOptions,
   updatePerson,
@@ -50,11 +54,28 @@ export default function PersonasPage() {
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [viendoCargos, setViendoCargos] = useState(false);
   // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
-  const [pestana, setPestana] = useState<"directorio" | "armar">("armar");
+  const [pestana, setPestana] = useState<
+    "directorio" | "armar" | "fichas" | "nomina"
+  >("armar");
   const { company } = useAuth();
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
+  // El PROMEDIO SIMPLE de las evaluaciones — sin fórmulas escondidas.
+  // Sin evaluar no es lo mismo que malo: la pieza lo pinta aparte.
+  const { data: evaluaciones = [] } = useQuery({
+    queryKey: ["people", "reviews"],
+    queryFn: () => getReviews(),
+  });
+  const promedioDe = (personId: number): number | null => {
+    const conEstrella = evaluaciones.filter(
+      (e) => e.person_id === personId && e.stars !== null,
+    );
+    if (conEstrella.length === 0) return null;
+    return (
+      conEstrella.reduce((t, e) => t + (e.stars ?? 0), 0) / conEstrella.length
+    );
+  };
 
   const cerrarFicha = () => {
     setEditando(undefined);
@@ -145,6 +166,8 @@ export default function PersonasPage() {
       <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
         {([
           ["armar", "Planificación"],
+          ["fichas", "Fichas"],
+          ["nomina", "Nómina"],
           ["directorio", "Directorio"],
         ] as const).map(([id, texto]) => (
           <button
@@ -163,6 +186,10 @@ export default function PersonasPage() {
 
       {pestana === "armar" ? (
         <SemanaTab companyId={Number(company?.id ?? 0)} />
+      ) : pestana === "fichas" ? (
+        <FichasTab />
+      ) : pestana === "nomina" ? (
+        <NominaTab />
       ) : (
       <>
 
@@ -243,6 +270,11 @@ export default function PersonasPage() {
                           {p.management_resources.name}
                         </span>
                       )}
+                      <Estrellas
+                        value={promedioDe(p.id)}
+                        tamano="sm"
+                        conNumero
+                      />
                     </div>
 
                     <div className="text-sm text-gray-600 mt-1">

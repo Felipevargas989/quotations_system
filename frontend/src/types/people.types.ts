@@ -113,6 +113,71 @@ export interface Asignacion {
   /** La jornada de ese día. NULL en planta: no cuesta un peso extra. */
   amount: number | null;
   notes: string | null;
-  people?: { id: number; name: string; rut: string | null; default_kind: TipoPersona } | null;
+  /** Propina del día ya repartida, al peso. NULL = sin repartir. */
+  tip_amount: number | null;
+  tip_pool_id: number | null;
+  /** En qué nómina cayó cada cosa. NULL = pendiente. */
+  payroll_id: number | null;
+  tip_payroll_id: number | null;
+  /** En las filas de nómina el backend manda la persona COMPLETA
+   *  (con sus datos bancarios); en el resto, solo lo básico. */
+  people?:
+    | ({ id: number; name: string; rut: string | null; default_kind: TipoPersona } & Partial<Persona>)
+    | null;
   management_resources?: { id: number; name: string } | null;
+}
+
+/** El ciclo de la ficha de un evento. */
+export type EstadoFicha = "armando" | "confirmado" | "trabajado" | "cerrada";
+
+export interface Ficha {
+  id: number;
+  quotation_id: string;
+  status: EstadoFicha;
+  closed_at: string | null;
+}
+
+/** Un pozo de propina: de un evento o de un día de la planta. Llega
+ *  en DOS entregas, separadas por semanas. */
+export interface Pozo {
+  id: number;
+  quotation_id: string | null;
+  day: string | null;
+  area: string | null;
+  first_amount: number;
+  second_amount: number;
+  distributed_at: string | null;
+}
+
+export interface Evaluacion {
+  id: number;
+  person_id: number;
+  quotation_id: string | null;
+  stars: number | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface Nomina {
+  id: number;
+  label: string;
+  created_at: string;
+  personas?: number;
+  /** Los pozos sin repartir que la nómina DEJÓ FUERA. */
+  fuera?: Pozo[];
+}
+
+export interface PagoPersona {
+  id: number;
+  payroll_id: number;
+  person_id: number;
+  jornada_paid: boolean;
+  propina_paid: boolean;
+  paid_at: string | null;
+}
+
+export interface NominaDetalle extends Nomina {
+  jornadas: Asignacion[];
+  propinas: Asignacion[];
+  pagos: PagoPersona[];
 }

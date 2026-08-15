@@ -5,7 +5,16 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { Cargo, EventStaff, Person } from './entities/person.entity';
+import {
+  Cargo,
+  EventStaff,
+  Payroll,
+  PayrollPerson,
+  Person,
+  PersonReview,
+  StaffSheet,
+  TipPool,
+} from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 
 /** Código de Postgres para "ya existe uno igual". */
@@ -311,5 +320,326 @@ export class PeopleRepository {
       .eq('default_role_id', roleId);
     if (error) throw error;
     return count ?? 0;
+  }
+
+  // ================= EL CICLO DE LA FICHA =================
+
+  async findSheets(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('staff_sheets')
+      .select('*')
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return data as unknown as StaffSheet[];
+  }
+
+  async findSheetByQuotation(companyId: number, quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('staff_sheets')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as StaffSheet | null;
+  }
+
+  async upsertSheet(
+    companyId: number,
+    quotationId: string,
+    cambios: Record<string, unknown>,
+  ) {
+    this.logger.info(`upsertSheet ${quotationId} ${JSON.stringify(cambios)}`);
+    const { data, error } = await this.supabase.client
+      .from('staff_sheets')
+      .upsert(
+        [{ company_id: companyId, quotation_id: quotationId, ...cambios }],
+        { onConflict: 'company_id,quotation_id' },
+      )
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as StaffSheet;
+  }
+
+  // ================= LOS POZOS DE PROPINA =================
+
+  async findPools(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('tip_pools')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at');
+    if (error) throw error;
+    return data as unknown as TipPool[];
+  }
+
+  async findPool(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('tip_pools')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe ese pozo');
+    return data as unknown as TipPool;
+  }
+
+  async createPool(row: Record<string, unknown>) {
+    const { data, error } = await this.supabase.client
+      .from('tip_pools')
+      .insert([row])
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as TipPool;
+  }
+
+  async updatePool(
+    id: number,
+    cambios: Record<string, unknown>,
+    companyId: number,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('tip_pools')
+      .update(cambios)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe ese pozo');
+    return data as unknown as TipPool;
+  }
+
+  async removePool(id: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('tip_pools')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return { id };
+  }
+
+  /** La planta de UN día (sin evento), para repartir su pozo. */
+  async findPlantaDelDia(companyId: number, day: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .eq('day', day);
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
+  /** Borra el reparto anterior de un pozo, para volver a repartir. */
+  async clearTips(poolId: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('event_staff')
+      .update({ tip_amount: null, tip_pool_id: null })
+      .eq('company_id', companyId)
+      .eq('tip_pool_id', poolId);
+    if (error) throw error;
+  }
+
+  // ================= LAS ESTRELLAS =================
+
+  async findReviews(companyId: number, personId?: number) {
+    let q = this.supabase.client
+      .from('person_reviews')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    if (personId) q = q.eq('person_id', personId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data as unknown as PersonReview[];
+  }
+
+  async createReview(row: Record<string, unknown>) {
+    const { data, error } = await this.supabase.client
+      .from('person_reviews')
+      .insert([row])
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as PersonReview;
+  }
+
+  // ================= LA NÓMINA =================
+
+  async createPayroll(row: Record<string, unknown>) {
+    const { data, error } = await this.supabase.client
+      .from('payrolls')
+      .insert([row])
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as Payroll;
+  }
+
+  async findPayrolls(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('payrolls')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as unknown as Payroll[];
+  }
+
+  async findPayroll(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('payrolls')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe esa nómina');
+    return data as unknown as Payroll;
+  }
+
+  /** Jornadas sin nómina (pendientes), con el filtro del selector. */
+  async jornadasPendientes(
+    companyId: number,
+    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+  ) {
+    let q = this.supabase.client
+      .from('event_staff')
+      .select('*, people(*), management_resources(id, name)')
+      .eq('company_id', companyId)
+      .is('payroll_id', null)
+      .eq('kind', 'freelance')
+      .not('amount', 'is', null)
+      .gt('amount', 0);
+    if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
+    if (f.hasta) q = q.lte('day', f.hasta);
+    if (f.desde) q = q.gte('day', f.desde);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
+  /** Propinas repartidas y sin nómina, con el filtro del selector. */
+  async propinasPendientes(
+    companyId: number,
+    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+  ) {
+    let q = this.supabase.client
+      .from('event_staff')
+      .select('*, people(*), management_resources(id, name)')
+      .eq('company_id', companyId)
+      .is('tip_payroll_id', null)
+      .not('tip_amount', 'is', null)
+      .gt('tip_amount', 0);
+    if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
+    if (f.hasta) q = q.lte('day', f.hasta);
+    if (f.desde) q = q.gte('day', f.desde);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
+  /** Los pozos sin repartir del filtro — lo que la nómina DEJA FUERA y
+   *  tiene que decir. La nómina no bloquea: muestra. */
+  async poolsSinRepartir(
+    companyId: number,
+    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+  ) {
+    let q = this.supabase.client
+      .from('tip_pools')
+      .select('*')
+      .eq('company_id', companyId)
+      .is('distributed_at', null);
+    const { data, error } = await q;
+    if (error) throw error;
+    const pools = data as unknown as TipPool[];
+    return pools.filter((p) => {
+      if (f.quotationIds?.length)
+        return p.quotation_id && f.quotationIds.includes(p.quotation_id);
+      if (p.day) {
+        if (f.hasta && p.day > f.hasta) return false;
+        if (f.desde && p.day < f.desde) return false;
+      }
+      return true;
+    });
+  }
+
+  async stampRows(
+    ids: number[],
+    cambios: Record<string, unknown>,
+    companyId: number,
+  ) {
+    if (ids.length === 0) return;
+    const { error } = await this.supabase.client
+      .from('event_staff')
+      .update(cambios)
+      .eq('company_id', companyId)
+      .in('id', ids);
+    if (error) throw error;
+  }
+
+  async rowsDeNomina(payrollId: number, companyId: number) {
+    const traer = async (col: string) => {
+      const { data, error } = await this.supabase.client
+        .from('event_staff')
+        .select('*, people(*), management_resources(id, name)')
+        .eq('company_id', companyId)
+        .eq(col, payrollId)
+        .order('day');
+      if (error) throw error;
+      return data as unknown as EventStaff[];
+    };
+    return {
+      jornadas: await traer('payroll_id'),
+      propinas: await traer('tip_payroll_id'),
+    };
+  }
+
+  async insertPagos(rows: Record<string, unknown>[]) {
+    if (rows.length === 0) return;
+    const { error } = await this.supabase.client
+      .from('payroll_people')
+      .upsert(rows, { onConflict: 'payroll_id,person_id' });
+    if (error) throw error;
+  }
+
+  async findPagos(payrollId: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('payroll_people')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('payroll_id', payrollId);
+    if (error) throw error;
+    return data as unknown as PayrollPerson[];
+  }
+
+  async upsertPago(
+    companyId: number,
+    payrollId: number,
+    personId: number,
+    cambios: Record<string, unknown>,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('payroll_people')
+      .upsert(
+        [
+          {
+            company_id: companyId,
+            payroll_id: payrollId,
+            person_id: personId,
+            ...cambios,
+          },
+        ],
+        { onConflict: 'payroll_id,person_id' },
+      )
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as PayrollPerson;
   }
 }

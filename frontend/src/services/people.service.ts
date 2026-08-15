@@ -5,6 +5,12 @@ import type {
   Persona,
   PersonaFormData,
   Cargo,
+  Evaluacion,
+  Ficha,
+  Nomina,
+  NominaDetalle,
+  PagoPersona,
+  Pozo,
 } from "../types/people.types";
 
 /* ------------------------------------------------------------------ *
@@ -138,3 +144,93 @@ export const staffQueryOptions = (quotationId: string) => ({
   queryFn: () => getStaff(quotationId),
   enabled: !!quotationId,
 });
+
+// ---- El ciclo de la ficha ----
+
+export const getSheets = async () =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/sheets`, "GET")) as Ficha[];
+
+export const upsertSheet = async (quotation_id: string, status: string) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/sheets`, "POST", {
+    quotation_id,
+    status,
+  })) as Ficha;
+
+/** El candado vive en el backend: si la plata repartida no suma el
+ *  pozo, esto rebota con el motivo. */
+export const cerrarFicha = async (quotation_id: string) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/sheets/cerrar`, "POST", {
+    quotation_id,
+  })) as Ficha;
+
+// ---- Los pozos y el reparto ----
+
+export const getPools = async () =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/pools`, "GET")) as Pozo[];
+
+export const createPool = async (pozo: {
+  quotation_id?: string | null;
+  day?: string | null;
+  area?: string | null;
+  first_amount?: number;
+  second_amount?: number;
+}) => (await apiRequest(`${API_ROUTES.PEOPLE}/pools`, "POST", pozo)) as Pozo;
+
+export const updatePool = async (
+  id: number,
+  cambios: { first_amount?: number; second_amount?: number; area?: string | null },
+) => (await apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}`, "PATCH", cambios)) as Pozo;
+
+export const removePool = async (id: number) =>
+  apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}`, "DELETE");
+
+export const repartirPool = async (
+  id: number,
+  porcentajes: { role_id: number | null; pct: number }[],
+) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}/repartir`, "POST", {
+    porcentajes,
+  })) as { repartido: number; filas: number };
+
+// ---- Las estrellas ----
+
+export const getReviews = async (personId?: number) =>
+  (await apiRequest(
+    personId
+      ? `${API_ROUTES.PEOPLE}/reviews?persona=${String(personId)}`
+      : `${API_ROUTES.PEOPLE}/reviews`,
+    "GET",
+  )) as Evaluacion[];
+
+export const createReview = async (evaluacion: {
+  person_id: number;
+  quotation_id?: string | null;
+  stars?: number | null;
+  note?: string | null;
+}) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/reviews`, "POST", evaluacion)) as Evaluacion;
+
+// ---- La nómina y el pago ----
+
+export const getPayrolls = async () =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "GET")) as Nomina[];
+
+export const createPayroll = async (dto: {
+  label: string;
+  hasta?: string;
+  desde?: string;
+  quotation_ids?: string[];
+}) => (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "POST", dto)) as Nomina;
+
+export const getPayroll = async (id: number) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls/${id}`, "GET")) as NominaDetalle;
+
+export const marcarPago = async (
+  id: number,
+  pago: { person_id: number; jornada_paid?: boolean; propina_paid?: boolean },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/payrolls/${id}/pago`,
+    "PATCH",
+    pago,
+  )) as PagoPersona;
