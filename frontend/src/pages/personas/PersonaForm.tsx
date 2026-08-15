@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Info, Lock } from "lucide-react";
+import { Check, Info, Lock, Pencil } from "lucide-react";
 import RutInput from "../../components/inputs/RutInput";
 import {
   HoraInput,
@@ -120,6 +120,9 @@ export default function PersonaForm({
 }: Props) {
   const [datos, setDatos] = useState<PersonaFormData>(vacia);
   const [rutOk, setRutOk] = useState(true);
+  // Una ficha que ya existe se abre CERRADA; una persona nueva se abre
+  // lista para escribir.
+  const [datosBajoLlave, setDatosBajoLlave] = useState(!!persona);
 
   useEffect(() => {
     if (!persona) {
@@ -130,7 +133,7 @@ export default function PersonaForm({
     setDatos({
       name: persona.name,
       rut: persona.rut ?? "",
-      phone: persona.phone ?? "",
+      phone: formatPhone(persona.phone ?? ""),
       email: persona.email ?? "",
       bank_code: persona.bank_code,
       account_type: persona.account_type,
@@ -267,6 +270,45 @@ export default function PersonaForm({
 
   return (
     <form onSubmit={enviar} className="space-y-5">
+      {/* LOS DATOS DE LA PERSONA, BAJO LLAVE (Felipe, 15-08: "es un poco
+          vulnerable que esto esté así siempre"). Una vez guardados se
+          ven en gris y no se pueden tocar; el lápiz los abre. Cambiar un
+          RUT o una cuenta por un clic al pasar manda la plata a otra
+          persona. Lo de abajo —cómo trabaja, situación, notas— sigue
+          siempre editable: eso cambia seguido. */}
+      <fieldset
+        disabled={datosBajoLlave}
+        className={`space-y-5 rounded-lg transition-colors ${
+          datosBajoLlave ? "opacity-70" : ""
+        }`}
+      >
+        <legend className="w-full flex items-center justify-between mb-1">
+          <span className="text-sm font-semibold text-gray-900">
+            Quién es y cómo se le paga
+          </span>
+          {persona && (
+            <button
+              type="button"
+              onClick={() => setDatosBajoLlave(!datosBajoLlave)}
+              className={`p-1.5 rounded-lg ${
+                datosBajoLlave
+                  ? "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                  : "text-blue-700 bg-blue-50"
+              }`}
+              aria-label={
+                datosBajoLlave ? "Editar los datos" : "Dejar de editar"
+              }
+              title={datosBajoLlave ? "Editar los datos" : "Listo"}
+            >
+              {datosBajoLlave ? (
+                <Pencil className="w-4 h-4" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+            </button>
+          )}
+        </legend>
+
       {/* ---------- Quién es ---------- */}
       <div>
         <label htmlFor="p-nombre" className={etiqueta}>
@@ -399,10 +441,14 @@ export default function PersonaForm({
         </div>
       </fieldset>
 
-      {/* ---------- Cómo trabaja ---------- */}
+      </fieldset>
+
+      {/* ---------- La jornada: LA ÚNICA SECCIÓN SIEMPRE ABIERTA
+           (Felipe, 15-08). Es lo que se ajusta seguido; el resto son
+           datos que se llenan una vez. ---------- */}
       <fieldset className="border-t border-gray-200 pt-4">
         <legend className="text-sm font-semibold text-gray-900 mb-3">
-          Cómo trabaja
+          Jornada
         </legend>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -609,7 +655,12 @@ export default function PersonaForm({
            dato que se llena una vez. Acá abajo queda solo el motivo,
            que sí es de escribir. En "Nueva persona" el selector sigue
            acá, porque todavía no hay cabecera. */}
-      <fieldset className="border-t border-gray-200 pt-4">
+      <fieldset
+        disabled={datosBajoLlave}
+        className={`border-t border-gray-200 pt-4 ${
+          datosBajoLlave ? "opacity-70" : ""
+        }`}
+      >
         <legend className="text-sm font-semibold text-gray-900 mb-3">
           Situación
         </legend>
@@ -645,7 +696,10 @@ export default function PersonaForm({
         )}
       </fieldset>
 
-      <div>
+      <fieldset
+        disabled={datosBajoLlave}
+        className={datosBajoLlave ? "opacity-70" : ""}
+      >
         <label htmlFor="p-notas" className={etiqueta}>
           Notas
         </label>
@@ -657,7 +711,7 @@ export default function PersonaForm({
           className={caja}
           placeholder="Solo fines de semana · no maneja · vive en Chillán…"
         />
-      </div>
+      </fieldset>
 
       <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
         <button
