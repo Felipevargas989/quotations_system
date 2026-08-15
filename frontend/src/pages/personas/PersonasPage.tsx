@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,7 +43,12 @@ import { matchesSearch } from "../../utils/searchMatch";
 
 export default function PersonasPage() {
   const qc = useQueryClient();
-  const [busqueda, setBusqueda] = useState("");
+  // La búsqueda y la pestaña sobreviven al viaje ficha ↔ lista — el
+  // mismo patrón de Clientes y Post-Venta (Felipe, 15-08: "la misma
+  // regla de siempre"). Si venías buscando "cocina", vuelves a "cocina".
+  const [busqueda, setBusqueda] = useState(
+    () => localStorage.getItem("eventia_personal_busqueda") || "",
+  );
   const [editando, setEditando] = useState<Persona | null | undefined>(
     undefined,
   );
@@ -52,9 +57,24 @@ export default function PersonasPage() {
   // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
   const [pestana, setPestana] = useState<
     "directorio" | "armar" | "fichas" | "nomina"
-  >("armar");
+  >(
+    () =>
+      (localStorage.getItem("eventia_personal_pestana") as
+        | "directorio"
+        | "armar"
+        | "fichas"
+        | "nomina"
+        | null) ?? "armar",
+  );
   const { company } = useAuth();
   const navegar = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem("eventia_personal_busqueda", busqueda);
+  }, [busqueda]);
+  useEffect(() => {
+    localStorage.setItem("eventia_personal_pestana", pestana);
+  }, [pestana]);
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
