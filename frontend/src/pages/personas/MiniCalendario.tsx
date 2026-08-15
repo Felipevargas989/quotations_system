@@ -58,6 +58,8 @@ export default function MiniCalendario({
   persona,
   diasQueViene,
   asignaciones,
+  diasEnEvento,
+  guardado = false,
   editando,
   onMarcar,
   onDesmarcar,
@@ -70,6 +72,11 @@ export default function MiniCalendario({
   readonly diasQueViene: ReadonlySet<string>;
   /** Las jornadas de esa persona, para leer y ajustar su horario. */
   readonly asignaciones?: readonly Asignacion[];
+  /** Los días en que esa persona está en un EVENTO. Ahí no se le pone
+   *  planta: su jornada la ocupa el evento, y se avisa. */
+  readonly diasEnEvento?: ReadonlySet<string>;
+  /** "Guardado ✓" — se enciende un par de segundos tras cada cambio. */
+  readonly guardado?: boolean;
   /** El día cuyo horario se está editando. */
   readonly editando?: string | null;
   readonly onMarcar: (dia: string) => void;
@@ -122,6 +129,11 @@ export default function MiniCalendario({
             {marcados.length} {marcados.length === 1 ? "día" : "días"}
             <span className="mx-1 text-gray-300">·</span>
             {formatoHoras(horasDelMes)}
+            {guardado && (
+              <span className="ml-2 text-emerald-600 font-medium">
+                Guardado ✓
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -160,6 +172,37 @@ export default function MiniCalendario({
             const distinto =
               viene && (entrada !== hab.in || salida !== hab.out);
             const primeroDelMes = r.num === 1;
+            const enEvento = diasEnEvento?.has(d) ?? false;
+
+            if (enEvento) {
+              return (
+                <div
+                  key={d}
+                  className={`min-h-[4.5rem] p-1 border-gray-100 bg-violet-50 ${
+                    ci < 6 ? "border-r" : ""
+                  } ${fi < semanas.length - 1 ? "border-b" : ""}`}
+                >
+                  <div className="flex items-start justify-between px-1">
+                    <span className="text-xs tabular-nums font-semibold text-violet-900">
+                      {r.num}
+                      {primeroDelMes && (
+                        <span className="ml-1 text-[10px] text-gray-400">
+                          {r.mes}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {/* Su jornada la ocupa el evento: no se le pone planta
+                      encima, para que nunca aparezca duplicada. */}
+                  <div
+                    className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight bg-violet-100 text-violet-900"
+                    title="Ese día está en un evento: su jornada de planta no se proyecta"
+                  >
+                    En evento
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div

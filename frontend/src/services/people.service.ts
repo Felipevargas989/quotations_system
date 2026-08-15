@@ -100,12 +100,14 @@ export const addStaff = async (fila: {
   amount?: number | null;
 }) => (await apiRequest(API_ROUTES.PEOPLE_STAFF, "POST", fila)) as Asignacion;
 
-/** La sábana lo llama sola al abrirse: extiende la planta hacia
- *  adelante hasta el final del rango visible, saltando días libres. */
-export const cargarPlanta = async (hasta: string) =>
-  (await apiRequest(`${API_ROUTES.PEOPLE_STAFF}/cargar-planta`, "POST", {
-    hasta,
-  })) as { creadas: number };
+/** La sábana lo llama UNA vez al abrirse: deja el año de toda la planta
+ *  proyectado. Desplazarse por los meses ya no carga nada. */
+export const proyectarPlanta = async () =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE_STAFF}/proyectar-planta`,
+    "POST",
+    {},
+  )) as { personas: number; creadas: number };
 
 export const updateStaff = async (
   id: number,

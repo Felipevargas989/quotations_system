@@ -85,7 +85,12 @@ export default function PersonaFichaPage() {
     mutationFn: (datos: PersonaFormData) => updatePerson(personId, datos),
     onSuccess: () => {
       setErrorServidor(null);
-      toast.success("Ficha guardada.");
+      toast.success(
+        persona?.default_kind === "planta"
+          ? "Ficha guardada. Este ajuste se proyecta de hoy en adelante."
+          : "Ficha guardada.",
+      );
+      // La proyección corre en el backend: hay que releer las jornadas.
       void qc.invalidateQueries({ queryKey: ["people"] });
     },
     onError: (e: unknown) => setErrorServidor(humanizeApiError(e)),
@@ -336,6 +341,11 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   const qc = useQueryClient();
   const [domingo, setDomingo] = useState(() => domingoDe(hoyEnChile()));
   const [editandoDia, setEditandoDia] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState(false);
+  const avisarGuardado = () => {
+    setGuardado(true);
+    setTimeout(() => setGuardado(false), 2000);
+  };
 
   const dias = useMemo(
     () => Array.from({ length: RANGO }, (_, i) => sumarDias(domingo, i)),
@@ -396,6 +406,7 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
       if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
       toast.error(humanizeApiError(e));
     },
+    onSuccess: avisarGuardado,
     onSettled: refrescar,
   });
 
@@ -426,6 +437,7 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
       if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
       toast.error(humanizeApiError(e));
     },
+    onSuccess: avisarGuardado,
     onSettled: refrescar,
   });
 
@@ -459,6 +471,7 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
       if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
       toast.error(humanizeApiError(e));
     },
+    onSuccess: avisarGuardado,
     onSettled: refrescar,
   });
 
@@ -501,6 +514,12 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         persona={persona}
         diasQueViene={dePlanta}
         asignaciones={suyas}
+        diasEnEvento={
+          new Set(
+            enEventos.map((a) => String(a.day).slice(0, 10)),
+          )
+        }
+        guardado={guardado}
         editando={editandoDia}
         onMarcar={(d) => marcar.mutate(d)}
         onDesmarcar={(d) => desmarcar.mutate(d)}

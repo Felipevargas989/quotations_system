@@ -25,7 +25,7 @@ import {
 } from "../../services/logistics.service";
 import {
   addStaff,
-  cargarPlanta,
+  proyectarPlanta,
   getStaffSemana,
   peopleQueryOptions,
   removeStaff,
@@ -219,27 +219,23 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
-  // LA PLANTA SE CARGA SOLA, SIN BOTÓN (Felipe, 15-08: "la carga
-  // debería ser automática"): al abrir la sábana o mover el rango, el
-  // backend extiende la planta hacia adelante hasta el final visible,
-  // saltando los días libres de cada uno. Solo hacia adelante — un día
-  // borrado a mano no se recrea. Silencioso: si no había nada que
-  // cargar, no molesta con avisos.
-  const rangosCargados = useRef(new Set<string>());
+  // LA PLANTA SE PROYECTA A 12 MESES, UNA SOLA VEZ (Felipe, 15-08:
+  // "no estar cargando y metiéndole sobrecarga cada vez que pincho y me
+  // desplazo"). Al abrir la sábana se deja el año entero listo;
+  // moverse por los meses ya no llama a nadie.
+  const yaProyectado = useRef(false);
   useEffect(() => {
-    if (rangosCargados.current.has(hasta)) return;
-    rangosCargados.current.add(hasta);
-    cargarPlanta(hasta)
+    if (yaProyectado.current) return;
+    yaProyectado.current = true;
+    proyectarPlanta()
       .then((r) => {
         if (r.creadas > 0) refrescar();
       })
       .catch(() => {
-        // Si falló (red, backend), que el próximo cambio de rango o
-        // recarga lo reintente.
-        rangosCargados.current.delete(hasta);
+        yaProyectado.current = false;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasta]);
+  }, []);
 
   const cambiar = useMutation({
     mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>

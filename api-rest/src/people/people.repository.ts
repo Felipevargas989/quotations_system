@@ -297,6 +297,25 @@ export class PeopleRepository {
     return data as { person_id: number; day: string }[];
   }
 
+  /** Todas las jornadas de UNA persona desde un día — para proyectar. */
+  async findDePersonaDesde(companyId: number, personId: number, desde: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('id, day, quotation_id, starts_at, ends_at, break_minutes')
+      .eq('company_id', companyId)
+      .eq('person_id', personId)
+      .gte('day', desde);
+    if (error) throw error;
+    return data as {
+      id: number;
+      day: string;
+      quotation_id: string | null;
+      starts_at: string | null;
+      ends_at: string | null;
+      break_minutes: number | null;
+    }[];
+  }
+
   async removeStaff(id: number, companyId: number) {
     this.logger.info(`removeStaff ${id}`);
     const { data, error } = await this.supabase.client

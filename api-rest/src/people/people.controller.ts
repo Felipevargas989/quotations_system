@@ -17,7 +17,6 @@ import { CreatePersonDto } from './dto/create-person.dto';
 import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import {
-  CargarPlantaDto,
   CreateEventStaffDto,
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
@@ -105,12 +104,12 @@ export class PeopleController {
     return this.peopleService.addStaff(dto, user.company_id);
   }
 
-  // La sábana lo llama SOLA al abrirse: extiende la planta hacia
-  // adelante hasta el final del rango visible (Felipe, 15-08).
-  @Post('staff/cargar-planta')
-  cargarPlanta(@Body() dto: CargarPlantaDto, @CurrentUser() user: User) {
-    this.logger.info(`POST /people/staff/cargar-planta hasta ${dto.hasta}`);
-    return this.peopleService.cargarPlanta(user.company_id, dto.hasta);
+  // La sábana lo llama UNA vez al abrirse: deja el año de toda la
+  // planta proyectado. Desplazarse por los meses ya no carga nada.
+  @Post('staff/proyectar-planta')
+  proyectarPlanta(@CurrentUser() user: User) {
+    this.logger.info('POST /people/staff/proyectar-planta');
+    return this.peopleService.proyectarTodaLaPlanta(user.company_id);
   }
 
   @Patch('staff/:id')
