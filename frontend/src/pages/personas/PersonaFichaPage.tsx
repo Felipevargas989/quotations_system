@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import Estrellas from "../../components/Estrellas";
@@ -107,15 +107,16 @@ export default function PersonaFichaPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      {/* El mismo volver de Post-Venta: texto azul, no un icono suelto. */}
+      <button
+        type="button"
+        onClick={() => navegar("/personas")}
+        className="text-sm font-semibold text-blue-600 hover:underline mb-4"
+      >
+        ← Volver a Personal
+      </button>
+
       <div className="flex items-start gap-3 mb-4">
-        <button
-          type="button"
-          onClick={() => navegar("/personas")}
-          aria-label="Volver a Personal"
-          className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">{persona.name}</h1>
