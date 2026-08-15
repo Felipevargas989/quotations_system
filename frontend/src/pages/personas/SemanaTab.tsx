@@ -218,19 +218,38 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     );
 
     // EL RESTAURANTE: el evento permanente (15-08). Siempre presente —
-    // por eso la sábana se muestra aunque no haya ningún evento. Una sola
-    // fila-equipo: se pone gente sin cuota, y la nómina liquidará sus
-    // jornadas y propinas como las de cualquier evento.
-    const restaurante: FilaSemana = {
-      quotationId: null,
-      evento: "Restaurante",
-      cargoId: 0,
-      cargo: "Equipo",
-      precio: 0,
-      necesita: new Map(),
-      sinRepartir: 0,
-    };
-    return [restaurante, ...deEventos];
+    // por eso la sábana existe aunque no haya ningún evento — y AL FINAL,
+    // separado de los eventos con su línea (corrección de Felipe). Una
+    // fila POR CARGO activo: la gente sale con su cargo, no como
+    // "equipo", y se puede traer a alguien de Patio sin evento alguno.
+    const restaurante: FilaSemana[] = catalogo
+      .filter((r) => r.type === "personal" && r.is_active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((r) => ({
+        quotationId: null,
+        evento: "Restaurante",
+        cargoId: r.id,
+        cargo: r.name,
+        precio: Number(r.list_price_fixed) || 0,
+        necesita: new Map(),
+        sinRepartir: 0,
+      }));
+    // La gente puesta con un cargo que ya no está activo no desaparece.
+    const cargosActivos = new Set(restaurante.map((f) => f.cargoId));
+    const huerfanos = staff.some(
+      (a) => a.quotation_id === null && !cargosActivos.has(a.role_id ?? 0),
+    );
+    if (huerfanos)
+      restaurante.push({
+        quotationId: null,
+        evento: "Restaurante",
+        cargoId: 0,
+        cargo: "Sin cargo",
+        precio: 0,
+        necesita: new Map(),
+        sinRepartir: 0,
+      });
+    return [...deEventos, ...restaurante];
   }, [lineas, catalogo, eventos, staff, domingo, hasta]);
 
   const puestos = useMemo(() => {
@@ -245,7 +264,19 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
 
   const enCasilla = (f: FilaSemana, d: string) =>
     f.quotationId === null
-      ? staff.filter((a) => a.quotation_id === null && iso(a.day) === d)
+      ? staff.filter(
+          (a) =>
+            a.quotation_id === null &&
+            iso(a.day) === d &&
+            (f.cargoId === 0
+              ? !catalogo.some(
+                  (r) =>
+                    r.id === (a.role_id ?? 0) &&
+                    r.type === "personal" &&
+                    r.is_active !== false,
+                )
+              : (a.role_id ?? 0) === f.cargoId),
+        )
       : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
 
   const faltan = filas.reduce(
@@ -344,8 +375,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           columnaTitulo="Evento · cargo"
           resaltarDia={hoyEnChile()}
           filas={filas.map((f): FilaGrillaDias => ({
-            id: `${f.quotationId}|${f.cargoId}`,
+            id: `${f.quotationId ?? "rest"}|${f.cargoId}`,
             grupo: f.evento,
+            grupoDestacado: f.quotationId === null,
             titulo: (
               <>
                 {f.cargo}
@@ -364,9 +396,19 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             // La celda de la sábana: tiene/necesita, ámbar donde falta,
             // verde donde está cubierto. Pincha y se abre la casilla.
             renderCelda: (d) => {
+              const gente = enCasilla(f, d);
               const necesita = f.necesita.get(d) || 0;
-              const tiene = enCasilla(f, d).length;
+              const tiene = gente.length;
               const abierta = casilla?.dia === d && casilla.fila === f;
+              // Quién está y cómo va, sin abrir la casilla (Felipe, 15-08).
+              const quienes = gente
+                .map(
+                  (a) =>
+                    `${a.people?.name ?? "—"}${
+                      a.status === "confirmado" ? " ✓" : " · por confirmar"
+                    }`,
+                )
+                .join("\n");
               // El restaurante no tiene cuota: muestra cuántos van, o un
               // + para empezar a poner gente.
               if (f.quotationId === null)
@@ -376,6 +418,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     onClick={() =>
                       setCasilla(abierta ? null : { dia: d, fila: f })
                     }
+                    title={quienes || undefined}
                     className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white"
@@ -396,6 +439,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                   onClick={() =>
                     setCasilla(abierta ? null : { dia: d, fila: f })
                   }
+                  title={quienes || undefined}
                   className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
                     abierta
                       ? "bg-blue-600 text-white"

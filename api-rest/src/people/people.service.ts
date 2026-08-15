@@ -151,6 +151,10 @@ export class PeopleService {
       kind,
       role_id: dto.role_id ?? persona.default_role_id ?? null,
       amount: kind === 'planta' ? null : (dto.amount ?? null),
+      // Explícito SIEMPRE (el 15-08 llegó nulo y la base lo rechazó), y
+      // nace POR CONFIRMAR: "yo planifico y luego las personas
+      // confirman" (Felipe). El check de la casilla lo confirma.
+      status: dto.status ?? 'por_confirmar',
     });
   }
 

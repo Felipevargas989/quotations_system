@@ -48,6 +48,9 @@ export interface FilaGrillaDias {
   /** v2.0: banda de grupo (ej: el evento). Filas contiguas con el mismo
    *  grupo comparten UNA banda. */
   readonly grupo?: string;
+  /** La banda lleva una línea divisoria gruesa arriba (ej: el
+   *  Restaurante, separado de los eventos). */
+  readonly grupoDestacado?: boolean;
   /** v2.0: pinta la celda a su manera (la sábana pone su tiene/necesita).
    *  Sin esto, la celda es el contador de siempre. */
   readonly renderCelda?: (dia: string) => ReactNode;
@@ -157,7 +160,11 @@ export default function GrillaDeDias({
           {filas.map((f, i) => (
             <Fragment key={f.id}>
               {f.grupo && filas[i - 1]?.grupo !== f.grupo && (
-                <tr className="bg-gray-50/70">
+                <tr
+                  className={`bg-gray-50/70 ${
+                    f.grupoDestacado ? "border-t-4 border-gray-300" : ""
+                  }`}
+                >
                   <td
                     colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-700"
