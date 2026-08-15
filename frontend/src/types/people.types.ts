@@ -8,9 +8,12 @@ import type { EstadoPersona, TipoPersona } from "../utils/estadoPersona";
  * usa Recursos. Eran dos listas hasta el 14-08 y se fusionaron: Garzón
  * estaba escrito en las dos.
  *
- * `list_price_fixed` es el precio de referencia Y la señal de si el cargo
- * se contrata: CON precio aparece en Recursos; SIN precio solo sirve para
- * asignar gente en la grilla.
+ * `list_price_fixed` es el precio de referencia. El precio es solo una SUGERENCIA para ahorrar tecleo.
+ *
+ * NO decide nada: un garzón de planta no cuesta y el mismo cargo con un
+ * freelance sí. Lo que decide si una jornada cuesta plata es si LA PERSONA
+ * es planta o freelance ese día — atributo de la persona, no del cargo.
+ * Por eso TODOS los cargos aparecen en todas partes, tengan precio o no.
  */
 export interface Cargo {
   id: number;

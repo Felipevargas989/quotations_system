@@ -47,9 +47,12 @@ export class Person {
  * Vive en `management_resources` con type='personal' — la misma tabla que
  * usa Recursos. Eran dos listas hasta el 14-08 y se fusionaron.
  *
- * `list_price_fixed` es el precio de referencia Y la señal de si el cargo
- * se contrata: con precio aparece en Recursos; sin precio solo sirve para
- * asignar gente en la grilla.
+ * `list_price_fixed` es el precio de referencia. El precio es solo una SUGERENCIA para ahorrar tecleo.
+ *
+ * NO decide nada: un garzón de planta no cuesta y el mismo cargo con un
+ * freelance sí. Lo que decide si una jornada cuesta plata es si LA PERSONA
+ * es planta o freelance ese día — atributo de la persona, no del cargo.
+ * Por eso TODOS los cargos aparecen en todas partes, tengan precio o no.
  */
 export class Cargo {
   id: number;

@@ -134,10 +134,11 @@ export class PeopleRepository {
   // que usa Recursos. Eran dos listas y se fusionaron el 14-08 ("es lo
   // mismo todo", Felipe): Garzón estaba escrito en las dos.
   //
-  // El PRECIO decide dónde aparece cada uno: CON precio se contrata y sale
-  // en Recursos; SIN precio solo sirve para asignar gente en la grilla —
-  // la cocinera de planta no cuesta un peso extra, pero trabaja y recibe
-  // propina.
+  // El precio del cargo es solo una SUGERENCIA. No decide nada: un garzón
+  // de planta no cuesta y el mismo cargo con un freelance sí. Lo que decide
+  // si una jornada cuesta plata es si LA PERSONA es planta o freelance ese
+  // día — atributo de la persona, no del cargo (Felipe, 14-08). Por eso
+  // TODOS los cargos aparecen en todas partes, tengan precio o no.
   // ------------------------------------------------------------------
 
   async findRoles(companyId: number, incluirInactivos = false) {
@@ -157,8 +158,8 @@ export class PeopleRepository {
     this.logger.info(`createRole ${name} for companyId ${companyId}`);
     const { data, error } = await this.supabase.client
       .from('management_resources')
-      // Sin precio a propósito: un cargo nuevo no se contrata hasta que
-      // alguien diga cuánto cuesta. Así no se cuela en Recursos.
+      // Sin precio: nace sin sugerencia y se le pone cuando se sepa. Igual
+      // aparece en todas partes desde el primer momento.
       .insert([
         { company_id: companyId, name, type: 'personal', is_active: true },
       ])

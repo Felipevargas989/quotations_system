@@ -21,10 +21,13 @@
 -- Se conserva el nombre que YA se usaba en Recursos, porque es el que está
 -- en uso. Renombrar es un clic desde Personas → Cargos.
 --
--- LA REGLA QUE QUEDA: el precio decide dónde aparece cada cargo.
---     CON precio  → se contrata, aparece al agregar recursos a un evento
---     SIN precio  → solo sirve para asignar gente en la grilla
--- La cocinera de planta trabaja y recibe propina, pero no suma al costo.
+-- EL PRECIO ES SOLO UNA SUGERENCIA, no decide nada. Se intentó usarlo como
+-- señal de "este cargo se contrata" y Felipe lo desarmó el mismo día: un
+-- garzón de PLANTA no cuesta y el mismo cargo con un freelance sí. Lo que
+-- decide si una jornada cuesta plata es si LA PERSONA es planta o freelance
+-- ESE DÍA — atributo de la persona, no del cargo.
+-- Por eso TODOS los cargos aparecen en todas partes, tengan precio o no:
+-- cualquiera puede necesitar un freelance alguna vez.
 --
 -- ⚠ EL ORDEN IMPORTA: la llave vieja se suelta ANTES de traducir. Al revés,
 --   la traducción choca contra ella (se aprendió al primer intento).
@@ -88,21 +91,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS management_resources_company_tipo_nombre_uniq
   ON public.management_resources (company_id, type, lower(btrim(name)));
 
 COMMENT ON COLUMN public.management_resources.list_price_fixed IS
-  'Precio de referencia. En personal además decide si el cargo se contrata: CON precio aparece en Recursos; SIN precio solo sirve para asignar gente en la grilla.';
+  'Precio de referencia: una sugerencia para ahorrar tecleo. NO decide si el cargo se contrata — eso depende de si la persona es planta o freelance ese dia.';
 
 COMMIT;
 
 -- ---------------------------------------------------------------------------
 -- CÓMO COMPROBAR QUE QUEDÓ BIEN:
 --
---   SELECT m.name AS cargo,
---          coalesce(m.list_price_fixed::text,'—') AS precio,
---          CASE WHEN m.list_price_fixed IS NULL
---               THEN 'solo para asignar gente'
---               ELSE 'se contrata → aparece en Recursos' END AS donde
+--   SELECT m.name AS cargo, coalesce(m.list_price_fixed::text,'sin sugerencia') AS precio
 --   FROM public.management_resources m
---   WHERE m.type='personal' AND m.is_active
---   ORDER BY (m.list_price_fixed IS NULL), m.name;
+--   WHERE m.type='personal' AND m.is_active ORDER BY m.name;
 --
 -- Tienen que salir los 10 cargos, y NINGUNA persona puede quedar con un
 -- default_role_id que no exista:
