@@ -11,6 +11,7 @@ import {
   updateRole,
 } from "../../services/people.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import type { Cargo } from "../../types/people.types";
 
 // LOS CARGOS
 //
@@ -29,9 +30,14 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
 
   // Acá sí se piden TODOS, incluidos los apagados, para poder prenderlos
   // de vuelta. El desplegable de la ficha solo muestra los activos.
-  const { data: cargos = [] } = useQuery({
+  // Se muestran de inmediato los que la pantalla ya tenía cargados, y la
+  // lista completa (con los apagados) los reemplaza cuando llega. Sin esto
+  // el modal se abría en blanco y parecía colgado.
+  const yaCargados = qc.getQueryData<Cargo[]>(rolesQueryOptions.queryKey);
+  const { data: cargos = [], isLoading } = useQuery({
     queryKey: ["people", "roles", "todos"],
     queryFn: () => getRoles(true),
+    placeholderData: yaCargados,
   });
 
   const refrescar = async () => {
@@ -113,6 +119,10 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
               Agregar
             </button>
           </form>
+
+          {isLoading && cargos.length === 0 && (
+            <p className="text-sm text-gray-400 py-2">Cargando…</p>
+          )}
 
           <ul className="divide-y divide-gray-100">
             {activos.map((c) => (

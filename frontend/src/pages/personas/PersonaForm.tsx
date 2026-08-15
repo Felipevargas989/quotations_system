@@ -24,6 +24,12 @@ import {
   type TipoPersona,
 } from "../../utils/estadoPersona";
 import { cuentaRutDesde, rutEsValido } from "../../utils/rut";
+import {
+  PHONE_PLACEHOLDER,
+  formatPhone,
+  normalizePhone,
+  phoneProblem,
+} from "../../utils/phone";
 
 // LA FICHA DE LA PERSONA
 //
@@ -149,10 +155,14 @@ export default function PersonaForm({
     dotClass: puntoEstadoPersona(e),
   }));
 
+  // El portero del teléfono es de la casa: pilla correos metidos en el
+  // campo, letras y largos imposibles.
+  const problemaTelefono = phoneProblem(datos.phone || "");
+
   const bloqueada = datos.status === "bloqueada";
   const faltaMotivo = bloqueada && !(datos.blocked_reason || "").trim();
   const puedeGuardar =
-    !!datos.name.trim() && rutOk && !faltaMotivo && !guardando;
+    !!datos.name.trim() && rutOk && !faltaMotivo && !problemaTelefono && !guardando;
 
   const enviar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,7 +171,7 @@ export default function PersonaForm({
       ...datos,
       name: datos.name.trim(),
       rut: datos.rut || null,
-      phone: datos.phone || null,
+      phone: normalizePhone(datos.phone || "") || null,
       email: datos.email || null,
       account_number: datos.account_number || null,
       blocked_reason: bloqueada ? datos.blocked_reason : null,
@@ -215,9 +225,16 @@ export default function PersonaForm({
             type="tel"
             value={datos.phone || ""}
             onChange={(e) => cambiar({ phone: e.target.value })}
-            className={caja}
-            placeholder="+56 9 1234 5678"
+            // Se separa al salir del campo, igual que en Clientes. Mientras
+            // se escribe no se toca: un formateo en vivo pelea con quien
+            // teclea y el teléfono no lo necesita.
+            onBlur={() => cambiar({ phone: formatPhone(datos.phone || "") })}
+            className={`${caja} ${problemaTelefono ? "border-red-500" : ""}`}
+            placeholder={PHONE_PLACEHOLDER}
           />
+          {problemaTelefono && (
+            <p className="text-red-500 text-sm mt-1">{problemaTelefono}</p>
+          )}
         </div>
       </div>
 
