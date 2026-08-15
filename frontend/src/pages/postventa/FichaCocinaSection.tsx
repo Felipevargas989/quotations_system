@@ -1,3 +1,4 @@
+import { HoraInput } from "../../components/inputs";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -834,12 +835,14 @@ ${paginas}
         <span className="text-xs font-bold uppercase tracking-wide truncate">
           {s.label}
         </span>
-        <input
-          type="time"
-          value={times[s.key] || ""}
-          onChange={(e) => saveTime(s.key, e.target.value)}
+        {/* La pieza de la casa (15-08): era la única hora a mano del
+            sistema y se migró al nacer HoraInput. */}
+        <HoraInput
+          value={times[s.key] || null}
+          onChange={(v) => saveTime(s.key, v || "")}
           disabled={congelado}
-          className="border-0 rounded px-1.5 py-0.5 text-xs font-bold text-blue-900 bg-white disabled:bg-gray-100 disabled:text-gray-500"
+          compacta
+          className="border-0 font-bold text-blue-900"
           aria-label={`Horario de ${s.label}`}
         />
       </div>

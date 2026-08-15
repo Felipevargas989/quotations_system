@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Search, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
+import {
+  HoraInput,
+  formatoHoras,
+  horasTrabajadas,
+} from "../../components/inputs";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
@@ -420,6 +425,71 @@ function FilasDeEvento({
   );
 }
 
+/** El horario de una asignación: entrada, salida, colación y las horas. */
+function HorarioDelDia({
+  asignacion: a,
+  onCambiar,
+}: {
+  readonly asignacion: Asignacion;
+  readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
+}) {
+  const horas = horasTrabajadas(a.starts_at, a.ends_at, a.break_minutes);
+  const TOPE_INFORMATIVO = 12;
+  return (
+    <div className="flex items-center gap-2 flex-wrap text-xs text-gray-600">
+      <HoraInput
+        value={a.starts_at}
+        onChange={(v) => onCambiar(a.id, { starts_at: v })}
+        compacta
+        aria-label={`Entrada de ${a.people?.name}`}
+      />
+      <span className="text-gray-400">a</span>
+      <HoraInput
+        value={a.ends_at}
+        onChange={(v) => onCambiar(a.id, { ends_at: v })}
+        compacta
+        aria-label={`Salida de ${a.people?.name}`}
+      />
+      <span className="text-gray-400">· colación</span>
+      <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+        {[
+          [0, "—"],
+          [30, "30 m"],
+          [60, "1 h"],
+        ].map(([min, texto]) => (
+          <button
+            key={min}
+            type="button"
+            onClick={() => onCambiar(a.id, { break_minutes: Number(min) || null })}
+            className={`px-1.5 py-0.5 ${
+              (a.break_minutes || 0) === min
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            {texto}
+          </button>
+        ))}
+      </div>
+      <span
+        className={`ml-auto tabular-nums font-medium ${
+          horas !== null && horas > TOPE_INFORMATIVO
+            ? "text-amber-700"
+            : "text-gray-700"
+        }`}
+        title={
+          horas !== null && horas > TOPE_INFORMATIVO
+            ? `Más de ${TOPE_INFORMATIVO} horas — está bien si así se pactó; a veces convienen dos turnos`
+            : "Horas trabajadas, con la colación descontada"
+        }
+      >
+        {formatoHoras(horas)}
+        {horas !== null && horas > TOPE_INFORMATIVO && " ⚠"}
+      </span>
+    </div>
+  );
+}
+
 /** La casilla abierta: quiénes van ese día, en ese cargo, en ese evento. */
 function CasillaAbierta({
   dia,
@@ -478,7 +548,8 @@ function CasillaAbierta({
       {asignados.length > 0 && (
         <ul className="space-y-1.5">
           {asignados.map((a) => (
-            <li key={a.id} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+            <li key={a.id} className="bg-white border border-gray-200 rounded-lg px-3 py-2 space-y-1.5">
+            <div className="flex items-center gap-2">
               <span className="flex-1 text-gray-900">{a.people?.name ?? "—"}</span>
               <button
                 type="button"
@@ -523,6 +594,15 @@ function CasillaAbierta({
               >
                 <Trash2 className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* El horario del DÍA (etapa 4): editable para todos — planta
+                y freelance — porque cuando el cliente parte antes, se
+                conversa y se ajusta. La colación se descuenta (30 min o
+                1 h) y las horas se calculan solas. El tope es INFORMATIVO:
+                un freelance de 12 horas está bien pagado; el aviso sirve
+                para pensar si convenían dos turnos. */}
+            <HorarioDelDia asignacion={a} onCambiar={onCambiar} />
             </li>
           ))}
         </ul>

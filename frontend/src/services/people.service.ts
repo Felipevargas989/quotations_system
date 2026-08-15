@@ -93,7 +93,18 @@ export const addStaff = async (fila: {
 
 export const updateStaff = async (
   id: number,
-  cambios: Partial<Pick<Asignacion, "role_id" | "kind" | "status" | "amount">>,
+  cambios: Partial<
+    Pick<
+      Asignacion,
+      | "role_id"
+      | "kind"
+      | "status"
+      | "amount"
+      | "starts_at"
+      | "ends_at"
+      | "break_minutes"
+    >
+  >,
 ) =>
   (await apiRequest(
     `${API_ROUTES.PEOPLE_STAFF}/${id}`,
