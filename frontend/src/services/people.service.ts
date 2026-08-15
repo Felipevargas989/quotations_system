@@ -238,6 +238,14 @@ export const marcarPago = async (
     pago,
   )) as PagoPersona;
 
+/** Todo lo que esa persona ha trabajado: jornadas y propinas, con su
+ *  evento y si ya se liquidaron. */
+export const getHistorial = async (personId: number) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/${String(personId)}/historial`,
+    "GET",
+  )) as Asignacion[];
+
 // ---- Las notas del día ----
 
 export const getDayNotes = async (desde: string, hasta: string) =>

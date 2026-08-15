@@ -500,6 +500,12 @@ export class PeopleService {
 
   // ================= LAS ESTRELLAS =================
 
+  /** El historial de pagos de una persona: sus jornadas y sus propinas,
+   *  con el evento donde fueron y si ya se liquidaron. */
+  findHistorial(companyId: number, personId: number) {
+    return this.repo.findHistorialDePersona(companyId, personId);
+  }
+
   findReviews(companyId: number, personId?: number) {
     return this.repo.findReviews(companyId, personId);
   }

@@ -10,10 +10,13 @@ import IconoWhatsApp from "../../components/IconoWhatsApp";
 import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
 import MiniCalendario, { horarioHabitual } from "./MiniCalendario";
+import PagosDePersona from "./PagosDePersona";
+import EvaluacionesDePersona from "./EvaluacionesDePersona";
 import {
   addStaff,
   deletePerson,
   getPerson,
+  getReviews,
   getStaffSemana,
   removeStaff,
   rolesQueryOptions,
@@ -66,7 +69,9 @@ export default function PersonaFichaPage() {
   const personId = Number(id);
   const navegar = useNavigate();
   const qc = useQueryClient();
-  const [pestana, setPestana] = useState<"datos" | "calendario">("datos");
+  const [pestana, setPestana] = useState<
+    "datos" | "calendario" | "pagos" | "evaluaciones"
+  >("datos");
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [borrando, setBorrando] = useState(false);
 
@@ -76,6 +81,18 @@ export default function PersonaFichaPage() {
     enabled: Number.isFinite(personId),
   });
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
+  // Las estrellas del encabezado, con el promedio real (antes iban en
+  // blanco, de adorno).
+  const { data: evaluaciones = [] } = useQuery({
+    queryKey: ["people", "reviews", personId],
+    queryFn: () => getReviews(personId),
+    enabled: Number.isFinite(personId),
+  });
+  const conEstrella = evaluaciones.filter((e) => e.stars !== null);
+  const promedio =
+    conEstrella.length > 0
+      ? conEstrella.reduce((t, e) => t + (e.stars ?? 0), 0) / conEstrella.length
+      : null;
   // Para la caja "Este mes": cuántos días tiene asignados.
   const domingo = domingoDe(hoyEnChile());
   const { data: staffDelMes = [] } = useQuery({
@@ -307,7 +324,12 @@ export default function PersonaFichaPage() {
             />
             <Caja
               etiqueta="Evaluación"
-              valor={<Estrellas value={null} conNumero />}
+              valor={<Estrellas value={promedio} conNumero />}
+              apunte={
+                conEstrella.length > 0
+                  ? `${String(conEstrella.length)} ${conEstrella.length === 1 ? "evaluación" : "evaluaciones"}`
+                  : undefined
+              }
             />
             <Caja
               etiqueta="Este mes"
@@ -349,8 +371,12 @@ export default function PersonaFichaPage() {
           onGuardar={(datos) => guardar.mutate(datos)}
           onCancelar={() => navegar("/personas")}
         />
-          ) : (
+          ) : pestana === "calendario" ? (
             <CalendarioDePersona persona={persona} />
+          ) : pestana === "pagos" ? (
+            <PagosDePersona persona={persona} />
+          ) : (
+            <EvaluacionesDePersona persona={persona} />
           )}
         </div>
       </div>

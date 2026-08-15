@@ -63,6 +63,8 @@ export interface Persona {
   /** El cargo, anidado desde el servidor para no pedirlo aparte. Se llama
    *  así porque los cargos viven en la tabla de recursos. */
   management_resources?: { id: number; name: string } | null;
+  /** Solo en el historial de una persona: de qué evento fue. */
+  quotations?: { quotation_number: number; clients?: { name: string } | null } | null;
 }
 
 /** Lo que el formulario manda al guardar. Todo opcional salvo el nombre:
@@ -137,6 +139,11 @@ export interface Asignacion {
     | ({ id: number; name: string; rut: string | null; default_kind: TipoPersona } & Partial<Persona>)
     | null;
   management_resources?: { id: number; name: string } | null;
+  /** Solo en el historial de una persona: de qué evento fue. */
+  quotations?: {
+    quotation_number: number;
+    clients?: { name: string } | null;
+  } | null;
 }
 
 /** El ciclo de la ficha de un evento. */

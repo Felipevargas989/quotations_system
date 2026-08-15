@@ -316,6 +316,22 @@ export class PeopleRepository {
     }[];
   }
 
+  /** TODO lo que esa persona ha trabajado, con su evento: la base de su
+   *  pestaña de Pagos. Trae el número y el cliente de la cotización para
+   *  no tener que pedirlos aparte. */
+  async findHistorialDePersona(companyId: number, personId: number) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select(
+        '*, management_resources(id, name), quotations(quotation_number, clients(name))',
+      )
+      .eq('company_id', companyId)
+      .eq('person_id', personId)
+      .order('day', { ascending: false });
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
   async removeStaff(id: number, companyId: number) {
     this.logger.info(`removeStaff ${id}`);
     const { data, error } = await this.supabase.client

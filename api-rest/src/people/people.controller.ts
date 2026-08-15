@@ -228,6 +228,15 @@ export class PeopleController {
     return this.peopleService.marcarPago(+id, dto, user.company_id);
   }
 
+  // ---- El historial de una persona (su pestaña de Pagos) ----
+  // Va antes de las rutas con :id sueltas.
+
+  @Get(':id/historial')
+  findHistorial(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`GET /people/${id}/historial`);
+    return this.peopleService.findHistorial(user.company_id, +id);
+  }
+
   // ---- Las notas del día ----
   // Van antes de las rutas con :id de personas, para que
   // "day-notes" no se lea como el id de una persona.
