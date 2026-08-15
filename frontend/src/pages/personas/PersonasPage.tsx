@@ -49,7 +49,8 @@ export default function PersonasPage() {
   const [borrando, setBorrando] = useState<number | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [viendoCargos, setViendoCargos] = useState(false);
-  const [pestana, setPestana] = useState<"directorio" | "armar">("directorio");
+  // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
+  const [pestana, setPestana] = useState<"directorio" | "armar">("armar");
   const { company } = useAuth();
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
@@ -109,7 +110,7 @@ export default function PersonasPage() {
   if (isLoading) return <PageSkeleton />;
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Personal</h1>
@@ -143,8 +144,8 @@ export default function PersonasPage() {
       {/* Dos mesas de trabajo: la libreta y el armado de eventos. */}
       <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
         {([
+          ["armar", "Planificación"],
           ["directorio", "Directorio"],
-          ["armar", "Semana"],
         ] as const).map(([id, texto]) => (
           <button
             key={id}

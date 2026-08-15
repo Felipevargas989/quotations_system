@@ -28,7 +28,7 @@ import { hoyEnChile } from "../../utils/dates";
 import { chipTipoPersona, etiquetaTipoPersona } from "../../utils/estadoPersona";
 import { formatearRut } from "../../utils/rut";
 
-// LA SEMANA — DONDE LA PLANIFICACIÓN RECIBE NOMBRE Y APELLIDO
+// LA SÁBANA — DONDE LA PLANIFICACIÓN RECIBE NOMBRE Y APELLIDO
 //
 // La grilla preliminar de cada evento (cuántos, qué días, a qué valor)
 // vive en Gestión. ACÁ se junta TODO lo que viene en la semana y se le
@@ -78,10 +78,16 @@ interface FilaSemana {
 export default function SemanaTab({ companyId }: { readonly companyId: number }) {
   const qc = useQueryClient();
   const [domingo, setDomingo] = useState(() => domingoDe(hoyEnChile()));
+  // LA SÁBANA (Felipe, 15-08): se parte viendo dos semanas y se puede
+  // achicar a una o abrir al mes. Siempre alineada al domingo.
+  const [rango, setRango] = useState<7 | 14 | 28>(14);
   const [casilla, setCasilla] = useState<{ dia: string; fila: FilaSemana } | null>(null);
 
-  const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => sumarDias(domingo, i)), [domingo]);
-  const hasta = dias[6];
+  const dias = useMemo(
+    () => Array.from({ length: rango }, (_, i) => sumarDias(domingo, i)),
+    [domingo, rango],
+  );
+  const hasta = dias[dias.length - 1];
 
   const { data: eventos = [] } = useQuery({
     queryKey: ["people", "eventos-semana"],
@@ -111,7 +117,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     queryFn: () => getManagementResources(companyId),
   });
   const { data: staff = [] } = useQuery({
-    queryKey: ["people", "staff-semana", domingo],
+    queryKey: ["people", "staff-semana", domingo, rango],
     queryFn: () => getStaffSemana(domingo, hasta),
   });
   const { data: personas = [] } = useQuery(peopleQueryOptions);
@@ -120,7 +126,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   // Recursos): se refresca solo el staff de ESTA semana — una consulta,
   // no el catálogo entero de todos los eventos.
   const refrescar = () => {
-    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo] });
+    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo, rango] });
   };
 
   const poner = useMutation({
@@ -238,6 +244,11 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
 
   const r0 = rotulo(domingo);
   const r6 = rotulo(hasta);
+  const RANGOS: readonly [7 | 14 | 28, string][] = [
+    [7, "Semana"],
+    [14, "2 semanas"],
+    [28, "Mes"],
+  ];
 
   return (
     <div className="space-y-4">
@@ -245,7 +256,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, -7))}
+            onClick={() => setDomingo(sumarDias(domingo, -rango))}
             aria-label="Semana anterior"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
@@ -256,7 +267,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           </span>
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, 7))}
+            onClick={() => setDomingo(sumarDias(domingo, rango))}
             aria-label="Semana siguiente"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
@@ -269,6 +280,22 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           >
             hoy
           </button>
+          <div className="ml-2 inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            {RANGOS.map(([r, texto]) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRango(r)}
+                className={`px-2.5 py-1 text-xs font-medium ${
+                  rango === r
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
         </div>
         {faltan > 0 && (
           <span className="flex items-center gap-1.5 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
