@@ -14,7 +14,6 @@ import {
   EventResource,
   addEventResource,
   addEventResources,
-  createManagementResource,
   deleteEventResource,
   getAllFixedServiceCostItems,
   getEventResources,
@@ -190,14 +189,6 @@ export default function EventResourcesSection({
   const [nuevos, setNuevos] = useState<number[]>([]);
   const [confirmRowId, setConfirmRowId] = useState<number | null>(null);
 
-  // Mini-form de creación al vuelo (inline). Todo lo que se crea acá es
-  // un arriendo/servicio externo: el personal nace en Personas → Cargos.
-  const [newOpen, setNewOpen] = useState(false);
-  const [nName, setNName] = useState("");
-  const [nPriceFixed, setNPriceFixed] = useState<number>(0);
-  const [nPricePerPerson, setNPricePerPerson] = useState<number>(0);
-  const [nSupplier, setNSupplier] = useState("");
-
   const recursosQuery = useQuery(recursosQueryOpts(companyId, quotationId));
   const lines = recursosQuery.data?.lines ?? [];
   const resources = recursosQuery.data?.resources ?? [];
@@ -358,30 +349,6 @@ export default function EventResourcesSection({
           lines: prev.lines.map((l) => (l.id === id ? { ...l, ...fields } : l)),
         },
     );
-  };
-
-  const createResource = async () => {
-    if (!nName.trim()) return;
-    const { data, error } = await createManagementResource({
-      company_id: companyId,
-      name: nName.trim(),
-      type: "arriendo",
-      supplier_id: nSupplier ? Number(nSupplier) : null,
-      list_price_fixed: nPriceFixed || null,
-      list_price_per_person: nPricePerPerson || null,
-    });
-    if (error || !data) {
-      setErr("No se pudo crear el recurso");
-      return;
-    }
-    setNewOpen(false);
-    setNName("");
-    setNPriceFixed(0);
-    setNPricePerPerson(0);
-    setNSupplier("");
-    setNuevos((a) => [...a, data.id]);
-    flashSaved();
-    load();
   };
 
   // ---- Las filas de la grilla: un arriendo por fila ----
@@ -881,81 +848,12 @@ export default function EventResourcesSection({
             }}
             placeholder="+ Agregar arriendo o servicio externo…"
             searchPlaceholder="Buscar…"
-            noResultsText="Sin resultados"
+            noResultsText="Sin resultados — los recursos se crean en Logística → Recursos"
           />
+          {/* El crear-al-vuelo se eliminó (15-08, Felipe): "que se creen
+              donde van", o sea en el catálogo de Logística → Recursos.
+              Así el catálogo no se llena de duplicados apurados. */}
 
-          {!newOpen ? (
-            <button
-              type="button"
-              onClick={() => setNewOpen(true)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
-            >
-              + ¿No está? Crear recurso nuevo
-            </button>
-          ) : (
-            <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
-              <input
-                value={nName}
-                onChange={(e) => setNName(e.target.value)}
-                placeholder="Nombre (ej: Toldo 10x5, Transporte en van)"
-                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <NumberInput
-                    value={nPriceFixed || undefined}
-                    onChange={(v) => setNPriceFixed(v || 0)}
-                    min={0}
-                    formatThousands
-                    placeholder="0"
-                  />
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    Fijo (por día; en mixtos, por evento)
-                  </p>
-                </div>
-                <div>
-                  <NumberInput
-                    value={nPricePerPerson || undefined}
-                    onChange={(v) => setNPricePerPerson(v || 0)}
-                    min={0}
-                    formatThousands
-                    placeholder="0"
-                  />
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    Por persona (por día)
-                  </p>
-                </div>
-              </div>
-              <SelectWithSearch
-                options={suppliers.map((s) => ({
-                  value: String(s.id),
-                  label: s.name,
-                }))}
-                value={nSupplier}
-                onChange={setNSupplier}
-                placeholder="Proveedor (opcional)"
-                searchPlaceholder="Buscar proveedor…"
-                mostrarConteo={false}
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNewOpen(false)}
-                  className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={createResource}
-                  disabled={!nName.trim()}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Crear y agregar
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
