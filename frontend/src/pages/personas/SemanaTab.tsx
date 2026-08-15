@@ -217,17 +217,17 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
     );
 
-    // EL RESTAURANTE: el evento permanente (15-08). Siempre presente —
-    // por eso la sábana existe aunque no haya ningún evento — y AL FINAL,
-    // separado de los eventos con su línea (corrección de Felipe). Una
-    // fila POR CARGO activo: la gente sale con su cargo, no como
-    // "equipo", y se puede traer a alguien de Patio sin evento alguno.
+    // EL PERSONAL DE PLANTA: el "evento" permanente (15-08). No es solo
+    // el restaurante — esa es UNA de sus áreas: también patio, recepción,
+    // lo que sea sin evento. Siempre presente (por eso la sábana existe
+    // aunque no haya eventos) y AL FINAL, separado con su línea. Una fila
+    // por cargo activo: la gente sale con su cargo.
     const restaurante: FilaSemana[] = catalogo
       .filter((r) => r.type === "personal" && r.is_active !== false)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((r) => ({
         quotationId: null,
-        evento: "Restaurante",
+        evento: "Personal de planta",
         cargoId: r.id,
         cargo: r.name,
         precio: Number(r.list_price_fixed) || 0,
@@ -242,7 +242,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     if (huerfanos)
       restaurante.push({
         quotationId: null,
-        evento: "Restaurante",
+        evento: "Personal de planta",
         cargoId: 0,
         cargo: "Sin cargo",
         precio: 0,

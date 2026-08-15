@@ -78,7 +78,7 @@ estado, jornada y propina.
 El contenedor. Hay dos clases y funcionan igual salvo en dos cosas:
 
 ⚠ **Simplificado el 15-08**: el restaurante ya no es una ficha aparte —
-es **el evento permanente**. Vive siempre en la sábana (quotation NULL),
+es parte de **"Personal de planta"**, el evento permanente de la sábana (quotation NULL) — que también cubre patio, recepción y cualquier trabajo sin evento. Vive siempre ahí,
 sin fecha de inicio ni término, y solo se le liquidan los pagos. La
 etapa 7 quedó absorbida por la 3.
 
