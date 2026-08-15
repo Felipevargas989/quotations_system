@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
@@ -58,6 +59,7 @@ export default function PersonasPage() {
     "directorio" | "armar" | "fichas" | "nomina"
   >("armar");
   const { company } = useAuth();
+  const navegar = useNavigate();
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
@@ -336,11 +338,8 @@ export default function PersonasPage() {
                     ) : (
                       <>
                         <button
-                          onClick={() => {
-                            setEditando(p);
-                            setErrorServidor(null);
-                          }}
-                          aria-label={`Editar ${p.name}`}
+                          onClick={() => navegar(`/personas/${String(p.id)}`)}
+                          aria-label={`Abrir la ficha de ${p.name}`}
                           className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50"
                         >
                           <Pencil className="w-4 h-4" />

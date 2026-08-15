@@ -42,6 +42,9 @@ const importClients = () => import("./pages/ClientsPage");
 const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
+const importPersonaFicha = () =>
+  import("./pages/personas/PersonaFichaPage");
+const PersonaFichaPage = lazy(importPersonaFicha);
 const importInventario = () => import("./pages/inventario/InventarioPage");
 const importServices = () => import("./pages/services");
 const importCalendar = () => import("./pages/calendar/Calendar.tsx");
@@ -319,6 +322,17 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.people}>
                     <PersonasPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* La ficha de una persona vive en su propia dirección
+                  (15-08): el formulario dejó de caber en una ventanita
+                  y ahora lleva además su calendario. */}
+              <Route
+                path="personas/:id"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                    <PersonaFichaPage />
                   </PermissionGuard>
                 }
               />
