@@ -112,7 +112,7 @@ export default function PersonasPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Personas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Personal</h1>
           <p className="text-sm text-gray-500">
             {personas.length === 0
               ? "Todavía no hay nadie cargado"

@@ -1,5 +1,8 @@
 # MÓDULO DE GESTIÓN DE PERSONAS
 
+> **En el menú se llama "Personal"** (renombrado por Felipe el 15-08).
+> La dirección interna sigue siendo `/personas`.
+
 **Acordado el 14 de agosto de 2026, en conversación con Felipe.**
 
 > ⚠ **ANTES DE CONSTRUIR CUALQUIER PARTE DE ESTE MÓDULO, LEER ESTE

@@ -94,7 +94,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     {
       // Despues de Logistica (decision de Felipe, 14-08). Solo la ve
       // administrador: aca estan los datos bancarios de la gente.
-      name: "Personas",
+      // 15-08: se llama "Personal". La dirección interna (/personas) NO
+      // cambia — misma regla que Catálogo: no romper enlaces guardados.
+      name: "Personal",
       href: "/personas",
       icon: Contact,
       section: "people",
