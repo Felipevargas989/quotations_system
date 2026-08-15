@@ -24,14 +24,12 @@ import {
   type PersonaFormData,
 } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { nombreBanco, etiquetaTipoCuenta } from "../../utils/bancos";
+import { nombreBanco } from "../../utils/bancos";
 import {
   chipEstadoPersona,
-  chipTipoPersona,
   etiquetaEstadoPersona,
-  etiquetaTipoPersona,
 } from "../../utils/estadoPersona";
-import { formatearRut } from "../../utils/rut";
+import { formatPhone } from "../../utils/phone";
 import { matchesSearch } from "../../utils/searchMatch";
 
 // LA LIBRETA DE LA GENTE QUE TRABAJA
@@ -249,82 +247,68 @@ export default function PersonasPage() {
                     {grupo.length}
                   </span>
                 </h3>
-                <ul className="space-y-2">
-          {grupo.map((p) => {
-            const completa = datosParaPagarCompletos(p);
-            return (
-              <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => navegar(`/personas/${String(p.id)}`)}
-                aria-label={`Abrir la ficha de ${p.name}`}
-                className="w-full text-left border border-gray-200 rounded-lg p-3 hover:bg-gray-50 hover:border-gray-300 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-gray-900">{p.name}</span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${chipTipoPersona(p.default_kind)}`}
-                      >
-                        {etiquetaTipoPersona(p.default_kind)}
-                      </span>
-                      {p.status !== "activa" && (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${chipEstadoPersona(p.status)}`}
-                          title={p.blocked_reason ?? undefined}
-                        >
-                          {etiquetaEstadoPersona(p.status)}
-                        </span>
-                      )}
-                      {p.management_resources?.name && (
-                        <span className="text-xs text-gray-500">
-                          {p.management_resources.name}
-                        </span>
-                      )}
-                      <Estrellas
-                        value={promedioDe(p.id)}
-                        tamano="sm"
-                        conNumero
-                      />
-                    </div>
-
-                    <div className="text-sm text-gray-600 mt-1">
-                      {p.rut ? formatearRut(p.rut) : (
-                        <span className="text-amber-700">sin RUT</span>
-                      )}
-                      {p.phone && <span className="mx-2 text-gray-300">·</span>}
-                      {p.phone}
-                    </div>
-
-                    <div className="text-sm text-gray-500 mt-0.5">
-                      {completa ? (
-                        <>
-                          {nombreBanco(p.bank_code)}
-                          <span className="mx-1 text-gray-300">·</span>
-                          {etiquetaTipoCuenta(p.account_type)}
-                          <span className="mx-1 text-gray-300">·</span>
-                          <span className="font-mono">{p.account_number}</span>
-                        </>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-amber-700">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          faltan datos para transferirle
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* La flecha del resto del sistema: la fila entera
-                      abre la ficha. Eliminar vive DENTRO de la ficha
-                      (Felipe, 15-08), no acá. */}
-                  <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
+                {/* TABLA, no tarjetas (Felipe, 15-08): el mismo
+                    formato de Post-Venta — encabezado de columnas,
+                    filas blancas y la flecha centrada a la derecha. */}
+                <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs uppercase text-gray-500">
+                        <th className="px-4 py-2.5 font-medium">Persona</th>
+                        <th className="px-4 py-2.5 font-medium w-44">Cargo</th>
+                        <th className="px-4 py-2.5 font-medium w-40">Teléfono</th>
+                        <th className="px-4 py-2.5 font-medium w-36">Evaluación</th>
+                        <th className="w-10" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {grupo.map((p) => {
+                        const completa = datosParaPagarCompletos(p);
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => navegar(`/personas/${String(p.id)}`)}
+                            className="hover:bg-gray-50 cursor-pointer"
+                          >
+                            <td className="px-4 py-2.5">
+                              <span className="text-gray-900 font-medium">
+                                {p.name}
+                              </span>
+                              {/* El aviso queda pegado al nombre: es la
+                                  razón de ser de esta pantalla, y sin la
+                                  columna de banco no tenía dónde vivir. */}
+                              {!completa && (
+                                <span
+                                  className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700"
+                                  title="Le faltan datos para poder transferirle"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  faltan datos
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-600">
+                              {p.management_resources?.name ?? "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-600 tabular-nums">
+                              {p.phone ? formatPhone(p.phone) : "—"}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Estrellas
+                                value={promedioDe(p.id)}
+                                tamano="sm"
+                                conNumero
+                              />
+                            </td>
+                            <td className="px-2 py-2.5 text-center align-middle">
+                              <ChevronRight className="w-5 h-5 text-gray-300 inline" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </button>
-              </li>
-            );
-          })}
-                </ul>
               </section>
             );
           })}
