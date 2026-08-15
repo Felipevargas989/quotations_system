@@ -168,7 +168,7 @@ export default function PersonasPage() {
           ["armar", "Planificación"],
           ["fichas", "Fichas"],
           ["nomina", "Nómina"],
-          ["directorio", "Directorio"],
+          ["directorio", "Staff"],
         ] as const).map(([id, texto]) => (
           <button
             key={id}
@@ -240,8 +240,28 @@ export default function PersonasPage() {
           Nadie calza con «{busqueda}»
         </p>
       ) : (
-        <ul className="space-y-2">
-          {visibles.map((p) => {
+        <div className="space-y-5">
+          {/* Agrupada por tipo (Felipe, 15-08): la planta es el equipo
+              fijo y los freelance la lista de a quién llamar — son dos
+              listas distintas aunque vivan en la misma pantalla. */}
+          {([
+            ["planta", "Personal de planta"],
+            ["freelance", "Freelance"],
+          ] as const).map(([tipo, titulo]) => {
+            const grupo = visibles.filter(
+              (p) => (p.default_kind ?? "freelance") === tipo,
+            );
+            if (grupo.length === 0) return null;
+            return (
+              <section key={tipo}>
+                <h3 className="text-xs font-semibold uppercase text-gray-500 mb-1.5">
+                  {titulo}
+                  <span className="ml-1.5 font-normal normal-case text-gray-400">
+                    {grupo.length}
+                  </span>
+                </h3>
+                <ul className="space-y-2">
+          {grupo.map((p) => {
             const completa = datosParaPagarCompletos(p);
             return (
               <li
@@ -339,7 +359,11 @@ export default function PersonasPage() {
               </li>
             );
           })}
-        </ul>
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       </>
