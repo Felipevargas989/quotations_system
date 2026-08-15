@@ -479,6 +479,13 @@ Cada etapa se prueba sola y no rompe lo anterior.
 **La etapa 1 necesita que Felipe aplique una migración a mano en Supabase.**
 Las migraciones nunca las corre el sistema.
 
+> **Estado al 15-08-2026**: la ESTRUCTURA de todas las etapas está
+> construida y en el laboratorio (etapas 1–6 y 8; la 7 quedó absorbida
+> por la 3). Pestañas de Personal: Planificación · Fichas · Nómina ·
+> Directorio. Falta el pulido de detalles y navegabilidad, que Felipe
+> hará por partes. Producción sigue esperando el paquete de
+> migraciones 68→77 con su OK.
+
 ---
 
 ## 9. LO QUE QUEDÓ ABIERTO
