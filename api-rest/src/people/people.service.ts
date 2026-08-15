@@ -102,20 +102,13 @@ export class PeopleService {
     return this.repo.findRoles(companyId, incluirInactivos);
   }
 
-  async createRole(companyId: number, name: string, sortOrder?: number) {
-    const limpio = limpiarNombre(name);
-    if (sortOrder !== undefined) {
-      return this.repo.createRole(companyId, limpio, sortOrder);
-    }
-    // Sin orden explícito, va al final.
-    const actuales = await this.repo.findRoles(companyId, true);
-    const ultimo = actuales.reduce((max, r) => Math.max(max, r.sort_order), 0);
-    return this.repo.createRole(companyId, limpio, ultimo + 10);
+  createRole(companyId: number, name: string) {
+    return this.repo.createRole(companyId, limpiarNombre(name));
   }
 
   updateRole(
     id: number,
-    cambios: { name?: string; is_active?: boolean; sort_order?: number },
+    cambios: { name?: string; is_active?: boolean },
     companyId: number,
   ) {
     const limpios = { ...cambios };

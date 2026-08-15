@@ -1,12 +1,25 @@
 import type { TipoCuenta } from "../utils/bancos";
 import type { EstadoPersona, TipoPersona } from "../utils/estadoPersona";
 
+/**
+ * UN CARGO.
+ *
+ * Vive en `management_resources` con type='personal' — la MISMA tabla que
+ * usa Recursos. Eran dos listas hasta el 14-08 y se fusionaron: Garzón
+ * estaba escrito en las dos.
+ *
+ * `list_price_fixed` es el precio de referencia Y la señal de si el cargo
+ * se contrata: CON precio aparece en Recursos; SIN precio solo sirve para
+ * asignar gente en la grilla.
+ */
 export interface Cargo {
   id: number;
   company_id: number;
   name: string;
+  type: string;
   is_active: boolean;
-  sort_order: number;
+  list_price_fixed: number | null;
+  last_price: number | null;
   created_at: string;
 }
 
@@ -36,8 +49,9 @@ export interface Persona {
   created_at: string;
   updated_at: string;
 
-  /** Viene anidado desde el servidor, para no pedir los cargos aparte. */
-  job_roles?: { id: number; name: string } | null;
+  /** El cargo, anidado desde el servidor para no pedirlo aparte. Se llama
+   *  así porque los cargos viven en la tabla de recursos. */
+  management_resources?: { id: number; name: string } | null;
 }
 
 /** Lo que el formulario manda al guardar. Todo opcional salvo el nombre:

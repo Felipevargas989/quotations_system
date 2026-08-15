@@ -38,11 +38,7 @@ export class PeopleController {
   @Post('roles')
   createRole(@Body() dto: CreateJobRoleDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/roles ${dto.name}`);
-    return this.peopleService.createRole(
-      user.company_id,
-      dto.name,
-      dto.sort_order,
-    );
+    return this.peopleService.createRole(user.company_id, dto.name);
   }
 
   @Patch('roles/:id')

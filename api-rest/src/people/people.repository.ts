@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { JobRole, Person } from './entities/person.entity';
+import { Cargo, Person } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 
 /** Código de Postgres para "ya existe uno igual". */
@@ -28,7 +28,7 @@ export class PeopleRepository {
     this.logger.info(`findAll people with companyId ${companyId}`);
     const { data, error } = await this.supabase.client
       .from('people')
-      .select('*, job_roles(id, name)')
+      .select('*, management_resources(id, name)')
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
@@ -39,7 +39,7 @@ export class PeopleRepository {
     this.logger.info(`findOne person ${id} with companyId ${companyId}`);
     const { data, error } = await this.supabase.client
       .from('people')
-      .select('*, job_roles(id, name)')
+      .select('*, management_resources(id, name)')
       .eq('id', id)
       .eq('company_id', companyId)
       .maybeSingle();
@@ -66,7 +66,7 @@ export class PeopleRepository {
     const { data, error } = await this.supabase.client
       .from('people')
       .insert([person])
-      .select('*, job_roles(id, name)')
+      .select('*, management_resources(id, name)')
       .single();
     if (error) {
       if (error.code === YA_EXISTE) {
@@ -84,7 +84,7 @@ export class PeopleRepository {
       .update(cambios)
       .eq('id', id)
       .eq('company_id', companyId)
-      .select('*, job_roles(id, name)')
+      .select('*, management_resources(id, name)')
       .maybeSingle();
     if (error) {
       if (error.code === YA_EXISTE) {
@@ -129,25 +129,39 @@ export class PeopleRepository {
 
   // ------------------------------------------------------------------
   // CARGOS
+  //
+  // Viven en `management_resources` con type='personal' — la MISMA tabla
+  // que usa Recursos. Eran dos listas y se fusionaron el 14-08 ("es lo
+  // mismo todo", Felipe): Garzón estaba escrito en las dos.
+  //
+  // El PRECIO decide dónde aparece cada uno: CON precio se contrata y sale
+  // en Recursos; SIN precio solo sirve para asignar gente en la grilla —
+  // la cocinera de planta no cuesta un peso extra, pero trabaja y recibe
+  // propina.
   // ------------------------------------------------------------------
 
   async findRoles(companyId: number, incluirInactivos = false) {
     this.logger.info(`findRoles with companyId ${companyId}`);
     let consulta = this.supabase.client
-      .from('job_roles')
+      .from('management_resources')
       .select('*')
-      .eq('company_id', companyId);
+      .eq('company_id', companyId)
+      .eq('type', 'personal');
     if (!incluirInactivos) consulta = consulta.eq('is_active', true);
-    const { data, error } = await consulta.order('sort_order').order('name');
+    const { data, error } = await consulta.order('name');
     if (error) throw error;
-    return data as unknown as JobRole[];
+    return data as unknown as Cargo[];
   }
 
-  async createRole(companyId: number, name: string, sortOrder: number) {
+  async createRole(companyId: number, name: string) {
     this.logger.info(`createRole ${name} for companyId ${companyId}`);
     const { data, error } = await this.supabase.client
-      .from('job_roles')
-      .insert([{ company_id: companyId, name, sort_order: sortOrder }])
+      .from('management_resources')
+      // Sin precio a propósito: un cargo nuevo no se contrata hasta que
+      // alguien diga cuánto cuesta. Así no se cuela en Recursos.
+      .insert([
+        { company_id: companyId, name, type: 'personal', is_active: true },
+      ])
       .select()
       .single();
     if (error) {
@@ -156,20 +170,22 @@ export class PeopleRepository {
       }
       throw error;
     }
-    return data as unknown as JobRole;
+    return data as unknown as Cargo;
   }
 
   async updateRole(
     id: number,
-    cambios: Partial<Pick<JobRole, 'name' | 'is_active' | 'sort_order'>>,
+    cambios: Partial<Pick<Cargo, 'name' | 'is_active'>>,
     companyId: number,
   ) {
     this.logger.info(`updateRole ${id} with ${JSON.stringify(cambios)}`);
     const { data, error } = await this.supabase.client
-      .from('job_roles')
+      .from('management_resources')
       .update(cambios)
       .eq('id', id)
       .eq('company_id', companyId)
+      // El candado que impide renombrar un arriendo creyendo que es un cargo.
+      .eq('type', 'personal')
       .select()
       .maybeSingle();
     if (error) {
@@ -179,7 +195,7 @@ export class PeopleRepository {
       throw error;
     }
     if (!data) throw new NotFoundException('No existe ese cargo');
-    return data as unknown as JobRole;
+    return data as unknown as Cargo;
   }
 
   /** Cuánta gente lo tiene como cargo por defecto. Un cargo en uso NO se

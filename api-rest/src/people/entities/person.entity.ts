@@ -41,11 +41,23 @@ export class Person {
   updated_at: Date;
 }
 
-export class JobRole {
+/**
+ * UN CARGO.
+ *
+ * Vive en `management_resources` con type='personal' — la misma tabla que
+ * usa Recursos. Eran dos listas hasta el 14-08 y se fusionaron.
+ *
+ * `list_price_fixed` es el precio de referencia Y la señal de si el cargo
+ * se contrata: con precio aparece en Recursos; sin precio solo sirve para
+ * asignar gente en la grilla.
+ */
+export class Cargo {
   id: number;
   company_id: Company['id'];
   name: string;
+  type: string;
   is_active: boolean;
-  sort_order: number;
+  list_price_fixed: number | null;
+  last_price: number | null;
   created_at: Date;
 }

@@ -94,7 +94,7 @@ export default function PersonasPage() {
         p.name,
         p.rut ?? "",
         p.phone ?? "",
-        p.job_roles?.name ?? "",
+        p.management_resources?.name ?? "",
         nombreBanco(p.bank_code),
       ),
     );
@@ -208,9 +208,9 @@ export default function PersonasPage() {
                           {etiquetaEstadoPersona(p.status)}
                         </span>
                       )}
-                      {p.job_roles?.name && (
+                      {p.management_resources?.name && (
                         <span className="text-xs text-gray-500">
-                          {p.job_roles.name}
+                          {p.management_resources.name}
                         </span>
                       )}
                     </div>

@@ -391,6 +391,21 @@ export default function EventResourcesSection({
     const order: ResourceType[] = ["personal", "arriendo", "compra"];
     return [...resources]
       .filter((r) => r.is_active !== false)
+      // Los cargos SIN precio no se ofrecen acá (14-08, pedido de Felipe).
+      // Desde el 14-08 los cargos y los recursos de personal son la misma
+      // lista, así que acá aparecerían también Cocina, Cajera o Recepción
+      // — que son de PLANTA y no se contratan. En Recursos siempre se pide
+      // "un freelance sin nombre ni apellido" que cuesta plata.
+      //
+      // La gente de planta sí se asigna, pero en el módulo de Personas:
+      // trabaja y recibe propina, solo que no suma al costo del evento.
+      // Si algún día hay que contratar una cocinera de afuera, se le pone
+      // precio al cargo en el catálogo de Recursos y aparece acá solo.
+      .filter(
+        (r) =>
+          r.type !== "personal" ||
+          (r.list_price_fixed !== null && r.list_price_fixed !== undefined),
+      )
       .sort(
         (a, b) =>
           order.indexOf(a.type) - order.indexOf(b.type) ||

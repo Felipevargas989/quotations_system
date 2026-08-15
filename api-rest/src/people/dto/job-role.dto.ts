@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -15,10 +14,6 @@ export class CreateJobRoleDto {
   @IsNotEmpty({ message: 'Falta el nombre del cargo' })
   @MaxLength(60)
   name: string;
-
-  @IsInt()
-  @IsOptional()
-  sort_order?: number;
 }
 
 export class UpdateJobRoleDto {
@@ -30,8 +25,4 @@ export class UpdateJobRoleDto {
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
-
-  @IsInt()
-  @IsOptional()
-  sort_order?: number;
 }

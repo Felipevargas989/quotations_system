@@ -157,6 +157,21 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
                 ) : (
                   <>
                     <span className="flex-1 text-gray-900">{c.name}</span>
+                    {/* El precio es de Recursos: acá solo se mira. Con
+                        precio el cargo se contrata y aparece allá; sin
+                        precio solo sirve para asignar gente. */}
+                    <span
+                      className="text-xs text-gray-400 tabular-nums"
+                      title={
+                        c.list_price_fixed
+                          ? "Se contrata — aparece en Recursos. El precio se edita allá."
+                          : "Sin precio: solo para asignar gente, no aparece en Recursos"
+                      }
+                    >
+                      {c.list_price_fixed
+                        ? `$${Math.round(c.list_price_fixed).toLocaleString("es-CL")}`
+                        : "—"}
+                    </span>
                     <button
                       onClick={() => {
                         setEditandoId(c.id);
@@ -210,8 +225,13 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
           )}
 
           <p className="text-xs text-gray-500">
-            Un cargo es solo un nombre. Si lleva propina o no se decide en cada
-            reparto, no acá.
+            Los que tienen precio se contratan y aparecen en Recursos, que es
+            donde se les cambia el valor. Los que no, solo sirven para asignar
+            gente — la cocinera de planta trabaja aunque no cueste un peso.
+          </p>
+          <p className="text-xs text-gray-500">
+            Si lleva propina o no <strong>no se decide acá</strong>: se decide
+            en cada reparto.
           </p>
         </div>
       </div>
