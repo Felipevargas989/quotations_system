@@ -147,4 +147,51 @@ CREATE TRIGGER people_touch_updated_at_trg
   BEFORE UPDATE ON public.people
   FOR EACH ROW EXECUTE FUNCTION public.people_touch_updated_at();
 
+-- ---------------------------------------------------------------------------
+-- 4) PERMISOS — ⚠ SIN ESTO LAS TABLAS NO SIRVEN
+--
+-- Aprendido a golpes el 14-08: se aplicó la migración en el laboratorio,
+-- se probaron los candados uno por uno, todo dio verde… y la pantalla se
+-- quedó cargando para siempre. El backend recibía `42501 permission
+-- denied for table people`.
+--
+-- Las tablas creadas por fuera del camino habitual de Supabase NO heredan
+-- los permisos. Hay que dárselos a mano, y hay que dejarlas iguales a las
+-- que ya funcionan (clients, management_resources): permisos completos
+-- para service_role, seguridad de fila ENCENDIDA y sin ninguna política.
+--
+-- Esa combinación es la que protege: el backend usa la llave de servicio
+-- y se salta la seguridad de fila; el navegador, con la llave pública, no
+-- llega a estas tablas por ningún lado. Y acá viven los RUT y las cuentas
+-- bancarias de toda la gente.
+-- ---------------------------------------------------------------------------
+
+GRANT ALL ON TABLE public.people    TO service_role;
+GRANT ALL ON TABLE public.job_roles TO service_role;
+
+-- Los id son GENERATED ALWAYS AS IDENTITY: sin permiso sobre su secuencia
+-- no se puede insertar ni una fila.
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+ALTER TABLE public.people    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_roles ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- CÓMO COMPROBAR QUE QUEDÓ BIEN (correr después de aplicar):
+--
+--   SELECT c.relname, c.relrowsecurity AS rls,
+--          count(DISTINCT g.privilege_type) AS permisos
+--   FROM pg_class c
+--   JOIN pg_namespace n ON n.oid = c.relnamespace
+--   LEFT JOIN information_schema.role_table_grants g
+--          ON g.table_name = c.relname AND g.table_schema='public'
+--         AND g.grantee='service_role'
+--   WHERE n.nspname='public' AND c.relkind='r'
+--     AND c.relname IN ('clients','people','job_roles')
+--   GROUP BY c.relname, c.relrowsecurity;
+--
+-- Las tres filas tienen que salir iguales: rls = true, permisos = 7.
+-- Si people o job_roles salen con 0, la pantalla no va a cargar.
+-- ---------------------------------------------------------------------------

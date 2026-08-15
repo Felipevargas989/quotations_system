@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import { toast } from "../../components/toast/Toast";
+import CargosModal from "./CargosModal";
 import PersonaForm from "./PersonaForm";
 import {
   createPerson,
@@ -45,6 +46,7 @@ export default function PersonasPage() {
   );
   const [borrando, setBorrando] = useState<number | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [viendoCargos, setViendoCargos] = useState(false);
 
   const { data: personas = [], isLoading } = useQuery(peopleQueryOptions);
   const { data: cargos = [] } = useQuery(rolesQueryOptions);
@@ -113,16 +115,25 @@ export default function PersonasPage() {
               : `${personas.length} ${personas.length === 1 ? "persona" : "personas"}`}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditando(null);
-            setErrorServidor(null);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          Nueva persona
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViendoCargos(true)}
+            className="flex items-center gap-2 px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <Tags className="w-4 h-4" />
+            Cargos
+          </button>
+          <button
+            onClick={() => {
+              setEditando(null);
+              setErrorServidor(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva persona
+          </button>
+        </div>
       </div>
 
       {/* El aviso que evita el problema del viernes */}
@@ -268,6 +279,8 @@ export default function PersonasPage() {
           })}
         </ul>
       )}
+
+      {viendoCargos && <CargosModal onCerrar={() => setViendoCargos(false)} />}
 
       {editando !== undefined && (
         <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
