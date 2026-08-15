@@ -34,20 +34,24 @@ export const horarioHabitual = (persona: Persona | null, dia: string) => {
 };
 
 /**
- * EL MINI CALENDARIO (Felipe, 15-08) — en qué días viene esa persona y
- * a qué hora.
+ * EL CALENDARIO DE UNA PERSONA — en qué días viene y a qué hora.
  *
- * Marcado = ese día viene. Se pincha el NÚMERO para marcar y desmarcar;
- * se pincha la HORA de abajo para ajustar ese día suelto. Sus días
- * libres de la ficha salen apagados y punteados, pero igual se pueden
- * marcar: es el caso de "tiene libre el viernes y quiero que trabaje el
- * viernes".
+ * Con la forma que todos ya conocen (Felipe, 15-08: "un calendario tipo
+ * Google Calendar, y dentro el horario de ingreso y salida"): una
+ * cuadrícula de mes, el número del día en la esquina, y el turno como
+ * una píldora dentro de la celda. Antes eran barras estiradas de lado a
+ * lado con la hora flotando afuera, y no se leía.
  *
- * Los días con un horario DISTINTO al habitual salen destacados, para
- * que se vean de un vistazo sin abrir nada.
+ * Se pincha una celda VACÍA para agregar el día; se pincha la PÍLDORA
+ * para cambiar el horario de ese día suelto. Los días libres de su
+ * ficha salen en gris, pero se pueden marcar igual: es el caso de
+ * "tiene libre el viernes y quiero que trabaje el viernes".
+ *
+ * En ámbar, los días cuyo horario NO es el que le toca — se ven de una
+ * pasada sin abrir nada.
  *
  * Ojo: esto cambia SUS JORNADAS de este mes, no la regla semanal de su
- * ficha — un día suelto no le reescribe el horario permanente.
+ * ficha.
  */
 export default function MiniCalendario({
   dias,
@@ -73,12 +77,14 @@ export default function MiniCalendario({
   readonly onEditar?: (dia: string | null) => void;
   readonly onCambiarHorario?: (
     dia: string,
-    cambios: { starts_at?: string | null; ends_at?: string | null; break_minutes?: number | null },
+    cambios: {
+      starts_at?: string | null;
+      ends_at?: string | null;
+      break_minutes?: number | null;
+    },
   ) => void;
   readonly onCerrar: () => void;
 }) {
-  // Las filas de la semana chilena: domingo a sábado. El rango parte en
-  // domingo, así que calzan sin relleno.
   const semanas: string[][] = [];
   for (let i = 0; i < dias.length; i += 7)
     semanas.push([...dias.slice(i, i + 7)]);
@@ -90,12 +96,34 @@ export default function MiniCalendario({
 
   const enEdicion = editando ? asignacionDe(editando) : null;
 
+  // El resumen del mes: cuántos días y cuántas horas suman.
+  const marcados = [...dias].filter((d) => diasQueViene.has(d));
+  const horasDelMes = marcados.reduce((t, d) => {
+    const a = asignacionDe(d);
+    const hab = horarioHabitual(persona, d);
+    return (
+      t +
+      (horasTrabajadas(
+        hhmm(a?.starts_at) ?? hab.in,
+        hhmm(a?.ends_at) ?? hab.out,
+        a?.break_minutes ?? hab.break,
+      ) ?? 0)
+    );
+  }, 0);
+
   return (
-    <div className="border border-gray-200 rounded-lg bg-gray-50 p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          En qué días viene {persona?.name ?? ""}
-        </span>
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            En qué días viene {persona?.name ?? ""}
+          </p>
+          <p className="text-xs text-gray-500">
+            {marcados.length} {marcados.length === 1 ? "día" : "días"}
+            <span className="mx-1 text-gray-300">·</span>
+            {formatoHoras(horasDelMes)}
+          </p>
+        </div>
         <button
           type="button"
           onClick={onCerrar}
@@ -105,94 +133,111 @@ export default function MiniCalendario({
         </button>
       </div>
 
-      <table className="w-full">
-        <thead>
-          <tr>
-            {["D", "L", "M", "M", "J", "V", "S"].map((letra, i) => (
-              <th
-                key={`${letra}-${String(i)}`}
-                className="text-[11px] font-medium text-gray-400 pb-1"
-              >
-                {letra}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {semanas.map((semana) => (
-            <tr key={semana[0]}>
-              {semana.map((d) => {
-                const viene = diasQueViene.has(d);
-                const libre = persona?.days_off?.includes(
-                  new Date(`${d}T00:00:00Z`).getUTCDay(),
-                );
-                const r = rotulo(d);
-                const a = asignacionDe(d);
-                const hab = horarioHabitual(persona, d);
-                const entrada = hhmm(a?.starts_at) ?? hab.in;
-                const salida = hhmm(a?.ends_at) ?? hab.out;
-                // Un día con horario distinto al que le toca se destaca.
-                const distinto =
-                  viene && (entrada !== hab.in || salida !== hab.out);
-                return (
-                  <td key={d} className="p-0.5 align-top">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (viene) onDesmarcar(d);
-                          else onMarcar(d);
-                        }}
-                        title={
-                          libre
-                            ? "Es su día libre en la ficha"
-                            : `${r.dia} ${String(r.num)}`
-                        }
-                        className={`w-full h-8 rounded-md text-sm tabular-nums transition-colors ${
-                          viene
-                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : libre
-                              ? "bg-gray-100 text-gray-400 border border-dashed border-gray-300 hover:bg-blue-50"
-                              : "bg-white text-gray-600 border border-gray-200 hover:bg-blue-50"
-                        }`}
-                      >
-                        {r.num}
-                      </button>
-                      {viene &&
-                        (onEditar ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onEditar(editando === d ? null : d)
-                            }
-                            title="Cambiar el horario de este día"
-                            className={`w-full text-[10px] leading-tight tabular-nums rounded px-0.5 py-0.5 ${
-                              editando === d
-                                ? "bg-blue-100 text-blue-800"
-                                : distinto
-                                  ? "bg-amber-100 text-amber-800 font-medium hover:bg-amber-200"
-                                  : "text-gray-500 hover:bg-gray-200"
-                            }`}
-                          >
-                            {entrada.slice(0, 5)}–{salida.slice(0, 5)}
-                          </button>
-                        ) : (
-                          <span className="text-[10px] leading-tight tabular-nums text-gray-500">
-                            {entrada.slice(0, 5)}–{salida.slice(0, 5)}
-                          </span>
-                        ))}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* La cuadrícula del mes. */}
+      <div className="grid grid-cols-7 border-b border-gray-200">
+        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((n, i) => (
+          <div
+            key={`${n}-${String(i)}`}
+            className="px-2 py-1.5 text-center text-[11px] font-medium uppercase text-gray-400"
+          >
+            {n}
+          </div>
+        ))}
+      </div>
 
-      {/* El editor del día suelto: se abre al pinchar su hora. */}
+      <div className="grid grid-cols-7">
+        {semanas.flatMap((semana, fi) =>
+          semana.map((d, ci) => {
+            const viene = diasQueViene.has(d);
+            const libre = persona?.days_off?.includes(
+              new Date(`${d}T00:00:00Z`).getUTCDay(),
+            );
+            const r = rotulo(d);
+            const a = asignacionDe(d);
+            const hab = horarioHabitual(persona, d);
+            const entrada = hhmm(a?.starts_at) ?? hab.in;
+            const salida = hhmm(a?.ends_at) ?? hab.out;
+            const distinto =
+              viene && (entrada !== hab.in || salida !== hab.out);
+            const primeroDelMes = r.num === 1;
+
+            return (
+              <div
+                key={d}
+                className={`min-h-[4.5rem] p-1 border-gray-100 ${
+                  ci < 6 ? "border-r" : ""
+                } ${fi < semanas.length - 1 ? "border-b" : ""} ${
+                  libre && !viene ? "bg-gray-50" : "bg-white"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (viene) onDesmarcar(d);
+                    else onMarcar(d);
+                  }}
+                  title={
+                    viene
+                      ? "Quitar este día"
+                      : libre
+                        ? "Es su día libre — márcalo si igual viene"
+                        : "Agregar este día"
+                  }
+                  className="w-full flex items-start justify-between px-1 rounded hover:bg-blue-50 group"
+                >
+                  <span
+                    className={`text-xs tabular-nums ${
+                      viene ? "font-semibold text-gray-900" : "text-gray-400"
+                    }`}
+                  >
+                    {r.num}
+                    {primeroDelMes && (
+                      <span className="ml-1 text-[10px] text-gray-400">
+                        {r.mes}
+                      </span>
+                    )}
+                  </span>
+                  {!viene && (
+                    <span className="text-xs text-gray-300 opacity-0 group-hover:opacity-100">
+                      +
+                    </span>
+                  )}
+                </button>
+
+                {viene &&
+                  (onEditar ? (
+                    <button
+                      type="button"
+                      onClick={() => onEditar(editando === d ? null : d)}
+                      title="Cambiar el horario de este día"
+                      className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums text-left transition-colors ${
+                        editando === d
+                          ? "bg-blue-600 text-white"
+                          : distinto
+                            ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                            : "bg-blue-50 text-blue-800 hover:bg-blue-100"
+                      }`}
+                    >
+                      {entrada}
+                      <br />
+                      {salida}
+                    </button>
+                  ) : (
+                    <div className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-blue-50 text-blue-800">
+                      {entrada}
+                      <br />
+                      {salida}
+                    </div>
+                  ))}
+              </div>
+            );
+          }),
+        )}
+      </div>
+
+      {/* El editor del día suelto: se abre al pinchar su píldora. */}
       {editando && enEdicion && onCambiarHorario && (
-        <div className="mt-3 bg-white border border-blue-200 rounded-lg p-3">
+        <div className="border-t border-blue-200 bg-blue-50/50 px-4 py-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-900">
               {rotulo(editando).dia} {rotulo(editando).num} de{" "}
@@ -212,7 +257,7 @@ export default function MiniCalendario({
               aria-label="Salida de ese día"
             />
             <span className="text-xs text-gray-500">· colación</span>
-            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
+            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs bg-white">
               {([0, 30, 60] as const).map((min) => (
                 <button
                   key={min}
@@ -242,7 +287,7 @@ export default function MiniCalendario({
             <button
               type="button"
               onClick={() => onEditar?.(null)}
-              className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+              className="px-2 py-1 text-xs text-gray-600 hover:bg-white rounded"
             >
               cerrar
             </button>
@@ -250,11 +295,10 @@ export default function MiniCalendario({
         </div>
       )}
 
-      <p className="text-[11px] text-gray-500 mt-2">
-        Azul = viene ese día. Pincha el <strong>número</strong> para marcar o
-        desmarcar, y la <strong>hora</strong> para cambiar solo ese día. En
-        ámbar, los días con horario distinto al suyo. Los punteados son sus
-        días libres de la ficha.
+      <p className="text-[11px] text-gray-500 px-4 py-2 bg-gray-50 border-t border-gray-200">
+        Pincha un <strong>día vacío</strong> para agregarlo y el{" "}
+        <strong>horario</strong> para cambiar solo ese día. En ámbar, los días
+        con horario distinto al que le toca. En gris, sus días libres.
       </p>
     </div>
   );
