@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
   HoraInput,
   formatoHoras,
@@ -16,6 +17,7 @@ import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import {
   getAllEventResources,
+  getEventServiceTimes,
   getManagementResources,
 } from "../../services/logistics.service";
 import {
@@ -86,6 +88,11 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   // achicar a una o abrir al mes. Siempre alineada al domingo.
   const [rango, setRango] = useState<7 | 14 | 28>(14);
   const [casilla, setCasilla] = useState<{ dia: string; fila: FilaSemana } | null>(null);
+  // Los cargos de planta agregados a mano en esta sesión ("+ cargo"):
+  // por defecto solo se muestran los que tienen gente — 10 filas siempre
+  // visibles eran invasivas (Felipe, 15-08).
+  const [cargosPlanta, setCargosPlanta] = useState<number[]>([]);
+  const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
 
   const dias = useMemo(
     () => Array.from({ length: rango }, (_, i) => sumarDias(domingo, i)),
@@ -196,6 +203,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     // Gente puesta en una casilla cuyo cargo ya no está costeado: la fila
     // igual se muestra, para que nadie quede invisible.
     for (const a of staff) {
+      // La gente sin evento vive en "Personal de planta", más abajo: si
+      // entrara acá crearía un grupo fantasma "Evento" (bug del 15-08).
+      if (a.quotation_id === null) continue;
       const e = porEvento.get(String(a.quotation_id));
       const r = a.role_id ? porRecurso.get(a.role_id) : null;
       const k = `${a.quotation_id}|${a.role_id ?? 0}`;
@@ -222,8 +232,18 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     // lo que sea sin evento. Siempre presente (por eso la sábana existe
     // aunque no haya eventos) y AL FINAL, separado con su línea. Una fila
     // por cargo activo: la gente sale con su cargo.
+    const conGente = new Set(
+      staff
+        .filter((a) => a.quotation_id === null)
+        .map((a) => a.role_id ?? 0),
+    );
     const restaurante: FilaSemana[] = catalogo
-      .filter((r) => r.type === "personal" && r.is_active !== false)
+      .filter(
+        (r) =>
+          r.type === "personal" &&
+          r.is_active !== false &&
+          (conGente.has(r.id) || cargosPlanta.includes(r.id)),
+      )
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((r) => ({
         quotationId: null,
@@ -249,8 +269,19 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         necesita: new Map(),
         sinRepartir: 0,
       });
+    // Sin filas, la banda igual existe para poder agregar el primer cargo.
+    if (restaurante.length === 0)
+      restaurante.push({
+        quotationId: null,
+        evento: "Personal de planta",
+        cargoId: -1,
+        cargo: "",
+        precio: 0,
+        necesita: new Map(),
+        sinRepartir: 0,
+      });
     return [...deEventos, ...restaurante];
-  }, [lineas, catalogo, eventos, staff, domingo, hasta]);
+  }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
 
   const puestos = useMemo(() => {
     const m = new Map<string, Asignacion[]>();
@@ -374,10 +405,24 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           onQuitarDia={() => {}}
           columnaTitulo="Evento · cargo"
           resaltarDia={hoyEnChile()}
-          filas={filas.map((f): FilaGrillaDias => ({
+          onDiaClick={(d) => setDiaAbierto(diaAbierto === d ? null : d)}
+          filas={filas.map((f, fi): FilaGrillaDias => ({
             id: `${f.quotationId ?? "rest"}|${f.cargoId}`,
             grupo: f.evento,
             grupoDestacado: f.quotationId === null,
+            grupoAccion:
+              f.quotationId === null &&
+              filas.findIndex((x) => x.quotationId === null) === fi ? (
+                <div className="w-44 font-normal normal-case">
+                  <SelectWithSearchCargos
+                    catalogo={catalogo}
+                    yaVisibles={filas
+                      .filter((x) => x.quotationId === null)
+                      .map((x) => x.cargoId)}
+                    onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                  />
+                </div>
+              ) : undefined,
             titulo: (
               <>
                 {f.cargo}
@@ -396,6 +441,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             // La celda de la sábana: tiene/necesita, ámbar donde falta,
             // verde donde está cubierto. Pincha y se abre la casilla.
             renderCelda: (d) => {
+              if (f.cargoId === -1) return <span className="text-gray-200"> </span>;
               const gente = enCasilla(f, d);
               const necesita = f.necesita.get(d) || 0;
               const tiene = gente.length;
@@ -456,6 +502,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         />
       )}
 
+      {diaAbierto && (
+        <ResumenDelDia
+          dia={diaAbierto}
+          eventos={eventos}
+          staff={staff}
+          companyId={companyId}
+          onCerrar={() => setDiaAbierto(null)}
+        />
+      )}
+
       {casilla && (
         <CasillaAbierta
           dia={casilla.dia}
@@ -474,7 +530,198 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   );
 }
 
-/** El horario de una asignación: entrada, salida, colación y las horas. */
+/** EL RESUMEN DEL DÍA (Felipe, 15-08): al pinchar un día se ve la gente
+ *  agrupada por cargo, qué eventos hay y a qué hora van sus servicios. */
+function ResumenDelDia({
+  dia,
+  eventos,
+  staff,
+  companyId,
+  onCerrar,
+}: {
+  readonly dia: string;
+  readonly eventos: readonly {
+    id: string;
+    numero: number;
+    cliente: string;
+    inicio: string | null;
+    termino: string | null;
+  }[];
+  readonly staff: readonly Asignacion[];
+  readonly companyId: number;
+  readonly onCerrar: () => void;
+}) {
+  const r = rotulo(dia);
+  const delDia = staff.filter((a) => iso(a.day) === dia);
+  const eventosDelDia = eventos.filter(
+    (e) => e.inicio && e.inicio <= dia && (e.termino || e.inicio) >= dia,
+  );
+  const planta = delDia.filter((a) => a.quotation_id === null);
+
+  const porCargo = (lista: readonly Asignacion[]) => {
+    const m = new Map<string, Asignacion[]>();
+    for (const a of lista) {
+      const k = a.management_resources?.name ?? "Sin cargo";
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(a);
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const Persona = ({ a }: { readonly a: Asignacion }) => (
+    <li className="flex items-center gap-2 text-sm">
+      <span className="text-gray-900">{a.people?.name ?? "—"}</span>
+      {a.starts_at && a.ends_at && (
+        <span className="text-xs text-gray-500 tabular-nums">
+          {a.starts_at.slice(0, 5)}–{a.ends_at.slice(0, 5)}
+        </span>
+      )}
+      {a.status === "confirmado" ? (
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
+      ) : (
+        <span className="text-[11px] text-amber-700">por confirmar</span>
+      )}
+    </li>
+  );
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">
+          {r.dia} {r.num} de {r.mes}
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            {delDia.length}{" "}
+            {delDia.length === 1 ? "persona asignada" : "personas asignadas"}
+          </span>
+        </h3>
+        <button
+          onClick={onCerrar}
+          aria-label="Cerrar"
+          className="p-1 text-gray-400 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {eventosDelDia.length === 0 && planta.length === 0 && (
+        <p className="text-sm text-gray-500">
+          Día libre: sin eventos ni gente asignada.
+        </p>
+      )}
+
+      {eventosDelDia.map((e) => {
+        const gente = delDia.filter((a) => String(a.quotation_id) === e.id);
+        return (
+          <div key={e.id} className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900">
+                #{e.numero} · {e.cliente}
+              </p>
+              <HorariosDeServicios companyId={companyId} quotationId={e.id} />
+            </div>
+            {gente.length === 0 ? (
+              <p className="text-xs text-amber-700 pl-3">
+                Sin gente asignada este día.
+              </p>
+            ) : (
+              porCargo(gente).map(([cargo, lista]) => (
+                <div key={cargo} className="pl-3">
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    {cargo} · {lista.length}
+                  </p>
+                  <ul className="pl-3 space-y-0.5">
+                    {lista.map((a) => (
+                      <Persona key={a.id} a={a} />
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      })}
+
+      {planta.length > 0 && (
+        <div className="space-y-2 border-t border-gray-200 pt-3">
+          <p className="text-sm font-semibold text-gray-900">
+            Personal de planta
+          </p>
+          {porCargo(planta).map(([cargo, lista]) => (
+            <div key={cargo} className="pl-3">
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                {cargo} · {lista.length}
+              </p>
+              <ul className="pl-3 space-y-0.5">
+                {lista.map((a) => (
+                  <Persona key={a.id} a={a} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Las horas de los servicios del evento (vienen de la Ficha de Cocina). */
+function HorariosDeServicios({
+  companyId,
+  quotationId,
+}: {
+  readonly companyId: number;
+  readonly quotationId: string;
+}) {
+  const { data } = useQuery({
+    queryKey: ["people", "horarios-servicios", quotationId],
+    queryFn: () => getEventServiceTimes(companyId, quotationId),
+    staleTime: 5 * 60_000,
+  });
+  const entradas = Object.entries(data ?? {}).filter(([, hora]) => hora);
+  if (entradas.length === 0) return null;
+  return (
+    <span className="text-xs text-gray-500">
+      {entradas
+        .sort(([, a], [, b]) => a.localeCompare(b))
+        .map(([servicio, hora]) => `${servicio} ${hora.slice(0, 5)}`)
+        .join(" · ")}
+    </span>
+  );
+}
+
+/** El "+ cargo" de la banda de Personal de planta. */
+function SelectWithSearchCargos({
+  catalogo,
+  yaVisibles,
+  onAgregar,
+}: {
+  readonly catalogo: readonly { id: number; name: string; type: string; is_active: boolean }[];
+  readonly yaVisibles: readonly number[];
+  readonly onAgregar: (id: number) => void;
+}) {
+  const opciones = catalogo
+    .filter(
+      (r) =>
+        r.type === "personal" &&
+        r.is_active !== false &&
+        !yaVisibles.includes(r.id),
+    )
+    .map((r) => ({ value: String(r.id), label: r.name }));
+  return (
+    <SelectWithSearch
+      options={opciones}
+      value=""
+      onChange={(v) => v && onAgregar(Number(v))}
+      placeholder="+ cargo"
+      tamano="sm"
+      mostrarConteo={false}
+    />
+  );
+}
+
+/** El horario de una asignación: en reposo, UNA línea de texto; los
+ *  relojes solo se abren al pinchar el lápiz ("visualmente enredado",
+ *  Felipe 15-08). */
 function HorarioDelDia({
   asignacion: a,
   onCambiar,
@@ -482,8 +729,52 @@ function HorarioDelDia({
   readonly asignacion: Asignacion;
   readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
 }) {
+  const [editando, setEditando] = useState(false);
   const horas = horasTrabajadas(a.starts_at, a.ends_at, a.break_minutes);
   const TOPE_INFORMATIVO = 12;
+
+  if (!editando) {
+    const colacion =
+      a.break_minutes === 60
+        ? " · col. 1 h"
+        : a.break_minutes === 30
+          ? " · col. 30 m"
+          : "";
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <Clock className="w-3.5 h-3.5 shrink-0" />
+        <span>
+          {a.starts_at && a.ends_at
+            ? `${a.starts_at.slice(0, 5)}–${a.ends_at.slice(0, 5)}${colacion}`
+            : "sin horario"}
+        </span>
+        {horas !== null && (
+          <span
+            className={`tabular-nums font-medium ${
+              horas > TOPE_INFORMATIVO ? "text-amber-700" : "text-gray-700"
+            }`}
+            title={
+              horas > TOPE_INFORMATIVO
+                ? `Más de ${TOPE_INFORMATIVO} horas — está bien si así se pactó; a veces convienen dos turnos`
+                : "Horas trabajadas, con la colación descontada"
+            }
+          >
+            · {formatoHoras(horas)}
+            {horas > TOPE_INFORMATIVO && " ⚠"}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          aria-label="Editar el horario"
+          className="p-0.5 text-gray-400 hover:text-blue-600 rounded"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 flex-wrap text-xs text-gray-600">
       <HoraInput
@@ -520,21 +811,17 @@ function HorarioDelDia({
           </button>
         ))}
       </div>
-      <span
-        className={`ml-auto tabular-nums font-medium ${
-          horas !== null && horas > TOPE_INFORMATIVO
-            ? "text-amber-700"
-            : "text-gray-700"
-        }`}
-        title={
-          horas !== null && horas > TOPE_INFORMATIVO
-            ? `Más de ${TOPE_INFORMATIVO} horas — está bien si así se pactó; a veces convienen dos turnos`
-            : "Horas trabajadas, con la colación descontada"
-        }
-      >
+      <span className="ml-auto tabular-nums font-medium text-gray-700">
         {formatoHoras(horas)}
-        {horas !== null && horas > TOPE_INFORMATIVO && " ⚠"}
       </span>
+      <button
+        type="button"
+        onClick={() => setEditando(false)}
+        aria-label="Listo"
+        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+      >
+        <Check className="w-4 h-4" />
+      </button>
     </div>
   );
 }

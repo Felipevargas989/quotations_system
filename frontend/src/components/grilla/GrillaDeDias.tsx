@@ -51,6 +51,8 @@ export interface FilaGrillaDias {
   /** La banda lleva una línea divisoria gruesa arriba (ej: el
    *  Restaurante, separado de los eventos). */
   readonly grupoDestacado?: boolean;
+  /** v2.1: un control a la derecha de la banda (ej: "+ cargo"). */
+  readonly grupoAccion?: ReactNode;
   /** v2.0: pinta la celda a su manera (la sábana pone su tiene/necesita).
    *  Sin esto, la celda es el contador de siempre. */
   readonly renderCelda?: (dia: string) => ReactNode;
@@ -73,6 +75,7 @@ export default function GrillaDeDias({
   filas,
   pie,
   resaltarDia,
+  onDiaClick,
 }: {
   readonly dias: readonly string[];
   /** Los días propios del evento: no llevan ✕. */
@@ -86,6 +89,8 @@ export default function GrillaDeDias({
   readonly pie?: PieGrillaDias;
   /** v2.0: el día a resaltar (normalmente hoy). */
   readonly resaltarDia?: string;
+  /** v2.1: pinchar el encabezado de un día (la sábana abre su resumen). */
+  readonly onDiaClick?: (dia: string) => void;
 }) {
   return (
     <div className="border border-gray-200 rounded-xl overflow-x-auto">
@@ -138,7 +143,18 @@ export default function GrillaDeDias({
                       </button>
                     )}
                   </div>
-                  <div className="leading-tight">{r.num}</div>
+                  {onDiaClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onDiaClick(d)}
+                      title="Ver el resumen del día"
+                      className="leading-tight hover:text-blue-700 hover:underline"
+                    >
+                      {r.num}
+                    </button>
+                  ) : (
+                    <div className="leading-tight">{r.num}</div>
+                  )}
                   <div className="text-[11px] text-gray-400 leading-none">
                     {r.mes}
                   </div>
@@ -169,7 +185,10 @@ export default function GrillaDeDias({
                     colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-700"
                   >
-                    {f.grupo}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{f.grupo}</span>
+                      {f.grupoAccion}
+                    </div>
                   </td>
                 </tr>
               )}
