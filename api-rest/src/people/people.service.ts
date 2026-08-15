@@ -60,7 +60,6 @@ export class PeopleService {
       default_kind: persona.default_kind ?? 'freelance',
       status: persona.status ?? 'activa',
     } as CreatePerson);
-    // Recién creada de planta: su año queda proyectado al tiro.
     await this.proyectarSiCorresponde(companyId, creada.id);
     return creada;
   }
@@ -91,7 +90,9 @@ export class PeopleService {
     try {
       await this.proyectarPlanta(companyId, personId);
     } catch (e) {
-      this.logger.error(`No se pudo proyectar la planta de ${personId}: ${String(e)}`);
+      this.logger.error(
+        `No se pudo proyectar la planta de ${personId}: ${String(e)}`,
+      );
     }
   }
 
@@ -212,24 +213,6 @@ export class PeopleService {
   }
 
   /**
-   * Proyecta el año de TODA la planta activa. La sábana lo llama UNA
-   * vez al abrirse; desplazarse por los meses ya no carga nada
-   * (Felipe, 15-08: "no estar cargando y metiéndole sobrecarga cada vez
-   * que pincho y me desplazo").
-   */
-  async proyectarTodaLaPlanta(companyId: number) {
-    const personas = (await this.repo.findAll(companyId)).filter(
-      (p) => p.status === 'activa' && p.default_kind === 'planta',
-    );
-    let creadas = 0;
-    for (const p of personas) {
-      const r = await this.proyectarPlanta(companyId, p.id);
-      creadas += r.creados;
-    }
-    return { personas: personas.length, creadas };
-  }
-
-  /**
    * LA JORNADA DE PLANTA SE PROYECTA A 12 MESES (Felipe, 15-08).
    *
    * Antes se cargaba de a poco, cada vez que uno se desplazaba por el
@@ -253,13 +236,13 @@ export class PeopleService {
     const hoy = new Date().toLocaleDateString('en-CA', {
       timeZone: 'America/Santiago',
     });
-    // Un año hacia adelante, contado en días para no pelear con los
-    // meses de 28, 30 y 31.
     const hasta = diaMas(hoy, 365);
 
     const suyas = await this.repo.findDePersonaDesde(companyId, personId, hoy);
     const conEvento = new Set(
-      suyas.filter((a) => a.quotation_id !== null).map((a) => a.day.slice(0, 10)),
+      suyas
+        .filter((a) => a.quotation_id !== null)
+        .map((a) => a.day.slice(0, 10)),
     );
     const dePlanta = new Map(
       suyas
@@ -282,8 +265,6 @@ export class PeopleService {
       const yaEsta = dePlanta.get(d);
 
       if (!debeVenir) {
-        // Ese día ya no le toca: se quita, salvo que sea el día donde
-        // hay un evento (ahí nunca hubo planta que quitar).
         if (yaEsta) {
           await this.repo.removeStaff(yaEsta.id, companyId);
           quitados += 1;
@@ -319,6 +300,315 @@ export class PeopleService {
       `proyectarPlanta ${personId}: +${creados} ~${corregidos} -${quitados}`,
     );
     return { creados, corregidos, quitados };
+  }
+
+  /**
+   * Proyecta el año de TODA la planta activa. La sábana lo llama UNA
+   * vez al abrirse; desplazarse por los meses ya no carga nada.
+   */
+  async proyectarTodaLaPlanta(companyId: number) {
+    const personas = (await this.repo.findAll(companyId)).filter(
+      (p) => p.status === 'activa' && p.default_kind === 'planta',
+    );
+    let creadas = 0;
+    for (const p of personas) {
+      const r = await this.proyectarPlanta(companyId, p.id);
+      creadas += r.creados;
+    }
+    return { personas: personas.length, creadas };
+  }
+
+
+  // ================= EL CICLO DE LA FICHA =================
+  // armando → confirmado → trabajado → cerrada. "Cerrada" solo entra
+  // por cerrarFicha(), que valida el candado de la plata.
+
+  findSheets(companyId: number) {
+    return this.repo.findSheets(companyId);
+  }
+
+  upsertSheet(dto: UpsertSheetDto, companyId: number) {
+    return this.repo.upsertSheet(companyId, dto.quotation_id, {
+      status: dto.status,
+      closed_at: null,
+    });
+  }
+
+  /**
+   * EL CANDADO ES INTERNO (la lección del 24 de enero: $15.715 en el
+   * aire con la casilla en verde): se revisa que LA PLATA repartida
+   * sume el pozo, no que los porcentajes sumen 100. Si no cuadra, el
+   * botón no se puede apretar — acá se rechaza, sin semáforos.
+   */
+  async cerrarFicha(dto: CerrarFichaDto, companyId: number) {
+    const sheet = await this.repo.findSheetByQuotation(
+      companyId,
+      dto.quotation_id,
+    );
+    if (!sheet || sheet.status !== 'trabajado') {
+      throw new BadRequestException(
+        'La ficha se cierra desde "trabajado": primero se ajustan las horas reales',
+      );
+    }
+    const pools = (await this.repo.findPools(companyId)).filter(
+      (p) => p.quotation_id === dto.quotation_id,
+    );
+    const sinRepartir = pools.filter(
+      (p) =>
+        Number(p.first_amount) + Number(p.second_amount) > 0 &&
+        !p.distributed_at,
+    );
+    if (sinRepartir.length > 0) {
+      throw new BadRequestException(
+        'Hay un pozo de propina sin repartir: se reparte y recién ahí se cierra',
+      );
+    }
+    const staff = await this.repo.findStaff(companyId, dto.quotation_id);
+    const repartido = staff.reduce((t, a) => t + Number(a.tip_amount ?? 0), 0);
+    const pozo = pools.reduce(
+      (t, p) => t + Number(p.first_amount) + Number(p.second_amount),
+      0,
+    );
+    if (Math.round(repartido) !== Math.round(pozo)) {
+      throw new BadRequestException(
+        `La plata repartida ($${repartido}) no suma el pozo ($${pozo})`,
+      );
+    }
+    return this.repo.upsertSheet(companyId, dto.quotation_id, {
+      status: 'cerrada',
+      closed_at: new Date().toISOString(),
+    });
+  }
+
+  // ================= LOS POZOS Y EL REPARTO =================
+
+  findPools(companyId: number) {
+    return this.repo.findPools(companyId);
+  }
+
+  createPool(dto: CreatePoolDto, companyId: number) {
+    if (!dto.quotation_id && !dto.day) {
+      throw new BadRequestException(
+        'Un pozo es de un evento o de un día de la planta',
+      );
+    }
+    return this.repo.createPool({
+      company_id: companyId,
+      quotation_id: dto.quotation_id ?? null,
+      day: dto.day ?? null,
+      area: dto.area ?? null,
+      first_amount: dto.first_amount ?? 0,
+      second_amount: dto.second_amount ?? 0,
+    });
+  }
+
+  updatePool(id: number, dto: UpdatePoolDto, companyId: number) {
+    return this.repo.updatePool(id, { ...dto }, companyId);
+  }
+
+  async removePool(id: number, companyId: number) {
+    await this.repo.clearTips(id, companyId);
+    return this.repo.removePool(id, companyId);
+  }
+
+  /**
+   * EL REPARTO: por cargo según los porcentajes, y DENTRO del cargo
+   * por horas trabajadas. Al peso y SIN SOBRANTES — el redondeo
+   * reparte los pesos que faltan de a uno (en el Excel, Joker No 1
+   * dejó $8 en el aire y 8 de 9 eventos descuadraban).
+   *
+   * Se puede volver a repartir mientras la ficha no esté cerrada y la
+   * propina no haya caído en una nómina.
+   */
+  async repartir(poolId: number, dto: RepartirDto, companyId: number) {
+    const pool = await this.repo.findPool(poolId, companyId);
+    const pozo = Math.round(
+      Number(pool.first_amount) + Number(pool.second_amount),
+    );
+    if (pozo <= 0) throw new BadRequestException('El pozo está en cero');
+
+    const totalPct = dto.porcentajes.reduce((t, p) => t + p.pct, 0);
+    if (Math.abs(totalPct - 100) > 0.001) {
+      throw new BadRequestException(
+        `Los porcentajes suman ${totalPct}, no 100`,
+      );
+    }
+
+    let filas: Awaited<ReturnType<typeof this.repo.findStaff>>;
+    if (pool.quotation_id) {
+      const sheet = await this.repo.findSheetByQuotation(
+        companyId,
+        pool.quotation_id,
+      );
+      if (sheet?.status === 'cerrada') {
+        throw new BadRequestException('La ficha ya está cerrada');
+      }
+      filas = await this.repo.findStaff(companyId, pool.quotation_id);
+    } else {
+      filas = await this.repo.findPlantaDelDia(companyId, pool.day!);
+    }
+    if (filas.some((f) => f.tip_payroll_id !== null)) {
+      throw new BadRequestException(
+        'Hay propinas de este grupo ya liquidadas en una nómina',
+      );
+    }
+
+    // El pozo por cargo (mayor resto), y dentro del cargo por horas.
+    const conPct = dto.porcentajes.filter((p) => p.pct > 0);
+    const montosCargo = repartirAlPeso(
+      pozo,
+      conPct.map((p) => p.pct),
+    );
+    const asignado = new Map<number, number>();
+    conPct.forEach((p, i) => {
+      const delCargo = filas.filter(
+        (f) => (f.role_id ?? null) === (p.role_id ?? null),
+      );
+      if (delCargo.length === 0) {
+        throw new BadRequestException(
+          `Hay un ${String(p.pct)}% asignado a un cargo sin nadie puesto`,
+        );
+      }
+      const montos = repartirAlPeso(
+        montosCargo[i],
+        delCargo.map((f) =>
+          minutosTrabajados(f.starts_at, f.ends_at, f.break_minutes),
+        ),
+      );
+      delCargo.forEach((f, j) =>
+        asignado.set(f.id, (asignado.get(f.id) ?? 0) + montos[j]),
+      );
+    });
+
+    await this.repo.clearTips(poolId, companyId);
+    for (const [id, monto] of asignado) {
+      await this.repo.updateStaff(
+        id,
+        { tip_amount: monto, tip_pool_id: poolId },
+        companyId,
+      );
+    }
+    await this.repo.updatePool(
+      poolId,
+      { distributed_at: new Date().toISOString() },
+      companyId,
+    );
+    const repartido = [...asignado.values()].reduce((t, m) => t + m, 0);
+    this.logger.info(`repartir pozo ${poolId}: $${repartido} en ${asignado.size} filas`);
+    return { repartido, filas: asignado.size };
+  }
+
+  // ================= LAS ESTRELLAS =================
+
+  findReviews(companyId: number, personId?: number) {
+    return this.repo.findReviews(companyId, personId);
+  }
+
+  createReview(dto: CreateReviewDto, companyId: number) {
+    if (!dto.stars && !dto.note) {
+      throw new BadRequestException('Una evaluación lleva estrellas o nota');
+    }
+    return this.repo.createReview({ ...dto, company_id: companyId });
+  }
+
+  // ================= LA NÓMINA Y EL PAGO =================
+
+  /**
+   * La nómina NO es una semana: es un selector de qué se liquida.
+   * Toma todo lo PENDIENTE que calce con el filtro (jornadas y
+   * propinas por separado), lo marca, y dice qué dejó fuera (pozos
+   * sin repartir). No bloquea: quien bloquea es el cierre de la ficha.
+   */
+  async createPayroll(dto: CreatePayrollDto, companyId: number) {
+    const filtro = {
+      hasta: dto.hasta,
+      desde: dto.desde,
+      quotationIds: dto.quotation_ids,
+    };
+    const jornadas = await this.repo.jornadasPendientes(companyId, filtro);
+    const propinas = await this.repo.propinasPendientes(companyId, filtro);
+    if (jornadas.length === 0 && propinas.length === 0) {
+      throw new BadRequestException(
+        'No hay nada pendiente que liquidar con ese filtro',
+      );
+    }
+    const payroll = await this.repo.createPayroll({
+      company_id: companyId,
+      label: dto.label,
+    });
+    await this.repo.stampRows(
+      jornadas.map((j) => j.id),
+      { payroll_id: payroll.id },
+      companyId,
+    );
+    await this.repo.stampRows(
+      propinas.map((p) => p.id),
+      { tip_payroll_id: payroll.id },
+      companyId,
+    );
+    const personIds = [
+      ...new Set([...jornadas, ...propinas].map((r) => r.person_id)),
+    ];
+    await this.repo.insertPagos(
+      personIds.map((person_id) => ({
+        company_id: companyId,
+        payroll_id: payroll.id,
+        person_id,
+      })),
+    );
+    const fuera = await this.repo.poolsSinRepartir(companyId, filtro);
+    return { ...payroll, personas: personIds.length, fuera };
+  }
+
+  findPayrolls(companyId: number) {
+    return this.repo.findPayrolls(companyId);
+  }
+
+  async getPayroll(id: number, companyId: number) {
+    const payroll = await this.repo.findPayroll(id, companyId);
+    const { jornadas, propinas } = await this.repo.rowsDeNomina(id, companyId);
+    const pagos = await this.repo.findPagos(id, companyId);
+    return { ...payroll, jornadas, propinas, pagos };
+  }
+
+  /** "Ya la pagué" se marca EN EL MOMENTO, no después — por eso ahora
+   *  existe "pendiente". Jornada y propina por separado. */
+  marcarPago(payrollId: number, dto: PagoDto, companyId: number) {
+    const cambios: Record<string, unknown> = { paid_at: new Date().toISOString() };
+    if (dto.jornada_paid !== undefined) cambios.jornada_paid = dto.jornada_paid;
+    if (dto.propina_paid !== undefined) cambios.propina_paid = dto.propina_paid;
+    return this.repo.upsertPago(companyId, payrollId, dto.person_id, cambios);
+  }
+
+  // ================= LAS NOTAS DEL DÍA =================
+
+  findDayNotes(companyId: number, desde: string, hasta: string) {
+    return this.repo.findDayNotes(companyId, desde, hasta);
+  }
+
+  createDayNote(dto: CreateDayNoteDto, companyId: number) {
+    const texto = dto.text.trim();
+    if (!texto) throw new BadRequestException('La nota viene vacía');
+    return this.repo.createDayNote({
+      company_id: companyId,
+      day: dto.day,
+      quotation_id: dto.quotation_id ?? null,
+      text: texto,
+    });
+  }
+
+  updateDayNote(id: number, dto: UpdateDayNoteDto, companyId: number) {
+    const cambios: Record<string, unknown> = { ...dto };
+    if (dto.text !== undefined) {
+      const texto = dto.text.trim();
+      if (!texto) throw new BadRequestException('La nota viene vacía');
+      cambios.text = texto;
+    }
+    return this.repo.updateDayNote(id, cambios, companyId);
+  }
+
+  removeDayNote(id: number, companyId: number) {
+    return this.repo.removeDayNote(id, companyId);
   }
 
   /**
@@ -429,3 +719,10 @@ const diaMas = (iso: string, n: number) =>
   new Date(new Date(`${iso}T00:00:00Z`).getTime() + n * 86_400_000)
     .toISOString()
     .slice(0, 10);
+
+/**
+ * El horario que le toca a una persona un día dado, bajando la
+ * escalera: lo que venga escrito para ese día > su horario de ESE día
+ * de la semana > su horario único de la ficha > el estándar de la casa
+ * (09:00 a 19:00 con una hora de colación).
+ */
