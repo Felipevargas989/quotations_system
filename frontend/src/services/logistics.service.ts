@@ -277,7 +277,13 @@ export const updateFurnitureItem = async (
   fields: Partial<
     Pick<
       FurnitureItem,
-      "name" | "is_active" | "category" | "stock" | "photo_url" | "preassembled"
+      | "name"
+      | "is_active"
+      | "category"
+      | "stock"
+      | "photo_url"
+      | "preassembled"
+      | "unit_cost"
     >
   >,
 ) => {

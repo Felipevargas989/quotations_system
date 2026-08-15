@@ -93,6 +93,8 @@ export interface FurnitureItem {
   // vuelve al circuito entre servicios → las cantidades se SUMAN.
   // false (default) = se lava y reutiliza → máximo simultáneo (peak).
   preassembled: boolean;
+  // Costo unitario de reposición: inventario valorizado = stock × costo.
+  unit_cost: number | null;
   created_at: string;
 }
 

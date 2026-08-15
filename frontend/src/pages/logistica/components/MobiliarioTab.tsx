@@ -282,6 +282,23 @@ export default function MobiliarioTab({
 
   // Stock editable en la fila (autosave onBlur): el caché se actualiza
   // quirúrgicamente para que la fila no salte, y se confirma por detrás.
+  // Gemelo de saveStock: mismo caché, misma forma {rows, usage}.
+  const saveUnitCost = async (f: FurnitureItem, value: number | null) => {
+    if (value === f.unit_cost) return;
+    await updateFurnitureItem(f.id, { unit_cost: value });
+    queryClient.setQueryData<{
+      rows: FurnitureItem[];
+      usage: Record<number, { recipes: number }>;
+    }>(["logistica", "mobiliario", companyId], (prev) =>
+      prev && {
+        ...prev,
+        rows: prev.rows.map((r) =>
+          r.id === f.id ? { ...r, unit_cost: value } : r,
+        ),
+      },
+    );
+  };
+
   const saveStock = async (f: FurnitureItem, value: number) => {
     if (value === f.stock || value < 0) return;
     await updateFurnitureItem(f.id, { stock: value });
@@ -399,6 +416,12 @@ export default function MobiliarioTab({
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
                     Stock
                   </th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
+                    Costo unitario
+                  </th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">
+                    Valorizado
+                  </th>
                   {/* Ancho fijo: la confirmación de borrado ocupa lo mismo
                       que los iconos y la tabla no se reacomoda. */}
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-36">
@@ -461,6 +484,27 @@ export default function MobiliarioTab({
                         className="w-24 px-2 py-1 text-sm text-right"
                         aria-label={`Stock de ${f.name}`}
                       />
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {/* Inventario valorizado (Felipe, 15-08): costo de
+                          reposición por unidad, autosave como el stock. */}
+                      <NumberInput
+                        value={f.unit_cost ?? undefined}
+                        placeholder="0"
+                        min={0}
+                        currency
+                        onCommit={(v) => saveUnitCost(f, v ?? null)}
+                        className="w-28 px-2 py-1 text-sm text-right"
+                        aria-label={`Costo unitario de ${f.name}`}
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-right text-sm text-gray-700 tabular-nums whitespace-nowrap">
+                      {f.unit_cost
+                        ? "$" +
+                          Math.round(
+                            (f.stock || 0) * f.unit_cost,
+                          ).toLocaleString("es-CL")
+                        : "—"}
                     </td>
                     <td className="px-4 py-2">
                       {/* La confirmación flota ENCIMA de los iconos (que
