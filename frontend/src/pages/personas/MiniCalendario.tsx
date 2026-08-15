@@ -90,7 +90,10 @@ export default function MiniCalendario({
       break_minutes?: number | null;
     },
   ) => void;
-  readonly onCerrar: () => void;
+  /** Solo donde el calendario se despliega de verdad (la casilla de
+   *  Planificación). En la ficha es una pestaña: no hay nada que
+   *  cerrar, y el botón no hacía nada (Felipe, 15-08). */
+  readonly onCerrar?: () => void;
 }) {
   const semanas: string[][] = [];
   for (let i = 0; i < dias.length; i += 7)
@@ -136,13 +139,15 @@ export default function MiniCalendario({
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onCerrar}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          Listo
-        </button>
+        {onCerrar && (
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Listo
+          </button>
+        )}
       </div>
 
       {/* La cuadrícula del mes. */}

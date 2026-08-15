@@ -527,7 +527,6 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         onCambiarHorario={(dia, cambios) =>
           cambiarHorario.mutate({ dia, cambios })
         }
-        onCerrar={() => setEditandoDia(null)}
       />
 
       {/* Los días de EVENTO se muestran, pero no se marcan acá: esos
