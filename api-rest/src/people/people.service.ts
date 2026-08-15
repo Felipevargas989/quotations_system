@@ -155,6 +155,14 @@ export class PeopleService {
       // nace POR CONFIRMAR: "yo planifico y luego las personas
       // confirman" (Felipe). El check de la casilla lo confirma.
       status: dto.status ?? 'por_confirmar',
+      // EL HORARIO VIENE PUESTO (Felipe, 15-08): el día manda, después el
+      // habitual de la persona, y al final el estándar 09:00–19:00 con
+      // 1 h de colación. Solo se toca la excepción.
+      starts_at:
+        dto.starts_at ?? persona.default_starts_at?.slice(0, 5) ?? '09:00',
+      ends_at: dto.ends_at ?? persona.default_ends_at?.slice(0, 5) ?? '19:00',
+      break_minutes:
+        dto.break_minutes ?? persona.default_break_minutes ?? 60,
     });
   }
 

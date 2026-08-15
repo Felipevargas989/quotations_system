@@ -77,6 +77,20 @@ export class CreatePersonDto {
   @IsOptional()
   default_kind?: string;
 
+  // El horario habitual (opcional): se usa al asignar un día si no se
+  // indica otro. Sin él rige el estándar 09:00–19:00 con 1 h de colación.
+  @IsOptional()
+  @Matches(/^\d{2}:\d{2}$/)
+  default_starts_at?: string | null;
+
+  @IsOptional()
+  @Matches(/^\d{2}:\d{2}$/)
+  default_ends_at?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  default_break_minutes?: number | null;
+
   @IsIn(['activa', 'no_disponible', 'bloqueada'])
   @IsOptional()
   status?: string;

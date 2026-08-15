@@ -44,6 +44,10 @@ export interface Persona {
 
   default_role_id: number | null;
   default_kind: TipoPersona;
+  /** El horario habitual: se usa al asignarla si el día no dice otro. */
+  default_starts_at: string | null;
+  default_ends_at: string | null;
+  default_break_minutes: number | null;
 
   status: EstadoPersona;
   blocked_reason: string | null;
@@ -69,6 +73,9 @@ export interface PersonaFormData {
   account_number?: string | null;
   default_role_id?: number | null;
   default_kind?: TipoPersona;
+  default_starts_at?: string | null;
+  default_ends_at?: string | null;
+  default_break_minutes?: number | null;
   status?: EstadoPersona;
   blocked_reason?: string | null;
   notes?: string | null;

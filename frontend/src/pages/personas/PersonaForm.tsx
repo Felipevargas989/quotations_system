@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Info, Lock } from "lucide-react";
 import RutInput from "../../components/inputs/RutInput";
+import { HoraInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import type { Cargo, Persona, PersonaFormData } from "../../types/people.types";
@@ -59,6 +60,9 @@ const vacia: PersonaFormData = {
   account_number: "",
   default_role_id: null,
   default_kind: "freelance",
+  default_starts_at: null,
+  default_ends_at: null,
+  default_break_minutes: null,
   status: "activa",
   blocked_reason: "",
   notes: "",
@@ -91,6 +95,9 @@ export default function PersonaForm({
       account_number: persona.account_number ?? "",
       default_role_id: persona.default_role_id,
       default_kind: persona.default_kind,
+      default_starts_at: persona.default_starts_at?.slice(0, 5) ?? null,
+      default_ends_at: persona.default_ends_at?.slice(0, 5) ?? null,
+      default_break_minutes: persona.default_break_minutes ?? null,
       status: persona.status,
       blocked_reason: persona.blocked_reason ?? "",
       notes: persona.notes ?? "",
@@ -357,6 +364,49 @@ export default function PersonaForm({
               mostrarConteo={false}
             />
           </div>
+        </div>
+        <div className="mt-4">
+          <label className={etiqueta}>Horario habitual (opcional)</label>
+          <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600">
+            <HoraInput
+              value={datos.default_starts_at ?? null}
+              onChange={(v) => cambiar({ default_starts_at: v })}
+              aria-label="Entrada habitual"
+            />
+            <span className="text-gray-400">a</span>
+            <HoraInput
+              value={datos.default_ends_at ?? null}
+              onChange={(v) => cambiar({ default_ends_at: v })}
+              aria-label="Salida habitual"
+            />
+            <span className="text-gray-400">· colación</span>
+            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
+              {[
+                [0, "—"],
+                [30, "30 m"],
+                [60, "1 h"],
+              ].map(([min, texto]) => (
+                <button
+                  key={min}
+                  type="button"
+                  onClick={() =>
+                    cambiar({ default_break_minutes: Number(min) || null })
+                  }
+                  className={`px-2 py-1 ${
+                    (datos.default_break_minutes || 0) === min
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  {texto}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Se usa al asignarla a un día. Vacío = el estándar de la casa:
+            09:00 a 19:00 con 1 h de colación. El día siempre manda.
+          </p>
         </div>
         <p className="text-xs text-gray-500 mt-2">
           Son valores <strong>por defecto</strong>: el día que trabaje de otra
