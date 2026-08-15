@@ -214,6 +214,7 @@ export default function PersonaFichaPage() {
                 }))}
                 onChange={(v) => cambiarEstado.mutate(v as EstadoPersona)}
                 titulo="Cambiar su situación"
+                tamano="base"
               />
               {telefonoWsp && (
                 <a

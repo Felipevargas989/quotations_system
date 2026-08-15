@@ -27,12 +27,16 @@ export default function ChipDeEstado({
   opciones,
   onChange,
   titulo = "Cambiar estado",
+  tamano = "sm",
   disabled = false,
 }: {
   readonly value: string;
   readonly opciones: readonly OpcionDeEstado[];
   readonly onChange: (value: string) => void;
   readonly titulo?: string;
+  /** "sm" es el de la ficha comercial; "base" el de la ficha de una
+   *  persona, donde la cabecera pide más peso. */
+  readonly tamano?: "sm" | "base";
   readonly disabled?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -67,16 +71,18 @@ export default function ChipDeEstado({
         onClick={() => !disabled && setAbierto((v) => !v)}
         disabled={disabled}
         title={titulo}
-        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-full disabled:opacity-60 ${
-          actual?.clases ?? "bg-gray-100 text-gray-600"
-        }`}
+        className={`flex items-center gap-1.5 font-semibold rounded-full disabled:opacity-60 ${
+          tamano === "sm" ? "px-2.5 py-1.5 text-xs" : "px-4 py-2 text-sm"
+        } ${actual?.clases ?? "bg-gray-100 text-gray-600"}`}
       >
         {actual?.label ?? value}
-        {!disabled && <ChevronDown size={12} className="shrink-0" />}
+        {!disabled && (
+          <ChevronDown size={tamano === "sm" ? 12 : 16} className="shrink-0" />
+        )}
       </button>
 
       {abierto && (
-        <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+        <span className="absolute right-0 top-full mt-1 z-20 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
           {opciones.map((o) => (
             <button
               key={o.value}
@@ -88,7 +94,11 @@ export default function ChipDeEstado({
               className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
             >
               <span
-                className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${o.clases}`}
+                className={`block w-full font-semibold rounded-full ${
+                  tamano === "sm"
+                    ? "px-2.5 py-1 text-xs"
+                    : "px-3 py-1.5 text-sm"
+                } ${o.clases}`}
               >
                 {o.label}
               </span>
