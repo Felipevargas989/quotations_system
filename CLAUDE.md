@@ -118,8 +118,12 @@ Las tres se habrían evitado leyendo el documento.
 
 | Módulo | Documento |
 |---|---|
-| Gestión de Personas | `00_DOCUMENTACION/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
-| Homologación de piezas | `00_DOCUMENTACION/09_PLAN_DE_HOMOLOGACION.md` |
+| Gestión de Personas | `docs/arquitectura/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
+| Homologación de piezas | `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md` |
+
+Viven **dentro del repo** desde el 14-08: antes estaban solo en la carpeta
+maestra, sin versionar y fuera de los respaldos — un solo archivo en un solo
+disco, con horas de análisis adentro. En la carpeta maestra quedó un puntero.
 
 **Si el documento contradice lo que uno cree recordar, manda el
 documento.** Y si la conversación cambia una decisión, **se actualiza el
