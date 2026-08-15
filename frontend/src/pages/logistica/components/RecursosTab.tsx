@@ -21,10 +21,6 @@ import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 
-const TYPE_CHIP: Record<ResourceType, string> = {
-  personal: "bg-blue-100 text-blue-700",
-  arriendo: "bg-purple-100 text-purple-700",
-};
 
 export default function RecursosTab({
   companyId,
@@ -185,7 +181,7 @@ export default function RecursosTab({
       </div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-gray-400">
-          Staff, arriendos y compras. El precio de lista es opcional (la lista
+          El precio de lista es opcional (la lista
           anual de tus proveedores): sirve de referencia y en cada evento
           siempre es editable. El staff puede ir sin precio.
         </p>
@@ -223,7 +219,6 @@ export default function RecursosTab({
             <tr>
               {[
                 "Recurso",
-                "Tipo",
                 "Proveedor",
                 "Precio de lista",
                 "Últ. precio usado",
@@ -244,29 +239,10 @@ export default function RecursosTab({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {grouped.flatMap((g) => [
-              // Banda del capítulo (misma alma azul que Compras).
-              <tr key={`banda-${g.type}`} className="bg-blue-50/60">
-                <td
-                  colSpan={6}
-                  className="px-4 py-1.5 border-l-4 border-blue-400 text-xs font-bold uppercase text-blue-900"
-                >
-                  {RESOURCE_TYPE_LABEL[g.type]}
-                  <span className="ml-2 font-normal normal-case text-blue-400">
-                    {g.items.length} recurso{g.items.length === 1 ? "" : "s"}
-                  </span>
-                </td>
-              </tr>,
               ...g.items.map((r) => (
               <tr key={r.id} className={r.is_active ? "" : "opacity-45"}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {r.name}
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  <span
-                    className={`px-2 py-0.5 text-xs font-semibold rounded-full ${TYPE_CHIP[r.type]}`}
-                  >
-                    {RESOURCE_TYPE_LABEL[r.type]}
-                  </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">
                   {supplierName(r.supplier_id)}
