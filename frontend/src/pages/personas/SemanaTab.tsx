@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2 } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
+import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
   HoraInput,
@@ -180,15 +181,35 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   };
 
   const poner = useMutation({
-    mutationFn: (p: { personId: number; dia: string; fila: FilaSemana }) =>
-      addStaff({
+    // EL CRUCE (Felipe, 15-08): si esa persona ya viene de planta ese
+    // día, no puede estar además en un evento — ya está comprometida.
+    // Y al revés: si está en un evento, no se le agrega jornada de
+    // planta el mismo día.
+    mutationFn: (p: { personId: number; dia: string; fila: FilaSemana }) => {
+      const suyas = staff.filter(
+        (a) => a.person_id === p.personId && iso(a.day) === p.dia,
+      );
+      const enPlanta = suyas.some((a) => a.quotation_id === null);
+      const enEvento = suyas.some((a) => a.quotation_id !== null);
+      if (p.fila.quotationId !== null && enPlanta) {
+        throw new Error(
+          "Ese día viene de planta: no se le puede asignar además un evento.",
+        );
+      }
+      if (p.fila.quotationId === null && enEvento) {
+        throw new Error(
+          "Ese día está en un evento: no se le puede agregar además la planta.",
+        );
+      }
+      return addStaff({
         quotation_id: p.fila.quotationId,
         person_id: p.personId,
         day: p.dia,
         // El restaurante no impone cargo: queda el habitual de la persona.
         role_id: p.fila.cargoId || undefined,
         amount: p.fila.precio || null,
-      }),
+      });
+    },
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -347,6 +368,14 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
   // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
   // sábana: acá solo se le pasa al resumen (Felipe, 15-08).
+  // Los días del mes en que una persona ya viene de PLANTA (sin evento).
+  const diasDePlanta = (personId: number) =>
+    new Set(
+      staff
+        .filter((a) => a.person_id === personId && a.quotation_id === null)
+        .map((a) => iso(a.day) ?? ""),
+    );
+
   const coberturaDelDia = (d: string) => {
     const m = new Map<string, { cargo: string; necesita: number }>();
     for (const f of filas) {
@@ -587,8 +616,128 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           }
           onSacar={(id) => sacar.mutate(id)}
           onCambiar={(id, cambios) => cambiar.mutate({ id, cambios })}
+          diasDePlanta={diasDePlanta}
+          onPonerEnDia={(personId, d) =>
+            poner.mutate({ personId, dia: d, fila: casilla.fila })
+          }
+          onSacarDelDia={(personId, d) => {
+            const suya = staff.find(
+              (x) =>
+                x.person_id === personId &&
+                iso(x.day) === d &&
+                x.quotation_id === null,
+            );
+            if (suya) sacar.mutate(suya.id);
+          }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * EL MINI CALENDARIO (Felipe, 15-08) — en qué días viene esa persona.
+ *
+ * Vive SOLO en Personal de planta: el personal de un evento viene por
+ * los días del evento y ahí no se toca.
+ *
+ * Marcado = ese día viene. Se pincha para marcar y se vuelve a pinchar
+ * para desmarcar. Sus días libres de la ficha salen apagados y con el
+ * fondo rayado, pero igual se pueden marcar: es justo el caso de "tiene
+ * libre el viernes y quiero que trabaje el viernes".
+ *
+ * Ojo: esto cambia SUS JORNADAS de este mes, no la regla semanal de su
+ * ficha — un día suelto no le reescribe el horario permanente.
+ */
+function MiniCalendario({
+  dias,
+  persona,
+  diasQueViene,
+  onMarcar,
+  onDesmarcar,
+  onCerrar,
+}: {
+  readonly dias: readonly string[];
+  readonly persona: Persona | null;
+  readonly diasQueViene: ReadonlySet<string>;
+  readonly onMarcar: (dia: string) => void;
+  readonly onDesmarcar: (dia: string) => void;
+  readonly onCerrar: () => void;
+}) {
+  // Las seis columnas de la semana chilena: domingo a sábado. El rango
+  // parte en domingo, así que las filas calzan sin relleno.
+  const semanas: string[][] = [];
+  for (let i = 0; i < dias.length; i += 7) semanas.push([...dias.slice(i, i + 7)]);
+
+  return (
+    <div className="mt-2 border border-gray-200 rounded-lg bg-gray-50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-gray-600">
+          En qué días viene {persona?.name ?? ""}
+        </span>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="text-xs text-gray-500 hover:text-gray-800"
+        >
+          listo
+        </button>
+      </div>
+
+      <table className="w-full">
+        <thead>
+          <tr>
+            {["D", "L", "M", "M", "J", "V", "S"].map((letra, i) => (
+              <th
+                key={`${letra}-${String(i)}`}
+                className="text-[11px] font-medium text-gray-400 pb-1"
+              >
+                {letra}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {semanas.map((semana) => (
+            <tr key={semana[0]}>
+              {semana.map((d) => {
+                const viene = diasQueViene.has(d);
+                const libre = persona?.days_off?.includes(
+                  new Date(`${d}T00:00:00Z`).getUTCDay(),
+                );
+                const r = rotulo(d);
+                return (
+                  <td key={d} className="p-0.5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => (viene ? onDesmarcar(d) : onMarcar(d))}
+                      title={
+                        libre
+                          ? "Es su día libre en la ficha"
+                          : `${r.dia} ${String(r.num)}`
+                      }
+                      className={`w-8 h-8 rounded-md text-sm tabular-nums transition-colors ${
+                        viene
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : libre
+                            ? "bg-gray-100 text-gray-400 border border-dashed border-gray-300 hover:bg-blue-50"
+                            : "bg-white text-gray-600 border border-gray-200 hover:bg-blue-50"
+                      }`}
+                    >
+                      {r.num}
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p className="text-[11px] text-gray-500 mt-2">
+        Azul = viene ese día. Los punteados son sus días libres de la
+        ficha; márcalos igual si ese día viene.
+      </p>
     </div>
   );
 }
@@ -741,6 +890,9 @@ function CasillaAbierta({
   onPoner,
   onSacar,
   onCambiar,
+  diasDePlanta,
+  onPonerEnDia,
+  onSacarDelDia,
 }: {
   readonly dia: string;
   /** El rango visible de la sábana, para mover a otro día. */
@@ -752,6 +904,10 @@ function CasillaAbierta({
   readonly onPoner: (personId: number) => void;
   readonly onSacar: (id: number) => void;
   readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
+  /** Los días del mes en que esa persona ya viene de planta. */
+  readonly diasDePlanta: (personId: number) => ReadonlySet<string>;
+  readonly onPonerEnDia: (personId: number, dia: string) => void;
+  readonly onSacarDelDia: (personId: number, dia: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [moviendo, setMoviendo] = useState<number | null>(null);
@@ -815,26 +971,26 @@ function CasillaAbierta({
           {asignados.map((a) => (
             <li key={a.id} className="bg-white border border-gray-200 rounded-lg px-3 py-2 space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-gray-900">{a.people?.name ?? "—"}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  onCambiar(a.id, { kind: a.kind === "planta" ? "freelance" : "planta" })
-                }
-                title="Cambiar entre planta y freelance SOLO para este día"
+              <span className="text-gray-900">{a.people?.name ?? "—"}</span>
+              {/* El tipo es una ETIQUETA, no un botón (Felipe, 15-08:
+                  "tampoco se nota que se puede cambiar"). Lo que sí se
+                  toca es el monto, que ahora está SIEMPRE — así se le
+                  puede pagar un día suelto a alguien de planta sin
+                  cambiarle el tipo. */}
+              <span
                 className={`text-xs px-2 py-0.5 rounded-full ${chipTipoPersona(a.kind)}`}
               >
                 {etiquetaTipoPersona(a.kind)}
-              </button>
-              <span className="w-24 text-right tabular-nums text-sm text-gray-600">
-                {a.kind === "planta" ? (
-                  <span className="text-gray-400" title="De planta: no cuesta un peso extra">
-                    —
-                  </span>
-                ) : (
-                  clp(a.amount ?? fila.precio)
-                )}
               </span>
+              <span className="flex-1" />
+              <NumberInput
+                value={a.amount ?? (a.kind === "planta" ? undefined : fila.precio)}
+                onChange={(v: number | undefined) =>
+                  onCambiar(a.id, { amount: v ?? null })
+                }
+                aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
+                className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+              />
               <button
                 type="button"
                 onClick={() =>
@@ -842,28 +998,39 @@ function CasillaAbierta({
                     status: a.status === "confirmado" ? "por_confirmar" : "confirmado",
                   })
                 }
-                title={a.status === "confirmado" ? "Confirmada" : "Por confirmar"}
-                className={`p-1 rounded ${
+                className={`text-xs px-2 py-1 rounded ${
                   a.status === "confirmado"
-                    ? "text-emerald-600 hover:bg-emerald-50"
-                    : "text-amber-500 hover:bg-amber-50"
+                    ? "text-emerald-700 hover:bg-emerald-50"
+                    : "text-amber-700 hover:bg-amber-50"
                 }`}
               >
-                {a.status === "confirmado" ? <Check className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                {a.status === "confirmado" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> confirmada
+                  </span>
+                ) : (
+                  "por confirmar"
+                )}
               </button>
-              <button
-                type="button"
-                onClick={() => setMoviendo(moviendo === a.id ? null : a.id)}
-                title="Mover a otro día"
-                aria-label={`Mover a ${a.people?.name} a otro día`}
-                className={`p-1 rounded ${
-                  moviendo === a.id
-                    ? "text-blue-700 bg-blue-50"
-                    : "text-gray-400 hover:text-blue-700 hover:bg-blue-50"
-                }`}
-              >
-                <CalendarDays className="w-4 h-4" />
-              </button>
+              {/* EL MINI CALENDARIO VIVE SOLO EN PLANTA (Felipe, 15-08):
+                  "en los botones asociados a eventos no, porque el
+                  personal de eventos viene por los días del evento y
+                  queda vinculado solo al día del evento". */}
+              {fila.quotationId === null && (
+                <button
+                  type="button"
+                  onClick={() => setMoviendo(moviendo === a.id ? null : a.id)}
+                  title="Marcar en qué días viene"
+                  aria-label={`Días de ${a.people?.name ?? "la persona"}`}
+                  className={`p-1 rounded ${
+                    moviendo === a.id
+                      ? "text-blue-700 bg-blue-50"
+                      : "text-gray-400 hover:text-blue-700 hover:bg-blue-50"
+                  }`}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onSacar(a.id)}
@@ -880,36 +1047,14 @@ function CasillaAbierta({
                 y todo. Si allá ya estaba, el backend lo dice y no pasa
                 nada. Los libres de la persona salen en ámbar. */}
             {moviendo === a.id && (
-              <div className="flex flex-wrap items-center gap-1 pt-1">
-                <span className="text-xs text-gray-500 mr-1">Mover al:</span>
-                {dias
-                  .filter((d) => d !== dia)
-                  .map((d) => {
-                    const rd = rotulo(d);
-                    const persona = personas.find((p) => p.id === a.person_id);
-                    const libre = persona?.days_off?.includes(
-                      new Date(`${d}T00:00:00Z`).getUTCDay(),
-                    );
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => {
-                          onCambiar(a.id, { day: d });
-                          setMoviendo(null);
-                        }}
-                        title={libre ? "Es su día libre" : undefined}
-                        className={`px-1.5 py-0.5 text-[11px] rounded border ${
-                          libre
-                            ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
-                            : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200"
-                        }`}
-                      >
-                        {rd.dia} {rd.num}
-                      </button>
-                    );
-                  })}
-              </div>
+              <MiniCalendario
+                dias={dias}
+                persona={personas.find((p) => p.id === a.person_id) ?? null}
+                diasQueViene={diasDePlanta(a.person_id)}
+                onMarcar={(d) => onPonerEnDia(a.person_id, d)}
+                onDesmarcar={(d) => onSacarDelDia(a.person_id, d)}
+                onCerrar={() => setMoviendo(null)}
+              />
             )}
 
             {/* El horario del DÍA (etapa 4): editable para todos — planta
