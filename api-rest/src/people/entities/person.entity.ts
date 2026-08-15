@@ -170,3 +170,16 @@ export class PayrollPerson {
   propina_paid: boolean;
   paid_at: string | null;
 }
+
+/** Un recado operativo de un día: lo que el personal tiene que hacer.
+ *  quotation_id NULL = nota del día completo; con valor = de ese
+ *  evento ese día. */
+export class DayNote {
+  id: number;
+  company_id: Company['id'];
+  day: string;
+  quotation_id: string | null;
+  text: string;
+  done: boolean;
+  created_at: Date;
+}

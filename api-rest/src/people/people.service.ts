@@ -6,6 +6,8 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import {
   CerrarFichaDto,
+  CreateDayNoteDto,
+  UpdateDayNoteDto,
   CreatePayrollDto,
   CreatePoolDto,
   CreateReviewDto,
@@ -510,6 +512,37 @@ export class PeopleService {
     if (dto.jornada_paid !== undefined) cambios.jornada_paid = dto.jornada_paid;
     if (dto.propina_paid !== undefined) cambios.propina_paid = dto.propina_paid;
     return this.repo.upsertPago(companyId, payrollId, dto.person_id, cambios);
+  }
+
+  // ================= LAS NOTAS DEL DÍA =================
+
+  findDayNotes(companyId: number, desde: string, hasta: string) {
+    return this.repo.findDayNotes(companyId, desde, hasta);
+  }
+
+  createDayNote(dto: CreateDayNoteDto, companyId: number) {
+    const texto = dto.text.trim();
+    if (!texto) throw new BadRequestException('La nota viene vacía');
+    return this.repo.createDayNote({
+      company_id: companyId,
+      day: dto.day,
+      quotation_id: dto.quotation_id ?? null,
+      text: texto,
+    });
+  }
+
+  updateDayNote(id: number, dto: UpdateDayNoteDto, companyId: number) {
+    const cambios: Record<string, unknown> = { ...dto };
+    if (dto.text !== undefined) {
+      const texto = dto.text.trim();
+      if (!texto) throw new BadRequestException('La nota viene vacía');
+      cambios.text = texto;
+    }
+    return this.repo.updateDayNote(id, cambios, companyId);
+  }
+
+  removeDayNote(id: number, companyId: number) {
+    return this.repo.removeDayNote(id, companyId);
   }
 
   /**

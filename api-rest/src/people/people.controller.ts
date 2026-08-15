@@ -23,6 +23,8 @@ import {
 } from './dto/event-staff.dto';
 import {
   CerrarFichaDto,
+  CreateDayNoteDto,
+  UpdateDayNoteDto,
   CreatePayrollDto,
   CreatePoolDto,
   CreateReviewDto,
@@ -225,6 +227,45 @@ export class PeopleController {
   ) {
     this.logger.info(`PATCH /people/payrolls/${id}/pago persona ${dto.person_id}`);
     return this.peopleService.marcarPago(+id, dto, user.company_id);
+  }
+
+  // ---- Las notas del día ----
+  // Van antes de las rutas con :id de personas, para que
+  // "day-notes" no se lea como el id de una persona.
+
+  @Get('day-notes')
+  findDayNotes(
+    @CurrentUser() user: User,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    // El formato se revisa acá: sin esto, una fecha mal escrita llega a
+    // Postgres y sale un 500 en vez de un "está mal escrito".
+    const DIA = /^\d{4}-\d{2}-\d{2}$/;
+    if (!DIA.test(desde ?? '') || !DIA.test(hasta ?? '')) {
+      throw new BadRequestException('El rango va como 2026-08-14');
+    }
+    return this.peopleService.findDayNotes(user.company_id, desde, hasta);
+  }
+
+  @Post('day-notes')
+  createDayNote(@Body() dto: CreateDayNoteDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/day-notes ${dto.day}`);
+    return this.peopleService.createDayNote(dto, user.company_id);
+  }
+
+  @Patch('day-notes/:id')
+  updateDayNote(
+    @Param('id') id: string,
+    @Body() dto: UpdateDayNoteDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.peopleService.updateDayNote(+id, dto, user.company_id);
+  }
+
+  @Delete('day-notes/:id')
+  removeDayNote(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.peopleService.removeDayNote(+id, user.company_id);
   }
 
   // ---- Personas ----

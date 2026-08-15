@@ -7,6 +7,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import {
   Cargo,
+  DayNote,
   EventStaff,
   Payroll,
   PayrollPerson,
@@ -641,5 +642,57 @@ export class PeopleRepository {
       .single();
     if (error) throw error;
     return data as unknown as PayrollPerson;
+  }
+
+  // ================= LAS NOTAS DEL DÍA =================
+
+  async findDayNotes(companyId: number, desde: string, hasta: string) {
+    const { data, error } = await this.supabase.client
+      .from('day_notes')
+      .select('*')
+      .eq('company_id', companyId)
+      .gte('day', desde)
+      .lte('day', hasta)
+      .order('created_at');
+    if (error) throw error;
+    return data as unknown as DayNote[];
+  }
+
+  async createDayNote(row: Record<string, unknown>) {
+    this.logger.info(`createDayNote ${JSON.stringify(row)}`);
+    const { data, error } = await this.supabase.client
+      .from('day_notes')
+      .insert([row])
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as DayNote;
+  }
+
+  async updateDayNote(
+    id: number,
+    cambios: Record<string, unknown>,
+    companyId: number,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('day_notes')
+      .update(cambios)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe esa nota');
+    return data as unknown as DayNote;
+  }
+
+  async removeDayNote(id: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('day_notes')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return { id };
   }
 }

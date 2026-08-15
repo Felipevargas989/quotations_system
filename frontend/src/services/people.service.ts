@@ -9,6 +9,7 @@ import type {
   Ficha,
   Nomina,
   NominaDetalle,
+  NotaDelDia,
   PagoPersona,
   Pozo,
 } from "../types/people.types";
@@ -234,3 +235,31 @@ export const marcarPago = async (
     "PATCH",
     pago,
   )) as PagoPersona;
+
+// ---- Las notas del día ----
+
+export const getDayNotes = async (desde: string, hasta: string) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/day-notes?desde=${desde}&hasta=${hasta}`,
+    "GET",
+  )) as NotaDelDia[];
+
+export const createDayNote = async (nota: {
+  day: string;
+  quotation_id?: string | null;
+  text: string;
+}) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/day-notes`, "POST", nota)) as NotaDelDia;
+
+export const updateDayNote = async (
+  id: number,
+  cambios: { text?: string; done?: boolean },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/day-notes/${String(id)}`,
+    "PATCH",
+    cambios,
+  )) as NotaDelDia;
+
+export const removeDayNote = async (id: number) =>
+  apiRequest(`${API_ROUTES.PEOPLE}/day-notes/${String(id)}`, "DELETE");

@@ -139,3 +139,27 @@ export class PagoDto {
   @IsBoolean()
   propina_paid?: boolean;
 }
+
+// ---- Las notas del día ----
+// Recados operativos: "llegan a las 11, el bus se estaciona atrás".
+export class CreateDayNoteDto {
+  @Matches(DIA, { message: 'El día va como 2026-08-14' })
+  day: string;
+
+  @IsOptional()
+  @IsUUID()
+  quotation_id?: string | null;
+
+  @IsString()
+  text: string;
+}
+
+export class UpdateDayNoteDto {
+  @IsOptional()
+  @IsString()
+  text?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  done?: boolean;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2 } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
@@ -11,13 +11,14 @@ import {
 import GrillaDeDias, {
   type FilaGrillaDias,
 } from "../../components/grilla/GrillaDeDias";
+import Modal from "../../components/Modal";
+import ResumenDelDia from "./ResumenDelDia";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import {
   getAllEventResources,
-  getEventServiceTimes,
   getManagementResources,
 } from "../../services/logistics.service";
 import {
@@ -87,7 +88,11 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   const [domingo, setDomingo] = useState(() => domingoDe(hoyEnChile()));
   // LA SÁBANA (Felipe, 15-08): se parte viendo dos semanas y se puede
   // achicar a una o abrir al mes. Siempre alineada al domingo.
-  const [rango, setRango] = useState<7 | 14 | 28>(14);
+  // LA SÁBANA ES MENSUAL Y FIJA (Felipe, 15-08: "dejemos la vista
+  // mensual fija, así simplificamos un poco la cosa"). Antes se podía
+  // elegir semana / 2 semanas / mes: tres formas de mirar lo mismo, y
+  // la de un mes es la que sirve para planificar.
+  const RANGO = 28;
   const [casilla, setCasilla] = useState<{ dia: string; fila: FilaSemana } | null>(null);
   // Los cargos de planta agregados a mano en esta sesión ("+ cargo"):
   // por defecto solo se muestran los que tienen gente — 10 filas siempre
@@ -96,8 +101,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
 
   const dias = useMemo(
-    () => Array.from({ length: rango }, (_, i) => sumarDias(domingo, i)),
-    [domingo, rango],
+    () => Array.from({ length: RANGO }, (_, i) => sumarDias(domingo, i)),
+    [domingo],
   );
   const hasta = dias[dias.length - 1];
 
@@ -110,13 +115,46 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         "event_date",
         "desc",
       )) as { data?: unknown[] };
-      return ((r?.data ?? r ?? []) as Record<string, unknown>[]).map((q) => ({
-        id: String(q.id),
-        numero: Number(q.quotation_number),
-        cliente: String((q.clients as { name?: string })?.name ?? ""),
-        inicio: iso(q.event_date as string),
-        termino: iso(q.event_end_date as string),
-      }));
+      // Se guarda TODO lo que ya viene en la misma respuesta (15-08):
+      // el resumen del día lo necesita y antes se botaba.
+      return ((r?.data ?? r ?? []) as Record<string, unknown>[]).map((q) => {
+        const cliente = q.clients as
+          | {
+              name?: string;
+              phone?: string;
+              contact_person?: string;
+              client_contacts?: { name?: string; phone?: string }[];
+            }
+          | undefined;
+        const nombreContacto =
+          (q.contact_name as string) ||
+          (q.mandante as { name?: string })?.name ||
+          cliente?.contact_person ||
+          null;
+        // El teléfono del CONTACTO, no el de la central del cliente: si
+        // no, el día del evento uno llama a la recepción del colegio en
+        // vez de a la persona. Misma regla que la lista de cotizaciones.
+        const suyo = nombreContacto
+          ? cliente?.client_contacts?.find(
+              (c) =>
+                (c.name ?? "").trim().toLowerCase() ===
+                nombreContacto.trim().toLowerCase(),
+            )?.phone
+          : undefined;
+        return {
+          id: String(q.id),
+          numero: Number(q.quotation_number),
+          cliente: String(cliente?.name ?? ""),
+          inicio: iso(q.event_date as string),
+          termino: iso(q.event_end_date as string),
+          personas: Number(q.people_count ?? 0),
+          ninos: Number(q.children_count ?? 0),
+          tipo: (q.event_type as string) || null,
+          observaciones: (q.observations as string) || null,
+          contacto: nombreContacto,
+          telefono: suyo ?? cliente?.phone ?? null,
+        };
+      });
     },
   });
 
@@ -129,7 +167,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     queryFn: () => getManagementResources(companyId),
   });
   const { data: staff = [] } = useQuery({
-    queryKey: ["people", "staff-semana", domingo, rango],
+    queryKey: ["people", "staff-semana", domingo, RANGO],
     queryFn: () => getStaffSemana(domingo, hasta),
   });
   const { data: personas = [] } = useQuery(peopleQueryOptions);
@@ -138,7 +176,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   // Recursos): se refresca solo el staff de ESTA semana — una consulta,
   // no el catálogo entero de todos los eventos.
   const refrescar = () => {
-    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo, rango] });
+    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo, RANGO] });
   };
 
   const poner = useMutation({
@@ -306,6 +344,23 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     return [...deEventos, ...restaurante];
   }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
 
+  // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
+  // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
+  // sábana: acá solo se le pasa al resumen (Felipe, 15-08).
+  const coberturaDelDia = (d: string) => {
+    const m = new Map<string, { cargo: string; necesita: number }>();
+    for (const f of filas) {
+      if (f.quotationId === null) continue;
+      const n = f.necesita.get(d) || 0;
+      if (n > 0)
+        m.set(`${f.quotationId}|${String(f.cargoId)}`, {
+          cargo: f.cargo,
+          necesita: n,
+        });
+    }
+    return m;
+  };
+
   const puestos = useMemo(() => {
     const m = new Map<string, Asignacion[]>();
     for (const a of staff) {
@@ -352,11 +407,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
 
   const r0 = rotulo(domingo);
   const r6 = rotulo(hasta);
-  const RANGOS: readonly [7 | 14 | 28, string][] = [
-    [7, "Semana"],
-    [14, "2 semanas"],
-    [28, "Mes"],
-  ];
 
   return (
     <div className="space-y-4">
@@ -364,8 +414,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, -rango))}
-            aria-label="Semana anterior"
+            onClick={() => setDomingo(sumarDias(domingo, -RANGO))}
+            aria-label="Mes anterior"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -375,8 +425,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           </span>
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, rango))}
-            aria-label="Semana siguiente"
+            onClick={() => setDomingo(sumarDias(domingo, RANGO))}
+            aria-label="Mes siguiente"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
             <ChevronRight className="w-4 h-4" />
@@ -388,22 +438,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           >
             hoy
           </button>
-          <div className="ml-2 inline-flex rounded-lg border border-gray-200 overflow-hidden">
-            {RANGOS.map(([r, texto]) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRango(r)}
-                className={`px-2.5 py-1 text-xs font-medium ${
-                  rango === r
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {texto}
-              </button>
-            ))}
-          </div>
         </div>
         {faltan > 0 && (
           <span className="flex items-center gap-1.5 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
@@ -416,7 +450,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       {sinRepartir > 0 && (
         <p className="text-xs text-amber-700">
           ⚠ Hay {sinRepartir} {sinRepartir === 1 ? "cupo" : "cupos"} sin día
-          asignado en eventos de esta semana: repártelos en la grilla de
+          asignado en eventos de este mes: repártelos en la grilla de
           Personal del evento (Post-Venta → Gestión).
         </p>
       )}
@@ -428,7 +462,10 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           onQuitarDia={() => {}}
           columnaTitulo="Evento · cargo"
           resaltarDia={hoyEnChile()}
-          onDiaClick={(d) => setDiaAbierto(diaAbierto === d ? null : d)}
+          onDiaClick={(d) => {
+            setCasilla(null);
+            setDiaAbierto(diaAbierto === d ? null : d);
+          }}
           filas={filas.map((f, fi): FilaGrillaDias => ({
             id: `${f.quotationId ?? "rest"}|${f.cargoId}`,
             grupo: f.evento,
@@ -505,9 +542,10 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
               return (
                 <button
                   type="button"
-                  onClick={() =>
-                    setCasilla(abierta ? null : { dia: d, fila: f })
-                  }
+                  onClick={() => {
+                    setDiaAbierto(null);
+                    setCasilla(abierta ? null : { dia: d, fila: f });
+                  }}
                   title={quienes || undefined}
                   className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
                     abierta
@@ -531,6 +569,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           eventos={eventos}
           staff={staff}
           companyId={companyId}
+          cobertura={coberturaDelDia(diaAbierto)}
           onCerrar={() => setDiaAbierto(null)}
         />
       )}
@@ -551,165 +590,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         />
       )}
     </div>
-  );
-}
-
-/** EL RESUMEN DEL DÍA (Felipe, 15-08): al pinchar un día se ve la gente
- *  agrupada por cargo, qué eventos hay y a qué hora van sus servicios. */
-function ResumenDelDia({
-  dia,
-  eventos,
-  staff,
-  companyId,
-  onCerrar,
-}: {
-  readonly dia: string;
-  readonly eventos: readonly {
-    id: string;
-    numero: number;
-    cliente: string;
-    inicio: string | null;
-    termino: string | null;
-  }[];
-  readonly staff: readonly Asignacion[];
-  readonly companyId: number;
-  readonly onCerrar: () => void;
-}) {
-  const r = rotulo(dia);
-  const delDia = staff.filter((a) => iso(a.day) === dia);
-  const eventosDelDia = eventos.filter(
-    (e) => e.inicio && e.inicio <= dia && (e.termino || e.inicio) >= dia,
-  );
-  const planta = delDia.filter((a) => a.quotation_id === null);
-
-  const porCargo = (lista: readonly Asignacion[]) => {
-    const m = new Map<string, Asignacion[]>();
-    for (const a of lista) {
-      const k = a.management_resources?.name ?? "Sin cargo";
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(a);
-    }
-    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
-  };
-
-  const Persona = ({ a }: { readonly a: Asignacion }) => (
-    <li className="flex items-center gap-2 text-sm">
-      <span className="text-gray-900">{a.people?.name ?? "—"}</span>
-      {a.starts_at && a.ends_at && (
-        <span className="text-xs text-gray-500 tabular-nums">
-          {a.starts_at.slice(0, 5)}–{a.ends_at.slice(0, 5)}
-        </span>
-      )}
-      {a.status === "confirmado" ? (
-        <Check className="w-3.5 h-3.5 text-emerald-600" />
-      ) : (
-        <span className="text-[11px] text-amber-700">por confirmar</span>
-      )}
-    </li>
-  );
-
-  return (
-    <div className="border border-gray-200 rounded-xl p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">
-          {r.dia} {r.num} de {r.mes}
-          <span className="ml-2 text-sm font-normal text-gray-500">
-            {delDia.length}{" "}
-            {delDia.length === 1 ? "persona asignada" : "personas asignadas"}
-          </span>
-        </h3>
-        <button
-          onClick={onCerrar}
-          aria-label="Cerrar"
-          className="p-1 text-gray-400 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {eventosDelDia.length === 0 && planta.length === 0 && (
-        <p className="text-sm text-gray-500">
-          Día libre: sin eventos ni gente asignada.
-        </p>
-      )}
-
-      {eventosDelDia.map((e) => {
-        const gente = delDia.filter((a) => String(a.quotation_id) === e.id);
-        return (
-          <div key={e.id} className="space-y-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-sm font-semibold text-gray-900">
-                #{e.numero} · {e.cliente}
-              </p>
-              <HorariosDeServicios companyId={companyId} quotationId={e.id} />
-            </div>
-            {gente.length === 0 ? (
-              <p className="text-xs text-amber-700 pl-3">
-                Sin gente asignada este día.
-              </p>
-            ) : (
-              porCargo(gente).map(([cargo, lista]) => (
-                <div key={cargo} className="pl-3">
-                  <p className="text-xs font-semibold uppercase text-gray-500">
-                    {cargo} · {lista.length}
-                  </p>
-                  <ul className="pl-3 space-y-0.5">
-                    {lista.map((a) => (
-                      <Persona key={a.id} a={a} />
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-        );
-      })}
-
-      {planta.length > 0 && (
-        <div className="space-y-2 border-t border-gray-200 pt-3">
-          <p className="text-sm font-semibold text-gray-900">
-            Personal de planta
-          </p>
-          {porCargo(planta).map(([cargo, lista]) => (
-            <div key={cargo} className="pl-3">
-              <p className="text-xs font-semibold uppercase text-gray-500">
-                {cargo} · {lista.length}
-              </p>
-              <ul className="pl-3 space-y-0.5">
-                {lista.map((a) => (
-                  <Persona key={a.id} a={a} />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Las horas de los servicios del evento (vienen de la Ficha de Cocina). */
-function HorariosDeServicios({
-  companyId,
-  quotationId,
-}: {
-  readonly companyId: number;
-  readonly quotationId: string;
-}) {
-  const { data } = useQuery({
-    queryKey: ["people", "horarios-servicios", quotationId],
-    queryFn: () => getEventServiceTimes(companyId, quotationId),
-    staleTime: 5 * 60_000,
-  });
-  const entradas = Object.entries(data ?? {}).filter(([, hora]) => hora);
-  if (entradas.length === 0) return null;
-  return (
-    <span className="text-xs text-gray-500">
-      {entradas
-        .sort(([, a], [, b]) => a.localeCompare(b))
-        .map(([servicio, hora]) => `${servicio} ${hora.slice(0, 5)}`)
-        .join(" · ")}
-    </span>
   );
 }
 
@@ -901,21 +781,34 @@ function CasillaAbierta({
     }));
 
   return (
-    <div className="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">
-          {fila.cargo} · {r.dia} {r.num} de {r.mes}
-          <span className="ml-2 text-sm font-normal text-gray-500">
-            {fila.evento} ·{" "}
-            {fila.quotationId === null
-              ? `${asignados.length} en el día`
-              : `${asignados.length} de ${necesita}`}
-          </span>
-        </h3>
-        <button onClick={onCerrar} aria-label="Cerrar" className="p-1 text-gray-400 hover:text-gray-700">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <Modal
+      titulo={`${fila.cargo} · ${r.dia} ${String(r.num)} de ${r.mes}`}
+      subtitulo={
+        <>
+          {fila.evento}
+          <span className="mx-1 text-gray-300">·</span>
+          {fila.quotationId === null
+            ? `${String(asignados.length)} en el día`
+            : `${String(asignados.length)} de ${String(necesita)}`}
+        </>
+      }
+      ancho="max-w-3xl"
+      bloquearEscape={abierto}
+      sinTope
+      onCerrar={onCerrar}
+    >
+      <div className="space-y-3">
+      {/* EL AGREGADOR VA ARRIBA (15-08): su lista se abre SIEMPRE hacia
+          abajo, y al final de un modal con tope de alto quedaba cortada.
+          Además se lee mejor: primero se pone gente, después se revisa
+          la que ya está. */}
+      <AgregadorDeItems
+        opciones={disponibles}
+        onAgregar={(v) => onPoner(Number(v))}
+        abierto={abierto}
+        onAbiertoChange={setAbierto}
+        placeholder="Buscar y poner a alguien…"
+      />
 
       {asignados.length > 0 && (
         <ul className="space-y-1.5">
@@ -1031,19 +924,12 @@ function CasillaAbierta({
         </ul>
       )}
 
-      <AgregadorDeItems
-        opciones={disponibles}
-        onAgregar={(v) => onPoner(Number(v))}
-        abierto={abierto}
-        onAbiertoChange={setAbierto}
-        placeholder="Buscar y poner a alguien…"
-      />
-
       <p className="text-xs text-gray-500">
         El tipo y el monto son <strong>de este día</strong>: cambiarlos acá no
         toca la ficha de la persona. Un planta que trabaja en su día libre se
         marca freelance y esa jornada sí se paga.
       </p>
-    </div>
+      </div>
+    </Modal>
   );
 }
