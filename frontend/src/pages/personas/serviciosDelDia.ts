@@ -16,6 +16,10 @@
 export interface ServicioDelDia {
   /** "Almuerzo", "Coffee (2º)" — lo que se lee en pantalla. */
   readonly nombre: string;
+  /** La clave con que se guarda la hora — la MISMA de la Ficha de
+   *  Cocina, para que cambiarla en cualquiera de los dos lados sea
+   *  cambiarla en el mismo lugar. */
+  readonly clave: string;
   /** "HH:MM" o null si todavía no se le puso hora en la Ficha de Cocina. */
   readonly hora: string | null;
   /** A cuánta gente hay que atender en ese servicio. */
@@ -101,6 +105,7 @@ export const serviciosDelDia = (
     const repetida = (cuantasVeces.get(categoria) ?? 1) > 1;
     salida.push({
       nombre: repetida ? `${enPantalla} (${String(n)}º)` : enPantalla,
+      clave,
       hora: horas[clave]?.slice(0, 5) || null,
       personas: g.people ?? personas,
       audiencia: tieneNinos ? (g.audience ?? null) : null,

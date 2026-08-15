@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
-import { formatoHoras, horasTrabajadas } from "../../components/inputs";
-import { getEventServiceTimes } from "../../services/logistics.service";
+import { HoraInput, formatoHoras, horasTrabajadas } from "../../components/inputs";
+import {
+  getEventServiceTimes,
+  setEventServiceTime,
+} from "../../services/logistics.service";
 import { getQuotationById } from "../../services/quotations.service";
 import {
   createDayNote,
@@ -22,23 +25,21 @@ import {
 
 // EL RESUMEN DEL DÍA — LA HOJA DE RUTA DE UNA JORNADA
 //
-// Reconstruido el 15-08 con las correcciones de Felipe. Sigue siendo la
-// vista que se abre DEBAJO de la grilla al pinchar la fecha ("la vista
-// abajo de resumen completo estaba perfecto") — el modal es para la
-// casilla, que es edición de un día puntual. Lo que cambió es el
-// contenido: antes listaba nombres sueltos, ahora son tres respuestas
-// ordenadas en tablas:
+// Se abre DEBAJO de la grilla al pinchar la fecha. (El modal es otra
+// cosa: es la edición de una casilla puntual.)
 //
-//   1. QUÉ HAY QUE SERVIR — los servicios de ESE día con su hora y a
-//      cuánta gente hay que atender (antes se mostraban mezclados los
-//      de todos los días del evento).
-//   2. QUIÉN TRABAJA — una tabla pareja: cargo · persona · horario ·
-//      horas · tipo · estado. Los eventos primero, la planta al final.
-//   3. QUÉ HAY QUE HACER — los recados del día, que se escriben acá.
+// Tres bloques, en este orden (Felipe, 15-08):
+//   1. LOS EVENTOS, en corto: número, cliente, tipo, cuánta gente, el
+//      contacto — y las CATEGORÍAS de servicio con su hora, editable
+//      acá mismo. El detalle largo del menú NO va: es excesivo, y para
+//      eso está la Ficha de Cocina.
+//   2. PERSONAL STAFF — la gente de los eventos, agrupada por evento
+//      cuando hay más de uno ("para saber quién va en cuál").
+//   3. PERSONAL DE PLANTA — la misma tabla, exactamente igual.
 //
-// Y dice EN VOZ ALTA cuando no hay eventos ese día. Antes, un día con
-// solo planta se veía igual que un día donde el sistema escondía a los
-// garzones: "me muestra solo el personal de planta" (Felipe).
+// Las dos tablas comparten plantilla a propósito: cargo · persona ·
+// horario · horas · tipo · estado. Un cargo que se necesita y no tiene
+// a nadie igual aparece, con su "nadie puesto todavía".
 
 const iso = (v: string | null | undefined) =>
   v ? String(v).slice(0, 10) : "";
@@ -91,7 +92,7 @@ export default function ResumenDelDia({
   readonly eventos: readonly EventoDelResumen[];
   readonly staff: readonly Asignacion[];
   readonly companyId: number;
-  /** clave `${quotationId}|${cargoId}` → cuántos se necesitan ese día. */
+  /** clave `${quotationId}|${cargoId}` → el cupo de ese día. */
   readonly cobertura: Cobertura;
   readonly onCerrar: () => void;
 }) {
@@ -99,10 +100,9 @@ export default function ResumenDelDia({
   const delDia = staff.filter((a) => iso(a.day) === dia);
   const planta = delDia.filter((a) => a.quotation_id === null);
 
-  // Los eventos que TOCAN este día. Ojo: se mira contra la gente puesta
-  // además de las fechas, porque hay días de preparativo y de desarme
-  // fuera del rango de la cotización — antes esa gente se contaba
-  // arriba y no aparecía en ninguna lista.
+  // Los eventos que TOCAN este día: por fecha, o porque hay gente puesta
+  // (los días de preparativo y de desarme caen fuera del rango de la
+  // cotización, y esa gente antes no aparecía en ninguna lista).
   const conGente = new Set(
     delDia.map((a) => a.quotation_id).filter((q): q is string => q !== null),
   );
@@ -112,9 +112,8 @@ export default function ResumenDelDia({
       (e.inicio && e.inicio <= dia && (e.termino || e.inicio) >= dia),
   );
 
-  // La gente puesta en un evento que YA NO está en la lista (se anuló,
-  // volvió a pre-venta): antes se contaba arriba y no salía en ninguna
-  // tabla. Son los que hay que desconvocar, así que se muestran aparte.
+  // Gente puesta en un evento que ya no está en la lista (se anuló o
+  // volvió a pre-venta): son los que hay que desconvocar.
   const huerfanos = delDia.filter(
     (a) =>
       a.quotation_id !== null &&
@@ -135,31 +134,6 @@ export default function ResumenDelDia({
     0,
   );
 
-  const cabecera =
-    delDia.length === 0 ? (
-      <span>Nadie asignado todavía</span>
-    ) : (
-      <span className="flex items-center gap-2 flex-wrap">
-        <span>
-          {personasDistintas} {personasDistintas === 1 ? "persona" : "personas"}
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>
-          {delDia.length} {delDia.length === 1 ? "jornada" : "jornadas"}
-        </span>
-        <span className="text-gray-300">·</span>
-        <span>{formatoHoras(horasTotales)}</span>
-        {porConfirmar > 0 && (
-          <>
-            <span className="text-gray-300">·</span>
-            <span className="text-amber-700 font-medium">
-              {porConfirmar} por confirmar
-            </span>
-          </>
-        )}
-      </span>
-    );
-
   return (
     <div className="border border-gray-200 rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -167,7 +141,33 @@ export default function ResumenDelDia({
           <h2 className="text-lg font-semibold text-gray-900">
             {r.dia} {r.num} de {r.mes}
           </h2>
-          <div className="text-sm text-gray-500 mt-0.5">{cabecera}</div>
+          <div className="text-sm text-gray-500 mt-0.5">
+            {delDia.length === 0 ? (
+              "Nadie asignado todavía"
+            ) : (
+              <span className="flex items-center gap-2 flex-wrap">
+                <span>
+                  {personasDistintas}{" "}
+                  {personasDistintas === 1 ? "persona" : "personas"}
+                </span>
+                <span className="text-gray-300">·</span>
+                <span>
+                  {delDia.length}{" "}
+                  {delDia.length === 1 ? "jornada" : "jornadas"}
+                </span>
+                <span className="text-gray-300">·</span>
+                <span>{formatoHoras(horasTotales)}</span>
+                {porConfirmar > 0 && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-amber-700 font-medium">
+                      {porConfirmar} por confirmar
+                    </span>
+                  </>
+                )}
+              </span>
+            )}
+          </div>
         </div>
         <button
           type="button"
@@ -178,23 +178,60 @@ export default function ResumenDelDia({
           <X className="w-5 h-5" />
         </button>
       </div>
+
       <div className="space-y-5">
+        {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. */}
         {eventosDelDia.length === 0 ? (
           <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
             <strong className="text-gray-700">Sin eventos este día.</strong> Lo
             que sigue es el personal de planta.
           </p>
         ) : (
-          eventosDelDia.map((e) => (
-            <BloqueEvento
-              key={e.id}
-              evento={e}
-              dia={dia}
-              companyId={companyId}
-              gente={delDia.filter((a) => String(a.quotation_id) === e.id)}
-              cobertura={cobertura}
-            />
-          ))
+          <div className="space-y-2">
+            {eventosDelDia.map((e) => (
+              <CabeceraEvento
+                key={e.id}
+                evento={e}
+                dia={dia}
+                companyId={companyId}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 2. PERSONAL STAFF — agrupado por evento si hay más de uno. */}
+        {eventosDelDia.length > 0 && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
+              Personal staff
+            </h3>
+            {eventosDelDia.length === 1 ? (
+              <TablaDeGente
+                gente={delDia.filter(
+                  (a) => String(a.quotation_id) === eventosDelDia[0].id,
+                )}
+                cobertura={cobertura}
+                quotationId={eventosDelDia[0].id}
+              />
+            ) : (
+              <div className="space-y-3">
+                {eventosDelDia.map((e) => (
+                  <div key={e.id}>
+                    <p className="text-xs font-semibold uppercase text-gray-500 mb-0.5">
+                      #{e.numero} · {e.cliente}
+                    </p>
+                    <TablaDeGente
+                      gente={delDia.filter(
+                        (a) => String(a.quotation_id) === e.id,
+                      )}
+                      cobertura={cobertura}
+                      quotationId={e.id}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {huerfanos.length > 0 && (
@@ -203,13 +240,14 @@ export default function ResumenDelDia({
               Puestos en un evento que ya no está en la lista
             </h3>
             <p className="text-xs text-amber-800 mb-1.5">
-              El evento se anuló o volvió a pre-venta. Si ya no van, hay
-              que avisarles.
+              El evento se anuló o volvió a pre-venta. Si ya no van, hay que
+              avisarles.
             </p>
             <TablaDeGente gente={huerfanos} />
           </section>
         )}
 
+        {/* 3. PERSONAL DE PLANTA — la misma tabla. */}
         {planta.length > 0 && (
           <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
@@ -231,28 +269,23 @@ export default function ResumenDelDia({
   );
 }
 
-/** Un evento del día: quién es, qué hay que servirle y quién trabaja. */
-function BloqueEvento({
+/** El evento en corto, con las categorías de servicio y su hora. */
+function CabeceraEvento({
   evento,
   dia,
   companyId,
-  gente,
-  cobertura,
 }: {
   readonly evento: EventoDelResumen;
   readonly dia: string;
   readonly companyId: number;
-  readonly gente: readonly Asignacion[];
-  readonly cobertura: Cobertura;
 }) {
+  const qc = useQueryClient();
   const inicio = evento.inicio ?? dia;
   const totalDias = diasDelEvento(inicio, evento.termino);
   const diaN = numeroDeDia(inicio, dia);
   // Fuera del rango de la cotización = día de preparativos o de desarme.
   const fueraDeRango = diaN < 1 || diaN > totalDias;
 
-  // Los servicios y sus horas: dos consultas por evento, solo al abrir
-  // el día. Se quedan en caché por si se vuelve a mirar el mismo día.
   const [detalle, horas] = useQueries({
     queries: [
       {
@@ -261,9 +294,8 @@ function BloqueEvento({
         staleTime: 5 * 60_000,
       },
       {
-        // Sin staleTime: son dos llamadas por evento y solo al abrir el
-        // día. Con caché de 5 minutos, una hora recién puesta en la
-        // Ficha de Cocina seguía saliendo como "sin hora".
+        // Sin caché: una hora recién puesta en la Ficha de Cocina tiene
+        // que verse acá al tiro, y viceversa.
         queryKey: ["people", "horarios-servicios", evento.id],
         queryFn: () => getEventServiceTimes(companyId, evento.id),
       },
@@ -285,103 +317,90 @@ function BloqueEvento({
     [detalle.data, horas.data, diaN, totalDias, evento, fueraDeRango],
   );
 
+  // LA HORA SE GUARDA DONDE MISMO QUE LA FICHA DE COCINA (Felipe,
+  // 15-08): "en la ficha de cocina selecciono la hora, se actualiza acá,
+  // y si la actualizo acá, se actualiza allá". Es la misma tabla y la
+  // misma clave; lo único que hay que hacer es refrescar los dos lados.
+  const guardarHora = useMutation({
+    mutationFn: async (v: { clave: string; hora: string }) => {
+      const r = await setEventServiceTime(
+        companyId,
+        evento.id,
+        v.clave,
+        v.hora,
+      );
+      if (r.error) throw r.error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: ["people", "horarios-servicios", evento.id],
+      });
+      void qc.invalidateQueries({ queryKey: ["postventa", "cocina"] });
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   return (
-    <section className="border border-gray-200 rounded-lg overflow-hidden">
-      <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-gray-900">
-            #{evento.numero} · {evento.cliente}
+    <div className="border border-gray-200 rounded-lg px-3 py-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-semibold text-gray-900">
+          #{evento.numero} · {evento.cliente}
+        </span>
+        {fueraDeRango ? (
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+            {diaN < 1 ? "PREPARATIVOS" : "DESARME"}
           </span>
-          {fueraDeRango ? (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
-              {diaN < 1 ? "PREPARATIVOS" : "DESARME"}
+        ) : (
+          totalDias > 1 && (
+            <span className="text-xs text-gray-500">
+              día {diaN} de {totalDias}
             </span>
-          ) : (
-            totalDias > 1 && (
-              <span className="text-xs text-gray-500">
-                día {diaN} de {totalDias}
-              </span>
-            )
-          )}
-        </div>
-        <div className="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
-          {evento.tipo && <span>{evento.tipo}</span>}
-          <span className="inline-flex items-center gap-1">
-            <Users className="w-3.5 h-3.5 text-gray-400" />
-            {evento.personas} personas
-            {evento.ninos > 0 && ` (${evento.ninos} niños)`}
+          )
+        )}
+      </div>
+      <div className="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
+        {evento.tipo && <span>{evento.tipo}</span>}
+        <span className="inline-flex items-center gap-1">
+          <Users className="w-3.5 h-3.5 text-gray-400" />
+          {evento.personas} personas
+          {evento.ninos > 0 && ` (${evento.ninos} niños)`}
+        </span>
+        {evento.contacto && (
+          <span>
+            {evento.contacto}
+            {evento.telefono && ` · ${formatPhone(evento.telefono)}`}
           </span>
-          {evento.contacto && (
-            <span>
-              {evento.contacto}
-              {evento.telefono && ` · ${formatPhone(evento.telefono)}`}
-            </span>
-          )}
-        </div>
-        {evento.observaciones && (
-          <p className="text-xs text-gray-500 italic mt-1">
-            {evento.observaciones}
-          </p>
         )}
       </div>
 
       {(detalle.isError || detalle.data?.error) && (
-        <p className="px-3 py-2 border-b border-gray-100 text-sm text-amber-800">
-          No se pudieron cargar los servicios de este evento. Vuelve a
-          entrar en un rato.
+        <p className="text-xs text-amber-800 mt-1.5">
+          No se pudieron cargar los servicios de este evento.
         </p>
       )}
 
       {servicios.length > 0 && (
-        <div className="px-3 py-2 border-b border-gray-100">
-          <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
-            Qué hay que servir
-          </h4>
-          <table className="w-full text-sm">
-            <tbody>
-              {servicios.map((s, i) => (
-                <tr key={`${s.nombre}-${String(i)}`}>
-                  <td className="py-0.5 w-16 tabular-nums font-medium text-gray-900">
-                    {s.hora ?? (
-                      <span className="text-amber-700 text-xs">sin hora</span>
-                    )}
-                  </td>
-                  <td className="py-0.5 text-gray-900">
-                    {s.nombre}
-                    {s.audiencia && (
-                      <span className="text-gray-400 text-xs ml-1">
-                        · {s.audiencia === "ninos" ? "niños" : "adultos"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-0.5 text-right text-gray-600 tabular-nums w-24">
-                    {s.personas} personas
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap mt-2">
+          {servicios.map((s) => (
+            <span key={s.clave} className="inline-flex items-center gap-1.5">
+              <span className="text-sm text-gray-700">{s.nombre}</span>
+              <HoraInput
+                value={s.hora}
+                onChange={(v) => {
+                  if (v) guardarHora.mutate({ clave: s.clave, hora: v });
+                }}
+                compacta
+                aria-label={`Hora de ${s.nombre}`}
+              />
+            </span>
+          ))}
         </div>
       )}
-
-      <div className="px-3 py-2">
-        {gente.length === 0 ? (
-          <p className="text-sm text-amber-700">
-            Sin gente asignada este día.
-          </p>
-        ) : (
-          <TablaDeGente
-            gente={gente}
-            cobertura={cobertura}
-            quotationId={evento.id}
-          />
-        )}
-      </div>
-    </section>
+    </div>
   );
 }
 
-/** La tabla pareja de quién trabaja: la misma para eventos y planta. */
+/** La tabla de quién trabaja: la MISMA para staff y para planta. */
 function TablaDeGente({
   gente,
   cobertura,
@@ -399,8 +418,8 @@ function TablaDeGente({
       m.get(k)!.lista.push(a);
     }
     // Un cargo que se necesita y NO tiene a NADIE también es una fila:
-    // si no, "Garzón 4 de 4" se lee como cobertura completa mientras
-    // los 2 barmans que faltan no aparecen por ninguna parte.
+    // si no, "Garzón 4 de 4" se lee como cobertura completa mientras los
+    // 2 barmans que faltan no aparecen por ninguna parte.
     if (quotationId && cobertura) {
       for (const [clave, cupo] of cobertura) {
         const [q, cargoId] = clave.split("|");
@@ -413,16 +432,22 @@ function TablaDeGente({
     return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [gente, cobertura, quotationId]);
 
+  if (porCargo.length === 0) {
+    return (
+      <p className="text-sm text-amber-700">Sin gente asignada este día.</p>
+    );
+  }
+
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-xs uppercase text-gray-400">
           <th className="font-medium pb-1 w-40">Cargo</th>
           <th className="font-medium pb-1">Persona</th>
-          <th className="font-medium pb-1 w-32">Horario</th>
+          <th className="font-medium pb-1 w-32 text-right">Horario</th>
           <th className="font-medium pb-1 w-16 text-right">Horas</th>
-          <th className="font-medium pb-1 w-20">Tipo</th>
-          <th className="font-medium pb-1 w-24 text-right">Estado</th>
+          <th className="font-medium pb-1 w-20 pl-3">Tipo</th>
+          <th className="font-medium pb-1 w-28 text-right">Estado</th>
         </tr>
       </thead>
       <tbody>
@@ -432,42 +457,36 @@ function TablaDeGente({
               ? cobertura.get(`${quotationId}|${String(cargoId)}`)?.necesita
               : undefined;
           const falta = necesita !== undefined && lista.length < necesita;
+
           if (lista.length === 0) {
             return (
               <tr key={`vacio-${cargo}`} className="border-t border-gray-100">
-                <td className="py-1 text-amber-700 font-medium">
-                  {cargo}
-                  <span className="text-xs ml-1">
-                    0 de {necesita ?? 0} !
-                  </span>
+                <td className="py-1 text-amber-700">
+                  {cargo} <span className="text-xs">0 de {necesita ?? 0}</span>
                 </td>
-                <td colSpan={5} className="py-1 text-amber-700 text-xs">
+                <td colSpan={5} className="py-1 text-amber-700">
                   nadie puesto todavía
                 </td>
               </tr>
             );
           }
+
           return lista.map((a, i) => (
             <tr key={a.id} className="border-t border-gray-100">
               <td className="py-1 align-top">
                 {i === 0 && (
-                  <span
-                    className={
-                      falta ? "text-amber-700 font-medium" : "text-gray-600"
-                    }
-                  >
+                  <span className={falta ? "text-amber-700" : "text-gray-600"}>
                     {cargo}
                     {necesita !== undefined && (
                       <span className="text-xs ml-1">
                         {lista.length} de {necesita}
-                        {falta && " !"}
                       </span>
                     )}
                   </span>
                 )}
               </td>
               <td className="py-1 text-gray-900">{a.people?.name ?? "—"}</td>
-              <td className="py-1 tabular-nums text-gray-600">
+              <td className="py-1 text-right tabular-nums text-gray-600">
                 {a.starts_at && a.ends_at
                   ? `${a.starts_at.slice(0, 5)}–${a.ends_at.slice(0, 5)}`
                   : "—"}
@@ -481,7 +500,7 @@ function TablaDeGente({
                   ),
                 )}
               </td>
-              <td className="py-1 text-gray-500 text-xs">
+              <td className="py-1 text-gray-500 text-xs pl-3">
                 {a.kind === "planta" ? "planta" : "freelance"}
               </td>
               <td className="py-1 text-right">
@@ -559,7 +578,9 @@ function NotasDelDia({ dia }: { readonly dia: string }) {
               </button>
               <span
                 className={
-                  n.done ? "flex-1 text-gray-400 line-through" : "flex-1 text-gray-900"
+                  n.done
+                    ? "flex-1 text-gray-400 line-through"
+                    : "flex-1 text-gray-900"
                 }
               >
                 {n.text}
