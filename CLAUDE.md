@@ -150,7 +150,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
-| `components/QuantitySelector` | quantity steppers | 2 |
+| `components/QuantitySelector` | quantity steppers | 3 |
 | `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
 | `components/PageSkeleton` | loading state of a whole page | 3 |
 | `components/PermissionGuard` | gate a route/section by role | — |

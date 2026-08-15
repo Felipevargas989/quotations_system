@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Minus, Plus, X } from "lucide-react";
+import { X } from "lucide-react";
+import QuantitySelector from "../QuantitySelector";
 
 // LA GRILLA DE DÍAS — PIEZA DE LA CASA (15-08, pedido de Felipe:
 // "deja esta grilla como una pieza, por si la volvemos a ocupar").
@@ -142,35 +143,17 @@ export default function GrillaDeDias({
               {dias.map((d) => {
                 const cant = f.cantidadEn(d);
                 return (
-                  <td key={d} className="px-1 py-1 text-center">
-                    <div className="inline-flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        disabled={congelado || cant <= 0}
-                        onClick={() => f.onCambiar(d, cant - 1)}
-                        aria-label={`Uno menos el ${d}`}
-                        className="p-0.5 text-gray-500 hover:text-red-600 disabled:opacity-30"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span
-                        className={`w-6 text-center tabular-nums ${
-                          cant > 0
-                            ? "text-gray-900 font-medium"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        {cant > 0 ? cant : "·"}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={congelado || f.masDeshabilitado}
-                        onClick={() => f.onCambiar(d, cant + 1)}
-                        aria-label={`Uno más el ${d}`}
-                        className="p-0.5 text-gray-500 hover:text-blue-600 disabled:opacity-30"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                  <td key={d} className="px-2 py-1.5">
+                    {/* La MISMA pieza que usa Servicios (QuantitySelector),
+                        para que el sistema se vea homogéneo — pedido de
+                        Felipe, 15-08. De paso el número se puede teclear. */}
+                    <div className="flex justify-center">
+                      <QuantitySelector
+                        value={cant}
+                        onChange={(nueva) => f.onCambiar(d, nueva)}
+                        disabled={congelado}
+                        max={f.masDeshabilitado ? cant : undefined}
+                      />
                     </div>
                   </td>
                 );
