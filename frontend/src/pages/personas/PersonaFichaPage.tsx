@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronLeft } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
+import ConfirmInline from "../../components/ConfirmInline";
 import PageSkeleton from "../../components/PageSkeleton";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
@@ -9,6 +10,7 @@ import PersonaForm from "./PersonaForm";
 import MiniCalendario from "./MiniCalendario";
 import {
   addStaff,
+  deletePerson,
   getPerson,
   getStaffSemana,
   removeStaff,
@@ -51,6 +53,7 @@ export default function PersonaFichaPage() {
   const qc = useQueryClient();
   const [pestana, setPestana] = useState<"datos" | "calendario">("datos");
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState(false);
 
   const { data: persona, isLoading } = useQuery({
     queryKey: ["people", "ficha", personId],
@@ -67,6 +70,21 @@ export default function PersonaFichaPage() {
       void qc.invalidateQueries({ queryKey: ["people"] });
     },
     onError: (e: unknown) => setErrorServidor(humanizeApiError(e)),
+  });
+
+  // Eliminar vive ACÁ, no en la lista (Felipe, 15-08): borrar a alguien
+  // desde una fila es demasiado fácil de apretar sin querer.
+  const borrar = useMutation({
+    mutationFn: () => deletePerson(personId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["people"] });
+      toast.success("Persona eliminada.");
+      navegar("/personas");
+    },
+    onError: (e: unknown) => {
+      setBorrando(false);
+      toast.error(humanizeApiError(e));
+    },
   });
 
   if (isLoading) return <PageSkeleton />;
@@ -119,6 +137,27 @@ export default function PersonaFichaPage() {
               </>
             )}
           </p>
+        </div>
+        <div className="shrink-0">
+          {borrando ? (
+            <ConfirmInline
+              question={`¿Eliminar a ${persona.name}?`}
+              yesLabel="Eliminar"
+              tono="peligro"
+              busy={borrar.isPending}
+              onYes={() => borrar.mutate()}
+              onNo={() => setBorrando(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setBorrando(true)}
+              className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+              aria-label={`Eliminar a ${persona.name}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

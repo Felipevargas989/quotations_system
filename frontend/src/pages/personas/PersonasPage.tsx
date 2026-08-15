@@ -2,8 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
-import ConfirmInline from "../../components/ConfirmInline";
+import { AlertTriangle, ChevronRight, Plus, Search, Tags, X } from "lucide-react";
 import PageSkeleton from "../../components/PageSkeleton";
 import { toast } from "../../components/toast/Toast";
 import SemanaTab from "./SemanaTab";
@@ -14,7 +13,6 @@ import CargosModal from "./CargosModal";
 import PersonaForm from "./PersonaForm";
 import {
   createPerson,
-  deletePerson,
   getReviews,
   peopleQueryOptions,
   rolesQueryOptions,
@@ -51,7 +49,6 @@ export default function PersonasPage() {
   const [editando, setEditando] = useState<Persona | null | undefined>(
     undefined,
   );
-  const [borrando, setBorrando] = useState<number | null>(null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [viendoCargos, setViendoCargos] = useState(false);
   // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
@@ -102,16 +99,6 @@ export default function PersonasPage() {
       setErrorServidor(mensaje);
       toast.error(mensaje);
     },
-  });
-
-  const borrar = useMutation({
-    mutationFn: (id: number) => deletePerson(id),
-    onSuccess: async () => {
-      await invalidar();
-      toast.success("Persona eliminada.");
-      setBorrando(null);
-    },
-    onError: (error: unknown) => toast.error(humanizeApiError(error)),
   });
 
   const visibles = useMemo(() => {
@@ -266,9 +253,12 @@ export default function PersonasPage() {
           {grupo.map((p) => {
             const completa = datosParaPagarCompletos(p);
             return (
-              <li
-                key={p.id}
-                className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+              <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => navegar(`/personas/${String(p.id)}`)}
+                aria-label={`Abrir la ficha de ${p.name}`}
+                className="w-full text-left border border-gray-200 rounded-lg p-3 hover:bg-gray-50 hover:border-gray-300 transition-colors"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -325,36 +315,12 @@ export default function PersonasPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    {borrando === p.id ? (
-                      <ConfirmInline
-                        question={`¿Eliminar a ${p.name}?`}
-                        yesLabel="Eliminar"
-                        tono="peligro"
-                        busy={borrar.isPending}
-                        onYes={() => borrar.mutate(p.id)}
-                        onNo={() => setBorrando(null)}
-                      />
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => navegar(`/personas/${String(p.id)}`)}
-                          aria-label={`Abrir la ficha de ${p.name}`}
-                          className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setBorrando(p.id)}
-                          aria-label={`Eliminar ${p.name}`}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {/* La flecha del resto del sistema: la fila entera
+                      abre la ficha. Eliminar vive DENTRO de la ficha
+                      (Felipe, 15-08), no acá. */}
+                  <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
                 </div>
+              </button>
               </li>
             );
           })}
