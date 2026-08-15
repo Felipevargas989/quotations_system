@@ -51,6 +51,7 @@ export const gestionQueryOpts = (
 // La propina no es venta ni margen (24-07, Felipe): el porqué y la
 // fórmula, en un solo lugar, están en utils/quotationMoney.
 import { saleWithoutTip, tipAmountOf } from "../../utils/quotationMoney";
+import GrillaDeDias from "./GrillaDeDias";
 import EventResourcesSection, {
   EventFixedService,
 } from "./EventResourcesSection";
@@ -724,6 +725,20 @@ export default function GestionTab({
           fixedServices={fijosServicios}
           noCostIds={new Set(nameIds.sinCostoFijoIds)}
           onCostChange={setCostoRecursos}
+          congelado={quote.quotation_status === "realizada"}
+        />
+      )}
+
+      {/* ---------- Bloque 3: quién va cada día ----------
+          La cantidad de un recurso siempre fue el TOTAL del evento; acá se
+          reparte entre los días. No cambia ningún número de plata.
+          Ver 00_DOCUMENTACION/10_MODULO_DE_PERSONAS.md */}
+      {companyId !== null && isoDate(quote.event_date) && (
+        <GrillaDeDias
+          companyId={companyId}
+          quotationId={String(quote.id)}
+          eventDate={isoDate(quote.event_date) as string}
+          eventEndDate={isoDate(quote.event_end_date) || null}
           congelado={quote.quotation_status === "realizada"}
         />
       )}
