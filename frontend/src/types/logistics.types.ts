@@ -111,12 +111,18 @@ export interface RecipeItem {
   created_at: string;
 }
 
-export type ResourceType = "personal" | "arriendo" | "compra";
+/**
+ * Dos tipos, no tres. "Compra" se elimino el 14-08 por decision de
+ * Felipe: "las compras no tienen sentido" como categoria. Los 7 que
+ * estaban ahi eran servicios externos —florerias, tours, juegos de
+ * patio— y pasaron a arriendo, donde encajan solos. Ninguno tenia un
+ * solo uso, asi que no se movio ningun costo.
+ */
+export type ResourceType = "personal" | "arriendo";
 
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
   personal: "Personal",
-  arriendo: "Arriendo",
-  compra: "Compra",
+  arriendo: "Arriendos y servicios externos",
 };
 
 export interface ManagementResource {

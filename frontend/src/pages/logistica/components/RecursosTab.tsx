@@ -24,7 +24,6 @@ const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 const TYPE_CHIP: Record<ResourceType, string> = {
   personal: "bg-blue-100 text-blue-700",
   arriendo: "bg-purple-100 text-purple-700",
-  compra: "bg-emerald-100 text-emerald-700",
 };
 
 export default function RecursosTab({

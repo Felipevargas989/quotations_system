@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { staffQueryOptions } from "../../services/people.service";
 import { useQuery } from "@tanstack/react-query";
 import { useBaseLogistica } from "../../hooks/useBaseLogistica";
 import {
@@ -7,6 +9,7 @@ import {
   ChevronRight,
   Download,
   Package,
+  Users,
 } from "lucide-react";
 import { Quotation } from "../../types/quotations.types";
 import { useAuth } from "../../contexts/AuthContext";
@@ -74,6 +77,42 @@ const fmtQty = (n: number) =>
   Number(n.toFixed(2)).toLocaleString("es-CL", { maximumFractionDigits: 2 });
 
 const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
+
+/**
+ * EL PERSONAL, RESUMIDO.
+ *
+ * La grilla de verdad vive en Personas → Armar eventos, porque conseguir
+ * gente es una tarea de la semana y no de un evento: Felipe no se sienta a
+ * llenar el Joker No 1, se sienta el lunes y llena lo que viene. Acá solo
+ * se mira el estado y se va para allá.
+ */
+function ResumenPersonal({ quotationId }: { readonly quotationId: string }) {
+  const { data: staff = [] } = useQuery(staffQueryOptions(quotationId));
+  const porConfirmar = staff.filter((a) => a.status === "por_confirmar").length;
+  return (
+    <div className="flex items-center justify-between gap-3 border border-gray-200 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2">
+        <Users size={17} className="text-gray-600" />
+        <div>
+          <p className="text-base font-bold text-gray-900">Personal</p>
+          <p className="text-xs text-gray-500">
+            {staff.length === 0
+              ? "Todavía no hay nadie asignado a este evento"
+              : `${staff.length} ${staff.length === 1 ? "jornada asignada" : "jornadas asignadas"}${
+                  porConfirmar > 0 ? ` · ${porConfirmar} por confirmar` : ""
+                }`}
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/personas"
+        className="text-sm font-semibold text-blue-600 hover:text-blue-800 shrink-0"
+      >
+        Armar →
+      </Link>
+    </div>
+  );
+}
 
 export default function GestionTab({
   quote,
@@ -436,10 +475,30 @@ export default function GestionTab({
         </p>
       )}
 
-      {/* Dos columnas en pantallas anchas: cálculo solo-lectura a la
-          izquierda, trabajo editable a la derecha. */}
-      <div className="grid gap-6 xl:grid-cols-2 items-start">
-      {/* ---------- Bloque 1: Insumos y equipo ---------- */}
+      {/* UNA SOLA COLUMNA ANCHA, en bloques de trabajo uno debajo del
+          otro (Felipe, 14-08). Antes eran dos columnas y la grilla no
+          tenía espacio. El orden es el del trabajo: primero la gente,
+          después lo que se contrata afuera, después los insumos.
+          Ver docs/arquitectura/10_MODULO_DE_PERSONAS.md */}
+      <div className="space-y-6">
+
+      {/* ---------- Bloque 1: el personal ---------- */}
+      <ResumenPersonal quotationId={String(quote.id)} />
+
+      {/* ---------- Bloque 2: arriendos y servicios externos ---------- */}
+      {companyId !== null && (
+        <EventResourcesSection
+          companyId={companyId}
+          quotationId={String(quote.id)}
+          personas={personas}
+          fixedServices={fijosServicios}
+          noCostIds={new Set(nameIds.sinCostoFijoIds)}
+          onCostChange={setCostoRecursos}
+          congelado={quote.quotation_status === "realizada"}
+        />
+      )}
+
+      {/* ---------- Bloque 3: Insumos y equipo ---------- */}
       <div className="space-y-4">
         {/* Patrón de encabezado del modal (mismo que Recursos del evento y
             Ficha de cocina): icono + título text-base + divisoria. */}
@@ -715,18 +774,6 @@ export default function GestionTab({
         )}
       </div>
 
-      {/* ---------- Bloque 2: recursos del evento ---------- */}
-      {companyId !== null && (
-        <EventResourcesSection
-          companyId={companyId}
-          quotationId={String(quote.id)}
-          personas={personas}
-          fixedServices={fijosServicios}
-          noCostIds={new Set(nameIds.sinCostoFijoIds)}
-          onCostChange={setCostoRecursos}
-          congelado={quote.quotation_status === "realizada"}
-        />
-      )}
 
       </div>
 

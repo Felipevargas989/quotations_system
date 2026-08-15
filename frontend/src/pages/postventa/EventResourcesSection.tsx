@@ -33,7 +33,6 @@ const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const TYPE_PILL: Record<ResourceType, string> = {
   personal: "bg-teal-100 text-teal-700",
   arriendo: "bg-indigo-100 text-indigo-700",
-  compra: "bg-rose-100 text-rose-700",
 };
 
 export interface EventFixedService {
@@ -134,10 +133,10 @@ export default function EventResourcesSection({
 
   const total = lines.reduce((s, l) => s + lineTotal(l), 0);
 
-  // Agrupación para la tabla: por tipo (personal → arriendo → compra) y,
+  // Agrupación para la tabla: por tipo (personal → arriendo) y,
   // dentro de cada grupo, ordenado por proveedor (sin proveedor al final).
   const grouped = useMemo(() => {
-    const order: ResourceType[] = ["personal", "arriendo", "compra"];
+    const order: ResourceType[] = ["personal", "arriendo"];
     const byType = (t: ResourceType | undefined) =>
       lines.filter((l) => resById.get(l.resource_id)?.type === t);
     const sortLines = (ls: EventResource[]) =>
@@ -167,7 +166,10 @@ export default function EventResourcesSection({
     const orphans = lines.filter((l) => !resById.get(l.resource_id));
     if (orphans.length) {
       groups.push({
-        type: "compra",
+        // Los recursos cuyo catálogo se borró no tienen tipo: van al final
+        // como "Otros". Antes se les ponía "compra", que desde el 14-08 ya
+        // no existe como tipo.
+        type: "arriendo",
         label: "Otros",
         lines: orphans,
         subtotal: orphans.reduce((s, l) => s + lineTotal(l), 0),
@@ -388,7 +390,7 @@ export default function EventResourcesSection({
   };
 
   const options = useMemo(() => {
-    const order: ResourceType[] = ["personal", "arriendo", "compra"];
+    const order: ResourceType[] = ["personal", "arriendo"];
     return [...resources]
       .filter((r) => r.is_active !== false)
       // AQUÍ APARECEN TODOS LOS CARGOS, tengan precio o no.
