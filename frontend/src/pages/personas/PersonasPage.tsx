@@ -194,7 +194,7 @@ export default function PersonasPage() {
       {pestana === "armar" ? (
         <SemanaTab companyId={Number(company?.id ?? 0)} />
       ) : pestana === "fichas" ? (
-        <FichasTab onIrANomina={() => setPestana("nomina")} />
+        <FichasTab />
       ) : pestana === "nomina" ? (
         <NominaTab />
       ) : (

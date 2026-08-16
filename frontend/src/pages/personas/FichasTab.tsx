@@ -23,7 +23,6 @@ import { QuotationStatus } from "../../types/quotations.types";
 import Modal from "../../components/Modal";
 import {
   cerrarFicha,
-  createPayroll,
   createPool,
   createReview,
   getPools,
@@ -98,12 +97,7 @@ interface EventoFila {
   estado: EstadoFicha;
 }
 
-export default function FichasTab({
-  onIrANomina,
-}: {
-  /** Liquidar manda todo a la nómina y deja a uno parado ahí. */
-  readonly onIrANomina?: () => void;
-}) {
+export default function FichasTab() {
   const qc = useQueryClient();
   const [abierta, setAbierta] = useState<EventoFila | null>(null);
   const [verLiquidados, setVerLiquidados] = useState(false);
@@ -361,7 +355,6 @@ export default function FichasTab({
           onIr={(i) => setDiaModal(i)}
           onCambio={refrescar}
           onCerrar={() => setDiaModal(null)}
-          onIrANomina={onIrANomina}
         />
       )}
     </div>
@@ -1073,7 +1066,6 @@ function DiaRestaurante({
   onIr,
   onCambio,
   onCerrar,
-  onIrANomina,
 }: {
   readonly dias: readonly string[];
   readonly indice: number;
@@ -1082,7 +1074,6 @@ function DiaRestaurante({
   readonly onIr: (indice: number) => void;
   readonly onCambio: () => void;
   readonly onCerrar: () => void;
-  readonly onIrANomina?: () => void;
 }) {
   const dia = dias[indice];
   const [monto, setMonto] = useState<number | undefined>(undefined);
@@ -1241,32 +1232,11 @@ function DiaRestaurante({
   );
   const repartidosDeLaTanda = diasRepartidosDeLaTanda.length;
 
-  const [confirmandoNomina, setConfirmandoNomina] = useState(false);
-
-  // LIQUIDAR = MANDAR A LA NÓMINA (Felipe, 16-08). Repartir deja la
-  // plata asignada; liquidar la manda a cobrar. Van separados justo
-  // para poder repartir varios días, revisarlos con ‹ ›, y recién
-  // entonces mandarlos. La nómina se lleva TODO lo liquidado que esté
-  // pendiente — el backend deja fuera lo que aún no se liquida.
-  const mandarANomina = useMutation({
-    mutationFn: () =>
-      createPayroll({
-        label: `Restaurante ${new Date().toLocaleDateString("es-CL")}`,
-        dias: diasRepartidosDeLaTanda,
-      }),
-    onSuccess: (nomina) => {
-      toast.success(
-        `Nómina creada: ${nomina.personas ?? 0} ${
-          nomina.personas === 1 ? "persona" : "personas"
-        } por pagar.`,
-      );
-      onCambio();
-      onCerrar();
-      onIrANomina?.();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
+  // EL DÍA NO CREA NÓMINAS (Felipe, 16-08: "mandé unos días a
+  // liquidación y pasó directo a nómina de pago"). Repartir deja el día
+  // liquidado y con eso aparece solo en "Liquidaciones por pagar", que
+  // es donde se elige qué se paga y se revisan los datos del banco
+  // antes de subir. Este botón se saltaba esa revisión entera.
   const sinPropinaHoy = useMutation({
     mutationFn: async () => {
       const existente = poolDelDia();
@@ -1285,8 +1255,7 @@ function DiaRestaurante({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const ocupado =
-    liquidar.isPending || sinPropinaHoy.isPending || mandarANomina.isPending;
+  const ocupado = liquidar.isPending || sinPropinaHoy.isPending;
 
   return (
     <Modal
@@ -1349,22 +1318,6 @@ function DiaRestaurante({
       ancho="max-w-5xl"
       onCerrar={onCerrar}
       pie={
-        // AL PREGUNTAR, LA PREGUNTA ES EL PIE (Felipe, 16-08). Sumada a
-        // los botones no cabía y la barra se partía en tres líneas; y
-        // además es el patrón de la casa: la acción se transforma ahí
-        // mismo en la pregunta.
-        confirmandoNomina ? (
-          <ConfirmInline
-            question={`¿Mandar ${repartidosDeLaTanda} ${
-              repartidosDeLaTanda === 1 ? "día" : "días"
-            } a la nómina?`}
-            yesLabel="Sí, liquidar"
-            tono="normal"
-            busy={mandarANomina.isPending}
-            onYes={() => mandarANomina.mutate()}
-            onNo={() => setConfirmandoNomina(false)}
-          />
-        ) : (
         <>
           <button
             type="button"
@@ -1393,24 +1346,18 @@ function DiaRestaurante({
                 ? "Volver a repartir"
                 : "Repartir"}
           </button>
-          {/* EL NEGRO CIERRA LA TANDA. Separado del azul a propósito:
-              repartir se hace día por día y se puede corregir; liquidar
-              manda la plata a cobrar, y por eso pregunta antes. */}
+          {/* Lo repartido queda esperando en "Liquidaciones por pagar":
+              acá no se crea ninguna nómina. */}
           <button
             type="button"
-            onClick={() => setConfirmandoNomina(true)}
-            disabled={ocupado || repartidosDeLaTanda === 0}
-            title={
-              repartidosDeLaTanda === 0
-                ? "Todavía no has repartido ningún día"
-                : "Manda a la nómina solo estos días de restaurante"
-            }
+            onClick={onCerrar}
+            disabled={ocupado}
+            title="Lo repartido queda en Liquidaciones por pagar"
             className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40 whitespace-nowrap"
           >
-            Liquidar
+            Listo
           </button>
         </>
-        )
       }
     >
       <div className="space-y-4">

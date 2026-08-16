@@ -156,12 +156,19 @@ nómina"*. De ahí salen tres reglas que antes estaban mezcladas:
    reparte.** En el rato intermedio se muestra en verde: repartido,
    esperando nómina. Un día marcado "sin propina" sí se va al toque —
    no hay nada que mandar.
-3. **Cada botón liquida lo suyo.** El de los días de restaurante manda
-   **esos días y nada más** — no el resto de lo pendiente. Un rango de
-   fechas no servía: la semana del restaurante y los eventos de esa
-   misma semana caen en las mismas fechas, y los eventos se liquidan
-   por su cuenta. Por eso la nómina acepta una lista de días sueltos,
-   como modo excluyente: sin eventos, solo esos días.
+3. **La liquidación NO crea nóminas.** El día de restaurante y la ficha
+   de evento solo dejan su plata *lista para pagar*; con eso aparecen
+   solas en "Liquidaciones por pagar". Hubo un botón que sí creaba la
+   nómina desde el día, y duró un día: se saltaba entera la revisión de
+   datos bancarios (Felipe, 16-08: *"mandé unos días a liquidación y
+   pasó directo a nómina de pago"*). Quien crea nóminas es un solo
+   lugar — la pestaña Nómina — porque ahí es donde se revisa antes de
+   subir al banco.
+
+   La nómina igual acepta una lista de días sueltos, como modo
+   excluyente —sin eventos, solo esos días—: es lo que permite elegir
+   "estas liquidaciones" sin que un rango de fechas arrastre los
+   eventos de esa misma semana.
 4. **A la nómina solo entra lo liquidado.** Antes bastaba con tener
    monto y no estar pagado: medido en laboratorio el 16-08, eso metía
    $100.000 en 4 filas de eventos a medio liquidar. "Liquidado" es
