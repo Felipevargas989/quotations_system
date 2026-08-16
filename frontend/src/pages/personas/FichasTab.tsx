@@ -992,6 +992,14 @@ function DiaRestaurante({
   const dia = dias[indice];
   const [monto, setMonto] = useState<number | undefined>(undefined);
   const [pcts, setPcts] = useState<Map<number, number>>(new Map());
+  const [sinCargo, setSinCargo] = useState<Set<number>>(new Set());
+
+  const marcarSinPropina = useMutation({
+    mutationFn: (a: Asignacion) =>
+      updateStaff(a.id, { no_tip: !a.no_tip }),
+    onSuccess: onCambio,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
 
   const delDia = useMemo(
     () =>
@@ -1002,10 +1010,14 @@ function DiaRestaurante({
     [staff, dia],
   );
 
+  // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
+  // no aparece: no hay a quién repartirle.
   const cargos = useMemo(() => {
     const m = new Map<number, string>();
-    for (const a of delDia)
+    for (const a of delDia) {
+      if (a.no_tip) continue;
       m.set(a.role_id ?? 0, a.management_resources?.name ?? "Sin cargo");
+    }
     return [...m.entries()];
   }, [delDia]);
 
@@ -1020,6 +1032,7 @@ function DiaRestaurante({
     setDiaAnterior(dia);
     setMonto(undefined);
     setPcts(new Map());
+    setSinCargo(new Set());
   }
 
   const avanzar = () => {
@@ -1077,31 +1090,39 @@ function DiaRestaurante({
 
   return (
     <Modal
+      // La fecha al centro y grande: es lo que uno mira para saber
+      // dónde está parado (Felipe, 15-08).
       titulo={
-        <span className="flex items-center gap-2">
+        <span className="flex items-center justify-center gap-4 w-full">
           <button
             type="button"
             onClick={() => onIr(indice - 1)}
             disabled={indice === 0}
             aria-label="Día anterior"
-            className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+            className="p-1.5 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg disabled:opacity-25"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </button>
-          {formatISOUTCDateToString(dia)}
+          <span className="text-xl font-bold tabular-nums">
+            {formatISOUTCDateToString(dia)}
+          </span>
           <button
             type="button"
             onClick={() => onIr(indice + 1)}
             disabled={indice + 1 >= dias.length}
             aria-label="Día siguiente"
-            className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+            className="p-1.5 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg disabled:opacity-25"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-6 h-6" />
           </button>
         </span>
       }
-      subtitulo={`Día ${String(indice + 1)} de ${String(dias.length)} por liquidar`}
-      ancho="max-w-lg"
+      subtitulo={
+        <span className="block text-center">
+          Día {indice + 1} de {dias.length} por liquidar
+        </span>
+      }
+      ancho="max-w-2xl"
       onCerrar={onCerrar}
       pie={
         <>
@@ -1136,7 +1157,7 @@ function DiaRestaurante({
           <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
             Quiénes trabajaron
           </h4>
-          <ul className="text-sm space-y-0.5">
+          <ul className="text-sm space-y-1">
             {delDia.map((a) => (
               <li key={a.id} className="flex items-center gap-2">
                 <span className="flex-1 text-gray-900">
@@ -1155,6 +1176,24 @@ function DiaRestaurante({
                     ),
                   )}
                 </span>
+                {/* Sin propina ESA persona ese día: el reparto la salta,
+                    su jornada se paga igual (Felipe, 15-08). */}
+                <button
+                  type="button"
+                  onClick={() => marcarSinPropina.mutate(a)}
+                  title={
+                    a.no_tip
+                      ? "No lleva propina este día"
+                      : "Marcar: no lleva propina este día"
+                  }
+                  className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                    a.no_tip
+                      ? "bg-red-50 text-red-700 border-red-300 font-medium"
+                      : "text-gray-400 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  sin propina
+                </button>
               </li>
             ))}
           </ul>
@@ -1184,24 +1223,56 @@ function DiaRestaurante({
               Cómo se reparte
             </h4>
             <div className="space-y-1">
-              {cargos.map(([id, nombre]) => (
-                <div key={id} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1 text-gray-900">{nombre}</span>
-                  <NumberInput
-                    value={pct(id) || undefined}
-                    onChange={(v: number | undefined) =>
-                      setPcts(new Map(pcts).set(id, v ?? 0))
-                    }
-                    placeholder="0"
-                    aria-label={`Porcentaje de ${nombre}`}
-                    className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                  />
-                  <span className="text-gray-400 w-4">%</span>
-                  <span className="w-24 text-right tabular-nums text-gray-600">
-                    {clp(((monto ?? 0) * pct(id)) / 100)}
-                  </span>
-                </div>
-              ))}
+              {cargos.map(([id, nombre]) => {
+                const fuera = sinCargo.has(id);
+                return (
+                  <div key={id} className="flex items-center gap-3 text-sm">
+                    {/* whitespace-nowrap: "Personal aseo" se partía en
+                        dos líneas (Felipe, 15-08). */}
+                    <span
+                      className={`whitespace-nowrap ${
+                        fuera ? "text-gray-400" : "text-gray-900"
+                      }`}
+                    >
+                      {nombre}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={fuera}
+                        onChange={() => {
+                          const s2 = new Set(sinCargo);
+                          if (fuera) s2.delete(id);
+                          else {
+                            s2.add(id);
+                            setPcts(new Map(pcts).set(id, 0));
+                          }
+                          setSinCargo(s2);
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      sin propina
+                    </label>
+                    <span className="flex-1" />
+                    <div className="w-20">
+                      <NumberInput
+                        value={pct(id) || undefined}
+                        onChange={(v: number | undefined) =>
+                          setPcts(new Map(pcts).set(id, v ?? 0))
+                        }
+                        disabled={fuera}
+                        placeholder="0"
+                        aria-label={`Porcentaje de ${nombre}`}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
+                      />
+                    </div>
+                    <span className="text-gray-400">%</span>
+                    <span className="w-24 text-right tabular-nums text-gray-600">
+                      {clp(((monto ?? 0) * pct(id)) / 100)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             <p
               className={`text-sm mt-2 ${
