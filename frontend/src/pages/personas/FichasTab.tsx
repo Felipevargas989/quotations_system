@@ -1407,7 +1407,7 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
             {delDia.map((a) =>
               // La fila que pregunta ocupa el ancho entero: si la
               // pregunta viviera en una celda, ensancharía esa columna
