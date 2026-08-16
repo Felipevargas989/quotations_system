@@ -32,7 +32,6 @@ import {
   sinPropina,
   updatePool,
   updateStaff,
-  upsertSheet,
 } from "../../services/people.service";
 import type { Asignacion, EstadoFicha, Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -78,13 +77,10 @@ export const eventosQueryOptions = {
   },
 };
 
-const ORDEN: EstadoFicha[] = ["armando", "confirmado", "trabajado", "cerrada"];
-const ETIQUETA: Record<EstadoFicha, string> = {
-  armando: "Armando",
-  confirmado: "Confirmado",
-  trabajado: "Trabajado",
-  cerrada: "Cerrada",
-};
+// EN LIQUIDACIÓN SOLO HAY DOS ESTADOS (Felipe, 15-08): pendiente o
+// liquidado. El ciclo armando → confirmado → trabajado pertenecía a
+// cuando esta pestaña acompañaba el evento desde antes; el armado vive
+// en Planificación, y acá un evento del mes pasado no se está armando.
 
 // Las plantillas del reparto. Los porcentajes se asignan por NOMBRE de
 // cargo (garzón/cocina/desconche); lo que no calza queda en 0 y
@@ -311,18 +307,15 @@ export default function FichasTab() {
 }
 
 function ChipEstado({ estado }: { readonly estado: EstadoFicha }) {
-  const estilo =
-    estado === "cerrada"
-      ? "bg-gray-100 text-gray-600"
-      : estado === "trabajado"
-        ? "bg-emerald-50 text-emerald-700"
-        : estado === "confirmado"
-          ? "bg-blue-50 text-blue-700"
-          : "bg-amber-50 text-amber-700";
+  const liquidado = estado === "cerrada";
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estilo}`}>
-      {estado === "cerrada" && <Lock className="w-3 h-3 inline mr-1 -mt-0.5" />}
-      {ETIQUETA[estado]}
+    <span
+      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+        liquidado ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-700"
+      }`}
+    >
+      {liquidado && <Lock className="w-3 h-3 inline mr-1 -mt-0.5" />}
+      {liquidado ? "Liquidado" : "Por liquidar"}
     </span>
   );
 }
@@ -368,12 +361,6 @@ function FichaAbierta({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const avanzar = useMutation({
-    mutationFn: (estado: EstadoFicha) => upsertSheet(evento.id, estado),
-    onSuccess: onCambio,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
   // Por día, para leer la ficha como se vivió.
   const dias = useMemo(() => {
     const m = new Map<string, Asignacion[]>();
@@ -410,33 +397,13 @@ function FichaAbierta({
         <ChipEstado estado={evento.estado} />
       </div>
 
-      {/* El ciclo: cada paso se pincha para avanzar (o volver). La única
-          puerta con candado es "cerrada", que va por su propio botón. */}
-      <div className="flex items-center gap-1">
-        {ORDEN.map((e, i) => (
-          <button
-            key={e}
-            type="button"
-            disabled={e === "cerrada" || cerrada || avanzar.isPending}
-            onClick={() => avanzar.mutate(e)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
-              evento.estado === e
-                ? "bg-blue-600 text-white border-blue-600"
-                : ORDEN.indexOf(evento.estado) > i
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-            } disabled:opacity-60`}
-          >
-            {i + 1}. {ETIQUETA[e]}
-          </button>
-        ))}
-      </div>
-
       {/* Los días y la gente. Las horas se AJUSTAN en la sábana (la
           casilla del día); acá se leen. */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium text-gray-900">Los días y la gente</h3>
+          <h3 className="font-medium text-gray-900">
+            Quiénes vinieron y qué se les paga
+          </h3>
           <span className="text-sm text-gray-500">
             Jornadas: <strong className="text-gray-900">{clp(jornadas)}</strong>
             {propinas > 0 && (
@@ -450,7 +417,8 @@ function FichaAbierta({
         </div>
         {dias.length === 0 ? (
           <p className="text-sm text-gray-500 py-2">
-            Nadie asignado todavía — los nombres se ponen en Planificación.
+            Nadie vino a este evento — los nombres se ponen en
+            Planificación.
           </p>
         ) : (
           <div className="space-y-2">
@@ -511,9 +479,37 @@ function FichaAbierta({
                           ),
                         )}
                       </span>
-                      <span className="w-20 text-right tabular-nums text-gray-700">
-                        {a.amount ? clp(Number(a.amount)) : "—"}
-                      </span>
+                      {/* EL MONTO QUE SE LE ESTÁ PAGANDO (Felipe,
+                          15-08): es de las cuatro cosas que tiene que
+                          haber en esta pantalla, así que se edita acá.
+                          La planta no lleva: su sueldo cubre el día. */}
+                      {cerrada || a.kind === "planta" ? (
+                        <span className="w-24 text-right tabular-nums text-gray-700">
+                          {a.amount ? clp(Number(a.amount)) : "—"}
+                        </span>
+                      ) : (
+                        <div className="w-24 relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                            $
+                          </span>
+                          <NumberInput
+                            value={a.amount ? Number(a.amount) : undefined}
+                            onChange={(v: number | undefined) =>
+                              cambiarStaff.mutate({
+                                id: a.id,
+                                cambios: { amount: v ?? null },
+                              })
+                            }
+                            placeholder="0"
+                            aria-label={`Monto de ${a.people?.name ?? ""}`}
+                            className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
+                              !a.amount
+                                ? "border-amber-400 bg-amber-50"
+                                : "border-gray-300"
+                            }`}
+                          />
+                        </div>
+                      )}
                       <span className="w-20 text-right tabular-nums text-emerald-700">
                         {a.tip_amount ? clp(Number(a.tip_amount)) : ""}
                       </span>
@@ -552,15 +548,9 @@ function FichaAbierta({
           <button
             type="button"
             onClick={() => setEvaluando(true)}
-            disabled={evento.estado !== "trabajado"}
-            title={
-              evento.estado !== "trabajado"
-                ? 'Se cierra desde "trabajado", con las horas reales ajustadas'
-                : undefined
-            }
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40"
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
           >
-            Cerrar la ficha…
+            Liquidar este evento…
           </button>
         </div>
       )}

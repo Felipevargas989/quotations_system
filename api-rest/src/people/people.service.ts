@@ -366,15 +366,10 @@ export class PeopleService {
    * botón no se puede apretar — acá se rechaza, sin semáforos.
    */
   async cerrarFicha(dto: CerrarFichaDto, companyId: number) {
-    const sheet = await this.repo.findSheetByQuotation(
-      companyId,
-      dto.quotation_id,
-    );
-    if (!sheet || sheet.status !== 'trabajado') {
-      throw new BadRequestException(
-        'La ficha se cierra desde "trabajado": primero se ajustan las horas reales',
-      );
-    }
+    // NO HAY PASOS PREVIOS (Felipe, 15-08): "el armado se hace en la
+    // planificación; acá solo la gente que vino, lo que se le paga y la
+    // propina". La liquidación es una sola pantalla, así que se cierra
+    // directo — lo único que se valida es que la plata cuadre.
     const pools = (await this.repo.findPools(companyId)).filter(
       (p) => p.quotation_id === dto.quotation_id,
     );

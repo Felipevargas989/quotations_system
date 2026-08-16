@@ -145,6 +145,20 @@ nómina**. No hay que acordarse de nada.
 
 ## 3. EL CICLO DE UNA FICHA
 
+⚠ **Simplificado el 15-08.** Este ciclo de cuatro pasos se diseñó
+cuando la pestaña acompañaba al evento **desde antes**. Con la
+Liquidación entrando solo a eventos **ya ocurridos**, los pasos
+"armando" y "confirmado" no significaban nada —un evento del mes
+pasado no se está armando— y obligaban a pinchar botones sin sentido.
+Felipe: *"el armado se hace en la planificación; acá solamente debería
+estar la gente que vino, el monto que se le está pagando, la propina y
+cómo se reparte. Es solo una pantalla que tiene todo."*
+
+En pantalla quedan **dos estados: por liquidar y liquidado**. El armado
+y la confirmación de nombres viven en Planificación, donde cada persona
+tiene su "por confirmar". La columna `status` conserva los cuatro
+valores por si alguna vez se quiere el detalle.
+
 | | Qué pasa | Qué se puede tocar |
 |---|---|---|
 | **1. Armando** | Sé que necesito 3 garzones × 6 días. Salgo a conseguirlos | Todo |
