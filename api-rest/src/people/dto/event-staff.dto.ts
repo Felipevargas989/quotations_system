@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -56,6 +57,11 @@ export class CreateEventStaffDto {
 }
 
 export class UpdateEventStaffDto {
+  // Sin propina ese día: el reparto se salta esta fila.
+  @IsOptional()
+  @IsBoolean()
+  no_tip?: boolean;
+
   // Mover la asignación a OTRO día (Felipe, 15-08: "pasa mucho que
   // cambiamos días para adecuarnos al trabajo").
   @IsOptional()

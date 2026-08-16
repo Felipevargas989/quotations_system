@@ -111,6 +111,9 @@ export class EventStaff {
 
   /** Propina del día ya repartida, al peso. NULL = sin repartir. */
   tip_amount: number | null;
+  /** Esa persona NO lleva propina ese día: el reparto se la salta.
+   *  Su jornada se paga igual. */
+  no_tip: boolean;
   tip_pool_id: number | null;
   /** En qué nómina cayó cada cosa. NULL = pendiente — no hay que
    *  acordarse de nada (regla de la casa: la nómina es un selector). */

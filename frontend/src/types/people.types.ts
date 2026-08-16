@@ -129,6 +129,8 @@ export interface Asignacion {
   notes: string | null;
   /** Propina del día ya repartida, al peso. NULL = sin repartir. */
   tip_amount: number | null;
+  /** No lleva propina ese día: el reparto se la salta. */
+  no_tip?: boolean;
   tip_pool_id: number | null;
   /** En qué nómina cayó cada cosa. NULL = pendiente. */
   payroll_id: number | null;

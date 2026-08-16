@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import ConfirmInline from "../../components/ConfirmInline";
 import NumberInput from "../../components/inputs/NumberInput";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
@@ -82,18 +83,6 @@ export const eventosQueryOptions = {
 // cuando esta pestaña acompañaba el evento desde antes; el armado vive
 // en Planificación, y acá un evento del mes pasado no se está armando.
 
-// Las plantillas del reparto. Los porcentajes se asignan por NOMBRE de
-// cargo (garzón/cocina/desconche); lo que no calza queda en 0 y
-// SIEMPRE se puede forzar a mano — de 176 días reales, 35 no fueron
-// 60/40.
-const PLANTILLAS: { nombre: string; pesos: [RegExp, number][] }[] = [
-  { nombre: "El de siempre 60/40", pesos: [[/garz/i, 60], [/cocin/i, 40]] },
-  {
-    nombre: "Con desconche 55/35/10",
-    pesos: [[/garz/i, 55], [/cocin/i, 35], [/desconch/i, 10]],
-  },
-  { nombre: "Solo garzones 100", pesos: [[/garz/i, 100]] },
-];
 
 interface EventoFila {
   id: string;
@@ -355,9 +344,13 @@ function FichaAbierta({
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
+  const [borrando, setBorrando] = useState<number | null>(null);
   const sacarStaff = useMutation({
     mutationFn: (id: number) => removeStaff(id),
-    onSuccess: refrescar,
+    onSuccess: () => {
+      setBorrando(null);
+      refrescar();
+    },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
@@ -514,15 +507,53 @@ function FichaAbierta({
                         {a.tip_amount ? clp(Number(a.tip_amount)) : ""}
                       </span>
                       {!cerrada && (
-                        <button
-                          type="button"
-                          onClick={() => sacarStaff.mutate(a.id)}
-                          aria-label={`No vino: sacar a ${a.people?.name ?? ""}`}
-                          title="No vino: sacarlo de este día"
-                          className="p-1 text-gray-300 hover:text-red-600 rounded"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <>
+                          {/* SIN PROPINA ESE DÍA (Felipe, 15-08): su
+                              jornada se paga igual, pero el reparto lo
+                              salta. Medido en el Excel: el 28 de
+                              septiembre trabajaron 10 y recibieron 4. */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarStaff.mutate({
+                                id: a.id,
+                                cambios: { no_tip: !a.no_tip },
+                              })
+                            }
+                            title={
+                              a.no_tip
+                                ? "No lleva propina este día"
+                                : "Marcar: no lleva propina este día"
+                            }
+                            className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                              a.no_tip
+                                ? "bg-gray-100 text-gray-600 border-gray-300"
+                                : "text-gray-400 border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            sin propina
+                          </button>
+                          {borrando === a.id ? (
+                            <ConfirmInline
+                              question={`¿${a.people?.name ?? "Esta persona"} no participó?`}
+                              yesLabel="Sacar"
+                              tono="peligro"
+                              busy={sacarStaff.isPending}
+                              onYes={() => sacarStaff.mutate(a.id)}
+                              onNo={() => setBorrando(null)}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setBorrando(a.id)}
+                              aria-label={`Sacar a ${a.people?.name ?? ""} del evento`}
+                              title="No participó: sacarlo del evento"
+                              className="p-1 text-gray-300 hover:text-red-600 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </li>
                   ))}
@@ -586,9 +617,12 @@ function Reparto({
 }) {
   // Los cargos que estuvieron: TODOS aparecen y preguntan (regla de la
   // casa — la cajera recibe en 82% de sus días y no era una "bolsa").
+  // Los cargos que estuvieron. Si a TODA la gente de un cargo se le
+  // marcó "sin propina", ese cargo no aparece: no hay a quién repartir.
   const cargos = useMemo(() => {
     const m = new Map<number | null, string>();
     for (const a of staff) {
+      if (a.no_tip) continue;
       m.set(a.role_id ?? null, a.management_resources?.name ?? "Sin cargo");
     }
     return [...m.entries()];
@@ -615,6 +649,9 @@ function Reparto({
     return m;
   }, [staff]);
 
+  const [sinPropinaCargo, setSinPropinaCargo] = useState<Set<number | null>>(
+    new Set(),
+  );
   const [pcts, setPcts] = useState<Map<number | null, number>>(new Map());
   // Al abrir una ficha ya repartida, se parte de sus porcentajes.
   const [semilla, setSemilla] = useState(0);
@@ -720,34 +757,50 @@ function Reparto({
 
       {monto > 0 && !cerrada && (
         <>
-          <div className="flex items-center gap-2 flex-wrap">
-            {PLANTILLAS.map((p) => (
-              <button
-                key={p.nombre}
-                type="button"
-                onClick={() => plantilla(p.pesos)}
-                className="px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
-              >
-                {p.nombre}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-1">
-            {cargos.map(([id, nombre]) => (
-              <div key={id ?? 0} className="flex items-center gap-2 text-sm">
-                <span className="flex-1 text-gray-900">{nombre}</span>
-                <NumberInput
-                  value={pct(id)}
-                  onChange={(v) => cambiar(id, v ?? 0)}
-                  className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
-                />
-                <span className="text-gray-400 w-4">%</span>
-                <span className="w-24 text-right tabular-nums text-gray-600">
-                  {clp((monto * pct(id)) / 100)}
-                </span>
-              </div>
-            ))}
+          <div className="space-y-1.5">
+            {cargos.map(([id, nombre]) => {
+              // SIN PROPINA PARA ESTE CARGO: la caja se bloquea en cero
+              // y el 100% se reparte entre los demás (Felipe, 15-08).
+              const fuera = sinPropinaCargo.has(id);
+              return (
+                <div key={id ?? 0} className="flex items-center gap-3 text-sm">
+                  <span
+                    className={`w-40 ${fuera ? "text-gray-400" : "text-gray-900"}`}
+                  >
+                    {nombre}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fuera}
+                      onChange={() => {
+                        const s2 = new Set(sinPropinaCargo);
+                        if (fuera) s2.delete(id);
+                        else {
+                          s2.add(id);
+                          setPcts(new Map(pcts).set(id, 0));
+                        }
+                        setSinPropinaCargo(s2);
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    sin propina
+                  </label>
+                  <NumberInput
+                    value={pct(id) || undefined}
+                    onChange={(v) => cambiar(id, v ?? 0)}
+                    disabled={fuera}
+                    placeholder="0"
+                    aria-label={`Porcentaje de ${nombre}`}
+                    className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
+                  />
+                  <span className="text-gray-400">%</span>
+                  <span className="w-28 text-right tabular-nums text-gray-600">
+                    {clp((monto * pct(id)) / 100)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">

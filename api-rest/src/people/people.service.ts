@@ -474,6 +474,12 @@ export class PeopleService {
     }
 
     // El pozo por cargo (mayor resto), y dentro del cargo por horas.
+    // QUIEN NO LLEVA PROPINA QUEDA FUERA (Felipe, 15-08). Medido en el
+    // Excel: el 28 de septiembre trabajaron 10 y recibieron 4. Su
+    // jornada se paga igual; lo que le toca al cargo se divide entre
+    // los que sí llevan.
+    filas = filas.filter((f) => !f.no_tip);
+
     const conPct = dto.porcentajes.filter((p) => p.pct > 0);
     const montosCargo = repartirAlPeso(
       pozo,

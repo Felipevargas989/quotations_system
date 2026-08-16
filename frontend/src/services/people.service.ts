@@ -123,6 +123,7 @@ export const updateStaff = async (
       | "starts_at"
       | "ends_at"
       | "break_minutes"
+      | "no_tip"
     >
   >,
 ) =>
