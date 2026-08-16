@@ -838,16 +838,21 @@ function Reparto({
 
       {monto > 0 && !cerrada && (
         <>
-          <div className="space-y-1.5">
+          {/* EN COLUMNAS (Felipe, 16-08): el check colgaba del nombre del
+              cargo, así que se corría con cada largo. La grilla nace del
+              cargo más ancho — sirve para "Personal de aseo" igual que
+              para "Cajera" — y dentro de cada fila las celdas entran a
+              la grilla del contenedor con "contents". */}
+          <div className="grid grid-cols-[minmax(0,max-content)_max-content_1fr_auto_auto] items-center gap-x-3 gap-y-1.5">
             {cargos.map(([id, nombre]) => {
               // SIN PROPINA PARA ESTE CARGO: la caja se bloquea en cero
               // y el 100% se reparte entre los demás (Felipe, 15-08).
               const fuera = sinPropinaCargo.has(id);
               return (
-                <div key={id ?? 0} className="flex items-center gap-3 text-sm">
-                  {/* El cargo con su check PEGADO; el porcentaje y la
-                      plata se van al extremo derecho (Felipe, 15-08). */}
-                  <span className={fuera ? "text-gray-400" : "text-gray-900"}>
+                <div key={id ?? 0} className="contents text-sm">
+                  <span
+                    className={`text-sm ${fuera ? "text-gray-400" : "text-gray-900"}`}
+                  >
                     {nombre}
                   </span>
                   <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
@@ -867,12 +872,11 @@ function Reparto({
                     />
                     sin propina
                   </label>
-                  <span className="flex-1" />
                   {/* El ancho va en el CONTENEDOR: el campo numérico se
                       estira a lo que le den, y ponerle w-20 a él no
                       hacía nada (mismo tropiezo que con el monto). */}
                   <div
-                    className="w-20"
+                    className="w-20 justify-self-end"
                     title={soloUno ? "Es el único cargo: se lleva todo" : undefined}
                   >
                     <NumberInput
@@ -884,8 +888,8 @@ function Reparto({
                       className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
                     />
                   </div>
-                  <span className="text-gray-400">%</span>
-                  <span className="w-28 text-right tabular-nums text-gray-600">
+                  <span className="text-sm text-gray-400">%</span>
+                  <span className="w-28 text-right tabular-nums text-sm text-gray-600">
                     {clp((monto * pct(id)) / 100)}
                   </span>
                 </div>
@@ -1423,15 +1427,16 @@ function DiaRestaurante({
             <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
               Cómo se reparte
             </h4>
-            <div className="space-y-1">
+            {/* Mismas columnas que arriba: el cargo manda el ancho y los
+                checks quedan a plomo, sea "Cajera" o "Personal de aseo"
+                (Felipe, 16-08). */}
+            <div className="grid grid-cols-[minmax(0,max-content)_max-content_1fr_auto_auto] items-center gap-x-3 gap-y-2">
               {cargos.map(([id, nombre]) => {
                 const fuera = sinCargo.has(id);
                 return (
-                  <div key={id} className="flex items-center gap-3 text-sm">
-                    {/* whitespace-nowrap: "Personal aseo" se partía en
-                        dos líneas (Felipe, 15-08). */}
+                  <div key={id} className="contents">
                     <span
-                      className={`whitespace-nowrap ${
+                      className={`text-sm whitespace-nowrap ${
                         fuera ? "text-gray-400" : "text-gray-900"
                       }`}
                     >
@@ -1454,9 +1459,8 @@ function DiaRestaurante({
                       />
                       sin propina
                     </label>
-                    <span className="flex-1" />
                     <div
-                      className="w-20"
+                      className="w-20 justify-self-end"
                       title={
                         soloUno ? "Es el único cargo: se lleva todo" : undefined
                       }
@@ -1472,8 +1476,8 @@ function DiaRestaurante({
                         className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
                       />
                     </div>
-                    <span className="text-gray-400">%</span>
-                    <span className="w-24 text-right tabular-nums text-gray-600">
+                    <span className="text-sm text-gray-400">%</span>
+                    <span className="w-24 text-right tabular-nums text-sm text-gray-600">
                       {clp(((monto ?? 0) * pct(id)) / 100)}
                     </span>
                   </div>
