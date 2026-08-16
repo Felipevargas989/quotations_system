@@ -1281,12 +1281,28 @@ function DiaRestaurante({
       ancho="max-w-2xl"
       onCerrar={onCerrar}
       pie={
+        // AL PREGUNTAR, LA PREGUNTA ES EL PIE (Felipe, 16-08). Sumada a
+        // los botones no cabía y la barra se partía en tres líneas; y
+        // además es el patrón de la casa: la acción se transforma ahí
+        // mismo en la pregunta.
+        confirmandoNomina ? (
+          <ConfirmInline
+            question={`¿Mandar ${repartidosDeLaTanda} ${
+              repartidosDeLaTanda === 1 ? "día" : "días"
+            } a la nómina?`}
+            yesLabel="Sí, liquidar"
+            tono="normal"
+            busy={mandarANomina.isPending}
+            onYes={() => mandarANomina.mutate()}
+            onNo={() => setConfirmandoNomina(false)}
+          />
+        ) : (
         <>
           <button
             type="button"
             onClick={() => sinPropinaHoy.mutate()}
             disabled={ocupado}
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 whitespace-nowrap"
           >
             Sin propina este día
           </button>
@@ -1301,7 +1317,7 @@ function DiaRestaurante({
                   ? `Los porcentajes suman ${total.toLocaleString("es-CL")}%`
                   : undefined
             }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 whitespace-nowrap"
           >
             {liquidar.isPending
               ? "Repartiendo…"
@@ -1312,33 +1328,21 @@ function DiaRestaurante({
           {/* EL NEGRO CIERRA LA TANDA. Separado del azul a propósito:
               repartir se hace día por día y se puede corregir; liquidar
               manda la plata a cobrar, y por eso pregunta antes. */}
-          {confirmandoNomina ? (
-            <ConfirmInline
-              question={`Mandar ${repartidosDeLaTanda} ${
-                repartidosDeLaTanda === 1 ? "día repartido" : "días repartidos"
-              } a la nómina`}
-              yesLabel="Sí, liquidar"
-              tono="normal"
-              busy={mandarANomina.isPending}
-              onYes={() => mandarANomina.mutate()}
-              onNo={() => setConfirmandoNomina(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmandoNomina(true)}
-              disabled={ocupado || repartidosDeLaTanda === 0}
-              title={
-                repartidosDeLaTanda === 0
-                  ? "Todavía no has repartido ningún día"
-                  : "Manda a la nómina todo lo liquidado que esté pendiente"
-              }
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40"
-            >
-              Liquidar
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setConfirmandoNomina(true)}
+            disabled={ocupado || repartidosDeLaTanda === 0}
+            title={
+              repartidosDeLaTanda === 0
+                ? "Todavía no has repartido ningún día"
+                : "Manda a la nómina todo lo liquidado que esté pendiente"
+            }
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40 whitespace-nowrap"
+          >
+            Liquidar
+          </button>
         </>
+        )
       }
     >
       <div className="space-y-4">
