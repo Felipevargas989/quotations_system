@@ -1076,28 +1076,34 @@ function CasillaAbierta({
                 {etiquetaTipoPersona(a.kind)}
               </span>
               <span className="flex-1" />
-              {/* La caja del dinero: angosta y con el $ adentro, para
-                  que se sepa qué va ahí (Felipe, 15-08). El NumberInput
-                  ocupa todo el ancho de su contenedor, así que el ancho
-                  se fija ACÁ, no en su className. */}
-              <div className="w-24 relative">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                  $
+              {/* LA PLANTA NO LLEVA MONTO EN SU JORNADA (Felipe,
+                  15-08): su sueldo ya la cubre. La caja aparece solo
+                  donde el día SÍ se paga —el staff, y el planta que
+                  viene a un evento, que ese día entra como freelance. */}
+              {a.kind === "planta" ? (
+                <span className="w-24 text-right text-xs text-gray-400">
+                  su sueldo
                 </span>
-                <NumberInput
-                  value={a.amount ?? (a.kind === "planta" ? undefined : fila.precio)}
-                  onChange={(v: number | undefined) =>
-                    onCambiar(a.id, { amount: v ?? null })
-                  }
-                  placeholder="0"
-                  aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
-                  className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
-                    a.kind !== "planta" && !a.amount
-                      ? "border-amber-400 bg-amber-50"
-                      : "border-gray-300"
-                  }`}
-                />
-              </div>
+              ) : (
+                <div className="w-24 relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                    $
+                  </span>
+                  <NumberInput
+                    value={a.amount ?? fila.precio}
+                    onChange={(v: number | undefined) =>
+                      onCambiar(a.id, { amount: v ?? null })
+                    }
+                    placeholder="0"
+                    aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
+                    className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
+                      !a.amount
+                        ? "border-amber-400 bg-amber-50"
+                        : "border-gray-300"
+                    }`}
+                  />
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => {
