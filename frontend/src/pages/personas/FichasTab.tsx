@@ -525,9 +525,12 @@ function FichaAbierta({
                                 ? "No lleva propina este día"
                                 : "Marcar: no lleva propina este día"
                             }
-                            className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                            // EN ROJO CUANDO ESTÁ MARCADO (Felipe,
+                            // 15-08): que se vea de una pasada quién
+                            // queda fuera del reparto.
+                            className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
                               a.no_tip
-                                ? "bg-gray-100 text-gray-600 border-gray-300"
+                                ? "bg-red-50 text-red-700 border-red-300 font-medium"
                                 : "text-gray-400 border-gray-200 hover:bg-gray-50"
                             }`}
                           >
