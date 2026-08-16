@@ -6,6 +6,7 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  Filler,
   Tooltip,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
@@ -19,7 +20,19 @@ import type { Persona } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+);
+
+/** El color de una nota: verde arriba, ámbar al medio, rojo abajo. Es
+ *  el mismo semáforo que uno haría con la mano. */
+const colorDeNota = (n: number) =>
+  n >= 4.5 ? "#059669" : n >= 3.5 ? "#2563eb" : n >= 2.5 ? "#d97706" : "#dc2626";
 
 // CÓMO TRABAJA ESTA PERSONA — sus evaluaciones
 //
@@ -198,37 +211,113 @@ export default function EvaluacionesDePersona({
       {/* La tendencia: lo que importa es si va bajando. */}
       {tendencia.length >= 2 && (
         <div className="border border-gray-200 rounded-xl p-4">
-          <p className="text-sm font-medium text-gray-900 mb-2">
-            Cómo ha ido en el tiempo
-          </p>
-          <div className="h-44">
+          <div className="flex items-baseline justify-between mb-1">
+            <p className="text-sm font-medium text-gray-900">
+              Cómo ha ido en el tiempo
+            </p>
+            {/* La comparación que de verdad importa: sus últimas tres
+                contra el resto. Un promedio alto puede esconder una
+                caída, y es justo lo que hay que ver a tiempo. */}
+            {tendencia.length >= 4 &&
+              (() => {
+                const ultimas = tendencia.slice(-3);
+                const antes = tendencia.slice(0, -3);
+                const prom = (xs: typeof tendencia) =>
+                  xs.reduce((t, e) => t + (e.stars ?? 0), 0) / xs.length;
+                const dif = prom(ultimas) - prom(antes);
+                if (Math.abs(dif) < 0.5) {
+                  return (
+                    <span className="text-xs text-gray-500">
+                      se mantiene pareja
+                    </span>
+                  );
+                }
+                return (
+                  <span
+                    className={`text-xs font-medium ${
+                      dif > 0 ? "text-emerald-700" : "text-red-700"
+                    }`}
+                  >
+                    {dif > 0 ? "va subiendo" : "va bajando"} ·{" "}
+                    {dif > 0 ? "+" : ""}
+                    {dif.toLocaleString("es-CL", {
+                      maximumFractionDigits: 1,
+                    })}{" "}
+                    en las últimas 3
+                  </span>
+                );
+              })()}
+          </div>
+          <div className="h-40">
             <Line
               data={{
                 labels: tendencia.map((e) =>
-                  formatISOUTCDateToString(e.created_at.slice(0, 10)),
+                  new Date(`${e.created_at.slice(0, 10)}T12:00:00Z`)
+                    .toLocaleDateString("es-CL", {
+                      day: "numeric",
+                      month: "short",
+                      timeZone: "UTC",
+                    })
+                    .replace(".", ""),
                 ),
                 datasets: [
                   {
                     data: tendencia.map((e) => e.stars ?? 0),
                     borderColor: "#2563eb",
-                    backgroundColor: "#2563eb",
-                    tension: 0.25,
-                    pointRadius: 4,
+                    borderWidth: 2,
+                    // Recta entre evaluaciones: la curva sugería notas
+                    // intermedias que nunca existieron.
+                    tension: 0,
+                    fill: true,
+                    backgroundColor: "rgba(37, 99, 235, 0.08)",
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: tendencia.map((e) =>
+                      colorDeNota(e.stars ?? 0),
+                    ),
+                    pointBorderColor: "#fff",
+                    pointBorderWidth: 2,
                   },
                 ],
               }}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 8, right: 8 } },
                 scales: {
                   y: {
-                    min: 0,
+                    // De 1 a 5: nadie da cero estrellas, y arrancar en 0
+                    // aplastaba toda la variación contra el techo.
+                    min: 1,
                     max: 5,
-                    ticks: { stepSize: 1 },
+                    ticks: {
+                      stepSize: 1,
+                      callback: (v) => `${String(v)} ★`,
+                      color: "#9ca3af",
+                      font: { size: 11 },
+                    },
+                    grid: { color: "#f3f4f6" },
+                    border: { display: false },
                   },
-                  x: { grid: { display: false } },
+                  x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: { color: "#9ca3af", font: { size: 11 } },
+                  },
                 },
-                plugins: { legend: { display: false } },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    displayColors: false,
+                    callbacks: {
+                      label: (ctx: { dataIndex: number; parsed: { y: number } }) => {
+                        const e = tendencia[ctx.dataIndex];
+                        const estrellas = `${String(ctx.parsed.y)} de 5`;
+                        return e.note ? [estrellas, e.note] : estrellas;
+                      },
+                    },
+                  },
+                },
               }}
             />
           </div>
