@@ -83,7 +83,39 @@ interface FilaSemana {
   precio: number;
   necesita: Map<string, number>;
   sinRepartir: number;
+  /** Los días que dura el evento, dentro del rango visible. Sirven para
+   *  MARCARLOS en la grilla —"no sale ninguna marca de cuándo es"
+   *  (Felipe, 15-08)— y para poder poner gente ahí aunque el cupo haya
+   *  quedado sin día. */
+  diasDelEvento: ReadonlySet<string>;
 }
+
+/** El rótulo de un evento CON SU FECHA: "#400 · Municipalidad de
+ *  Quillón · sáb 22 ago". Sin la fecha no se sabe cuándo es, que era
+ *  justo el problema (Felipe, 15-08). */
+const rotuloEvento = (e: {
+  numero: number;
+  cliente: string;
+  inicio: string | null;
+  termino: string | null;
+}) => {
+  const base = `#${String(e.numero)} · ${e.cliente}`;
+  if (!e.inicio) return base;
+  const r0 = rotulo(e.inicio);
+  const fin = e.termino && e.termino !== e.inicio ? rotulo(e.termino) : null;
+  return fin
+    ? `${base} · ${r0.dia} ${String(r0.num)} ${r0.mes} al ${fin.dia} ${String(fin.num)} ${fin.mes}`
+    : `${base} · ${r0.dia} ${String(r0.num)} ${r0.mes}`;
+};
+
+/** Los días que dura un evento, uno por uno. */
+const diasDe = (e: { inicio: string | null; termino: string | null }) => {
+  const salida = new Set<string>();
+  if (!e.inicio) return salida;
+  const fin = e.termino && e.termino > e.inicio ? e.termino : e.inicio;
+  for (let d = e.inicio; d <= fin; d = sumarDias(d, 1)) salida.add(d);
+  return salida;
+};
 
 export default function SemanaTab({ companyId }: { readonly companyId: number }) {
   const qc = useQueryClient();
@@ -266,12 +298,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       if (!m.has(k)) {
         m.set(k, {
           quotationId: e.id,
-          evento: `#${e.numero} · ${e.cliente}`,
+          evento: rotuloEvento(e),
           cargoId: r.id,
           cargo: r.name,
           precio: l.price_fixed || Number(r.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
+          diasDelEvento: diasDe(e),
         });
       }
       const f = m.get(k)!;
@@ -291,12 +324,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       if (!m.has(k)) {
         m.set(k, {
           quotationId: String(a.quotation_id),
-          evento: e ? `#${e.numero} · ${e.cliente}` : "Evento",
+          evento: e ? rotuloEvento(e) : "Evento",
           cargoId: a.role_id ?? 0,
           cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
           precio: Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
+          diasDelEvento: e ? diasDe(e) : new Set<string>(),
         });
       }
     }
@@ -332,6 +366,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         precio: Number(r.list_price_fixed) || 0,
         necesita: new Map(),
         sinRepartir: 0,
+        diasDelEvento: new Set<string>(),
       }));
     // La gente puesta con un cargo que ya no está activo no desaparece.
     const cargosActivos = new Set(restaurante.map((f) => f.cargoId));
@@ -347,6 +382,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
+        diasDelEvento: new Set<string>(),
       });
     // Sin filas, la banda igual existe para poder agregar el primer cargo.
     if (restaurante.length === 0)
@@ -358,6 +394,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
+        diasDelEvento: new Set<string>(),
       });
     return [...deEventos, ...restaurante];
   }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
@@ -562,8 +599,32 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     {tiene > 0 ? tiene : "+"}
                   </button>
                 );
-              if (necesita === 0 && tiene === 0)
-                return <span className="text-gray-200">·</span>;
+              // UN DÍA DEL EVENTO SIEMPRE SE PUEDE USAR, tenga o no
+              // cupo asignado (Felipe, 15-08: "tampoco puedo agregarle
+              // acá personal"). Antes, si el cupo había quedado "sin
+              // día", la casilla era un punto muerto.
+              const esDelEvento = f.diasDelEvento.has(d);
+              if (necesita === 0 && tiene === 0) {
+                if (!esDelEvento)
+                  return <span className="text-gray-200">·</span>;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiaAbierto(null);
+                      setCasilla(abierta ? null : { dia: d, fila: f });
+                    }}
+                    title={`Poner gente el ${d}`}
+                    className={`w-full px-2 py-1.5 rounded-md text-sm transition-colors ${
+                      abierta
+                        ? "bg-blue-600 text-white"
+                        : "bg-blue-50/60 text-blue-300 hover:bg-blue-100 hover:text-blue-700"
+                    }`}
+                  >
+                    +
+                  </button>
+                );
+              }
               const falta = necesita - tiene;
               return (
                 <button
