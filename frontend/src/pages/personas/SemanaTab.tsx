@@ -771,12 +771,18 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           ocupados={
             new Set(
               staff
-                .filter(
-                  (a) =>
-                    iso(a.day) === casilla.dia &&
-                    // Los de ESTA casilla no cuentan: ya salen abajo.
-                    String(a.quotation_id) !== String(casilla.fila.quotationId),
-                )
+                .filter((a) => {
+                  if (iso(a.day) !== casilla.dia) return false;
+                  // Los de ESTA casilla no cuentan: ya salen abajo. La
+                  // casilla es evento + cargo, no solo el evento — si no,
+                  // en la planta (null contra null) no se excluía a
+                  // nadie y salían todos.
+                  const mismaCasilla =
+                    String(a.quotation_id) ===
+                      String(casilla.fila.quotationId) &&
+                    (a.role_id ?? 0) === casilla.fila.cargoId;
+                  return !mismaCasilla;
+                })
                 .map((a) => a.person_id),
             )
           }
@@ -1026,17 +1032,6 @@ function CasillaAbierta({
       onCerrar={onCerrar}
     >
       <div className="space-y-3">
-      {/* EL AGREGADOR VA ARRIBA (15-08): su lista se abre SIEMPRE hacia
-          abajo, y al final de un modal con tope de alto quedaba cortada.
-          Además se lee mejor: primero se pone gente, después se revisa
-          la que ya está. */}
-      <AgregadorDeItems
-        opciones={disponibles}
-        onAgregar={(v) => onPoner(Number(v))}
-        abierto={abierto}
-        onAbiertoChange={setAbierto}
-        placeholder="Buscar y poner a alguien…"
-      />
 
       {asignados.length > 0 && (
         <ul className="space-y-1.5">
@@ -1150,6 +1145,16 @@ function CasillaAbierta({
           ))}
         </ul>
       )}
+
+      {/* El buscador va ABAJO (Felipe, 15-08): arriba la gente que ya
+          está, para que la lista desplegada no la tape. */}
+      <AgregadorDeItems
+        opciones={disponibles}
+        onAgregar={(v) => onPoner(Number(v))}
+        abierto={abierto}
+        onAbiertoChange={setAbierto}
+        placeholder="Buscar y poner a alguien…"
+      />
 
       <p className="text-xs text-gray-500">
         El tipo y el monto son <strong>de este día</strong>: cambiarlos acá no
