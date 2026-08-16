@@ -229,10 +229,19 @@ export default function EvaluacionesDePersona({
                     max: 5.4,
                     ticks: {
                       stepSize: 1,
-                      callback: (v) => (Number(v) <= 5 ? String(v) : ""),
+                      // Con la estrella al lado se lee sin pensar de qué
+                      // es la escala (Felipe, 15-08).
+                      callback: (v) => (Number(v) <= 5 ? `${String(v)} ★` : ""),
+                      color: "#9ca3af",
                     },
+                    // Líneas del plano más tenues: la nota importa más
+                    // que la cuadrícula.
+                    grid: { color: "#f3f4f6" },
                   },
-                  x: { grid: { display: false } },
+                  x: {
+                    grid: { display: false },
+                    ticks: { color: "#9ca3af" },
+                  },
                 },
                 plugins: { legend: { display: false } },
               }}
