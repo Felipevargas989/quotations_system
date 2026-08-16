@@ -1081,9 +1081,7 @@ function CasillaAbierta({
                   donde el día SÍ se paga —el staff, y el planta que
                   viene a un evento, que ese día entra como freelance. */}
               {a.kind === "planta" ? (
-                <span className="w-24 text-right text-xs text-gray-400">
-                  su sueldo
-                </span>
+                <span className="w-24" />
               ) : (
                 <div className="w-24 relative">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
