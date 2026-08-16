@@ -13,6 +13,7 @@ import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import { eventosQueryOptions } from "./FichasTab";
 import Modal from "../../components/Modal";
+import Tooltip from "../../components/Tooltip";
 import {
   createPayroll,
   getLiquidacionesPendientes,
@@ -23,6 +24,7 @@ import {
 } from "../../services/people.service";
 import type {
   Asignacion,
+  LineaDeNomina,
   LiquidacionPendiente,
   NominaDetalle,
   PagoPersona,
@@ -113,11 +115,32 @@ export default function NominaTab() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                 >
                   <FileText className="w-4 h-4 text-gray-400" />
-                  <span className="flex-1 font-medium text-gray-900">
-                    {n.label}
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-medium text-gray-900 truncate">
+                      {n.label}
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      {formatISOUTCDateToString(iso(n.created_at))}
+                      {n.personas !== undefined &&
+                        ` · ${n.pagadas ?? 0} de ${n.personas} pagadas`}
+                    </span>
                   </span>
-                  <span className="text-xs text-gray-500">
-                    {formatISOUTCDateToString(iso(n.created_at))}
+                  {n.total !== undefined && n.total > 0 && (
+                    <span className="tabular-nums text-gray-900">
+                      {clp(n.total)}
+                    </span>
+                  )}
+                  {/* EL ESTADO SE DEDUCE, no se guarda: una nómina está
+                      pagada cuando no le queda nadie por pagar. Así no
+                      hay una marca que se pueda quedar mintiendo. */}
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                      n.estado === "pagada"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
+                    }`}
+                  >
+                    {n.estado === "pagada" ? "Pagada" : "En el banco"}
                   </span>
                 </button>
               </li>
@@ -364,6 +387,71 @@ function RevisarAntesDeGenerar({
     staleTime: 0,
   });
 
+  const { data: eventos = [] } = useQuery(eventosQueryOptions);
+  const nombreOrigen = useMemo(() => {
+    const m = new Map(eventos.map((q) => [q.id, q.cliente]));
+    return (qid: string | null) =>
+      qid === null ? "Restaurante" : (m.get(qid) ?? "Evento");
+  }, [eventos]);
+
+  /** El desglose de una cifra: de dónde sale y cuántos días. */
+  const desglose = (
+    linea: LineaDeNomina,
+    cual: "jornadas" | "propinas" | "total",
+  ) => {
+    const partes = linea.detalle
+      .map((d) => ({
+        nombre: nombreOrigen(d.quotation_id),
+        dias: d.dias,
+        monto:
+          cual === "total" ? d.jornadas + d.propinas : (d[cual] ?? 0),
+      }))
+      .filter((d) => d.monto > 0);
+    return {
+      lista: partes,
+      texto: partes
+        .map(
+          (d) =>
+            `${d.nombre}: ${d.dias} ${d.dias === 1 ? "día" : "días"} · ${clp(d.monto)}`,
+        )
+        .join(" — "),
+    };
+  };
+
+  /** La cifra con su explicación al pasar el mouse. */
+  const cifra = (
+    linea: LineaDeNomina,
+    cual: "jornadas" | "propinas" | "total",
+    monto: number,
+    clase: string,
+  ) => {
+    if (!monto) return <span className="text-gray-400">—</span>;
+    const d = desglose(linea, cual);
+    return (
+      <Tooltip
+        titulo={d.texto}
+        contenido={
+          <span className="block space-y-0.5">
+            {d.lista.map((x) => (
+              <span key={x.nombre} className="flex justify-between gap-3">
+                <span>
+                  {x.nombre}
+                  <span className="text-gray-400">
+                    {" "}
+                    · {x.dias} {x.dias === 1 ? "día" : "días"}
+                  </span>
+                </span>
+                <span className="tabular-nums">{clp(x.monto)}</span>
+              </span>
+            ))}
+          </span>
+        }
+      >
+        <span className={clase}>{clp(monto)}</span>
+      </Tooltip>
+    );
+  };
+
   const dato = (v: string | null | undefined) =>
     v && v.trim() ? v : <span className="text-red-600">falta</span>;
 
@@ -483,13 +571,18 @@ function RevisarAntesDeGenerar({
                       )}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-gray-600">
-                      {p.jornadas ? clp(p.jornadas) : "—"}
+                      {cifra(p, "jornadas", p.jornadas, "cursor-help")}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-gray-600">
-                      {p.propinas ? clp(p.propinas) : "—"}
+                      {cifra(p, "propinas", p.propinas, "cursor-help")}
                     </td>
-                    <td className="py-2 text-right tabular-nums font-semibold text-gray-900">
-                      {clp(p.total)}
+                    <td className="py-2 text-right tabular-nums text-gray-900">
+                      {cifra(
+                        p,
+                        "total",
+                        p.total,
+                        "cursor-help font-semibold underline decoration-dotted decoration-gray-300 underline-offset-4",
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -670,7 +763,10 @@ function NominaAbierta({
   const { data: eventos = [] } = useQuery(eventosQueryOptions);
   const nombreEvento = useMemo(() => {
     const m = new Map(
-      eventos.map((q) => [q.id, `N° ${String(q.numero)} · ${q.cliente}`]),
+      // El nombre del cliente manda: "Iglesia Adventista" dice más que
+      // "N° 394" cuando uno está pagando (Felipe, 16-08). El número
+      // queda al lado, chico, para poder buscar la cotización.
+      eventos.map((q) => [q.id, `${q.cliente} · N° ${String(q.numero)}`]),
     );
     return (qid: string | null) =>
       qid === null ? "Personal de planta" : (m.get(qid) ?? "Evento");

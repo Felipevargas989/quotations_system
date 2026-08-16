@@ -825,8 +825,40 @@ export class PeopleService {
     return { ...payroll, personas: personIds.length, fuera, sinLiquidar };
   }
 
-  findPayrolls(companyId: number) {
-    return this.repo.findPayrolls(companyId);
+  /**
+   * La lista de nóminas con su estado. Sin columna nueva en la base: una
+   * nómina está PAGADA cuando no le queda nadie por pagar, y mientras
+   * tanto está EN EL BANCO (Felipe, 16-08: "quiere decir que ya está
+   * subida a banco pendiente de aprobación").
+   */
+  async findPayrolls(companyId: number) {
+    const nominas = await this.repo.findPayrolls(companyId);
+    const ids = nominas.map((n) => n.id);
+    const [pagos, montos] = await Promise.all([
+      this.repo.pagosDeNominas(companyId, ids),
+      this.repo.montosDeNominas(companyId, ids),
+    ]);
+    return nominas.map((n) => {
+      const suyos = pagos.filter((p) => p.payroll_id === n.id);
+      const pagadas = suyos.filter(
+        (p) => p.jornada_paid && p.propina_paid,
+      ).length;
+      const total = montos.reduce(
+        (t, f) =>
+          t +
+          (f.payroll_id === n.id ? Number(f.amount ?? 0) : 0) +
+          (f.tip_payroll_id === n.id ? Number(f.tip_amount ?? 0) : 0),
+        0,
+      );
+      return {
+        ...n,
+        personas: suyos.length,
+        pagadas,
+        total,
+        estado:
+          suyos.length > 0 && pagadas === suyos.length ? 'pagada' : 'banco',
+      };
+    });
   }
 
   async getPayroll(id: number, companyId: number) {
@@ -908,6 +940,20 @@ export class PeopleService {
  * personas distintas metidas en un mismo pago. Hoy eso solo puede pasar
  * en la vista previa, porque generar exige RUT.
  */
+/**
+ * De dónde viene la plata de una línea: "Restaurante, 7 días" o "ese
+ * evento, 3 días". Sin esto la nómina consolidada es un número sin
+ * explicación, y al pagar en el banco hay que poder responder "¿por qué
+ * $500.000?" (Felipe, 16-08).
+ */
+export interface OrigenDeLinea {
+  /** null = días sueltos de restaurante. */
+  quotation_id: string | null;
+  dias: number;
+  jornadas: number;
+  propinas: number;
+}
+
 /** Una línea de la nómina: lo que se le sube al banco a una persona. */
 export interface LineaDeNomina {
   person_ids: number[];
@@ -919,6 +965,7 @@ export interface LineaDeNomina {
   jornadas: number;
   propinas: number;
   total: number;
+  detalle: OrigenDeLinea[];
 }
 
 export const consolidarPorRut = (
@@ -926,6 +973,9 @@ export const consolidarPorRut = (
   propinas: readonly EventStaffConPersona[],
 ) => {
   const lineas = new Map<string, LineaDeNomina>();
+  /** Días ya contados por línea, para no contar dos veces la fecha que
+   *  trae jornada Y propina. */
+  const diasPorOrigen = new Map<string, Map<string, boolean>>();
   const meter = (
     f: EventStaffConPersona,
     monto: number,
@@ -945,12 +995,31 @@ export const consolidarPorRut = (
         jornadas: 0,
         propinas: 0,
         total: 0,
+        detalle: [],
       });
+      diasPorOrigen.set(llave, new Map());
     }
     const l = lineas.get(llave)!;
     if (!l.person_ids.includes(f.person_id)) l.person_ids.push(f.person_id);
     l[cual] += monto;
     l.total += monto;
+
+    // De dónde viene: por evento, y todos los días sueltos juntos como
+    // "Restaurante". Los días se cuentan sin repetir, porque una misma
+    // fecha trae jornada Y propina.
+    const origenId = f.quotation_id ?? null;
+    let suyo = l.detalle.find((d) => d.quotation_id === origenId);
+    if (!suyo) {
+      suyo = { quotation_id: origenId, dias: 0, jornadas: 0, propinas: 0 };
+      l.detalle.push(suyo);
+    }
+    suyo[cual] += monto;
+    const vistos = diasPorOrigen.get(llave)!;
+    const clave = `${origenId ?? 'dia'}|${String(f.day ?? '').slice(0, 10)}`;
+    if (!vistos.has(clave)) {
+      vistos.set(clave, true);
+      suyo.dias += 1;
+    }
   };
   for (const j of jornadas) meter(j, Number(j.amount ?? 0), 'jornadas');
   for (const t of propinas) meter(t, Number(t.tip_amount ?? 0), 'propinas');

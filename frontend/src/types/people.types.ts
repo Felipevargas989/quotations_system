@@ -184,6 +184,12 @@ export interface Nomina {
   label: string;
   created_at: string;
   personas?: number;
+  /** Cuántas de esas personas ya están pagadas. */
+  pagadas?: number;
+  /** Lo que suma la nómina. */
+  total?: number;
+  /** "banco" = subida, pendiente de pago. "pagada" = no queda nadie. */
+  estado?: "banco" | "pagada";
   /** Los pozos sin repartir que la nómina DEJÓ FUERA. */
   fuera?: Pozo[];
 }
@@ -231,6 +237,15 @@ export interface LiquidacionPendiente {
   total: number;
 }
 
+/** De dónde viene la plata de una línea: un evento, o el restaurante. */
+export interface OrigenDeLinea {
+  /** null = días sueltos de restaurante. */
+  quotation_id: string | null;
+  dias: number;
+  jornadas: number;
+  propinas: number;
+}
+
 /** Una línea de la nómina: lo que se le sube al banco a una persona. */
 export interface LineaDeNomina {
   person_ids: number[];
@@ -242,6 +257,7 @@ export interface LineaDeNomina {
   jornadas: number;
   propinas: number;
   total: number;
+  detalle: OrigenDeLinea[];
 }
 
 /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */

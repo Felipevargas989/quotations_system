@@ -549,6 +549,37 @@ export class PeopleRepository {
     return data as unknown as Payroll[];
   }
 
+  /** Los pagos marcados de varias nóminas, de una sola pasada. */
+  async pagosDeNominas(companyId: number, payrollIds: number[]) {
+    if (payrollIds.length === 0) return [];
+    const { data, error } = await this.supabase.client
+      .from('payroll_people')
+      .select('payroll_id, person_id, jornada_paid, propina_paid')
+      .eq('company_id', companyId)
+      .in('payroll_id', payrollIds);
+    if (error) throw error;
+    return data as unknown as PayrollPerson[];
+  }
+
+  /** Lo que suma cada nómina, de una sola pasada. */
+  async montosDeNominas(companyId: number, payrollIds: number[]) {
+    if (payrollIds.length === 0) return [];
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('payroll_id, tip_payroll_id, amount, tip_amount')
+      .eq('company_id', companyId)
+      .or(
+        `payroll_id.in.(${payrollIds.join(',')}),tip_payroll_id.in.(${payrollIds.join(',')})`,
+      );
+    if (error) throw error;
+    return data as unknown as {
+      payroll_id: number | null;
+      tip_payroll_id: number | null;
+      amount: number | null;
+      tip_amount: number | null;
+    }[];
+  }
+
   async findPayroll(id: number, companyId: number) {
     const { data, error } = await this.supabase.client
       .from('payrolls')

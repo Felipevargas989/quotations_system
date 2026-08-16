@@ -100,6 +100,41 @@ describe('consolidarPorRut', () => {
     expect(r).toHaveLength(0);
   });
 
+  it('dice de dónde viene la plata, sin contar dos veces un día', () => {
+    // El caso que Felipe quiere ver al pasar el mouse: "7 días de
+    // restaurante, 3 días de tal evento".
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, amount: 10000, day: '2026-08-10' }),
+        fila({ person_id: 1, amount: 10000, day: '2026-08-11' }),
+        fila({
+          person_id: 1,
+          amount: 30000,
+          quotation_id: 'ev-a',
+          day: '2026-08-12',
+        }),
+      ],
+      [
+        // Mismo día que ya trajo jornada: NO suma un día más.
+        fila({ person_id: 1, tip_amount: 5000, day: '2026-08-10' }),
+      ],
+    );
+
+    expect(r).toHaveLength(1);
+    const restaurante = r[0].detalle.find((d) => d.quotation_id === null)!;
+    const evento = r[0].detalle.find((d) => d.quotation_id === 'ev-a')!;
+
+    expect(restaurante.dias).toBe(2);
+    expect(restaurante.jornadas).toBe(20000);
+    expect(restaurante.propinas).toBe(5000);
+    expect(evento.dias).toBe(1);
+    expect(evento.jornadas).toBe(30000);
+    // El desglose suma exactamente el total de la línea.
+    expect(r[0].detalle.reduce((t, d) => t + d.jornadas + d.propinas, 0)).toBe(
+      r[0].total,
+    );
+  });
+
   it('ordena por nombre, que es como se revisa antes de subir al banco', () => {
     const r = consolidarPorRut(
       [
