@@ -200,7 +200,11 @@ La pestaña se llama **Liquidación** y separa los dos caminos:
 - **No quedan sobrantes.** El redondeo reparte los pesos que faltan de a
   uno. En el Excel quedaban $8 sin repartir en Joker No 1, y en 8 de 9
   eventos había descuadre.
-- **El pozo puede llegar en dos entregas**, separadas por semanas.
+- **El pozo puede llegar en dos entregas**, separadas por semanas. ⚠
+  Corregido el 15-08: en pantalla es **UNA sola caja** (pedido de
+  Felipe). Cuando llega el resto se suma al mismo campo — para repartir
+  lo que importa es el total. La segunda columna sigue en la base por
+  si algún día se quiere el desglose.
 - **El candado es interno**: si la plata repartida no suma el pozo, el
   botón no se puede apretar. Sin panel de advertencia ni semáforo. El Excel
   validaba que los porcentajes sumaran 100 —y daban 100 en las 176 filas—

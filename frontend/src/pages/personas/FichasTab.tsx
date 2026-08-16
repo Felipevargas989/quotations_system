@@ -670,33 +670,31 @@ function Reparto({
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
       <h3 className="font-medium text-gray-900">La propina</h3>
 
+      {/* UNA SOLA CAJA (Felipe, 15-08). El Excel anotaba el pozo en
+          "primera" y "segunda entrega" porque a veces llega en dos
+          veces; acá se suma en el mismo campo cuando llega el resto —
+          lo que importa para repartir es el total. */}
       <div className="flex items-end gap-3 flex-wrap">
         <label className="text-sm text-gray-600">
-          Primera entrega
-          <NumberInput
-            value={pozo ? Number(pozo.first_amount) : 0}
-            onChange={(v) => guardarPozo.mutate({ first_amount: v ?? 0 })}
-            disabled={cerrada}
-            className="block w-32 mt-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right"
-          />
-        </label>
-        <label className="text-sm text-gray-600">
-          Segunda entrega
-          <NumberInput
-            value={pozo ? Number(pozo.second_amount) : 0}
-            onChange={(v) => guardarPozo.mutate({ second_amount: v ?? 0 })}
-            disabled={cerrada}
-            className="block w-32 mt-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right"
-          />
-        </label>
-        <div className="text-sm text-gray-600 pb-2">
-          Pozo: <strong className="text-gray-900">{clp(monto)}</strong>
-          {pozo?.distributed_at && (
-            <span className="ml-2 text-emerald-700 text-xs">
-              <Check className="w-3.5 h-3.5 inline -mt-0.5" /> repartido
+          Propina del evento
+          <div className="relative w-40 mt-1">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+              $
             </span>
-          )}
-        </div>
+            <NumberInput
+              value={pozo ? Number(pozo.first_amount) : undefined}
+              onChange={(v) => guardarPozo.mutate({ first_amount: v ?? 0 })}
+              disabled={cerrada}
+              placeholder="0"
+              className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1.5 text-sm text-right"
+            />
+          </div>
+        </label>
+        {pozo?.distributed_at && (
+          <span className="text-emerald-700 text-xs pb-2">
+            <Check className="w-3.5 h-3.5 inline -mt-0.5" /> repartida
+          </span>
+        )}
       </div>
 
       {monto > 0 && !cerrada && (
