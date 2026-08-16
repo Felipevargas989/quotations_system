@@ -171,6 +171,15 @@ export class Payroll {
 
 /** El pago persona a persona de una nómina. Jornada y propina van POR
  *  SEPARADO: los eventos cruzan de semana y la propina llega al final. */
+/**
+ * Lo que devuelven de verdad las consultas de nómina: la fila con su
+ * persona pegada por el join. El tipo pelado no la traía, así que el
+ * RUT —que es la llave para subir al banco— no se veía desde el código.
+ */
+export type EventStaffConPersona = EventStaff & {
+  people?: Person | null;
+};
+
 export class PayrollPerson {
   id: number;
   company_id: Company['id'];

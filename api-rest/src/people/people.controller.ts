@@ -213,6 +213,12 @@ export class PeopleController {
     return this.peopleService.findPayrolls(user.company_id);
   }
 
+  /** Lo liquidado que todavía no entró a ninguna nómina. */
+  @Get('payrolls/pendientes')
+  liquidacionesPendientes(@CurrentUser() user: User) {
+    return this.peopleService.liquidacionesPendientes(user.company_id);
+  }
+
   @Post('payrolls')
   createPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/payrolls ${logSafe(dto)}`);

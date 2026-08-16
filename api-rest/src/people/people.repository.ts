@@ -9,6 +9,7 @@ import {
   Cargo,
   DayNote,
   EventStaff,
+  EventStaffConPersona,
   Payroll,
   PayrollPerson,
   Person,
@@ -228,7 +229,7 @@ export class PeopleRepository {
       .lte('day', hasta)
       .order('day');
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   async findStaff(companyId: number, quotationId: string) {
@@ -242,7 +243,7 @@ export class PeopleRepository {
       .eq('quotation_id', quotationId)
       .order('day');
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   async addStaff(row: Record<string, unknown>) {
@@ -348,7 +349,7 @@ export class PeopleRepository {
       .eq('person_id', personId)
       .order('day', { ascending: false });
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   async removeStaff(id: number, companyId: number) {
@@ -489,7 +490,7 @@ export class PeopleRepository {
       .is('quotation_id', null)
       .eq('day', day);
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   /** Borra el reparto anterior de un pozo, para volver a repartir. */
@@ -589,7 +590,7 @@ export class PeopleRepository {
     }
     const { data, error } = await q;
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   /** Propinas repartidas y sin nómina, con el filtro del selector. */
@@ -620,7 +621,7 @@ export class PeopleRepository {
     }
     const { data, error } = await q;
     if (error) throw error;
-    return data as unknown as EventStaff[];
+    return data as unknown as EventStaffConPersona[];
   }
 
   /** Los pozos sin repartir del filtro — lo que la nómina DEJA FUERA y

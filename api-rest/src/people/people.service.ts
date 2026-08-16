@@ -18,6 +18,7 @@ import type {
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
+import type { EventStaffConPersona } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
 import { normalizarRut } from './utils/rut';
@@ -569,6 +570,97 @@ export class PeopleService {
   // ================= LA NÓMINA Y EL PAGO =================
 
   /**
+   * LAS LIQUIDACIONES POR PAGAR (Felipe, 16-08).
+   *
+   * Cada evento liquidado y cada día de restaurante liquidado que
+   * todavía no entró a ninguna nómina, con su gente y su plata. Es la
+   * lista que se marca para armar una nómina: se elige por liquidación,
+   * no por rango de fechas, porque la semana del restaurante y los
+   * eventos de esa semana caen en las mismas fechas.
+   *
+   * Devuelve solo el identificador del evento: el nombre del cliente lo
+   * pone la pantalla, que ya tiene el catálogo de eventos cargado.
+   */
+  async liquidacionesPendientes(companyId: number) {
+    const filtro = {};
+    const [jornadas, propinas] = await Promise.all([
+      this.repo.jornadasPendientes(companyId, filtro),
+      this.repo.propinasPendientes(companyId, filtro),
+    ]);
+    const candidatas = [...jornadas, ...propinas];
+    const [cerradas, diasListos] = await Promise.all([
+      this.repo.fichasCerradas(companyId, [
+        ...new Set(
+          candidatas.map((f) => f.quotation_id).filter((q): q is string => !!q),
+        ),
+      ]),
+      this.repo.diasLiquidados(companyId, [
+        ...new Set(
+          candidatas
+            .filter((f) => !f.quotation_id && f.day)
+            .map((f) => String(f.day).slice(0, 10)),
+        ),
+      ]),
+    ]);
+
+    const grupos = new Map<
+      string,
+      {
+        tipo: 'evento' | 'dia';
+        quotation_id: string | null;
+        day: string | null;
+        personas: Set<number>;
+        sinRut: Map<number, string>;
+        jornadas: number;
+        propinas: number;
+      }
+    >();
+    const meter = (
+      fila: (typeof candidatas)[number],
+      cuanto: number,
+      cual: 'jornadas' | 'propinas',
+    ) => {
+      if (!estaLiquidado(fila, cerradas, diasListos)) return;
+      const dia = fila.day ? String(fila.day).slice(0, 10) : null;
+      const clave = fila.quotation_id ?? `dia:${dia ?? ''}`;
+      if (!grupos.has(clave)) {
+        grupos.set(clave, {
+          tipo: fila.quotation_id ? 'evento' : 'dia',
+          quotation_id: fila.quotation_id ?? null,
+          day: fila.quotation_id ? null : dia,
+          personas: new Set(),
+          sinRut: new Map(),
+          jornadas: 0,
+          propinas: 0,
+        });
+      }
+      const g = grupos.get(clave)!;
+      g.personas.add(fila.person_id);
+      // SIN RUT NO SE PUEDE SUBIR AL BANCO (Felipe, 16-08), así que la
+      // pantalla tiene que poder decir a quién le falta — por nombre, no
+      // "hay alguien sin RUT".
+      const rut = (fila.people?.rut ?? '').trim();
+      if (!rut) g.sinRut.set(fila.person_id, fila.people?.name ?? 'Sin nombre');
+      g[cual] += cuanto;
+    };
+    for (const j of jornadas) meter(j, Number(j.amount ?? 0), 'jornadas');
+    for (const t of propinas) meter(t, Number(t.tip_amount ?? 0), 'propinas');
+
+    return [...grupos.values()]
+      .map((g) => ({
+        tipo: g.tipo,
+        quotation_id: g.quotation_id,
+        day: g.day,
+        personas: g.personas.size,
+        sin_rut: [...g.sinRut.values()],
+        jornadas: g.jornadas,
+        propinas: g.propinas,
+        total: g.jornadas + g.propinas,
+      }))
+      .sort((a, b) => (a.day ?? '').localeCompare(b.day ?? ''));
+  }
+
+  /**
    * La nómina NO es una semana: es un selector de qué se liquida.
    * Toma todo lo PENDIENTE que calce con el filtro (jornadas y
    * propinas por separado), lo marca, y dice qué dejó fuera (pozos
@@ -581,14 +673,27 @@ export class PeopleService {
       quotationIds: dto.quotation_ids,
       dias: dto.dias,
     };
-    const jornadasCrudas = await this.repo.jornadasPendientes(
-      companyId,
-      filtro,
-    );
-    const propinasCrudas = await this.repo.propinasPendientes(
-      companyId,
-      filtro,
-    );
+    // EVENTOS Y DÍAS EN LA MISMA NÓMINA (Felipe, 16-08): se seleccionan
+    // "estas liquidaciones", y una semana normal trae eventos Y días de
+    // restaurante. Como cada fila es de un evento O de un día, las dos
+    // consultas no se pisan: se piden por separado y se suman.
+    const traer = (f: Partial<typeof filtro>) =>
+      Promise.all([
+        this.repo.jornadasPendientes(companyId, f),
+        this.repo.propinasPendientes(companyId, f),
+      ]);
+    const mezcla = !!dto.dias?.length && !!dto.quotation_ids?.length;
+    const [deDias, elResto] = await Promise.all([
+      mezcla
+        ? traer({ dias: dto.dias })
+        : Promise.resolve([[], []] as [
+            EventStaffConPersona[],
+            EventStaffConPersona[],
+          ]),
+      traer(mezcla ? { quotationIds: dto.quotation_ids } : filtro),
+    ]);
+    const jornadasCrudas = [...deDias[0], ...elResto[0]];
+    const propinasCrudas = [...deDias[1], ...elResto[1]];
 
     // El filtro de fechas dice QUÉ MIRAR; estaLiquidado dice qué de eso
     // puede pagarse. Las dos listas se cruzan contra las mismas fichas
@@ -626,6 +731,25 @@ export class PeopleService {
           : 'No hay nada pendiente que liquidar con ese filtro',
       );
     }
+    // EL RUT ES REGLA DE AVANCE (Felipe, 16-08): "los RUT deben estar
+    // antes de poder generar las nóminas, igual es necesario para cargar
+    // a banco". Se corta acá y no solo en la pantalla, porque es la
+    // condición para que el pago exista.
+    const faltantes = [
+      ...new Map(
+        [...jornadas, ...propinas]
+          .filter((f) => !(f.people?.rut ?? '').trim())
+          .map((f) => [f.person_id, f.people?.name ?? 'Sin nombre']),
+      ).values(),
+    ];
+    if (faltantes.length > 0) {
+      throw new BadRequestException(
+        faltantes.length === 1
+          ? `${faltantes[0]} no tiene RUT cargado: sin RUT no se puede subir al banco`
+          : `Sin RUT no se puede subir al banco. Falta el de: ${faltantes.join(', ')}`,
+      );
+    }
+
     const payroll = await this.repo.createPayroll({
       company_id: companyId,
       label: dto.label,

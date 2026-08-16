@@ -213,3 +213,20 @@ export interface NotaDelDia {
   done: boolean;
   created_at: string;
 }
+
+/**
+ * UNA LIQUIDACIÓN POR PAGAR: un evento cerrado o un día de restaurante
+ * repartido que todavía no entró a ninguna nómina. Se marcan varias y
+ * se transforman en una nómina consolidada por persona.
+ */
+export interface LiquidacionPendiente {
+  tipo: "evento" | "dia";
+  quotation_id: string | null;
+  day: string | null;
+  personas: number;
+  /** Nombres de quienes no tienen RUT: sin RUT no se sube al banco. */
+  sin_rut: string[];
+  jornadas: number;
+  propinas: number;
+  total: number;
+}

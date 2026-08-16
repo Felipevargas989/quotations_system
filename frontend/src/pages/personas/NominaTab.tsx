@@ -14,12 +14,14 @@ import { toast } from "../../components/toast/Toast";
 import { eventosQueryOptions } from "./FichasTab";
 import {
   createPayroll,
+  getLiquidacionesPendientes,
   getPayroll,
   getPayrolls,
   marcarPago,
 } from "../../services/people.service";
 import type {
   Asignacion,
+  LiquidacionPendiente,
   NominaDetalle,
   PagoPersona,
 } from "../../types/people.types";
@@ -69,6 +71,13 @@ export default function NominaTab() {
 
   return (
     <div className="space-y-4">
+      <LiquidacionesPorPagar
+        onCreada={(id) => {
+          qc.invalidateQueries({ queryKey: ["people", "payrolls"] });
+          setAbierta(id);
+        }}
+      />
+
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <div>
@@ -122,6 +131,174 @@ export default function NominaTab() {
             setAbierta(id);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * LIQUIDACIONES POR PAGAR (Felipe, 16-08).
+ *
+ * Cada evento cerrado y cada día de restaurante repartido que todavía
+ * no entró a una nómina. Se marcan los que se van a pagar ahora y se
+ * transforman en UNA nómina, que consolida por persona.
+ *
+ * El porqué, en sus palabras: si esa semana hay cinco eventos y diez
+ * días de restaurante con la misma gente, no se puede subir diez veces
+ * al banco. Se junta lo de cada persona y se sube una vez.
+ */
+function LiquidacionesPorPagar({
+  onCreada,
+}: {
+  readonly onCreada: (id: number) => void;
+}) {
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const { data: pendientes = [], isLoading } = useQuery({
+    queryKey: ["people", "liquidaciones-pendientes"],
+    queryFn: getLiquidacionesPendientes,
+    staleTime: 0,
+  });
+  const { data: eventos = [] } = useQuery(eventosQueryOptions);
+  const qc = useQueryClient();
+
+  const nombre = useMemo(() => {
+    const m = new Map(eventos.map((q) => [q.id, q.cliente]));
+    return (l: LiquidacionPendiente) =>
+      l.tipo === "dia"
+        ? `Restaurante · ${formatISOUTCDateToString(l.day ?? "")}`
+        : (m.get(l.quotation_id ?? "") ?? "Evento");
+  }, [eventos]);
+
+  const clave = (l: LiquidacionPendiente) =>
+    l.tipo === "dia" ? `dia:${l.day}` : `ev:${l.quotation_id}`;
+
+  const elegidas = pendientes.filter((l) => marcadas.has(clave(l)));
+  const totalElegido = elegidas.reduce((t, l) => t + l.total, 0);
+  // EL RUT ES REGLA DE AVANCE (Felipe, 16-08): sin RUT no se puede
+  // cargar al banco, así que no se genera la nómina y se dice a quién
+  // le falta — por nombre, para poder ir a arreglarlo.
+  const faltanRut = [...new Set(elegidas.flatMap((l) => l.sin_rut))];
+
+  const generar = useMutation({
+    mutationFn: () =>
+      createPayroll({
+        label: `Nómina ${new Date().toLocaleDateString("es-CL")}`,
+        quotation_ids: elegidas
+          .filter((l) => l.tipo === "evento")
+          .map((l) => l.quotation_id!)
+          .filter(Boolean),
+        dias: elegidas
+          .filter((l) => l.tipo === "dia")
+          .map((l) => l.day!)
+          .filter(Boolean),
+      }),
+    onSuccess: (nomina) => {
+      toast.success(
+        `Nómina generada: ${nomina.personas ?? 0} ${
+          nomina.personas === 1 ? "persona" : "personas"
+        } por pagar.`,
+      );
+      setMarcadas(new Set());
+      qc.invalidateQueries({ queryKey: ["people", "liquidaciones-pendientes"] });
+      onCreada(nomina.id);
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div>
+          <h2 className="font-semibold text-gray-900">
+            Liquidaciones por pagar
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Lo que ya liquidaste y todavía no se paga. Marca lo que va en
+            esta nómina: el sistema junta por persona para subir un solo
+            pago al banco.
+          </p>
+        </div>
+        {marcadas.size > 0 && (
+          <button
+            type="button"
+            onClick={() => generar.mutate()}
+            disabled={generar.isPending || faltanRut.length > 0}
+            title={
+              faltanRut.length > 0
+                ? `Falta el RUT de ${faltanRut.join(", ")}`
+                : undefined
+            }
+            className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-50 whitespace-nowrap"
+          >
+            {generar.isPending
+              ? "Generando…"
+              : `Generar nómina · ${clp(totalElegido)}`}
+          </button>
+        )}
+      </div>
+
+      {faltanRut.length > 0 && (
+        <p className="text-sm text-amber-800 bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+          {faltanRut.length === 1
+            ? `${faltanRut[0]} no tiene RUT cargado`
+            : `Sin RUT: ${faltanRut.join(", ")}`}
+          . Sin RUT no se puede subir al banco — complétalo en su ficha y
+          vuelve.
+        </p>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-gray-500 p-6 text-center">Cargando…</p>
+      ) : pendientes.length === 0 ? (
+        <p className="text-sm text-gray-500 p-6 text-center">
+          Nada por pagar: todo lo liquidado ya está en una nómina.
+        </p>
+      ) : (
+        <ul className="divide-y divide-gray-100">
+          {pendientes.map((l) => {
+            const k = clave(l);
+            const marcada = marcadas.has(k);
+            return (
+              <li key={k}>
+                <label
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${
+                    marcada ? "bg-blue-50" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={marcada}
+                    onChange={() => {
+                      const s2 = new Set(marcadas);
+                      if (marcada) s2.delete(k);
+                      else s2.add(k);
+                      setMarcadas(s2);
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-medium text-gray-900 truncate">
+                      {nombre(l)}
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      {l.personas} {l.personas === 1 ? "persona" : "personas"}
+                      {l.jornadas > 0 && ` · jornadas ${clp(l.jornadas)}`}
+                      {l.propinas > 0 && ` · propinas ${clp(l.propinas)}`}
+                    </span>
+                    {l.sin_rut.length > 0 && (
+                      <span className="block text-xs text-amber-700 mt-0.5">
+                        sin RUT: {l.sin_rut.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="tabular-nums font-medium text-gray-900">
+                    {clp(l.total)}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

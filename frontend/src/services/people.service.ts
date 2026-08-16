@@ -1,6 +1,7 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 import type {
+  LiquidacionPendiente,
   Asignacion,
   Persona,
   PersonaFormData,
@@ -226,6 +227,13 @@ export const createReview = async (evaluacion: {
 
 export const getPayrolls = async () =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "GET")) as Nomina[];
+
+/** Lo liquidado que todavía no entró a ninguna nómina. */
+export const getLiquidacionesPendientes = async () =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/payrolls/pendientes`,
+    "GET",
+  )) as LiquidacionPendiente[];
 
 export const createPayroll = async (dto: {
   label: string;
