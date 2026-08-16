@@ -22,6 +22,7 @@ import { QuotationStatus } from "../../types/quotations.types";
 import Modal from "../../components/Modal";
 import {
   cerrarFicha,
+  createPayroll,
   createPool,
   createReview,
   getPools,
@@ -92,11 +93,22 @@ interface EventoFila {
   estado: EstadoFicha;
 }
 
-export default function FichasTab() {
+export default function FichasTab({
+  onIrANomina,
+}: {
+  /** Liquidar manda todo a la nómina y deja a uno parado ahí. */
+  readonly onIrANomina?: () => void;
+}) {
   const qc = useQueryClient();
   const [abierta, setAbierta] = useState<EventoFila | null>(null);
   const [verLiquidados, setVerLiquidados] = useState(false);
   const [diaModal, setDiaModal] = useState<number | null>(null);
+  // LA TANDA SE CONGELA AL ABRIR (Felipe, 16-08). Antes el día repartido
+  // desaparecía de la lista en el acto y no se podía volver con ‹ › a
+  // revisar lo que uno acababa de repartir. Ahora los días con los que
+  // se abrió son los del recorrido completo: se reparte, se navega, se
+  // corrige, y recién al cerrar la lista se recalcula.
+  const [tanda, setTanda] = useState<readonly string[]>([]);
 
   const hoy = hoyEnChile();
   const { data: eventos = [] } = useQuery(eventosQueryOptions);
@@ -144,22 +156,53 @@ export default function FichasTab() {
     );
   }, [eventos, sheets, hoy]);
 
+  /** De los días que siguen en la mesa, cuáles ya están repartidos y
+   *  solo esperan la nómina: se pintan verdes para no confundirlos con
+   *  los que aún no se tocan. */
+  const diasRepartidos = useMemo(
+    () =>
+      new Set(
+        pools
+          .filter((p) => p.day && p.distributed_at)
+          .map((p) => String(p.day).slice(0, 10)),
+      ),
+    [pools],
+  );
+
   const pendientes = filas.filter((f) => f.estado !== "cerrada");
   const liquidados = filas.filter((f) => f.estado === "cerrada");
 
-  // Los días de restaurante por liquidar: hubo gente sin evento y ese
-  // día aún no tiene su pozo repartido (o marcado sin propina).
+  // Los días de restaurante que siguen en la mesa. UN DÍA SE VA CUANDO
+  // LLEGA A LA NÓMINA, NO CUANDO SE REPARTE (Felipe, 16-08): entre las
+  // dos cosas hay un rato en que uno revisa y corrige, y si el día
+  // desapareciera al repartirlo no habría dónde volver a mirarlo.
+  //
+  // Entonces sale de la lista si: su propina ya se fue a una nómina, o
+  // el día se marcó sin propina (pozo en cero: no hay nada que mandar).
   const diasPendientes = useMemo(() => {
-    const liquidadosSet = new Set(
-      pools
-        .filter((p) => p.day && p.distributed_at)
-        .map((p) => String(p.day).slice(0, 10)),
-    );
+    const resueltos = new Map<string, boolean>();
+    for (const p of pools) {
+      if (!p.day || !p.distributed_at) continue;
+      const pozo = Number(p.first_amount) + Number(p.second_amount);
+      resueltos.set(String(p.day).slice(0, 10), pozo <= 0);
+    }
+    // Lo repartido que todavía NO fue a nómina mantiene vivo su día.
+    const esperandoNomina = new Set<string>();
+    for (const a of staffVentana) {
+      if (a.quotation_id !== null) continue;
+      if (Number(a.tip_amount ?? 0) > 0 && a.tip_payroll_id === null) {
+        esperandoNomina.add(String(a.day).slice(0, 10));
+      }
+    }
     const dias = new Set<string>();
     for (const a of staffVentana) {
       if (a.quotation_id !== null) continue;
       const d = String(a.day).slice(0, 10);
-      if (d <= hoy && !liquidadosSet.has(d)) dias.add(d);
+      const sinPropinaEseDia = resueltos.get(d);
+      const listo =
+        sinPropinaEseDia === true || // día marcado sin propina
+        (resueltos.has(d) && !esperandoNomina.has(d)); // repartido y pagado
+      if (d <= hoy && !listo) dias.add(d);
     }
     return [...dias].sort();
   }, [staffVentana, pools, hoy]);
@@ -212,16 +255,20 @@ export default function FichasTab() {
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Día por día: quiénes trabajaron, cuánta propina hubo y cómo
-              se reparte. Un día sin propina también se liquida.
+              se reparte. En verde, los que ya repartiste y esperan la
+              nómina.
             </p>
           </div>
           {diasPendientes.length > 0 && (
             <button
               type="button"
-              onClick={() => setDiaModal(0)}
+              onClick={() => {
+                setTanda(diasPendientes);
+                setDiaModal(0);
+              }}
               className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
-              Liquidar {diasPendientes.length}{" "}
+              Repasar {diasPendientes.length}{" "}
               {diasPendientes.length === 1 ? "día" : "días"}
             </button>
           )}
@@ -236,8 +283,20 @@ export default function FichasTab() {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDiaModal(i)}
-                className="px-2 py-1 text-xs tabular-nums border border-amber-300 bg-amber-50 text-amber-800 rounded-md hover:bg-amber-100"
+                onClick={() => {
+                  setTanda(diasPendientes);
+                  setDiaModal(i);
+                }}
+                title={
+                  diasRepartidos.has(d)
+                    ? "Repartido: esperando la nómina"
+                    : "Sin repartir"
+                }
+                className={`px-2 py-1 text-xs tabular-nums border rounded-md ${
+                  diasRepartidos.has(d)
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                }`}
               >
                 {formatISOUTCDateToString(d)}
               </button>
@@ -288,15 +347,16 @@ export default function FichasTab() {
         )}
       </div>
 
-      {diaModal !== null && diasPendientes[diaModal] && (
+      {diaModal !== null && tanda[diaModal] && (
         <DiaRestaurante
-          dias={diasPendientes}
+          dias={tanda}
           indice={diaModal}
           staff={staffVentana}
           pools={pools}
           onIr={(i) => setDiaModal(i)}
           onCambio={refrescar}
           onCerrar={() => setDiaModal(null)}
+          onIrANomina={onIrANomina}
         />
       )}
     </div>
@@ -992,6 +1052,7 @@ function DiaRestaurante({
   onIr,
   onCambio,
   onCerrar,
+  onIrANomina,
 }: {
   readonly dias: readonly string[];
   readonly indice: number;
@@ -1000,6 +1061,7 @@ function DiaRestaurante({
   readonly onIr: (indice: number) => void;
   readonly onCambio: () => void;
   readonly onCerrar: () => void;
+  readonly onIrANomina?: () => void;
 }) {
   const dia = dias[indice];
   const [monto, setMonto] = useState<number | undefined>(undefined);
@@ -1046,13 +1108,41 @@ function DiaRestaurante({
   const total = cargos.reduce((t, [id]) => t + pct(id), 0);
   const cuadra = Math.abs(total - 100) < 0.001;
 
-  // Al cambiar de día, el formulario parte limpio: los porcentajes son
-  // DE ESE día, no se arrastran.
-  const [diaAnterior, setDiaAnterior] = useState(dia);
+  const pozoDia = useMemo(
+    () => pools.find((p) => p.day && String(p.day).slice(0, 10) === dia) ?? null,
+    [pools, dia],
+  );
+  const yaRepartido = !!pozoDia?.distributed_at;
+
+  /** Lo que se le dio a cada cargo ese día, leído de vuelta de la plata
+   *  repartida: al volver con ‹ › uno ve lo que dejó, no un formulario
+   *  en blanco (Felipe, 16-08 — "navegar viendo y validando"). */
+  const repartoGuardado = useMemo(() => {
+    const total = delDia.reduce((t, a) => t + Number(a.tip_amount ?? 0), 0);
+    const m = new Map<number, number>();
+    if (total <= 0) return m;
+    const porCargo = new Map<number, number>();
+    for (const a of delDia) {
+      const plata = Number(a.tip_amount ?? 0);
+      if (plata <= 0) continue;
+      const k = a.role_id ?? 0;
+      porCargo.set(k, (porCargo.get(k) ?? 0) + plata);
+    }
+    for (const [k, v] of porCargo) m.set(k, Math.round((v / total) * 1000) / 10);
+    return m;
+  }, [delDia]);
+
+  // Al cambiar de día no se arrastra nada del anterior: se recupera lo
+  // de ESE día. Si ya estaba repartido aparece su pozo y su reparto; si
+  // no, el formulario parte limpio.
+  const [diaAnterior, setDiaAnterior] = useState<string | null>(null);
   if (dia !== diaAnterior) {
     setDiaAnterior(dia);
-    setMonto(undefined);
-    setPcts(new Map());
+    const guardado = pozoDia
+      ? Number(pozoDia.first_amount) + Number(pozoDia.second_amount)
+      : 0;
+    setMonto(guardado > 0 ? guardado : undefined);
+    setPcts(repartoGuardado);
     setSinCargo(new Set());
   }
 
@@ -1061,10 +1151,11 @@ function DiaRestaurante({
     else onCerrar();
   };
 
+  // El pozo del día, esté repartido o no: para volver a mirarlo hay que
+  // encontrarlo. Antes se buscaba solo el sin repartir, así que un día
+  // ya repartido abría en blanco y corregirlo creaba un pozo nuevo.
   const poolDelDia = () =>
-    pools.find(
-      (p) => p.day && String(p.day).slice(0, 10) === dia && !p.distributed_at,
-    ) ?? null;
+    pools.find((p) => p.day && String(p.day).slice(0, 10) === dia) ?? null;
 
   const liquidar = useMutation({
     mutationFn: async () => {
@@ -1082,9 +1173,42 @@ function DiaRestaurante({
       return pozo;
     },
     onSuccess: () => {
-      toast.success(`${formatISOUTCDateToString(dia)} liquidado.`);
+      toast.success(`${formatISOUTCDateToString(dia)}: propina repartida.`);
       onCambio();
       avanzar();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  /** Cuántos días de esta tanda ya quedaron repartidos: es lo que el
+   *  botón negro va a mandar a la nómina. */
+  const repartidosDeLaTanda = dias.filter((d) =>
+    pools.some(
+      (p) => p.day && String(p.day).slice(0, 10) === d && p.distributed_at,
+    ),
+  ).length;
+
+  const [confirmandoNomina, setConfirmandoNomina] = useState(false);
+
+  // LIQUIDAR = MANDAR A LA NÓMINA (Felipe, 16-08). Repartir deja la
+  // plata asignada; liquidar la manda a cobrar. Van separados justo
+  // para poder repartir varios días, revisarlos con ‹ ›, y recién
+  // entonces mandarlos. La nómina se lleva TODO lo liquidado que esté
+  // pendiente — el backend deja fuera lo que aún no se liquida.
+  const mandarANomina = useMutation({
+    mutationFn: () =>
+      createPayroll({
+        label: `Liquidación ${new Date().toLocaleDateString("es-CL")}`,
+      }),
+    onSuccess: (nomina) => {
+      toast.success(
+        `Nómina creada: ${nomina.personas ?? 0} ${
+          nomina.personas === 1 ? "persona" : "personas"
+        } por pagar.`,
+      );
+      onCambio();
+      onCerrar();
+      onIrANomina?.();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -1107,7 +1231,8 @@ function DiaRestaurante({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const ocupado = liquidar.isPending || sinPropinaHoy.isPending;
+  const ocupado =
+    liquidar.isPending || sinPropinaHoy.isPending || mandarANomina.isPending;
 
   return (
     <Modal
@@ -1143,7 +1268,14 @@ function DiaRestaurante({
       }
       subtitulo={
         <span className="block text-center">
-          Día {indice + 1} de {dias.length} por liquidar
+          Día {indice + 1} de {dias.length}
+          {repartidosDeLaTanda > 0 && (
+            <span className="text-emerald-700">
+              {" "}
+              · {repartidosDeLaTanda} repartido
+              {repartidosDeLaTanda === 1 ? "" : "s"}
+            </span>
+          )}
         </span>
       }
       ancho="max-w-2xl"
@@ -1171,8 +1303,41 @@ function DiaRestaurante({
             }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
           >
-            {liquidar.isPending ? "Repartiendo…" : "Repartir y seguir"}
+            {liquidar.isPending
+              ? "Repartiendo…"
+              : yaRepartido
+                ? "Volver a repartir"
+                : "Repartir y seguir"}
           </button>
+          {/* EL NEGRO CIERRA LA TANDA. Separado del azul a propósito:
+              repartir se hace día por día y se puede corregir; liquidar
+              manda la plata a cobrar, y por eso pregunta antes. */}
+          {confirmandoNomina ? (
+            <ConfirmInline
+              question={`Mandar ${repartidosDeLaTanda} ${
+                repartidosDeLaTanda === 1 ? "día repartido" : "días repartidos"
+              } a la nómina`}
+              yesLabel="Sí, liquidar"
+              tono="normal"
+              busy={mandarANomina.isPending}
+              onYes={() => mandarANomina.mutate()}
+              onNo={() => setConfirmandoNomina(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmandoNomina(true)}
+              disabled={ocupado || repartidosDeLaTanda === 0}
+              title={
+                repartidosDeLaTanda === 0
+                  ? "Todavía no has repartido ningún día"
+                  : "Manda a la nómina todo lo liquidado que esté pendiente"
+              }
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40"
+            >
+              Liquidar
+            </button>
+          )}
         </>
       }
     >
