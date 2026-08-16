@@ -325,13 +325,14 @@ export class LogisticsRepository {
   /** Le pone el día a las filas sin día cuyo evento dura un día. Los
    *  eventos de VARIOS días no se tocan: ahí repartir sí es una
    *  decisión (tres el jueves, dos el viernes). */
-  private async conDiaUnico<T extends { quotation_id?: string; day?: string | null }>(
-    companyId: number,
-    rows: T[],
-  ): Promise<T[]> {
+  private async conDiaUnico<
+    T extends { quotation_id?: string; day?: string | null },
+  >(companyId: number, rows: T[]): Promise<T[]> {
     const sinDia = [
       ...new Set(
-        rows.filter((r) => !r.day && r.quotation_id).map((r) => r.quotation_id!),
+        rows
+          .filter((r) => !r.day && r.quotation_id)
+          .map((r) => r.quotation_id!),
       ),
     ];
     if (sinDia.length === 0) return rows;

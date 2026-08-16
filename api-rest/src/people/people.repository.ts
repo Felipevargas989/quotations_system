@@ -235,7 +235,9 @@ export class PeopleRepository {
     this.logger.info(`findStaff evento ${quotationId}`);
     const { data, error } = await this.supabase.client
       .from('event_staff')
-      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .select(
+        '*, people(id, name, rut, default_kind), management_resources(id, name)',
+      )
       .eq('company_id', companyId)
       .eq('quotation_id', quotationId)
       .order('day');
@@ -248,7 +250,9 @@ export class PeopleRepository {
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .insert([row])
-      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .select(
+        '*, people(id, name, rut, default_kind), management_resources(id, name)',
+      )
       .single();
     if (error) {
       if (error.code === YA_EXISTE) {
@@ -270,7 +274,9 @@ export class PeopleRepository {
       .update(cambios)
       .eq('id', id)
       .eq('company_id', companyId)
-      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .select(
+        '*, people(id, name, rut, default_kind), management_resources(id, name)',
+      )
       .maybeSingle();
     if (error) {
       // Al MOVER de día puede chocar con un día donde ya está.
@@ -463,7 +469,9 @@ export class PeopleRepository {
   async findPlantaDelDia(companyId: number, day: string) {
     const { data, error } = await this.supabase.client
       .from('event_staff')
-      .select('*, people(id, name, rut, default_kind), management_resources(id, name)')
+      .select(
+        '*, people(id, name, rut, default_kind), management_resources(id, name)',
+      )
       .eq('company_id', companyId)
       .is('quotation_id', null)
       .eq('day', day);
@@ -586,7 +594,7 @@ export class PeopleRepository {
     companyId: number,
     f: { hasta?: string; desde?: string; quotationIds?: string[] },
   ) {
-    let q = this.supabase.client
+    const q = this.supabase.client
       .from('tip_pools')
       .select('*')
       .eq('company_id', companyId)

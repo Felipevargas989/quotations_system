@@ -8,8 +8,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   ValidateNested,
-  Matches,} from 'class-validator';
+} from 'class-validator';
 
 // Mudanza #6 "una sola puerta" (28-07): COMPRAS, provisiones, recursos
 // de evento, ficha de cocina, recetas y costos fijos — el resto de

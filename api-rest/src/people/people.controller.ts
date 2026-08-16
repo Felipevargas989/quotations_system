@@ -14,24 +14,24 @@ import { CurrentUser } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreatePersonDto } from './dto/create-person.dto';
-import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
-import { UpdatePersonDto } from './dto/update-person.dto';
-import {
-  CreateEventStaffDto,
-  UpdateEventStaffDto,
-} from './dto/event-staff.dto';
 import {
   CerrarFichaDto,
   CreateDayNoteDto,
-  UpdateDayNoteDto,
   CreatePayrollDto,
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
   RepartirDto,
+  UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
 } from './dto/etapas.dto';
+import {
+  CreateEventStaffDto,
+  UpdateEventStaffDto,
+} from './dto/event-staff.dto';
+import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
+import { UpdatePersonDto } from './dto/update-person.dto';
 import { PeopleService } from './people.service';
 
 @Controller('people')
@@ -224,7 +224,9 @@ export class PeopleController {
     @Body() dto: PagoDto,
     @CurrentUser() user: User,
   ) {
-    this.logger.info(`PATCH /people/payrolls/${id}/pago persona ${dto.person_id}`);
+    this.logger.info(
+      `PATCH /people/payrolls/${id}/pago persona ${dto.person_id}`,
+    );
     return this.peopleService.marcarPago(+id, dto, user.company_id);
   }
 

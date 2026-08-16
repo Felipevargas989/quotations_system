@@ -1,10 +1,10 @@
 import {
   IsArray,
   IsEmail,
-  IsObject,
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,

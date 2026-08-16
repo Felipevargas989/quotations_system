@@ -1,30 +1,26 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { CreatePersonDto } from './dto/create-person.dto';
 import {
   CerrarFichaDto,
   CreateDayNoteDto,
-  UpdateDayNoteDto,
   CreatePayrollDto,
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
   RepartirDto,
+  UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
 } from './dto/etapas.dto';
-import { CreatePersonDto } from './dto/create-person.dto';
-import { UpdatePersonDto } from './dto/update-person.dto';
-import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
-import { PeopleRepository } from './people.repository';
-import { normalizarRut } from './utils/rut';
 import type {
   CreateEventStaffDto,
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
+import { UpdatePersonDto } from './dto/update-person.dto';
+import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
+import { PeopleRepository } from './people.repository';
+import { normalizarRut } from './utils/rut';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
  *
@@ -150,7 +146,11 @@ export class PeopleService {
 
   updateRole(
     id: number,
-    cambios: { name?: string; is_active?: boolean; list_price_fixed?: number | null },
+    cambios: {
+      name?: string;
+      is_active?: boolean;
+      list_price_fixed?: number | null;
+    },
     companyId: number,
   ) {
     const limpios = { ...cambios };
@@ -317,7 +317,6 @@ export class PeopleService {
     }
     return { personas: personas.length, creadas };
   }
-
 
   // ================= EL CICLO DE LA FICHA =================
   // armando → confirmado → trabajado → cerrada. "Cerrada" solo entra
@@ -494,7 +493,9 @@ export class PeopleService {
       companyId,
     );
     const repartido = [...asignado.values()].reduce((t, m) => t + m, 0);
-    this.logger.info(`repartir pozo ${poolId}: $${repartido} en ${asignado.size} filas`);
+    this.logger.info(
+      `repartir pozo ${poolId}: $${repartido} en ${asignado.size} filas`,
+    );
     return { repartido, filas: asignado.size };
   }
 
@@ -580,7 +581,9 @@ export class PeopleService {
   /** "Ya la pagué" se marca EN EL MOMENTO, no después — por eso ahora
    *  existe "pendiente". Jornada y propina por separado. */
   marcarPago(payrollId: number, dto: PagoDto, companyId: number) {
-    const cambios: Record<string, unknown> = { paid_at: new Date().toISOString() };
+    const cambios: Record<string, unknown> = {
+      paid_at: new Date().toISOString(),
+    };
     if (dto.jornada_paid !== undefined) cambios.jornada_paid = dto.jornada_paid;
     if (dto.propina_paid !== undefined) cambios.propina_paid = dto.propina_paid;
     return this.repo.upsertPago(companyId, payrollId, dto.person_id, cambios);
@@ -630,21 +633,12 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
-
-const diaSiguiente = (iso: string) =>
-  new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-
 /**
  * Reparte un total entero según pesos, SIN SOBRANTES: piso primero y
  * los pesos que faltan de a uno, a los restos más grandes. Si todos
  * los pesos son cero (horas desconocidas), reparte parejo.
  */
-export const repartirAlPeso = (
-  total: number,
-  pesos: number[],
-): number[] => {
+export const repartirAlPeso = (total: number, pesos: number[]): number[] => {
   const suma = pesos.reduce((t, p) => t + p, 0);
   const efectivos = suma > 0 ? pesos : pesos.map(() => 1);
   const sumaEf = suma > 0 ? suma : pesos.length;
@@ -716,7 +710,10 @@ export const horarioDelDia = (
       persona.default_ends_at?.slice(0, 5) ??
       '19:00',
     break_minutes:
-      escrito?.break_minutes ?? suyo?.break ?? persona.default_break_minutes ?? 60,
+      escrito?.break_minutes ??
+      suyo?.break ??
+      persona.default_break_minutes ??
+      60,
   };
 };
 
