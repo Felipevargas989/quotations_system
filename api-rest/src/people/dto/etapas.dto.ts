@@ -109,10 +109,13 @@ export class CreateReviewDto {
 // ---- La nómina ----
 // No es una semana: es un SELECTOR de qué se liquida. Todo lo
 // pendiente hasta una fecha, un rango, o eventos sueltos.
-export class CreatePayrollDto {
-  @IsString()
-  label: string;
-
+/**
+ * QUÉ se liquida, sin decidir todavía si se genera. La vista previa usa
+ * solo esto: no crea nada, así que no tiene por qué pedir un nombre de
+ * nómina — pedirlo hacía fallar la revisión con "label must be a
+ * string" (Felipe, 16-08).
+ */
+export class SeleccionPayrollDto {
   @IsOptional()
   @Matches(DIA)
   hasta?: string;
@@ -139,6 +142,12 @@ export class CreatePayrollDto {
   @IsArray()
   @Matches(DIA, { each: true })
   dias?: string[];
+}
+
+/** La misma selección, más el nombre con que nace la nómina. */
+export class CreatePayrollDto extends SeleccionPayrollDto {
+  @IsString()
+  label: string;
 }
 
 export class PagoDto {

@@ -9,6 +9,7 @@ import {
   CreateReviewDto,
   PagoDto,
   RepartirDto,
+  SeleccionPayrollDto,
   UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
@@ -673,7 +674,7 @@ export class PeopleService {
    * genera. Si fueran dos consultas parecidas, un día mostrarían
    * distinto de lo que pagan.
    */
-  private async reunirLiquidado(dto: CreatePayrollDto, companyId: number) {
+  private async reunirLiquidado(dto: SeleccionPayrollDto, companyId: number) {
     const filtro = {
       hasta: dto.hasta,
       desde: dto.desde,
@@ -748,7 +749,7 @@ export class PeopleService {
    * Devuelve exactamente lo que se va a pagar, ya consolidado por
    * persona, con los datos con que se sube al banco.
    */
-  async previaPayroll(dto: CreatePayrollDto, companyId: number) {
+  async previaPayroll(dto: SeleccionPayrollDto, companyId: number) {
     const { jornadas, propinas } = await this.reunirLiquidado(dto, companyId);
     const personas = consolidarPorRut(jornadas, propinas);
     return {

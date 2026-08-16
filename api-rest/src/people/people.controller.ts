@@ -22,6 +22,7 @@ import {
   CreateReviewDto,
   PagoDto,
   RepartirDto,
+  SeleccionPayrollDto,
   UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
@@ -221,7 +222,7 @@ export class PeopleController {
 
   /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
   @Post('payrolls/previa')
-  previaPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
+  previaPayroll(@Body() dto: SeleccionPayrollDto, @CurrentUser() user: User) {
     return this.peopleService.previaPayroll(dto, user.company_id);
   }
 
