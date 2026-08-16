@@ -344,6 +344,8 @@ export default function PersonaFichaPage() {
             [
               ["datos", "Datos"],
               ["calendario", "Su calendario"],
+              ["pagos", "Pagos"],
+              ["evaluaciones", "Evaluaciones"],
             ] as const
           ).map(([id2, texto]) => (
             <button
