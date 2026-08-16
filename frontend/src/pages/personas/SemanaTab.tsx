@@ -996,14 +996,12 @@ function CasillaAbierta({
       label: p.name,
       group:
         p.default_kind === "planta" ? "Personal de planta" : "Personal Staff",
-      hint: [
-        // Si ese día es su libre se avisa: se puede poner igual —a
-        // veces se le paga aparte—, pero a sabiendas.
-        p.days_off?.includes(diaSemana) ? "⚠ libre este día" : undefined,
-        p.management_resources?.name,
-      ]
-        .filter(Boolean)
-        .join(" · "),
+      hint: p.management_resources?.name,
+      // Si ese día es su libre se avisa con un chip al otro extremo: se
+      // puede poner igual —a veces se le paga aparte—, pero a sabiendas.
+      chip: p.days_off?.includes(diaSemana)
+        ? { texto: "libre este día", clases: "bg-amber-100 text-amber-800" }
+        : undefined,
     }))
     .sort((a, b) => {
       if (a.group !== b.group) return a.group === "Personal de planta" ? -1 : 1;

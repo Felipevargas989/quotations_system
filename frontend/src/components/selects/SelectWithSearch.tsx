@@ -283,6 +283,13 @@ export default function SelectWithSearch({
                         />
                       )}
                       <span className="flex-1">{option.label}</span>
+                      {option.chip && (
+                        <span
+                          className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full ${option.chip.clases}`}
+                        >
+                          {option.chip.texto}
+                        </span>
+                      )}
                       {option.hint && (
                         <span className="text-xs text-gray-400 shrink-0">
                           {option.hint}

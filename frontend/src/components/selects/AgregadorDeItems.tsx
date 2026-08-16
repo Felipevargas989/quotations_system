@@ -223,9 +223,21 @@ export default function AgregadorDeItems({
                       `}
                     >
                       {/* El apunte va PEGADO al nombre, como en las
-                          copias: "Pollo al jugo - $12.500". */}
-                      {opcion.label}
-                      {opcion.hint ? ` - ${opcion.hint}` : ""}
+                          copias: "Pollo al jugo - $12.500". El chip, si
+                          lo hay, se va al otro extremo. */}
+                      <span className="flex items-center justify-between gap-2 w-full">
+                        <span className="truncate">
+                          {opcion.label}
+                          {opcion.hint ? ` - ${opcion.hint}` : ""}
+                        </span>
+                        {opcion.chip && (
+                          <span
+                            className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full ${opcion.chip.clases}`}
+                          >
+                            {opcion.chip.texto}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   </div>
                 );
