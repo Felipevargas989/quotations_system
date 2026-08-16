@@ -1094,6 +1094,9 @@ function DiaRestaurante({
       // dónde está parado (Felipe, 15-08).
       titulo={
         <span className="flex items-center justify-center gap-4 w-full">
+          {/* Compensa el ancho del ✕ del otro extremo, para que la
+              fecha quede al centro del modal y no corrida. */}
+          <span className="w-7 shrink-0" aria-hidden="true" />
           <button
             type="button"
             onClick={() => onIr(indice - 1)}

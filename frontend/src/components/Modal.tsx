@@ -73,7 +73,11 @@ export default function Modal({
         }`}
       >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
-          <div className="min-w-0">
+          {/* flex-1: sin esto el bloque del título se ajusta al texto y
+              un título que quiera centrarse no tiene contra qué hacerlo
+              (Felipe, 15-08). Los títulos normales siguen a la
+              izquierda, así que no cambia nada para el resto. */}
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-gray-900">{titulo}</h2>
             {subtitulo && (
               <div className="text-sm text-gray-500 mt-0.5">{subtitulo}</div>
