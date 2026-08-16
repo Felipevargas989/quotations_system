@@ -614,11 +614,14 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                       setDiaAbierto(null);
                       setCasilla(abierta ? null : { dia: d, fila: f });
                     }}
-                    title={`Poner gente el ${d}`}
-                    className={`w-full px-2 py-1.5 rounded-md text-sm transition-colors ${
+                    title={`Es día del evento — poner gente el ${d}`}
+                    // Recuadro ÁMBAR: es el día del evento y no hay
+                    // nadie puesto. Salta a la vista sin leer nada
+                    // (Felipe, 15-08).
+                    className={`w-full px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
-                        ? "bg-blue-600 text-white"
-                        : "bg-blue-50/60 text-blue-300 hover:bg-blue-100 hover:text-blue-700"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
                     }`}
                   >
                     +
@@ -634,12 +637,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     setCasilla(abierta ? null : { dia: d, fila: f });
                   }}
                   title={quienes || undefined}
-                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
+                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors border ${
                     abierta
-                      ? "bg-blue-600 text-white"
+                      ? "bg-blue-600 text-white border-blue-600"
                       : falta > 0
-                        ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
-                        : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                        ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                        : `bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${
+                            esDelEvento
+                              ? "border-amber-300"
+                              : "border-transparent"
+                          }`
                   }`}
                 >
                   {tiene}/{necesita}
