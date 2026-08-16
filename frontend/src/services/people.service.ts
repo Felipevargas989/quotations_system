@@ -2,6 +2,7 @@ import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 import type {
   LiquidacionPendiente,
+  PreviaNomina,
   Asignacion,
   Persona,
   PersonaFormData,
@@ -234,6 +235,20 @@ export const getLiquidacionesPendientes = async () =>
     `${API_ROUTES.PEOPLE}/payrolls/pendientes`,
     "GET",
   )) as LiquidacionPendiente[];
+
+/** Lo que se va a pagar, consolidado, antes de generar la nómina. */
+export const previaPayroll = async (dto: {
+  label?: string;
+  hasta?: string;
+  desde?: string;
+  quotation_ids?: string[];
+  dias?: string[];
+}) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/payrolls/previa`,
+    "POST",
+    dto,
+  )) as PreviaNomina;
 
 export const createPayroll = async (dto: {
   label: string;

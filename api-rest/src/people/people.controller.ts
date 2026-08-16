@@ -219,6 +219,12 @@ export class PeopleController {
     return this.peopleService.liquidacionesPendientes(user.company_id);
   }
 
+  /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
+  @Post('payrolls/previa')
+  previaPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
+    return this.peopleService.previaPayroll(dto, user.company_id);
+  }
+
   @Post('payrolls')
   createPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/payrolls ${logSafe(dto)}`);

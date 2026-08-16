@@ -12,9 +12,11 @@ import {
 import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import { eventosQueryOptions } from "./FichasTab";
+import Modal from "../../components/Modal";
 import {
   createPayroll,
   getLiquidacionesPendientes,
+  previaPayroll,
   getPayroll,
   getPayrolls,
   marcarPago,
@@ -46,13 +48,15 @@ const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
 interface PorPersona {
-  personId: number;
+  /** Las fichas que caen en este pago: normalmente una, dos si la
+   *  persona quedó cargada dos veces con el mismo RUT. */
+  personIds: number[];
   persona: Asignacion["people"];
   jornadas: Asignacion[];
   propinas: Asignacion[];
   totalJornada: number;
   totalPropina: number;
-  pago: PagoPersona | null;
+  pagos: PagoPersona[];
 }
 
 export default function NominaTab() {
@@ -179,6 +183,8 @@ function LiquidacionesPorPagar({
   // le falta — por nombre, para poder ir a arreglarlo.
   const faltanRut = [...new Set(elegidas.flatMap((l) => l.sin_rut))];
 
+  const [revisando, setRevisando] = useState(false);
+
   const generar = useMutation({
     mutationFn: () =>
       createPayroll({
@@ -199,6 +205,7 @@ function LiquidacionesPorPagar({
         } por pagar.`,
       );
       setMarcadas(new Set());
+      setRevisando(false);
       qc.invalidateQueries({ queryKey: ["people", "liquidaciones-pendientes"] });
       onCreada(nomina.id);
     },
@@ -221,7 +228,7 @@ function LiquidacionesPorPagar({
         {marcadas.size > 0 && (
           <button
             type="button"
-            onClick={() => generar.mutate()}
+            onClick={() => setRevisando(true)}
             disabled={generar.isPending || faltanRut.length > 0}
             title={
               faltanRut.length > 0
@@ -232,7 +239,7 @@ function LiquidacionesPorPagar({
           >
             {generar.isPending
               ? "Generando…"
-              : `Generar nómina · ${clp(totalElegido)}`}
+              : `Revisar y generar · ${clp(totalElegido)}`}
           </button>
         )}
       </div>
@@ -245,6 +252,24 @@ function LiquidacionesPorPagar({
           . Sin RUT no se puede subir al banco — complétalo en su ficha y
           vuelve.
         </p>
+      )}
+
+      {revisando && (
+        <RevisarAntesDeGenerar
+          seleccion={{
+            quotation_ids: elegidas
+              .filter((l) => l.tipo === "evento")
+              .map((l) => l.quotation_id!)
+              .filter(Boolean),
+            dias: elegidas
+              .filter((l) => l.tipo === "dia")
+              .map((l) => l.day!)
+              .filter(Boolean),
+          }}
+          generando={generar.isPending}
+          onGenerar={() => generar.mutate()}
+          onCerrar={() => setRevisando(false)}
+        />
       )}
 
       {isLoading ? (
@@ -301,6 +326,173 @@ function LiquidacionesPorPagar({
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * LA REVISIÓN ANTES DE SUBIR AL BANCO (Felipe, 16-08).
+ *
+ * "La mayoría de la gente ya está en el banco creada, entonces es
+ * buscarla, pero igual es bueno poder ver el detalle para confirmar sus
+ * datos bancarios."
+ *
+ * Muestra exactamente lo que se va a pagar, ya consolidado por persona,
+ * con los datos con que se sube. Lo calcula el backend con la MISMA
+ * consulta que después genera la nómina: si fueran dos caminos, un día
+ * mostraría una cosa y pagaría otra.
+ */
+function RevisarAntesDeGenerar({
+  seleccion,
+  generando,
+  onGenerar,
+  onCerrar,
+}: {
+  readonly seleccion: { quotation_ids: string[]; dias: string[] };
+  readonly generando: boolean;
+  readonly onGenerar: () => void;
+  readonly onCerrar: () => void;
+}) {
+  const { data: previa, isLoading, error } = useQuery({
+    queryKey: ["people", "previa-nomina", seleccion],
+    queryFn: () => previaPayroll(seleccion),
+    staleTime: 0,
+  });
+
+  const dato = (v: string | null | undefined) =>
+    v && v.trim() ? v : <span className="text-red-600">falta</span>;
+
+  return (
+    <Modal
+      titulo="Revisa antes de subir al banco"
+      subtitulo={
+        previa
+          ? `${previa.personas.length} ${
+              previa.personas.length === 1 ? "persona" : "personas"
+            } · ${clp(previa.total)}`
+          : undefined
+      }
+      ancho="max-w-5xl"
+      onCerrar={onCerrar}
+      pie={
+        <>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            onClick={onGenerar}
+            disabled={generando || !previa || previa.sin_rut.length > 0}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40 whitespace-nowrap"
+          >
+            {generando ? "Generando…" : "Generar nómina"}
+          </button>
+        </>
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500 py-6 text-center">Calculando…</p>
+      ) : error || !previa ? (
+        <p className="text-sm text-red-700 py-6 text-center">
+          {humanizeApiError(error)}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {previa.fichas_repetidas.length > 0 && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {previa.fichas_repetidas.join(", ")}{" "}
+              {previa.fichas_repetidas.length === 1
+                ? "aparece"
+                : "aparecen"}{" "}
+              con más de una ficha y el mismo RUT. Se paga una sola vez —
+              conviene unificar esas fichas en Personal.
+            </p>
+          )}
+          {previa.sin_cuenta.length > 0 && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Sin cuenta bancaria: {previa.sin_cuenta.join(", ")}. La nómina
+              se genera igual; ese pago tendrás que resolverlo aparte.
+            </p>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200">
+                  <th className="py-2 pr-3 font-semibold">Persona</th>
+                  <th className="py-2 pr-3 font-semibold">RUT</th>
+                  <th className="py-2 pr-3 font-semibold">Banco</th>
+                  <th className="py-2 pr-3 font-semibold">Cuenta</th>
+                  <th className="py-2 pr-3 font-semibold text-right">
+                    Jornadas
+                  </th>
+                  <th className="py-2 pr-3 font-semibold text-right">
+                    Propinas
+                  </th>
+                  <th className="py-2 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {previa.personas.map((p) => (
+                  <tr key={p.person_ids.join("-")}>
+                    <td className="py-2 pr-3 font-medium text-gray-900 whitespace-nowrap">
+                      {p.nombre}
+                      {p.person_ids.length > 1 && (
+                        <span className="ml-1.5 text-xs text-amber-700">
+                          ({p.person_ids.length} fichas)
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums whitespace-nowrap">
+                      {p.rut ? formatearRut(p.rut) : dato(null)}
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {p.bank_code ? nombreBanco(p.bank_code) : dato(null)}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums whitespace-nowrap">
+                      {p.account_number ? (
+                        <>
+                          {p.account_number}
+                          {p.account_type && (
+                            <span className="text-xs text-gray-400 ml-1.5">
+                              {etiquetaTipoCuenta(p.account_type as never)}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        dato(null)
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-gray-600">
+                      {p.jornadas ? clp(p.jornadas) : "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-gray-600">
+                      {p.propinas ? clp(p.propinas) : "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums font-semibold text-gray-900">
+                      {clp(p.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-300">
+                  <td colSpan={6} className="py-2 text-right font-medium">
+                    Total a subir
+                  </td>
+                  <td className="py-2 text-right tabular-nums font-bold text-gray-900">
+                    {clp(previa.total)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -470,20 +662,32 @@ function NominaAbierta({
 
   const porPersona: PorPersona[] = useMemo(() => {
     if (!nomina) return [];
-    const m = new Map<number, PorPersona>();
+    // CONSOLIDADO POR RUT (Felipe, 16-08), igual que en la revisión: una
+    // línea = una transferencia. Si la misma persona quedó cargada dos
+    // veces con el mismo RUT, se paga una sola vez. Sin RUT va por
+    // ficha: juntar a dos desconocidos sería peor.
+    const m = new Map<string, PorPersona>();
     const de = (a: Asignacion): PorPersona => {
-      if (!m.has(a.person_id)) {
-        m.set(a.person_id, {
-          personId: a.person_id,
+      const rut = (a.people?.rut ?? "").trim();
+      const llave = rut ? `rut:${rut}` : `ficha:${a.person_id}`;
+      if (!m.has(llave)) {
+        m.set(llave, {
+          personIds: [],
           persona: a.people ?? null,
           jornadas: [],
           propinas: [],
           totalJornada: 0,
           totalPropina: 0,
-          pago: nomina.pagos.find((p) => p.person_id === a.person_id) ?? null,
+          pagos: [],
         });
       }
-      return m.get(a.person_id)!;
+      const fila = m.get(llave)!;
+      if (!fila.personIds.includes(a.person_id)) {
+        fila.personIds.push(a.person_id);
+        const suyo = nomina.pagos.find((p) => p.person_id === a.person_id);
+        if (suyo) fila.pagos.push(suyo);
+      }
+      return fila;
     };
     for (const a of nomina.jornadas) {
       const p = de(a);
@@ -505,8 +709,8 @@ function NominaAbierta({
 
   const pagadas = porPersona.filter(
     (p) =>
-      (p.totalJornada === 0 || p.pago?.jornada_paid) &&
-      (p.totalPropina === 0 || p.pago?.propina_paid),
+      (p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid)) &&
+      (p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid)),
   );
 
   if (!nomina) return null;
@@ -554,7 +758,7 @@ function NominaAbierta({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {porPersona.map((p) => (
-              <tr key={p.personId}>
+              <tr key={p.personIds.join("-")}>
                 <td className="px-3 py-2 text-gray-900">{p.persona?.name}</td>
                 <td className="px-3 py-2 text-center tabular-nums">
                   {p.jornadas.length || "—"}
@@ -628,8 +832,8 @@ function NominaAbierta({
 }
 
 function EstadoPago({ p }: { readonly p: PorPersona }) {
-  const j = p.totalJornada === 0 || p.pago?.jornada_paid;
-  const t = p.totalPropina === 0 || p.pago?.propina_paid;
+  const j = p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid);
+  const t = p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid);
   if (j && t)
     return (
       <span className="text-emerald-700 text-xs font-medium">
@@ -657,20 +861,25 @@ function PagoUnoAUno({
   const pendientes = porPersona.filter(
     (p) =>
       !(
-        (p.totalJornada === 0 || p.pago?.jornada_paid) &&
-        (p.totalPropina === 0 || p.pago?.propina_paid)
+        (p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid)) &&
+        (p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid))
       ),
   );
   const [idx, setIdx] = useState(0);
   const p = pendientes[idx] ?? null;
 
   const marcar = useMutation({
-    mutationFn: () =>
-      marcarPago(nomina.id, {
-        person_id: p!.personId,
-        jornada_paid: true,
-        propina_paid: true,
-      }),
+    // Una línea puede venir de dos fichas con el mismo RUT: el pago fue
+    // uno solo, así que se marcan las dos.
+    mutationFn: async () => {
+      for (const personId of p!.personIds) {
+        await marcarPago(nomina.id, {
+          person_id: personId,
+          jornada_paid: true,
+          propina_paid: true,
+        });
+      }
+    },
     onSuccess: () => {
       onCambio();
       if (idx >= pendientes.length - 1) onCerrar();

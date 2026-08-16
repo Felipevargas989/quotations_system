@@ -230,3 +230,25 @@ export interface LiquidacionPendiente {
   propinas: number;
   total: number;
 }
+
+/** Una línea de la nómina: lo que se le sube al banco a una persona. */
+export interface LineaDeNomina {
+  person_ids: number[];
+  nombre: string;
+  rut: string | null;
+  bank_code: string | null;
+  account_type: string | null;
+  account_number: string | null;
+  jornadas: number;
+  propinas: number;
+  total: number;
+}
+
+/** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
+export interface PreviaNomina {
+  personas: LineaDeNomina[];
+  total: number;
+  sin_rut: string[];
+  sin_cuenta: string[];
+  fichas_repetidas: string[];
+}

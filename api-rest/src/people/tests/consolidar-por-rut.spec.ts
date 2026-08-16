@@ -1,0 +1,113 @@
+import type { EventStaffConPersona } from '../entities/person.entity';
+import { consolidarPorRut } from '../people.service';
+
+/**
+ * CONSOLIDAR POR RUT (Felipe, 16-08).
+ *
+ * "Si tengo esa semana cinco eventos y diez días de restaurante y es la
+ * misma gente, no puedo subir diez veces al banco."
+ *
+ * Este archivo fija las dos cosas que hacen que eso funcione: que la
+ * misma persona quede en UNA línea aunque venga de varios orígenes, y
+ * que dos fichas con el mismo RUT no produzcan dos transferencias.
+ */
+const fila = (
+  p: Partial<EventStaffConPersona> & {
+    person_id: number;
+    rut?: string | null;
+    nombre?: string;
+  },
+): EventStaffConPersona =>
+  ({
+    id: Math.random(),
+    person_id: p.person_id,
+    quotation_id: p.quotation_id ?? null,
+    day: p.day ?? '2026-08-10',
+    amount: p.amount ?? null,
+    tip_amount: p.tip_amount ?? null,
+    people: {
+      id: p.person_id,
+      name: p.nombre ?? `Persona ${p.person_id}`,
+      rut: p.rut === undefined ? '11111111-1' : p.rut,
+      bank_code: '012',
+      account_type: 'corriente',
+      account_number: '123456',
+    },
+  }) as unknown as EventStaffConPersona;
+
+describe('consolidarPorRut', () => {
+  it('junta en UNA línea lo de varios eventos y días de la misma persona', () => {
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, amount: 30000, quotation_id: 'ev-a' }),
+        fila({ person_id: 1, amount: 20000, quotation_id: 'ev-b' }),
+        fila({ person_id: 1, amount: 25000, day: '2026-08-11' }),
+      ],
+      [fila({ person_id: 1, tip_amount: 5000 })],
+    );
+
+    expect(r).toHaveLength(1);
+    expect(r[0].jornadas).toBe(75000);
+    expect(r[0].propinas).toBe(5000);
+    expect(r[0].total).toBe(80000);
+  });
+
+  it('dos fichas con el mismo RUT son un solo pago, y lo declaran', () => {
+    // El caso del Excel: "Matias" y "Matías" cargados por separado.
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, nombre: 'Matias Zapata', amount: 40000 }),
+        fila({ person_id: 2, nombre: 'Matías Zapata', amount: 60000 }),
+      ],
+      [],
+    );
+
+    expect(r).toHaveLength(1);
+    expect(r[0].total).toBe(100000);
+    // Las dos fichas quedan a la vista para poder unificarlas después.
+    expect(r[0].person_ids.sort()).toEqual([1, 2]);
+  });
+
+  it('personas distintas con RUT distinto no se mezclan', () => {
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, rut: '11111111-1', amount: 10000 }),
+        fila({ person_id: 2, rut: '22222222-2', amount: 20000 }),
+      ],
+      [],
+    );
+
+    expect(r).toHaveLength(2);
+    expect(r.map((l) => l.total).sort((a, b) => a - b)).toEqual([10000, 20000]);
+  });
+
+  it('los SIN RUT nunca se juntan entre sí', () => {
+    // Juntarlos sería meter a dos personas distintas en un mismo pago.
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, rut: null, amount: 10000 }),
+        fila({ person_id: 2, rut: '', amount: 20000 }),
+      ],
+      [],
+    );
+
+    expect(r).toHaveLength(2);
+    expect(r.every((l) => l.rut === null)).toBe(true);
+  });
+
+  it('una fila en cero no inventa una línea de pago', () => {
+    const r = consolidarPorRut([fila({ person_id: 1, amount: 0 })], []);
+    expect(r).toHaveLength(0);
+  });
+
+  it('ordena por nombre, que es como se revisa antes de subir al banco', () => {
+    const r = consolidarPorRut(
+      [
+        fila({ person_id: 1, rut: '1-9', nombre: 'Zoila', amount: 1000 }),
+        fila({ person_id: 2, rut: '2-7', nombre: 'Ana', amount: 1000 }),
+      ],
+      [],
+    );
+    expect(r.map((l) => l.nombre)).toEqual(['Ana', 'Zoila']);
+  });
+});

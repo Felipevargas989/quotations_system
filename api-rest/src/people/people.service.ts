@@ -666,7 +666,14 @@ export class PeopleService {
    * propinas por separado), lo marca, y dice qué dejó fuera (pozos
    * sin repartir). No bloquea: quien bloquea es el cierre de la ficha.
    */
-  async createPayroll(dto: CreatePayrollDto, companyId: number) {
+  /**
+   * Lo liquidado que calza con la selección, listo para consolidar.
+   * Vive aparte porque lo usan DOS caminos que no pueden diferir: la
+   * vista previa que uno revisa antes de generar, y la nómina que se
+   * genera. Si fueran dos consultas parecidas, un día mostrarían
+   * distinto de lo que pagan.
+   */
+  private async reunirLiquidado(dto: CreatePayrollDto, companyId: number) {
     const filtro = {
       hasta: dto.hasta,
       desde: dto.desde,
@@ -731,6 +738,37 @@ export class PeopleService {
           : 'No hay nada pendiente que liquidar con ese filtro',
       );
     }
+    return { jornadas, propinas, sinLiquidar };
+  }
+
+  /**
+   * LA REVISIÓN ANTES DE GENERAR (Felipe, 16-08): "igual es bueno poder
+   * ver el detalle para confirmar sus datos bancarios".
+   *
+   * Devuelve exactamente lo que se va a pagar, ya consolidado por
+   * persona, con los datos con que se sube al banco.
+   */
+  async previaPayroll(dto: CreatePayrollDto, companyId: number) {
+    const { jornadas, propinas } = await this.reunirLiquidado(dto, companyId);
+    const personas = consolidarPorRut(jornadas, propinas);
+    return {
+      personas,
+      total: personas.reduce((t, p) => t + p.total, 0),
+      sin_rut: personas.filter((p) => !p.rut).map((p) => p.nombre),
+      sin_cuenta: personas
+        .filter((p) => !p.account_number)
+        .map((p) => p.nombre),
+      fichas_repetidas: personas
+        .filter((p) => p.person_ids.length > 1)
+        .map((p) => p.nombre),
+    };
+  }
+
+  async createPayroll(dto: CreatePayrollDto, companyId: number) {
+    const { jornadas, propinas, sinLiquidar } = await this.reunirLiquidado(
+      dto,
+      companyId,
+    );
     // EL RUT ES REGLA DE AVANCE (Felipe, 16-08): "los RUT deben estar
     // antes de poder generar las nóminas, igual es necesario para cargar
     // a banco". Se corta acá y no solo en la pantalla, porque es la
@@ -774,7 +812,12 @@ export class PeopleService {
         person_id,
       })),
     );
-    const fuera = await this.repo.poolsSinRepartir(companyId, filtro);
+    const fuera = await this.repo.poolsSinRepartir(companyId, {
+      hasta: dto.hasta,
+      desde: dto.desde,
+      quotationIds: dto.quotation_ids,
+      dias: dto.dias,
+    });
     this.logger.info(
       `nomina ${payroll.id}: ${jornadas.length} jornadas + ${propinas.length} propinas, ${sinLiquidar} fuera por no estar liquidadas`,
     );
@@ -847,6 +890,72 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
+/**
+ * CONSOLIDAR POR RUT (Felipe, 16-08).
+ *
+ * Sus palabras: *"si tengo esa semana cinco eventos y diez días de
+ * restaurante y es la misma gente, no puedo subir diez veces al banco;
+ * tengo que consolidar por persona cuánto se le va a pagar esa semana
+ * por todos los servicios que prestó"*.
+ *
+ * Se junta por RUT y no por ficha porque la misma persona puede estar
+ * cargada dos veces —por una tilde o un espacio— y entonces saldrían
+ * DOS transferencias al mismo RUT, cada una con la mitad. En el Excel
+ * había 11 pares así, por $9.520.018.
+ *
+ * Quien no tiene RUT va por ficha, nunca junto a otros sin RUT: serían
+ * personas distintas metidas en un mismo pago. Hoy eso solo puede pasar
+ * en la vista previa, porque generar exige RUT.
+ */
+/** Una línea de la nómina: lo que se le sube al banco a una persona. */
+export interface LineaDeNomina {
+  person_ids: number[];
+  nombre: string;
+  rut: string | null;
+  bank_code: string | null;
+  account_type: string | null;
+  account_number: string | null;
+  jornadas: number;
+  propinas: number;
+  total: number;
+}
+
+export const consolidarPorRut = (
+  jornadas: readonly EventStaffConPersona[],
+  propinas: readonly EventStaffConPersona[],
+) => {
+  const lineas = new Map<string, LineaDeNomina>();
+  const meter = (
+    f: EventStaffConPersona,
+    monto: number,
+    cual: 'jornadas' | 'propinas',
+  ) => {
+    if (!monto) return;
+    const rut = (f.people?.rut ?? '').trim();
+    const llave = rut ? `rut:${rut}` : `ficha:${f.person_id}`;
+    if (!lineas.has(llave)) {
+      lineas.set(llave, {
+        person_ids: [],
+        nombre: f.people?.name ?? 'Sin nombre',
+        rut: rut || null,
+        bank_code: f.people?.bank_code ?? null,
+        account_type: f.people?.account_type ?? null,
+        account_number: f.people?.account_number ?? null,
+        jornadas: 0,
+        propinas: 0,
+        total: 0,
+      });
+    }
+    const l = lineas.get(llave)!;
+    if (!l.person_ids.includes(f.person_id)) l.person_ids.push(f.person_id);
+    l[cual] += monto;
+    l.total += monto;
+  };
+  for (const j of jornadas) meter(j, Number(j.amount ?? 0), 'jornadas');
+  for (const t of propinas) meter(t, Number(t.tip_amount ?? 0), 'propinas');
+  return [...lineas.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+};
+
 /**
  * A LA NÓMINA SOLO ENTRA LO LIQUIDADO (Felipe, 16-08).
  *
