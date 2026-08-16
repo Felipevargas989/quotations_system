@@ -671,7 +671,16 @@ function Reparto({
     setSemilla(1);
     setPcts(yaRepartidos);
   }
-  const pct = (id: number | null) => pcts.get(id) ?? 0;
+  // UN SOLO CARGO SE LLEVA EL 100% SOLO (Felipe, 15-08). Si no hay
+  // entre quiénes repartir, escribir "100" a mano era puro trámite: se
+  // fija y la caja se bloquea. Vive en el getter y no en un estado, así
+  // que al marcar "sin propina" a un cargo y quedar uno, se acomoda al
+  // toque — y lo que se guarda sale del mismo getter.
+  const activos = cargos.filter(([id]) => !sinPropinaCargo.has(id));
+  const unico = activos.length === 1 ? activos[0][0] : undefined;
+  const soloUno = activos.length === 1;
+  const pct = (id: number | null) =>
+    soloUno ? (id === unico ? 100 : 0) : (pcts.get(id) ?? 0);
   const total = cargos.reduce((t, [id]) => t + pct(id), 0);
   const monto = pozo
     ? Number(pozo.first_amount) + Number(pozo.second_amount)
@@ -802,11 +811,14 @@ function Reparto({
                   {/* El ancho va en el CONTENEDOR: el campo numérico se
                       estira a lo que le den, y ponerle w-20 a él no
                       hacía nada (mismo tropiezo que con el monto). */}
-                  <div className="w-20">
+                  <div
+                    className="w-20"
+                    title={soloUno ? "Es el único cargo: se lleva todo" : undefined}
+                  >
                     <NumberInput
                       value={pct(id) || undefined}
                       onChange={(v) => cambiar(id, v ?? 0)}
-                      disabled={fuera}
+                      disabled={fuera || soloUno}
                       placeholder="0"
                       aria-label={`Porcentaje de ${nombre}`}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
@@ -1021,7 +1033,16 @@ function DiaRestaurante({
     return [...m.entries()];
   }, [delDia]);
 
-  const pct = (id: number) => pcts.get(id) ?? 0;
+  // UN SOLO CARGO SE LLEVA EL 100% SOLO (Felipe, 15-08). Si no hay
+  // entre quiénes repartir, escribir "100" a mano era puro trámite: se
+  // fija y la caja se bloquea. Vive en el getter y no en un estado, así
+  // que al marcar "sin propina" a un cargo y quedar uno, se acomoda al
+  // toque — y lo que se guarda sale del mismo getter.
+  const activos = cargos.filter(([id]) => !sinCargo.has(id));
+  const soloUno = activos.length === 1;
+  const unico = soloUno ? activos[0][0] : undefined;
+  const pct = (id: number) =>
+    soloUno ? (id === unico ? 100 : 0) : (pcts.get(id) ?? 0);
   const total = cargos.reduce((t, [id]) => t + pct(id), 0);
   const cuadra = Math.abs(total - 100) < 0.001;
 
@@ -1257,13 +1278,18 @@ function DiaRestaurante({
                       sin propina
                     </label>
                     <span className="flex-1" />
-                    <div className="w-20">
+                    <div
+                      className="w-20"
+                      title={
+                        soloUno ? "Es el único cargo: se lleva todo" : undefined
+                      }
+                    >
                       <NumberInput
                         value={pct(id) || undefined}
                         onChange={(v: number | undefined) =>
                           setPcts(new Map(pcts).set(id, v ?? 0))
                         }
-                        disabled={fuera}
+                        disabled={fuera || soloUno}
                         placeholder="0"
                         aria-label={`Porcentaje de ${nombre}`}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
