@@ -310,11 +310,56 @@ export class LogisticsRepository {
       companyId,
       dto.rows.map((r) => (r as { quotation_id?: string }).quotation_id),
     );
+    // EN UN EVENTO DE UN SOLO DÍA, EL DÍA SE PONE SOLO (Felipe,
+    // 15-08: "al ser evento de un solo día debería asignarlo
+    // automático"). Sin esto, el recurso nace "sin día" y la sábana
+    // pide repartirlo cuando no hay nada que repartir.
+    const filas = await this.conDiaUnico(companyId, dto.rows);
     const { error } = await this.supabase.client
       .from('event_resources')
-      .insert(dto.rows.map((r) => ({ ...r, company_id: companyId })));
+      .insert(filas.map((r) => ({ ...r, company_id: companyId })));
     if (error) throw error;
     return { added: dto.rows.length };
+  }
+
+  /** Le pone el día a las filas sin día cuyo evento dura un día. Los
+   *  eventos de VARIOS días no se tocan: ahí repartir sí es una
+   *  decisión (tres el jueves, dos el viernes). */
+  private async conDiaUnico<T extends { quotation_id?: string; day?: string | null }>(
+    companyId: number,
+    rows: T[],
+  ): Promise<T[]> {
+    const sinDia = [
+      ...new Set(
+        rows.filter((r) => !r.day && r.quotation_id).map((r) => r.quotation_id!),
+      ),
+    ];
+    if (sinDia.length === 0) return rows;
+
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('id, event_date, event_end_date')
+      .eq('company_id', companyId)
+      .in('id', sinDia);
+    if (error) throw error;
+
+    const diaUnico = new Map<string, string>();
+    for (const q of (data ?? []) as {
+      id: string;
+      event_date: string | null;
+      event_end_date: string | null;
+    }[]) {
+      if (!q.event_date) continue;
+      const inicio = q.event_date.slice(0, 10);
+      const fin = q.event_end_date?.slice(0, 10);
+      if (!fin || fin === inicio) diaUnico.set(q.id, inicio);
+    }
+
+    return rows.map((r) =>
+      !r.day && r.quotation_id && diaUnico.has(r.quotation_id)
+        ? { ...r, day: diaUnico.get(r.quotation_id)! }
+        : r,
+    );
   }
 
   async updateEventResource(
