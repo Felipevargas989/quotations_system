@@ -100,13 +100,20 @@ export default function FichasTab() {
 
   const hoy = hoyEnChile();
   const { data: eventos = [] } = useQuery(eventosQueryOptions);
+  // ACÁ SE REPARTE PLATA: sin caché (regla de la casa, escrita en
+  // lib/queryClient.ts — "las pantallas de PLATA definirán staleTime 0;
+  // ahí la frescura manda"). Con los 30 segundos por defecto, Felipe
+  // agregó un garzón en Planificación y al liquidar el día no aparecía:
+  // se habría repartido la propina sin él.
   const { data: sheets = [] } = useQuery({
     queryKey: ["people", "sheets"],
     queryFn: getSheets,
+    staleTime: 0,
   });
   const { data: pools = [] } = useQuery({
     queryKey: ["people", "pools"],
     queryFn: getPools,
+    staleTime: 0,
   });
   // La ventana del restaurante: las últimas seis semanas. Un día más
   // viejo que eso sin liquidar ya es un problema de otra índole.
@@ -114,6 +121,7 @@ export default function FichasTab() {
   const { data: staffVentana = [] } = useQuery({
     queryKey: ["people", "liquidacion-ventana", desdeVentana, hoy],
     queryFn: () => getStaffSemana(desdeVentana, hoy),
+    staleTime: 0,
   });
 
   const filas: EventoFila[] = useMemo(() => {
@@ -325,6 +333,7 @@ function FichaAbierta({
   const { data: staff = [] } = useQuery({
     queryKey: ["people", "staff-evento", evento.id],
     queryFn: () => getStaff(evento.id),
+    staleTime: 0,
   });
   const { data: pools = [] } = useQuery({
     queryKey: ["people", "pools"],
