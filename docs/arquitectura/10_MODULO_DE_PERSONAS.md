@@ -141,6 +141,36 @@ Entonces no se guarda ninguna semana. Cada fila queda marcada con la
 nómina que la pagó, y **pendiente = lo que todavía no entró en ninguna
 nómina**. No hay que acordarse de nada.
 
+#### Repartir y liquidar son dos pasos distintos (16-08)
+
+Felipe: *"la idea es que todo lo que se liquide quede listo para pagar
+en nómina, y luego toma todas las liquidaciones pendientes y crea una
+nómina"*. De ahí salen tres reglas que antes estaban mezcladas:
+
+1. **Repartir** deja la plata asignada a cada persona. **Liquidar** la
+   manda a cobrar. Van separados porque entre medio uno recorre los
+   días con ‹ › **validando** lo que acaba de repartir. Mientras eran
+   el mismo acto, el día desaparecía de la lista al repartirlo y no
+   había dónde volver a mirarlo.
+2. **Un día sale de la lista cuando llega a la nómina, no cuando se
+   reparte.** En el rato intermedio se muestra en verde: repartido,
+   esperando nómina. Un día marcado "sin propina" sí se va al toque —
+   no hay nada que mandar.
+3. **A la nómina solo entra lo liquidado.** Antes bastaba con tener
+   monto y no estar pagado: medido en laboratorio el 16-08, eso metía
+   $100.000 en 4 filas de eventos a medio liquidar. "Liquidado" es
+   distinto según el origen — un evento, cuando su ficha está cerrada;
+   un día de restaurante, cuando su propina ya se resolvió — y por eso
+   la regla vive como función pura (`estaLiquidado`) con su spec, no
+   como una condición escondida en la consulta.
+
+#### Las dos etapas de la nómina
+
+Ya construidas: **la carga**, donde se ve cada persona con su RUT,
+banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
+quién ya se le pagó, con barra de avance. El pago se hace a mano en el
+portal del banco, así que el sistema acompaña, no transfiere.
+
 ---
 
 ## 3. EL CICLO DE UNA FICHA
