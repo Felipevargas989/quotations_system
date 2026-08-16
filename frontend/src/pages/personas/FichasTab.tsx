@@ -1346,16 +1346,21 @@ function DiaRestaurante({
           <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
             Quiénes trabajaron
           </h4>
-          <ul className="text-sm space-y-1">
+          {/* EN COLUMNAS (Felipe, 16-08): el cargo colgado del nombre se
+              movía con cada nombre y no se podía leer de un vistazo. Con
+              la grilla, las cuatro columnas nacen del contenido más
+              ancho, así que quedan a plomo. Cada fila usa "contents"
+              para que sus celdas entren en la grilla del <ul>. */}
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_1fr_auto] items-center gap-x-4 gap-y-1 text-sm">
             {delDia.map((a) => (
-              <li key={a.id} className="flex items-center gap-2">
-                <span className="flex-1 text-gray-900">
+              <li key={a.id} className="contents">
+                <span className="text-gray-900">
                   {a.people?.name ?? "—"}
-                  <span className="text-gray-400 text-xs ml-2">
-                    {a.management_resources?.name ?? "sin cargo"}
-                  </span>
                 </span>
-                <span className="text-xs text-gray-500 tabular-nums">
+                <span className="text-gray-400 text-xs whitespace-nowrap">
+                  {a.management_resources?.name ?? "sin cargo"}
+                </span>
+                <span className="text-xs text-gray-500 tabular-nums text-right whitespace-nowrap">
                   {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)} ·{" "}
                   {formatoHoras(
                     horasTrabajadas(
