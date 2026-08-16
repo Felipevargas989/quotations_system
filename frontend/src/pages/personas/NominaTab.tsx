@@ -352,7 +352,13 @@ function RevisarAntesDeGenerar({
   readonly onGenerar: () => void;
   readonly onCerrar: () => void;
 }) {
-  const { data: previa, isLoading, error } = useQuery({
+  const {
+    data: previa,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["people", "previa-nomina", seleccion],
     queryFn: () => previaPayroll(seleccion),
     staleTime: 0,
@@ -375,6 +381,16 @@ function RevisarAntesDeGenerar({
       onCerrar={onCerrar}
       pie={
         <>
+          {/* Si uno completa una cuenta en otra pestaña, esta pantalla no
+              se entera sola: acá se vuelve a preguntar (Felipe, 16-08). */}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="mr-auto px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg disabled:opacity-50"
+          >
+            {isFetching ? "Actualizando…" : "Actualizar datos"}
+          </button>
           <button
             type="button"
             onClick={onCerrar}
