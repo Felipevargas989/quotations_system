@@ -638,7 +638,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
                     // (Felipe, 15-08).
-                    className={`w-full px-2 py-1.5 rounded-md text-sm border transition-colors ${
+                    className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
@@ -668,7 +668,10 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                       .filter(Boolean)
                       .join("\n") || undefined
                   }
-                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums text-center transition-colors border ${
+                  // Sin cupos que cubrir no hay contra qué comparar: se
+                  // muestra solo cuánta gente hay, sin el "/0" que
+                  // parecía un error.
+                  className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors border ${
                     abierta
                       ? "bg-blue-600 text-white border-blue-600"
                       : listo
@@ -682,9 +685,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                           "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
                   }`}
                 >
-                  {/* Sin cupos que cubrir no hay contra qué comparar:
-                      se muestra solo cuánta gente hay, sin el "/0" que
-                      parecía un error. */}
                   {necesita === 0 ? tiene : `${String(tiene)}/${String(necesita)}`}
                 </button>
               );
