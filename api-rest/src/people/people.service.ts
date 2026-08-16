@@ -181,7 +181,17 @@ export class PeopleService {
    */
   async addStaff(dto: CreateEventStaffDto, companyId: number) {
     const persona = await this.repo.findOne(dto.person_id, companyId);
-    const kind = dto.kind ?? persona.default_kind ?? 'freelance';
+    // UN PLANTA QUE VA A UN EVENTO ES UN DÍA EXTRA (Felipe, 15-08): su
+    // sueldo cubre su jornada, no esto. Ese día nace FREELANCE para que
+    // se le pague aparte. Mover sus días desde su calendario es otra
+    // cosa —ahí sigue siendo su jornada normal— y por eso la regla mira
+    // si hay evento, no el día.
+    const esDiaExtra =
+      dto.quotation_id != null && persona.default_kind === 'planta';
+    const kind =
+      dto.kind ??
+      (esDiaExtra ? 'freelance' : persona.default_kind) ??
+      'freelance';
     return this.repo.addStaff({
       ...dto,
       quotation_id: dto.quotation_id ?? null,
@@ -201,10 +211,26 @@ export class PeopleService {
     });
   }
 
-  updateStaff(id: number, dto: UpdateEventStaffDto, companyId: number) {
+  async updateStaff(id: number, dto: UpdateEventStaffDto, companyId: number) {
     const cambios: Record<string, unknown> = { ...dto };
     // Pasar a planta borra la jornada: deja de costar.
     if (dto.kind === 'planta') cambios.amount = null;
+
+    // SIN MONTO NO SE CONFIRMA (Felipe, 15-08). Una jornada confirmada
+    // sin monto es justo la que después aparece en la nómina sin saber
+    // cuánto pagarle — el problema que este módulo vino a resolver.
+    // La planta en su jornada normal no lleva monto: su sueldo no se
+    // carga al día, así que la regla es solo para lo que SÍ se paga.
+    if (dto.status === 'confirmado') {
+      const actual = await this.repo.findStaffPorId(id, companyId);
+      const kind = dto.kind ?? actual.kind;
+      const monto = dto.amount ?? actual.amount;
+      if (kind !== 'planta' && !monto) {
+        throw new BadRequestException(
+          'Ponle el monto del día antes de confirmarla',
+        );
+      }
+    }
     return this.repo.updateStaff(id, cambios, companyId);
   }
 

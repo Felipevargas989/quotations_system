@@ -238,6 +238,14 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           "Ese día está en un evento: no se le puede agregar además la planta.",
         );
       }
+      const persona = personas.find((x) => x.id === p.personId);
+      if (p.fila.quotationId !== null && persona?.default_kind === "planta") {
+        // Se avisa, no se impide: traerlo es legítimo, pero hay que
+        // saber que ese día se le paga aparte de su sueldo.
+        toast.warn(
+          `Es un día extra para ${persona.name}: se le paga aparte de su sueldo. Ponle el monto.`,
+        );
+      }
       return addStaff({
         quotation_id: p.fila.quotationId,
         person_id: p.personId,
@@ -1065,16 +1073,31 @@ function CasillaAbierta({
                   }
                   placeholder="0"
                   aria-label={`Monto del día de ${a.people?.name ?? "la persona"}`}
-                  className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right"
+                  className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
+                    a.kind !== "planta" && !a.amount
+                      ? "border-amber-400 bg-amber-50"
+                      : "border-gray-300"
+                  }`}
                 />
               </div>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  // Sin monto no se confirma: el backend lo rechaza
+                  // igual, pero acá se dice antes de intentarlo.
+                  if (
+                    a.status !== "confirmado" &&
+                    a.kind !== "planta" &&
+                    !a.amount
+                  ) {
+                    toast.warn("Ponle el monto del día antes de confirmarla.");
+                    return;
+                  }
                   onCambiar(a.id, {
-                    status: a.status === "confirmado" ? "por_confirmar" : "confirmado",
-                  })
-                }
+                    status:
+                      a.status === "confirmado" ? "por_confirmar" : "confirmado",
+                  });
+                }}
                 className={`text-xs px-2 py-1 rounded ${
                   a.status === "confirmado"
                     ? "text-emerald-700 hover:bg-emerald-50"

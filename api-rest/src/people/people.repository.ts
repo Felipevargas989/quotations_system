@@ -263,6 +263,19 @@ export class PeopleRepository {
     return data as unknown as EventStaff;
   }
 
+  /** Una asignación por su id — para revisar antes de confirmarla. */
+  async findStaffPorId(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException('No existe esa asignación');
+    return data as unknown as EventStaff;
+  }
+
   async updateStaff(
     id: number,
     cambios: Record<string, unknown>,
