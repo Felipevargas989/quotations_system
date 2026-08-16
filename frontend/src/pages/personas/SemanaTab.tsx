@@ -8,6 +8,7 @@ import {
   HoraInput,
   formatoHoras,
   horasTrabajadas,
+  SelectorColacion,
 } from "../../components/inputs";
 import GrillaDeDias, {
   type FilaGrillaDias,
@@ -921,27 +922,10 @@ function HorarioDelDia({
         aria-label={`Salida de ${a.people?.name}`}
       />
       <span className="text-gray-400">· colación</span>
-      <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
-        {/* La colación no puede ser cero: siempre hay media hora o una
-            hora (Felipe, 15-08). */}
-        {[
-          [30, "30 m"],
-          [60, "1 h"],
-        ].map(([min, texto]) => (
-          <button
-            key={min}
-            type="button"
-            onClick={() => onCambiar(a.id, { break_minutes: Number(min) || null })}
-            className={`px-1.5 py-0.5 ${
-              (a.break_minutes || 0) === min
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            {texto}
-          </button>
-        ))}
-      </div>
+      <SelectorColacion
+        value={a.break_minutes}
+        onChange={(min) => onCambiar(a.id, { break_minutes: min })}
+      />
       <span className="ml-auto tabular-nums font-medium text-gray-700">
         {formatoHoras(horas)}
       </span>

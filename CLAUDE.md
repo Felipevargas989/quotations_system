@@ -155,6 +155,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
 | `components/MultiSelect` | multiple choice with chips | 3 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
+| `components/inputs/SelectorColacion` | the meal break (30 min / 1 h, never zero). Same `event_staff` row in Planning and in Liquidación — editing it in one shows in the other; there is no second copy to keep in sync | 3 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
 | `components/QuantitySelector` | quantity steppers | 3 |

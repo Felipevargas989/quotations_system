@@ -14,6 +14,7 @@ import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
 import {
   HoraInput,
+  SelectorColacion,
   formatoHoras,
   horasTrabajadas,
 } from "../../components/inputs";
@@ -529,6 +530,18 @@ function FichaAbierta({
                             }
                             compacta
                             aria-label={`Salida de ${a.people?.name ?? ""}`}
+                          />
+                          {/* La colación también se revalida acá: es la
+                              que explica dos totales distintos con el
+                              mismo horario (Felipe, 16-08). */}
+                          <SelectorColacion
+                            value={a.break_minutes}
+                            onChange={(min) =>
+                              cambiarStaff.mutate({
+                                id: a.id,
+                                cambios: { break_minutes: min },
+                              })
+                            }
                           />
                         </>
                       )}
@@ -1394,7 +1407,7 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
             {delDia.map((a) =>
               // La fila que pregunta ocupa el ancho entero: si la
               // pregunta viviera en una celda, ensancharía esa columna
@@ -1446,6 +1459,20 @@ function DiaRestaurante({
                     }
                     compacta
                     aria-label={`Salida de ${a.people?.name ?? ""}`}
+                  />
+                  {/* LA COLACIÓN EXPLICA LA DIFERENCIA (Felipe, 16-08):
+                      dos personas con el mismo 09:00–19:00 marcaban 9,5 h
+                      y 9 h, y no había cómo ver por qué. Es la misma fila
+                      que edita Planificación, así que cambiarla aquí la
+                      cambia allá. */}
+                  <SelectorColacion
+                    value={a.break_minutes}
+                    onChange={(min) =>
+                      cambiarStaff.mutate({
+                        id: a.id,
+                        cambios: { break_minutes: min },
+                      })
+                    }
                   />
                   <span className="w-10 text-right text-xs text-gray-500 tabular-nums">
                     {formatoHoras(

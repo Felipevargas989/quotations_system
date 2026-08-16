@@ -4,3 +4,4 @@ export {
   horasTrabajadas,
   formatoHoras,
 } from "./HoraInput";
+export { default as SelectorColacion } from "./SelectorColacion";
