@@ -569,6 +569,14 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
               const necesita = f.necesita.get(d) || 0;
               const tiene = gente.length;
               const abierta = casilla?.dia === d && casilla.fila === f;
+              // UNA SOLA REGLA (Felipe, 15-08): verde solo si están
+              // TODOS y todos confirmados. Dos nombres puestos que no
+              // han confirmado no son un día resuelto — todavía te
+              // pueden fallar.
+              const porConfirmar = gente.filter(
+                (a) => a.status !== "confirmado",
+              ).length;
+              const listo = tiene >= necesita && necesita > 0 && porConfirmar === 0;
               // Quién está y cómo va, sin abrir la casilla (Felipe, 15-08).
               const quienes = gente
                 .map(
@@ -587,7 +595,19 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     onClick={() =>
                       setCasilla(abierta ? null : { dia: d, fila: f })
                     }
-                    title={quienes || undefined}
+                    title={
+                    [
+                      necesita > 0
+                        ? `${String(tiene)} de ${String(necesita)}`
+                        : `${String(tiene)} puestos, sin cupo costeado`,
+                      porConfirmar > 0
+                        ? `${String(porConfirmar)} por confirmar`
+                        : null,
+                      quienes || null,
+                    ]
+                      .filter(Boolean)
+                      .join("\n") || undefined
+                  }
                     className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white"
@@ -628,7 +648,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                   </button>
                 );
               }
-              const falta = necesita - tiene;
               return (
                 <button
                   type="button"
@@ -636,22 +655,31 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     setDiaAbierto(null);
                     setCasilla(abierta ? null : { dia: d, fila: f });
                   }}
-                  title={quienes || undefined}
+                  title={
+                    [
+                      necesita > 0
+                        ? `${String(tiene)} de ${String(necesita)}`
+                        : `${String(tiene)} puestos, sin cupo costeado`,
+                      porConfirmar > 0
+                        ? `${String(porConfirmar)} por confirmar`
+                        : null,
+                      quienes || null,
+                    ]
+                      .filter(Boolean)
+                      .join("\n") || undefined
+                  }
                   className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums text-center transition-colors border ${
                     abierta
                       ? "bg-blue-600 text-white border-blue-600"
-                      : // MIENTRAS NO ESTÉ COMPLETO, TODO ÁMBAR: suave
-                        // por dentro y el borde más fuerte (Felipe,
-                        // 15-08). Sin cupo asignado también es ámbar:
-                        // hay gente puesta contra una meta que nunca se
-                        // costeó, y eso hay que verlo.
-                        falta > 0 || necesita === 0
-                        ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
-                        : `bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${
+                      : listo
+                        ? `bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${
                             esDelEvento
                               ? "border-emerald-300"
                               : "border-transparent"
                           }`
+                        : // Todo lo que no está resuelto va ámbar: suave
+                          // por dentro y el borde más fuerte.
+                          "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
                   }`}
                 >
                   {/* Sin cupos que cubrir no hay contra qué comparar:
