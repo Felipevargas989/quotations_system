@@ -764,9 +764,9 @@ function Reparto({
               const fuera = sinPropinaCargo.has(id);
               return (
                 <div key={id ?? 0} className="flex items-center gap-3 text-sm">
-                  <span
-                    className={`w-40 ${fuera ? "text-gray-400" : "text-gray-900"}`}
-                  >
+                  {/* El cargo con su check PEGADO; el porcentaje y la
+                      plata se van al extremo derecho (Felipe, 15-08). */}
+                  <span className={fuera ? "text-gray-400" : "text-gray-900"}>
                     {nombre}
                   </span>
                   <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
@@ -786,6 +786,7 @@ function Reparto({
                     />
                     sin propina
                   </label>
+                  <span className="flex-1" />
                   {/* El ancho va en el CONTENEDOR: el campo numérico se
                       estira a lo que le den, y ponerle w-20 a él no
                       hacía nada (mismo tropiezo que con el monto). */}
@@ -803,7 +804,6 @@ function Reparto({
                   <span className="w-28 text-right tabular-nums text-gray-600">
                     {clp((monto * pct(id)) / 100)}
                   </span>
-                  <span className="flex-1" />
                 </div>
               );
             })}
