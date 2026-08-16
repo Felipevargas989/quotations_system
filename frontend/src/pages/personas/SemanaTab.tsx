@@ -637,19 +637,27 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     setCasilla(abierta ? null : { dia: d, fila: f });
                   }}
                   title={quienes || undefined}
-                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors border ${
+                  className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums text-center transition-colors border ${
                     abierta
                       ? "bg-blue-600 text-white border-blue-600"
-                      : falta > 0
+                      : // MIENTRAS NO ESTÉ COMPLETO, TODO ÁMBAR: suave
+                        // por dentro y el borde más fuerte (Felipe,
+                        // 15-08). Sin cupo asignado también es ámbar:
+                        // hay gente puesta contra una meta que nunca se
+                        // costeó, y eso hay que verlo.
+                        falta > 0 || necesita === 0
                         ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
                         : `bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${
                             esDelEvento
-                              ? "border-amber-300"
+                              ? "border-emerald-300"
                               : "border-transparent"
                           }`
                   }`}
                 >
-                  {tiene}/{necesita}
+                  {/* Sin cupos que cubrir no hay contra qué comparar:
+                      se muestra solo cuánta gente hay, sin el "/0" que
+                      parecía un error. */}
+                  {necesita === 0 ? tiene : `${String(tiene)}/${String(necesita)}`}
                 </button>
               );
             },
