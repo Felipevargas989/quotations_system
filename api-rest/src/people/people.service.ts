@@ -525,6 +525,27 @@ export class PeopleService {
     return { repartido, filas: asignado.size };
   }
 
+  /**
+   * UN DÍA SIN PROPINA TAMBIÉN SE LIQUIDA (Felipe, 15-08): si no se
+   * pudiera marcar, los días flojos quedarían eternamente como
+   * pendientes. Solo vale con el pozo en cero — si hay plata, se
+   * reparte, no se salta.
+   */
+  async marcarSinPropina(poolId: number, companyId: number) {
+    const pool = await this.repo.findPool(poolId, companyId);
+    const pozo = Number(pool.first_amount) + Number(pool.second_amount);
+    if (pozo > 0) {
+      throw new BadRequestException(
+        'Ese día tiene pozo: repártelo, no lo saltes',
+      );
+    }
+    return this.repo.updatePool(
+      poolId,
+      { distributed_at: new Date().toISOString() },
+      companyId,
+    );
+  }
+
   // ================= LAS ESTRELLAS =================
 
   /** El historial de pagos de una persona: sus jornadas y sus propinas,

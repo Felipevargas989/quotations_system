@@ -174,6 +174,12 @@ export class PeopleController {
     return this.peopleService.removePool(+id, user.company_id);
   }
 
+  @Post('pools/:id/sin-propina')
+  sinPropina(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/pools/${id}/sin-propina`);
+    return this.peopleService.marcarSinPropina(+id, user.company_id);
+  }
+
   @Post('pools/:id/repartir')
   repartir(
     @Param('id') id: string,

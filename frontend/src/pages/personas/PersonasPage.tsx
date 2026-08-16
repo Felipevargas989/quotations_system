@@ -173,7 +173,7 @@ export default function PersonasPage() {
       <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
         {([
           ["armar", "Planificación"],
-          ["fichas", "Fichas"],
+          ["fichas", "Liquidación"],
           ["nomina", "Nómina"],
           ["directorio", "Staff"],
         ] as const).map(([id, texto]) => (

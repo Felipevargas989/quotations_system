@@ -160,6 +160,29 @@ ya salió la plata.
 
 ## 4. LAS REGLAS
 
+### La liquidación (flujo cerrado el 15-08)
+
+La pestaña se llama **Liquidación** y separa los dos caminos:
+
+- **Eventos**: solo los que **ya pasaron** ("no pago un evento de
+  diciembre en agosto"), el más viejo primero, los liquidados plegados.
+  Adentro es UNA pantalla: se confirman horas y asistencia (quien no
+  vino se saca), se ingresa la propina una vez, se eligen los cargos
+  que tocan y su %, se reparte y se liquida. De ahí queda para nómina.
+- **Días de restaurante**: un modal DIARIO — "se reparte diario según
+  quiénes tocaron propina ese día". Muestra quiénes trabajaron, pide el
+  pozo y los % por cargo (sin plantillas por defecto: se escriben según
+  el día), reparte y pasa solo al día siguiente. **Un día sin propina
+  también se liquida** (botón "sin propina"); si no, los días flojos
+  quedarían pendientes para siempre.
+- El reparto dentro del cargo es **por horas** — no se podía en el
+  Excel; mejora ratificada por Felipe el 15-08.
+- La propina puede no existir; **el pago del staff siempre**: la deuda
+  que el sistema registra son los staff no pagados.
+- Los datos bancarios aparecen al **pagar** (cargar al banco, con su
+  check); en el resumen de la nómina van nombre, RUT, monto y si se
+  pagó — sin datos bancarios.
+
 ### El reparto de la propina
 
 - Se reparte **por horas**.
@@ -277,6 +300,29 @@ grilla del evento**, no ahí.
 falta para los días de preparativo y de desarme, que hoy no están en
 ninguna parte del costo (en el correo real aparece "Preparativos evento
 Municipalidad, $25.000").
+
+### La liquidación (flujo cerrado el 15-08)
+
+La pestaña se llama **Liquidación** y separa los dos caminos:
+
+- **Eventos**: solo los que **ya pasaron** ("no pago un evento de
+  diciembre en agosto"), el más viejo primero, los liquidados plegados.
+  Adentro es UNA pantalla: se confirman horas y asistencia (quien no
+  vino se saca), se ingresa la propina una vez, se eligen los cargos
+  que tocan y su %, se reparte y se liquida. De ahí queda para nómina.
+- **Días de restaurante**: un modal DIARIO — "se reparte diario según
+  quiénes tocaron propina ese día". Muestra quiénes trabajaron, pide el
+  pozo y los % por cargo (sin plantillas por defecto: se escriben según
+  el día), reparte y pasa solo al día siguiente. **Un día sin propina
+  también se liquida** (botón "sin propina"); si no, los días flojos
+  quedarían pendientes para siempre.
+- El reparto dentro del cargo es **por horas** — no se podía en el
+  Excel; mejora ratificada por Felipe el 15-08.
+- La propina puede no existir; **el pago del staff siempre**: la deuda
+  que el sistema registra son los staff no pagados.
+- Los datos bancarios aparecen al **pagar** (cargar al banco, con su
+  check); en el resumen de la nómina van nombre, RUT, monto y si se
+  pagó — sin datos bancarios.
 
 ### El reparto
 

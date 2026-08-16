@@ -187,6 +187,14 @@ export const updatePool = async (
 export const removePool = async (id: number) =>
   apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}`, "DELETE");
 
+/** Un día flojo también se liquida: pozo en cero, marcado y listo. */
+export const sinPropina = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/pools/${String(id)}/sin-propina`,
+    "POST",
+    {},
+  )) as Pozo;
+
 export const repartirPool = async (
   id: number,
   porcentajes: { role_id: number | null; pct: number }[],

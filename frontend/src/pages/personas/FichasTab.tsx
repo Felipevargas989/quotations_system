@@ -1,12 +1,24 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, Lock, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  Trash2,
+  X,
+} from "lucide-react";
 import NumberInput from "../../components/inputs/NumberInput";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
-import { horasTrabajadas, formatoHoras } from "../../components/inputs";
+import {
+  HoraInput,
+  formatoHoras,
+  horasTrabajadas,
+} from "../../components/inputs";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
+import Modal from "../../components/Modal";
 import {
   cerrarFicha,
   createPool,
@@ -14,13 +26,22 @@ import {
   getPools,
   getSheets,
   getStaff,
+  getStaffSemana,
+  removeStaff,
   repartirPool,
+  sinPropina,
   updatePool,
+  updateStaff,
   upsertSheet,
 } from "../../services/people.service";
 import type { Asignacion, EstadoFicha, Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { formatISOUTCDateToString } from "../../utils/dates";
+import { formatISOUTCDateToString, hoyEnChile } from "../../utils/dates";
+
+const sumarDias = (isoDia: string, n: number) =>
+  new Date(new Date(`${isoDia}T00:00:00Z`).getTime() + n * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
 
 // LA FICHA DE CADA EVENTO — EL CICLO COMPLETO (etapas 4 y 5)
 //
@@ -89,25 +110,71 @@ interface EventoFila {
 export default function FichasTab() {
   const qc = useQueryClient();
   const [abierta, setAbierta] = useState<EventoFila | null>(null);
+  const [verLiquidados, setVerLiquidados] = useState(false);
+  const [diaModal, setDiaModal] = useState<number | null>(null);
 
+  const hoy = hoyEnChile();
   const { data: eventos = [] } = useQuery(eventosQueryOptions);
   const { data: sheets = [] } = useQuery({
     queryKey: ["people", "sheets"],
     queryFn: getSheets,
   });
+  const { data: pools = [] } = useQuery({
+    queryKey: ["people", "pools"],
+    queryFn: getPools,
+  });
+  // La ventana del restaurante: las últimas seis semanas. Un día más
+  // viejo que eso sin liquidar ya es un problema de otra índole.
+  const desdeVentana = sumarDias(hoy, -42);
+  const { data: staffVentana = [] } = useQuery({
+    queryKey: ["people", "liquidacion-ventana", desdeVentana, hoy],
+    queryFn: () => getStaffSemana(desdeVentana, hoy),
+  });
 
   const filas: EventoFila[] = useMemo(() => {
     const porEvento = new Map(sheets.map((s) => [s.quotation_id, s.status]));
-    return eventos
-      .map((q) => ({
-        id: q.id,
-        nombre: `N° ${String(q.numero)} · ${q.cliente}`,
-        inicio: q.inicio,
-        termino: q.termino || q.inicio,
-        estado: porEvento.get(q.id) ?? ("armando" as EstadoFicha),
-      }))
-      .sort((a, b) => b.inicio.localeCompare(a.inicio));
-  }, [eventos, sheets]);
+    return (
+      eventos
+        // SE LIQUIDA LO QUE YA PASÓ (Felipe, 15-08): "no pago un evento
+        // de diciembre en agosto". Los futuros no aparecen acá — para
+        // armarlos está la Planificación.
+        .filter((q) => (q.termino || q.inicio) <= hoy)
+        .map((q) => ({
+          id: q.id,
+          nombre: `N° ${String(q.numero)} · ${q.cliente}`,
+          inicio: q.inicio,
+          termino: q.termino || q.inicio,
+          estado: porEvento.get(q.id) ?? ("armando" as EstadoFicha),
+        }))
+        // El más viejo primero: es el que más urge liquidar.
+        .sort((a, b) => a.inicio.localeCompare(b.inicio))
+    );
+  }, [eventos, sheets, hoy]);
+
+  const pendientes = filas.filter((f) => f.estado !== "cerrada");
+  const liquidados = filas.filter((f) => f.estado === "cerrada");
+
+  // Los días de restaurante por liquidar: hubo gente sin evento y ese
+  // día aún no tiene su pozo repartido (o marcado sin propina).
+  const diasPendientes = useMemo(() => {
+    const liquidadosSet = new Set(
+      pools
+        .filter((p) => p.day && p.distributed_at)
+        .map((p) => String(p.day).slice(0, 10)),
+    );
+    const dias = new Set<string>();
+    for (const a of staffVentana) {
+      if (a.quotation_id !== null) continue;
+      const d = String(a.day).slice(0, 10);
+      if (d <= hoy && !liquidadosSet.has(d)) dias.add(d);
+    }
+    return [...dias].sort();
+  }, [staffVentana, pools, hoy]);
+
+  const refrescar = () => {
+    void qc.invalidateQueries({ queryKey: ["people", "pools"] });
+    void qc.invalidateQueries({ queryKey: ["people", "liquidacion-ventana"] });
+  };
 
   if (abierta) {
     return (
@@ -121,43 +188,123 @@ export default function FichasTab() {
     );
   }
 
+  const FilaEvento = ({ f }: { readonly f: EventoFila }) => (
+    <li key={f.id}>
+      <button
+        type="button"
+        onClick={() => setAbierta(f)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-gray-900 truncate">{f.nombre}</div>
+          <div className="text-xs text-gray-500">
+            {formatISOUTCDateToString(f.inicio)}
+            {f.termino !== f.inicio &&
+              ` — ${formatISOUTCDateToString(f.termino)}`}
+          </div>
+        </div>
+        <ChipEstado estado={f.estado} />
+      </button>
+    </li>
+  );
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-900">Fichas de eventos</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          El ciclo de cada evento: armando → confirmado → trabajado →
-          cerrada. Al cerrar se reparte la propina y se evalúa al equipo.
-        </p>
-      </div>
-      {filas.length === 0 ? (
-        <p className="text-sm text-gray-500 p-6 text-center">
-          No hay eventos aprobados con fecha todavía.
-        </p>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {filas.map((f) => (
-            <li key={f.id}>
+    <div className="space-y-4">
+      {/* ---------- Los días de restaurante ---------- */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div>
+            <h2 className="font-semibold text-gray-900">
+              Días de restaurante
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Día por día: quiénes trabajaron, cuánta propina hubo y cómo
+              se reparte. Un día sin propina también se liquida.
+            </p>
+          </div>
+          {diasPendientes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDiaModal(0)}
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              Liquidar {diasPendientes.length}{" "}
+              {diasPendientes.length === 1 ? "día" : "días"}
+            </button>
+          )}
+        </div>
+        {diasPendientes.length === 0 ? (
+          <p className="text-sm text-gray-500 px-4 py-4">
+            Al día: no hay días de restaurante pendientes.
+          </p>
+        ) : (
+          <div className="px-4 py-3 flex items-center gap-1.5 flex-wrap">
+            {diasPendientes.map((d, i) => (
               <button
+                key={d}
                 type="button"
-                onClick={() => setAbierta(f)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                onClick={() => setDiaModal(i)}
+                className="px-2 py-1 text-xs tabular-nums border border-amber-300 bg-amber-50 text-amber-800 rounded-md hover:bg-amber-100"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">
-                    {f.nombre}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {formatISOUTCDateToString(f.inicio)}
-                    {f.termino !== f.inicio &&
-                      ` — ${formatISOUTCDateToString(f.termino)}`}
-                  </div>
-                </div>
-                <ChipEstado estado={f.estado} />
+                {formatISOUTCDateToString(d)}
               </button>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Los eventos que ya pasaron ---------- */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Eventos por liquidar</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Solo los que ya pasaron. Adentro: se confirman horas y
+            asistencia, se ingresa la propina, se reparte y se liquida —
+            de ahí queda lista para la nómina.
+          </p>
+        </div>
+        {pendientes.length === 0 ? (
+          <p className="text-sm text-gray-500 p-6 text-center">
+            Nada pendiente: todos los eventos pasados están liquidados.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {pendientes.map((f) => (
+              <FilaEvento key={f.id} f={f} />
+            ))}
+          </ul>
+        )}
+        {liquidados.length > 0 && (
+          <div className="border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setVerLiquidados(!verLiquidados)}
+              className="w-full px-4 py-2 text-left text-xs text-gray-500 hover:bg-gray-50"
+            >
+              {verLiquidados ? "▾" : "▸"} {liquidados.length} ya{" "}
+              {liquidados.length === 1 ? "liquidado" : "liquidados"}
+            </button>
+            {verLiquidados && (
+              <ul className="divide-y divide-gray-100">
+                {liquidados.map((f) => (
+                  <FilaEvento key={f.id} f={f} />
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {diaModal !== null && diasPendientes[diaModal] && (
+        <DiaRestaurante
+          dias={diasPendientes}
+          indice={diaModal}
+          staff={staffVentana}
+          pools={pools}
+          onIr={(i) => setDiaModal(i)}
+          onCambio={refrescar}
+          onCerrar={() => setDiaModal(null)}
+        />
       )}
     </div>
   );
@@ -208,6 +355,18 @@ function FichaAbierta({
     qc.invalidateQueries({ queryKey: ["people", "staff-evento", evento.id] });
     onCambio();
   };
+
+  const cambiarStaff = useMutation({
+    mutationFn: (v: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
+      updateStaff(v.id, v.cambios),
+    onSuccess: refrescar,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+  const sacarStaff = useMutation({
+    mutationFn: (id: number) => removeStaff(id),
+    onSuccess: refrescar,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
 
   const avanzar = useMutation({
     mutationFn: (estado: EstadoFicha) => upsertSheet(evento.id, estado),
@@ -300,7 +459,7 @@ function FichaAbierta({
                 <div className="text-xs font-semibold text-gray-500 uppercase">
                   {formatISOUTCDateToString(d)}
                 </div>
-                <ul className="mt-1 space-y-0.5">
+                <ul className="mt-1 space-y-1">
                   {gente.map((a) => (
                     <li key={a.id} className="flex items-center gap-2">
                       <span className="flex-1 text-gray-900">
@@ -309,8 +468,41 @@ function FichaAbierta({
                           {a.management_resources?.name ?? "sin cargo"}
                         </span>
                       </span>
-                      <span className="text-xs text-gray-500 tabular-nums">
-                        {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)} ·{" "}
+                      {/* LAS HORAS SE CONFIRMAN ACÁ (Felipe, 15-08): la
+                          liquidación es una sola pantalla. Y quien no
+                          vino, se saca con el basurero. */}
+                      {cerrada ? (
+                        <span className="text-xs text-gray-500 tabular-nums">
+                          {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)}
+                        </span>
+                      ) : (
+                        <>
+                          <HoraInput
+                            value={a.starts_at?.slice(0, 5) ?? null}
+                            onChange={(v) =>
+                              cambiarStaff.mutate({
+                                id: a.id,
+                                cambios: { starts_at: v },
+                              })
+                            }
+                            compacta
+                            aria-label={`Entrada de ${a.people?.name ?? ""}`}
+                          />
+                          <span className="text-xs text-gray-400">a</span>
+                          <HoraInput
+                            value={a.ends_at?.slice(0, 5) ?? null}
+                            onChange={(v) =>
+                              cambiarStaff.mutate({
+                                id: a.id,
+                                cambios: { ends_at: v },
+                              })
+                            }
+                            compacta
+                            aria-label={`Salida de ${a.people?.name ?? ""}`}
+                          />
+                        </>
+                      )}
+                      <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
                         {formatoHoras(
                           horasTrabajadas(
                             a.starts_at?.slice(0, 5) ?? null,
@@ -325,6 +517,17 @@ function FichaAbierta({
                       <span className="w-20 text-right tabular-nums text-emerald-700">
                         {a.tip_amount ? clp(Number(a.tip_amount)) : ""}
                       </span>
+                      {!cerrada && (
+                        <button
+                          type="button"
+                          onClick={() => sacarStaff.mutate(a.id)}
+                          aria-label={`No vino: sacar a ${a.people?.name ?? ""}`}
+                          title="No vino: sacarlo de este día"
+                          className="p-1 text-gray-300 hover:text-red-600 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -332,9 +535,7 @@ function FichaAbierta({
             ))}
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-2">
-          Las horas reales se ajustan en Planificación, pinchando el día.
-        </p>
+
       </div>
 
       <Reparto
@@ -667,5 +868,263 @@ function EvaluacionesModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * LA LIQUIDACIÓN DIARIA DEL RESTAURANTE (Felipe, 15-08): "se debe
+ * cargar diario, porque se reparte diario según quiénes tocaron
+ * propina ese día".
+ *
+ * El modal muestra quiénes trabajaron, pide el monto del pozo y el %
+ * por cargo de los que estuvieron — sin plantillas: los porcentajes se
+ * escriben según el día. Reparte (por horas dentro del cargo, la mejora
+ * sobre el Excel que Felipe ratificó) y pasa solo al día siguiente.
+ * Un día flojo se marca "sin propina" y también queda liquidado.
+ */
+function DiaRestaurante({
+  dias,
+  indice,
+  staff,
+  pools,
+  onIr,
+  onCambio,
+  onCerrar,
+}: {
+  readonly dias: readonly string[];
+  readonly indice: number;
+  readonly staff: readonly Asignacion[];
+  readonly pools: readonly Pozo[];
+  readonly onIr: (indice: number) => void;
+  readonly onCambio: () => void;
+  readonly onCerrar: () => void;
+}) {
+  const dia = dias[indice];
+  const [monto, setMonto] = useState<number | undefined>(undefined);
+  const [pcts, setPcts] = useState<Map<number, number>>(new Map());
+
+  const delDia = useMemo(
+    () =>
+      staff.filter(
+        (a) =>
+          a.quotation_id === null && String(a.day).slice(0, 10) === dia,
+      ),
+    [staff, dia],
+  );
+
+  const cargos = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of delDia)
+      m.set(a.role_id ?? 0, a.management_resources?.name ?? "Sin cargo");
+    return [...m.entries()];
+  }, [delDia]);
+
+  const pct = (id: number) => pcts.get(id) ?? 0;
+  const total = cargos.reduce((t, [id]) => t + pct(id), 0);
+  const cuadra = Math.abs(total - 100) < 0.001;
+
+  // Al cambiar de día, el formulario parte limpio: los porcentajes son
+  // DE ESE día, no se arrastran.
+  const [diaAnterior, setDiaAnterior] = useState(dia);
+  if (dia !== diaAnterior) {
+    setDiaAnterior(dia);
+    setMonto(undefined);
+    setPcts(new Map());
+  }
+
+  const avanzar = () => {
+    if (indice + 1 < dias.length) onIr(indice + 1);
+    else onCerrar();
+  };
+
+  const poolDelDia = () =>
+    pools.find(
+      (p) => p.day && String(p.day).slice(0, 10) === dia && !p.distributed_at,
+    ) ?? null;
+
+  const liquidar = useMutation({
+    mutationFn: async () => {
+      const existente = poolDelDia();
+      const pozo = existente
+        ? await updatePool(existente.id, { first_amount: monto ?? 0 })
+        : await createPool({ day: dia, first_amount: monto ?? 0 });
+      await repartirPool(
+        pozo.id,
+        cargos.map(([role_id]) => ({
+          role_id: role_id === 0 ? null : role_id,
+          pct: pct(role_id),
+        })),
+      );
+      return pozo;
+    },
+    onSuccess: () => {
+      toast.success(`${formatISOUTCDateToString(dia)} liquidado.`);
+      onCambio();
+      avanzar();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  const sinPropinaHoy = useMutation({
+    mutationFn: async () => {
+      const existente = poolDelDia();
+      const pozo =
+        existente ?? (await createPool({ day: dia, first_amount: 0 }));
+      if (existente && Number(existente.first_amount) > 0) {
+        await updatePool(existente.id, { first_amount: 0 });
+      }
+      return sinPropina(pozo.id);
+    },
+    onSuccess: () => {
+      toast.success(`${formatISOUTCDateToString(dia)}: sin propina, listo.`);
+      onCambio();
+      avanzar();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  const ocupado = liquidar.isPending || sinPropinaHoy.isPending;
+
+  return (
+    <Modal
+      titulo={
+        <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onIr(indice - 1)}
+            disabled={indice === 0}
+            aria-label="Día anterior"
+            className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          {formatISOUTCDateToString(dia)}
+          <button
+            type="button"
+            onClick={() => onIr(indice + 1)}
+            disabled={indice + 1 >= dias.length}
+            aria-label="Día siguiente"
+            className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </span>
+      }
+      subtitulo={`Día ${String(indice + 1)} de ${String(dias.length)} por liquidar`}
+      ancho="max-w-lg"
+      onCerrar={onCerrar}
+      pie={
+        <>
+          <button
+            type="button"
+            onClick={() => sinPropinaHoy.mutate()}
+            disabled={ocupado}
+            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+          >
+            Sin propina este día
+          </button>
+          <button
+            type="button"
+            onClick={() => liquidar.mutate()}
+            disabled={ocupado || !monto || !cuadra}
+            title={
+              !monto
+                ? "Ponle el monto del pozo"
+                : !cuadra
+                  ? `Los porcentajes suman ${total.toLocaleString("es-CL")}%`
+                  : undefined
+            }
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+          >
+            {liquidar.isPending ? "Repartiendo…" : "Repartir y seguir"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
+            Quiénes trabajaron
+          </h4>
+          <ul className="text-sm space-y-0.5">
+            {delDia.map((a) => (
+              <li key={a.id} className="flex items-center gap-2">
+                <span className="flex-1 text-gray-900">
+                  {a.people?.name ?? "—"}
+                  <span className="text-gray-400 text-xs ml-2">
+                    {a.management_resources?.name ?? "sin cargo"}
+                  </span>
+                </span>
+                <span className="text-xs text-gray-500 tabular-nums">
+                  {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)} ·{" "}
+                  {formatoHoras(
+                    horasTrabajadas(
+                      a.starts_at?.slice(0, 5) ?? null,
+                      a.ends_at?.slice(0, 5) ?? null,
+                      a.break_minutes,
+                    ),
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-900">
+            Propina del día
+          </span>
+          <div className="w-32 relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+              $
+            </span>
+            <NumberInput
+              value={monto}
+              onChange={(v: number | undefined) => setMonto(v)}
+              placeholder="0"
+              aria-label="Monto del pozo del día"
+              className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1.5 text-sm text-right"
+            />
+          </div>
+        </div>
+
+        {(monto ?? 0) > 0 && (
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
+              Cómo se reparte
+            </h4>
+            <div className="space-y-1">
+              {cargos.map(([id, nombre]) => (
+                <div key={id} className="flex items-center gap-2 text-sm">
+                  <span className="flex-1 text-gray-900">{nombre}</span>
+                  <NumberInput
+                    value={pct(id) || undefined}
+                    onChange={(v: number | undefined) =>
+                      setPcts(new Map(pcts).set(id, v ?? 0))
+                    }
+                    placeholder="0"
+                    aria-label={`Porcentaje de ${nombre}`}
+                    className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+                  />
+                  <span className="text-gray-400 w-4">%</span>
+                  <span className="w-24 text-right tabular-nums text-gray-600">
+                    {clp(((monto ?? 0) * pct(id)) / 100)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p
+              className={`text-sm mt-2 ${
+                cuadra ? "text-emerald-700" : "text-amber-700"
+              }`}
+            >
+              {cuadra
+                ? `Cuadra: ${clp(monto ?? 0)} completos al equipo.`
+                : `Suman ${total.toLocaleString("es-CL")}% — el botón se abre en 100.`}
+            </p>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
