@@ -768,6 +768,18 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           }
           onSacar={(id) => sacar.mutate(id)}
           onCambiar={(id, cambios) => cambiar.mutate({ id, cambios })}
+          ocupados={
+            new Set(
+              staff
+                .filter(
+                  (a) =>
+                    iso(a.day) === casilla.dia &&
+                    // Los de ESTA casilla no cuentan: ya salen abajo.
+                    String(a.quotation_id) !== String(casilla.fila.quotationId),
+                )
+                .map((a) => a.person_id),
+            )
+          }
           diasDePlanta={diasDePlanta}
           onPonerEnDia={(personId, d) =>
             poner.mutate({ personId, dia: d, fila: casilla.fila })
@@ -935,6 +947,7 @@ function CasillaAbierta({
   onPoner,
   onSacar,
   onCambiar,
+  ocupados,
   diasDePlanta,
   onPonerEnDia,
   onSacarDelDia,
@@ -950,6 +963,9 @@ function CasillaAbierta({
   readonly onSacar: (id: number) => void;
   readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
   /** Los días del mes en que esa persona ya viene de planta. */
+  /** Quiénes YA tienen jornada ese día en otra parte (su planta, u
+   *  otro evento). No se ofrecen: ya están ocupados. */
+  readonly ocupados: ReadonlySet<number>;
   readonly diasDePlanta: (personId: number) => ReadonlySet<string>;
   readonly onPonerEnDia: (personId: number, dia: string) => void;
   readonly onSacarDelDia: (personId: number, dia: string) => void;
@@ -963,23 +979,36 @@ function CasillaAbierta({
   // Los bloqueados y los no disponibles no se ofrecen — pero no se borran:
   // siguen en la libreta, y en la nómina si se les debe.
   const diaSemana = new Date(`${dia}T00:00:00Z`).getUTCDay();
+  // EN SECCIONES, como los menús variables (Felipe, 15-08): la planta
+  // arriba y el staff abajo. Con la sección puesta, repetir "planta" en
+  // cada línea sobra — y el RUT acá no ayuda a decidir a quién poner.
   const disponibles: SelectOption[] = personas
-    .filter((p) => p.status === "activa" && !puestos.has(p.id))
+    .filter(
+      (p) =>
+        p.status === "activa" &&
+        !puestos.has(p.id) &&
+        // Ya tiene jornada ese día en otra parte: ofrecerlo sería
+        // ofrecer a alguien ocupado (Felipe, 15-08).
+        !ocupados.has(p.id),
+    )
     .map((p) => ({
       value: String(p.id),
       label: p.name,
+      group:
+        p.default_kind === "planta" ? "Personal de planta" : "Personal Staff",
       hint: [
-        // Si es su día libre se avisa PRIMERO — se puede poner igual
-        // (a veces se le paga el día libre como freelance), pero a
-        // sabiendas.
-        p.days_off?.includes(diaSemana) ? "⚠ LIBRE este día" : undefined,
+        // Si ese día es su libre se avisa: se puede poner igual —a
+        // veces se le paga aparte—, pero a sabiendas.
+        p.days_off?.includes(diaSemana) ? "⚠ libre este día" : undefined,
         p.management_resources?.name,
-        p.default_kind === "planta" ? "planta" : undefined,
-        p.rut ? formatearRut(p.rut) : "sin RUT",
       ]
         .filter(Boolean)
         .join(" · "),
-    }));
+    }))
+    .sort((a, b) => {
+      if (a.group !== b.group) return a.group === "Personal de planta" ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
 
   return (
     <Modal
