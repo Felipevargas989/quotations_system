@@ -580,11 +580,49 @@ export class PeopleService {
       desde: dto.desde,
       quotationIds: dto.quotation_ids,
     };
-    const jornadas = await this.repo.jornadasPendientes(companyId, filtro);
-    const propinas = await this.repo.propinasPendientes(companyId, filtro);
+    const jornadasCrudas = await this.repo.jornadasPendientes(
+      companyId,
+      filtro,
+    );
+    const propinasCrudas = await this.repo.propinasPendientes(
+      companyId,
+      filtro,
+    );
+
+    // El filtro de fechas dice QUÉ MIRAR; estaLiquidado dice qué de eso
+    // puede pagarse. Las dos listas se cruzan contra las mismas fichas
+    // y los mismos días, así que se preguntan una sola vez.
+    const candidatas = [...jornadasCrudas, ...propinasCrudas];
+    const [cerradas, diasListos] = await Promise.all([
+      this.repo.fichasCerradas(companyId, [
+        ...new Set(
+          candidatas.map((f) => f.quotation_id).filter((q): q is string => !!q),
+        ),
+      ]),
+      this.repo.diasLiquidados(companyId, [
+        ...new Set(
+          candidatas
+            .filter((f) => !f.quotation_id && f.day)
+            .map((f) => String(f.day).slice(0, 10)),
+        ),
+      ]),
+    ]);
+    const jornadas = jornadasCrudas.filter((f) =>
+      estaLiquidado(f, cerradas, diasListos),
+    );
+    const propinas = propinasCrudas.filter((f) =>
+      estaLiquidado(f, cerradas, diasListos),
+    );
+    const sinLiquidar =
+      jornadasCrudas.length -
+      jornadas.length +
+      (propinasCrudas.length - propinas.length);
+
     if (jornadas.length === 0 && propinas.length === 0) {
       throw new BadRequestException(
-        'No hay nada pendiente que liquidar con ese filtro',
+        sinLiquidar > 0
+          ? `Con ese filtro no hay nada liquidado todavía: ${sinLiquidar} ${sinLiquidar === 1 ? 'jornada quedó' : 'jornadas quedaron'} esperando que se cierre su evento o su día`
+          : 'No hay nada pendiente que liquidar con ese filtro',
       );
     }
     const payroll = await this.repo.createPayroll({
@@ -612,7 +650,10 @@ export class PeopleService {
       })),
     );
     const fuera = await this.repo.poolsSinRepartir(companyId, filtro);
-    return { ...payroll, personas: personIds.length, fuera };
+    this.logger.info(
+      `nomina ${payroll.id}: ${jornadas.length} jornadas + ${propinas.length} propinas, ${sinLiquidar} fuera por no estar liquidadas`,
+    );
+    return { ...payroll, personas: personIds.length, fuera, sinLiquidar };
   }
 
   findPayrolls(companyId: number) {
@@ -681,6 +722,29 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
+/**
+ * A LA NÓMINA SOLO ENTRA LO LIQUIDADO (Felipe, 16-08).
+ *
+ * Antes bastaba con tener monto y no estar pagado, así que una jornada
+ * de un evento a medio liquidar ya se iba a la nómina. Medido en
+ * laboratorio ese día: de lo pendiente, $100.000 en 4 filas venían de
+ * eventos SIN liquidar. La nómina es el destino de lo liquidado, no la
+ * bandeja de todo lo que existe.
+ *
+ * Liquidado quiere decir dos cosas distintas según de dónde venga la
+ * fila, y por eso no es una sola condición en la consulta:
+ *  - de un evento  → su ficha de personal está cerrada;
+ *  - de un día de restaurante → la propina de ese día ya se resolvió.
+ */
+export const estaLiquidado = (
+  fila: { quotation_id?: string | null; day?: string | null },
+  fichasCerradas: ReadonlySet<string>,
+  diasLiquidados: ReadonlySet<string>,
+) =>
+  fila.quotation_id
+    ? fichasCerradas.has(fila.quotation_id)
+    : !!fila.day && diasLiquidados.has(String(fila.day).slice(0, 10));
+
 /**
  * Reparte un total entero según pesos, SIN SOBRANTES: piso primero y
  * los pesos que faltan de a uno, a los restos más grandes. Si todos

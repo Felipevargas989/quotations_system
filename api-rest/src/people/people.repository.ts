@@ -742,6 +742,35 @@ export class PeopleRepository {
     return data as unknown as DayNote;
   }
 
+  /** Las cotizaciones cuya ficha de personal YA se cerró: sus jornadas
+   *  y propinas son las únicas de evento que pueden ir a nómina. */
+  async fichasCerradas(companyId: number, quotationIds: string[]) {
+    if (quotationIds.length === 0) return new Set<string>();
+    const { data, error } = await this.supabase.client
+      .from('staff_sheets')
+      .select('quotation_id')
+      .eq('company_id', companyId)
+      .in('quotation_id', quotationIds)
+      .not('closed_at', 'is', null);
+    if (error) throw error;
+    return new Set((data ?? []).map((r) => r.quotation_id as string));
+  }
+
+  /** Los días de restaurante con la propina ya resuelta — repartida o
+   *  marcada "sin propina". Las dos dejan distributed_at, y las dos
+   *  significan lo mismo: ese día quedó liquidado. */
+  async diasLiquidados(companyId: number, dias: string[]) {
+    if (dias.length === 0) return new Set<string>();
+    const { data, error } = await this.supabase.client
+      .from('tip_pools')
+      .select('day')
+      .eq('company_id', companyId)
+      .in('day', dias)
+      .not('distributed_at', 'is', null);
+    if (error) throw error;
+    return new Set((data ?? []).map((r) => String(r.day).slice(0, 10)));
+  }
+
   async removeDayNote(id: number, companyId: number) {
     const { error } = await this.supabase.client
       .from('day_notes')
