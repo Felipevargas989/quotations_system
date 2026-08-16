@@ -494,7 +494,7 @@ function FichaAbierta({
                           </span>
                           <NumberInput
                             value={a.amount ? Number(a.amount) : undefined}
-                            onChange={(v: number | undefined) =>
+                            onCommit={(v: number | undefined) =>
                               cambiarStaff.mutate({
                                 id: a.id,
                                 cambios: { amount: v ?? null },
@@ -594,7 +594,34 @@ function Reparto({
     return [...m.entries()];
   }, [staff]);
 
+  // LOS PORCENTAJES YA REPARTIDOS SE LEEN DE VUELTA (Felipe, 15-08:
+  // repartió 90/10 y los vio en cero). Se calculan de lo que cada cargo
+  // se llevó, así que al volver a abrir la ficha está lo que se usó y
+  // no hay que adivinarlo.
+  const yaRepartidos = useMemo(() => {
+    const total = staff.reduce((t, a) => t + Number(a.tip_amount ?? 0), 0);
+    if (total <= 0) return new Map<number | null, number>();
+    const porCargo = new Map<number | null, number>();
+    for (const a of staff) {
+      const monto = Number(a.tip_amount ?? 0);
+      if (monto <= 0) continue;
+      const k = a.role_id ?? null;
+      porCargo.set(k, (porCargo.get(k) ?? 0) + monto);
+    }
+    const m = new Map<number | null, number>();
+    for (const [k, v] of porCargo) {
+      m.set(k, Math.round((v / total) * 1000) / 10);
+    }
+    return m;
+  }, [staff]);
+
   const [pcts, setPcts] = useState<Map<number | null, number>>(new Map());
+  // Al abrir una ficha ya repartida, se parte de sus porcentajes.
+  const [semilla, setSemilla] = useState(0);
+  if (semilla === 0 && yaRepartidos.size > 0 && pcts.size === 0) {
+    setSemilla(1);
+    setPcts(yaRepartidos);
+  }
   const pct = (id: number | null) => pcts.get(id) ?? 0;
   const total = cargos.reduce((t, [id]) => t + pct(id), 0);
   const monto = pozo
@@ -672,8 +699,12 @@ function Reparto({
               $
             </span>
             <NumberInput
+              // AL SALIR DEL CAMPO, NO EN CADA TECLA (Felipe, 15-08:
+              // "ingresé 100.000" y quedó en 100). Guardando por tecla
+              // se grababa 1, 10, 100… y el refresco del servidor
+              // devolvía el valor a medio escribir, pisando el resto.
               value={pozo ? Number(pozo.first_amount) : undefined}
-              onChange={(v) => guardarPozo.mutate({ first_amount: v ?? 0 })}
+              onCommit={(v) => guardarPozo.mutate({ first_amount: v ?? 0 })}
               disabled={cerrada}
               placeholder="0"
               className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1.5 text-sm text-right"
