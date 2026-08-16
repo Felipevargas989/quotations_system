@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -88,6 +88,10 @@ interface FilaSemana {
    *  (Felipe, 15-08)— y para poder poner gente ahí aunque el cupo haya
    *  quedado sin día. */
   diasDelEvento: ReadonlySet<string>;
+  /** Solo en el Staff: el cargo NO tiene gente de planta, es refuerzo
+   *  que se llama por día (un salvavidas en verano). Va abajo y con
+   *  otro color. */
+  ocasional?: boolean;
 }
 
 /** El rótulo de un evento CON SU FECHA: "#400 · Municipalidad de
@@ -315,7 +319,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     // Gente puesta en una casilla cuyo cargo ya no está costeado: la fila
     // igual se muestra, para que nadie quede invisible.
     for (const a of staff) {
-      // La gente sin evento vive en "Personal de planta", más abajo: si
+      // La gente sin evento vive en el Staff, más abajo: si
       // entrara acá crearía un grupo fantasma "Evento" (bug del 15-08).
       if (a.quotation_id === null) continue;
       const e = porEvento.get(String(a.quotation_id));
@@ -360,7 +364,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((r) => ({
         quotationId: null,
-        evento: "Personal de planta",
+        evento: "Staff",
         cargoId: r.id,
         cargo: r.name,
         precio: Number(r.list_price_fixed) || 0,
@@ -376,7 +380,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     if (huerfanos)
       restaurante.push({
         quotationId: null,
-        evento: "Personal de planta",
+        evento: "Staff",
         cargoId: 0,
         cargo: "Sin cargo",
         precio: 0,
@@ -388,7 +392,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     if (restaurante.length === 0)
       restaurante.push({
         quotationId: null,
-        evento: "Personal de planta",
+        evento: "Staff",
         cargoId: -1,
         cargo: "",
         precio: 0,
@@ -396,7 +400,22 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
       });
-    return [...deEventos, ...restaurante];
+    // EL STAFF EN DOS GRUPOS (Felipe, 15-08): arriba los cargos con
+    // gente de PLANTA, abajo los ocasionales —el salvavidas que se
+    // llama por día—. Un cargo es de planta si alguien de planta tiene
+    // jornada ahí; si no, es ocasional.
+    const conPlanta = new Set(
+      staff
+        .filter((a) => a.quotation_id === null && a.kind === "planta")
+        .map((a) => a.role_id ?? 0),
+    );
+    const staffOrdenado = restaurante
+      .map((f) => ({ ...f, ocasional: !conPlanta.has(f.cargoId) }))
+      .sort((a, b) => {
+        if (a.ocasional !== b.ocasional) return a.ocasional ? 1 : -1;
+        return a.cargo.localeCompare(b.cargo);
+      });
+    return [...deEventos, ...staffOrdenado];
   }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
 
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
@@ -531,8 +550,15 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           }}
           filas={filas.map((f, fi): FilaGrillaDias => ({
             id: `${f.quotationId ?? "rest"}|${f.cargoId}`,
-            grupo: f.evento,
-            grupoDestacado: f.quotationId === null,
+            grupo:
+              f.quotationId === null
+                ? f.ocasional
+                  ? "Staff · Ocasional"
+                  : "Staff · De planta"
+                : f.evento,
+            grupoDestacado:
+              f.quotationId === null &&
+              filas.findIndex((x) => x.quotationId === null) === fi,
             grupoAccion:
               f.quotationId === null &&
               filas.findIndex((x) => x.quotationId === null) === fi ? (
@@ -549,6 +575,27 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             titulo: (
               <>
                 {f.cargo}
+                {/* Un cargo ocasional SIN NADIE se puede sacar de la
+                    vista al toque (Felipe, 15-08). Con gente puesta la
+                    ✕ no aparece: primero se saca a la gente. */}
+                {f.ocasional &&
+                  cargosPlanta.includes(f.cargoId) &&
+                  !staff.some(
+                    (a) =>
+                      a.quotation_id === null && (a.role_id ?? 0) === f.cargoId,
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCargosPlanta((a) => a.filter((x) => x !== f.cargoId))
+                      }
+                      aria-label={`Quitar el cargo ${f.cargo}`}
+                      title="Quitar este cargo de la vista"
+                      className="ml-1.5 text-gray-300 hover:text-red-600 align-middle"
+                    >
+                      <X className="w-3.5 h-3.5 inline" />
+                    </button>
+                  )}
                 {f.sinRepartir > 0 && (
                   <span
                     className="ml-2 text-[11px] text-amber-700"
@@ -608,12 +655,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                       .filter(Boolean)
                       .join("\n") || undefined
                   }
-                    className={`w-full px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
+                    className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm tabular-nums transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white"
-                        : tiene > 0
-                          ? "bg-blue-50 text-blue-800 hover:bg-blue-100"
-                          : "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                        : tiene === 0
+                          ? "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                          : // LILA el refuerzo por día, AZUL la planta:
+                            // se distinguen de una pasada sin leer.
+                            f.ocasional
+                            ? "bg-violet-50 text-violet-800 hover:bg-violet-100"
+                            : "bg-blue-50 text-blue-800 hover:bg-blue-100"
                     }`}
                   >
                     {tiene > 0 ? tiene : "+"}
