@@ -396,18 +396,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
       });
-    // Sin filas, la banda igual existe para poder agregar el primer cargo.
-    if (restaurante.length === 0)
-      restaurante.push({
-        quotationId: null,
-        evento: "Staff",
-        cargoId: -1,
-        cargo: "",
-        precio: 0,
-        necesita: new Map(),
-        sinRepartir: 0,
-        diasDelEvento: new Set<string>(),
-      });
+
     // EL STAFF EN DOS GRUPOS (Felipe, 15-08): arriba los cargos con
     // gente de PLANTA, abajo los ocasionales —el salvavidas que se
     // llama por día—. Un cargo es de planta si alguien de planta tiene
@@ -422,6 +411,21 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       .sort((a, b) => {
         if (a.ocasional !== b.ocasional) return a.ocasional ? 1 : -1;
         return a.cargo.localeCompare(b.cargo);
+      });
+    // La banda de Personal Staff existe SIEMPRE: es donde vive el
+    // "+ cargo" (Felipe, 15-08). Sin esta fila vacía, cuando no hay
+    // ningún cargo ocasional no habría dónde agregar el primero.
+    if (!staffOrdenado.some((f) => f.ocasional))
+      staffOrdenado.push({
+        quotationId: null,
+        evento: "Staff",
+        cargoId: -1,
+        cargo: "",
+        precio: 0,
+        necesita: new Map(),
+        sinRepartir: 0,
+        diasDelEvento: new Set<string>(),
+        ocasional: true,
       });
     return [...deEventos, ...staffOrdenado];
   }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
@@ -569,7 +573,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
               filas.findIndex((x) => x.quotationId === null) === fi,
             grupoAccion:
               f.quotationId === null &&
-              filas.findIndex((x) => x.quotationId === null) === fi ? (
+              f.ocasional &&
+              filas.findIndex((x) => x.quotationId === null && x.ocasional) ===
+                fi ? (
                 <div className="w-44 font-normal normal-case">
                   <SelectWithSearchCargos
                     catalogo={catalogo}
@@ -996,6 +1002,15 @@ function CasillaAbierta({
   // EN SECCIONES, como los menús variables (Felipe, 15-08): la planta
   // arriba y el staff abajo. Con la sección puesta, repetir "planta" en
   // cada línea sobra — y el RUT acá no ayuda a decidir a quién poner.
+  // EN LA PLANTA SOLO SU PROPIA GENTE Y SU PROPIO CARGO (Felipe,
+  // 15-08): esa sección administra la jornada del equipo fijo, no es
+  // para traer gente. Sin esto se podía tomar a una cocinera y meterla
+  // en "Personal aseo", donde quedaba con el color de la planta y
+  // escondida dentro de su formato, como si fuera su jornada normal.
+  // Para traer a alguien está la sección de Personal Staff.
+  const soloPlantaDeEsteCargo =
+    fila.quotationId === null && !fila.ocasional;
+
   const disponibles: SelectOption[] = personas
     .filter(
       (p) =>
@@ -1003,7 +1018,10 @@ function CasillaAbierta({
         !puestos.has(p.id) &&
         // Ya tiene jornada ese día en otra parte: ofrecerlo sería
         // ofrecer a alguien ocupado (Felipe, 15-08).
-        !ocupados.has(p.id),
+        !ocupados.has(p.id) &&
+        (!soloPlantaDeEsteCargo ||
+          (p.default_kind === "planta" &&
+            (p.default_role_id ?? 0) === fila.cargoId)),
     )
     .map((p) => ({
       value: String(p.id),
@@ -1176,13 +1194,27 @@ function CasillaAbierta({
         onAgregar={(v) => onPoner(Number(v))}
         abierto={abierto}
         onAbiertoChange={setAbierto}
-        placeholder="Buscar y poner a alguien…"
+        placeholder={
+          soloPlantaDeEsteCargo
+            ? `Traer a alguien de planta de ${fila.cargo}…`
+            : "Buscar y poner a alguien…"
+        }
       />
 
       <p className="text-xs text-gray-500">
-        El tipo y el monto son <strong>de este día</strong>: cambiarlos acá no
-        toca la ficha de la persona. Un planta que trabaja en su día libre se
-        marca freelance y esa jornada sí se paga.
+        {soloPlantaDeEsteCargo ? (
+          <>
+            Acá se administra la <strong>jornada de la planta</strong>: su
+            horario y en qué días viene. Para traer a alguien de fuera —o a
+            un planta en otro cargo— está <strong>Personal Staff</strong>.
+          </>
+        ) : (
+          <>
+            El tipo y el monto son <strong>de este día</strong>: cambiarlos
+            acá no toca la ficha de la persona. Un planta que viene a un
+            evento se marca freelance y esa jornada sí se paga.
+          </>
+        )}
       </p>
       </div>
     </Modal>
