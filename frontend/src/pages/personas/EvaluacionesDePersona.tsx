@@ -72,6 +72,18 @@ export default function EvaluacionesDePersona({
     a.created_at.localeCompare(b.created_at),
   );
 
+  // Cuánto hace de la última evaluación. Sirve para avisar, no para
+  // exigir: evaluar por calendario llena esto de notas de trámite.
+  const mesesSinEvaluar = (() => {
+    if (evaluaciones.length === 0) return null;
+    const ultima = evaluaciones
+      .map((e) => e.created_at)
+      .sort((a, b) => b.localeCompare(a))[0];
+    const meses =
+      (Date.now() - new Date(ultima).getTime()) / (1000 * 60 * 60 * 24 * 30);
+    return Math.floor(meses);
+  })();
+
   const guardar = useMutation({
     mutationFn: () =>
       createReview({
@@ -195,6 +207,15 @@ export default function EvaluacionesDePersona({
         </div>
       )}
 
+      {/* Sin obligar a nada: solo el dato, para que no se pase. */}
+      {mesesSinEvaluar !== null && mesesSinEvaluar >= 4 && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Hace {mesesSinEvaluar} meses que no la evalúas, y sigue
+          trabajando. No es obligación — pero si pasó algo que valga
+          anotar, este es el lugar.
+        </p>
+      )}
+
       {/* La tendencia: lo que importa es si va bajando. */}
       {tendencia.length >= 2 && (
         <div className="border border-gray-200 rounded-xl p-4">
@@ -263,24 +284,37 @@ export default function EvaluacionesDePersona({
         ) : (
           <ul className="border border-gray-200 rounded-xl divide-y divide-gray-100">
             {evaluaciones.map((e) => (
-              <li key={e.id} className="px-4 py-2.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs text-gray-500 tabular-nums w-24">
+              <li key={e.id} className="px-4 py-3">
+                {/* Las estrellas primero y grandes, la fecha al otro
+                    extremo, y la nota debajo con aire — el orden con que
+                    uno lee una reseña. */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {e.stars !== null ? (
+                      <Estrellas value={e.stars} />
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        Solo una nota, sin calificación
+                      </span>
+                    )}
+                    {nombreEvento(e.quotation_id) ? (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {nombreEvento(e.quotation_id)}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Sin evento — trabajo del período
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400 tabular-nums shrink-0">
                     {formatISOUTCDateToString(e.created_at.slice(0, 10))}
                   </span>
-                  {e.stars !== null ? (
-                    <Estrellas value={e.stars} tamano="sm" />
-                  ) : (
-                    <span className="text-xs text-gray-400">solo una nota</span>
-                  )}
-                  {nombreEvento(e.quotation_id) && (
-                    <span className="text-xs text-gray-500">
-                      {nombreEvento(e.quotation_id)}
-                    </span>
-                  )}
                 </div>
                 {e.note && (
-                  <p className="text-sm text-gray-700 mt-0.5">{e.note}</p>
+                  <p className="text-sm text-gray-800 mt-2 leading-relaxed">
+                    {e.note}
+                  </p>
                 )}
               </li>
             ))}
