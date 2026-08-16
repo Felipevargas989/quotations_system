@@ -1315,7 +1315,9 @@ function DiaRestaurante({
           )}
         </span>
       }
-      ancho="max-w-2xl"
+      // Con los relojes adentro la fila tiene seis columnas: en 2xl los
+      // nombres se partían en dos líneas (Felipe, 16-08).
+      ancho="max-w-5xl"
       onCerrar={onCerrar}
       pie={
         // AL PREGUNTAR, LA PREGUNTA ES EL PIE (Felipe, 16-08). Sumada a
@@ -1410,7 +1412,7 @@ function DiaRestaurante({
                 </li>
               ) : (
               <li key={a.id} className="contents">
-                <span className="text-gray-900">
+                <span className="text-gray-900 whitespace-nowrap">
                   {a.people?.name ?? "—"}
                 </span>
                 <span className="text-gray-400 text-xs whitespace-nowrap">
