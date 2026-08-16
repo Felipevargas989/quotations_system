@@ -803,8 +803,9 @@ function HorarioDelDia({
       />
       <span className="text-gray-400">· colación</span>
       <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+        {/* La colación no puede ser cero: siempre hay media hora o una
+            hora (Felipe, 15-08). */}
         {[
-          [0, "—"],
           [30, "30 m"],
           [60, "1 h"],
         ].map(([min, texto]) => (
@@ -828,10 +829,9 @@ function HorarioDelDia({
       <button
         type="button"
         onClick={() => setEditando(false)}
-        aria-label="Listo"
-        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+        className="px-2.5 py-1 text-xs font-medium text-emerald-700 bg-white border border-emerald-300 rounded-md hover:bg-emerald-50"
       >
-        <Check className="w-4 h-4" />
+        Listo
       </button>
     </div>
   );

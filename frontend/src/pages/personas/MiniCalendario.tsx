@@ -306,7 +306,7 @@ export default function MiniCalendario({
             />
             <span className="text-xs text-gray-500">· colación</span>
             <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs bg-white">
-              {([0, 30, 60] as const).map((min) => (
+              {([30, 60] as const).map((min) => (
                 <button
                   key={min}
                   type="button"
@@ -319,7 +319,7 @@ export default function MiniCalendario({
                       : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
                 >
-                  {min === 0 ? "—" : min === 30 ? "30 m" : "1 h"}
+                  {min === 30 ? "30 m" : "1 h"}
                 </button>
               ))}
             </div>

@@ -36,7 +36,7 @@ export default function HoraInput({
   // estira según lo escrito; con un ancho suficiente para "08:00 a.m."
   // las columnas quedan quietas.
   const base = compacta
-    ? "w-24 border border-gray-200 rounded px-1.5 py-0.5 text-xs bg-white"
+    ? "w-32 border border-gray-200 rounded px-1.5 py-1 text-xs bg-white"
     : "w-32 border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent";
   return (
     <input
