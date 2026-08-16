@@ -553,8 +553,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             grupo:
               f.quotationId === null
                 ? f.ocasional
-                  ? "Staff · Ocasional"
-                  : "Staff · De planta"
+                  ? "Personal Staff"
+                  : "Personal de planta"
                 : f.evento,
             grupoDestacado:
               f.quotationId === null &&
