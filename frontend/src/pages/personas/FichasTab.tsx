@@ -769,7 +769,7 @@ function Reparto({
                   >
                     {nombre}
                   </span>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={fuera}
@@ -786,18 +786,24 @@ function Reparto({
                     />
                     sin propina
                   </label>
-                  <NumberInput
-                    value={pct(id) || undefined}
-                    onChange={(v) => cambiar(id, v ?? 0)}
-                    disabled={fuera}
-                    placeholder="0"
-                    aria-label={`Porcentaje de ${nombre}`}
-                    className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
-                  />
+                  {/* El ancho va en el CONTENEDOR: el campo numérico se
+                      estira a lo que le den, y ponerle w-20 a él no
+                      hacía nada (mismo tropiezo que con el monto). */}
+                  <div className="w-20">
+                    <NumberInput
+                      value={pct(id) || undefined}
+                      onChange={(v) => cambiar(id, v ?? 0)}
+                      disabled={fuera}
+                      placeholder="0"
+                      aria-label={`Porcentaje de ${nombre}`}
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-100"
+                    />
+                  </div>
                   <span className="text-gray-400">%</span>
                   <span className="w-28 text-right tabular-nums text-gray-600">
                     {clp((monto * pct(id)) / 100)}
                   </span>
+                  <span className="flex-1" />
                 </div>
               );
             })}
