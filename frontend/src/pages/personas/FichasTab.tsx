@@ -38,7 +38,11 @@ import {
 } from "../../services/people.service";
 import type { Asignacion, EstadoFicha, Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { formatISOUTCDateToString, hoyEnChile } from "../../utils/dates";
+import {
+  formatFechaEvento,
+  formatISOUTCDateToString,
+  hoyEnChile,
+} from "../../utils/dates";
 
 const sumarDias = (isoDia: string, n: number) =>
   new Date(new Date(`${isoDia}T00:00:00Z`).getTime() + n * 86_400_000)
@@ -1317,15 +1321,27 @@ function DiaRestaurante({
         </span>
       }
       subtitulo={
-        <span className="block text-center">
-          Día {indice + 1} de {dias.length}
-          {repartidosDeLaTanda > 0 && (
-            <span className="text-emerald-700">
-              {" "}
-              · {repartidosDeLaTanda} repartido
-              {repartidosDeLaTanda === 1 ? "" : "s"}
+        // El mismo hueco de ✕ que compensa la fecha, para que las tres
+        // líneas queden en el mismo eje (Felipe, 16-08). Sin él, el
+        // subtítulo se centraba contra un ancho distinto que el título
+        // y se veía corrido.
+        <span className="flex justify-center">
+          <span className="w-7 shrink-0" aria-hidden="true" />
+          <span className="flex flex-col items-center">
+            <span className="text-gray-600">
+              {formatFechaEvento(dia, "diaYMes")}
             </span>
-          )}
+            <span>
+              Día {indice + 1} de {dias.length}
+              {repartidosDeLaTanda > 0 && (
+                <span className="text-emerald-700">
+                  {" "}
+                  · {repartidosDeLaTanda} repartido
+                  {repartidosDeLaTanda === 1 ? "" : "s"}
+                </span>
+              )}
+            </span>
+          </span>
         </span>
       }
       // Con los relojes adentro la fila tiene seis columnas: en 2xl los

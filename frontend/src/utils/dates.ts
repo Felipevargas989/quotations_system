@@ -39,6 +39,8 @@ export type FormatoFecha =
   | "medio"
   /** jueves 13 de agosto de 2026 */
   | "largo"
+  /** jueves 13 de agosto (sin el año: para cuando ya se ve arriba) */
+  | "diaYMes"
   /** 13 de agosto de 2026 (sin el día de la semana) */
   | "largoSinDia"
   /** 13 ago */
@@ -48,6 +50,7 @@ const MOLDES: Record<FormatoFecha, string> = {
   corto: "dd/MM/yyyy",
   medio: "dd LLL yyyy",
   largo: "cccc d 'de' LLLL 'de' yyyy",
+  diaYMes: "cccc d 'de' LLLL",
   largoSinDia: "d 'de' LLLL 'de' yyyy",
   diaMes: "d LLL",
 };
