@@ -1180,13 +1180,15 @@ function DiaRestaurante({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  /** Cuántos días de esta tanda ya quedaron repartidos: es lo que el
-   *  botón negro va a mandar a la nómina. */
-  const repartidosDeLaTanda = dias.filter((d) =>
+  /** Los días de esta tanda que ya quedaron repartidos: exactamente lo
+   *  que el botón negro manda a la nómina — esos días y nada más
+   *  (Felipe, 16-08). Los eventos se liquidan por su cuenta. */
+  const diasRepartidosDeLaTanda = dias.filter((d) =>
     pools.some(
       (p) => p.day && String(p.day).slice(0, 10) === d && p.distributed_at,
     ),
-  ).length;
+  );
+  const repartidosDeLaTanda = diasRepartidosDeLaTanda.length;
 
   const [confirmandoNomina, setConfirmandoNomina] = useState(false);
 
@@ -1198,7 +1200,8 @@ function DiaRestaurante({
   const mandarANomina = useMutation({
     mutationFn: () =>
       createPayroll({
-        label: `Liquidación ${new Date().toLocaleDateString("es-CL")}`,
+        label: `Restaurante ${new Date().toLocaleDateString("es-CL")}`,
+        dias: diasRepartidosDeLaTanda,
       }),
     onSuccess: (nomina) => {
       toast.success(
@@ -1335,7 +1338,7 @@ function DiaRestaurante({
             title={
               repartidosDeLaTanda === 0
                 ? "Todavía no has repartido ningún día"
-                : "Manda a la nómina todo lo liquidado que esté pendiente"
+                : "Manda a la nómina solo estos días de restaurante"
             }
             className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black disabled:opacity-40 whitespace-nowrap"
           >

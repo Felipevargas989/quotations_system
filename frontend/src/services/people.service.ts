@@ -232,6 +232,9 @@ export const createPayroll = async (dto: {
   hasta?: string;
   desde?: string;
   quotation_ids?: string[];
+  /** Días sueltos de restaurante: manda por sobre las fechas y deja
+   *  fuera todo lo que sea de un evento. */
+  dias?: string[];
 }) => (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "POST", dto)) as Nomina;
 
 export const getPayroll = async (id: number) =>

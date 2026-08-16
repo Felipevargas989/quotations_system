@@ -563,7 +563,12 @@ export class PeopleRepository {
   /** Jornadas sin nómina (pendientes), con el filtro del selector. */
   async jornadasPendientes(
     companyId: number,
-    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+    f: {
+      hasta?: string;
+      desde?: string;
+      quotationIds?: string[];
+      dias?: string[];
+    },
   ) {
     let q = this.supabase.client
       .from('event_staff')
@@ -573,9 +578,15 @@ export class PeopleRepository {
       .eq('kind', 'freelance')
       .not('amount', 'is', null)
       .gt('amount', 0);
-    if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
-    if (f.hasta) q = q.lte('day', f.hasta);
-    if (f.desde) q = q.gte('day', f.desde);
+    // El modo "días sueltos" es excluyente: nada de eventos, y solo
+    // esos días. No se mezcla con el rango.
+    if (f.dias?.length) {
+      q = q.is('quotation_id', null).in('day', f.dias);
+    } else {
+      if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
+      if (f.hasta) q = q.lte('day', f.hasta);
+      if (f.desde) q = q.gte('day', f.desde);
+    }
     const { data, error } = await q;
     if (error) throw error;
     return data as unknown as EventStaff[];
@@ -584,7 +595,12 @@ export class PeopleRepository {
   /** Propinas repartidas y sin nómina, con el filtro del selector. */
   async propinasPendientes(
     companyId: number,
-    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+    f: {
+      hasta?: string;
+      desde?: string;
+      quotationIds?: string[];
+      dias?: string[];
+    },
   ) {
     let q = this.supabase.client
       .from('event_staff')
@@ -593,9 +609,15 @@ export class PeopleRepository {
       .is('tip_payroll_id', null)
       .not('tip_amount', 'is', null)
       .gt('tip_amount', 0);
-    if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
-    if (f.hasta) q = q.lte('day', f.hasta);
-    if (f.desde) q = q.gte('day', f.desde);
+    // El modo "días sueltos" es excluyente: nada de eventos, y solo
+    // esos días. No se mezcla con el rango.
+    if (f.dias?.length) {
+      q = q.is('quotation_id', null).in('day', f.dias);
+    } else {
+      if (f.quotationIds?.length) q = q.in('quotation_id', f.quotationIds);
+      if (f.hasta) q = q.lte('day', f.hasta);
+      if (f.desde) q = q.gte('day', f.desde);
+    }
     const { data, error } = await q;
     if (error) throw error;
     return data as unknown as EventStaff[];
@@ -605,7 +627,12 @@ export class PeopleRepository {
    *  tiene que decir. La nómina no bloquea: muestra. */
   async poolsSinRepartir(
     companyId: number,
-    f: { hasta?: string; desde?: string; quotationIds?: string[] },
+    f: {
+      hasta?: string;
+      desde?: string;
+      quotationIds?: string[];
+      dias?: string[];
+    },
   ) {
     const q = this.supabase.client
       .from('tip_pools')
@@ -616,6 +643,12 @@ export class PeopleRepository {
     if (error) throw error;
     const pools = data as unknown as TipPool[];
     return pools.filter((p) => {
+      if (f.dias?.length)
+        return (
+          !p.quotation_id &&
+          !!p.day &&
+          f.dias.includes(String(p.day).slice(0, 10))
+        );
       if (f.quotationIds?.length)
         return p.quotation_id && f.quotationIds.includes(p.quotation_id);
       if (p.day) {

@@ -125,6 +125,20 @@ export class CreatePayrollDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   quotation_ids?: string[];
+
+  /**
+   * DÍAS SUELTOS DE RESTAURANTE (Felipe, 16-08): "el botón de liquidar
+   * días que liquide esos días que están repartidos y no todo".
+   *
+   * Cuando viene, manda por sobre las fechas: la nómina se arma con
+   * esos días Y SOLO con lo que no es de un evento. Sin esto, un rango
+   * que cubriera la semana se llevaba también los eventos de esa
+   * semana, que se liquidan por su cuenta.
+   */
+  @IsOptional()
+  @IsArray()
+  @Matches(DIA, { each: true })
+  dias?: string[];
 }
 
 export class PagoDto {

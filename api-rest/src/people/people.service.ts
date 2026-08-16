@@ -579,6 +579,7 @@ export class PeopleService {
       hasta: dto.hasta,
       desde: dto.desde,
       quotationIds: dto.quotation_ids,
+      dias: dto.dias,
     };
     const jornadasCrudas = await this.repo.jornadasPendientes(
       companyId,
