@@ -85,6 +85,7 @@ export default function PagosDePersona({
   readonly persona: Persona;
 }) {
   const anoDeHoy = Number(hoyEnChile().slice(0, 4));
+  const mesDeHoy = Number(hoyEnChile().slice(5, 7)) - 1;
   const [ano, setAno] = useState(anoDeHoy);
   const [mesAbierto, setMesAbierto] = useState<number | null>(null);
 
@@ -119,6 +120,11 @@ export default function PagosDePersona({
     }
     return { jornadas, propinas };
   }, [lineas, ano]);
+
+  // Un mes es "lo que viene" si aún no empieza; el mes en curso cuenta
+  // como real, porque ya se está trabajando.
+  const esFuturo = (mes: number) =>
+    ano > anoDeHoy || (ano === anoDeHoy && mes > mesDeHoy);
 
   const delMes = useMemo(() => {
     if (mesAbierto === null) return [];
@@ -227,18 +233,29 @@ export default function PagosDePersona({
                     {
                       label: "Jornadas",
                       data: porMes.jornadas,
-                      backgroundColor: "#2563eb",
+                      // LO PASADO EN COLOR FIRME, LO QUE VIENE PÁLIDO
+                      // (Felipe, 15-08): un mes proyectado no es plata
+                      // que ya se movió, y no puede verse igual.
+                      backgroundColor: MESES.map((_, m) =>
+                        esFuturo(m) ? "#93c5fd" : "#2563eb",
+                      ),
                     },
                     {
                       label: "Propinas",
                       data: porMes.propinas,
-                      backgroundColor: "#10b981",
+                      backgroundColor: MESES.map((_, m) =>
+                        esFuturo(m) ? "#6ee7b7" : "#10b981",
+                      ),
                     },
                   ],
                 }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
+                  // El clic agarra la COLUMNA entera del mes, no solo la
+                  // barra: antes había que pegarle justo y en un mes sin
+                  // plata no pasaba nada (Felipe, 15-08).
+                  interaction: { mode: "index", intersect: false },
                   onClick: (_e: ChartEvent, els: ActiveElement[]) => {
                     if (els.length > 0) setMesAbierto(els[0].index);
                   },
@@ -264,8 +281,8 @@ export default function PagosDePersona({
               />
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Pincha un mes para ver su detalle. Los meses que vienen
-              muestran lo <strong>proyectado</strong>.
+              Pincha un mes para ver su detalle. En color firme lo que ya
+              pasó; en pálido, lo <strong>proyectado</strong>.
             </p>
           </div>
 
