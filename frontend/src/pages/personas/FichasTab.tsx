@@ -1072,6 +1072,34 @@ function DiaRestaurante({
   const [pcts, setPcts] = useState<Map<number, number>>(new Map());
   const [sinCargo, setSinCargo] = useState<Set<number>>(new Set());
 
+  const [sacando, setSacando] = useState<number | null>(null);
+
+  // LAS HORAS SE CONFIRMAN ACÁ TAMBIÉN (Felipe, 16-08). El día del
+  // restaurante tenía la lista de solo lectura, pero es la misma
+  // necesidad que en el evento: la gente entra y sale a horas distintas
+  // de las planificadas, y el reparto se calcula POR HORAS.
+  const cambiarStaff = useMutation({
+    mutationFn: ({
+      id,
+      cambios,
+    }: {
+      id: number;
+      cambios: Record<string, unknown>;
+    }) => updateStaff(id, cambios),
+    onSuccess: onCambio,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  /** Quien no se presentó se saca del día: su jornada no se paga. */
+  const sacarStaff = useMutation({
+    mutationFn: (id: number) => removeStaff(id),
+    onSuccess: () => {
+      setSacando(null);
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   const marcarSinPropina = useMutation({
     mutationFn: (a: Asignacion) =>
       updateStaff(a.id, { no_tip: !a.no_tip }),
@@ -1364,8 +1392,23 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto] items-center gap-x-4 gap-y-1 text-sm">
-            {delDia.map((a) => (
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
+            {delDia.map((a) =>
+              // La fila que pregunta ocupa el ancho entero: si la
+              // pregunta viviera en una celda, ensancharía esa columna
+              // para TODAS las filas y se descuadraría la tabla.
+              sacando === a.id ? (
+                <li key={a.id} className="col-span-full py-1">
+                  <ConfirmInline
+                    question={`¿${a.people?.name ?? "Esta persona"} no se presentó?`}
+                    yesLabel="Sacar del día"
+                    tono="peligro"
+                    busy={sacarStaff.isPending}
+                    onYes={() => sacarStaff.mutate(a.id)}
+                    onNo={() => setSacando(null)}
+                  />
+                </li>
+              ) : (
               <li key={a.id} className="contents">
                 <span className="text-gray-900">
                   {a.people?.name ?? "—"}
@@ -1382,15 +1425,35 @@ function DiaRestaurante({
                     ? clp(Number(a.tip_amount))
                     : ""}
                 </span>
-                <span className="text-xs text-gray-500 tabular-nums text-right whitespace-nowrap">
-                  {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)} ·{" "}
-                  {formatoHoras(
-                    horasTrabajadas(
-                      a.starts_at?.slice(0, 5) ?? null,
-                      a.ends_at?.slice(0, 5) ?? null,
-                      a.break_minutes,
-                    ),
-                  )}
+                {/* Las horas EFECTIVAS: el sistema calcula el total y con
+                    él reparte la propina dentro del cargo. */}
+                <span className="flex items-center gap-1.5 justify-self-end">
+                  <HoraInput
+                    value={a.starts_at?.slice(0, 5) ?? null}
+                    onChange={(v) =>
+                      cambiarStaff.mutate({ id: a.id, cambios: { starts_at: v } })
+                    }
+                    compacta
+                    aria-label={`Entrada de ${a.people?.name ?? ""}`}
+                  />
+                  <span className="text-xs text-gray-400">a</span>
+                  <HoraInput
+                    value={a.ends_at?.slice(0, 5) ?? null}
+                    onChange={(v) =>
+                      cambiarStaff.mutate({ id: a.id, cambios: { ends_at: v } })
+                    }
+                    compacta
+                    aria-label={`Salida de ${a.people?.name ?? ""}`}
+                  />
+                  <span className="w-10 text-right text-xs text-gray-500 tabular-nums">
+                    {formatoHoras(
+                      horasTrabajadas(
+                        a.starts_at?.slice(0, 5) ?? null,
+                        a.ends_at?.slice(0, 5) ?? null,
+                        a.break_minutes,
+                      ),
+                    )}
+                  </span>
                 </span>
                 {/* Sin propina ESA persona ese día: el reparto la salta,
                     su jornada se paga igual (Felipe, 15-08). */}
@@ -1410,9 +1473,29 @@ function DiaRestaurante({
                 >
                   sin propina
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setSacando(a.id)}
+                  aria-label={`Sacar a ${a.people?.name ?? ""} del día`}
+                  title="No se presentó"
+                  className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </li>
-            ))}
+              ),
+            )}
           </ul>
+          {/* La propina se reparte POR HORAS dentro del cargo, así que
+              tocar una hora o sacar a alguien después de repartir deja
+              la plata calculada con datos viejos. El sistema no lo
+              rehace solo: quien decide es Felipe. */}
+          {yaRepartido && (
+            <p className="text-xs text-amber-700 mt-2">
+              Este día ya está repartido. Si cambias horas o sacas a
+              alguien, vuelve a repartir para que la plata se recalcule.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
