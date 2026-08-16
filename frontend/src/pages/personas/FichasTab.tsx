@@ -1413,7 +1413,11 @@ function DiaRestaurante({
               // pregunta viviera en una celda, ensancharía esa columna
               // para TODAS las filas y se descuadraría la tabla.
               sacando === a.id ? (
-                <li key={a.id} className="col-span-full py-1">
+                // Ocupa el ancho entero pero pegada a la DERECHA, donde
+                // nació la acción (Felipe, 16-08). Si viviera en la celda
+                // del basurero, ensancharía esa columna en TODAS las
+                // filas y volvería a descuadrar la lista.
+                <li key={a.id} className="col-span-full py-1 flex justify-end">
                   <ConfirmInline
                     question={`¿${a.people?.name ?? "Esta persona"} no se presentó?`}
                     yesLabel="Sacar del día"
