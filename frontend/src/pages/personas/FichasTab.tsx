@@ -1319,6 +1319,12 @@ function DiaRestaurante({
       onCerrar={onCerrar}
       pie={
         <>
+          {/* DÓNDE SIGUE (Felipe, 16-08: "quizás está bien y no entiendo
+              el proceso"). El modal dejó de crear nóminas y sin decir a
+              dónde va lo repartido, el paso siguiente queda invisible. */}
+          <span className="mr-auto text-xs text-gray-500">
+            Lo repartido espera en Nómina → Liquidaciones por pagar.
+          </span>
           <button
             type="button"
             onClick={() => sinPropinaHoy.mutate()}
