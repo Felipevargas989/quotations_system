@@ -1177,9 +1177,11 @@ function DiaRestaurante({
       return pozo;
     },
     onSuccess: () => {
+      // REPARTIR NO AVANZA (Felipe, 16-08): "para poder ver cuánto le
+      // queda a cada persona". Se reparte, se mira la plata en la lista
+      // de arriba, y al día siguiente se pasa con ‹ › cuando uno quiere.
       toast.success(`${formatISOUTCDateToString(dia)}: propina repartida.`);
       onCambio();
-      avanzar();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -1330,7 +1332,7 @@ function DiaRestaurante({
               ? "Repartiendo…"
               : yaRepartido
                 ? "Volver a repartir"
-                : "Repartir y seguir"}
+                : "Repartir"}
           </button>
           {/* EL NEGRO CIERRA LA TANDA. Separado del azul a propósito:
               repartir se hace día por día y se puede corregir; liquidar
@@ -1362,7 +1364,7 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_1fr_auto] items-center gap-x-4 gap-y-1 text-sm">
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto] items-center gap-x-4 gap-y-1 text-sm">
             {delDia.map((a) => (
               <li key={a.id} className="contents">
                 <span className="text-gray-900">
@@ -1370,6 +1372,15 @@ function DiaRestaurante({
                 </span>
                 <span className="text-gray-400 text-xs whitespace-nowrap">
                   {a.management_resources?.name ?? "sin cargo"}
+                </span>
+                {/* LO QUE LE TOCÓ, AL LADO DEL CARGO (Felipe, 16-08).
+                    Aparece recién cuando hay reparto: antes de repartir
+                    no hay nada que mostrar, y un $0 se leería como una
+                    decisión tomada. */}
+                <span className="text-xs tabular-nums whitespace-nowrap text-emerald-700 font-medium">
+                  {Number(a.tip_amount ?? 0) > 0
+                    ? clp(Number(a.tip_amount))
+                    : ""}
                 </span>
                 <span className="text-xs text-gray-500 tabular-nums text-right whitespace-nowrap">
                   {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)} ·{" "}
