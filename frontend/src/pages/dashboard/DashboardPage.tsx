@@ -1,3 +1,7 @@
+import {
+  costoDeRecursos,
+  type LineaDeRecurso,
+} from "../../utils/costoDeRecursos";
 import React, { useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -759,19 +763,23 @@ export default function DashboardPage() {
     events.forEach((ev) =>
       personasPorEvento.set(ev.id, Number(ev.people_count) || 0),
     );
-    const recursosPorEvento = new Map<string, number>();
+    // El costo se calcula por EVENTO, no línea por línea: el fijo de un
+    // recurso mixto se cobra UNA vez aunque vaya en varios días. Es la
+    // misma cuenta de Gestión y Servicios (revisión del 16-08).
+    const lineasPorEvento = new Map<string, LineaDeRecurso[]>();
     (provQuery.data?.eventResources || []).forEach((er) => {
-      const personas = personasPorEvento.get(er.quotation_id);
-      if (personas === undefined) return; // evento fuera del período
-      const gasto =
-        ((Number(er.price_fixed) || 0) +
-          (Number(er.price_per_person) || 0) * personas) *
-        (Number(er.quantity) || 1);
-      recursosPorEvento.set(
-        er.quotation_id,
-        (recursosPorEvento.get(er.quotation_id) || 0) + gasto,
-      );
+      if (!personasPorEvento.has(er.quotation_id)) return; // fuera del período
+      const suyas = lineasPorEvento.get(er.quotation_id) ?? [];
+      suyas.push(er as LineaDeRecurso);
+      lineasPorEvento.set(er.quotation_id, suyas);
     });
+    const recursosPorEvento = new Map<string, number>();
+    for (const [quotationId, suyas] of lineasPorEvento) {
+      recursosPorEvento.set(
+        quotationId,
+        costoDeRecursos(suyas, personasPorEvento.get(quotationId) ?? 0),
+      );
+    }
 
     events.forEach((ev) => {
       const d = new Date(ev.event_date || 0);
@@ -919,27 +927,36 @@ export default function DashboardPage() {
         items: Map<number, { nombre: string; gasto: number; eventos: number }>;
       }
     >();
+    // Se agrupa por evento Y recurso antes de contar: el fijo de un
+    // recurso mixto se cobra UNA vez por evento, aunque esté repartido
+    // en varios días (revisión del 16-08). Contar línea por línea lo
+    // cobraba tantas veces como días tuviera.
+    const porEventoYRecurso = new Map<string, LineaDeRecurso[]>();
     (extra?.eventResources || []).forEach((er) => {
       if (!wonIds.has(er.quotation_id)) return;
-      const people = peopleByQ.get(er.quotation_id) || 0;
-      const gasto =
-        ((Number(er.price_fixed) || 0) +
-          (Number(er.price_per_person) || 0) * people) *
-        (Number(er.quantity) || 1);
-      const def = resById.get(er.resource_id);
+      const clave = `${er.quotation_id}|${er.resource_id}`;
+      const suyas = porEventoYRecurso.get(clave) ?? [];
+      suyas.push(er as LineaDeRecurso);
+      porEventoYRecurso.set(clave, suyas);
+    });
+    for (const [clave, suyas] of porEventoYRecurso) {
+      const quotationId = clave.split("|")[0];
+      const gasto = costoDeRecursos(suyas, peopleByQ.get(quotationId) || 0);
+      const def = resById.get(suyas[0].resource_id);
       const tipo = def?.type || "otro";
       const t = tipos.get(tipo) || { gasto: 0, items: new Map() };
       t.gasto += gasto;
-      const it = t.items.get(er.resource_id) || {
-        nombre: def?.name || `Recurso ${er.resource_id}`,
+      const it = t.items.get(suyas[0].resource_id) || {
+        nombre: def?.name || `Recurso ${suyas[0].resource_id}`,
         gasto: 0,
         eventos: 0,
       };
       it.gasto += gasto;
+      // Un evento cuenta UNA vez por recurso, no una por línea de día.
       it.eventos += 1;
-      t.items.set(er.resource_id, it);
+      t.items.set(suyas[0].resource_id, it);
       tipos.set(tipo, t);
-    });
+    }
     return { lista, totalEst, top3Pct, topInsumos, tipos };
   })();
 

@@ -1,3 +1,4 @@
+import { costoDeRecursos } from "../../utils/costoDeRecursos";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -93,33 +94,10 @@ export const recursosQueryOpts = (companyId: number, quotationId: string) => ({
  * Se calcula POR RECURSO (agrupando sus líneas), no por línea: si fuera
  * por línea, el fijo del mixto se cobraría una vez por día.
  */
-const costoDelEvento = (lines: EventResource[], personas: number): number => {
-  const grupos = new Map<
-    number,
-    { pp: number; fijo: number; unidades: number; sumaFijoPorLinea: number }
-  >();
-  for (const l of lines) {
-    const g = grupos.get(l.resource_id) ?? {
-      pp: 0,
-      fijo: 0,
-      unidades: 0,
-      sumaFijoPorLinea: 0,
-    };
-    g.pp = Math.max(g.pp, l.price_per_person || 0);
-    if (!g.fijo) g.fijo = l.price_fixed || 0;
-    g.unidades += l.quantity || 0;
-    g.sumaFijoPorLinea += (l.price_fixed || 0) * (l.quantity || 0);
-    grupos.set(l.resource_id, g);
-  }
-  let total = 0;
-  for (const g of grupos.values()) {
-    if (g.pp > 0) total += g.fijo + g.pp * personas * g.unidades;
-    // Sin variable, cada línea con su propio valor × cantidad — así el
-    // personal con jornadas a valores distintos suma exacto.
-    else total += g.sumaFijoPorLinea;
-  }
-  return total;
-};
+// La cuenta vive en utils/costoDeRecursos: estaba copiada en tres
+// pantallas y solo esta estaba al dia (revision del 16-08).
+const costoDelEvento = (lines: EventResource[], personas: number): number =>
+  costoDeRecursos(lines, personas);
 
 interface FilaArriendo {
   id: number;

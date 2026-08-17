@@ -126,11 +126,24 @@ export default function GrillaPersonal({
       // desde acá — así el aviso baja solo y desaparece al llegar a 0
       // (Felipe, 15-08: "debería borrarse solo").
       pendiente?: EventResource;
+      // Las otras líneas del mismo día, si el evento traía repetidas.
+      // Esta pantalla maneja UN valor por cargo, así que al tocar el día
+      // se dejan consolidadas en una sola línea (revisión del 16-08).
+      otrasDelDia?: EventResource[];
     }) => {
       // Una línea con id negativo es optimista: todavía no existe en el
       // servidor. El clic siguiente llega tras la sincronización.
       if (p.linea && p.linea.id < 0) return;
-      const antes = p.linea?.quantity || 0;
+      const antes =
+        (p.linea?.quantity || 0) +
+        (p.otrasDelDia ?? []).reduce((t, l) => t + (l.quantity || 0), 0);
+
+      // Las repetidas se van: su cantidad ya viene sumada en la nueva.
+      for (const otra of p.otrasDelDia ?? []) {
+        if (otra.id < 0) continue;
+        const { error } = await deleteEventResource(otra.id);
+        if (error) throw error;
+      }
       const sumando = p.cantidad > antes;
       if (p.linea && p.cantidad <= 0) {
         const { error } = await deleteEventResource(p.linea.id);
@@ -248,7 +261,12 @@ export default function GrillaPersonal({
       {
         nombre: string;
         precio: number;
-        porDia: Map<string, EventResource>;
+        // TODAS las líneas de ese día, no una. Guardar solo la última
+        // hacía invisible a la otra: no se veía, no se podía editar ni
+        // borrar, y seguía sumando al costo del evento (revisión del
+        // 16-08 — la cotización #415 tenía dos Garzón el mismo día, a
+        // $27.000 y a $25.000).
+        porDia: Map<string, EventResource[]>;
         sinRepartir?: EventResource;
       }
     >();
@@ -264,7 +282,7 @@ export default function GrillaPersonal({
       }
       const f = m.get(r.id)!;
       const d = iso(l.day);
-      if (d) f.porDia.set(d, l);
+      if (d) f.porDia.set(d, [...(f.porDia.get(d) ?? []), l]);
       else f.sinRepartir = l;
     }
     for (const id of cargosNuevos) {
@@ -312,8 +330,15 @@ export default function GrillaPersonal({
       }));
   }, [resources, filas]);
 
+  const cantidadDelDia = (
+    f: (typeof filas)[number] | { porDia: Map<string, EventResource[]> },
+    d: string,
+  ) => (f.porDia.get(d) ?? []).reduce((s, l) => s + (l.quantity || 0), 0);
+
   const totalDe = (f: (typeof filas)[number]) =>
-    [...f.porDia.values()].reduce((s, l) => s + (l.quantity || 0), 0) +
+    [...f.porDia.values()]
+      .flat()
+      .reduce((s, l) => s + (l.quantity || 0), 0) +
     (f.sinRepartir?.quantity || 0);
 
   const costoPersonal = filas.reduce((s, f) => s + totalDe(f) * f.precio, 0);
@@ -330,7 +355,7 @@ export default function GrillaPersonal({
   };
 
   const quitarDia = (d: string) => {
-    const conCantidad = filas.some((f) => (f.porDia.get(d)?.quantity || 0) > 0);
+    const conCantidad = filas.some((f) => cantidadDelDia(f, d) > 0);
     if (conCantidad) {
       toast.error(
         "Ese día tiene gente asignada: primero deja sus cantidades en 0.",
@@ -344,8 +369,10 @@ export default function GrillaPersonal({
   const filasGrilla: FilaGrillaDias[] = filas.map((f) => {
     const total = totalDe(f);
     const pendiente = f.sinRepartir?.quantity || 0;
+    // TODAS, incluidas las que comparten día: al cambiar el valor del
+    // cargo, una línea escondida se quedaba con el precio viejo.
     const lineasDelCargo = [
-      ...f.porDia.values(),
+      ...[...f.porDia.values()].flat(),
       ...(f.sinRepartir ? [f.sinRepartir] : []),
     ];
     return {
@@ -375,13 +402,14 @@ export default function GrillaPersonal({
           )}
         </>
       ),
-      cantidadEn: (d) => f.porDia.get(d)?.quantity || 0,
+      cantidadEn: (d) => cantidadDelDia(f, d),
       onCambiar: (d, nueva) =>
         guardar.mutate({
           resourceId: f.id,
           day: d,
           cantidad: nueva,
-          linea: f.porDia.get(d),
+          linea: (f.porDia.get(d) ?? [])[0],
+          otrasDelDia: (f.porDia.get(d) ?? []).slice(1),
           precio: f.precio,
           pendiente: f.sinRepartir,
         }),
@@ -484,10 +512,7 @@ export default function GrillaPersonal({
           pie={{
             etiqueta: "Jornadas del día",
             porDia: (d) => {
-              const n = filas.reduce(
-                (s, f) => s + (f.porDia.get(d)?.quantity || 0),
-                0,
-              );
+              const n = filas.reduce((s, f) => s + cantidadDelDia(f, d), 0);
               return n > 0 ? n : "·";
             },
             valores: [
