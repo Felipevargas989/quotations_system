@@ -628,8 +628,10 @@ function NominaAbierta({
       // queda al lado, chico, para poder buscar la cotización.
       eventos.map((q) => [q.id, `${q.cliente} · N° ${String(q.numero)}`]),
     );
+    // El restaurante es "Staff" en toda la nómina, igual que en la
+    // pestaña de Planificación (Felipe, 17-08).
     return (qid: string | null) =>
-      qid === null ? "Personal de planta" : (m.get(qid) ?? "Evento");
+      qid === null ? "Staff" : (m.get(qid) ?? "Evento");
   }, [eventos]);
 
   const porPersona: PorPersona[] = useMemo(() => {
@@ -816,6 +818,83 @@ function EstadoPago({ p }: { readonly p: PorPersona }) {
   return <span className="text-gray-400 text-xs">pendiente</span>;
 }
 
+/**
+ * EL DESGLOSE DE LO QUE SE LE PAGA A UNA PERSONA (Felipe, 17-08): fecha
+ * en largo, evento por cliente o Staff, cargo, jornadas aparte de
+ * propinas con su subtotal, y el total. Es UNA pieza para el pago uno a
+ * uno y para el "detalle" de la tabla: dos copias se habrían separado.
+ */
+function DesgloseDePago({
+  p,
+  nombreEvento,
+  etiquetaTotal,
+}: {
+  readonly p: PorPersona;
+  readonly nombreEvento: (qid: string | null) => string;
+  readonly etiquetaTotal: string;
+}) {
+  const fecha = (d: string | null | undefined) => {
+    const dia = iso(d);
+    if (!dia) return "sin fecha";
+    const t = formatFechaEvento(dia, "largo"); // "miércoles 15 de agosto de 2026"
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  };
+  const porFecha = (xs: readonly Asignacion[]) =>
+    xs.slice().sort((a, b) => iso(a.day).localeCompare(iso(b.day)));
+  const fila = (a: Asignacion, monto: number, k: string) => (
+    <li key={k} className="flex items-baseline justify-between gap-3 py-1.5">
+      <span className="min-w-0">
+        <span className="block text-sm text-gray-900">{fecha(a.day)}</span>
+        <span className="block text-xs text-gray-500 truncate">
+          {nombreEvento(a.quotation_id)}
+          {a.management_resources?.name && ` · ${a.management_resources.name}`}
+        </span>
+      </span>
+      <span className="tabular-nums text-sm text-gray-900 whitespace-nowrap">
+        {clp(monto)}
+      </span>
+    </li>
+  );
+  const seccion = (
+    titulo: string,
+    subtotal: number,
+    xs: readonly Asignacion[],
+    monto: (a: Asignacion) => number,
+    prefijo: string,
+  ) => (
+    <section className="mt-4">
+      <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
+        <span>{titulo}</span>
+        <span className="tabular-nums text-gray-700">{clp(subtotal)}</span>
+      </h4>
+      <ul className="divide-y divide-gray-100 mt-1">
+        {porFecha(xs).map((a) => fila(a, monto(a), `${prefijo}-${String(a.id)}`))}
+      </ul>
+    </section>
+  );
+  const total = p.totalJornada + p.totalPropina;
+  return (
+    <>
+      {p.totalJornada > 0 &&
+        seccion("Jornadas", p.totalJornada, p.jornadas, (a) => Number(a.amount ?? 0), "j")}
+      {p.totalPropina > 0 &&
+        seccion(
+          "Propinas",
+          p.totalPropina,
+          p.propinas,
+          (a) => Number(a.tip_amount ?? 0),
+          "p",
+        )}
+      <div className="mt-4 pt-3 border-t-2 border-gray-300 flex items-center justify-between">
+        <span className="font-bold text-gray-900">{etiquetaTotal}</span>
+        <span className="text-lg font-bold text-gray-900 tabular-nums">
+          {clp(total)}
+        </span>
+      </div>
+    </>
+  );
+}
+
 /** EL PAGO: una persona a la vez, con el DETALLE de qué se le paga
  *  —fecha, evento o staff, jornadas aparte de propinas— y el total,
  *  para aprobar en el banco. "Ya la pagué" marca EN EL MOMENTO y pasa a
@@ -861,36 +940,6 @@ function PagoUnoAUno({
 
   if (!p) return null;
   const persona = p.persona;
-  const total = p.totalJornada + p.totalPropina;
-
-  // EL DETALLE, NO LA CUENTA (Felipe, 17-08): "ya está cargado en
-  // banco; esto debería ser el nombre y abajo un detalle ordenado sobre
-  // qué se está pagando, con fecha, con evento o si fue staff,
-  // separando propinas de jornadas, y con el total abajo para yo
-  // aprobar". Los datos bancarios ya viajaron en la revisión; acá se
-  // aprueba en el banco mirando qué se paga.
-  const fecha = (d: string | null | undefined) => {
-    const dia = iso(d);
-    if (!dia) return "sin fecha";
-    const t = formatFechaEvento(dia, "largo"); // "miércoles 15 de agosto de 2026"
-    return t.charAt(0).toUpperCase() + t.slice(1);
-  };
-  const filaDetalle = (a: Asignacion, monto: number, k: string) => (
-    <li key={k} className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="min-w-0">
-        <span className="block text-sm text-gray-900">{fecha(a.day)}</span>
-        <span className="block text-xs text-gray-500 truncate">
-          {a.quotation_id === null ? "Staff" : nombreEvento(a.quotation_id)}
-          {a.management_resources?.name && ` · ${a.management_resources.name}`}
-        </span>
-      </span>
-      <span className="tabular-nums text-sm text-gray-900 whitespace-nowrap">
-        {clp(monto)}
-      </span>
-    </li>
-  );
-  const porFecha = (xs: readonly Asignacion[]) =>
-    xs.slice().sort((a, b) => iso(a.day).localeCompare(iso(b.day)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
@@ -932,48 +981,11 @@ function PagoUnoAUno({
             </p>
           ) : null}
 
-          {p.totalJornada > 0 && (
-            <section className="mt-4">
-              <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
-                <span>Jornadas</span>
-                <span className="tabular-nums text-gray-700">
-                  {clp(p.totalJornada)}
-                </span>
-              </h4>
-              <ul className="divide-y divide-gray-100 mt-1">
-                {porFecha(p.jornadas).map((a) =>
-                  filaDetalle(a, Number(a.amount ?? 0), `j-${String(a.id)}`),
-                )}
-              </ul>
-            </section>
-          )}
-
-          {p.totalPropina > 0 && (
-            <section className="mt-4">
-              <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
-                <span>Propinas</span>
-                <span className="tabular-nums text-gray-700">
-                  {clp(p.totalPropina)}
-                </span>
-              </h4>
-              <ul className="divide-y divide-gray-100 mt-1">
-                {porFecha(p.propinas).map((a) =>
-                  filaDetalle(
-                    a,
-                    Number(a.tip_amount ?? 0),
-                    `p-${String(a.id)}`,
-                  ),
-                )}
-              </ul>
-            </section>
-          )}
-
-          <div className="mt-4 pt-3 border-t-2 border-gray-300 flex items-center justify-between">
-            <span className="font-bold text-gray-900">Total a transferir</span>
-            <span className="text-lg font-bold text-gray-900 tabular-nums">
-              {clp(total)}
-            </span>
-          </div>
+          <DesgloseDePago
+            p={p}
+            nombreEvento={nombreEvento}
+            etiquetaTotal="Total a transferir"
+          />
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
           <button
@@ -1012,9 +1024,6 @@ function DetalleTrabajador({
   readonly nombreEvento: (qid: string | null) => string;
   readonly onCerrar: () => void;
 }) {
-  const esPlanta = p.persona?.default_kind === "planta";
-  const muestraJornadas = !esPlanta || p.jornadas.length > 0;
-
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mt-10 max-h-[88vh] overflow-y-auto">
@@ -1029,57 +1038,13 @@ function DetalleTrabajador({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 space-y-4 text-sm">
-          {muestraJornadas && p.jornadas.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                {esPlanta ? "Turnos extra pagados" : "Días trabajados"}
-              </h4>
-              <ul className="space-y-0.5">
-                {p.jornadas.map((a) => (
-                  <li key={a.id} className="flex justify-between gap-2">
-                    <span className="text-gray-700">
-                      {formatISOUTCDateToString(iso(a.day))} ·{" "}
-                      {nombreEvento(a.quotation_id)}
-                      {a.management_resources?.name && (
-                        <span className="text-gray-400">
-                          {" "}
-                          · {a.management_resources.name}
-                        </span>
-                      )}
-                    </span>
-                    <span className="tabular-nums">{clp(Number(a.amount))}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {p.propinas.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                Propinas
-              </h4>
-              <ul className="space-y-0.5">
-                {p.propinas.map((a) => (
-                  <li key={a.id} className="flex justify-between gap-2">
-                    <span className="text-gray-700">
-                      {formatISOUTCDateToString(iso(a.day))} ·{" "}
-                      {nombreEvento(a.quotation_id)}
-                    </span>
-                    <span className="tabular-nums">
-                      {clp(Number(a.tip_amount))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="pt-2 border-t border-gray-200 font-bold text-gray-900 flex justify-between">
-            <span>Total</span>
-            <span className="tabular-nums">
-              {clp(p.totalJornada + p.totalPropina)}
-            </span>
-          </div>
+        <div className="p-4">
+          {/* El mismo desglose que la pantalla de pago (Felipe, 17-08). */}
+          <DesgloseDePago
+            p={p}
+            nombreEvento={nombreEvento}
+            etiquetaTotal="Total"
+          />
         </div>
       </div>
     </div>
