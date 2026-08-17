@@ -193,6 +193,16 @@ export default function MiniCalendario({
             const salida = hhmm(a?.ends_at) ?? hab.out;
             const distinto =
               viene && (entrada !== hab.in || salida !== hab.out);
+            // ÁMBAR = POR CONFIRMAR, en staff y en eventos por igual
+            // (Felipe, 17-08). Y el STAFF CONFIRMADO se cierra: es un
+            // refuerzo ya pactado (día, cargo, monto) y se toca desde la
+            // casilla de Planificación, no desde acá. La jornada normal
+            // de planta nace confirmada por diseño (es su horario, no
+            // una oferta) y SIGUE editable: para eso existe este
+            // calendario en su ficha.
+            const porConfirmar = viene && a?.status === "por_confirmar";
+            const staffCerrado =
+              viene && a?.kind === "freelance" && a?.status === "confirmado";
             const primeroDelMes = r.num === 1;
             const enEvento = diasEnEvento?.has(d) ?? false;
 
@@ -264,9 +274,9 @@ export default function MiniCalendario({
               >
                 <button
                   type="button"
-                  disabled={soloLectura}
+                  disabled={soloLectura || staffCerrado}
                   onClick={() => {
-                    if (soloLectura) return;
+                    if (soloLectura || staffCerrado) return;
                     if (viene) onDesmarcar(d);
                     else onMarcar(d);
                   }}
@@ -275,14 +285,18 @@ export default function MiniCalendario({
                       ? viene
                         ? "Viene al restaurante ese día"
                         : undefined
-                      : viene
-                        ? "Quitar este día"
-                        : libre
-                          ? "Es su día libre — márcalo si igual viene"
-                          : "Agregar este día"
+                      : staffCerrado
+                        ? "Staff confirmado: se saca desde la casilla de Planificación"
+                        : viene
+                          ? "Quitar este día"
+                          : libre
+                            ? "Es su día libre — márcalo si igual viene"
+                            : "Agregar este día"
                   }
                   className={`w-full flex items-start justify-between px-1 rounded group ${
-                    soloLectura ? "cursor-default" : "hover:bg-blue-50"
+                    soloLectura || staffCerrado
+                      ? "cursor-default"
+                      : "hover:bg-blue-50"
                   }`}
                 >
                   <span
@@ -305,16 +319,20 @@ export default function MiniCalendario({
                 </button>
 
                 {viene &&
-                  (onEditar ? (
+                  (onEditar && !staffCerrado ? (
                     <button
                       type="button"
                       onClick={() => onEditar(editando === d ? null : d)}
-                      title="Cambiar el horario de este día"
+                      title={
+                        porConfirmar
+                          ? "Por confirmar. Cambiar el horario de este día"
+                          : "Cambiar el horario de este día"
+                      }
                       className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums text-left transition-colors ${
                         editando === d
                           ? "bg-violet-600 text-white"
-                          : distinto
-                            ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                          : porConfirmar || distinto
+                            ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
                             : "bg-violet-50 text-violet-800 hover:bg-violet-100"
                       }`}
                     >
@@ -329,8 +347,18 @@ export default function MiniCalendario({
                     </button>
                   ) : (
                     <div
-                      className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-violet-50 text-violet-800 cursor-default"
-                      title="Viene al restaurante ese día"
+                      className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums cursor-default ${
+                        porConfirmar
+                          ? "bg-amber-50 text-amber-900"
+                          : "bg-violet-50 text-violet-800"
+                      }`}
+                      title={
+                        staffCerrado
+                          ? "Staff confirmado: se cambia desde la casilla de Planificación, no acá"
+                          : porConfirmar
+                            ? "Por confirmar"
+                            : "Viene al restaurante ese día"
+                      }
                     >
                       <span className="block font-medium">
                         {a?.management_resources?.name ??
