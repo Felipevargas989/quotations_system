@@ -1,4 +1,9 @@
-import { HoraInput, formatoHoras, horasTrabajadas } from "../../components/inputs";
+import {
+  HoraInput,
+  SelectorColacion,
+  formatoHoras,
+  horasTrabajadas,
+} from "../../components/inputs";
 import type { Asignacion, Persona } from "../../types/people.types";
 
 const rotulo = (isoDia: string) => {
@@ -66,6 +71,7 @@ export default function MiniCalendario({
   onEditar,
   onCambiarHorario,
   onCerrar,
+  soloLectura = false,
 }: {
   readonly dias: readonly string[];
   readonly persona: Persona | null;
@@ -94,6 +100,10 @@ export default function MiniCalendario({
    *  Planificación). En la ficha es una pestaña: no hay nada que
    *  cerrar, y el botón no hacía nada (Felipe, 15-08). */
   readonly onCerrar?: () => void;
+  /** Abierto desde la casilla de un EVENTO: se mira, no se marca. Los
+   *  días de evento se cambian en la planificación del evento (regla
+   *  del 15-08); acá solo se ve en qué anda la persona (17-08). */
+  readonly soloLectura?: boolean;
 }) {
   const semanas: string[][] = [];
   for (let i = 0; i < dias.length; i += 7)
@@ -103,6 +113,12 @@ export default function MiniCalendario({
     asignaciones?.find(
       (a) => String(a.day).slice(0, 10) === dia && a.quotation_id === null,
     ) ?? null;
+
+  /** Los eventos de esa persona ese día (puede haber más de uno). */
+  const eventosDe = (dia: string) =>
+    asignaciones?.filter(
+      (a) => String(a.day).slice(0, 10) === dia && a.quotation_id !== null,
+    ) ?? [];
 
   const enEdicion = editando ? asignacionDe(editando) : null;
 
@@ -126,7 +142,8 @@ export default function MiniCalendario({
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200">
         <div>
           <p className="text-sm font-medium text-gray-900">
-            En qué días viene {persona?.name ?? ""}
+            {soloLectura ? "En qué anda" : "En qué días viene"}{" "}
+            {persona?.name ?? ""}
           </p>
           <p className="text-xs text-gray-500">
             {marcados.length} {marcados.length === 1 ? "día" : "días"}
@@ -180,15 +197,34 @@ export default function MiniCalendario({
             const enEvento = diasEnEvento?.has(d) ?? false;
 
             if (enEvento) {
+              // LOS COLORES DE LA CASA (Felipe, 17-08): lila es el Staff
+              // del restaurante; en un evento manda el ESTADO — verde
+              // confirmado, ámbar por confirmar — igual que en la sábana.
+              const evs = eventosDe(d);
+              const todoConfirmado =
+                evs.length > 0 && evs.every((e) => e.status === "confirmado");
+              const tono = todoConfirmado
+                ? {
+                    fondo: "bg-emerald-50",
+                    num: "text-emerald-900",
+                    caja: "bg-emerald-100 text-emerald-900",
+                  }
+                : {
+                    fondo: "bg-amber-50",
+                    num: "text-amber-900",
+                    caja: "bg-amber-100 text-amber-900",
+                  };
               return (
                 <div
                   key={d}
-                  className={`min-h-[4.5rem] p-1 border-gray-100 bg-violet-50 ${
+                  className={`min-h-[4.5rem] p-1 border-gray-100 ${tono.fondo} ${
                     ci < 6 ? "border-r" : ""
                   } ${fi < semanas.length - 1 ? "border-b" : ""}`}
                 >
                   <div className="flex items-start justify-between px-1">
-                    <span className="text-xs tabular-nums font-semibold text-violet-900">
+                    <span
+                      className={`text-xs tabular-nums font-semibold ${tono.num}`}
+                    >
                       {r.num}
                       {primeroDelMes && (
                         <span className="ml-1 text-[10px] text-gray-400">
@@ -198,13 +234,28 @@ export default function MiniCalendario({
                     </span>
                   </div>
                   {/* Su jornada la ocupa el evento: no se le pone planta
-                      encima, para que nunca aparezca duplicada. */}
-                  <div
-                    className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight bg-violet-100 text-violet-900"
-                    title="Ese día está en un evento: su jornada de planta no se proyecta"
-                  >
-                    En evento
-                  </div>
+                      encima, para que nunca aparezca duplicada. Se ve
+                      QUÉ hace y a qué hora, no solo "en evento". */}
+                  {(evs.length > 0 ? evs : [null]).map((e, i) => (
+                    <div
+                      key={e?.id ?? i}
+                      className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight ${tono.caja}`}
+                      title={
+                        todoConfirmado
+                          ? "Evento, confirmado. Se cambia en la planificación del evento."
+                          : "Evento, por confirmar. Se cambia en la planificación del evento."
+                      }
+                    >
+                      <span className="font-medium">
+                        {e?.management_resources?.name ?? "Evento"}
+                      </span>
+                      {e?.starts_at && e?.ends_at && (
+                        <span className="block tabular-nums opacity-80">
+                          {hhmm(e.starts_at)}–{hhmm(e.ends_at)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               );
             }
@@ -220,18 +271,26 @@ export default function MiniCalendario({
               >
                 <button
                   type="button"
+                  disabled={soloLectura}
                   onClick={() => {
+                    if (soloLectura) return;
                     if (viene) onDesmarcar(d);
                     else onMarcar(d);
                   }}
                   title={
-                    viene
-                      ? "Quitar este día"
-                      : libre
-                        ? "Es su día libre — márcalo si igual viene"
-                        : "Agregar este día"
+                    soloLectura
+                      ? viene
+                        ? "Viene al restaurante ese día"
+                        : undefined
+                      : viene
+                        ? "Quitar este día"
+                        : libre
+                          ? "Es su día libre — márcalo si igual viene"
+                          : "Agregar este día"
                   }
-                  className="w-full flex items-start justify-between px-1 rounded hover:bg-blue-50 group"
+                  className={`w-full flex items-start justify-between px-1 rounded group ${
+                    soloLectura ? "cursor-default" : "hover:bg-blue-50"
+                  }`}
                 >
                   <span
                     className={`text-xs tabular-nums ${
@@ -245,7 +304,7 @@ export default function MiniCalendario({
                       </span>
                     )}
                   </span>
-                  {!viene && (
+                  {!viene && !soloLectura && (
                     <span className="text-xs text-gray-300 opacity-0 group-hover:opacity-100">
                       +
                     </span>
@@ -260,10 +319,10 @@ export default function MiniCalendario({
                       title="Cambiar el horario de este día"
                       className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums text-left transition-colors ${
                         editando === d
-                          ? "bg-blue-600 text-white"
+                          ? "bg-violet-600 text-white"
                           : distinto
                             ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
-                            : "bg-blue-50 text-blue-800 hover:bg-blue-100"
+                            : "bg-violet-50 text-violet-800 hover:bg-violet-100"
                       }`}
                     >
                       {entrada}
@@ -271,7 +330,7 @@ export default function MiniCalendario({
                       {salida}
                     </button>
                   ) : (
-                    <div className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-blue-50 text-blue-800">
+                    <div className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-violet-50 text-violet-800">
                       {entrada}
                       <br />
                       {salida}
@@ -305,24 +364,14 @@ export default function MiniCalendario({
               aria-label="Salida de ese día"
             />
             <span className="text-xs text-gray-500">· colación</span>
-            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs bg-white">
-              {([30, 60] as const).map((min) => (
-                <button
-                  key={min}
-                  type="button"
-                  onClick={() =>
-                    onCambiarHorario(editando, { break_minutes: min })
-                  }
-                  className={`px-1.5 py-0.5 ${
-                    (enEdicion.break_minutes ?? 0) === min
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  {min === 30 ? "30 m" : "1 h"}
-                </button>
-              ))}
-            </div>
+            {/* La pieza de la casa, no una copia: es la misma colación
+                que ven Planificación y Liquidación. */}
+            <SelectorColacion
+              value={enEdicion.break_minutes}
+              onChange={(min) =>
+                onCambiarHorario(editando, { break_minutes: min })
+              }
+            />
             <span className="ml-auto text-sm font-medium text-gray-700 tabular-nums">
               {formatoHoras(
                 horasTrabajadas(

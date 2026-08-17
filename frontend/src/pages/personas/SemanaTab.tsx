@@ -448,6 +448,12 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         .filter((a) => a.person_id === personId && a.quotation_id === null)
         .map((a) => iso(a.day) ?? ""),
     );
+  const diasEnEvento = (personId: number) =>
+    new Set(
+      staff
+        .filter((a) => a.person_id === personId && a.quotation_id !== null)
+        .map((a) => iso(a.day) ?? ""),
+    );
 
   const coberturaDelDia = (d: string) => {
     const m = new Map<string, { cargo: string; necesita: number }>();
@@ -685,11 +691,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                         ? "bg-blue-600 text-white"
                         : tiene === 0
                           ? "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
-                          : // LILA el refuerzo por día, AZUL la planta:
-                            // se distinguen de una pasada sin leer.
-                            f.ocasional
-                            ? "bg-violet-50 text-violet-800 hover:bg-violet-100"
-                            : "bg-blue-50 text-blue-800 hover:bg-blue-100"
+                          : // LA MISMA REGLA QUE ARRIBA (Felipe, 17-08):
+                            // ámbar mientras alguien esté por confirmar,
+                            // y recién con todos confirmados el color
+                            // propio — LILA el refuerzo por día, AZUL la
+                            // planta. Antes el Staff no distinguía nada.
+                            porConfirmar > 0
+                            ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                            : f.ocasional
+                              ? "bg-violet-50 text-violet-800 hover:bg-violet-100"
+                              : "bg-blue-50 text-blue-800 hover:bg-blue-100"
                     }`}
                   >
                     {tiene > 0 ? tiene : "+"}
@@ -814,6 +825,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             )
           }
           diasDePlanta={diasDePlanta}
+          diasEnEvento={diasEnEvento}
+          todoElStaff={staff}
           onPonerEnDia={(personId, d) =>
             poner.mutate({ personId, dia: d, fila: casilla.fila })
           }
@@ -965,6 +978,8 @@ function CasillaAbierta({
   onCambiar,
   ocupados,
   diasDePlanta,
+  diasEnEvento,
+  todoElStaff,
   onPonerEnDia,
   onSacarDelDia,
 }: {
@@ -983,6 +998,11 @@ function CasillaAbierta({
    *  otro evento). No se ofrecen: ya están ocupados. */
   readonly ocupados: ReadonlySet<number>;
   readonly diasDePlanta: (personId: number) => ReadonlySet<string>;
+  /** Los días del mes en que esa persona está en un evento. */
+  readonly diasEnEvento: (personId: number) => ReadonlySet<string>;
+  /** Todas las jornadas del rango, para que el mini calendario muestre
+   *  cargo, horas y estado de cada día de la persona. */
+  readonly todoElStaff: readonly Asignacion[];
   readonly onPonerEnDia: (personId: number, dia: string) => void;
   readonly onSacarDelDia: (personId: number, dia: string) => void;
 }) {
@@ -1130,15 +1150,21 @@ function CasillaAbierta({
                   "por confirmar"
                 )}
               </button>
-              {/* EL MINI CALENDARIO VIVE SOLO EN PLANTA (Felipe, 15-08):
-                  "en los botones asociados a eventos no, porque el
-                  personal de eventos viene por los días del evento y
-                  queda vinculado solo al día del evento". */}
-              {fila.quotationId === null && (
+              {/* EL MINI CALENDARIO: en la PLANTA se marca y se mueve
+                  (15-08). En un EVENTO se abre de SOLO LECTURA (Felipe,
+                  17-08: "tampoco puedo ver su calendario desde la
+                  sección eventos") — se ve en qué anda la persona ese
+                  mes, pero los días de evento se cambian en la
+                  planificación del evento, como se acordó el 15-08. */}
+              {a.person_id != null && (
                 <button
                   type="button"
                   onClick={() => setMoviendo(moviendo === a.id ? null : a.id)}
-                  title="Marcar en qué días viene"
+                  title={
+                    fila.quotationId === null
+                      ? "Marcar en qué días viene"
+                      : "Ver en qué anda ese mes"
+                  }
                   aria-label={`Días de ${a.people?.name ?? "la persona"}`}
                   className={`p-1 rounded ${
                     moviendo === a.id
@@ -1169,6 +1195,11 @@ function CasillaAbierta({
                 dias={dias}
                 persona={personas.find((p) => p.id === a.person_id) ?? null}
                 diasQueViene={diasDePlanta(a.person_id)}
+                asignaciones={todoElStaff.filter(
+                  (s) => s.person_id === a.person_id,
+                )}
+                diasEnEvento={diasEnEvento(a.person_id)}
+                soloLectura={fila.quotationId !== null}
                 onMarcar={(d) => onPonerEnDia(a.person_id!, d)}
                 onDesmarcar={(d) => onSacarDelDia(a.person_id!, d)}
                 onCerrar={() => setMoviendo(null)}

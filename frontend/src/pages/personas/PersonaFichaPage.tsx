@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Phone, Trash2 } from "lucide-react";
@@ -430,6 +430,32 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   });
 
   const suyas = staff.filter((a) => a.person_id === persona.id);
+
+  // ABRIR DONDE HAY ALGO (Felipe, 17-08: cargó a Matías el 11 y el 12
+  // de diciembre y "en su calendario no me muestra nada" — la ficha
+  // abría en agosto). Si el mes actual está vacío para esta persona,
+  // se salta una vez al primer día futuro que tenga jornada. Las
+  // flechas siguen mandando después.
+  const [saltoHecho, setSaltoHecho] = useState(false);
+  const { data: proximo } = useQuery({
+    queryKey: ["people", "proximo-dia", persona.id],
+    queryFn: () => getStaffSemana(hoyEnChile(), sumarDias(hoyEnChile(), 365)),
+    enabled: !saltoHecho,
+    staleTime: 0,
+  });
+  useEffect(() => {
+    if (saltoHecho || !proximo) return;
+    setSaltoHecho(true);
+    const mias = proximo
+      .filter((a) => a.person_id === persona.id && a.day)
+      .map((a) => String(a.day).slice(0, 10))
+      .sort();
+    if (mias.length === 0) return;
+    const enEsteMes = mias.some((d) => d >= domingo && d <= hasta);
+    if (!enEsteMes) setDomingo(domingoDe(mias[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proximo, saltoHecho]);
+
   const dePlanta = new Set(
     suyas
       .filter((a) => a.quotation_id === null)
@@ -625,6 +651,15 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
                   <span>{a.management_resources?.name ?? "sin cargo"}</span>
                   <span className="text-xs text-gray-400">
                     {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)}
+                  </span>
+                  <span
+                    className={`text-[11px] px-1.5 py-0.5 rounded-full ${
+                      a.status === "confirmado"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {a.status === "confirmado" ? "confirmado" : "por confirmar"}
                   </span>
                 </li>
               ))}
