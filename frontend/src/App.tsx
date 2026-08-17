@@ -41,6 +41,11 @@ const importQuotationForm = () => import("./pages/quotations/QuotationForm");
 const importClients = () => import("./pages/ClientsPage");
 const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
+const importPersonas = () => import("./pages/personas/PersonasPage");
+const importPersonaFicha = () =>
+  import("./pages/personas/PersonaFichaPage");
+const PersonaFichaPage = lazy(importPersonaFicha);
+const importInventario = () => import("./pages/inventario/InventarioPage");
 const importServices = () => import("./pages/services");
 const importCalendar = () => import("./pages/calendar/Calendar.tsx");
 
@@ -54,6 +59,8 @@ const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
 const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
+const PersonasPage = lazy(importPersonas);
+const InventarioPage = lazy(importInventario);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
@@ -121,6 +128,7 @@ function App() {
         importQuotations,
         importPostVenta,
         importLogistica,
+        importPersonas,
         importClients,
         importQuotationForm,
         importServices,
@@ -292,6 +300,39 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
                     <LogisticaPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* Inventario (15-08): el mobiliario, separado de Proveedores.
+                  Mismo permiso que logística. */}
+              <Route
+                path="inventario"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
+                    <InventarioPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* Personas - solo administrador: ahi viven los RUT y las
+                  cuentas bancarias de toda la gente que trabaja. */}
+              <Route
+                path="personas"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                    <PersonasPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* La ficha de una persona vive en su propia dirección
+                  (15-08): el formulario dejó de caber en una ventanita
+                  y ahora lleva además su calendario. */}
+              <Route
+                path="personas/:id"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                    <PersonaFichaPage />
                   </PermissionGuard>
                 }
               />

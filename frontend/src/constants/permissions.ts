@@ -24,6 +24,10 @@ export type Section =
   | "plans"
   | "analytics"
   | "logistics"
+  // La libreta de la gente que trabaja: RUT, teléfono y datos bancarios.
+  // Es SOLO de administrador (14-08) porque ahí vive la cuenta corriente
+  // de cada persona, y eso no lo tiene por qué ver el mostrador.
+  | "people"
   | "customer_satisfaction_survey";
 
 // Define which roles can access which sections
@@ -69,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "plans",
     "analytics",
     "logistics",
+    "people",
     "customer_satisfaction_survey",
   ],
 };
@@ -115,5 +120,6 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   plans: ROLE_GROUPS.ALL_ROLES,
   analytics: ROLE_GROUPS.ADMIN_ONLY,
   logistics: ROLE_GROUPS.OPERATIONS_AND_UP,
+  people: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
 };

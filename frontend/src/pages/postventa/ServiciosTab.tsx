@@ -2,6 +2,8 @@
 // PostVentaPage.tsx. La montan Post-Venta Y la ficha del negocio
 // (NegocioPage), por eso ahora es un archivo propio. Comportamiento
 // idéntico: solo se mudó el código, con sus imports.
+import { costoDeRecursos } from "../../utils/costoDeRecursos";
+import { getStaff } from "../../services/people.service";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery } from "@tanstack/react-query";
@@ -974,23 +976,23 @@ export default function ServiciosTab({
     ),
     enabled: enPostVenta && !!company?.id,
   });
-  const costoRecursos = useMemo(() => {
-    const lineas = recursosEvento.data?.lines ?? [];
-    return lineas.reduce(
-      (
-        s: number,
-        l: {
-          price_fixed?: number | null;
-          price_per_person?: number | null;
-          quantity?: number | null;
-        },
-      ) =>
-        s +
-        ((l.price_fixed || 0) + (l.price_per_person || 0) * personas) *
-          (l.quantity || 1),
-      0,
-    );
-  }, [recursosEvento.data, personas]);
+  // La MISMA cuenta que Gestión: antes cobraba el fijo en cada línea, así
+  // que el mismo evento mostraba dos costos distintos en dos pestañas de
+  // la misma ventana (revisión del 16-08).
+  // El personal viene de LAS SILLAS (migración 84); los arriendos, de
+  // sus líneas. La MISMA suma que Gestión, para que las dos pestañas
+  // digan lo mismo.
+  const sillasEvento = useQuery({
+    queryKey: ["people", "staff-evento", String(quote.id)],
+    queryFn: () => getStaff(String(quote.id)),
+    enabled: enPostVenta,
+  });
+  const costoRecursos = useMemo(
+    () =>
+      costoDeRecursos(recursosEvento.data?.lines ?? [], personas) +
+      (sillasEvento.data ?? []).reduce((t, a) => t + Number(a.amount ?? 0), 0),
+    [recursosEvento.data, personas, sillasEvento.data],
+  );
   const provisionado =
     !!provInfo.provisioned_at && provInfo.provisioned_cost !== null;
   const costoBaseReal = provisionado

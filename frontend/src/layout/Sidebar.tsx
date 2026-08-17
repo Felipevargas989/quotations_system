@@ -10,6 +10,9 @@ import {
   MessageCircle,
   Receipt,
   Package,
+  Contact,
+  Truck,
+  Armchair,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -84,11 +87,33 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       precargar: () => import("../pages/services"),
     },
     {
-      name: "Logística",
+      // 15-08 (Felipe): Proveedores = lo que se COMPRA. La dirección
+      // interna no cambia.
+      name: "Proveedores",
       href: "/logistica",
-      icon: Package,
+      icon: Truck,
       section: "logistics",
       precargar: () => import("../pages/logistica/LogisticaPage"),
+    },
+    {
+      // Inventario = lo que YA es nuestro (mobiliario). Mismo permiso que
+      // Proveedores: lo maneja operaciones.
+      name: "Inventario",
+      href: "/inventario",
+      icon: Armchair,
+      section: "logistics",
+      precargar: () => import("../pages/inventario/InventarioPage.tsx"),
+    },
+    {
+      // Despues de Logistica (decision de Felipe, 14-08). Solo la ve
+      // administrador: aca estan los datos bancarios de la gente.
+      // 15-08: se llama "Personal". La dirección interna (/personas) NO
+      // cambia — misma regla que Catálogo: no romper enlaces guardados.
+      name: "Personal",
+      href: "/personas",
+      icon: Contact,
+      section: "people",
+      precargar: () => import("../pages/personas/PersonasPage.tsx"),
     },
     {
       name: "Calendario",

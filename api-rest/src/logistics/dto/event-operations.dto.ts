@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 
@@ -112,6 +113,13 @@ export class EventResourceRowDto {
   @IsOptional()
   @IsInt()
   origin_fixed_service_id?: number | null;
+
+  // El día del evento al que corresponde esta cantidad. NULL = sin
+  // repartir. La cantidad de una línea SIEMPRE fue el total del evento;
+  // repartirla no cambia el costo, solo dice cuándo va cada uno.
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  day?: string | null;
 }
 
 export class AddEventResourcesDto {
@@ -125,6 +133,10 @@ export class UpdateEventResourceDto {
   @IsOptional()
   @IsNumber()
   quantity?: number;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
+  day?: string | null;
 
   @IsOptional()
   @IsNumber()

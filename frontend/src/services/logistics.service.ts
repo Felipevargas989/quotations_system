@@ -277,7 +277,13 @@ export const updateFurnitureItem = async (
   fields: Partial<
     Pick<
       FurnitureItem,
-      "name" | "is_active" | "category" | "stock" | "photo_url" | "preassembled"
+      | "name"
+      | "is_active"
+      | "category"
+      | "stock"
+      | "photo_url"
+      | "preassembled"
+      | "unit_cost"
     >
   >,
 ) => {
@@ -589,6 +595,11 @@ export interface EventResource {
   price_per_person: number;
   // servicio fijo del que se importó la línea (NULL = agregado a mano)
   origin_fixed_service_id: number | null;
+  // Día del evento al que corresponde esta cantidad. NULL = sin repartir.
+  // La cantidad SIEMPRE fue el total del evento; repartirla no cambia el
+  // costo — solo dice cuándo va cada uno ("se necesitan diez personas,
+  // pero no diez personas el mismo día", Felipe).
+  day: string | null;
 }
 
 export const getEventResources = async (
@@ -630,6 +641,7 @@ export const addEventResource = async (fields: {
   price_fixed: number;
   price_per_person: number;
   origin_fixed_service_id?: number | null;
+  day?: string | null;
 }) => {
   try {
     const { company_id: _omitido, ...r } = fields;
@@ -651,6 +663,7 @@ export const addEventResources = async (
     price_fixed: number;
     price_per_person: number;
     origin_fixed_service_id?: number | null;
+    day?: string | null;
   }[],
 ) => {
   if (!rows.length) return { error: null };
@@ -680,7 +693,7 @@ export const getAllFixedServiceCostItems = async (
 export const updateEventResource = async (
   id: number,
   fields: Partial<
-    Pick<EventResource, "quantity" | "price_fixed" | "price_per_person">
+    Pick<EventResource, "quantity" | "price_fixed" | "price_per_person" | "day">
   >,
 ) => {
   try {

@@ -194,7 +194,7 @@ export default function FixedCostSection({
 
   // Opciones ordenadas por tipo (Arriendo / Compra / Personal) y nombre,
   // con etiqueta corta: "Silla arrendada · $1.500 /persona · FL Eventos".
-  const typeOrder: ResourceType[] = ["arriendo", "compra", "personal"];
+  const typeOrder: ResourceType[] = ["arriendo", "personal"];
   const options = resources
     .filter((r) => r.is_active)
     .slice()

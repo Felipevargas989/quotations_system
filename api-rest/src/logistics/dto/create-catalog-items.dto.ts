@@ -29,6 +29,12 @@ export class CreateFurnitureItemDto {
   @IsBoolean()
   @IsOptional()
   preassembled?: boolean;
+
+  // Costo unitario de reposición: inventario valorizado = stock × costo
+  // (Felipe, 15-08).
+  @IsNumber()
+  @IsOptional()
+  unit_cost?: number | null;
 }
 
 export class UpdateFurnitureItemDto {
@@ -55,6 +61,10 @@ export class UpdateFurnitureItemDto {
   @IsBoolean()
   @IsOptional()
   preassembled?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  unit_cost?: number | null;
 }
 
 export class CreateManagementResourceDto {

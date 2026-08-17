@@ -38,6 +38,13 @@ Run from `startApi.sh` / `startFront.sh` at the root, or directly in each subdir
 - `npm run lint` — ESLint, `--max-warnings 0`
 - There is no frontend test suite.
 
+⚠ **The backend type-check MUST be run from inside `api-rest/`**:
+`cd api-rest && npx tsc --noEmit -p tsconfig.json`. Running `npx tsc
+--noEmit` from the repo root checks NOTHING and passes green — on
+15-08-2026 that false green let a commit through that had deleted 18
+service methods, and Railway caught it instead. The build that matters
+is `npm run build` (nest build) inside `api-rest/`.
+
 **Pre-commit** (`.pre-commit-config.yaml`) only runs Prettier `format` on each subdir plus
 basic file hygiene. ESLint/type-check/test hooks are intentionally commented out, so CI does
 not enforce them — run lint/tests manually before committing.
@@ -94,6 +101,42 @@ Backend env (`api-rest/.env`, see `.env.example`): `SUPABASE_URL`,
 - **Styling**: Tailwind CSS. Icons via `lucide-react`. Charts via `chart.js`/`react-chartjs-2`.
 - **External data**: bulk service import reads `.xlsx` via `xlsx` (the old Google
   Sheets integration was removed 2026-07-28 — it was dead code).
+## ANTES DE PROGRAMAR: LEER LA ARQUITECTURA ACORDADA
+
+**Regla de la casa, puesta por Felipe el 14-08-2026.** Cuando un módulo
+tiene una arquitectura conversada y escrita, **se lee ANTES de escribir
+código** — completa, no de memoria.
+
+Sus palabras: *"revisa la arquitectura hablada siempre antes de construir,
+por si olvidas por los límites de tu memoria"*.
+
+No es ceremonia. El mismo día que se puso la regla pasaron estas tres:
+
+1. Se creó una tabla de cargos que **el sistema ya tenía** en otra parte —
+   el frankenstein exacto que ese módulo venía a evitar.
+2. Se preguntó de nuevo si la cantidad de un recurso era por día o total,
+   **cuando ya estaba decidido y escrito** ("se necesitan diez personas,
+   pero no diez personas el mismo día").
+3. Se inventó una regla —"el precio decide si un cargo se contrata"— que
+   contradecía algo ya acordado: que planta o freelance es un atributo de
+   **la persona**, no del cargo.
+
+Las tres se habrían evitado leyendo el documento.
+
+| Módulo | Documento |
+|---|---|
+| Gestión de Personas | `docs/arquitectura/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
+| Homologación de piezas | `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md` |
+
+Viven **dentro del repo** desde el 14-08: antes estaban solo en la carpeta
+maestra, sin versionar y fuera de los respaldos — un solo archivo en un solo
+disco, con horas de análisis adentro. En la carpeta maestra quedó un puntero.
+
+**Si el documento contradice lo que uno cree recordar, manda el
+documento.** Y si la conversación cambia una decisión, **se actualiza el
+documento en el mismo movimiento** — un acuerdo que solo vive en el chat
+se pierde en la próxima sesión.
+
 ## The house kit — REUSE BEFORE YOU WRITE UI
 
 **Rule: before writing any piece of interface, check `src/components/` and
@@ -112,9 +155,16 @@ and no close-on-click-outside) — every one of them already handled inside
 | `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
 | `components/MultiSelect` | multiple choice with chips | 3 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
+| `components/inputs/SelectorColacion` | the meal break (30 min / 1 h, never zero). Same `event_staff` row in Planning and in Liquidación — editing it in one shows in the other; there is no second copy to keep in sync | 3 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
-| `components/QuantitySelector` | quantity steppers | 2 |
+| `components/QuantitySelector` | quantity steppers | 3 |
+| `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
+| `components/Estrellas` | star ratings (display avg or click-to-rate); "sin evaluar" is NOT zero stars | 2 |
+| `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close | 1 |
+| `components/Tooltip` | read-only detail on hover (CSS only, opens upward, dark). Also sets `title` so the browser shows it when the panel is clipped. NOT for choosing values — that is `SelectWithSearch` | 1 |
+| `components/ChipDeEstado` | status pill that opens the other statuses, each in its own colour | 1 |
+| `components/IconoWhatsApp` | the real WhatsApp logo | 2 |
 | `components/PageSkeleton` | loading state of a whole page | 3 |
 | `components/PermissionGuard` | gate a route/section by role | — |
 

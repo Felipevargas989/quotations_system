@@ -1,5 +1,5 @@
 import { QuotationStatusStats } from "../../../types/analytics.types";
-import { etiquetaEstado } from "../../../utils/estadoCotizacion";
+import { etiquetaEstado, hexEstado } from "../../../utils/estadoCotizacion";
 
 // Analytics 100% en tablas (Felipe, 23-07): la dona decía menos que
 // estas mismas filas. Punto de color = el color histórico del estado.
@@ -49,8 +49,11 @@ export default function QuotationStatusStatsComponent({
                     <span className="inline-flex items-center gap-2">
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
+                        // hexEstado, no etiquetaEstado: al homologar los
+                        // estados se cambió también acá, y "Aceptada" no
+                        // es un color — el punto quedaba transparente.
                         style={{
-                          backgroundColor: etiquetaEstado(r.quotation_status),
+                          backgroundColor: hexEstado(r.quotation_status),
                         }}
                       />
                       <span className="font-medium text-gray-800">

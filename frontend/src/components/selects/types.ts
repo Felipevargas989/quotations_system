@@ -10,6 +10,10 @@ export interface SelectOption {
   hint?: string;
   // Punto de color a la izquierda (estados, semáforos).
   dotClass?: string;
+  // Etiqueta de color a la DERECHA de la fila (15-08): un aviso que
+  // tiene que saltar a la vista, como "libre este día". Va aparte del
+  // `hint` porque ese es texto buscable y esto es pura señal.
+  chip?: { texto: string; clases: string };
 }
 
 export interface SelectWithSearchProps {
