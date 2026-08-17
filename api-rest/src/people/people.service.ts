@@ -277,9 +277,9 @@ export class PeopleService {
         dto.day,
       );
       if (silla) {
-        const esDiaExtraS = persona.default_kind === 'planta';
         const kindS =
-          dto.kind ?? (esDiaExtraS ? 'freelance' : persona.default_kind);
+          dto.kind ??
+          (esJornadaExtra(persona, dto) ? 'freelance' : persona.default_kind);
         return this.repo.updateStaff(
           silla.id,
           {
@@ -301,11 +301,9 @@ export class PeopleService {
     // se le pague aparte. Mover sus días desde su calendario es otra
     // cosa —ahí sigue siendo su jornada normal— y por eso la regla mira
     // si hay evento, no el día.
-    const esDiaExtra =
-      dto.quotation_id != null && persona.default_kind === 'planta';
     const kind =
       dto.kind ??
-      (esDiaExtra ? 'freelance' : persona.default_kind) ??
+      (esJornadaExtra(persona, dto) ? 'freelance' : persona.default_kind) ??
       'freelance';
     return this.repo.addStaff({
       ...dto,
@@ -1157,6 +1155,47 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
+/**
+ * UN DÍA EXTRA ES DÍA EXTRA, TAMBIÉN EN EL RESTAURANTE (Felipe, 17-08).
+ *
+ * Su caso: quiso poner de Staff garzón a una cocinera de planta que
+ * tenía libre el 18 de noviembre. El sistema le puso el tipo de su
+ * ficha —planta—, sin monto, y la sábana subió el cargo Garzón entero
+ * a la banda de planta. Sus palabras: "personal de planta es personal
+ * de planta, no se tiene que mezclar con el staff… le estoy pagando un
+ * día extra, viene como garzón y tengo que poder configurar el pago".
+ *
+ * La regla: una persona de planta trabaja como FREELANCE (día extra,
+ * con pago diario) cuando va a un evento, cuando viene en su día
+ * libre, o cuando viene con un cargo que no es el suyo. Su jornada de
+ * planta es solo la de su cargo, en sus días.
+ */
+export const esJornadaExtra = (
+  persona: {
+    default_kind?: string | null;
+    default_role_id?: number | null;
+    days_off?: number[] | null;
+  },
+  jornada: {
+    quotation_id?: string | null;
+    day?: string | null;
+    role_id?: number | null;
+  },
+): boolean => {
+  if (persona.default_kind !== 'planta') return false;
+  if (jornada.quotation_id != null) return true; // evento = día extra
+  const libre =
+    !!jornada.day &&
+    (persona.days_off ?? []).includes(
+      new Date(`${jornada.day}T00:00:00Z`).getUTCDay(),
+    );
+  const cargoAjeno =
+    jornada.role_id != null &&
+    persona.default_role_id != null &&
+    jornada.role_id !== persona.default_role_id;
+  return libre || cargoAjeno;
+};
+
 /**
  * LA PROYECCIÓN SOLO BORRA LO QUE ELLA MISMA PONE (revisión del 16-08).
  *
