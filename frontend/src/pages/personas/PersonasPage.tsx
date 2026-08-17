@@ -148,25 +148,30 @@ export default function PersonasPage() {
               : `${personas.length} ${personas.length === 1 ? "persona" : "personas"}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViendoCargos(true)}
-            className="flex items-center gap-2 px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            <Tags className="w-4 h-4" />
-            Cargos
-          </button>
-          <button
-            onClick={() => {
-              setEditando(null);
-              setErrorServidor(null);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva persona
-          </button>
-        </div>
+        {/* Cargos y Nueva persona viven SOLO en Staff, que es donde se
+            administra la gente. En Planificación, Liquidación y Nómina
+            no tienen nada que hacer (Felipe, 17-08). */}
+        {pestana === "directorio" && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViendoCargos(true)}
+              className="flex items-center gap-2 px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <Tags className="w-4 h-4" />
+              Cargos
+            </button>
+            <button
+              onClick={() => {
+                setEditando(null);
+                setErrorServidor(null);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva persona
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Dos mesas de trabajo: la libreta y el armado de eventos. */}

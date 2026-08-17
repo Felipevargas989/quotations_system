@@ -64,7 +64,6 @@ interface PorPersona {
 
 export default function NominaTab() {
   const [abierta, setAbierta] = useState<number | null>(null);
-  const [creando, setCreando] = useState(false);
   const qc = useQueryClient();
 
   const { data: nominas = [] } = useQuery({
@@ -90,17 +89,15 @@ export default function NominaTab() {
           <div>
             <h2 className="font-semibold text-gray-900">Nóminas de pago</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Se arma eligiendo qué liquidar. Lo que no entra queda
-              pendiente para la próxima — no hay que acordarse de nada.
+              Nacen arriba, en Liquidaciones por pagar. Lo que no entra
+              queda pendiente para la próxima — no hay que acordarse de
+              nada.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setCreando(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" /> Armar nómina
-          </button>
+          {/* Sin "Armar nómina": las nóminas nacen de las liquidaciones
+              seleccionadas arriba, con la revisión antes del banco. El
+              armado por rango de fechas era el camino viejo (Felipe,
+              17-08). */}
         </div>
         {nominas.length === 0 ? (
           <p className="text-sm text-gray-500 p-6 text-center">
@@ -150,16 +147,6 @@ export default function NominaTab() {
         )}
       </div>
 
-      {creando && (
-        <ArmarNomina
-          onCerrar={() => setCreando(false)}
-          onCreada={(id) => {
-            setCreando(false);
-            qc.invalidateQueries({ queryKey: ["people", "payrolls"] });
-            setAbierta(id);
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -611,146 +598,6 @@ function RevisarAntesDeGenerar({
         </div>
       )}
     </Modal>
-  );
-}
-
-/** El selector de qué se liquida. */
-function ArmarNomina({
-  onCerrar,
-  onCreada,
-}: {
-  readonly onCerrar: () => void;
-  readonly onCreada: (id: number) => void;
-}) {
-  const hoy = hoyEnChile();
-  const [modo, setModo] = useState<"hasta" | "rango" | "eventos">("hasta");
-  const [hasta, setHasta] = useState(hoy);
-  const [desde, setDesde] = useState(hoy);
-  const [eventosSel, setEventosSel] = useState<string[]>([]);
-  const [label, setLabel] = useState(
-    `Nómina del ${formatISOUTCDateToString(hoy)}`,
-  );
-
-  const { data: eventos = [] } = useQuery(eventosQueryOptions);
-  const opcionesEventos = eventos.map((q) => ({
-    value: q.id,
-    label: `N° ${String(q.numero)} · ${q.cliente}`,
-  }));
-
-  const crear = useMutation({
-    mutationFn: () =>
-      createPayroll({
-        label,
-        ...(modo === "hasta" ? { hasta } : {}),
-        ...(modo === "rango" ? { desde, hasta } : {}),
-        ...(modo === "eventos" ? { quotation_ids: eventosSel } : {}),
-      }),
-    onSuccess: (n) => {
-      if (n.fuera && n.fuera.length > 0) {
-        toast.warn(
-          `Nómina armada. Quedaron FUERA ${String(n.fuera.length)} pozos de propina sin repartir.`,
-        );
-      } else {
-        toast.success("Nómina armada con todo lo pendiente del filtro.");
-      }
-      onCreada(n.id);
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
-  const campoFecha =
-    "border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mt-10">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">¿Qué se liquida?</h3>
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="p-1 text-gray-400 hover:text-gray-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-4 space-y-3">
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            aria-label="Nombre de la nómina"
-          />
-          {(
-            [
-              ["hasta", "Todo lo pendiente hasta una fecha"],
-              ["rango", "Un rango de días"],
-              ["eventos", "Eventos sueltos"],
-            ] as const
-          ).map(([id, texto]) => (
-            <label key={id} className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="radio"
-                checked={modo === id}
-                onChange={() => setModo(id)}
-              />
-              {texto}
-            </label>
-          ))}
-          <div className="pl-6 flex items-center gap-2 flex-wrap">
-            {modo === "rango" && (
-              <input
-                type="date"
-                value={desde}
-                onChange={(e) => setDesde(e.target.value)}
-                className={campoFecha}
-                aria-label="Desde"
-              />
-            )}
-            {modo !== "eventos" && (
-              <input
-                type="date"
-                value={hasta}
-                onChange={(e) => setHasta(e.target.value)}
-                className={campoFecha}
-                aria-label="Hasta"
-              />
-            )}
-            {modo === "eventos" && (
-              <div className="w-full">
-                <MultiSelect
-                  options={opcionesEventos}
-                  value={eventosSel}
-                  onChange={setEventosSel}
-                  placeholder="Elegir eventos…"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => crear.mutate()}
-            disabled={
-              crear.isPending || (modo === "eventos" && eventosSel.length === 0)
-            }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {crear.isPending ? "Armando…" : "Armar la nómina"}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
