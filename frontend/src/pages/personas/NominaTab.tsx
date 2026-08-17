@@ -13,6 +13,7 @@ import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import { eventosQueryOptions } from "./FichasTab";
 import Modal from "../../components/Modal";
+import { estadoDelPago } from "./estadoDelPago";
 import Tooltip from "../../components/Tooltip";
 import {
   createPayroll,
@@ -831,8 +832,7 @@ function NominaAbierta({
 
   const pagadas = porPersona.filter(
     (p) =>
-      (p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid)) &&
-      (p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid)),
+      estadoDelPago(p) === "pagada",
   );
 
   if (!nomina) return null;
@@ -954,16 +954,13 @@ function NominaAbierta({
 }
 
 function EstadoPago({ p }: { readonly p: PorPersona }) {
-  const j = p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid);
-  const t = p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid);
-  if (j && t)
+  // Dos estados, no tres: al banco sube UN monto por persona.
+  if (estadoDelPago(p) === "pagada")
     return (
       <span className="text-emerald-700 text-xs font-medium">
         <Check className="w-3.5 h-3.5 inline -mt-0.5" /> pagada
       </span>
     );
-  if (j || t)
-    return <span className="text-amber-700 text-xs font-medium">parcial</span>;
   return <span className="text-gray-400 text-xs">pendiente</span>;
 }
 
@@ -982,10 +979,7 @@ function PagoUnoAUno({
 }) {
   const pendientes = porPersona.filter(
     (p) =>
-      !(
-        (p.totalJornada === 0 || p.pagos.every((g) => g.jornada_paid)) &&
-        (p.totalPropina === 0 || p.pagos.every((g) => g.propina_paid))
-      ),
+      estadoDelPago(p) !== "pagada",
   );
   const [idx, setIdx] = useState(0);
   const p = pendientes[idx] ?? null;
