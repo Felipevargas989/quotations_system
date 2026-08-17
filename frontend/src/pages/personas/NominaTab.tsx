@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Check,
   ChevronLeft,
-  Copy,
   FileText,
   Plus,
   X,
@@ -32,7 +31,10 @@ import type {
 } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { nombreBanco, etiquetaTipoCuenta } from "../../utils/bancos";
-import { formatISOUTCDateToString, hoyEnChile } from "../../utils/dates";
+import {
+  formatFechaEvento,
+  formatISOUTCDateToString,
+} from "../../utils/dates";
 import { formatearRut } from "../../utils/rut";
 
 // LA NÓMINA, EL PAGO Y EL DETALLE (etapa 6)
@@ -784,6 +786,7 @@ function NominaAbierta({
         <PagoUnoAUno
           nomina={nomina}
           porPersona={porPersona}
+          nombreEvento={nombreEvento}
           onCambio={refrescar}
           onCerrar={() => setPagando(false)}
         />
@@ -811,16 +814,20 @@ function EstadoPago({ p }: { readonly p: PorPersona }) {
   return <span className="text-gray-400 text-xs">pendiente</span>;
 }
 
-/** EL PAGO: una persona a la vez, grande, con copiar en cada dato.
- *  "Ya la pagué" marca EN EL MOMENTO y pasa a la siguiente. */
+/** EL PAGO: una persona a la vez, con el DETALLE de qué se le paga
+ *  —fecha, evento o staff, jornadas aparte de propinas— y el total,
+ *  para aprobar en el banco. "Ya la pagué" marca EN EL MOMENTO y pasa a
+ *  la siguiente. */
 function PagoUnoAUno({
   nomina,
   porPersona,
+  nombreEvento,
   onCambio,
   onCerrar,
 }: {
   readonly nomina: NominaDetalle;
   readonly porPersona: PorPersona[];
+  readonly nombreEvento: (qid: string | null) => string;
   readonly onCambio: () => void;
   readonly onCerrar: () => void;
 }) {
@@ -854,29 +861,34 @@ function PagoUnoAUno({
   const persona = p.persona;
   const total = p.totalJornada + p.totalPropina;
 
-  const copiar = (texto: string, que: string) => {
-    void navigator.clipboard.writeText(texto);
-    toast.success(`${que} copiado.`);
+  // EL DETALLE, NO LA CUENTA (Felipe, 17-08): "ya está cargado en
+  // banco; esto debería ser el nombre y abajo un detalle ordenado sobre
+  // qué se está pagando, con fecha, con evento o si fue staff,
+  // separando propinas de jornadas, y con el total abajo para yo
+  // aprobar". Los datos bancarios ya viajaron en la revisión; acá se
+  // aprueba en el banco mirando qué se paga.
+  const fecha = (d: string | null | undefined) => {
+    const dia = iso(d);
+    if (!dia) return "sin fecha";
+    const t = formatFechaEvento(dia, "largo"); // "miércoles 15 de agosto de 2026"
+    return t.charAt(0).toUpperCase() + t.slice(1);
   };
-
-  const dato = (etiqueta: string, valor: string | null | undefined) => (
-    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-100">
-      <span className="text-sm text-gray-500">{etiqueta}</span>
-      <span className="flex items-center gap-1.5">
-        <span className="font-mono text-gray-900">{valor || "—"}</span>
-        {valor && (
-          <button
-            type="button"
-            onClick={() => copiar(valor, etiqueta)}
-            aria-label={`Copiar ${etiqueta}`}
-            className="p-1 text-gray-400 hover:text-blue-700 rounded"
-          >
-            <Copy className="w-4 h-4" />
-          </button>
-        )}
+  const filaDetalle = (a: Asignacion, monto: number, k: string) => (
+    <li key={k} className="flex items-baseline justify-between gap-3 py-1.5">
+      <span className="min-w-0">
+        <span className="block text-sm text-gray-900">{fecha(a.day)}</span>
+        <span className="block text-xs text-gray-500 truncate">
+          {a.quotation_id === null ? "Staff" : nombreEvento(a.quotation_id)}
+          {a.management_resources?.name && ` · ${a.management_resources.name}`}
+        </span>
       </span>
-    </div>
+      <span className="tabular-nums text-sm text-gray-900 whitespace-nowrap">
+        {clp(monto)}
+      </span>
+    </li>
   );
+  const porFecha = (xs: readonly Asignacion[]) =>
+    xs.slice().sort((a, b) => iso(a.day).localeCompare(iso(b.day)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
@@ -906,39 +918,59 @@ function PagoUnoAUno({
         </div>
         <div className="p-4">
           <h3 className="text-xl font-bold text-gray-900">{persona?.name}</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {persona?.rut ? formatearRut(persona.rut) : "sin RUT"}
+            {persona?.bank_code && ` · ${nombreBanco(persona.bank_code)}`}
+            {persona?.account_number && ` · ${persona.account_number}`}
+          </p>
           {!persona?.bank_code || !persona.account_number ? (
             <p className="mt-2 flex items-center gap-1.5 text-sm text-amber-700">
               <AlertTriangle className="w-4 h-4" /> Le faltan datos bancarios —
-              se completan en el Directorio.
+              se completan en Staff.
             </p>
           ) : null}
-          <div className="mt-3">
-            {dato("RUT", persona?.rut ? formatearRut(persona.rut) : null)}
-            {dato("Banco", persona?.bank_code ? nombreBanco(persona.bank_code) : null)}
-            {dato(
-              "Tipo de cuenta",
-              persona?.account_type
-                ? etiquetaTipoCuenta(persona.account_type)
-                : null,
-            )}
-            {dato("N° de cuenta", persona?.account_number)}
-            {dato("Monto", String(Math.round(total)))}
-          </div>
-          <div className="mt-3 text-sm text-gray-600">
-            {p.totalJornada > 0 && (
-              <div>
-                Jornadas ({p.jornadas.length}):{" "}
-                <strong>{clp(p.totalJornada)}</strong>
-              </div>
-            )}
-            {p.totalPropina > 0 && (
-              <div>
-                Propinas: <strong>{clp(p.totalPropina)}</strong>
-              </div>
-            )}
-            <div className="font-bold text-gray-900 mt-1">
-              Total a transferir: {clp(total)}
-            </div>
+
+          {p.totalJornada > 0 && (
+            <section className="mt-4">
+              <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
+                <span>Jornadas</span>
+                <span className="tabular-nums text-gray-700">
+                  {clp(p.totalJornada)}
+                </span>
+              </h4>
+              <ul className="divide-y divide-gray-100 mt-1">
+                {porFecha(p.jornadas).map((a) =>
+                  filaDetalle(a, Number(a.amount ?? 0), `j-${String(a.id)}`),
+                )}
+              </ul>
+            </section>
+          )}
+
+          {p.totalPropina > 0 && (
+            <section className="mt-4">
+              <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
+                <span>Propinas</span>
+                <span className="tabular-nums text-gray-700">
+                  {clp(p.totalPropina)}
+                </span>
+              </h4>
+              <ul className="divide-y divide-gray-100 mt-1">
+                {porFecha(p.propinas).map((a) =>
+                  filaDetalle(
+                    a,
+                    Number(a.tip_amount ?? 0),
+                    `p-${String(a.id)}`,
+                  ),
+                )}
+              </ul>
+            </section>
+          )}
+
+          <div className="mt-4 pt-3 border-t-2 border-gray-300 flex items-center justify-between">
+            <span className="font-bold text-gray-900">Total a transferir</span>
+            <span className="text-lg font-bold text-gray-900 tabular-nums">
+              {clp(total)}
+            </span>
           </div>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
