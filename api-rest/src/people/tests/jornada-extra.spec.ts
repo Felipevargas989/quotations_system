@@ -9,6 +9,9 @@ import { esJornadaExtra } from '../people.service';
  *
  * La jornada de planta es SOLO la del cargo propio, en los días
  * propios. Todo lo demás se paga aparte.
+ *
+ * (El primer despliegue de esta regla lo tumbó el constructor de
+ * Railway antes de leer el código; el reintento pasa por acá.)
  */
 describe('esJornadaExtra', () => {
   const cocinera = {
