@@ -125,16 +125,18 @@ export default function NominaTab() {
                         ` · ${n.pagadas ?? 0} de ${n.personas} pagadas`}
                     </span>
                   </span>
-                  {n.total !== undefined && n.total > 0 && (
-                    <span className="tabular-nums text-gray-900">
-                      {clp(n.total)}
-                    </span>
-                  )}
+                  {/* COLUMNAS DE ANCHO FIJO (Felipe, 17-08): la plata a la
+                      derecha en su columna, y el chip con un ancho único
+                      para los dos estados. Sin esto cada fila calculaba
+                      lo suyo y la lista bailaba. */}
+                  <span className="w-28 text-right tabular-nums text-gray-900 shrink-0">
+                    {n.total !== undefined && n.total > 0 ? clp(n.total) : ""}
+                  </span>
                   {/* EL ESTADO SE DEDUCE, no se guarda: una nómina está
                       pagada cuando no le queda nadie por pagar. Así no
                       hay una marca que se pueda quedar mintiendo. */}
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                    className={`w-24 text-center text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
                       n.estado === "pagada"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                         : "bg-blue-50 text-blue-700 border-blue-200"
