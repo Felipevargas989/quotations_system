@@ -203,28 +203,21 @@ export default function MiniCalendario({
               const evs = eventosDe(d);
               const todoConfirmado =
                 evs.length > 0 && evs.every((e) => e.status === "confirmado");
+              // SOLO LA CAJITA LLEVA COLOR, NUNCA EL DÍA ENTERO (Felipe,
+              // 17-08: "en un calendario lleno se verá abrumante"). Si es
+              // editable o no, se sabe al pasar el cursor.
               const tono = todoConfirmado
-                ? {
-                    fondo: "bg-emerald-50",
-                    num: "text-emerald-900",
-                    caja: "bg-emerald-100 text-emerald-900",
-                  }
-                : {
-                    fondo: "bg-amber-50",
-                    num: "text-amber-900",
-                    caja: "bg-amber-100 text-amber-900",
-                  };
+                ? { caja: "bg-emerald-50 text-emerald-900" }
+                : { caja: "bg-amber-50 text-amber-900" };
               return (
                 <div
                   key={d}
-                  className={`min-h-[4.5rem] p-1 border-gray-100 ${tono.fondo} ${
+                  className={`min-h-[4.5rem] p-1 border-gray-100 bg-white ${
                     ci < 6 ? "border-r" : ""
                   } ${fi < semanas.length - 1 ? "border-b" : ""}`}
                 >
                   <div className="flex items-start justify-between px-1">
-                    <span
-                      className={`text-xs tabular-nums font-semibold ${tono.num}`}
-                    >
+                    <span className="text-xs tabular-nums font-semibold text-gray-900">
                       {r.num}
                       {primeroDelMes && (
                         <span className="ml-1 text-[10px] text-gray-400">
@@ -239,11 +232,11 @@ export default function MiniCalendario({
                   {(evs.length > 0 ? evs : [null]).map((e, i) => (
                     <div
                       key={e?.id ?? i}
-                      className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight ${tono.caja}`}
+                      className={`mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight cursor-default ${tono.caja}`}
                       title={
                         todoConfirmado
-                          ? "Evento, confirmado. Se cambia en la planificación del evento."
-                          : "Evento, por confirmar. Se cambia en la planificación del evento."
+                          ? "Evento, confirmado. Se cambia en la planificación del evento, no acá."
+                          : "Evento, por confirmar. Se cambia en la planificación del evento, no acá."
                       }
                     >
                       <span className="font-medium">
@@ -325,15 +318,28 @@ export default function MiniCalendario({
                             : "bg-violet-50 text-violet-800 hover:bg-violet-100"
                       }`}
                     >
-                      {entrada}
-                      <br />
-                      {salida}
+                      <span className="block font-medium">
+                        {a?.management_resources?.name ??
+                          persona?.management_resources?.name ??
+                          "Staff"}
+                      </span>
+                      <span className="block opacity-80">
+                        {entrada}–{salida}
+                      </span>
                     </button>
                   ) : (
-                    <div className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-violet-50 text-violet-800">
-                      {entrada}
-                      <br />
-                      {salida}
+                    <div
+                      className="mt-0.5 w-full rounded px-1 py-1 text-[11px] leading-tight tabular-nums bg-violet-50 text-violet-800 cursor-default"
+                      title="Viene al restaurante ese día"
+                    >
+                      <span className="block font-medium">
+                        {a?.management_resources?.name ??
+                          persona?.management_resources?.name ??
+                          "Staff"}
+                      </span>
+                      <span className="block opacity-80">
+                        {entrada}–{salida}
+                      </span>
                     </div>
                   ))}
               </div>
@@ -393,9 +399,21 @@ export default function MiniCalendario({
       )}
 
       <p className="text-[11px] text-gray-500 px-4 py-2 bg-gray-50 border-t border-gray-200">
-        Pincha un <strong>día vacío</strong> para agregarlo y el{" "}
-        <strong>horario</strong> para cambiar solo ese día. En ámbar, los días
-        con horario distinto al que le toca. En gris, sus días libres.
+        {soloLectura ? (
+          <>
+            Lila: restaurante. Verde: evento confirmado. Ámbar: por confirmar.
+            En gris, sus días libres. Se mira desde acá; se cambia en su
+            ficha o en la planificación del evento.
+          </>
+        ) : (
+          <>
+            Pincha un <strong>día vacío</strong> para agregarlo y la{" "}
+            <strong>cajita</strong> para cambiar solo ese día. Lila:
+            restaurante. Verde: evento confirmado. Ámbar: por confirmar, o
+            con horario distinto al que le toca. En gris, sus días libres.
+            Los días de evento se cambian en la planificación del evento.
+          </>
+        )}
       </p>
     </div>
   );
