@@ -429,6 +429,9 @@ function RevisarAntesDeGenerar({
     const d = desglose(linea, cual);
     return (
       <Tooltip
+        // Las columnas de la derecha abren hacia la izquierda: si no, el
+        // detalle se sale del modal y se corta (Felipe, 17-08).
+        lado="izquierda"
         titulo={d.texto}
         contenido={
           <span className="block space-y-0.5">
@@ -522,7 +525,12 @@ function RevisarAntesDeGenerar({
             </p>
           )}
 
-          <div className="overflow-x-auto">
+          {/* Sin overflow-x-auto: ese contenedor recorta también hacia
+              ARRIBA, y el detalle al pasar el mouse por una cifra de la
+              primera fila quedaba cortado (Felipe, 17-08). El modal ya es
+              ancho para las siete columnas; si un día no cupiera, el
+              propio modal desplaza. */}
+          <div className="overflow-visible">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-gray-500 border-b border-gray-200">
