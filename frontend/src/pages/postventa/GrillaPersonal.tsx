@@ -9,26 +9,28 @@ import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
-import { getStaff } from "../../services/people.service";
 import {
-  addEventResource,
-  deleteEventResource,
-  getEventResources,
-  updateEventResource,
-  type EventResource,
-} from "../../services/logistics.service";
+  addStaff,
+  getStaff,
+  removeStaff,
+  updateStaff,
+} from "../../services/people.service";
+import type { Asignacion } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { recursosQueryOpts } from "./EventResourcesSection";
 
-// EL PERSONAL DEL EVENTO — LA PLANIFICACIÓN PRELIMINAR, SIN NOMBRES
+// EL PERSONAL DEL EVENTO — LAS SILLAS (migración 84)
 //
-// Días en las columnas, cargos en las filas, cantidades en las casillas.
-// Acá se decide QUÉ equipo necesita el evento y CUÁNTO cuesta: agregar
-// cargos, agregar o quitar días, y ponerle el valor a cada cargo.
+// Diseño de Felipe (17-08): la venta pone las sillas — "voy a necesitar
+// tres garzones el 23, a $27.000" — y Planificación les pone nombre.
+// UNA tabla para el plan y la realidad: esta grilla cuenta sillas por
+// cargo y día; quién se sienta se ve en Personas → Planificación.
 //
-// Los NOMBRES no van acá: van en Personas → Semana, porque conseguir
-// gente es una tarea de la semana, no de un evento. Esta grilla es la que
-// alimenta esa planificación.
+// El costo es UNO, por construcción: sillas con nombre al monto
+// acordado, vacías al valor estimado. Y cuando todas las sillas tienen
+// nombre confirmado, la sección se apaga: el valor c/u pasa a ser el
+// promedio real, en gris, y se mira — no se toca. Si Planificación
+// después agrega una silla, acá solo se refleja.
 //
 // La tabla es la pieza de la casa `GrillaDeDias`, compartida con los
 // arriendos: mismos anchos, así las columnas coinciden entre bloques.
@@ -36,7 +38,6 @@ import { recursosQueryOpts } from "./EventResourcesSection";
 // Ver docs/arquitectura/10_MODULO_DE_PERSONAS.md
 
 const DIA_MS = 86_400_000;
-
 
 const sumarDias = (isoDia: string, n: number) =>
   new Date(new Date(`${isoDia}T00:00:00Z`).getTime() + n * DIA_MS)
@@ -76,227 +77,98 @@ export default function GrillaPersonal({
   congelado = false,
 }: Props) {
   const qc = useQueryClient();
-  const opts = recursosQueryOpts(companyId, quotationId);
-  const { data } = useQuery(opts);
+  // El catálogo de cargos (nombres y valores sugeridos) sigue viniendo
+  // de recursos; las SILLAS viven en event_staff.
+  const { data } = useQuery(recursosQueryOpts(companyId, quotationId));
+  const resources = data?.resources ?? [];
+
+  const staffKey = ["people", "staff-evento", quotationId];
+  const { data: sillas = [] } = useQuery({
+    queryKey: staffKey,
+    queryFn: () => getStaff(quotationId),
+  });
+
   const [extras, setExtras] = useState<string[]>([]);
-  // Cargos agregados que todavía no tienen ninguna cantidad puesta: viven
-  // acá hasta que el primer + cree su primera línea.
+  // Cargos agregados que todavía no tienen ninguna silla: viven acá
+  // hasta que el primer + cree la primera.
   const [cargosNuevos, setCargosNuevos] = useState<number[]>([]);
-  // El valor elegido a mano para un cargo sin líneas todavía.
+  // El valor elegido a mano para las sillas nuevas de un cargo.
   const [preciosLocales, setPreciosLocales] = useState<Map<number, number>>(
     new Map(),
   );
 
-  const lines = data?.lines ?? [];
-  const resources = data?.resources ?? [];
-
-  const refrescar = () => qc.invalidateQueries({ queryKey: opts.queryKey });
-
-  // LA CLAVE DE LA VELOCIDAD (15-08, "la navegabilidad es lenta"):
-  // tras cada clic se sincronizan SOLO las líneas — una consulta — en vez
-  // de invalidar la receta completa, que recargaba recursos, proveedores
-  // e ítems de costo: cuatro consultas por clic.
-  const sincronizarLineas = async () => {
-    const l = await getEventResources(companyId, quotationId);
-    qc.setQueryData(
-      opts.queryKey,
-      (prev: { lines: EventResource[] } | undefined) =>
-        prev && { ...prev, lines: l },
-    );
+  const refrescar = () => {
+    void qc.invalidateQueries({ queryKey: staffKey });
   };
 
-  const guardar = useMutation({
-    mutationFn: async (p: {
-      resourceId: number;
-      day: string;
-      cantidad: number;
-      linea?: EventResource;
-      precio: number;
-      // El contador "por ubicar": al SUMAR en un día, primero se MUEVE
-      // desde acá — así el aviso baja solo y desaparece al llegar a 0
-      // (Felipe, 15-08: "debería borrarse solo").
-      pendiente?: EventResource;
-      // Las otras líneas del mismo día, si el evento traía repetidas.
-      // Esta pantalla maneja UN valor por cargo, así que al tocar el día
-      // se dejan consolidadas en una sola línea (revisión del 16-08).
-      otrasDelDia?: EventResource[];
-    }) => {
-      // Una línea con id negativo es optimista: todavía no existe en el
-      // servidor. El clic siguiente llega tras la sincronización.
-      if (p.linea && p.linea.id < 0) return;
-      const antes =
-        (p.linea?.quantity || 0) +
-        (p.otrasDelDia ?? []).reduce((t, l) => t + (l.quantity || 0), 0);
-
-      // Las repetidas se van: su cantidad ya viene sumada en la nueva.
-      for (const otra of p.otrasDelDia ?? []) {
-        if (otra.id < 0) continue;
-        const { error } = await deleteEventResource(otra.id);
-        if (error) throw error;
-      }
-      const sumando = p.cantidad > antes;
-      if (p.linea && p.cantidad <= 0) {
-        const { error } = await deleteEventResource(p.linea.id);
-        if (error) throw error;
-      } else if (p.linea) {
-        const { error } = await updateEventResource(p.linea.id, {
-          quantity: p.cantidad,
-        });
-        if (error) throw error;
-      } else if (p.cantidad > 0) {
-        const { error } = await addEventResource({
-          company_id: companyId,
-          quotation_id: quotationId,
-          resource_id: p.resourceId,
-          quantity: p.cantidad,
-          price_fixed: p.precio,
-          price_per_person: 0,
-          day: p.day,
-        });
-        if (error) throw error;
-      }
-      if (sumando && p.pendiente && (p.pendiente.quantity || 0) > 0) {
-        if ((p.pendiente.quantity || 0) > 1) {
-          await updateEventResource(p.pendiente.id, {
-            quantity: (p.pendiente.quantity || 0) - 1,
-          });
-        } else {
-          await deleteEventResource(p.pendiente.id);
-        }
-      }
-    },
-    // La pantalla ya se movió (abajo, el parche optimista); acá solo se
-    // reconcilia con los ids reales del servidor.
-    onSettled: () => sincronizarLineas(),
-    onMutate: async (p) => {
-      await qc.cancelQueries({ queryKey: opts.queryKey });
-      const previo = qc.getQueryData(opts.queryKey);
-      qc.setQueryData(
-        opts.queryKey,
-        (old: { lines: EventResource[] } | undefined) => {
-          if (!old) return old;
-          let ls = old.lines;
-          if (p.linea) {
-            ls =
-              p.cantidad <= 0
-                ? ls.filter((l) => l.id !== p.linea!.id)
-                : ls.map((l) =>
-                    l.id === p.linea!.id ? { ...l, quantity: p.cantidad } : l,
-                  );
-          } else if (p.cantidad > 0) {
-            ls = [
-              ...ls,
-              {
-                id: -Math.floor(Math.random() * 1e9),
-                quotation_id: quotationId,
-                resource_id: p.resourceId,
-                quantity: p.cantidad,
-                price_fixed: p.precio,
-                price_per_person: 0,
-                origin_fixed_service_id: null,
-                day: p.day,
-              } as EventResource,
-            ];
-          }
-          const sumando = p.cantidad > (p.linea?.quantity || 0);
-          if (sumando && p.pendiente && (p.pendiente.quantity || 0) > 0) {
-            ls =
-              (p.pendiente.quantity || 0) > 1
-                ? ls.map((l) =>
-                    l.id === p.pendiente!.id
-                      ? { ...l, quantity: (l.quantity || 0) - 1 }
-                      : l,
-                  )
-                : ls.filter((l) => l.id !== p.pendiente!.id);
-          }
-          return { ...old, lines: ls };
-        },
-      );
-      return { previo };
-    },
-    onError: (e: unknown, _p, ctx) => {
-      if (ctx?.previo) qc.setQueryData(opts.queryKey, ctx.previo);
-      toast.error(humanizeApiError(e));
-    },
-  });
-
-  const eliminarSinDia = useMutation({
-    mutationFn: async (id: number) => {
-      const { error } = await deleteEventResource(id);
-      if (error) throw error;
-    },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
-  // Cambiar el valor de un cargo toca TODAS sus líneas: el valor es del
-  // cargo en este evento, no de un día suelto.
-  const cambiarValor = useMutation({
-    mutationFn: async (p: { lineas: EventResource[]; precio: number }) => {
-      for (const l of p.lineas) {
-        const { error } = await updateEventResource(l.id, {
-          price_fixed: p.precio,
-        });
-        if (error) throw error;
-      }
-    },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
-  // Filas: los cargos con líneas, más los recién agregados sin cantidad.
+  // ---- Las filas: un cargo, sus sillas por día ----
   const filas = useMemo(() => {
     const m = new Map<
       number,
       {
         nombre: string;
-        precio: number;
-        // TODAS las líneas de ese día, no una. Guardar solo la última
-        // hacía invisible a la otra: no se veía, no se podía editar ni
-        // borrar, y seguía sumando al costo del evento (revisión del
-        // 16-08 — la cotización #415 tenía dos Garzón el mismo día, a
-        // $27.000 y a $25.000).
-        porDia: Map<string, EventResource[]>;
-        sinRepartir?: EventResource;
+        porDia: Map<string, Asignacion[]>;
+        sinDia: Asignacion[];
+        todas: Asignacion[];
       }
     >();
-    for (const l of lines) {
-      const r = resources.find((x) => x.id === l.resource_id);
-      if (!r || r.type !== "personal") continue;
-      if (!m.has(r.id)) {
-        m.set(r.id, {
-          nombre: r.name,
-          precio: l.price_fixed || Number(r.list_price_fixed) || 0,
+    for (const a of sillas) {
+      const rid = a.role_id ?? 0;
+      if (!m.has(rid)) {
+        m.set(rid, {
+          nombre:
+            a.management_resources?.name ??
+            resources.find((r) => r.id === rid)?.name ??
+            "Sin cargo",
           porDia: new Map(),
+          sinDia: [],
+          todas: [],
         });
       }
-      const f = m.get(r.id)!;
-      const d = iso(l.day);
-      if (d) f.porDia.set(d, [...(f.porDia.get(d) ?? []), l]);
-      else f.sinRepartir = l;
+      const f = m.get(rid)!;
+      f.todas.push(a);
+      const d = iso(a.day);
+      if (d) f.porDia.set(d, [...(f.porDia.get(d) ?? []), a]);
+      else f.sinDia.push(a);
     }
     for (const id of cargosNuevos) {
       if (m.has(id)) continue;
       const r = resources.find((x) => x.id === id);
       if (!r) continue;
-      m.set(id, {
-        nombre: r.name,
-        precio: preciosLocales.get(id) ?? Number(r.list_price_fixed) ?? 0,
-        porDia: new Map(),
-      });
+      m.set(id, { nombre: r.name, porDia: new Map(), sinDia: [], todas: [] });
     }
-    return [...m.entries()].map(([id, f]) => ({
-      id,
-      ...f,
-      precio: preciosLocales.get(id) ?? f.precio,
-    }));
-  }, [lines, resources, cargosNuevos, preciosLocales]);
+    return [...m.entries()].map(([id, f]) => ({ id, ...f }));
+  }, [sillas, resources, cargosNuevos]);
 
-  // Los días: los del evento, los que tienen líneas y los agregados a mano.
+  /** El valor con que nacen las sillas nuevas de un cargo. */
+  const valorDe = (f: (typeof filas)[number]) =>
+    preciosLocales.get(f.id) ??
+    Number(
+      f.todas.find((s) => s.person_id == null)?.amount ??
+        f.todas[0]?.amount ??
+        resources.find((r) => r.id === f.id)?.list_price_fixed,
+    ) ??
+    0;
+
+  const plataDe = (f: (typeof filas)[number]) =>
+    f.todas.reduce((s, a) => s + Number(a.amount ?? 0), 0);
+
+  const costoPersonal = filas.reduce((s, f) => s + plataDe(f), 0);
+
+  // EL GRIS DE FELIPE (17-08): confirmado el último, la sección se
+  // apaga — cantidad, días y valor de solo lectura, y el valor c/u pasa
+  // a ser el promedio real. Es dinámico: si Planificación suma una
+  // silla, esto se vuelve a encender solo.
+  const todoConfirmado =
+    sillas.length > 0 &&
+    sillas.every((s) => s.person_id != null && s.status === "confirmado");
+  const soloLectura = congelado || todoConfirmado;
+
+  // ---- Los días: los del evento, los con sillas y los agregados ----
   const dias = useMemo(() => {
     const propios = diasEntre(eventDate, eventEndDate);
-    const conLineas = filas.flatMap((f) => [...f.porDia.keys()]);
-    return [...new Set([...propios, ...conLineas, ...extras])].sort();
+    const conSillas = filas.flatMap((f) => [...f.porDia.keys()]);
+    return [...new Set([...propios, ...conSillas, ...extras])].sort();
   }, [eventDate, eventEndDate, extras, filas]);
 
   const diasDelEvento = useMemo(
@@ -304,95 +176,130 @@ export default function GrillaPersonal({
     [eventDate, eventEndDate],
   );
 
-  const cargosDisponibles: SelectOption[] = useMemo(() => {
-    const enFilas = new Set(filas.map((f) => f.id));
-    return resources
-      .filter(
-        (r) =>
-          r.type === "personal" && r.is_active !== false && !enFilas.has(r.id),
-      )
-      .map((r) => ({
-        value: String(r.id),
-        label: r.name,
-        hint: r.list_price_fixed
-          ? clp(Number(r.list_price_fixed))
-          : "sin valor sugerido",
-      }));
-  }, [resources, filas]);
+  const primerDia = dias[0];
+  const ultimoDia = dias[dias.length - 1];
+  const puedeAntes =
+    primerDia > sumarDias(diasEntre(eventDate, eventEndDate)[0], -TOPE_DIAS_EXTRA);
+  const propiosDelEvento = diasEntre(eventDate, eventEndDate);
+  const finEvento = propiosDelEvento[propiosDelEvento.length - 1] ?? eventDate;
+  const puedeDespues = ultimoDia < sumarDias(finEvento, TOPE_DIAS_EXTRA);
 
-  const cantidadDelDia = (
-    f: (typeof filas)[number] | { porDia: Map<string, EventResource[]> },
-    d: string,
-  ) => (f.porDia.get(d) ?? []).reduce((s, l) => s + (l.quantity || 0), 0);
+  const agregarDia = (antes: boolean) =>
+    setExtras((a) => [
+      ...a,
+      antes ? sumarDias(primerDia, -1) : sumarDias(ultimoDia, 1),
+    ]);
 
-  const totalDe = (f: (typeof filas)[number]) =>
-    [...f.porDia.values()]
-      .flat()
-      .reduce((s, l) => s + (l.quantity || 0), 0) +
-    (f.sinRepartir?.quantity || 0);
-
-  /** La plata de una fila: la SUMA de sus líneas, cada una con su
-   *  propio valor — no cantidad × un precio. Con dos tarifas el mismo
-   *  día (2×$27.000 + 1×$25.000) multiplicar daba $81.000 en vez de
-   *  $79.000 (QA de Felipe, 17-08, cot 415). */
-  const plataDe = (f: (typeof filas)[number]) =>
-    [...f.porDia.values()]
-      .flat()
-      .reduce((s, l) => s + (l.price_fixed || 0) * (l.quantity || 0), 0) +
-    (f.sinRepartir
-      ? (f.sinRepartir.price_fixed || 0) * (f.sinRepartir.quantity || 0)
-      : 0);
-
-  const costoPersonal = filas.reduce((s, f) => s + plataDe(f), 0);
-
-  const limiteAntes = sumarDias(eventDate, -TOPE_DIAS_EXTRA);
-  const limiteDespues = sumarDias(iso(eventEndDate) || eventDate, TOPE_DIAS_EXTRA);
-  const puedeAntes = dias.length > 0 && dias[0] > limiteAntes;
-  const puedeDespues = dias.length > 0 && dias[dias.length - 1] < limiteDespues;
-
-  const agregarDia = (haciaAtras: boolean) => {
-    if (haciaAtras ? !puedeAntes : !puedeDespues) return;
-    const base = haciaAtras ? dias[0] : dias[dias.length - 1];
-    setExtras((a) => [...a, sumarDias(base, haciaAtras ? -1 : 1)]);
-  };
+  const cantidadDelDia = (f: (typeof filas)[number], d: string) =>
+    (f.porDia.get(d) ?? []).length;
 
   const quitarDia = (d: string) => {
-    const conCantidad = filas.some((f) => cantidadDelDia(f, d) > 0);
-    if (conCantidad) {
-      toast.error(
-        "Ese día tiene gente asignada: primero deja sus cantidades en 0.",
-      );
+    const conSillas = filas.some((f) => cantidadDelDia(f, d) > 0);
+    if (conSillas) {
+      toast.error("Ese día tiene sillas: primero déjalo en 0.");
       return;
     }
     setExtras((a) => a.filter((x) => x !== d));
   };
 
+  const cargosDisponibles: SelectOption[] = useMemo(() => {
+    const enFilas = new Set(filas.map((f) => f.id));
+    return resources
+      .filter((r) => r.type === "personal" && r.is_active !== false)
+      .filter((r) => !enFilas.has(r.id))
+      .map((r) => ({
+        value: String(r.id),
+        label: r.name,
+        hint: Number(r.list_price_fixed)
+          ? clp(Number(r.list_price_fixed))
+          : "sin valor sugerido",
+      }));
+  }, [resources, filas]);
+
+  // ---- Los cambios: sillas que nacen, se mueven o se van ----
+  const cambiar = useMutation({
+    mutationFn: async (p: {
+      fila: (typeof filas)[number];
+      day: string;
+      nueva: number;
+    }) => {
+      const delDia = p.fila.porDia.get(p.day) ?? [];
+      if (p.nueva > delDia.length) {
+        // Primero se ubica una silla "sin día": el aviso baja solo
+        // (Felipe, 15-08). Si no queda, nace una silla nueva.
+        const sinDia = p.fila.sinDia[0];
+        if (sinDia) {
+          await updateStaff(sinDia.id, { day: p.day });
+        } else {
+          await addStaff({
+            quotation_id: quotationId,
+            role_id: p.fila.id || null,
+            day: p.day,
+            amount: valorDe(p.fila) || null,
+          });
+        }
+      } else if (p.nueva < delDia.length) {
+        // Se quita una silla VACÍA. Las con nombre se sacan en
+        // Planificación: acá no se despide a nadie.
+        const vacia = delDia.find((s) => s.person_id == null);
+        if (!vacia) {
+          throw new Error(
+            "Los de ese día tienen nombre: sácalos en Personas → Planificación.",
+          );
+        }
+        await removeStaff(vacia.id);
+      }
+    },
+    onSettled: refrescar,
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : humanizeApiError(e)),
+  });
+
+  // Cambiar el valor de un cargo toca sus sillas VACÍAS: las con nombre
+  // tienen su monto acordado y nadie se lo pisa por detrás.
+  const cambiarValor = useMutation({
+    mutationFn: async (p: { fila: (typeof filas)[number]; precio: number }) => {
+      for (const s of p.fila.todas) {
+        if (s.person_id != null) continue;
+        await updateStaff(s.id, { amount: p.precio });
+      }
+    },
+    onSettled: refrescar,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
+  const descartarSinDia = useMutation({
+    mutationFn: async (fila: (typeof filas)[number]) => {
+      for (const s of fila.sinDia) {
+        if (s.person_id != null) continue;
+        await removeStaff(s.id);
+      }
+    },
+    onSettled: refrescar,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   // ---- Adaptación a la pieza de la casa ----
   const filasGrilla: FilaGrillaDias[] = filas.map((f) => {
-    const total = totalDe(f);
-    const pendiente = f.sinRepartir?.quantity || 0;
-    // TODAS, incluidas las que comparten día: al cambiar el valor del
-    // cargo, una línea escondida se quedaba con el precio viejo.
-    const lineasDelCargo = [
-      ...[...f.porDia.values()].flat(),
-      ...(f.sinRepartir ? [f.sinRepartir] : []),
-    ];
+    const total = f.todas.length;
+    const pendientes = f.sinDia.filter((s) => s.person_id == null).length;
+    const sinNombre = f.todas.filter((s) => s.person_id == null).length;
     return {
       id: f.id,
       titulo: (
         <>
           {f.nombre}
-          {pendiente > 0 && (
+          {pendientes > 0 && (
             <span
               className="ml-2 inline-flex items-center gap-1 text-[11px] text-amber-700"
-              title={`Este cargo trae ${pendiente} sin fecha. Al sumar con el + se van ubicando solos y este aviso desaparece. La ✕ descarta los que no vayas a usar.`}
+              title={`Este cargo trae ${pendientes} sin fecha. Al sumar con el + se van ubicando solos y este aviso desaparece. La ✕ descarta los que no vayas a usar.`}
             >
               <AlertTriangle className="w-3 h-3" />
-              {pendiente} por ubicar en los días
-              {!congelado && f.sinRepartir && (
+              {pendientes} por ubicar en los días
+              {!soloLectura && (
                 <button
                   type="button"
-                  onClick={() => eliminarSinDia.mutate(f.sinRepartir!.id)}
+                  onClick={() => descartarSinDia.mutate(f)}
                   aria-label={`Descartar los sin fecha de ${f.nombre}`}
                   title="Descartar los que quedan"
                   className="text-amber-700 hover:text-red-600"
@@ -402,41 +309,57 @@ export default function GrillaPersonal({
               )}
             </span>
           )}
+          {total > 0 && sinNombre > 0 && (
+            <span
+              className="ml-2 text-[11px] text-gray-400"
+              title="Sillas sin nombre todavía: se sientan en Personas → Planificación"
+            >
+              {total - sinNombre} de {total} con nombre
+            </span>
+          )}
         </>
       ),
       cantidadEn: (d) => cantidadDelDia(f, d),
-      onCambiar: (d, nueva) =>
-        guardar.mutate({
-          resourceId: f.id,
-          day: d,
-          cantidad: nueva,
-          linea: (f.porDia.get(d) ?? [])[0],
-          otrasDelDia: (f.porDia.get(d) ?? []).slice(1),
-          precio: f.precio,
-          pendiente: f.sinRepartir,
-        }),
+      masDeshabilitado: soloLectura,
+      onCambiar: (d, nueva) => {
+        if (soloLectura) return;
+        cambiar.mutate({ fila: f, day: d, nueva });
+      },
       valores: [
         <span key="t" className="font-medium text-gray-900">
           {total}
         </span>,
-        <NumberInput
-          key="v"
-          value={f.precio || undefined}
-          min={0}
-          currency
-          placeholder="0"
-          disabled={congelado}
-          onCommit={(v) => {
-            const precio = v || 0;
-            if (precio === f.precio) return;
-            setPreciosLocales((m) => new Map(m).set(f.id, precio));
-            if (lineasDelCargo.length > 0)
-              cambiarValor.mutate({ lineas: lineasDelCargo, precio });
-          }}
-          className="w-24 px-2 py-1 text-sm text-right"
-          aria-label={`Valor de ${f.nombre}`}
-        />,
-        clp(plataDe(f)),
+        soloLectura ? (
+          // El promedio REAL pagado, en gris: la propuesta de Felipe
+          // para cuando cada silla tiene su monto y un solo "valor c/u"
+          // ya no existe.
+          <span
+            key="v"
+            className="text-gray-400 tabular-nums"
+            title="Promedio real por silla — el detalle vive en Planificación"
+          >
+            {total > 0 ? clp(plataDe(f) / total) : "—"}
+          </span>
+        ) : (
+          <NumberInput
+            key="v"
+            value={valorDe(f) || undefined}
+            min={0}
+            onCommit={(v: number | undefined) => {
+              const precio = v ?? 0;
+              setPreciosLocales((m) => new Map(m).set(f.id, precio));
+              if (f.todas.some((s) => s.person_id == null)) {
+                cambiarValor.mutate({ fila: f, precio });
+              }
+            }}
+            placeholder="valor"
+            aria-label={`Valor por jornada de ${f.nombre}`}
+            className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+          />
+        ),
+        <span key="s" className="tabular-nums">
+          {clp(plataDe(f))}
+        </span>,
       ],
     };
   });
@@ -447,7 +370,9 @@ export default function GrillaPersonal({
         <Users size={17} className="text-gray-600" />
         <h4 className="text-base font-bold text-gray-900">Personal</h4>
         <span className="text-xs text-gray-400">
-          cuántos necesito cada día, y a qué valor
+          {todoConfirmado
+            ? "equipo confirmado — el detalle vive en Planificación"
+            : "cuántos necesito cada día, y a qué valor"}
         </span>
         <Link
           to="/personas"
@@ -468,18 +393,22 @@ export default function GrillaPersonal({
             }}
             placeholder="+ Agregar cargo"
             searchPlaceholder="Buscar cargo…"
-            disabled={congelado}
+            disabled={soloLectura}
             tamano="sm"
             mostrarConteo={false}
           />
         </div>
-        {!congelado && (
+        {!soloLectura && (
           <div className="flex items-center gap-1 ml-auto">
             <button
               type="button"
               onClick={() => agregarDia(true)}
               disabled={!puedeAntes}
-              title={puedeAntes ? "Agregar un día antes (preparativos)" : "Máximo 4 días antes del evento"}
+              title={
+                puedeAntes
+                  ? "Agregar un día antes (preparativos)"
+                  : "Máximo 4 días antes del evento"
+              }
               className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CalendarPlus className="w-3.5 h-3.5" /> día antes
@@ -488,7 +417,11 @@ export default function GrillaPersonal({
               type="button"
               onClick={() => agregarDia(false)}
               disabled={!puedeDespues}
-              title={puedeDespues ? "Agregar un día después (desarme)" : "Máximo 4 días después del evento"}
+              title={
+                puedeDespues
+                  ? "Agregar un día después (desarme)"
+                  : "Máximo 4 días después del evento"
+              }
               className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CalendarPlus className="w-3.5 h-3.5" /> día después
@@ -498,15 +431,14 @@ export default function GrillaPersonal({
       </div>
 
       {filas.length === 0 ? (
-        <p className="text-sm text-gray-500 py-4 text-center">
-          Agrega los cargos que este evento necesita — garzones, cocina, lo
-          que sea — y reparte cuántos van cada día.
+        <p className="text-sm text-gray-500 py-3">
+          Sin personal planificado: agrega un cargo y reparte sus días.
         </p>
       ) : (
         <GrillaDeDias
           dias={dias}
           diasFijos={diasDelEvento}
-          congelado={congelado}
+          congelado={soloLectura}
           onQuitarDia={quitarDia}
           columnaTitulo="Cargo"
           titulosValores={["Total", "Valor c/u", "Subtotal"]}
@@ -518,17 +450,13 @@ export default function GrillaPersonal({
               return n > 0 ? n : "·";
             },
             valores: [
-              filas.reduce((s, f) => s + totalDe(f), 0),
+              filas.reduce((s, f) => s + f.todas.length, 0),
               null,
               clp(costoPersonal),
             ],
           }}
         />
       )}
-      {/* La comparación "real con nombres vs cotizado" se fue (Felipe,
-          17-08): en personal no hay dos costos — hay UNO, que se afina
-          del plan a la realidad. La vinculación de las grillas es la que
-          hace converger el número; mostrar la brecha era un parche. */}
     </div>
   );
 }

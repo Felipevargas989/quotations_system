@@ -399,11 +399,19 @@ function FichaAbierta({
   const [evaluando, setEvaluando] = useState(false);
   const cerrada = evento.estado === "cerrada";
 
-  const { data: staff = [] } = useQuery({
+  const { data: todasLasFilas = [] } = useQuery({
     queryKey: ["people", "staff-evento", evento.id],
     queryFn: () => getStaff(evento.id),
     staleTime: 0,
   });
+  // La liquidación es de GENTE: una silla vacía (cupo sin nombre,
+  // migración 84) no vino, no cobra y no reparte. Al cerrar la ficha el
+  // backend las retira y el costo converge a lo real.
+  const staff = useMemo(
+    () => todasLasFilas.filter((a) => a.person_id != null),
+    [todasLasFilas],
+  );
+  const sillasSinNombre = todasLasFilas.length - staff.length;
   const { data: pools = [] } = useQuery({
     queryKey: ["people", "pools"],
     queryFn: getPools,
@@ -474,6 +482,14 @@ function FichaAbierta({
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-medium text-gray-900">
             Quiénes vinieron y qué se les paga
+            {sillasSinNombre > 0 && !cerrada && (
+              <span className="block text-xs font-normal text-amber-700 mt-0.5">
+                {sillasSinNombre === 1
+                  ? "Queda 1 cupo planificado sin nombre: al cerrar se retira"
+                  : `Quedan ${sillasSinNombre} cupos planificados sin nombre: al cerrar se retiran`}{" "}
+                y el costo queda en lo real.
+              </span>
+            )}
           </h3>
           <span className="text-sm text-gray-500">
             Jornadas: <strong className="text-gray-900">{clp(jornadas)}</strong>
@@ -961,7 +977,9 @@ function EvaluacionesModal({
 }) {
   const personas = useMemo(() => {
     const m = new Map<number, string>();
-    for (const a of staff) m.set(a.person_id, a.people?.name ?? "—");
+    // Solo gente con nombre: una silla vacía no se evalúa.
+    for (const a of staff)
+      if (a.person_id != null) m.set(a.person_id, a.people?.name ?? "—");
     return [...m.entries()];
   }, [staff]);
 

@@ -408,6 +408,83 @@ export class PeopleRepository {
     return !!data;
   }
 
+  /** La silla vacía que mejor calza para sentar a alguien: primero la
+   *  del día exacto, si no una "sin día" (el por ubicar del plan). */
+  async findSillaVacia(
+    companyId: number,
+    quotationId: string,
+    roleId: number | null,
+    day: string,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .is('person_id', null)
+      .order('day', { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    const sillas = (data as unknown as EventStaff[]).filter(
+      (s) => (s.role_id ?? null) === (roleId ?? null),
+    );
+    return (
+      sillas.find((s) => String(s.day ?? '').slice(0, 10) === day) ??
+      sillas.find((s) => s.day == null) ??
+      null
+    );
+  }
+
+  /** Al cerrar la ficha, las sillas que quedaron vacías se van: no se
+   *  contrató a nadie y el costo converge a lo real (migración 84). */
+  async deleteSillasVacias(companyId: number, quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .is('person_id', null)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
+  }
+
+  /** El costo de personal por evento y cargo: sillas con nombre al monto
+   *  acordado, vacías al estimado. Para Gestión, Servicios y Dashboard. */
+  async costoPersonalPorEvento(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('quotation_id, role_id, amount')
+      .eq('company_id', companyId)
+      .not('quotation_id', 'is', null);
+    if (error) throw error;
+    const grupos = new Map<
+      string,
+      {
+        quotation_id: string;
+        role_id: number | null;
+        total: number;
+        sillas: number;
+      }
+    >();
+    for (const f of data as {
+      quotation_id: string;
+      role_id: number | null;
+      amount: number | null;
+    }[]) {
+      const k = `${f.quotation_id}|${f.role_id ?? 0}`;
+      const g = grupos.get(k) ?? {
+        quotation_id: f.quotation_id,
+        role_id: f.role_id ?? null,
+        total: 0,
+        sillas: 0,
+      };
+      g.total += Number(f.amount ?? 0);
+      g.sillas += 1;
+      grupos.set(k, g);
+    }
+    return [...grupos.values()];
+  }
+
   /** Cuántos días trabajados tiene una persona: lo que impide borrarla. */
   async cuantasJornadas(companyId: number, personId: number) {
     const { count, error } = await this.supabase.client
@@ -702,6 +779,8 @@ export class PeopleRepository {
       .from('event_staff')
       .select('*, people(*), management_resources(id, name)')
       .eq('company_id', companyId)
+      // Una silla vacía JAMÁS llega a la nómina (migración 84).
+      .not('person_id', 'is', null)
       .is('payroll_id', null)
       .eq('kind', 'freelance')
       .not('amount', 'is', null)
@@ -734,6 +813,8 @@ export class PeopleRepository {
       .from('event_staff')
       .select('*, people(*), management_resources(id, name)')
       .eq('company_id', companyId)
+      // Una silla vacía JAMÁS llega a la nómina (migración 84).
+      .not('person_id', 'is', null)
       .is('tip_payroll_id', null)
       .not('tip_amount', 'is', null)
       .gt('tip_amount', 0);

@@ -94,8 +94,10 @@ export const getStaff = async (quotationId: string) =>
 export const addStaff = async (fila: {
   /** Sin evento = restaurante, el evento permanente. */
   quotation_id?: string | null;
-  person_id: number;
-  day: string;
+  /** Sin persona = SILLA VACÍA: cupo del plan sin nombre todavía. */
+  person_id?: number | null;
+  /** Sin día solo en eventos: silla "por ubicar". */
+  day?: string | null;
   role_id?: number | null;
   kind?: string;
   status?: string;
@@ -135,8 +137,22 @@ export const updateStaff = async (
     cambios,
   )) as Asignacion;
 
-export const removeStaff = async (id: number) =>
-  apiRequest(`${API_ROUTES.PEOPLE_STAFF}/${id}`, "DELETE");
+/** `liberar`: en un evento deja la silla vacía (cargo, día y valor
+ *  quedan); sin él, borra la fila — bajar el plan o "no se presentó". */
+export const removeStaff = async (id: number, liberar = false) =>
+  apiRequest(
+    `${API_ROUTES.PEOPLE_STAFF}/${id}${liberar ? "?liberar=1" : ""}`,
+    "DELETE",
+  );
+
+/** El costo de personal por evento y cargo, desde las sillas. */
+export const getCostoPersonal = async () =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/costo-personal`, "GET")) as {
+    quotation_id: string;
+    role_id: number | null;
+    total: number;
+    sillas: number;
+  }[];
 
 /** Todo lo asignado en un rango de días, de TODOS los eventos. */
 export const getStaffSemana = async (desde: string, hasta: string) =>

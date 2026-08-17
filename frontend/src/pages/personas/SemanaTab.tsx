@@ -21,7 +21,6 @@ import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import {
-  getAllEventResources,
   getManagementResources,
 } from "../../services/logistics.service";
 import {
@@ -197,10 +196,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     },
   });
 
-  const { data: lineas = [] } = useQuery({
-    queryKey: ["people", "necesidades"],
-    queryFn: () => getAllEventResources(companyId),
-  });
   const { data: catalogo = [] } = useQuery({
     queryKey: ["people", "catalogo-recursos"],
     queryFn: () => getManagementResources(companyId),
@@ -260,7 +255,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
   const sacar = useMutation({
-    mutationFn: (id: number) => removeStaff(id),
+    // En un evento, sacar a alguien LIBERA su silla: el cupo queda con
+    // su cargo, su día y su valor, esperando otro nombre (migración 84).
+    // En el restaurante no hay sillas: se borra la fila.
+    mutationFn: (id: number) => {
+      const fila = staff.find((a) => a.id === id);
+      return removeStaff(id, !!fila?.quotation_id);
+    },
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -296,33 +297,39 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     const porEvento = new Map(eventos.map((e) => [e.id, e]));
     const m = new Map<string, FilaSemana>();
 
-    for (const l of lineas) {
-      const r = porRecurso.get(l.resource_id);
-      const e = porEvento.get(String(l.quotation_id));
-      if (!r || r.type !== "personal" || !e) continue;
-      const d = iso(l.day);
+    // LAS NECESIDADES SON LAS SILLAS (migración 84): cada fila de
+    // event_staff de un evento es un cupo — con nombre o vacío. La
+    // casilla muestra a los sentados; "necesita" cuenta TODAS las
+    // sillas. Antes venían de event_resources, y poner un cuarto garzón
+    // no movía la necesidad: eran dos mundos sin cable.
+    for (const a of staff) {
+      if (a.quotation_id === null) continue;
+      const e = porEvento.get(String(a.quotation_id));
+      const r = a.role_id ? porRecurso.get(a.role_id) : null;
+      if (!e) continue;
+      const d = iso(a.day);
       const enSemana = d !== null && d >= domingo && d <= hasta;
-      // Las líneas sin repartir se avisan cuando el EVENTO cae en la semana.
+      // Las sillas sin día se avisan cuando el EVENTO cae en la semana.
       const eventoEnSemana =
         !!e.inicio && e.inicio <= hasta && (e.termino || e.inicio) >= domingo;
       if (!enSemana && !(d === null && eventoEnSemana)) continue;
 
-      const k = `${e.id}|${r.id}`;
+      const k = `${e.id}|${a.role_id ?? 0}`;
       if (!m.has(k)) {
         m.set(k, {
           quotationId: e.id,
           evento: rotuloEvento(e),
-          cargoId: r.id,
-          cargo: r.name,
-          precio: l.price_fixed || Number(r.list_price_fixed) || 0,
+          cargoId: a.role_id ?? 0,
+          cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
+          precio: Number(a.amount) || Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: diasDe(e),
         });
       }
       const f = m.get(k)!;
-      if (d && enSemana) f.necesita.set(d, (f.necesita.get(d) || 0) + (l.quantity || 0));
-      else f.sinRepartir += l.quantity || 0;
+      if (d && enSemana) f.necesita.set(d, (f.necesita.get(d) || 0) + 1);
+      else if (a.person_id == null) f.sinRepartir += 1;
     }
 
     // Gente puesta en una casilla cuyo cargo ya no está costeado: la fila
@@ -429,7 +436,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         ocasional: true,
       });
     return [...deEventos, ...staffOrdenado];
-  }, [lineas, catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
+  }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
 
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
   // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
@@ -459,6 +466,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   const puestos = useMemo(() => {
     const m = new Map<string, Asignacion[]>();
     for (const a of staff) {
+      // La casilla muestra a los SENTADOS; una silla vacía no es nadie
+      // todavía — es el "necesita" contra el que se compara.
+      if (a.person_id == null) continue;
       const k = `${a.quotation_id}|${a.role_id ?? 0}|${iso(a.day)}`;
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(a);
@@ -798,7 +808,9 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                     (a.role_id ?? 0) === casilla.fila.cargoId;
                   return !mismaCasilla;
                 })
-                .map((a) => a.person_id),
+                .map((a) => a.person_id)
+                // Una silla vacía no ocupa a nadie.
+                .filter((id): id is number => id != null),
             )
           }
           diasDePlanta={diasDePlanta}
@@ -1152,13 +1164,13 @@ function CasillaAbierta({
                 del rango visible y la asignación se muda con su horario
                 y todo. Si allá ya estaba, el backend lo dice y no pasa
                 nada. Los libres de la persona salen en ámbar. */}
-            {moviendo === a.id && (
+            {moviendo === a.id && a.person_id != null && (
               <MiniCalendario
                 dias={dias}
                 persona={personas.find((p) => p.id === a.person_id) ?? null}
                 diasQueViene={diasDePlanta(a.person_id)}
-                onMarcar={(d) => onPonerEnDia(a.person_id, d)}
-                onDesmarcar={(d) => onSacarDelDia(a.person_id, d)}
+                onMarcar={(d) => onPonerEnDia(a.person_id!, d)}
+                onDesmarcar={(d) => onSacarDelDia(a.person_id!, d)}
                 onCerrar={() => setMoviendo(null)}
               />
             )}

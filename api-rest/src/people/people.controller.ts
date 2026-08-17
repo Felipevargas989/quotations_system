@@ -124,9 +124,25 @@ export class PeopleController {
   }
 
   @Delete('staff/:id')
-  removeStaff(@Param('id') id: string, @CurrentUser() user: User) {
-    this.logger.info(`DELETE /people/staff/${id}`);
-    return this.peopleService.removeStaff(+id, user.company_id);
+  removeStaff(
+    @Param('id') id: string,
+    @Query('liberar') liberar: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `DELETE /people/staff/${id}${liberar ? ' (liberar)' : ''}`,
+    );
+    return this.peopleService.removeStaff(
+      +id,
+      user.company_id,
+      liberar === '1',
+    );
+  }
+
+  /** El costo de personal por evento y cargo, desde las sillas. */
+  @Get('costo-personal')
+  costoPersonal(@CurrentUser() user: User) {
+    return this.peopleService.costoPersonal(user.company_id);
   }
 
   // ---- El ciclo de la ficha ----

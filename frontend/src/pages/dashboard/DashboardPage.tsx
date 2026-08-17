@@ -2,6 +2,7 @@ import {
   costoDeRecursos,
   type LineaDeRecurso,
 } from "../../utils/costoDeRecursos";
+import { getCostoPersonal } from "../../services/people.service";
 import React, { useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -717,6 +718,13 @@ export default function DashboardPage() {
   // Análisis de proveedores (23-07): provisiones reales + recursos.
   // 24-07: subido de más abajo, sin tocarle nada, porque el cálculo de
   // márgenes necesita los recursos y se ejecuta antes que esta línea.
+  // El costo de personal por evento, desde las sillas (migración 84).
+  const costoPersonalQuery = useQuery({
+    queryKey: ["dashboard-costo-personal", company?.id],
+    enabled: !!user && !!company?.id,
+    queryFn: getCostoPersonal,
+  });
+
   const provQuery = useQuery({
     queryKey: ["dashboard-proveedores", company?.id],
     enabled: !!user && !!company?.id,
@@ -778,6 +786,15 @@ export default function DashboardPage() {
       recursosPorEvento.set(
         quotationId,
         costoDeRecursos(suyas, personasPorEvento.get(quotationId) ?? 0),
+      );
+    }
+    // El personal viene de LAS SILLAS (migración 84): con nombre al
+    // monto acordado, vacías al estimado — el mismo número de Gestión.
+    for (const cp of costoPersonalQuery.data ?? []) {
+      if (!personasPorEvento.has(cp.quotation_id)) continue;
+      recursosPorEvento.set(
+        cp.quotation_id,
+        (recursosPorEvento.get(cp.quotation_id) || 0) + cp.total,
       );
     }
 
@@ -927,6 +944,23 @@ export default function DashboardPage() {
         items: Map<number, { nombre: string; gasto: number; eventos: number }>;
       }
     >();
+    // El personal, desde las sillas (migración 84).
+    for (const cp of costoPersonalQuery.data ?? []) {
+      if (!wonIds.has(cp.quotation_id)) continue;
+      const def = cp.role_id ? resById.get(cp.role_id) : undefined;
+      const t = tipos.get("personal") || { gasto: 0, items: new Map() };
+      t.gasto += cp.total;
+      const it = t.items.get(cp.role_id ?? 0) || {
+        nombre: def?.name || "Personal",
+        gasto: 0,
+        eventos: 0,
+      };
+      it.gasto += cp.total;
+      it.eventos += 1;
+      t.items.set(cp.role_id ?? 0, it);
+      tipos.set("personal", t);
+    }
+
     // Se agrupa por evento Y recurso antes de contar: el fijo de un
     // recurso mixto se cobra UNA vez por evento, aunque esté repartido
     // en varios días (revisión del 16-08). Contar línea por línea lo

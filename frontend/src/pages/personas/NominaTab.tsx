@@ -794,7 +794,9 @@ function NominaAbierta({
         });
       }
       const fila = m.get(llave)!;
-      if (!fila.personIds.includes(a.person_id)) {
+      // El backend jamás manda sillas vacías a una nómina; el filtro es
+      // solo para que el tipo lo diga.
+      if (a.person_id != null && !fila.personIds.includes(a.person_id)) {
         fila.personIds.push(a.person_id);
         const suyo = nomina.pagos.find((p) => p.person_id === a.person_id);
         if (suyo) fila.pagos.push(suyo);

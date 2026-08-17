@@ -17,11 +17,16 @@ export class CreateEventStaffDto {
   @IsUUID()
   quotation_id?: string | null;
 
+  /** Sin persona = SILLA VACÍA: cupo planificado sin nombre (migración
+   *  84). Cuenta para el costo del evento, jamás para la nómina. */
+  @IsOptional()
   @IsInt()
-  person_id: number;
+  person_id?: number | null;
 
+  /** Sin día solo en eventos: es el "por ubicar" del plan. */
+  @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'El día va como 2026-08-14' })
-  day: string;
+  day?: string | null;
 
   @IsOptional()
   @IsInt()

@@ -116,8 +116,11 @@ export interface Asignacion {
   id: number;
   /** NULL = restaurante: el evento permanente, sin fechas. */
   quotation_id: string | null;
-  person_id: number;
-  day: string;
+  /** NULL = SILLA VACÍA: cupo planificado sin nombre (migración 84).
+   *  Cuenta para el costo del evento, jamás para la nómina. */
+  person_id: number | null;
+  /** NULL solo en eventos: silla "por ubicar". */
+  day: string | null;
   role_id: number | null;
   kind: TipoPersona;
   starts_at: string | null;

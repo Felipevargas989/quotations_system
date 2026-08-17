@@ -110,6 +110,40 @@ la persona salen en ámbar, y si en el día de destino ya estaba, el
 backend lo rechaza con aviso. Los relojes de todo el sistema van **de a
 15 minutos**.
 
+### Las sillas (17-08): el plan y la realidad viven en UNA tabla
+
+⚠ **Rediseñado por Felipe el 17-08, en el QA previo a producción.** El
+plan del personal vivía en `event_resources` (cargo, día, cantidad,
+valor) y la realidad en `event_staff` (persona, día, monto), sin cable
+de vuelta: poner un cuarto garzón o acordar $32.000 con alguien no
+movía a Gestión. Sus palabras: *"¿seguro que son dos tablas, y no una
+tabla que primero se rellena parcialmente solo con cargos, días, valor,
+y luego en planificación se le pone apellido a esos cargos? Así la
+tabla siempre se mantiene actualizada, siempre leen el mismo
+repositorio de datos."*
+
+Desde la migración 84, una fila de `event_staff` puede ser una **silla
+vacía**: cargo, día y valor estimado, sin nombre (`person_id NULL`).
+
+- **Gestión** cuenta sillas por cargo y día, y edita el plan: crear
+  sillas, moverlas de día, valorizarlas. No ve nombres.
+- **Planificación** las sienta: poner a alguien **consume** una silla
+  vacía del cargo (primero la del día exacto, luego una "por ubicar");
+  si no queda, nace una más — planificaste 3 y pusiste 4: son 4.
+  Sacar a alguien desde la planificación **libera** la silla (el cupo
+  queda); borrar de verdad es bajar el plan o "no se presentó".
+- **El costo es UNO por construcción**: sillas con nombre al monto
+  acordado, vacías al estimado. Sin propina, jamás.
+- **El gris**: con todas las sillas sentadas y confirmadas, la sección
+  de Gestión se apaga — el valor c/u pasa a ser el promedio real, de
+  solo lectura. Es dinámico: una silla nueva la vuelve a encender.
+- **Reglas de fierro**: una silla vacía JAMÁS llega a liquidación ni a
+  nómina; al cerrar la ficha, las que siguen vacías se retiran y el
+  costo converge a lo real. En los eventos con ficha ya cerrada la
+  migración no creó sillas: su historia no se toca.
+
+`event_resources` queda solo con arriendos y servicios externos.
+
 ### Los tres números del personal
 
 Son distintos y **se les permite no calzar** — esa diferencia es justo lo

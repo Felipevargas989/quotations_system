@@ -229,7 +229,73 @@ export class PeopleService {
 
   async addStaff(dto: CreateEventStaffDto, companyId: number) {
     await this.sonDeLaEmpresa(companyId, dto);
+
+    // ---- SILLA VACÍA (migración 84): cupo sin nombre todavía ----
+    // La pone Gestión al planificar: cargo, día (o "por ubicar") y el
+    // valor estimado. Cuenta para el costo; jamás para la nómina.
+    if (dto.person_id == null) {
+      if (!dto.quotation_id) {
+        throw new BadRequestException(
+          'El restaurante no lleva sillas vacías: ahí siempre hay un nombre',
+        );
+      }
+      if (dto.role_id == null) {
+        throw new BadRequestException('Una silla vacía necesita su cargo');
+      }
+      return this.repo.addStaff({
+        company_id: companyId,
+        quotation_id: dto.quotation_id,
+        person_id: null,
+        day: dto.day ?? null,
+        role_id: dto.role_id,
+        kind: 'freelance',
+        status: 'por_confirmar',
+        amount: dto.amount ?? null,
+        starts_at: null,
+        ends_at: null,
+        break_minutes: null,
+        notes: dto.notes ?? null,
+      });
+    }
+
+    if (!dto.day) {
+      throw new BadRequestException('Una persona se pone en un día concreto');
+    }
     const persona = await this.repo.findOne(dto.person_id, companyId);
+
+    // ---- SENTAR EN UNA SILLA (migración 84) ----
+    // Si el plan dejó una silla vacía de ese cargo (idealmente del mismo
+    // día; si no, una "por ubicar"), la persona se sienta AHÍ: el cupo
+    // se consume en vez de inflarse. La silla conserva su valor estimado
+    // salvo que venga uno acordado. Si no hay silla, se crea una más —
+    // planificaste 3 y pusiste 4: ahora son 4, como debe ser.
+    if (dto.quotation_id) {
+      const silla = await this.repo.findSillaVacia(
+        companyId,
+        dto.quotation_id,
+        dto.role_id ?? persona.default_role_id ?? null,
+        dto.day,
+      );
+      if (silla) {
+        const esDiaExtraS = persona.default_kind === 'planta';
+        const kindS =
+          dto.kind ?? (esDiaExtraS ? 'freelance' : persona.default_kind);
+        return this.repo.updateStaff(
+          silla.id,
+          {
+            person_id: dto.person_id,
+            day: dto.day,
+            kind: kindS,
+            role_id: dto.role_id ?? silla.role_id ?? null,
+            amount:
+              kindS === 'planta' ? null : (dto.amount ?? silla.amount ?? null),
+            status: dto.status ?? 'por_confirmar',
+            ...horarioDelDia(persona, dto.day, dto),
+          },
+          companyId,
+        );
+      }
+    }
     // UN PLANTA QUE VA A UN EVENTO ES UN DÍA EXTRA (Felipe, 15-08): su
     // sueldo cubre su jornada, no esto. Ese día nace FREELANCE para que
     // se le pague aparte. Mover sus días desde su calendario es otra
@@ -297,7 +363,14 @@ export class PeopleService {
    * repartirlo de nuevo entre los que sí estuvieron. Lo que ya se fue a
    * una nómina no se toca: eso ya es un pago.
    */
-  async removeStaff(id: number, companyId: number) {
+  /**
+   * `liberar` (migración 84): en un evento, sacar a la persona desde la
+   * planificación NO borra la fila — la deja como silla vacía otra vez,
+   * con su cargo, su día y su valor. El cupo sigue existiendo: se saca
+   * al de la casilla, no la necesidad. Borrar de verdad (bajar el plan,
+   * o "no se presentó" en la liquidación) sigue siendo el borrado.
+   */
+  async removeStaff(id: number, companyId: number, liberar = false) {
     const fila = await this.repo.findStaffRow(id, companyId);
     if (!fila) throw new NotFoundException('Esa asignación no existe');
 
@@ -310,7 +383,24 @@ export class PeopleService {
     const teniaPropina = Number(fila.tip_amount ?? 0) > 0;
     const pozoId = fila.tip_pool_id ?? null;
 
-    await this.repo.removeStaff(id, companyId);
+    if (liberar && fila.quotation_id && fila.person_id != null) {
+      await this.repo.updateStaff(
+        id,
+        {
+          person_id: null,
+          kind: 'freelance',
+          status: 'por_confirmar',
+          starts_at: null,
+          ends_at: null,
+          break_minutes: null,
+          tip_amount: null,
+          tip_pool_id: null,
+        },
+        companyId,
+      );
+    } else {
+      await this.repo.removeStaff(id, companyId);
+    }
 
     if (teniaPropina && pozoId) {
       await this.repo.clearTips(pozoId, companyId);
@@ -460,6 +550,17 @@ export class PeopleService {
    */
   async cerrarFicha(dto: CerrarFichaDto, companyId: number) {
     await this.sonDeLaEmpresa(companyId, dto);
+    // Las sillas que quedaron vacías se van: no se contrató a nadie para
+    // ese cupo y el costo del evento converge a lo real (migración 84).
+    const vacias = await this.repo.deleteSillasVacias(
+      companyId,
+      dto.quotation_id,
+    );
+    if (vacias > 0) {
+      this.logger.info(
+        `cerrarFicha ${dto.quotation_id}: ${vacias} sillas vacías retiradas`,
+      );
+    }
     // NO HAY PASOS PREVIOS (Felipe, 15-08): "el armado se hace en la
     // planificación; acá solo la gente que vino, lo que se le paga y la
     // propina". La liquidación es una sola pantalla, así que se cierra
@@ -495,6 +596,11 @@ export class PeopleService {
   }
 
   // ================= LOS POZOS Y EL REPARTO =================
+
+  /** El costo de personal por evento y cargo, desde las sillas. */
+  costoPersonal(companyId: number) {
+    return this.repo.costoPersonalPorEvento(companyId);
+  }
 
   /** Desde cuándo hay días de restaurante: el piso de la ventana. */
   diaMasViejoDeRestaurante(companyId: number) {
@@ -590,7 +696,7 @@ export class PeopleService {
     // Excel: el 28 de septiembre trabajaron 10 y recibieron 4. Su
     // jornada se paga igual; lo que le toca al cargo se divide entre
     // los que sí llevan.
-    filas = filas.filter((f) => !f.no_tip);
+    filas = filas.filter((f) => !f.no_tip && f.person_id != null);
 
     const conPct = dto.porcentajes.filter((p) => p.pct > 0);
     const montosCargo = repartirAlPeso(

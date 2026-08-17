@@ -1,4 +1,5 @@
 import { costoDeRecursos } from "../../utils/costoDeRecursos";
+import { getStaff } from "../../services/people.service";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -196,9 +197,22 @@ export default function EventResourcesSection({
   const supName = (id: number | null | undefined) =>
     suppliers.find((s) => s.id === id)?.name;
 
-  // El costo COMPLETO del evento (personal incluido): es lo que viaja a
-  // la rentabilidad por onCostChange.
-  const total = useMemo(() => costoDelEvento(lines, personas), [lines, personas]);
+  // El costo COMPLETO del evento: los arriendos desde sus líneas y el
+  // personal desde LAS SILLAS (migración 84) — con nombre al monto
+  // acordado, vacías al estimado. Un solo número, el que viaja a la
+  // rentabilidad por onCostChange.
+  const { data: sillas = [] } = useQuery({
+    queryKey: ["people", "staff-evento", quotationId],
+    queryFn: () => getStaff(quotationId),
+  });
+  const costoSillas = useMemo(
+    () => sillas.reduce((t, a) => t + Number(a.amount ?? 0), 0),
+    [sillas],
+  );
+  const total = useMemo(
+    () => costoDelEvento(lines, personas) + costoSillas,
+    [lines, personas, costoSillas],
+  );
 
   // Instanciación: servicios fijos del evento cuyos recursos aún no fueron
   // importados como líneas.
