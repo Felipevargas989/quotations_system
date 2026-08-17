@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CreatePersonDto } from './dto/create-person.dto';
 import {
@@ -236,8 +240,43 @@ export class PeopleService {
     return this.repo.updateStaff(id, cambios, companyId);
   }
 
-  removeStaff(id: number, companyId: number) {
-    return this.repo.removeStaff(id, companyId);
+  /**
+   * SACAR A ALGUIEN NO PUEDE DEJAR PLATA EN EL AIRE (revisión del 16-08).
+   *
+   * En los eventos el descuadre lo atajaba el cierre de la ficha, que
+   * compara lo repartido contra el pozo. En los días de restaurante no
+   * había nada equivalente: se borraba la fila con su parte de la
+   * propina, el día seguía marcado como liquidado, y esa plata del
+   * cliente no se la llevaba nadie ni aparecía en ninguna pantalla.
+   *
+   * Ahora, sacar a alguien que ya tenía propina DESHACE el reparto del
+   * día: el pozo vuelve a estar sin repartir y el día reaparece para
+   * repartirlo de nuevo entre los que sí estuvieron. Lo que ya se fue a
+   * una nómina no se toca: eso ya es un pago.
+   */
+  async removeStaff(id: number, companyId: number) {
+    const fila = await this.repo.findStaffRow(id, companyId);
+    if (!fila) throw new NotFoundException('Esa asignación no existe');
+
+    if (fila.payroll_id != null || fila.tip_payroll_id != null) {
+      throw new BadRequestException(
+        'Esa jornada ya está en una nómina: no se puede sacar',
+      );
+    }
+
+    const teniaPropina = Number(fila.tip_amount ?? 0) > 0;
+    const pozoId = fila.tip_pool_id ?? null;
+
+    await this.repo.removeStaff(id, companyId);
+
+    if (teniaPropina && pozoId) {
+      await this.repo.clearTips(pozoId, companyId);
+      await this.repo.updatePool(pozoId, { distributed_at: null }, companyId);
+      this.logger.info(
+        `sacar ${id}: tenía propina, el pozo ${pozoId} vuelve a repartirse`,
+      );
+    }
+    return { id };
   }
 
   /**
@@ -278,7 +317,9 @@ export class PeopleService {
         .map((a) => [a.day.slice(0, 10), a]),
     );
 
-    // Si dejó de ser de planta o se apagó, se le limpia el futuro.
+    // Si dejó de ser de planta o se apagó, se le limpia el futuro — pero
+    // solo lo que la propia proyección haya puesto (ver
+    // laPuedeQuitarLaProyeccion).
     const activa =
       persona.status === 'activa' && persona.default_kind === 'planta';
 
@@ -293,7 +334,9 @@ export class PeopleService {
       const yaEsta = dePlanta.get(d);
 
       if (!debeVenir) {
-        if (yaEsta) {
+        // Solo se quita lo que puso la máquina: lo puesto a mano y lo
+        // que ya tiene plata se queda donde está.
+        if (yaEsta && laPuedeQuitarLaProyeccion(yaEsta)) {
           await this.repo.removeStaff(yaEsta.id, companyId);
           quitados += 1;
         }
@@ -315,9 +358,13 @@ export class PeopleService {
         });
         creados += 1;
       } else if (
-        yaEsta.starts_at?.slice(0, 5) !== horario.starts_at ||
-        yaEsta.ends_at?.slice(0, 5) !== horario.ends_at ||
-        (yaEsta.break_minutes ?? 0) !== horario.break_minutes
+        // Tampoco se le corrige el horario a una fila con plata: la
+        // propina se reparte POR HORAS, así que moverle la hora por
+        // detrás le cambiaría el monto a alguien que ya cobró.
+        laPuedeQuitarLaProyeccion(yaEsta) &&
+        (yaEsta.starts_at?.slice(0, 5) !== horario.starts_at ||
+          yaEsta.ends_at?.slice(0, 5) !== horario.ends_at ||
+          (yaEsta.break_minutes ?? 0) !== horario.break_minutes)
       ) {
         await this.repo.updateStaff(yaEsta.id, horario, companyId);
         corregidos += 1;
@@ -408,12 +455,24 @@ export class PeopleService {
     return this.repo.findPools(companyId);
   }
 
-  createPool(dto: CreatePoolDto, companyId: number) {
+  /**
+   * UN EVENTO O UN DÍA TIENE UN SOLO POZO (migración 83). Si ya hay uno,
+   * se devuelve ese en vez de crear otro: los pozos de sobra quedaban
+   * invisibles en la pantalla y trababan el cierre de la ficha para
+   * siempre. Pedirlo dos veces ahora es inofensivo.
+   */
+  async createPool(dto: CreatePoolDto, companyId: number) {
     if (!dto.quotation_id && !dto.day) {
       throw new BadRequestException(
         'Un pozo es de un evento o de un día de la planta',
       );
     }
+    const existente = await this.repo.findPoolDe(companyId, {
+      quotation_id: dto.quotation_id ?? null,
+      day: dto.day ?? null,
+    });
+    if (existente) return existente;
+
     return this.repo.createPool({
       company_id: companyId,
       quotation_id: dto.quotation_id ?? null,
@@ -870,7 +929,21 @@ export class PeopleService {
 
   /** "Ya la pagué" se marca EN EL MOMENTO, no después — por eso ahora
    *  existe "pendiente". Jornada y propina por separado. */
-  marcarPago(payrollId: number, dto: PagoDto, companyId: number) {
+  /**
+   * LA NÓMINA TIENE QUE SER SUYA (revisión del 16-08).
+   *
+   * Marcar un pago tomaba el id de la nómina de la URL y no comprobaba
+   * de quién era. Y como la llave única de payroll_people es
+   * (payroll_id, person_id) —sin la empresa—, el upsert no fallaba: le
+   * cambiaba el dueño a la fila de la otra empresa. Cualquier usuario
+   * con sesión podía marcar como pagada una nómina ajena probando
+   * números en la URL.
+   *
+   * findPayroll ya filtra por empresa y responde "no existe" si no es
+   * suya: preguntarle primero cierra el agujero.
+   */
+  async marcarPago(payrollId: number, dto: PagoDto, companyId: number) {
+    await this.repo.findPayroll(payrollId, companyId);
     const cambios: Record<string, unknown> = {
       paid_at: new Date().toISOString(),
     };
@@ -923,6 +996,34 @@ export class PeopleService {
     return this.repo.updateRole(id, { is_active: false }, companyId);
   }
 }
+/**
+ * LA PROYECCIÓN SOLO BORRA LO QUE ELLA MISMA PONE (revisión del 16-08).
+ *
+ * Al guardar una ficha, el sistema rehace la planta del futuro: crea los
+ * días que faltan y quita los que sobran. El "quita los que sobran"
+ * estaba ciego — no miraba ni el tipo ni la plata — así que guardar la
+ * ficha de un freelance para cargarle el RUT le borraba sus días de
+ * restaurante CON la propina ya repartida. Y el RUT es obligatorio para
+ * poder pagarle: el camino al daño era el camino normal de trabajo.
+ *
+ * Una fila es de la proyección solo si es una jornada de planta que
+ * todavía no tiene plata ni nómina. Cualquier otra cosa la puso alguien
+ * a mano —un freelance del restaurante, un planta llamado en su día
+ * libre, un día ya repartido— y la máquina no la toca.
+ */
+export const laPuedeQuitarLaProyeccion = (fila: {
+  kind?: string | null;
+  amount?: number | null;
+  tip_amount?: number | null;
+  payroll_id?: number | null;
+  tip_payroll_id?: number | null;
+}) =>
+  (fila.kind ?? 'planta') === 'planta' &&
+  !Number(fila.amount ?? 0) &&
+  !Number(fila.tip_amount ?? 0) &&
+  fila.payroll_id == null &&
+  fila.tip_payroll_id == null;
+
 /**
  * CONSOLIDAR POR RUT (Felipe, 16-08).
  *

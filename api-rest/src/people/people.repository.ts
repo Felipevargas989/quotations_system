@@ -321,7 +321,11 @@ export class PeopleRepository {
   async findDePersonaDesde(companyId: number, personId: number, desde: string) {
     const { data, error } = await this.supabase.client
       .from('event_staff')
-      .select('id, day, quotation_id, starts_at, ends_at, break_minutes')
+      // Trae también la PLATA y el kind: sin eso, la proyección decidía
+      // a ciegas a quién borrar (revisión del 16-08).
+      .select(
+        'id, day, quotation_id, starts_at, ends_at, break_minutes, kind, amount, tip_amount, payroll_id, tip_payroll_id',
+      )
       .eq('company_id', companyId)
       .eq('person_id', personId)
       .gte('day', desde);
@@ -333,6 +337,11 @@ export class PeopleRepository {
       starts_at: string | null;
       ends_at: string | null;
       break_minutes: number | null;
+      kind: string | null;
+      amount: number | null;
+      tip_amount: number | null;
+      payroll_id: number | null;
+      tip_payroll_id: number | null;
     }[];
   }
 
@@ -350,6 +359,18 @@ export class PeopleRepository {
       .order('day', { ascending: false });
     if (error) throw error;
     return data as unknown as EventStaffConPersona[];
+  }
+
+  /** Una fila de personal por id, para poder mirarla antes de tocarla. */
+  async findStaffRow(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as EventStaff | null;
   }
 
   async removeStaff(id: number, companyId: number) {
@@ -440,6 +461,23 @@ export class PeopleRepository {
     if (error) throw error;
     if (!data) throw new NotFoundException('No existe ese pozo');
     return data as unknown as TipPool;
+  }
+
+  /** El pozo de un evento o de un día, si ya existe. */
+  async findPoolDe(
+    companyId: number,
+    de: { quotation_id?: string | null; day?: string | null },
+  ) {
+    let q = this.supabase.client
+      .from('tip_pools')
+      .select('*')
+      .eq('company_id', companyId);
+    q = de.quotation_id
+      ? q.eq('quotation_id', de.quotation_id)
+      : q.is('quotation_id', null).eq('day', de.day as string);
+    const { data, error } = await q.maybeSingle();
+    if (error) throw error;
+    return data as unknown as TipPool | null;
   }
 
   async createPool(row: Record<string, unknown>) {
