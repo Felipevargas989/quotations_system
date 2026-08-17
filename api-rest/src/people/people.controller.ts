@@ -214,6 +214,14 @@ export class PeopleController {
     return this.peopleService.findPayrolls(user.company_id);
   }
 
+  /** El día de restaurante más viejo con gente: el piso de la ventana. */
+  @Get('dias/mas-viejo')
+  async diaMasViejo(@CurrentUser() user: User) {
+    return {
+      day: await this.peopleService.diaMasViejoDeRestaurante(user.company_id),
+    };
+  }
+
   /** Lo liquidado que todavía no entró a ninguna nómina. */
   @Get('payrolls/pendientes')
   liquidacionesPendientes(@CurrentUser() user: User) {

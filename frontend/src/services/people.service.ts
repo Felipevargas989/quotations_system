@@ -229,6 +229,12 @@ export const createReview = async (evaluacion: {
 export const getPayrolls = async () =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "GET")) as Nomina[];
 
+/** El día de restaurante más viejo con gente: el piso de la ventana. */
+export const getDiaMasViejo = async () =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/dias/mas-viejo`, "GET")) as {
+    day: string | null;
+  };
+
 /** Lo liquidado que todavía no entró a ninguna nómina. */
 export const getLiquidacionesPendientes = async () =>
   (await apiRequest(

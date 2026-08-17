@@ -361,6 +361,36 @@ export class PeopleRepository {
     return data as unknown as EventStaffConPersona[];
   }
 
+  /**
+   * El día de restaurante más viejo que todavía tiene gente. Sirve para
+   * que la pantalla de liquidación abra su ventana hasta ahí: un día
+   * sin liquidar no puede caerse de la lista por antiguo (revisión del
+   * 16-08).
+   */
+  async diaMasViejoDeRestaurante(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('day')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .order('day', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? String((data as { day: string }).day).slice(0, 10) : null;
+  }
+
+  /** Cuántos días trabajados tiene una persona: lo que impide borrarla. */
+  async cuantasJornadas(companyId: number, personId: number) {
+    const { count, error } = await this.supabase.client
+      .from('event_staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('person_id', personId);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
   /** Una fila de personal por id, para poder mirarla antes de tocarla. */
   async findStaffRow(id: number, companyId: number) {
     const { data, error } = await this.supabase.client

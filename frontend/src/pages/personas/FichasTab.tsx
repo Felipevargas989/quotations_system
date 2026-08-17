@@ -24,6 +24,7 @@ import Modal from "../../components/Modal";
 import {
   cerrarFicha,
   createPool,
+  getDiaMasViejo,
   createReview,
   getPools,
   getSheets,
@@ -126,9 +127,19 @@ export default function FichasTab() {
     queryFn: getPools,
     staleTime: 0,
   });
-  // La ventana del restaurante: las últimas seis semanas. Un día más
-  // viejo que eso sin liquidar ya es un problema de otra índole.
-  const desdeVentana = sumarDias(hoy, -42);
+  // La ventana del restaurante: seis semanas, PERO si quedó un día más
+  // viejo sin liquidar, se abre hasta ahí. Antes se cortaba seco a los
+  // 42 días y ese día desaparecía de la pantalla: no se podía repartir,
+  // ni marcar sin propina, ni pagar por ningún otro camino — la jornada
+  // de quien trabajó quedaba impagable (revisión del 16-08).
+  const { data: masViejo } = useQuery({
+    queryKey: ["people", "dia-mas-viejo"],
+    queryFn: getDiaMasViejo,
+    staleTime: 0,
+  });
+  const seisSemanas = sumarDias(hoy, -42);
+  const desdeVentana =
+    masViejo?.day && masViejo.day < seisSemanas ? masViejo.day : seisSemanas;
   const { data: staffVentana = [] } = useQuery({
     queryKey: ["people", "liquidacion-ventana", desdeVentana, hoy],
     queryFn: () => getStaffSemana(desdeVentana, hoy),

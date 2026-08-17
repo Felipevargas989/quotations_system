@@ -49,13 +49,28 @@ INSERT INTO equivalencias VALUES
 ALTER TABLE public.people DROP CONSTRAINT IF EXISTS people_default_role_id_fkey;
 
 -- 2) Crear solo los cargos que faltan de verdad. Sin precio: son de planta.
+--
+-- ⚠ El NOT EXISTS NO filtra por tipo, y es a propósito (revisión del
+-- 16-08, antes de subir a producción). La llave única de la tabla es
+-- (company_id, name) desde la migración 10 — SIN el tipo. Si en
+-- producción ya existe un "Salvavidas" o un "Patio" cargado como
+-- arriendo, mirar solo los de tipo 'personal' no lo vería, el INSERT
+-- chocaría con la llave (23505) y, al estar todo en un BEGIN/COMMIT, la
+-- 69 ENTERA se revertiría: job_roles quedaría viva y las personas
+-- apuntando ahí, con el resto del paquete avanzando sobre una base a
+-- medias.
+--
+-- Mirando por nombre sin importar el tipo, un recurso que ya existe se
+-- reutiliza. Puede quedar un cargo cuyo recurso está marcado como
+-- arriendo; eso se corrige en pantalla en un minuto, y es infinitamente
+-- preferible a una migración que aborta a mitad del paquete.
 INSERT INTO public.management_resources (company_id, name, type, is_active)
 SELECT DISTINCT jr.company_id, e.en_recursos, 'personal', true
 FROM public.job_roles jr
 JOIN equivalencias e ON e.cargo = jr.name
 WHERE NOT EXISTS (
   SELECT 1 FROM public.management_resources m
-  WHERE m.company_id = jr.company_id AND m.type = 'personal'
+  WHERE m.company_id = jr.company_id
     AND lower(btrim(m.name)) = lower(btrim(e.en_recursos))
 );
 
@@ -65,7 +80,10 @@ SET default_role_id = m.id
 FROM public.job_roles jr
 JOIN equivalencias e ON e.cargo = jr.name
 JOIN public.management_resources m
-  ON m.company_id = jr.company_id AND m.type = 'personal'
+  -- Sin filtrar por tipo, igual que el INSERT de arriba: si el recurso
+  -- ya existía con otro tipo, se reutiliza ese. Filtrar acá dejaría a la
+  -- persona SIN cargo justo en el caso que el paso 2 vino a salvar.
+  ON m.company_id = jr.company_id
  AND lower(btrim(m.name)) = lower(btrim(e.en_recursos))
 WHERE p.default_role_id = jr.id;
 

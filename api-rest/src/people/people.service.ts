@@ -98,7 +98,25 @@ export class PeopleService {
     }
   }
 
-  remove(id: number, companyId: number) {
+  /**
+   * UNA PERSONA QUE YA TRABAJÓ NO SE BORRA (revisión del 16-08).
+   *
+   * La base ya lo impedía —event_staff la referencia con RESTRICT— pero
+   * el error salía crudo: Postgres devolvía 23503, NestJS lo convertía
+   * en un 500 y la pantalla mostraba un mensaje genérico. La persona no
+   * se borraba nunca y nadie entendía por qué.
+   *
+   * Ahora se explica antes de intentarlo, y se dice qué hacer en su
+   * lugar: su historial de pagos es de ella y del evento donde estuvo,
+   * así que lo correcto es marcarla "no disponible", no borrarla.
+   */
+  async remove(id: number, companyId: number) {
+    const jornadas = await this.repo.cuantasJornadas(companyId, id);
+    if (jornadas > 0) {
+      throw new BadRequestException(
+        `No se puede borrar: ya trabajó ${jornadas} ${jornadas === 1 ? 'día' : 'días'} y ese historial es parte de los pagos. Márcala "no disponible" y deja de aparecer en la planificación.`,
+      );
+    }
     return this.repo.remove(id, companyId);
   }
 
@@ -450,6 +468,11 @@ export class PeopleService {
   }
 
   // ================= LOS POZOS Y EL REPARTO =================
+
+  /** Desde cuándo hay días de restaurante: el piso de la ventana. */
+  diaMasViejoDeRestaurante(companyId: number) {
+    return this.repo.diaMasViejoDeRestaurante(companyId);
+  }
 
   findPools(companyId: number) {
     return this.repo.findPools(companyId);
