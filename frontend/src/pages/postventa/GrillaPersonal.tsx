@@ -90,16 +90,6 @@ export default function GrillaPersonal({
   const lines = data?.lines ?? [];
   const resources = data?.resources ?? [];
 
-  // EL COSTO REAL (etapa 8): el costo de personal deja de ser una
-  // estimación y pasa a ser lo que realmente se paga — la suma de las
-  // jornadas con nombre puesto (la sábana). La propina NO entra al
-  // margen: es plata que entra y sale, somos intermediarios.
-  const { data: staffReal = [] } = useQuery({
-    queryKey: ["people", "staff-evento", quotationId],
-    queryFn: () => getStaff(quotationId),
-  });
-  const costoReal = staffReal.reduce((t, a) => t + Number(a.amount ?? 0), 0);
-
   const refrescar = () => qc.invalidateQueries({ queryKey: opts.queryKey });
 
   // LA CLAVE DE LA VELOCIDAD (15-08, "la navegabilidad es lenta"):
@@ -341,7 +331,19 @@ export default function GrillaPersonal({
       .reduce((s, l) => s + (l.quantity || 0), 0) +
     (f.sinRepartir?.quantity || 0);
 
-  const costoPersonal = filas.reduce((s, f) => s + totalDe(f) * f.precio, 0);
+  /** La plata de una fila: la SUMA de sus líneas, cada una con su
+   *  propio valor — no cantidad × un precio. Con dos tarifas el mismo
+   *  día (2×$27.000 + 1×$25.000) multiplicar daba $81.000 en vez de
+   *  $79.000 (QA de Felipe, 17-08, cot 415). */
+  const plataDe = (f: (typeof filas)[number]) =>
+    [...f.porDia.values()]
+      .flat()
+      .reduce((s, l) => s + (l.price_fixed || 0) * (l.quantity || 0), 0) +
+    (f.sinRepartir
+      ? (f.sinRepartir.price_fixed || 0) * (f.sinRepartir.quantity || 0)
+      : 0);
+
+  const costoPersonal = filas.reduce((s, f) => s + plataDe(f), 0);
 
   const limiteAntes = sumarDias(eventDate, -TOPE_DIAS_EXTRA);
   const limiteDespues = sumarDias(iso(eventEndDate) || eventDate, TOPE_DIAS_EXTRA);
@@ -434,7 +436,7 @@ export default function GrillaPersonal({
           className="w-24 px-2 py-1 text-sm text-right"
           aria-label={`Valor de ${f.nombre}`}
         />,
-        clp(total * f.precio),
+        clp(plataDe(f)),
       ],
     };
   });
@@ -523,25 +525,10 @@ export default function GrillaPersonal({
           }}
         />
       )}
-      {costoReal > 0 && (
-        <p className="text-sm text-right text-gray-600 mt-2">
-          Costo real con nombres puestos:{" "}
-          <strong className="text-gray-900">{clp(costoReal)}</strong>
-          <span className="mx-1 text-gray-300">·</span>
-          cotizado {clp(costoPersonal)}
-          <span className="mx-1 text-gray-300">·</span>
-          <span
-            className={
-              costoReal - costoPersonal > 0
-                ? "text-red-700 font-medium"
-                : "text-emerald-700 font-medium"
-            }
-          >
-            {costoReal - costoPersonal >= 0 ? "+" : "−"}
-            {clp(Math.abs(costoReal - costoPersonal))}
-          </span>
-        </p>
-      )}
+      {/* La comparación "real con nombres vs cotizado" se fue (Felipe,
+          17-08): en personal no hay dos costos — hay UNO, que se afina
+          del plan a la realidad. La vinculación de las grillas es la que
+          hace converger el número; mostrar la brecha era un parche. */}
     </div>
   );
 }

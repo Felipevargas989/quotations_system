@@ -545,7 +545,16 @@ export default function GestionTab({
           )}
           {insumos.length > 0 && (
             <span className="font-bold text-gray-900 tabular-nums">
-              {fmtMoney(costoInsumos)}
+              {/* UN solo costo: provisionado, manda la foto congelada —
+                  la misma que usa el margen. Antes esta cajita mostraba
+                  la receta recalculada a precios de hoy y parecían dos
+                  costos distintos (Felipe, 17-08). */}
+              {fmtMoney(provisioned ? costoBase : costoInsumos)}
+              {provisioned && (
+                <span className="ml-1.5 text-[11px] font-normal text-gray-400">
+                  congelado
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -670,7 +679,14 @@ export default function GestionTab({
                           Total insumos
                         </td>
                         <td className="px-3 py-2 text-right font-bold whitespace-nowrap">
-                          {fmtMoney(costoInsumos)}
+                          {fmtMoney(provisioned ? costoBase : costoInsumos)}
+                          {provisioned && costoBase !== costoInsumos && (
+                            <span className="block text-[11px] font-normal text-gray-400">
+                              congelado al provisionar; la lista de arriba
+                              es la receta a precios de hoy (
+                              {fmtMoney(costoInsumos)})
+                            </span>
+                          )}
                         </td>
                       </tr>
                     </tfoot>
