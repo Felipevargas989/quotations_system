@@ -224,6 +224,10 @@ export default function GrillaPersonal({
       nueva: number;
     }) => {
       const delDia = p.fila.porDia.get(p.day) ?? [];
+      // Una silla con id negativo es optimista: todavía no existe en el
+      // servidor. El clic siguiente llega tras la sincronización.
+      if (delDia.some((s) => s.id < 0) || p.fila.sinDia.some((s) => s.id < 0))
+        return;
       if (p.nueva > delDia.length) {
         // Primero se ubica una silla "sin día": el aviso baja solo
         // (Felipe, 15-08). Si no queda, nace una silla nueva.
@@ -250,9 +254,54 @@ export default function GrillaPersonal({
         await removeStaff(vacia.id);
       }
     },
+    // LA CLAVE DE LA VELOCIDAD (15-08, "la navegabilidad es lenta"; y
+    // otra vez el 17-08 cuando la reescritura la perdió): la pantalla se
+    // mueve AL INSTANTE con un parche optimista, y recién después se
+    // reconcilia con lo que diga el servidor. Sin esto, cada clic
+    // espera el viaje de ida y vuelta.
+    onMutate: async (p) => {
+      await qc.cancelQueries({ queryKey: staffKey });
+      const previo = qc.getQueryData<Asignacion[]>(staffKey);
+      qc.setQueryData<Asignacion[]>(staffKey, (old = []) => {
+        const delDia = p.fila.porDia.get(p.day) ?? [];
+        if (p.nueva > delDia.length) {
+          const sinDia = p.fila.sinDia[0];
+          if (sinDia) {
+            return old.map((s) =>
+              s.id === sinDia.id ? { ...s, day: p.day } : s,
+            );
+          }
+          return [
+            ...old,
+            {
+              id: -Math.floor(Math.random() * 1e9),
+              quotation_id: quotationId,
+              person_id: null,
+              day: p.day,
+              role_id: p.fila.id || null,
+              kind: "freelance",
+              status: "por_confirmar",
+              amount: valorDe(p.fila) || null,
+              starts_at: null,
+              ends_at: null,
+              break_minutes: null,
+            } as unknown as Asignacion,
+          ];
+        }
+        if (p.nueva < delDia.length) {
+          const vacia = delDia.find((s) => s.person_id == null);
+          return vacia ? old.filter((s) => s.id !== vacia.id) : old;
+        }
+        return old;
+      });
+      return { previo };
+    },
+    // Reconciliar con los ids reales del servidor: una sola consulta.
     onSettled: refrescar,
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : humanizeApiError(e)),
+    onError: (e: unknown, _p, ctx) => {
+      if (ctx?.previo) qc.setQueryData(staffKey, ctx.previo);
+      toast.error(e instanceof Error ? e.message : humanizeApiError(e));
+    },
   });
 
   // Cambiar el valor de un cargo toca sus sillas VACÍAS: las con nombre
