@@ -552,7 +552,7 @@ export default function GestionTab({
               {fmtMoney(provisioned ? costoBase : costoInsumos)}
               {provisioned && (
                 <span className="ml-1.5 text-[11px] font-normal text-gray-400">
-                  congelado
+                  provisionado
                 </span>
               )}
             </span>
@@ -682,7 +682,7 @@ export default function GestionTab({
                           {fmtMoney(provisioned ? costoBase : costoInsumos)}
                           {provisioned && costoBase !== costoInsumos && (
                             <span className="block text-[11px] font-normal text-gray-400">
-                              congelado al provisionar; la lista de arriba
+                              provisionado; la lista de arriba
                               es la receta a precios de hoy (
                               {fmtMoney(costoInsumos)})
                             </span>
