@@ -380,6 +380,34 @@ export class PeopleRepository {
     return data ? String((data as { day: string }).day).slice(0, 10) : null;
   }
 
+  /**
+   * ¿Ese evento y ese cargo son de esta empresa? La base se consulta con
+   * la llave de servicio, así que el aislamiento lo hace el código: un
+   * id ajeno que llegue en el cuerpo entraría igual (revisión del
+   * 16-08).
+   */
+  async esCotizacionDeLaEmpresa(companyId: number, quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('id')
+      .eq('id', quotationId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data;
+  }
+
+  async esRecursoDeLaEmpresa(companyId: number, roleId: number) {
+    const { data, error } = await this.supabase.client
+      .from('management_resources')
+      .select('id')
+      .eq('id', roleId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data;
+  }
+
   /** Cuántos días trabajados tiene una persona: lo que impide borrarla. */
   async cuantasJornadas(companyId: number, personId: number) {
     const { count, error } = await this.supabase.client

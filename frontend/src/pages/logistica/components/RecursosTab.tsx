@@ -144,9 +144,27 @@ export default function RecursosTab({
 
   // Capítulos por TIPO y, dentro, filas ordenadas por proveedor (los
   // sin proveedor al final) — pedido de Felipe 31-07.
-  const grouped = (Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[])
+  // NADIE SE QUEDA FUERA (revisión del 16-08). Antes los capítulos salían
+  // del diccionario de tipos, y ese perdió 'compra' al homologarlo: una
+  // fila con un tipo que ya no está en el diccionario no caía en ningún
+  // capítulo y desaparecía de la pantalla — no se podía ver, ni buscar,
+  // ni editar, ni desactivar. En producción hay 7 así (Arco de flores,
+  // Tour Jelinek…) hasta que corra la migración 72, y si el frontend
+  // sube primero se vuelven invisibles.
+  //
+  // Ahora los capítulos salen de lo que HAY: los conocidos primero, en
+  // el orden del diccionario, y al final los que traigan un tipo viejo.
+  const ordenConocido = Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[];
+  const tiposPresentes = [...new Set(filtered.map((r) => r.type))].sort(
+    (a, b) => {
+      const ia = ordenConocido.indexOf(a as ResourceType);
+      const ib = ordenConocido.indexOf(b as ResourceType);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    },
+  );
+  const grouped = tiposPresentes
     .map((t) => ({
-      type: t,
+      type: t as ResourceType,
       items: filtered
         .filter((r) => r.type === t)
         .sort((a, b) => {

@@ -203,7 +203,32 @@ export class PeopleService {
    * que un planta trabaje en su día libre se marca freelance en ESE día
    * y ahí sí se le paga.
    */
+  /**
+   * Los ids que llegan en el cuerpo tienen que ser de la empresa que
+   * pide. El person_id ya se comprobaba —findOne filtra por empresa— y
+   * el resto entraba derecho a la base (revisión del 16-08). Los ids son
+   * enteros correlativos: adivinar uno ajeno no cuesta nada.
+   */
+  private async sonDeLaEmpresa(
+    companyId: number,
+    ids: { quotation_id?: string | null; role_id?: number | null },
+  ) {
+    if (
+      ids.quotation_id &&
+      !(await this.repo.esCotizacionDeLaEmpresa(companyId, ids.quotation_id))
+    ) {
+      throw new NotFoundException('No existe ese evento');
+    }
+    if (
+      ids.role_id != null &&
+      !(await this.repo.esRecursoDeLaEmpresa(companyId, ids.role_id))
+    ) {
+      throw new NotFoundException('No existe ese cargo');
+    }
+  }
+
   async addStaff(dto: CreateEventStaffDto, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, dto);
     const persona = await this.repo.findOne(dto.person_id, companyId);
     // UN PLANTA QUE VA A UN EVENTO ES UN DÍA EXTRA (Felipe, 15-08): su
     // sueldo cubre su jornada, no esto. Ese día nace FREELANCE para que
@@ -419,7 +444,8 @@ export class PeopleService {
     return this.repo.findSheets(companyId);
   }
 
-  upsertSheet(dto: UpsertSheetDto, companyId: number) {
+  async upsertSheet(dto: UpsertSheetDto, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, dto);
     return this.repo.upsertSheet(companyId, dto.quotation_id, {
       status: dto.status,
       closed_at: null,
@@ -433,6 +459,7 @@ export class PeopleService {
    * botón no se puede apretar — acá se rechaza, sin semáforos.
    */
   async cerrarFicha(dto: CerrarFichaDto, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, dto);
     // NO HAY PASOS PREVIOS (Felipe, 15-08): "el armado se hace en la
     // planificación; acá solo la gente que vino, lo que se le paga y la
     // propina". La liquidación es una sola pantalla, así que se cierra
@@ -485,6 +512,7 @@ export class PeopleService {
    * siempre. Pedirlo dos veces ahora es inofensivo.
    */
   async createPool(dto: CreatePoolDto, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, dto);
     if (!dto.quotation_id && !dto.day) {
       throw new BadRequestException(
         'Un pozo es de un evento o de un día de la planta',
@@ -643,10 +671,13 @@ export class PeopleService {
     return this.repo.findReviews(companyId, personId);
   }
 
-  createReview(dto: CreateReviewDto, companyId: number) {
+  async createReview(dto: CreateReviewDto, companyId: number) {
     if (!dto.stars && !dto.note) {
       throw new BadRequestException('Una evaluación lleva estrellas o nota');
     }
+    // La persona y el evento tienen que ser de quien evalúa.
+    await this.repo.findOne(dto.person_id, companyId);
+    await this.sonDeLaEmpresa(companyId, dto);
     return this.repo.createReview({ ...dto, company_id: companyId });
   }
 
@@ -981,9 +1012,10 @@ export class PeopleService {
     return this.repo.findDayNotes(companyId, desde, hasta);
   }
 
-  createDayNote(dto: CreateDayNoteDto, companyId: number) {
+  async createDayNote(dto: CreateDayNoteDto, companyId: number) {
     const texto = dto.text.trim();
     if (!texto) throw new BadRequestException('La nota viene vacía');
+    await this.sonDeLaEmpresa(companyId, dto);
     return this.repo.createDayNote({
       company_id: companyId,
       day: dto.day,

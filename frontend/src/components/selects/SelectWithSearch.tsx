@@ -3,6 +3,21 @@ import { Check, ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
 
+/**
+ * ¿El valor guardado se le puede mostrar a alguien?
+ *
+ * Sí cuando es un NOMBRE: una categoría renombrada o dada de baja se
+ * sigue viendo, para no hacer creer que el dato se perdió.
+ * No cuando es un ID: 17 pantallas guardan ids, y mostrarlos era peor
+ * que el placeholder — un proveedor desactivado aparecía como "7", y una
+ * cotización recién abierta mostraba el UUID del cliente mientras
+ * cargaba la lista (revisión del 16-08).
+ */
+export const valorSePuedeMostrar = (value?: string | null): boolean =>
+  !!value &&
+  !/^\d+$/.test(value) &&
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
 export default function SelectWithSearch({
   options,
   value,
@@ -79,6 +94,23 @@ export default function SelectWithSearch({
   }, [isOpen]);
 
   // Get selected option label
+  /**
+   * MOSTRAR EL NOMBRE GUARDADO SÍ; EL ID CRUDO NO.
+   *
+   * Cuando lo guardado es un NOMBRE —una categoría que se renombró o se
+   * dio de baja— hay que mostrarlo igual: fingir que no hay nada elegido
+   * haría creer que el dato se perdió.
+   *
+   * Pero 17 pantallas guardan un ID, no un nombre, y ahí mostrarlo era
+   * peor que el placeholder: en Insumos, un proveedor desactivado
+   * aparecía como "7", y una cotización recién abierta mostraba el UUID
+   * del cliente mientras cargaba la lista (revisión del 16-08).
+   *
+   * Un id no se le muestra a nadie: si el valor es un número pelado o un
+   * UUID, se prefiere el placeholder.
+   */
+  const rescatable = valorSePuedeMostrar(value);
+
   const selectedOption = options.find((option) => option.value === value);
 
   // (filtrado, cierre al pinchar fuera, foco al abrir y desplazamiento
@@ -171,11 +203,11 @@ export default function SelectWithSearch({
             haría creer que el dato se perdió. */}
         <span
           className={`truncate text-left ${
-            value ? "text-gray-900" : "text-gray-500"
+            selectedOption || rescatable ? "text-gray-900" : "text-gray-500"
           }`}
-          title={selectedOption?.label ?? value}
+          title={selectedOption?.label ?? (rescatable ? value : undefined)}
         >
-          {selectedOption?.label ?? (value || placeholder)}
+          {selectedOption?.label ?? (rescatable ? value : placeholder)}
         </span>
         <div className="flex items-center space-x-1">
           {/* Hueco para que la X no se monte sobre el texto. */}
