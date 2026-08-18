@@ -63,6 +63,8 @@ describe("TablaDeJornadas", () => {
     // 09:00–19:00 con 1 h de colación son 9 h.
     expect(screen.getByText("9 h")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "sin propina" })).toBeInTheDocument();
+    // La caja del monto de la planta dice por qué está vacía.
+    expect(screen.getByLabelText(/Asignación extra de/)).toHaveAttribute("placeholder", "planta");
   });
 
   it("el chip sin propina llama a onCambiar con no_tip invertido", async () => {

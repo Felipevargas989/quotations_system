@@ -113,7 +113,7 @@ const rellenarSemana = (persona: Persona): HorarioSemanal | null => {
 // tosco"). La última columna toma lo que sobra, así las horas quedan
 // separadas del borde y no pegadas.
 const FILA =
-  "grid grid-cols-[6.5rem_8.5rem_0.75rem_8.5rem_auto_auto_minmax(3rem,1fr)] items-center gap-2";
+  "grid grid-cols-[6.5rem_5rem_0.75rem_5rem_auto_auto_minmax(3rem,1fr)] items-center gap-2";
 
 export default function PersonaForm({
   persona,
