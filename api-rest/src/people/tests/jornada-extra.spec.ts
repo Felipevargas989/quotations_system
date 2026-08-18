@@ -1,4 +1,4 @@
-import { esJornadaExtra } from '../people.service';
+import { esJornadaExtra, laMandaronAUnEvento } from '../people.service';
 
 /**
  * UN DÍA EXTRA ES DÍA EXTRA, TAMBIÉN EN EL RESTAURANTE (Felipe, 17-08).
@@ -80,5 +80,23 @@ describe('esJornadaExtra', () => {
         { day: '2026-11-18', role_id: 23 },
       ),
     ).toBe(false);
+  });
+});
+
+describe('laMandaronAUnEvento (18-08)', () => {
+  it('la planta puesta en un evento desde la casilla (freelance) sí: ese día no está en el restaurante', () => {
+    expect(laMandaronAUnEvento({ quotation_id: 'q1', kind: 'freelance' })).toBe(
+      true,
+    );
+  });
+  it('la fila que la ficha trae (planta en el evento) NO: estuvo en el restaurante y además reparte', () => {
+    expect(laMandaronAUnEvento({ quotation_id: 'q1', kind: 'planta' })).toBe(
+      false,
+    );
+  });
+  it('un turno de restaurante nunca es "mandada a un evento"', () => {
+    expect(laMandaronAUnEvento({ quotation_id: null, kind: 'planta' })).toBe(
+      false,
+    );
   });
 });
