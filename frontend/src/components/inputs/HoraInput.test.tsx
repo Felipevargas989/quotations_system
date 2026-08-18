@@ -92,6 +92,17 @@ describe("HoraInput", () => {
     expect(caja).toHaveValue("09:00");
   });
 
+  it("muestra solo hora y minuto aunque la base traiga segundos", async () => {
+    const onChange = vi.fn();
+    render(<HoraInput value="09:00:00" onChange={onChange} aria-label="Entrada" />);
+    const caja = screen.getByLabelText("Entrada");
+    expect(caja).toHaveValue("09:00");
+    // Y salir sin tocar no guarda nada: "09:00:00" y "09:00" son la misma hora.
+    await userEvent.click(caja);
+    await userEvent.tab();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("si la hora cambia por fuera, la caja la sigue", () => {
     const { rerender } = render(
       <HoraInput value="09:00" onChange={vi.fn()} aria-label="Entrada" />,

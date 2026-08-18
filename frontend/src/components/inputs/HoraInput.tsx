@@ -61,6 +61,11 @@ export const normalizarHora = (texto: string): string | null | undefined => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
+/** Lo que se muestra: "HH:MM", aunque la base traiga "HH:MM:SS"
+ *  (Felipe, 18-08: "déjalo solo hora y min sin segundos"). */
+const soloHoraYMinuto = (v: string | null | undefined): string =>
+  v ? v.slice(0, 5) : "";
+
 export default function HoraInput({
   value,
   onChange,
@@ -79,13 +84,13 @@ export default function HoraInput({
   readonly className?: string;
   readonly "aria-label"?: string;
 }) {
-  const [texto, setTexto] = useState(value ?? "");
+  const [texto, setTexto] = useState(soloHoraYMinuto(value));
   // Si la hora cambia POR FUERA (otra pantalla, el servidor, un
   // rollback), la caja la sigue. Solo cuando cambia: si tras confirmar
   // la caja volviera a la hora vieja hasta que el servidor responda, se
   // vería el parpadeo que esta pieza vino a quitar.
   useEffect(() => {
-    setTexto(value ?? "");
+    setTexto(soloHoraYMinuto(value));
   }, [value]);
   const descartando = useRef(false);
 
@@ -93,16 +98,16 @@ export default function HoraInput({
     if (descartando.current) {
       // Escape: se sale sin guardar lo escrito.
       descartando.current = false;
-      setTexto(value ?? "");
+      setTexto(soloHoraYMinuto(value));
       return;
     }
     const nueva = normalizarHora(texto);
     if (nueva === undefined) {
-      setTexto(value ?? ""); // inválido: vuelve a la anterior
+      setTexto(soloHoraYMinuto(value)); // inválido: vuelve a la anterior
       return;
     }
     setTexto(nueva ?? "");
-    if (nueva !== (value ?? null)) onChange(nueva);
+    if (nueva !== (value ? soloHoraYMinuto(value) : null)) onChange(nueva);
   };
 
   const base = compacta
