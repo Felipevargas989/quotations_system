@@ -71,7 +71,7 @@ export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
 // anchos fijos, todas miden igual y calzan. Persona toma lo que sobra;
 // un cargo largo se corta con puntos y se lee entero al pasar el mouse.
 const COLS =
-  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_6rem_4.25rem_4.5rem_1.75rem] items-center gap-x-2";
+  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_7.5rem_4rem_4.5rem_1.75rem] items-center gap-x-2";
 
 export default function TablaDeJornadas({
   secciones,
