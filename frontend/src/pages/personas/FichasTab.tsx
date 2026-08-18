@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Lock,
   Trash2,
-  X,
 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import NumberInput from "../../components/inputs/NumberInput";
@@ -1006,27 +1005,36 @@ function EvaluacionesModal({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  // La pieza de la casa (18-08): con muchas personas la lista crecía más
+  // que la pantalla y este modal a mano perdía la cabecera. Modal ancla
+  // arriba, tapa la altura y deja título y pie siempre a la vista.
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mt-10 max-h-[88vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white">
-          <div>
-            <h3 className="font-semibold text-gray-900">¿Qué tal trabajó el equipo?</h3>
-            <p className="text-xs text-gray-500">
-              Una evaluación por persona. Saltar está bien: sin evaluar no
-              es lo mismo que malo. La nota puede ir sin tocar la estrella.
-            </p>
-          </div>
+    <Modal
+      titulo="¿Qué tal trabajó el equipo?"
+      subtitulo="Una evaluación por persona. Saltar está bien: sin evaluar no es lo mismo que malo. La nota puede ir sin tocar la estrella."
+      ancho="max-w-lg"
+      onCerrar={onCancelar}
+      pie={
+        <>
           <button
             type="button"
             onClick={onCancelar}
-            aria-label="Cancelar"
-            className="p-1 text-gray-400 hover:text-gray-700"
+            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
           >
-            <X className="w-5 h-5" />
+            Todavía no
           </button>
-        </div>
-        <ul className="divide-y divide-gray-100 px-4">
+          <button
+            type="button"
+            onClick={() => cerrar.mutate()}
+            disabled={cerrar.isPending}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+          >
+            {cerrar.isPending ? "Cerrando…" : "Guardar y cerrar la ficha"}
+          </button>
+        </>
+      }
+    >
+        <ul className="divide-y divide-gray-100">
           {personas.map(([id, nombre]) => (
             <li key={id} className="py-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
@@ -1048,25 +1056,7 @@ function EvaluacionesModal({
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 sticky bottom-0 bg-white">
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            Todavía no
-          </button>
-          <button
-            type="button"
-            onClick={() => cerrar.mutate()}
-            disabled={cerrar.isPending}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-          >
-            {cerrar.isPending ? "Cerrando…" : "Guardar y cerrar la ficha"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

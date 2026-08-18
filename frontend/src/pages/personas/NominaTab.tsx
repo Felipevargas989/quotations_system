@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   FileText,
   Plus,
-  X,
 } from "lucide-react";
 import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
@@ -941,34 +940,49 @@ function PagoUnoAUno({
   if (!p) return null;
   const persona = p.persona;
 
+  // La pieza de la casa (18-08): un desglose largo hacía crecer este
+  // modal a mano más que la pantalla y se perdía la cabecera. El avance
+  // ("3 de 7 por pagar" y la barra) va como subtítulo; el pie conserva
+  // "Saltar" a la izquierda y "Ya la pagué" a la derecha.
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mt-10">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              {idx + 1} de {pendientes.length} por pagar
-            </span>
-            <button
-              type="button"
-              onClick={onCerrar}
-              aria-label="Cerrar"
-              className="p-1 text-gray-400 hover:text-gray-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full mt-2">
-            <div
-              className="h-1.5 bg-blue-600 rounded-full transition-all"
-              style={{
-                width: `${String((idx / pendientes.length) * 100)}%`,
-              }}
+    <Modal
+      titulo={persona?.name ?? "Pago"}
+      subtitulo={
+        <span className="block">
+          {idx + 1} de {pendientes.length} por pagar
+          <span className="block h-1.5 bg-gray-100 rounded-full mt-1.5">
+            <span
+              className="block h-1.5 bg-blue-600 rounded-full transition-all"
+              style={{ width: `${String((idx / pendientes.length) * 100)}%` }}
             />
-          </div>
-        </div>
-        <div className="p-4">
-          <h3 className="text-xl font-bold text-gray-900">{persona?.name}</h3>
+          </span>
+        </span>
+      }
+      ancho="max-w-md"
+      onCerrar={onCerrar}
+      pie={
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              idx >= pendientes.length - 1 ? onCerrar() : setIdx(idx + 1)
+            }
+            className="mr-auto px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Saltar por ahora
+          </button>
+          <button
+            type="button"
+            onClick={() => marcar.mutate()}
+            disabled={marcar.isPending}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {marcar.isPending ? "Marcando…" : "Ya la pagué"}
+          </button>
+        </>
+      }
+    >
+        <div>
           <p className="text-xs text-gray-500 mt-0.5">
             {persona?.rut ? formatearRut(persona.rut) : "sin RUT"}
             {persona?.bank_code && ` · ${nombreBanco(persona.bank_code)}`}
@@ -987,27 +1001,7 @@ function PagoUnoAUno({
             etiquetaTotal="Total a transferir"
           />
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={() =>
-              idx >= pendientes.length - 1 ? onCerrar() : setIdx(idx + 1)
-            }
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            Saltar por ahora
-          </button>
-          <button
-            type="button"
-            onClick={() => marcar.mutate()}
-            disabled={marcar.isPending}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {marcar.isPending ? "Marcando…" : "Ya la pagué"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1025,28 +1019,10 @@ function DetalleTrabajador({
   readonly onCerrar: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mt-10 max-h-[88vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white">
-          <h3 className="font-semibold text-gray-900">{p.persona?.name}</h3>
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="p-1 text-gray-400 hover:text-gray-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-4">
-          {/* El mismo desglose que la pantalla de pago (Felipe, 17-08). */}
-          <DesgloseDePago
-            p={p}
-            nombreEvento={nombreEvento}
-            etiquetaTotal="Total"
-          />
-        </div>
-      </div>
-    </div>
+    // La pieza de la casa (18-08): mismo motivo que los otros dos.
+    <Modal titulo={p.persona?.name ?? "Detalle"} ancho="max-w-md" onCerrar={onCerrar}>
+      {/* El mismo desglose que la pantalla de pago (Felipe, 17-08). */}
+      <DesgloseDePago p={p} nombreEvento={nombreEvento} etiquetaTotal="Total" />
+    </Modal>
   );
 }

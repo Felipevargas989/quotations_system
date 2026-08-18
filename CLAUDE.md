@@ -161,7 +161,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/QuantitySelector` | quantity steppers | 3 |
 | `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
 | `components/Estrellas` | star ratings (display avg or click-to-rate); "sin evaluar" is NOT zero stars | 2 |
-| `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close. A hand-rolled centred modal that scrolls its own overlay loses its header off-screen when tall (Cargos, 17-08) — do not hand-roll | 5 |
+| `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close. A hand-rolled centred modal that scrolls its own overlay loses its header off-screen when tall (Cargos, 17-08) — do not hand-roll. Personal has zero hand-rolled modals since 18-08; **known debt** (older, in production, untouched): `PhotoPopup`, `FileViewLink`, `CelebracionRealizada`, `GestionTab`, `PostVentaPage.EditRegistroModal`, `FixedServicesBySection`, `VariableServicesByCategory` — migrate when you touch them | 8 |
 | `components/Tooltip` | read-only detail on hover (CSS only, opens upward, dark). Also sets `title` so the browser shows it when the panel is clipped. NOT for choosing values — that is `SelectWithSearch` | 1 |
 | `components/ChipDeEstado` | status pill that opens the other statuses, each in its own colour | 1 |
 | `components/IconoWhatsApp` | the real WhatsApp logo | 2 |
