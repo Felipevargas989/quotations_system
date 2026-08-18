@@ -334,8 +334,12 @@ export class PeopleService {
 
   async updateStaff(id: number, dto: UpdateEventStaffDto, companyId: number) {
     const cambios: Record<string, unknown> = { ...dto };
-    // Pasar a planta borra la jornada: deja de costar.
-    if (dto.kind === 'planta') cambios.amount = null;
+    // Pasar a planta borra la jornada: deja de costar. Salvo que en el
+    // mismo gesto venga un monto: esa es la ASIGNACIÓN EXTRA de la
+    // planta (Felipe, 18-08), que sí se paga.
+    if (dto.kind === 'planta' && dto.amount === undefined) {
+      cambios.amount = null;
+    }
 
     // SIN MONTO NO SE CONFIRMA (Felipe, 15-08). Una jornada confirmada
     // sin monto es justo la que después aparece en la nómina sin saber
@@ -561,6 +565,57 @@ export class PeopleService {
 
   findSheets(companyId: number) {
     return this.repo.findSheets(companyId);
+  }
+
+  /**
+   * LA PLANTA QUE TRABAJÓ ESOS DÍAS ENTRA AL EVENTO (Felipe, 18-08).
+   *
+   * "Puede pasar que la propina que deje un evento la repartamos con el
+   * personal de planta, o que le demos una asignación de diez o veinte
+   * mil a cada persona de planta." Y como en el restaurante: aparecen
+   * todos, y se marca "sin propina" a quien no.
+   *
+   * Cada persona de planta con turno de restaurante en los días del
+   * evento recibe una fila EN EL EVENTO: su cargo, su horario del día,
+   * planta (su sueldo cubre la jornada), monto en cero — la casilla de
+   * asignación extra— y con propina. Su turno de restaurante no se
+   * toca: son dos pozos distintos. Quien ya está en el evento por
+   * Planificación no se duplica. Idempotente: se puede llamar mil veces.
+   */
+  async traerPlantaAlEvento(quotationId: string, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, { quotation_id: quotationId });
+    const dias = await this.repo.diasDeEvento(companyId, quotationId);
+    if (dias.length === 0) return { traidos: 0 };
+    const [planta, yaEnEvento] = await Promise.all([
+      this.repo.plantaEnDias(companyId, dias),
+      this.repo.findStaff(companyId, quotationId),
+    ]);
+    const ocupado = new Set(
+      yaEnEvento
+        .filter((f) => f.person_id != null)
+        .map((f) => `${String(f.person_id)}|${String(f.day).slice(0, 10)}`),
+    );
+    const nuevas = planta
+      .filter(
+        (t) =>
+          !ocupado.has(`${String(t.person_id)}|${String(t.day).slice(0, 10)}`),
+      )
+      .map((t) => ({
+        company_id: companyId,
+        quotation_id: quotationId,
+        person_id: t.person_id,
+        day: String(t.day).slice(0, 10),
+        role_id: t.role_id ?? null,
+        kind: 'planta',
+        status: 'confirmado',
+        amount: null, // la asignación extra, si la hay, se escribe acá
+        starts_at: t.starts_at,
+        ends_at: t.ends_at,
+        break_minutes: t.break_minutes,
+      }));
+    const traidos = await this.repo.addStaffEnLote(nuevas);
+    this.logger.info(`traerPlantaAlEvento ${quotationId}: +${traidos}`);
+    return { traidos };
   }
 
   async upsertSheet(dto: UpsertSheetDto, companyId: number) {

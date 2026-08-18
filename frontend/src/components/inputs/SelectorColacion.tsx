@@ -39,6 +39,9 @@ export default function SelectorColacion({
           onClick={() => onChange(min)}
           aria-pressed={(value || 0) === min}
           className={`px-1.5 py-0.5 disabled:opacity-50 ${
+            // AZUL, COMO EN TODA LA CASA (Felipe, 18-08): "mejor mantener
+            // la coherencia si es azul en todos lados". Se probó en gris
+            // y se volvió.
             (value || 0) === min
               ? "bg-blue-600 text-white"
               : "bg-white text-gray-500 hover:bg-gray-50"

@@ -145,6 +145,15 @@ export class PeopleController {
     return this.peopleService.costoPersonal(user.company_id);
   }
 
+  /** La planta con turno los días del evento entra a su ficha. */
+  @Post('sheets/:quotationId/traer-planta')
+  traerPlanta(
+    @Param('quotationId') quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.peopleService.traerPlantaAlEvento(quotationId, user.company_id);
+  }
+
   // ---- El ciclo de la ficha ----
 
   @Get('sheets')

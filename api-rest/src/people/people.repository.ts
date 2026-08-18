@@ -624,6 +624,44 @@ export class PeopleRepository {
     return data as unknown as TipPool;
   }
 
+  /** Los días que abarca un evento (inicio → término), como texto ISO. */
+  async diasDeEvento(companyId: number, quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('event_date, event_end_date')
+      .eq('id', quotationId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.event_date) return [] as string[];
+    const ini = String(data.event_date).slice(0, 10);
+    const fin = String(data.event_end_date ?? data.event_date).slice(0, 10);
+    const dias: string[] = [];
+    for (
+      let t = new Date(`${ini}T00:00:00Z`).getTime();
+      t <= new Date(`${fin}T00:00:00Z`).getTime();
+      t += 86_400_000
+    ) {
+      dias.push(new Date(t).toISOString().slice(0, 10));
+    }
+    return dias;
+  }
+
+  /** La planta con turno de restaurante en esos días. */
+  async plantaEnDias(companyId: number, dias: string[]) {
+    if (dias.length === 0) return [] as EventStaff[];
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .eq('kind', 'planta')
+      .not('person_id', 'is', null)
+      .in('day', dias);
+    if (error) throw error;
+    return data as unknown as EventStaff[];
+  }
+
   /** El pozo de un evento o de un día, si ya existe. */
   async findPoolDe(
     companyId: number,
@@ -808,7 +846,9 @@ export class PeopleRepository {
       // Una silla vacía JAMÁS llega a la nómina (migración 84).
       .not('person_id', 'is', null)
       .is('payroll_id', null)
-      .eq('kind', 'freelance')
+      // Se paga toda fila CON MONTO, sea freelance o planta: la planta no
+      // cobra jornada, pero sí la ASIGNACIÓN EXTRA que se le ponga en un
+      // día (Felipe, 18-08). El monto en cero o nulo no entra.
       .not('amount', 'is', null)
       .gt('amount', 0);
     // El modo "días sueltos" es excluyente: nada de eventos, y solo
