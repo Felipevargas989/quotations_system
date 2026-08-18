@@ -400,12 +400,9 @@ export default function GrillaPersonal({
           // El promedio REAL pagado, en gris: la propuesta de Felipe
           // para cuando cada silla tiene su monto y un solo "valor c/u"
           // ya no existe.
-          // DEL MISMO ALTO QUE LA CAJA (Felipe, 18-08: "se agrandó
-          // esto"): la fila no puede crecer y encogerse según si el valor
-          // se edita o se lee.
           <span
             key="v"
-            className="inline-block py-1 leading-5 text-gray-400 tabular-nums"
+            className="text-gray-400 tabular-nums"
             title="Promedio real por silla — el detalle vive en Planificación"
           >
             {total > 0 ? clp(plataDe(f) / total) : "—"}
@@ -424,9 +421,11 @@ export default function GrillaPersonal({
             }}
             placeholder="valor"
             aria-label={`Valor por jornada de ${f.nombre}`}
-            // NumberInput trae px-3 py-2 rounded-lg: hay que pisarlos para
-            // que la caja mida lo mismo que el texto gris.
-            className="w-full !border-gray-300 !rounded-md !px-2 !py-1 text-sm leading-5 text-right"
+            // DEL ALTO DEL SELECTOR DE CANTIDAD (24 px), no más (Felipe,
+            // 18-08: "crecieron las filas en alto"). NumberInput trae
+            // px-3 py-2 rounded-lg y esa caja era la que estiraba la
+            // fila; se pisan sus clases para que quepa en h-6.
+            className="w-full !h-6 !border-gray-300 !rounded-md !px-2 !py-0 text-sm leading-none text-right"
           />
         ),
         <span key="s" className="tabular-nums">
