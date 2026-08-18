@@ -18,7 +18,6 @@ import {
   getSheets,
   getStaff,
   getStaffSemana,
-  removeStaff,
   repartirPool,
   sinPropina,
   updatePool,
@@ -442,12 +441,6 @@ function FichaAbierta({
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
-  const sacarStaff = useMutation({
-    mutationFn: (id: number) => removeStaff(id),
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
   // Por día, para leer la ficha como se vivió.
   const dias = useMemo(() => {
     const m = new Map<string, Asignacion[]>();
@@ -487,47 +480,42 @@ function FichaAbierta({
       {/* Los días y la gente. Las horas se AJUSTAN en la sábana (la
           casilla del día); acá se leen. */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium text-gray-900">
-            Quiénes vinieron y qué se les paga
-            {sillasSinNombre > 0 && !cerrada && (
-              <span className="block text-xs font-normal text-amber-700 mt-0.5">
-                {sillasSinNombre === 1
-                  ? "Queda 1 cupo planificado sin nombre: al cerrar se retira"
-                  : `Quedan ${sillasSinNombre} cupos planificados sin nombre: al cerrar se retiran`}{" "}
-                y el costo queda en lo real.
-              </span>
-            )}
-          </h3>
-          <span className="text-sm text-gray-500">
-            Jornadas: <strong className="text-gray-900">{clp(jornadas)}</strong>
-            {propinas > 0 && (
-              <>
-                {" "}
-                · Propinas repartidas:{" "}
-                <strong className="text-gray-900">{clp(propinas)}</strong>
-              </>
-            )}
-          </span>
-        </div>
+        {sillasSinNombre > 0 && !cerrada && (
+          <p className="text-xs text-amber-700 mb-2">
+            {sillasSinNombre === 1
+              ? "Queda 1 cupo planificado sin nombre: al cerrar se retira"
+              : `Quedan ${sillasSinNombre} cupos planificados sin nombre: al cerrar se retiran`}{" "}
+            y el costo queda en lo real.
+          </p>
+        )}
         {dias.length === 0 ? (
           <p className="text-sm text-gray-500 py-2">
             Nadie vino a este evento — los nombres se ponen en
             Planificación.
           </p>
         ) : (
-          <TablaDeJornadas
-            secciones={dias.map(([d, gente]) => ({
-              titulo: dias.length > 1 ? formatISOUTCDateToString(d) : undefined,
-              filas: gente,
-            }))}
-            cerrada={cerrada}
-            onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
-            onSacar={(id) => sacarStaff.mutate(id)}
-            preguntaSacar={(n) => `¿${n} no participó?`}
-            textoSacar="Sacar"
-            sacando={sacarStaff.isPending}
-          />
+          <>
+            <TablaDeJornadas
+              titulo="Quiénes vinieron"
+              secciones={dias.map(([d, gente]) => ({
+                titulo: dias.length > 1 ? formatISOUTCDateToString(d) : undefined,
+                filas: gente,
+              }))}
+              cerrada={cerrada}
+              onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
+            />
+            {/* Los totales al pie, donde se suman. */}
+            <p className="mt-2 text-right text-sm text-gray-500">
+              Jornadas: <strong className="text-gray-900">{clp(jornadas)}</strong>
+              {propinas > 0 && (
+                <>
+                  {" "}
+                  · Propinas repartidas:{" "}
+                  <strong className="text-gray-900">{clp(propinas)}</strong>
+                </>
+              )}
+            </p>
+          </>
         )}
 
       </div>
@@ -952,12 +940,6 @@ function DiaRestaurante({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  /** Quien no se presentó se saca del día: su jornada no se paga. */
-  const sacarStaff = useMutation({
-    mutationFn: (id: number) => removeStaff(id),
-    onSuccess: onCambio,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
 
   const delDia = useMemo(
     () =>
@@ -1212,21 +1194,12 @@ function DiaRestaurante({
     >
       <div className="space-y-4">
         <div>
-          <h4 className="text-xs font-semibold uppercase text-gray-500 mb-1">
-            Quiénes trabajaron
-          </h4>
-          {/* EN COLUMNAS (Felipe, 16-08): el cargo colgado del nombre se
-              movía con cada nombre y no se podía leer de un vistazo. Con
-              la grilla, las cuatro columnas nacen del contenido más
-              ancho, así que quedan a plomo. Cada fila usa "contents"
-              para que sus celdas entren en la grilla del <ul>. */}
+          {/* La tabla de la casa: su primer título es el de la sección
+              (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
+            titulo="Quiénes trabajaron"
             secciones={[{ filas: delDia }]}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
-            onSacar={(id) => sacarStaff.mutate(id)}
-            preguntaSacar={(n) => `¿${n} no se presentó?`}
-            textoSacar="Sacar del día"
-            sacando={sacarStaff.isPending}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
               tocar una hora o sacar a alguien después de repartir deja

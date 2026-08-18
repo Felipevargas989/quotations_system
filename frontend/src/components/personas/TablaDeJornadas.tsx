@@ -1,12 +1,9 @@
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
 import HoraInput, {
   formatoHoras,
   horasTrabajadas,
 } from "../inputs/HoraInput";
 import SelectorColacion from "../inputs/SelectorColacion";
 import NumberInput from "../inputs/NumberInput";
-import ConfirmInline from "../ConfirmInline";
 import type { Asignacion } from "../../types/people.types";
 
 /**
@@ -17,7 +14,7 @@ import type { Asignacion } from "../../types/people.types";
  * y las dos pantallas (día de restaurante y evento) las armaban cada
  * una a su manera. Ahora es UNA tabla, la misma en las dos:
  *
- *   Persona · Cargo · Entrada · Salida · Colación · Horas · Monto · Propina · [chip] · [sacar]
+ *   [Quiénes…] · Cargo · Entrada · Salida · Colación · Horas · Monto · Propina
  *
  * Las reglas que la ordenan:
  *  - Títulos arriba, en gris pequeño: mandan los datos, no los rótulos.
@@ -27,9 +24,12 @@ import type { Asignacion } from "../../types/people.types";
  *  - Nada azul: el color queda para lo que importa — ámbar = falta un
  *    monto, rojo = fuera del reparto.
  *  - El chip "sin propina" se conserva: está en varias partes y ya se
- *    conoce.
- *  - La papelera aparece al pasar por la fila; la pregunta ocupa el
- *    ancho entero, pegada a la derecha, para no ensanchar la columna.
+ *    conoce. Vive en la MISMA columna que la propina repartida, así
+ *    no queda un hueco entre el monto y el chip antes de repartir.
+ *  - El primer título es el de la sección ("Quiénes trabajaron"): no
+ *    hace falta un rótulo arriba y otro "Persona" abajo.
+ *  - SIN PAPELERA (Felipe, 18-08): "sin dejar asignación y sin propina
+ *    es suficiente". Quien no vino se saca desde Planificación.
  *
  * El monto es UNA columna para dos cosas: la jornada del freelance (no
  * puede faltar → ámbar) y la asignación extra de la planta (optativa).
@@ -71,28 +71,21 @@ export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
 // anchos fijos, todas miden igual y calzan. Persona toma lo que sobra;
 // un cargo largo se corta con puntos y se lee entero al pasar el mouse.
 const COLS =
-  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_7.5rem_4rem_4.5rem_1.75rem] items-center gap-x-2";
+  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_7.5rem_9rem] items-center gap-x-2";
 
 export default function TablaDeJornadas({
   secciones,
+  titulo = "Persona",
   cerrada = false,
   onCambiar,
-  onSacar,
-  preguntaSacar = (n) => `¿${n} no vino?`,
-  textoSacar = "Sacar",
-  sacando = false,
 }: {
   readonly secciones: readonly SeccionDeJornadas[];
+  /** El título de la primera columna: "Quiénes trabajaron", "Quiénes vinieron"… */
+  readonly titulo?: string;
   /** Ficha cerrada: solo se lee. */
   readonly cerrada?: boolean;
   readonly onCambiar: (id: number, cambios: CambiosDeJornada) => void;
-  readonly onSacar: (id: number) => void;
-  readonly preguntaSacar?: (nombre: string) => string;
-  readonly textoSacar?: string;
-  /** Mientras el backend saca a alguien. */
-  readonly sacando?: boolean;
 }) {
-  const [porSacar, setPorSacar] = useState<number | null>(null);
   const todas = secciones.flatMap((s) => s.filas);
   const th = "text-[11px] font-semibold uppercase tracking-wide text-gray-500";
 
@@ -100,18 +93,14 @@ export default function TablaDeJornadas({
     <div className="text-sm">
       {/* Los títulos, una sola vez. */}
       <div className={`${COLS} pb-1.5 border-b border-gray-200`}>
-        <span className={th}>Persona</span>
+        <span className={th}>{titulo}</span>
         <span className={th}>Cargo</span>
         <span className={th}>Entrada</span>
         <span className={th}>Salida</span>
         <span className={th}>Colación</span>
         <span className={`${th} text-right`}>Horas</span>
         <span className={`${th} text-right`}>{tituloDelMonto(todas)}</span>
-        {/* "Propina" abarca el monto repartido Y el chip: si solo
-            cubriera el monto, antes de repartir queda sobre una columna
-            vacía y se ve descentrado (Felipe, 18-08). */}
-        <span className={`${th} col-span-2 text-right pr-1`}>Propina</span>
-        <span />
+        <span className={`${th} text-right pr-1`}>Propina</span>
       </div>
 
       {secciones.map((s, i) => (
@@ -122,26 +111,8 @@ export default function TablaDeJornadas({
             </div>
           )}
           <ul>
-            {s.filas.map((a) =>
-              porSacar === a.id ? (
-                <li
-                  key={a.id}
-                  className="h-10 flex items-center justify-end border-b border-gray-100"
-                >
-                  <ConfirmInline
-                    question={preguntaSacar(nombreDe(a))}
-                    yesLabel={textoSacar}
-                    tono="peligro"
-                    busy={sacando}
-                    onYes={() => onSacar(a.id)}
-                    onNo={() => setPorSacar(null)}
-                  />
-                </li>
-              ) : (
-                <li
-                  key={a.id}
-                  className={`${COLS} group h-10 border-b border-gray-100`}
-                >
+            {s.filas.map((a) => (
+                <li key={a.id} className={`${COLS} h-10 border-b border-gray-100`}>
                   <span className="truncate text-gray-900" title={nombreDe(a)}>
                     {nombreDe(a)}
                   </span>
@@ -241,49 +212,38 @@ export default function TablaDeJornadas({
                     </div>
                   )}
 
-                  <span className="text-right tabular-nums text-emerald-700">
-                    {Number(a.tip_amount ?? 0) > 0 ? clp(Number(a.tip_amount)) : ""}
-                  </span>
-
-                  {cerrada ? (
-                    <span className="text-[11px] text-red-700 whitespace-nowrap">
-                      {a.no_tip ? "sin propina" : ""}
+                  {/* Propina repartida y el chip, juntos y a la derecha. */}
+                  <span className="flex items-center justify-end gap-2">
+                    <span className="tabular-nums text-emerald-700">
+                      {Number(a.tip_amount ?? 0) > 0 ? clp(Number(a.tip_amount)) : ""}
                     </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onCambiar(a.id, { no_tip: !a.no_tip })}
-                      title={
-                        a.no_tip
-                          ? "No lleva propina este día"
-                          : "Marcar: no lleva propina este día"
-                      }
-                      className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                        a.no_tip
-                          ? "bg-red-50 text-red-700 border-red-300 font-medium"
-                          : "text-gray-400 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      sin propina
-                    </button>
-                  )}
-
-                  {cerrada ? (
-                    <span />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPorSacar(a.id)}
-                      aria-label={`Sacar a ${nombreDe(a)}`}
-                      title="No vino: sacar"
-                      className="p-1 rounded text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                    {cerrada ? (
+                      a.no_tip && (
+                        <span className="text-[11px] text-red-700 whitespace-nowrap">
+                          sin propina
+                        </span>
+                      )
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onCambiar(a.id, { no_tip: !a.no_tip })}
+                        title={
+                          a.no_tip
+                            ? "No lleva propina este día"
+                            : "Marcar: no lleva propina este día"
+                        }
+                        className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                          a.no_tip
+                            ? "bg-red-50 text-red-700 border-red-300 font-medium"
+                            : "text-gray-400 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        sin propina
+                      </button>
+                    )}
+                  </span>
                 </li>
-              ),
-            )}
+            ))}
           </ul>
         </div>
       ))}

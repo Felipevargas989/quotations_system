@@ -47,11 +47,14 @@ describe("TablaDeJornadas", () => {
     render(
       <TablaDeJornadas
         secciones={[{ filas: [fila({})] }]}
+        titulo="Quiénes trabajaron"
         onCambiar={vi.fn()}
-        onSacar={vi.fn()}
       />,
     );
-    for (const t of ["Persona", "Cargo", "Entrada", "Salida", "Colación", "Horas", "Propina"]) {
+    // El primer título es el de la sección, no "Persona".
+    expect(screen.getByText("Quiénes trabajaron")).toBeInTheDocument();
+    expect(screen.queryByText("Persona")).not.toBeInTheDocument();
+    for (const t of ["Cargo", "Entrada", "Salida", "Colación", "Horas", "Propina"]) {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
     expect(screen.getByText("Asig. extra")).toBeInTheDocument();
@@ -68,43 +71,23 @@ describe("TablaDeJornadas", () => {
       <TablaDeJornadas
         secciones={[{ filas: [fila({ id: 7, no_tip: false })] }]}
         onCambiar={onCambiar}
-        onSacar={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "sin propina" }));
     expect(onCambiar).toHaveBeenCalledWith(7, { no_tip: true });
   });
 
-  it("sacar pide confirmar antes de llamar a onSacar", async () => {
-    const onSacar = vi.fn();
-    render(
-      <TablaDeJornadas
-        secciones={[{ filas: [fila({ id: 9 })] }]}
-        onCambiar={vi.fn()}
-        onSacar={onSacar}
-        preguntaSacar={(n) => `¿${n} no se presentó?`}
-        textoSacar="Sacar del día"
-      />,
-    );
-    await userEvent.click(screen.getByRole("button", { name: /Sacar a Camila/ }));
-    expect(onSacar).not.toHaveBeenCalled();
-    expect(screen.getByText("¿Camila Carvajal no se presentó?")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Sacar del día" }));
-    expect(onSacar).toHaveBeenCalledWith(9);
-  });
-
-  it("cerrada: solo se lee — sin relojes, sin caja de monto, sin papelera", () => {
+  it("cerrada: solo se lee — sin relojes, sin caja de monto, sin chip", () => {
     render(
       <TablaDeJornadas
         secciones={[{ filas: [fila({ amount: 10000, no_tip: true })] }]}
         cerrada
         onCambiar={vi.fn()}
-        onSacar={vi.fn()}
       />,
     );
     expect(screen.queryByLabelText(/Entrada de/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Asignación extra de/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Sacar a/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "sin propina" })).not.toBeInTheDocument();
     expect(screen.getByText("$10.000")).toBeInTheDocument();
     expect(screen.getByText("sin propina")).toBeInTheDocument();
   });
@@ -117,7 +100,6 @@ describe("TablaDeJornadas", () => {
           { titulo: "dom 15 ago", filas: [fila({ id: 2 })] },
         ]}
         onCambiar={vi.fn()}
-        onSacar={vi.fn()}
       />,
     );
     expect(screen.getByText("sáb 14 ago")).toBeInTheDocument();
