@@ -180,6 +180,14 @@ export const upsertSheet = async (quotation_id: string, status: string) =>
 
 /** El candado vive en el backend: si la plata repartida no suma el
  *  pozo, esto rebota con el motivo. */
+/** La planta con turno los días del evento entra a su ficha
+ *  (Felipe, 18-08). Idempotente: no duplica a quien ya está. */
+export const traerPlantaAlEvento = async (quotation_id: string) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/sheets/${quotation_id}/traer-planta`,
+    "POST",
+  )) as { traidos: number };
+
 export const cerrarFicha = async (quotation_id: string) =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/sheets/cerrar`, "POST", {
     quotation_id,

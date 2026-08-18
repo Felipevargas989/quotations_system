@@ -22,6 +22,7 @@ import { QuotationStatus } from "../../types/quotations.types";
 import Modal from "../../components/Modal";
 import {
   cerrarFicha,
+  traerPlantaAlEvento,
   createPool,
   getDiaMasViejo,
   createReview,
@@ -414,9 +415,17 @@ function FichaAbierta({
   const [evaluando, setEvaluando] = useState(false);
   const cerrada = evento.estado === "cerrada";
 
+  // LA PLANTA DE ESOS DÍAS ENTRA AL EVENTO (Felipe, 18-08): "como en
+  // el restaurante: aparecen todos y yo marco sin propina". Al abrir la
+  // ficha —mientras está abierta— se le pide al backend que traiga a la
+  // planta con turno esos días; no duplica a nadie, así que abrirla dos
+  // veces no hace nada. Una ficha cerrada no se toca.
   const { data: todasLasFilas = [] } = useQuery({
     queryKey: ["people", "staff-evento", evento.id],
-    queryFn: () => getStaff(evento.id),
+    queryFn: async () => {
+      if (!cerrada) await traerPlantaAlEvento(evento.id);
+      return getStaff(evento.id);
+    },
     staleTime: 0,
   });
   // La liquidación es de GENTE: una silla vacía (cupo sin nombre,
@@ -596,13 +605,24 @@ function FichaAbierta({
                       {/* EL MONTO QUE SE LE ESTÁ PAGANDO (Felipe,
                           15-08): es de las cuatro cosas que tiene que
                           haber en esta pantalla, así que se edita acá.
-                          La planta no lleva: su sueldo cubre el día. */}
-                      {cerrada || a.kind === "planta" ? (
+                          Para el freelance es su jornada y no puede
+                          faltar (ámbar). Para la planta es la
+                          ASIGNACIÓN EXTRA (Felipe, 18-08): un incentivo
+                          optativo por venir al evento; en cero no pasa
+                          nada. Misma caja que en el restaurante. */}
+                      {cerrada ? (
                         <span className="w-24 text-right tabular-nums text-gray-700">
                           {a.amount ? clp(Number(a.amount)) : "—"}
                         </span>
                       ) : (
-                        <div className="w-24 relative">
+                        <div
+                          className="w-24 relative"
+                          title={
+                            a.kind === "planta"
+                              ? "Asignación extra (optativa)"
+                              : "Monto de la jornada"
+                          }
+                        >
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                             $
                           </span>
@@ -615,9 +635,13 @@ function FichaAbierta({
                               })
                             }
                             placeholder="0"
-                            aria-label={`Monto de ${a.people?.name ?? ""}`}
+                            aria-label={
+                              a.kind === "planta"
+                                ? `Asignación extra de ${a.people?.name ?? ""}`
+                                : `Monto de ${a.people?.name ?? ""}`
+                            }
                             className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
-                              !a.amount
+                              !a.amount && a.kind !== "planta"
                                 ? "border-amber-400 bg-amber-50"
                                 : "border-gray-300"
                             }`}
@@ -1389,7 +1413,7 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
+          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
             {delDia.map((a) =>
               // La fila que pregunta ocupa el ancho entero: si la
               // pregunta viviera en una celda, ensancharía esa columna
@@ -1470,6 +1494,29 @@ function DiaRestaurante({
                     )}
                   </span>
                 </span>
+                {/* ASIGNACIÓN EXTRA (Felipe, 18-08): "una caja que me
+                    permita dar una asignación extra, en caso de que le
+                    quiera dar un incentivo adicional". Entre las horas y
+                    el chip de sin propina, en las dos pantallas. Para la
+                    planta es optativa; para un freelance del día es su
+                    jornada, la misma caja. Se paga en la nómina. */}
+                <div className="w-24 relative" title="Asignación extra (optativa)">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                    $
+                  </span>
+                  <NumberInput
+                    value={a.amount ? Number(a.amount) : undefined}
+                    onCommit={(v: number | undefined) =>
+                      cambiarStaff.mutate({
+                        id: a.id,
+                        cambios: { amount: v ?? null },
+                      })
+                    }
+                    placeholder="0"
+                    aria-label={`Asignación extra de ${a.people?.name ?? ""}`}
+                    className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right"
+                  />
+                </div>
                 {/* Sin propina ESA persona ese día: el reparto la salta,
                     su jornada se paga igual (Felipe, 15-08). */}
                 <button
