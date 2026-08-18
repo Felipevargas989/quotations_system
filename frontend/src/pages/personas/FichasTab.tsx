@@ -616,7 +616,7 @@ function FichaAbierta({
                         </span>
                       ) : (
                         <div
-                          className="w-24 relative"
+                          className="w-32 relative"
                           title={
                             a.kind === "planta"
                               ? "Asignación extra (optativa)"
@@ -626,6 +626,10 @@ function FichaAbierta({
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                             $
                           </span>
+                          {/* EL TÍTULO VA DENTRO DE LA CAJA (Felipe,
+                              18-08: "ponle el título asignación
+                              extra"): se lee cuando está vacía y deja
+                              paso al monto cuando se llena. */}
                           <NumberInput
                             value={a.amount ? Number(a.amount) : undefined}
                             onCommit={(v: number | undefined) =>
@@ -634,13 +638,15 @@ function FichaAbierta({
                                 cambios: { amount: v ?? null },
                               })
                             }
-                            placeholder="0"
+                            placeholder={
+                              a.kind === "planta" ? "Asignación extra" : "Jornada"
+                            }
                             aria-label={
                               a.kind === "planta"
                                 ? `Asignación extra de ${a.people?.name ?? ""}`
                                 : `Monto de ${a.people?.name ?? ""}`
                             }
-                            className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right ${
+                            className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right placeholder:text-xs ${
                               !a.amount && a.kind !== "planta"
                                 ? "border-amber-400 bg-amber-50"
                                 : "border-gray-300"
@@ -1500,7 +1506,7 @@ function DiaRestaurante({
                     el chip de sin propina, en las dos pantallas. Para la
                     planta es optativa; para un freelance del día es su
                     jornada, la misma caja. Se paga en la nómina. */}
-                <div className="w-24 relative" title="Asignación extra (optativa)">
+                <div className="w-32 relative" title="Asignación extra (optativa)">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                     $
                   </span>
@@ -1512,9 +1518,9 @@ function DiaRestaurante({
                         cambios: { amount: v ?? null },
                       })
                     }
-                    placeholder="0"
+                    placeholder="Asignación extra"
                     aria-label={`Asignación extra de ${a.people?.name ?? ""}`}
-                    className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right"
+                    className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right placeholder:text-xs"
                   />
                 </div>
                 {/* Sin propina ESA persona ese día: el reparto la salta,
