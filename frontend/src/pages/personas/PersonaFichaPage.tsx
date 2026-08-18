@@ -9,6 +9,7 @@ import ChipDeEstado from "../../components/ChipDeEstado";
 import IconoWhatsApp from "../../components/IconoWhatsApp";
 import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
+import { esPlanificacion } from "./estadoDelPago";
 import MiniCalendario, { horarioHabitual } from "./MiniCalendario";
 import PagosDePersona from "./PagosDePersona";
 import EvaluacionesDePersona from "./EvaluacionesDePersona";
@@ -95,10 +96,14 @@ export default function PersonaFichaPage() {
       : null;
   // Para la caja "Este mes": cuántos días tiene asignados.
   const domingo = domingoDe(hoyEnChile());
-  const { data: staffDelMes = [] } = useQuery({
+  const { data: staffDelMesCrudo = [] } = useQuery({
     queryKey: ["people", "staff-semana", domingo, RANGO],
     queryFn: () => getStaffSemana(domingo, sumarDias(domingo, RANGO - 1)),
   });
+  const staffDelMes = useMemo(
+    () => staffDelMesCrudo.filter(esPlanificacion),
+    [staffDelMesCrudo],
+  );
 
   const guardar = useMutation({
     mutationFn: (datos: PersonaFormData) => updatePerson(personId, datos),
@@ -429,7 +434,9 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
     queryFn: () => getStaffSemana(domingo, hasta),
   });
 
-  const suyas = staff.filter((a) => a.person_id === persona.id);
+  // Su calendario es PLANIFICACIÓN: la planta que la ficha de un evento
+  // trae para la propina no es una segunda jornada ese día.
+  const suyas = staff.filter((a) => a.person_id === persona.id && esPlanificacion(a));
 
   // ABRIR DONDE HAY ALGO (Felipe, 17-08: cargó a Matías el 11 y el 12
   // de diciembre y "en su calendario no me muestra nada" — la ficha
