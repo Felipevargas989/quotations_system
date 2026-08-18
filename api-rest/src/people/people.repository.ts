@@ -612,6 +612,36 @@ export class PeopleRepository {
     return data as unknown as TipPool[];
   }
 
+  /** ¿Algo de este evento (o de este día de restaurante) ya entró a
+   *  una nómina? Es el candado para reabrir una liquidación. */
+  async hayPagosEn(
+    companyId: number,
+    origen: { quotation_id?: string; day?: string },
+  ) {
+    let q = this.supabase.client
+      .from('event_staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .or('payroll_id.not.is.null,tip_payroll_id.not.is.null');
+    q = origen.quotation_id
+      ? q.eq('quotation_id', origen.quotation_id)
+      : q.is('quotation_id', null).eq('day', origen.day ?? '');
+    const { count, error } = await q;
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  }
+
+  /** El pozo de un día de restaurante vuelve a "sin repartir". */
+  async desrepartirPozoDelDia(companyId: number, day: string) {
+    const { error } = await this.supabase.client
+      .from('tip_pools')
+      .update({ distributed_at: null })
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .eq('day', day);
+    if (error) throw error;
+  }
+
   async findPool(id: number, companyId: number) {
     const { data, error } = await this.supabase.client
       .from('tip_pools')

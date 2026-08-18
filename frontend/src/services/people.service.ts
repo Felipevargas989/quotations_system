@@ -260,6 +260,16 @@ export const getDiaMasViejo = async () =>
   };
 
 /** Lo liquidado que todavía no entró a ninguna nómina. */
+/** Devuelve una liquidación a Liquidación (Felipe, 18-08). Solo si
+ *  nada de ella está ya en una nómina: el backend lo verifica. */
+export const reabrirLiquidacion = async (origen: {
+  quotation_id?: string;
+  day?: string;
+}) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls/reabrir`, "POST", origen)) as {
+    reabierto: "evento" | "dia";
+  };
+
 export const getLiquidacionesPendientes = async () =>
   (await apiRequest(
     `${API_ROUTES.PEOPLE}/payrolls/pendientes`,

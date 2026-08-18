@@ -9,11 +9,13 @@ import {
 } from "lucide-react";
 import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
+import ConfirmInline from "../../components/ConfirmInline";
 import { eventosQueryOptions } from "./FichasTab";
 import Modal from "../../components/Modal";
 import { estadoDelPago } from "./estadoDelPago";
 import Tooltip from "../../components/Tooltip";
 import {
+  reabrirLiquidacion,
   createPayroll,
   getLiquidacionesPendientes,
   previaPayroll,
@@ -199,6 +201,36 @@ function LiquidacionesPorPagar({
 
   const [revisando, setRevisando] = useState(false);
 
+  // REABRIR (Felipe, 18-08): "que elimine la liquidación por pagar y la
+  // regrese a liquidaciones para liquidarlo otra vez". Sale de esta
+  // lista y vuelve a Liquidación, donde se reparte de nuevo o se ajusta
+  // la jornada. El backend solo lo permite si nada está pagado.
+  const [reabriendo, setReabriendo] = useState<string | null>(null);
+  const reabrir = useMutation({
+    mutationFn: (l: LiquidacionPendiente) =>
+      reabrirLiquidacion(
+        l.tipo === "dia" ? { day: l.day! } : { quotation_id: l.quotation_id! },
+      ),
+    onSuccess: (_r, l) => {
+      toast.success(`${nombre(l)} volvió a Liquidación para corregirse.`);
+      setReabriendo(null);
+      setRevisando(false);
+      setMarcadas((m) => {
+        const s2 = new Set(m);
+        s2.delete(clave(l));
+        return s2;
+      });
+      qc.invalidateQueries({ queryKey: ["people", "liquidaciones-pendientes"] });
+      qc.invalidateQueries({ queryKey: ["people", "sheets"] });
+      qc.invalidateQueries({ queryKey: ["people", "pools"] });
+      qc.invalidateQueries({ queryKey: ["people", "liquidacion-ventana"] });
+    },
+    onError: (e: unknown) => {
+      setReabriendo(null);
+      toast.error(humanizeApiError(e));
+    },
+  });
+
   const generar = useMutation({
     mutationFn: () =>
       createPayroll({
@@ -283,6 +315,15 @@ function LiquidacionesPorPagar({
           generando={generar.isPending}
           onGenerar={() => generar.mutate()}
           onCerrar={() => setRevisando(false)}
+          reabrir={
+            elegidas.length === 1
+              ? {
+                  nombre: nombre(elegidas[0]),
+                  busy: reabrir.isPending,
+                  onReabrir: () => reabrir.mutate(elegidas[0]),
+                }
+              : undefined
+          }
         />
       )}
 
@@ -334,6 +375,27 @@ function LiquidacionesPorPagar({
                     {clp(l.total)}
                   </span>
                 </label>
+                <div className="px-4 pb-2 -mt-1 flex justify-end">
+                  {reabriendo === k ? (
+                    <ConfirmInline
+                      question={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
+                      yesLabel="Reabrir"
+                      tono="peligro"
+                      busy={reabrir.isPending}
+                      onYes={() => reabrir.mutate(l)}
+                      onNo={() => setReabriendo(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setReabriendo(k)}
+                      className="text-xs text-gray-500 hover:text-red-700 hover:underline"
+                      title="Sale de por pagar y vuelve a Liquidación para corregirla"
+                    >
+                      Reabrir para corregir
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -360,12 +422,21 @@ function RevisarAntesDeGenerar({
   generando,
   onGenerar,
   onCerrar,
+  reabrir,
 }: {
   readonly seleccion: { quotation_ids: string[]; dias: string[] };
   readonly generando: boolean;
   readonly onGenerar: () => void;
   readonly onCerrar: () => void;
+  /** Cuando se revisa UNA sola liquidación, se puede devolver a
+   *  Liquidación desde acá mismo (Felipe, 18-08). */
+  readonly reabrir?: {
+    nombre: string;
+    busy: boolean;
+    onReabrir: () => void;
+  };
 }) {
+  const [confirmandoReabrir, setConfirmandoReabrir] = useState(false);
   // Se relee cada vez que se abre (staleTime 0): si uno completó una
   // cuenta en otra pestaña, al volver a entrar ya está. Por eso ya no
   // hace falta el "Actualizar datos" (Felipe, 18-08: "no tiene mucho
@@ -466,16 +537,33 @@ function RevisarAntesDeGenerar({
       onCerrar={onCerrar}
       pie={
         <>
-          {/* Acá no se edita nada: el camino de vuelta es a la lista de
-              liquidaciones por pagar, y desde ahí a Liquidación si algo
-              hay que corregir (Felipe, 18-08). */}
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="mr-auto px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            ← Volver a liquidaciones
-          </button>
+          {/* Acá no se edita nada. Si algo no cuadra, el camino es
+              REABRIR: sale de por pagar y vuelve a Liquidación para
+              repartir de nuevo o ajustar jornadas (Felipe, 18-08). Solo
+              cuando se revisa una liquidación; con varias, la acción
+              está en cada una de la lista. */}
+          <div className="mr-auto">
+            {reabrir &&
+              (confirmandoReabrir ? (
+                <ConfirmInline
+                  question={`¿Devolver ${reabrir.nombre} a Liquidación?`}
+                  yesLabel="Reabrir"
+                  tono="peligro"
+                  busy={reabrir.busy}
+                  onYes={reabrir.onReabrir}
+                  onNo={() => setConfirmandoReabrir(false)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoReabrir(true)}
+                  className="px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-lg"
+                  title="Sale de por pagar y vuelve a Liquidación para corregirla"
+                >
+                  Reabrir para corregir
+                </button>
+              ))}
+          </div>
           <button
             type="button"
             onClick={onGenerar}
