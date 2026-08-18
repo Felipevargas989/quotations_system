@@ -155,13 +155,13 @@ and no close-on-click-outside) — every one of them already handled inside
 | `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
 | `components/MultiSelect` | multiple choice with chips | 3 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
-| `components/inputs/SelectorColacion` | the meal break (30 min / 1 h, never zero). Same `event_staff` row in Planning and in Liquidación — editing it in one shows in the other; there is no second copy to keep in sync | 3 |
+| `components/inputs/SelectorColacion` | the meal break (30 min / 1 h, never zero). Same `event_staff` row in Planning and in Liquidación — editing it in one shows in the other; there is no second copy to keep in sync | 4 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
 | `components/QuantitySelector` | quantity steppers | 3 |
 | `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
 | `components/Estrellas` | star ratings (display avg or click-to-rate); "sin evaluar" is NOT zero stars | 2 |
-| `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close. A hand-rolled centred modal that scrolls its own overlay loses its header off-screen when tall (Cargos, 17-08) — do not hand-roll | 4 |
+| `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close. A hand-rolled centred modal that scrolls its own overlay loses its header off-screen when tall (Cargos, 17-08) — do not hand-roll | 5 |
 | `components/Tooltip` | read-only detail on hover (CSS only, opens upward, dark). Also sets `title` so the browser shows it when the panel is clipped. NOT for choosing values — that is `SelectWithSearch` | 1 |
 | `components/ChipDeEstado` | status pill that opens the other statuses, each in its own colour | 1 |
 | `components/IconoWhatsApp` | the real WhatsApp logo | 2 |
