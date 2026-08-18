@@ -215,21 +215,27 @@ export default function TablaDeJornadas({
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                         $
                       </span>
+                      {/* VACÍA, SOLO EL "$": el título de la columna ya
+                          dice qué es; repetirlo en cada caja era ruido
+                          (Felipe, 18-08). Y del MISMO alto, borde y
+                          radio que los relojes: NumberInput trae px-3
+                          py-2 rounded-lg y hay que pisarlos todos. En un
+                          freelance queda ámbar hasta que tiene jornada. */}
                       <NumberInput
                         value={a.amount ? Number(a.amount) : undefined}
                         onCommit={(v: number | undefined) =>
                           onCambiar(a.id, { amount: v ?? null })
                         }
-                        placeholder={a.kind === "planta" ? "asig. extra" : "jornada"}
+                        placeholder=""
                         aria-label={
                           a.kind === "planta"
                             ? `Asignación extra de ${nombreDe(a)}`
                             : `Monto de ${nombreDe(a)}`
                         }
-                        className={`w-full border rounded pl-5 pr-2 py-1 text-xs text-right placeholder:text-gray-400 ${
+                        className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right ${
                           !a.amount && a.kind !== "planta"
-                            ? "border-amber-400 bg-amber-50"
-                            : "border-gray-200"
+                            ? "!border-amber-400 bg-amber-50"
+                            : "!border-gray-200"
                         }`}
                       />
                     </div>
