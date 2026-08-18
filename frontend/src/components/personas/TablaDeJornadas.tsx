@@ -197,13 +197,16 @@ export default function TablaDeJornadas({
                         onCommit={(v: number | undefined) =>
                           onCambiar(a.id, { amount: v ?? null })
                         }
-                        placeholder=""
+                        // "planta" en gris explica por qué la caja está
+                        // vacía: su sueldo cubre el día (Felipe, 18-08).
+                        // Un freelance sin monto queda vacío y ámbar.
+                        placeholder={a.kind === "planta" ? "planta" : ""}
                         aria-label={
                           a.kind === "planta"
                             ? `Asignación extra de ${nombreDe(a)}`
                             : `Monto de ${nombreDe(a)}`
                         }
-                        className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right ${
+                        className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right placeholder:text-gray-400 ${
                           !a.amount && a.kind !== "planta"
                             ? "!border-amber-400 bg-amber-50"
                             : "!border-gray-200"
