@@ -35,6 +35,7 @@ import type { Asignacion, Persona } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { chipTipoPersona, etiquetaTipoPersona } from "../../utils/estadoPersona";
+import { esPlanificacion } from "./estadoDelPago";
 import { formatearRut } from "../../utils/rut";
 
 // LA SÁBANA — DONDE LA PLANIFICACIÓN RECIBE NOMBRE Y APELLIDO
@@ -199,10 +200,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     queryKey: ["people", "catalogo-recursos"],
     queryFn: () => getManagementResources(companyId),
   });
-  const { data: staff = [] } = useQuery({
+  const { data: staffCrudo = [] } = useQuery({
     queryKey: ["people", "staff-semana", domingo, RANGO],
     queryFn: () => getStaffSemana(domingo, hasta),
   });
+  // La sábana es PLANIFICACIÓN: la planta que la ficha de liquidación
+  // trae a un evento no entra acá (Felipe, 18-08). Ver esPlanificacion.
+  const staff = useMemo(() => staffCrudo.filter(esPlanificacion), [staffCrudo]);
   const { data: personas = [] } = useQuery(peopleQueryOptions);
 
   // Poner o sacar gente NO cambia las necesidades (esas viven en

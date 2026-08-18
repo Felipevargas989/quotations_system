@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { esPlanificacion } from "../personas/estadoDelPago";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CalendarPlus, Users, X } from "lucide-react";
 import GrillaDeDias, {
@@ -83,10 +84,13 @@ export default function GrillaPersonal({
   const resources = data?.resources ?? [];
 
   const staffKey = ["people", "staff-evento", quotationId];
-  const { data: sillas = [] } = useQuery({
+  const { data: sillasCrudas = [] } = useQuery({
     queryKey: staffKey,
     queryFn: () => getStaff(quotationId),
   });
+  // Gestión es PLANIFICACIÓN: la planta que la ficha de liquidación trae
+  // al evento (para la propina) no es una silla (Felipe, 18-08).
+  const sillas = useMemo(() => sillasCrudas.filter(esPlanificacion), [sillasCrudas]);
 
   const [extras, setExtras] = useState<string[]>([]);
   // Cargos agregados que todavía no tienen ninguna silla: viven acá

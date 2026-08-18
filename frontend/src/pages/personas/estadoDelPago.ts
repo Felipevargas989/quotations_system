@@ -27,3 +27,18 @@ export const estadoDelPago = (p: {
   if (p.totalJornada === 0 && p.totalPropina === 0) return "pendiente";
   return jornadaLista && propinaLista ? "pagada" : "pendiente";
 };
+
+/**
+ * LA PLANTA QUE LA FICHA TRAE A UN EVENTO NO ES PLANIFICACIÓN (Felipe,
+ * 18-08: "por alguna razón apareció el personal de planta en el evento"
+ * — en la sábana). Esas filas existen solo para la liquidación: propina
+ * y asignación extra. En un evento, lo planificado es SIEMPRE freelance
+ * (la silla vacía y la persona puesta desde la casilla), así que la
+ * regla es limpia: en un evento, `kind = planta` = viene de la ficha.
+ * Medido en producción el 18-08: 4 filas planta en eventos, las 4 del
+ * 423, las 4 de la ficha.
+ */
+export const esPlanificacion = (a: {
+  quotation_id: string | null;
+  kind: string;
+}): boolean => a.quotation_id === null || a.kind !== "planta";

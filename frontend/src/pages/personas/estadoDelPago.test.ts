@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estadoDelPago } from "./estadoDelPago";
+import { esPlanificacion, estadoDelPago } from "./estadoDelPago";
 
 /**
  * UN SOLO MONTO, DOS ESTADOS (Felipe, 17-08).
@@ -74,5 +74,18 @@ describe("estadoDelPago", () => {
     expect(estadoDelPago({ totalJornada: 0, totalPropina: 0, pagos: [] })).toBe(
       "pendiente",
     );
+  });
+});
+
+describe("esPlanificacion", () => {
+  it("en el restaurante, todo es planificación (planta o freelance)", () => {
+    expect(esPlanificacion({ quotation_id: null, kind: "planta" })).toBe(true);
+    expect(esPlanificacion({ quotation_id: null, kind: "freelance" })).toBe(true);
+  });
+  it("en un evento, la planta viene de la ficha: NO es planificación", () => {
+    expect(esPlanificacion({ quotation_id: "q1", kind: "planta" })).toBe(false);
+  });
+  it("en un evento, lo freelance (silla o persona) sí lo es", () => {
+    expect(esPlanificacion({ quotation_id: "q1", kind: "freelance" })).toBe(true);
   });
 });
