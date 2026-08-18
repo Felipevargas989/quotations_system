@@ -1,3 +1,4 @@
+import { estadoAlGuardar } from "./estadoCotizacion";
 import { describe, expect, it } from "vitest";
 import {
   ESTADOS_COTIZACION,
@@ -85,5 +86,18 @@ describe("La etiqueta con emoji", () => {
 
   it("sin emoji conocido, no deja un espacio suelto adelante", () => {
     expect(etiquetaConEmoji("inventado")).toBe("inventado");
+  });
+});
+
+describe("estadoAlGuardar (Felipe, 18-08): nadie fuerza 'enviada'", () => {
+  it("desde un requerimiento se guarda con el estado del formulario, no enviada", () => {
+    expect(estadoAlGuardar("solicitada", true)).toBe("solicitada");
+  });
+  it("desde cero, igual", () => {
+    expect(estadoAlGuardar("solicitada", false)).toBe("solicitada");
+  });
+  it("si la persona ya la puso en enviada, se respeta: es ella quien envía", () => {
+    expect(estadoAlGuardar("enviada", true)).toBe("enviada");
+    expect(estadoAlGuardar("en_negociacion", false)).toBe("en_negociacion");
   });
 });
