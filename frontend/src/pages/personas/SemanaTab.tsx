@@ -80,7 +80,6 @@ interface FilaSemana {
   evento: string;
   cargoId: number;
   cargo: string;
-  precio: number;
   necesita: Map<string, number>;
   sinRepartir: number;
   /** Los días que dura el evento, dentro del rango visible. Sirven para
@@ -248,22 +247,82 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         day: p.dia,
         // El restaurante no impone cargo: queda el habitual de la persona.
         role_id: p.fila.cargoId || undefined,
-        amount: p.fila.precio || null,
+        // Sin monto: en un evento la SILLA ya trae el suyo y el backend
+        // lo conserva al sentar; en el restaurante se escribe a mano en
+        // la casilla. No hay valor por cargo (Felipe, 17-08).
+        amount: null,
       });
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // LA PANTALLA SE MUEVE AL INSTANTE (17-08, "asignar garzones está
+    // lento"): la persona aparece en la casilla en el acto con una fila
+    // provisoria, y el servidor se reconcilia después. Si rechaza, se
+    // devuelve sola. Es el mismo patrón de la grilla de Gestión y del
+    // calendario de la ficha.
+    onMutate: async (p) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      const persona = personas.find((x) => x.id === p.personId);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) => [
+        ...viejo,
+        {
+          id: -Math.floor(Math.random() * 1e9),
+          quotation_id: p.fila.quotationId,
+          person_id: p.personId,
+          day: p.dia,
+          role_id: p.fila.cargoId || null,
+          kind: persona?.default_kind ?? "freelance",
+          status: "por_confirmar",
+          amount: null,
+          starts_at: null,
+          ends_at: null,
+          break_minutes: null,
+          people: persona
+            ? { id: persona.id, name: persona.name, rut: persona.rut ?? null }
+            : null,
+          management_resources: null,
+        } as unknown as Asignacion,
+      ]);
+      return { antes };
+    },
+    onError: (e: unknown, _p, ctx) => {
+      if (ctx?.antes)
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
   const sacar = useMutation({
     // En un evento, sacar a alguien LIBERA su silla: el cupo queda con
     // su cargo, su día y su valor, esperando otro nombre (migración 84).
     // En el restaurante no hay sillas: se borra la fila.
     mutationFn: (id: number) => {
+      if (id < 0) throw new Error("Esa fila se está guardando todavía");
       const fila = staff.find((a) => a.id === id);
       return removeStaff(id, !!fila?.quotation_id);
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // Al instante, igual que poner: la fila desaparece (restaurante) o
+    // queda como silla vacía (evento) sin esperar al servidor.
+    onMutate: async (id) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.flatMap((a) => {
+          if (a.id !== id) return [a];
+          return a.quotation_id
+            ? [{ ...a, person_id: null, people: null, status: "por_confirmar" } as Asignacion]
+            : [];
+        }),
+      );
+      return { antes };
+    },
+    onError: (e: unknown, _id, ctx) => {
+      if (ctx?.antes)
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
   // LA PLANTA SE PROYECTA A 12 MESES, UNA SOLA VEZ (Felipe, 15-08:
   // "no estar cargando y metiéndole sobrecarga cada vez que pincho y me
@@ -321,7 +380,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           evento: rotuloEvento(e),
           cargoId: a.role_id ?? 0,
           cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
-          precio: Number(a.amount) || Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: diasDe(e),
@@ -347,7 +405,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           evento: e ? rotuloEvento(e) : "Evento",
           cargoId: a.role_id ?? 0,
           cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
-          precio: Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: e ? diasDe(e) : new Set<string>(),
@@ -383,7 +440,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: r.id,
         cargo: r.name,
-        precio: Number(r.list_price_fixed) || 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -399,7 +455,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: 0,
         cargo: "Sin cargo",
-        precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -429,7 +484,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: -1,
         cargo: "",
-        precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -1104,7 +1158,7 @@ function CasillaAbierta({
                     $
                   </span>
                   <NumberInput
-                    value={a.amount ?? fila.precio}
+                    value={a.amount ?? undefined}
                     onChange={(v: number | undefined) =>
                       onCambiar(a.id, { amount: v ?? null })
                     }

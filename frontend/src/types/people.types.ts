@@ -8,12 +8,14 @@ import type { EstadoPersona, TipoPersona } from "../utils/estadoPersona";
  * usa Recursos. Eran dos listas hasta el 14-08 y se fusionaron: Garzón
  * estaba escrito en las dos.
  *
- * `list_price_fixed` es el precio de referencia. El precio es solo una SUGERENCIA para ahorrar tecleo.
+ * Un cargo NO lleva precio (Felipe, 17-08: "si eso lo asignaremos día a
+ * día, caso a caso"). El monto vive en cada silla del evento. Las
+ * columnas de precio siguen en la tabla porque la comparten los
+ * arriendos; Personal no las lee ni las escribe.
  *
- * NO decide nada: un garzón de planta no cuesta y el mismo cargo con un
- * freelance sí. Lo que decide si una jornada cuesta plata es si LA PERSONA
- * es planta o freelance ese día — atributo de la persona, no del cargo.
- * Por eso TODOS los cargos aparecen en todas partes, tengan precio o no.
+ * Lo que decide si una jornada cuesta plata es si LA PERSONA es planta o
+ * freelance ese día — atributo de la persona, no del cargo. Por eso
+ * TODOS los cargos aparecen en todas partes.
  */
 export interface Cargo {
   id: number;
@@ -21,8 +23,6 @@ export interface Cargo {
   name: string;
   type: string;
   is_active: boolean;
-  list_price_fixed: number | null;
-  last_price: number | null;
   created_at: string;
 }
 

@@ -92,6 +92,9 @@ export class QuotationsController {
       statuses: getQuotationsDto.statuses,
       sort_by: getQuotationsDto.sort_by,
       sort_order: getQuotationsDto.sort_order,
+      eventDateFrom: getQuotationsDto.event_date_from
+        ? new Date(`${getQuotationsDto.event_date_from}T00:00:00Z`)
+        : undefined,
     });
   }
 

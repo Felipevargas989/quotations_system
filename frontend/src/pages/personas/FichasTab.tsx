@@ -63,16 +63,32 @@ const sumarDias = (isoDia: string, n: number) =>
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
-// Los eventos aceptados/realizados, con el MISMO queryKey que usa la
-// sábana — una sola descarga para las tres mesas de trabajo.
+// Los eventos aceptados/realizados, con el MISMO queryKey para las tres
+// mesas de trabajo — una sola descarga, y compartida.
+//
+// SOLO LOS ÚLTIMOS SEIS MESES Y EL FUTURO (17-08, "está lento"): esta
+// lista existe para poner el nombre del cliente al lado de un evento en
+// Liquidación, Nómina y Evaluaciones. Traía las 146 cotizaciones de la
+// historia (97 de más de seis meses) y era la consulta más lenta del
+// módulo. La liquidación mira una ventana de 42 días, así que un evento
+// más viejo que seis meses no aparece en ninguna de estas listas.
+const SEIS_MESES_ATRAS = (() => {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - 6);
+  return d.toISOString().slice(0, 10);
+})();
+
 export const eventosQueryOptions = {
-  queryKey: ["people", "eventos-semana"] as const,
+  queryKey: ["people", "eventos-semana", SEIS_MESES_ATRAS] as const,
+  // Cinco minutos: el catálogo de eventos no cambia a cada clic.
+  staleTime: 5 * 60_000,
   queryFn: async () => {
     const r = (await getQuotations(
       undefined,
       [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
       "event_date",
       "desc",
+      SEIS_MESES_ATRAS,
     )) as { data?: unknown[] };
     return ((r?.data ?? r ?? []) as Record<string, unknown>[]).map((q) => ({
       id: String(q.id),
@@ -783,36 +799,14 @@ function Reparto({
     ? Number(pozo.first_amount) + Number(pozo.second_amount)
     : 0;
 
-  // "Si se le sube el porcentaje a uno, los demás bajan parejo" — al
-  // cambiar uno a mano, el resto se ajusta proporcional para que la
-  // suma quede en 100 (55/35/10 sin desconche queda 60/40 solo).
-  const cambiar = (id: number | null, nuevo: number) => {
-    const resto = cargos.filter(([cid]) => cid !== id);
-    const sumaResto = resto.reduce((t, [cid]) => t + pct(cid), 0);
-    const objetivo = Math.max(0, 100 - nuevo);
-    const m = new Map(pcts);
-    m.set(id, nuevo);
-    for (const [cid] of resto) {
-      m.set(
-        cid,
-        sumaResto > 0
-          ? Math.round((pct(cid) / sumaResto) * objetivo * 100) / 100
-          : resto.length > 0
-            ? Math.round((objetivo / resto.length) * 100) / 100
-            : 0,
-      );
-    }
-    setPcts(m);
-  };
-
-  const plantilla = (pesos: [RegExp, number][]) => {
-    const m = new Map<number | null, number>();
-    for (const [id, nombre] of cargos) {
-      const peso = pesos.find(([re]) => re.test(nombre));
-      m.set(id, peso ? peso[1] : 0);
-    }
-    setPcts(m);
-  };
+  // CADA CAJA ES DE QUIEN LA ESCRIBE (Felipe, 17-08). Antes, al cambiar
+  // un porcentaje los demás se recalculaban solos "para que sumara 100";
+  // pareció listo y resultó lo contrario — uno escribe 40 y ve moverse
+  // los otros tres. Ahora no se toca nada: se escriben los que sean y
+  // el botón se abre cuando la suma llega a 100, igual que en el modal
+  // del día de restaurante. Una sola regla en las dos pantallas.
+  const cambiar = (id: number | null, nuevo: number) =>
+    setPcts(new Map(pcts).set(id, nuevo));
 
   const guardarPozo = useMutation({
     mutationFn: (cambios: { first_amount?: number; second_amount?: number }) =>

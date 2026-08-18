@@ -1,7 +1,6 @@
 import {
   IsBoolean,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
@@ -27,9 +26,7 @@ export class UpdateJobRoleDto {
   @IsOptional()
   is_active?: boolean;
 
-  // El valor sugerido del cargo. Se edita desde Personal → Cargos desde
-  // el 15-08: los cargos salieron de Logística y esta es su única puerta.
-  @IsNumber()
-  @IsOptional()
-  list_price_fixed?: number | null;
+  // Sin valor por cargo (Felipe, 17-08): el monto vive en cada silla,
+  // día a día. La columna sigue en la tabla porque la comparten los
+  // arriendos, que sí llevan precio; Personal simplemente no la toca.
 }

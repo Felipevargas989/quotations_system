@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Power, X } from "lucide-react";
-import { NumberInput } from "../../components/inputs";
+import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import {
   createRole,
@@ -68,16 +68,6 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const cambiarValorSugerido = useMutation({
-    mutationFn: ({ id, valor }: { id: number; valor: number | null }) =>
-      updateRole(id, { list_price_fixed: valor }),
-    onSuccess: async () => {
-      await refrescar();
-      toast.success("Valor guardado.");
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
   const cambiarEncendido = useMutation({
     mutationFn: ({ id, prender }: { id: number; prender: boolean }) =>
       prender ? updateRole(id, { is_active: true }) : deactivateRole(id),
@@ -91,21 +81,15 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
   const activos = cargos.filter((c) => c.is_active);
   const apagados = cargos.filter((c) => !c.is_active);
 
+  // LA PIEZA DE LA CASA (Felipe, 17-08: "no lo puedo cerrar"). Este modal
+  // estaba hecho a mano y centrado en un contenedor que desplaza: con
+  // muchos cargos crecía más que la pantalla, la cabecera con la X se iba
+  // hacia arriba fuera de la vista, y no tenía Escape ni cierre al fondo.
+  // Modal ancla arriba, tapa la altura, deja la cabecera siempre visible
+  // y cierra con Escape y clic afuera — justo lo que faltaba.
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md my-4">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Cargos</h2>
-          <button
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="p-1 text-gray-400 hover:text-gray-700 rounded"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4">
+    <Modal titulo="Cargos" ancho="max-w-md" onCerrar={onCerrar}>
+        <div className="space-y-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -168,29 +152,9 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
                 ) : (
                   <>
                     <span className="flex-1 min-w-0 truncate text-gray-900">{c.name}</span>
-                    {/* El valor sugerido SE EDITA ACÁ desde el 15-08: los
-                        cargos salieron de Logística y esta es su única
-                        puerta. Sigue siendo una sugerencia — quien decide
-                        si una jornada cuesta es la persona (planta o
-                        freelance ese día). */}
-                    {/* NumberInput trae un contenedor w-full: hay que
-                        encajonarlo para que el nombre, la caja y los
-                        iconos queden en UNA linea (Felipe, 15-08). */}
-                    <div className="w-24 shrink-0">
-                      <NumberInput
-                        value={c.list_price_fixed ?? undefined}
-                        min={0}
-                        currency
-                        placeholder="0"
-                        onCommit={(v) => {
-                          const val = v ?? null;
-                          if (val !== c.list_price_fixed)
-                            cambiarValorSugerido.mutate({ id: c.id, valor: val });
-                        }}
-                        className="px-2 py-1 text-sm text-right"
-                        aria-label={`Valor sugerido de ${c.name}`}
-                      />
-                    </div>
+                    {/* SIN VALOR POR CARGO (Felipe, 17-08): "si eso lo
+                        asignaremos día a día, caso a caso". El monto vive
+                        en cada silla, no en el cargo. */}
                     <button
                       onClick={() => {
                         setEditandoId(c.id);
@@ -244,16 +208,11 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
           )}
 
           <p className="text-xs text-gray-500">
-            El valor es una <strong>sugerencia</strong> para ahorrar tecleo.
-            No decide nada: lo que hace que una jornada cueste plata es que la
-            persona sea freelance ese día, no el cargo.
-          </p>
-          <p className="text-xs text-gray-500">
-            Si lleva propina o no <strong>no se decide acá</strong>: se decide
-            en cada reparto.
+            Un cargo es solo un nombre. El monto de cada jornada se pone en la
+            silla, día a día; y si lleva propina o no se decide en cada
+            reparto.
           </p>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

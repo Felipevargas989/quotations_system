@@ -15,6 +15,9 @@ export const getQuotations = async (
   statuses?: QuotationStatus[],
   sort_by?: "quotation_number" | "event_date",
   sort_order?: "asc" | "desc",
+  /** Solo eventos desde esta fecha (YYYY-MM-DD): para no traer la
+   *  historia completa cuando basta con los últimos meses. */
+  eventDateFrom?: string,
 ) => {
   let requestTypeParam = "";
   if (requirementType !== undefined) {
@@ -23,8 +26,9 @@ export const getQuotations = async (
   const statusesParam = statuses ? `&statuses=${statuses.join(",")}` : "";
   const sortByParam = sort_by ? `&sort_by=${sort_by}` : "";
   const sortOrderParam = sort_order ? `&sort_order=${sort_order}` : "";
+  const fromParam = eventDateFrom ? `&event_date_from=${eventDateFrom}` : "";
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?${requestTypeParam}${statusesParam}${sortByParam}${sortOrderParam}`,
+    `${API_ROUTES.QUOTATIONS}?${requestTypeParam}${statusesParam}${sortByParam}${sortOrderParam}${fromParam}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };
