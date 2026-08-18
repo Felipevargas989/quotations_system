@@ -407,10 +407,16 @@ export default function PostVentaPage() {
 
   // Fase 2b del portal: comprobantes subidos por clientes, por
   // confirmar. Se revisan aquí mismo (bandeja).
+  // MENOS MARTILLEO (17-08, "cargar comprobantes está lento"): se
+  // pedía cada 2 minutos Y en cada cambio de foco, con staleTime 0,
+  // estuvieras o no mirando la bandeja. Ahora se pide al entrar, se
+  // considera fresca 2 minutos, y el sondeo de fondo baja a 5. La
+  // acción de confirmar/rechazar un comprobante ya la refresca a mano.
   const receiptsQuery = useQuery({
     queryKey: ["postventa", "comprobantes"],
-    staleTime: 0,
-    refetchInterval: 2 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
     queryFn: listPortalReceipts,
   });
   const comprobantes = receiptsQuery.data ?? [];

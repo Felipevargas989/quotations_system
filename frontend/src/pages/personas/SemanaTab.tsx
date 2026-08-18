@@ -251,19 +251,76 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         amount: p.fila.precio || null,
       });
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // LA PANTALLA SE MUEVE AL INSTANTE (17-08, "asignar garzones está
+    // lento"): la persona aparece en la casilla en el acto con una fila
+    // provisoria, y el servidor se reconcilia después. Si rechaza, se
+    // devuelve sola. Es el mismo patrón de la grilla de Gestión y del
+    // calendario de la ficha.
+    onMutate: async (p) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      const persona = personas.find((x) => x.id === p.personId);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) => [
+        ...viejo,
+        {
+          id: -Math.floor(Math.random() * 1e9),
+          quotation_id: p.fila.quotationId,
+          person_id: p.personId,
+          day: p.dia,
+          role_id: p.fila.cargoId || null,
+          kind: persona?.default_kind ?? "freelance",
+          status: "por_confirmar",
+          amount: p.fila.precio || null,
+          starts_at: null,
+          ends_at: null,
+          break_minutes: null,
+          people: persona
+            ? { id: persona.id, name: persona.name, rut: persona.rut ?? null }
+            : null,
+          management_resources: null,
+        } as unknown as Asignacion,
+      ]);
+      return { antes };
+    },
+    onError: (e: unknown, _p, ctx) => {
+      if (ctx?.antes)
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
   const sacar = useMutation({
     // En un evento, sacar a alguien LIBERA su silla: el cupo queda con
     // su cargo, su día y su valor, esperando otro nombre (migración 84).
     // En el restaurante no hay sillas: se borra la fila.
     mutationFn: (id: number) => {
+      if (id < 0) throw new Error("Esa fila se está guardando todavía");
       const fila = staff.find((a) => a.id === id);
       return removeStaff(id, !!fila?.quotation_id);
     },
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // Al instante, igual que poner: la fila desaparece (restaurante) o
+    // queda como silla vacía (evento) sin esperar al servidor.
+    onMutate: async (id) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.flatMap((a) => {
+          if (a.id !== id) return [a];
+          return a.quotation_id
+            ? [{ ...a, person_id: null, people: null, status: "por_confirmar" } as Asignacion]
+            : [];
+        }),
+      );
+      return { antes };
+    },
+    onError: (e: unknown, _id, ctx) => {
+      if (ctx?.antes)
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
   // LA PLANTA SE PROYECTA A 12 MESES, UNA SOLA VEZ (Felipe, 15-08:
   // "no estar cargando y metiéndole sobrecarga cada vez que pincho y me

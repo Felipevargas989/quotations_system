@@ -24,4 +24,11 @@ export class GetQuotationsDto {
   @IsOptional()
   @IsString()
   sort_order?: 'asc' | 'desc';
+
+  /** Solo eventos desde esta fecha (YYYY-MM-DD). Personal la usa para
+   *  no cargar 146 cotizaciones históricas solo para poner el nombre
+   *  del cliente al lado de un evento (17-08). */
+  @IsOptional()
+  @IsString()
+  event_date_from?: string;
 }

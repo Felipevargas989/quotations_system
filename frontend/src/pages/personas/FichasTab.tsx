@@ -63,16 +63,32 @@ const sumarDias = (isoDia: string, n: number) =>
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
-// Los eventos aceptados/realizados, con el MISMO queryKey que usa la
-// sábana — una sola descarga para las tres mesas de trabajo.
+// Los eventos aceptados/realizados, con el MISMO queryKey para las tres
+// mesas de trabajo — una sola descarga, y compartida.
+//
+// SOLO LOS ÚLTIMOS SEIS MESES Y EL FUTURO (17-08, "está lento"): esta
+// lista existe para poner el nombre del cliente al lado de un evento en
+// Liquidación, Nómina y Evaluaciones. Traía las 146 cotizaciones de la
+// historia (97 de más de seis meses) y era la consulta más lenta del
+// módulo. La liquidación mira una ventana de 42 días, así que un evento
+// más viejo que seis meses no aparece en ninguna de estas listas.
+const SEIS_MESES_ATRAS = (() => {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - 6);
+  return d.toISOString().slice(0, 10);
+})();
+
 export const eventosQueryOptions = {
-  queryKey: ["people", "eventos-semana"] as const,
+  queryKey: ["people", "eventos-semana", SEIS_MESES_ATRAS] as const,
+  // Cinco minutos: el catálogo de eventos no cambia a cada clic.
+  staleTime: 5 * 60_000,
   queryFn: async () => {
     const r = (await getQuotations(
       undefined,
       [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
       "event_date",
       "desc",
+      SEIS_MESES_ATRAS,
     )) as { data?: unknown[] };
     return ((r?.data ?? r ?? []) as Record<string, unknown>[]).map((q) => ({
       id: String(q.id),
