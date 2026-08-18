@@ -12,6 +12,7 @@ import {
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
+  ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
   UpdateDayNoteDto,
@@ -883,6 +884,42 @@ export class PeopleService {
    * Devuelve solo el identificador del evento: el nombre del cliente lo
    * pone la pantalla, que ya tiene el catálogo de eventos cargado.
    */
+  /**
+   * REABRIR UNA LIQUIDACIÓN (Felipe, 18-08): "que elimine la
+   * liquidación por pagar y la regrese a liquidaciones para liquidarlo
+   * otra vez (volver a repartir propina o ajustar pago por jornada)".
+   *
+   * Un evento vuelve de ficha cerrada a "trabajado"; un día de
+   * restaurante vuelve a pozo sin repartir. Lo repartido queda escrito
+   * en las filas hasta que se reparta de nuevo. REGLA DE FIERRO: solo
+   * si nada de esa liquidación entró ya a una nómina — lo pagado no se
+   * deshace; se corrige en la nómina siguiente.
+   */
+  async reabrirLiquidacion(dto: ReabrirLiquidacionDto, companyId: number) {
+    if (!dto.quotation_id && !dto.day) {
+      throw new BadRequestException('Falta el evento o el día a reabrir');
+    }
+    if (dto.quotation_id) {
+      await this.sonDeLaEmpresa(companyId, { quotation_id: dto.quotation_id });
+    }
+    if (await this.repo.hayPagosEn(companyId, dto)) {
+      throw new BadRequestException(
+        'Ya hay pagos de esta liquidación en una nómina: no se puede reabrir. Lo que falte se ajusta en la nómina siguiente.',
+      );
+    }
+    if (dto.quotation_id) {
+      await this.repo.upsertSheet(companyId, dto.quotation_id, {
+        status: 'trabajado',
+        closed_at: null,
+      });
+      this.logger.info(`reabrirLiquidacion evento ${dto.quotation_id}`);
+      return { reabierto: 'evento' as const, quotation_id: dto.quotation_id };
+    }
+    await this.repo.desrepartirPozoDelDia(companyId, dto.day!);
+    this.logger.info(`reabrirLiquidacion dia ${dto.day!}`);
+    return { reabierto: 'dia' as const, day: dto.day! };
+  }
+
   async liquidacionesPendientes(companyId: number) {
     const filtro = {};
     const [jornadas, propinas] = await Promise.all([

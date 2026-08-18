@@ -21,6 +21,7 @@ import {
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
+  ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
   UpdateDayNoteDto,
@@ -245,6 +246,15 @@ export class PeopleController {
     return {
       day: await this.peopleService.diaMasViejoDeRestaurante(user.company_id),
     };
+  }
+
+  /** Devuelve una liquidación a Liquidación (solo si nada está pagado). */
+  @Post('payrolls/reabrir')
+  reabrirLiquidacion(
+    @Body() dto: ReabrirLiquidacionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.peopleService.reabrirLiquidacion(dto, user.company_id);
   }
 
   /** Lo liquidado que todavía no entró a ninguna nómina. */

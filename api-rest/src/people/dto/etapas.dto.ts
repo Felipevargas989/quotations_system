@@ -32,6 +32,18 @@ export class CerrarFichaDto {
   quotation_id: string;
 }
 
+/** Reabrir una liquidación: un evento (quotation_id) o un día de
+ *  restaurante (day). Uno de los dos. */
+export class ReabrirLiquidacionDto {
+  @IsOptional()
+  @IsUUID()
+  quotation_id?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  day?: string;
+}
+
 // ---- Los pozos de propina ----
 export class CreatePoolDto {
   @IsOptional()
