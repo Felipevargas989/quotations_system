@@ -799,36 +799,14 @@ function Reparto({
     ? Number(pozo.first_amount) + Number(pozo.second_amount)
     : 0;
 
-  // "Si se le sube el porcentaje a uno, los demás bajan parejo" — al
-  // cambiar uno a mano, el resto se ajusta proporcional para que la
-  // suma quede en 100 (55/35/10 sin desconche queda 60/40 solo).
-  const cambiar = (id: number | null, nuevo: number) => {
-    const resto = cargos.filter(([cid]) => cid !== id);
-    const sumaResto = resto.reduce((t, [cid]) => t + pct(cid), 0);
-    const objetivo = Math.max(0, 100 - nuevo);
-    const m = new Map(pcts);
-    m.set(id, nuevo);
-    for (const [cid] of resto) {
-      m.set(
-        cid,
-        sumaResto > 0
-          ? Math.round((pct(cid) / sumaResto) * objetivo * 100) / 100
-          : resto.length > 0
-            ? Math.round((objetivo / resto.length) * 100) / 100
-            : 0,
-      );
-    }
-    setPcts(m);
-  };
-
-  const plantilla = (pesos: [RegExp, number][]) => {
-    const m = new Map<number | null, number>();
-    for (const [id, nombre] of cargos) {
-      const peso = pesos.find(([re]) => re.test(nombre));
-      m.set(id, peso ? peso[1] : 0);
-    }
-    setPcts(m);
-  };
+  // CADA CAJA ES DE QUIEN LA ESCRIBE (Felipe, 17-08). Antes, al cambiar
+  // un porcentaje los demás se recalculaban solos "para que sumara 100";
+  // pareció listo y resultó lo contrario — uno escribe 40 y ve moverse
+  // los otros tres. Ahora no se toca nada: se escriben los que sean y
+  // el botón se abre cuando la suma llega a 100, igual que en el modal
+  // del día de restaurante. Una sola regla en las dos pantallas.
+  const cambiar = (id: number | null, nuevo: number) =>
+    setPcts(new Map(pcts).set(id, nuevo));
 
   const guardarPozo = useMutation({
     mutationFn: (cambios: { first_amount?: number; second_amount?: number }) =>
