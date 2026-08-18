@@ -39,8 +39,11 @@ export default function SelectorColacion({
           onClick={() => onChange(min)}
           aria-pressed={(value || 0) === min}
           className={`px-1.5 py-0.5 disabled:opacity-50 ${
+            // EN GRIS, NO AZUL (Felipe, 18-08): en la tabla de jornadas
+            // el azul era el color más fuerte de la fila y no decía
+            // nada. El color se guarda para lo que importa.
             (value || 0) === min
-              ? "bg-blue-600 text-white"
+              ? "bg-gray-700 text-white"
               : "bg-white text-gray-500 hover:bg-gray-50"
           }`}
         >

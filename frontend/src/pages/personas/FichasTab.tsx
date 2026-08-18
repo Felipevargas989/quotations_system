@@ -1,22 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Lock,
-  Trash2,
-} from "lucide-react";
-import ConfirmInline from "../../components/ConfirmInline";
+import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
 import NumberInput from "../../components/inputs/NumberInput";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
-import {
-  HoraInput,
-  SelectorColacion,
-  formatoHoras,
-  horasTrabajadas,
-} from "../../components/inputs";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import Modal from "../../components/Modal";
@@ -454,13 +442,9 @@ function FichaAbierta({
     onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
-  const [borrando, setBorrando] = useState<number | null>(null);
   const sacarStaff = useMutation({
     mutationFn: (id: number) => removeStaff(id),
-    onSuccess: () => {
-      setBorrando(null);
-      refrescar();
-    },
+    onSuccess: refrescar,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
@@ -532,189 +516,18 @@ function FichaAbierta({
             Planificación.
           </p>
         ) : (
-          <div className="space-y-2">
-            {dias.map(([d, gente]) => (
-              <div key={d} className="text-sm">
-                <div className="text-xs font-semibold text-gray-500 uppercase">
-                  {formatISOUTCDateToString(d)}
-                </div>
-                <ul className="mt-1 space-y-1">
-                  {gente.map((a) => (
-                    <li key={a.id} className="flex items-center gap-2">
-                      <span className="flex-1 text-gray-900">
-                        {a.people?.name ?? "—"}
-                        <span className="text-gray-400 text-xs ml-2">
-                          {a.management_resources?.name ?? "sin cargo"}
-                        </span>
-                      </span>
-                      {/* LAS HORAS SE CONFIRMAN ACÁ (Felipe, 15-08): la
-                          liquidación es una sola pantalla. Y quien no
-                          vino, se saca con el basurero. */}
-                      {cerrada ? (
-                        <span className="text-xs text-gray-500 tabular-nums">
-                          {a.starts_at?.slice(0, 5)}–{a.ends_at?.slice(0, 5)}
-                        </span>
-                      ) : (
-                        <>
-                          <HoraInput
-                            value={a.starts_at?.slice(0, 5) ?? null}
-                            onChange={(v) =>
-                              cambiarStaff.mutate({
-                                id: a.id,
-                                cambios: { starts_at: v },
-                              })
-                            }
-                            compacta
-                            aria-label={`Entrada de ${a.people?.name ?? ""}`}
-                          />
-                          <span className="text-xs text-gray-400">a</span>
-                          <HoraInput
-                            value={a.ends_at?.slice(0, 5) ?? null}
-                            onChange={(v) =>
-                              cambiarStaff.mutate({
-                                id: a.id,
-                                cambios: { ends_at: v },
-                              })
-                            }
-                            compacta
-                            aria-label={`Salida de ${a.people?.name ?? ""}`}
-                          />
-                          {/* La colación también se revalida acá: es la
-                              que explica dos totales distintos con el
-                              mismo horario (Felipe, 16-08). */}
-                          <SelectorColacion
-                            value={a.break_minutes}
-                            onChange={(min) =>
-                              cambiarStaff.mutate({
-                                id: a.id,
-                                cambios: { break_minutes: min },
-                              })
-                            }
-                          />
-                        </>
-                      )}
-                      <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
-                        {formatoHoras(
-                          horasTrabajadas(
-                            a.starts_at?.slice(0, 5) ?? null,
-                            a.ends_at?.slice(0, 5) ?? null,
-                            a.break_minutes,
-                          ),
-                        )}
-                      </span>
-                      {/* EL MONTO QUE SE LE ESTÁ PAGANDO (Felipe,
-                          15-08): es de las cuatro cosas que tiene que
-                          haber en esta pantalla, así que se edita acá.
-                          Para el freelance es su jornada y no puede
-                          faltar (ámbar). Para la planta es la
-                          ASIGNACIÓN EXTRA (Felipe, 18-08): un incentivo
-                          optativo por venir al evento; en cero no pasa
-                          nada. Misma caja que en el restaurante. */}
-                      {cerrada ? (
-                        <span className="w-24 text-right tabular-nums text-gray-700">
-                          {a.amount ? clp(Number(a.amount)) : "—"}
-                        </span>
-                      ) : (
-                        <div
-                          className="w-32 relative"
-                          title={
-                            a.kind === "planta"
-                              ? "Asignación extra (optativa)"
-                              : "Monto de la jornada"
-                          }
-                        >
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                            $
-                          </span>
-                          {/* EL TÍTULO VA DENTRO DE LA CAJA (Felipe,
-                              18-08: "ponle el título asignación
-                              extra"): se lee cuando está vacía y deja
-                              paso al monto cuando se llena. */}
-                          <NumberInput
-                            value={a.amount ? Number(a.amount) : undefined}
-                            onCommit={(v: number | undefined) =>
-                              cambiarStaff.mutate({
-                                id: a.id,
-                                cambios: { amount: v ?? null },
-                              })
-                            }
-                            placeholder={
-                              a.kind === "planta" ? "Asignación extra" : "Jornada"
-                            }
-                            aria-label={
-                              a.kind === "planta"
-                                ? `Asignación extra de ${a.people?.name ?? ""}`
-                                : `Monto de ${a.people?.name ?? ""}`
-                            }
-                            className={`w-full border rounded-lg pl-5 pr-2 py-1 text-sm text-right placeholder:text-xs ${
-                              !a.amount && a.kind !== "planta"
-                                ? "border-amber-400 bg-amber-50"
-                                : "border-gray-300"
-                            }`}
-                          />
-                        </div>
-                      )}
-                      <span className="w-20 text-right tabular-nums text-emerald-700">
-                        {a.tip_amount ? clp(Number(a.tip_amount)) : ""}
-                      </span>
-                      {!cerrada && (
-                        <>
-                          {/* SIN PROPINA ESE DÍA (Felipe, 15-08): su
-                              jornada se paga igual, pero el reparto lo
-                              salta. Medido en el Excel: el 28 de
-                              septiembre trabajaron 10 y recibieron 4. */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              cambiarStaff.mutate({
-                                id: a.id,
-                                cambios: { no_tip: !a.no_tip },
-                              })
-                            }
-                            title={
-                              a.no_tip
-                                ? "No lleva propina este día"
-                                : "Marcar: no lleva propina este día"
-                            }
-                            // EN ROJO CUANDO ESTÁ MARCADO (Felipe,
-                            // 15-08): que se vea de una pasada quién
-                            // queda fuera del reparto.
-                            className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                              a.no_tip
-                                ? "bg-red-50 text-red-700 border-red-300 font-medium"
-                                : "text-gray-400 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            sin propina
-                          </button>
-                          {borrando === a.id ? (
-                            <ConfirmInline
-                              question={`¿${a.people?.name ?? "Esta persona"} no participó?`}
-                              yesLabel="Sacar"
-                              tono="peligro"
-                              busy={sacarStaff.isPending}
-                              onYes={() => sacarStaff.mutate(a.id)}
-                              onNo={() => setBorrando(null)}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setBorrando(a.id)}
-                              aria-label={`Sacar a ${a.people?.name ?? ""} del evento`}
-                              title="No participó: sacarlo del evento"
-                              className="p-1 text-gray-300 hover:text-red-600 rounded"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <TablaDeJornadas
+            secciones={dias.map(([d, gente]) => ({
+              titulo: dias.length > 1 ? formatISOUTCDateToString(d) : undefined,
+              filas: gente,
+            }))}
+            cerrada={cerrada}
+            onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
+            onSacar={(id) => sacarStaff.mutate(id)}
+            preguntaSacar={(n) => `¿${n} no participó?`}
+            textoSacar="Sacar"
+            sacando={sacarStaff.isPending}
+          />
         )}
 
       </div>
@@ -1123,8 +936,6 @@ function DiaRestaurante({
   const [pcts, setPcts] = useState<Map<number, number>>(new Map());
   const [sinCargo, setSinCargo] = useState<Set<number>>(new Set());
 
-  const [sacando, setSacando] = useState<number | null>(null);
-
   // LAS HORAS SE CONFIRMAN ACÁ TAMBIÉN (Felipe, 16-08). El día del
   // restaurante tenía la lista de solo lectura, pero es la misma
   // necesidad que en el evento: la gente entra y sale a horas distintas
@@ -1144,16 +955,6 @@ function DiaRestaurante({
   /** Quien no se presentó se saca del día: su jornada no se paga. */
   const sacarStaff = useMutation({
     mutationFn: (id: number) => removeStaff(id),
-    onSuccess: () => {
-      setSacando(null);
-      onCambio();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
-  const marcarSinPropina = useMutation({
-    mutationFn: (a: Asignacion) =>
-      updateStaff(a.id, { no_tip: !a.no_tip }),
     onSuccess: onCambio,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -1419,141 +1220,14 @@ function DiaRestaurante({
               la grilla, las cuatro columnas nacen del contenido más
               ancho, así que quedan a plomo. Cada fila usa "contents"
               para que sus celdas entren en la grilla del <ul>. */}
-          <ul className="grid grid-cols-[minmax(0,max-content)_max-content_max-content_1fr_auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
-            {delDia.map((a) =>
-              // La fila que pregunta ocupa el ancho entero: si la
-              // pregunta viviera en una celda, ensancharía esa columna
-              // para TODAS las filas y se descuadraría la tabla.
-              sacando === a.id ? (
-                // Ocupa el ancho entero pero pegada a la DERECHA, donde
-                // nació la acción (Felipe, 16-08). Si viviera en la celda
-                // del basurero, ensancharía esa columna en TODAS las
-                // filas y volvería a descuadrar la lista.
-                <li key={a.id} className="col-span-full py-1 flex justify-end">
-                  <ConfirmInline
-                    question={`¿${a.people?.name ?? "Esta persona"} no se presentó?`}
-                    yesLabel="Sacar del día"
-                    tono="peligro"
-                    busy={sacarStaff.isPending}
-                    onYes={() => sacarStaff.mutate(a.id)}
-                    onNo={() => setSacando(null)}
-                  />
-                </li>
-              ) : (
-              <li key={a.id} className="contents">
-                <span className="text-gray-900 whitespace-nowrap">
-                  {a.people?.name ?? "—"}
-                </span>
-                <span className="text-gray-400 text-xs whitespace-nowrap">
-                  {a.management_resources?.name ?? "sin cargo"}
-                </span>
-                {/* LO QUE LE TOCÓ, AL LADO DEL CARGO (Felipe, 16-08).
-                    Aparece recién cuando hay reparto: antes de repartir
-                    no hay nada que mostrar, y un $0 se leería como una
-                    decisión tomada. */}
-                <span className="text-xs tabular-nums whitespace-nowrap text-emerald-700 font-medium">
-                  {Number(a.tip_amount ?? 0) > 0
-                    ? clp(Number(a.tip_amount))
-                    : ""}
-                </span>
-                {/* Las horas EFECTIVAS: el sistema calcula el total y con
-                    él reparte la propina dentro del cargo. */}
-                <span className="flex items-center gap-1.5 justify-self-end">
-                  <HoraInput
-                    value={a.starts_at?.slice(0, 5) ?? null}
-                    onChange={(v) =>
-                      cambiarStaff.mutate({ id: a.id, cambios: { starts_at: v } })
-                    }
-                    compacta
-                    aria-label={`Entrada de ${a.people?.name ?? ""}`}
-                  />
-                  <span className="text-xs text-gray-400">a</span>
-                  <HoraInput
-                    value={a.ends_at?.slice(0, 5) ?? null}
-                    onChange={(v) =>
-                      cambiarStaff.mutate({ id: a.id, cambios: { ends_at: v } })
-                    }
-                    compacta
-                    aria-label={`Salida de ${a.people?.name ?? ""}`}
-                  />
-                  {/* LA COLACIÓN EXPLICA LA DIFERENCIA (Felipe, 16-08):
-                      dos personas con el mismo 09:00–19:00 marcaban 9,5 h
-                      y 9 h, y no había cómo ver por qué. Es la misma fila
-                      que edita Planificación, así que cambiarla aquí la
-                      cambia allá. */}
-                  <SelectorColacion
-                    value={a.break_minutes}
-                    onChange={(min) =>
-                      cambiarStaff.mutate({
-                        id: a.id,
-                        cambios: { break_minutes: min },
-                      })
-                    }
-                  />
-                  <span className="w-10 text-right text-xs text-gray-500 tabular-nums">
-                    {formatoHoras(
-                      horasTrabajadas(
-                        a.starts_at?.slice(0, 5) ?? null,
-                        a.ends_at?.slice(0, 5) ?? null,
-                        a.break_minutes,
-                      ),
-                    )}
-                  </span>
-                </span>
-                {/* ASIGNACIÓN EXTRA (Felipe, 18-08): "una caja que me
-                    permita dar una asignación extra, en caso de que le
-                    quiera dar un incentivo adicional". Entre las horas y
-                    el chip de sin propina, en las dos pantallas. Para la
-                    planta es optativa; para un freelance del día es su
-                    jornada, la misma caja. Se paga en la nómina. */}
-                <div className="w-32 relative" title="Asignación extra (optativa)">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                    $
-                  </span>
-                  <NumberInput
-                    value={a.amount ? Number(a.amount) : undefined}
-                    onCommit={(v: number | undefined) =>
-                      cambiarStaff.mutate({
-                        id: a.id,
-                        cambios: { amount: v ?? null },
-                      })
-                    }
-                    placeholder="Asignación extra"
-                    aria-label={`Asignación extra de ${a.people?.name ?? ""}`}
-                    className="w-full border border-gray-300 rounded-lg pl-5 pr-2 py-1 text-sm text-right placeholder:text-xs"
-                  />
-                </div>
-                {/* Sin propina ESA persona ese día: el reparto la salta,
-                    su jornada se paga igual (Felipe, 15-08). */}
-                <button
-                  type="button"
-                  onClick={() => marcarSinPropina.mutate(a)}
-                  title={
-                    a.no_tip
-                      ? "No lleva propina este día"
-                      : "Marcar: no lleva propina este día"
-                  }
-                  className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                    a.no_tip
-                      ? "bg-red-50 text-red-700 border-red-300 font-medium"
-                      : "text-gray-400 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  sin propina
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSacando(a.id)}
-                  aria-label={`Sacar a ${a.people?.name ?? ""} del día`}
-                  title="No se presentó"
-                  className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </li>
-              ),
-            )}
-          </ul>
+          <TablaDeJornadas
+            secciones={[{ filas: delDia }]}
+            onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
+            onSacar={(id) => sacarStaff.mutate(id)}
+            preguntaSacar={(n) => `¿${n} no se presentó?`}
+            textoSacar="Sacar del día"
+            sacando={sacarStaff.isPending}
+          />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
               tocar una hora o sacar a alguien después de repartir deja
               la plata calculada con datos viejos. El sistema no lo
