@@ -59,7 +59,8 @@ const nombreDe = (a: Asignacion) => a.people?.name ?? "—";
 export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
   const hayPlanta = filas.some((a) => a.kind === "planta");
   const hayFreelance = filas.some((a) => a.kind !== "planta");
-  if (hayPlanta && !hayFreelance) return "Asignación extra";
+  // Corto, para que el título quepa en una línea (Felipe, 18-08).
+  if (hayPlanta && !hayFreelance) return "Asig. extra";
   if (hayFreelance && !hayPlanta) return "Jornada";
   return "Monto";
 };
@@ -106,8 +107,10 @@ export default function TablaDeJornadas({
         <span className={th}>Colación</span>
         <span className={`${th} text-right`}>Horas</span>
         <span className={`${th} text-right`}>{tituloDelMonto(todas)}</span>
-        <span className={`${th} text-right`}>Propina</span>
-        <span />
+        {/* "Propina" abarca el monto repartido Y el chip: si solo
+            cubriera el monto, antes de repartir queda sobre una columna
+            vacía y se ve descentrado (Felipe, 18-08). */}
+        <span className={`${th} col-span-2 text-right pr-1`}>Propina</span>
         <span />
       </div>
 

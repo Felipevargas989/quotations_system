@@ -33,8 +33,8 @@ const fila = (extra: Partial<Asignacion>): Asignacion =>
 afterEach(cleanup);
 
 describe("tituloDelMonto", () => {
-  it("solo planta → Asignación extra; solo freelance → Jornada; mezcla → Monto", () => {
-    expect(tituloDelMonto([fila({ kind: "planta" })])).toBe("Asignación extra");
+  it("solo planta → Asig. extra; solo freelance → Jornada; mezcla → Monto", () => {
+    expect(tituloDelMonto([fila({ kind: "planta" })])).toBe("Asig. extra");
     expect(tituloDelMonto([fila({ kind: "freelance" })])).toBe("Jornada");
     expect(
       tituloDelMonto([fila({ kind: "planta" }), fila({ id: 2, kind: "freelance" })]),
@@ -54,7 +54,7 @@ describe("TablaDeJornadas", () => {
     for (const t of ["Persona", "Cargo", "Entrada", "Salida", "Colación", "Horas", "Propina"]) {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
-    expect(screen.getByText("Asignación extra")).toBeInTheDocument();
+    expect(screen.getByText("Asig. extra")).toBeInTheDocument();
     expect(screen.getByText("Camila Carvajal")).toBeInTheDocument();
     expect(screen.getByText("Administrador")).toBeInTheDocument();
     // 09:00–19:00 con 1 h de colación son 9 h.
