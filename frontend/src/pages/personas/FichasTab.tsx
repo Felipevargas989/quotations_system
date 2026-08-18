@@ -48,6 +48,38 @@ const sumarDias = (isoDia: string, n: number) =>
 // acá se VEN, se reparte y se cierra.
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
+
+/**
+ * VELOCIDAD (Felipe, 18-08: "además que es lento"). Al cambiar una hora,
+ * la colación, el monto o el chip, la fila se mueve AL INSTANTE en la
+ * pantalla y el servidor confirma por detrás; si falla, vuelve. Se
+ * pintan las dos cachés donde viven las jornadas de liquidación: la del
+ * evento abierto y la ventana de días de restaurante. Solo esas —
+ * "people" a secas también guarda personas, cuyos ids chocarían.
+ */
+type ParcheDeStaff = { id: number; cambios: Record<string, unknown> };
+const pintarStaff = (
+  qc: ReturnType<typeof useQueryClient>,
+  { id, cambios }: ParcheDeStaff,
+) => {
+  const anteriores: [readonly unknown[], unknown][] = [];
+  for (const llave of [
+    ["people", "staff-evento"],
+    ["people", "liquidacion-ventana"],
+  ] as const) {
+    for (const [key, data] of qc.getQueriesData<Asignacion[]>({ queryKey: llave })) {
+      if (!Array.isArray(data)) continue;
+      anteriores.push([key, data]);
+      qc.setQueryData<Asignacion[]>(
+        key,
+        data.map((a) => (a.id === id ? ({ ...a, ...cambios } as Asignacion) : a)),
+      );
+    }
+  }
+  return () => {
+    for (const [key, data] of anteriores) qc.setQueryData(key, data);
+  };
+};
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
 // Los eventos aceptados/realizados, con el MISMO queryKey para las tres
@@ -438,8 +470,16 @@ function FichaAbierta({
   const cambiarStaff = useMutation({
     mutationFn: (v: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
       updateStaff(v.id, v.cambios),
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    // Optimista: se pinta ya, se confirma detrás, se deshace si falla.
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["people", "staff-evento", evento.id] });
+      return pintarStaff(qc, v as ParcheDeStaff);
+    },
+    onError: (e: unknown, _v, deshacer) => {
+      deshacer?.();
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: refrescar,
   });
   // Por día, para leer la ficha como se vivió.
   const dias = useMemo(() => {
@@ -928,16 +968,19 @@ function DiaRestaurante({
   // restaurante tenía la lista de solo lectura, pero es la misma
   // necesidad que en el evento: la gente entra y sale a horas distintas
   // de las planificadas, y el reparto se calcula POR HORAS.
+  const qc = useQueryClient();
   const cambiarStaff = useMutation({
-    mutationFn: ({
-      id,
-      cambios,
-    }: {
-      id: number;
-      cambios: Record<string, unknown>;
-    }) => updateStaff(id, cambios),
-    onSuccess: onCambio,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    mutationFn: ({ id, cambios }: ParcheDeStaff) => updateStaff(id, cambios),
+    // Optimista: se pinta ya, se confirma detrás, se deshace si falla.
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["people", "liquidacion-ventana"] });
+      return pintarStaff(qc, v);
+    },
+    onError: (e: unknown, _v, deshacer) => {
+      deshacer?.();
+      toast.error(humanizeApiError(e));
+    },
+    onSettled: onCambio,
   });
 
 

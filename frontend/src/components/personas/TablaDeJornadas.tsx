@@ -71,7 +71,7 @@ export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
 // anchos fijos, todas miden igual y calzan. Persona toma lo que sobra;
 // un cargo largo se corta con puntos y se lee entero al pasar el mouse.
 const COLS =
-  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_7.5rem_9rem] items-center gap-x-2";
+  "grid grid-cols-[minmax(6rem,1fr)_7rem_4.5rem_4.5rem_5rem_2.75rem_7.5rem_9rem] items-center gap-x-2";
 
 export default function TablaDeJornadas({
   secciones,
@@ -95,8 +95,8 @@ export default function TablaDeJornadas({
       <div className={`${COLS} pb-1.5 border-b border-gray-200`}>
         <span className={th}>{titulo}</span>
         <span className={th}>Cargo</span>
-        <span className={th}>Entrada</span>
-        <span className={th}>Salida</span>
+        <span className={`${th} text-center`}>Entrada</span>
+        <span className={`${th} text-center`}>Salida</span>
         <span className={th}>Colación</span>
         <span className={`${th} text-right`}>Horas</span>
         <span className={`${th} text-right`}>{tituloDelMonto(todas)}</span>
@@ -125,10 +125,10 @@ export default function TablaDeJornadas({
 
                   {cerrada ? (
                     <>
-                      <span className="tabular-nums text-gray-700">
+                      <span className="tabular-nums text-gray-700 text-center">
                         {a.starts_at?.slice(0, 5) ?? "—"}
                       </span>
-                      <span className="tabular-nums text-gray-700">
+                      <span className="tabular-nums text-gray-700 text-center">
                         {a.ends_at?.slice(0, 5) ?? "—"}
                       </span>
                       <span className="text-gray-700">
