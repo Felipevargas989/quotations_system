@@ -453,9 +453,13 @@ export class PeopleService {
     const activa =
       persona.status === 'activa' && persona.default_kind === 'planta';
 
-    let creados = 0;
     let corregidos = 0;
-    let quitados = 0;
+    // EN LOTE (Felipe, 18-08: "se demora como 12 segundos en cerrar").
+    // Un año son ~260 jornadas; crearlas de a una eran 260 viajes a la
+    // base. Se juntan y van en uno solo. Las correcciones de horario
+    // siguen de a una porque son pocas y cada una es distinta.
+    const porCrear: Record<string, unknown>[] = [];
+    const porQuitar: number[] = [];
 
     for (let d = hoy; d <= hasta; d = diaMas(d, 1)) {
       const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay();
@@ -467,15 +471,14 @@ export class PeopleService {
         // Solo se quita lo que puso la máquina: lo puesto a mano y lo
         // que ya tiene plata se queda donde está.
         if (yaEsta && laPuedeQuitarLaProyeccion(yaEsta)) {
-          await this.repo.removeStaff(yaEsta.id, companyId);
-          quitados += 1;
+          porQuitar.push(yaEsta.id);
         }
         continue;
       }
 
       const horario = horarioDelDia(persona, d);
       if (!yaEsta) {
-        await this.repo.addStaff({
+        porCrear.push({
           company_id: companyId,
           quotation_id: null,
           person_id: personId,
@@ -486,7 +489,6 @@ export class PeopleService {
           status: 'confirmado',
           ...horario,
         });
-        creados += 1;
       } else if (
         // Tampoco se le corrige el horario a una fila con plata: la
         // propina se reparte POR HORAS, así que moverle la hora por
@@ -500,6 +502,11 @@ export class PeopleService {
         corregidos += 1;
       }
     }
+
+    const [creados, quitados] = await Promise.all([
+      this.repo.addStaffEnLote(porCrear),
+      this.repo.removeStaffEnLote(porQuitar, companyId),
+    ]);
 
     this.logger.info(
       `proyectarPlanta ${personId}: +${creados} ~${corregidos} -${quitados}`,
