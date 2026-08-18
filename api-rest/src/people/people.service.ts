@@ -450,9 +450,7 @@ export class PeopleService {
 
     const suyas = await this.repo.findDePersonaDesde(companyId, personId, hoy);
     const conEvento = new Set(
-      suyas
-        .filter((a) => a.quotation_id !== null)
-        .map((a) => a.day.slice(0, 10)),
+      suyas.filter(laMandaronAUnEvento).map((a) => a.day.slice(0, 10)),
     );
     const dePlanta = new Map(
       suyas
@@ -1297,6 +1295,22 @@ export const esJornadaExtra = (
  * a mano —un freelance del restaurante, un planta llamado en su día
  * libre, un día ya repartido— y la máquina no la toca.
  */
+/**
+ * ¿ESE DÍA LA MANDARON A UN EVENTO? (18-08). La regla del 15-08 —"si
+ * ese día está en un evento, no viene al restaurante"— sigue valiendo
+ * para la planta que se PONE en un evento desde la casilla: nace
+ * freelance (día extra) y ese día no está en el restaurante. Pero la
+ * fila que la FICHA de liquidación trae (planta con turno de restaurante
+ * ese día, para propina y asignación) tiene `kind = 'planta'` y NO la
+ * saca del restaurante: estuvo ahí, y además reparte. El 18-08 la
+ * proyección vio esas filas, creyó que las habían mandado al evento y
+ * les borró el turno de restaurante a las cuatro. Nunca más.
+ */
+export const laMandaronAUnEvento = (fila: {
+  quotation_id: string | null;
+  kind: string | null;
+}): boolean => fila.quotation_id !== null && fila.kind !== 'planta';
+
 export const laPuedeQuitarLaProyeccion = (fila: {
   kind?: string | null;
   amount?: number | null;

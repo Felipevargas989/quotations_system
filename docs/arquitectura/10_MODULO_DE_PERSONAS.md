@@ -144,6 +144,26 @@ vacía**: cargo, día y valor estimado, sin nombre (`person_id NULL`).
 
 `event_resources` queda solo con arriendos y servicios externos.
 
+**La planta que la ficha trae a un evento (18-08) — NO es una silla.**
+Felipe: *"puede pasar que la propina que deje un evento la repartamos
+con el personal de planta, o que le demos una asignación de diez o
+veinte mil a cada persona de planta… lo haría como en el restaurante:
+aparecen todos y yo marco sin propina."* Al abrir la ficha de un evento,
+la planta con turno de restaurante en sus días entra a la ficha como
+filas de `event_staff` del evento con `kind = 'planta'`, horario del
+día, monto en cero (la asignación extra) y con propina; su turno de
+restaurante no se toca (dos pozos). No duplica a quien ya está por
+Planificación; idempotente. Y la regla que las separa del plan es
+limpia, medida en producción: **en un evento, lo planificado es SIEMPRE
+freelance** (la silla vacía y la persona puesta desde la casilla nacen
+`freelance` por `esJornadaExtra`), así que **`kind = planta` dentro de
+un evento = viene de la ficha = solo liquidación**. La sábana, la
+grilla de Gestión y la ficha de la persona la filtran con
+`esPlanificacion`; el costo del evento la suma (la asignación extra sí
+es costo real); la nómina la paga (paga toda fila con monto, no solo
+freelance). El 18-08 se me cruzaron los cables justo acá — la sábana
+mostró la planta del 423 como cupos — y por eso queda escrito.
+
 ### El personal es UN número que se afina (reescrito el 17-08)
 
 ⚠ Esta sección hablaba de "tres números" (estimado en Recursos, plan
