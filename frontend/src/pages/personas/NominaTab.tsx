@@ -529,6 +529,7 @@ function RevisarAntesDeGenerar({
                   <th className="py-2 pr-3 font-semibold">RUT</th>
                   <th className="py-2 pr-3 font-semibold">Banco</th>
                   <th className="py-2 pr-3 font-semibold">Cuenta</th>
+                  <th className="py-2 pr-3 font-semibold">Tipo</th>
                   <th className="py-2 pr-3 font-semibold text-right">
                     Jornadas
                   </th>
@@ -556,18 +557,14 @@ function RevisarAntesDeGenerar({
                       {p.bank_code ? nombreBanco(p.bank_code) : dato(null)}
                     </td>
                     <td className="py-2 pr-3 tabular-nums whitespace-nowrap">
-                      {p.account_number ? (
-                        <>
-                          {p.account_number}
-                          {p.account_type && (
-                            <span className="text-xs text-gray-400 ml-1.5">
-                              {etiquetaTipoCuenta(p.account_type as never)}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        dato(null)
-                      )}
+                      {p.account_number ? p.account_number : dato(null)}
+                    </td>
+                    {/* El tipo en su columna: pegado al número, cada
+                        largo de cuenta lo corría (Felipe, 18-08). */}
+                    <td className="py-2 pr-3 text-xs text-gray-400 whitespace-nowrap">
+                      {p.account_type
+                        ? etiquetaTipoCuenta(p.account_type as never)
+                        : ""}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-gray-600">
                       {cifra(p, "jornadas", p.jornadas, "cursor-help")}
@@ -587,9 +584,18 @@ function RevisarAntesDeGenerar({
                 ))}
               </tbody>
               <tfoot>
+                {/* LOS TRES TOTALES AL PIE (Felipe, 18-08): jornadas,
+                    propinas y el total — cada uno bajo su columna. Se
+                    suman de lo que se ve, así cuadran con la lista. */}
                 <tr className="border-t-2 border-gray-300">
-                  <td colSpan={6} className="py-2 text-right font-medium">
+                  <td colSpan={5} className="py-2 text-right font-medium">
                     Total a subir
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums font-semibold text-gray-700">
+                    {clp(previa.personas.reduce((t, p) => t + p.jornadas, 0))}
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums font-semibold text-gray-700">
+                    {clp(previa.personas.reduce((t, p) => t + p.propinas, 0))}
                   </td>
                   <td className="py-2 text-right tabular-nums font-bold text-gray-900">
                     {clp(previa.total)}
