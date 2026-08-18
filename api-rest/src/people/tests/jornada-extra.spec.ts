@@ -55,6 +55,24 @@ describe('esJornadaExtra', () => {
     expect(esJornadaExtra(cocinera, { day: '2026-11-19' })).toBe(false);
   });
 
+  // LO MISMO DECIDE EL ESTADO CON QUE NACE (Felipe, 18-08): "el 25 no
+  // se debe confirmar porque es su jornada de planta, pero si lo hubiese
+  // colocado que venga el 24 [su libre], ese día sí me lo tiene que
+  // confirmar". La misma regla que dice si se paga dice si es oferta.
+  it('su jornada normal NO es extra → nace confirmada, no es una oferta', () => {
+    // El caso de Camila: martes 25, su cargo. No hay nada que confirmar.
+    expect(esJornadaExtra(cocinera, { day: '2026-08-25', role_id: 23 })).toBe(
+      false,
+    );
+  });
+
+  it('su día libre SÍ es extra → nace por confirmar', () => {
+    // 2026-08-26 es miércoles: el libre de la cocinera del ejemplo.
+    expect(esJornadaExtra(cocinera, { day: '2026-08-26', role_id: 23 })).toBe(
+      true,
+    );
+  });
+
   it('un freelance nunca es "día extra": todos sus días se pagan', () => {
     expect(
       esJornadaExtra(

@@ -349,7 +349,7 @@ export class PeopleRepository {
       // Trae también la PLATA y el kind: sin eso, la proyección decidía
       // a ciegas a quién borrar (revisión del 16-08).
       .select(
-        'id, day, quotation_id, starts_at, ends_at, break_minutes, kind, amount, tip_amount, payroll_id, tip_payroll_id',
+        'id, day, quotation_id, starts_at, ends_at, break_minutes, kind, amount, tip_amount, payroll_id, tip_payroll_id, role_id',
       )
       .eq('company_id', companyId)
       .eq('person_id', personId)
@@ -367,6 +367,7 @@ export class PeopleRepository {
       tip_amount: number | null;
       payroll_id: number | null;
       tip_payroll_id: number | null;
+      role_id: number | null;
     }[];
   }
 
