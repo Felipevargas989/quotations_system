@@ -108,10 +108,12 @@ const rellenarSemana = (persona: Persona): HorarioSemanal | null => {
  *  mueva al escribir una hora, y para que el total caiga alineado bajo
  *  la columna de las horas. */
 // Día · entrada · "a" · salida · "colación" · selector · horas.
-// Los relojes toman lo que sobra (minmax) en vez de un ancho fijo, así la
-// fila cabe en el modal en vez de salirse por la derecha (Felipe, 18-08).
+// Los relojes son de ancho FIJO y el aire va al final: dejarlos crecer
+// los estiraba hasta lo absurdo en la ficha (Felipe, 18-08: "se ve
+// tosco"). La última columna toma lo que sobra, así las horas quedan
+// separadas del borde y no pegadas.
 const FILA =
-  "grid grid-cols-[6.5rem_minmax(7rem,1fr)_0.75rem_minmax(7rem,1fr)_auto_auto_3rem] items-center gap-2";
+  "grid grid-cols-[6.5rem_8.5rem_0.75rem_8.5rem_auto_auto_minmax(3rem,1fr)] items-center gap-2";
 
 export default function PersonaForm({
   persona,
@@ -603,7 +605,7 @@ export default function PersonaForm({
                           value={suyo.break ?? 60}
                           onChange={(min) => ponerHorario({ break: min })}
                         />
-                        <span className="text-sm tabular-nums text-gray-600 text-right">
+                        <span className="text-sm tabular-nums text-gray-600 pl-2">
                           {formatoHoras(horas)}
                         </span>
                       </>
@@ -625,7 +627,7 @@ export default function PersonaForm({
                 {diasQueTrabaja} {diasQueTrabaja === 1 ? "día" : "días"} a la
                 semana
               </span>
-              <span className="text-sm font-bold tabular-nums text-gray-900 text-right">
+              <span className="text-sm font-bold tabular-nums text-gray-900 pl-2">
                 {formatoHoras(horasDeLaSemana)}
               </span>
             </div>
