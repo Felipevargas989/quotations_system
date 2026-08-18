@@ -314,7 +314,16 @@ export class PeopleService {
       // Explícito SIEMPRE (el 15-08 llegó nulo y la base lo rechazó), y
       // nace POR CONFIRMAR: "yo planifico y luego las personas
       // confirman" (Felipe). El check de la casilla lo confirma.
-      status: dto.status ?? 'por_confirmar',
+      // SU JORNADA NACE CONFIRMADA; EL DÍA EXTRA, POR CONFIRMAR (Felipe,
+      // 18-08): poner a alguien de planta en su día normal y su cargo no
+      // es una oferta, es su turno — no hay nada que confirmar. Lo que
+      // sí pasa por confirmación es el día extra: su día libre, otro
+      // cargo, o un evento. Es la misma regla que decide si se paga.
+      status:
+        dto.status ??
+        (persona.default_kind === 'planta' && !esJornadaExtra(persona, dto)
+          ? 'confirmado'
+          : 'por_confirmar'),
       // EL HORARIO VIENE PUESTO. La escalera (15-08): lo del día manda
       // sobre el del DÍA DE LA SEMANA, ese sobre el horario único de la
       // ficha, y al final el estándar de la casa. Solo se toca la
@@ -477,6 +486,17 @@ export class PeopleService {
       }
 
       const horario = horarioDelDia(persona, d);
+      // EL CARGO DE LA FICHA MANDA EN LOS DÍAS QUE PUSO LA MÁQUINA
+      // (Felipe, 18-08: cambió a Camila de Cocina a Administrador y sus
+      // 260 días siguieron en Cocina). Solo se corrige lo que la
+      // proyección puede tocar — sin plata ni nómina — igual que el
+      // horario. Un cargo puesto a mano ese día (planta de garzón un
+      // sábado) es freelance y no pasa por acá.
+      const cargoFicha = persona.default_role_id ?? null;
+      const cargoDistinto =
+        yaEsta != null &&
+        yaEsta.kind === 'planta' &&
+        (yaEsta.role_id ?? null) !== cargoFicha;
       if (!yaEsta) {
         porCrear.push({
           company_id: companyId,
@@ -494,11 +514,16 @@ export class PeopleService {
         // propina se reparte POR HORAS, así que moverle la hora por
         // detrás le cambiaría el monto a alguien que ya cobró.
         laPuedeQuitarLaProyeccion(yaEsta) &&
-        (yaEsta.starts_at?.slice(0, 5) !== horario.starts_at ||
+        (cargoDistinto ||
+          yaEsta.starts_at?.slice(0, 5) !== horario.starts_at ||
           yaEsta.ends_at?.slice(0, 5) !== horario.ends_at ||
           (yaEsta.break_minutes ?? 0) !== horario.break_minutes)
       ) {
-        await this.repo.updateStaff(yaEsta.id, horario, companyId);
+        await this.repo.updateStaff(
+          yaEsta.id,
+          { ...horario, ...(cargoDistinto ? { role_id: cargoFicha } : {}) },
+          companyId,
+        );
         corregidos += 1;
       }
     }
