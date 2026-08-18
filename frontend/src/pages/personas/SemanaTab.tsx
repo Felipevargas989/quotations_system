@@ -1081,14 +1081,23 @@ function CasillaAbierta({
   const soloPlantaDeEsteCargo =
     fila.quotationId === null && !fila.ocasional;
 
+  // LA LISTA ES SOLO DE DISPONIBLES (Felipe, 18-08): "si el de planta
+  // tiene turno no debería mostrármelo, y si viene como staff tampoco".
+  // Ocupado ese día —en el restaurante, en otro evento o ya en esta
+  // casilla— no aparece. En un EVENTO, la planta con turno de
+  // restaurante está ocupada aunque su fila no se haya proyectado
+  // todavía: se mira su semana laboral, no solo las filas que hay.
+  const esEvento = fila.quotationId !== null;
+  const conTurnoDeRestaurante = (p: Persona) =>
+    p.default_kind === "planta" && !(p.days_off ?? []).includes(diaSemana);
+
   const disponibles: SelectOption[] = personas
     .filter(
       (p) =>
         p.status === "activa" &&
         !puestos.has(p.id) &&
-        // Ya tiene jornada ese día en otra parte: ofrecerlo sería
-        // ofrecer a alguien ocupado (Felipe, 15-08).
         !ocupados.has(p.id) &&
+        !(esEvento && conTurnoDeRestaurante(p)) &&
         (!soloPlantaDeEsteCargo ||
           (p.default_kind === "planta" &&
             (p.default_role_id ?? 0) === fila.cargoId)),
@@ -1099,11 +1108,13 @@ function CasillaAbierta({
       group:
         p.default_kind === "planta" ? "Personal de planta" : "Personal Staff",
       hint: p.management_resources?.name,
-      // Si ese día es su libre se avisa con un chip al otro extremo: se
-      // puede poner igual —a veces se le paga aparte—, pero a sabiendas.
-      chip: p.days_off?.includes(diaSemana)
-        ? { texto: "libre este día", clases: "bg-amber-100 text-amber-800" }
-        : undefined,
+      // En el RESTAURANTE, poner a alguien en su día libre se puede pero
+      // a sabiendas (a veces se le paga aparte). En un evento no hace
+      // falta el chip: la planta que aparece está libre por definición.
+      chip:
+        !esEvento && p.days_off?.includes(diaSemana)
+          ? { texto: "libre este día", clases: "bg-amber-100 text-amber-800" }
+          : undefined,
     }))
     .sort((a, b) => {
       if (a.group !== b.group) return a.group === "Personal de planta" ? -1 : 1;
@@ -1280,11 +1291,19 @@ function CasillaAbierta({
         abierto={abierto}
         onAbiertoChange={setAbierto}
         placeholder={
-          soloPlantaDeEsteCargo
-            ? `Traer a alguien de planta de ${fila.cargo}…`
-            : "Buscar y poner a alguien…"
+          disponibles.length === 0
+            ? "Nadie disponible ese día"
+            : soloPlantaDeEsteCargo
+              ? `Traer a alguien de planta de ${fila.cargo}…`
+              : "Buscar y poner a alguien…"
         }
       />
+      {esEvento && disponibles.length === 0 && (
+        <p className="text-xs text-amber-700">
+          Todos están ocupados ese día: en el restaurante, en otro evento o
+          ya en esta casilla. Solo se ofrece gente disponible.
+        </p>
+      )}
 
       <p className="text-xs text-gray-500">
         {soloPlantaDeEsteCargo ? (
