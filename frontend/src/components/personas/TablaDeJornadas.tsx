@@ -64,8 +64,13 @@ export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
   return "Monto";
 };
 
+// ANCHOS FIJOS, no "lo que mida el contenido": el encabezado y cada fila
+// son grillas distintas, y si cada una midiera lo suyo los títulos
+// quedarían corridos de sus columnas (pasó en la primera versión). Con
+// anchos fijos, todas miden igual y calzan. Persona toma lo que sobra;
+// un cargo largo se corta con puntos y se lee entero al pasar el mouse.
 const COLS =
-  "grid grid-cols-[minmax(7rem,1fr)_max-content_max-content_max-content_max-content_3rem_7rem_5rem_max-content_1.75rem] items-center gap-x-3";
+  "grid grid-cols-[minmax(6rem,1fr)_6rem_8rem_8rem_5rem_2.75rem_6rem_4.25rem_4.5rem_1.75rem] items-center gap-x-2";
 
 export default function TablaDeJornadas({
   secciones,
@@ -134,8 +139,13 @@ export default function TablaDeJornadas({
                   key={a.id}
                   className={`${COLS} group h-10 border-b border-gray-100`}
                 >
-                  <span className="truncate text-gray-900">{nombreDe(a)}</span>
-                  <span className="text-gray-500 whitespace-nowrap">
+                  <span className="truncate text-gray-900" title={nombreDe(a)}>
+                    {nombreDe(a)}
+                  </span>
+                  <span
+                    className="text-gray-500 truncate"
+                    title={a.management_resources?.name ?? "sin cargo"}
+                  >
                     {a.management_resources?.name ?? "sin cargo"}
                   </span>
 
@@ -148,7 +158,11 @@ export default function TablaDeJornadas({
                         {a.ends_at?.slice(0, 5) ?? "—"}
                       </span>
                       <span className="text-gray-700">
-                        {a.break_minutes ? `${a.break_minutes} m` : "—"}
+                        {!a.break_minutes
+                          ? "—"
+                          : a.break_minutes === 60
+                            ? "1 h"
+                            : `${String(a.break_minutes)} m`}
                       </span>
                     </>
                   ) : (
