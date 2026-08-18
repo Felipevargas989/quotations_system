@@ -421,7 +421,11 @@ export default function GrillaPersonal({
             }}
             placeholder="valor"
             aria-label={`Valor por jornada de ${f.nombre}`}
-            className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm text-right"
+            // DEL ALTO DEL SELECTOR DE CANTIDAD (24 px), no más (Felipe,
+            // 18-08: "crecieron las filas en alto"). NumberInput trae
+            // px-3 py-2 rounded-lg y esa caja era la que estiraba la
+            // fila; se pisan sus clases para que quepa en h-6.
+            className="w-full !h-6 !border-gray-300 !rounded-md !px-2 !py-0 text-sm leading-none text-right"
           />
         ),
         <span key="s" className="tabular-nums">
