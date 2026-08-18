@@ -366,16 +366,19 @@ function RevisarAntesDeGenerar({
   readonly onGenerar: () => void;
   readonly onCerrar: () => void;
 }) {
+  // Se relee cada vez que se abre (staleTime 0): si uno completó una
+  // cuenta en otra pestaña, al volver a entrar ya está. Por eso ya no
+  // hace falta el "Actualizar datos" (Felipe, 18-08: "no tiene mucho
+  // sentido, no puedo volver a repartir ni editar nada").
   const {
     data: previa,
     isLoading,
     error,
-    refetch,
-    isFetching,
   } = useQuery({
     queryKey: ["people", "previa-nomina", seleccion],
     queryFn: () => previaPayroll(seleccion),
     staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: eventos = [] } = useQuery(eventosQueryOptions);
@@ -463,22 +466,15 @@ function RevisarAntesDeGenerar({
       onCerrar={onCerrar}
       pie={
         <>
-          {/* Si uno completa una cuenta en otra pestaña, esta pantalla no
-              se entera sola: acá se vuelve a preguntar (Felipe, 16-08). */}
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="mr-auto px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg disabled:opacity-50"
-          >
-            {isFetching ? "Actualizando…" : "Actualizar datos"}
-          </button>
+          {/* Acá no se edita nada: el camino de vuelta es a la lista de
+              liquidaciones por pagar, y desde ahí a Liquidación si algo
+              hay que corregir (Felipe, 18-08). */}
           <button
             type="button"
             onClick={onCerrar}
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="mr-auto px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
           >
-            Volver
+            ← Volver a liquidaciones
           </button>
           <button
             type="button"
