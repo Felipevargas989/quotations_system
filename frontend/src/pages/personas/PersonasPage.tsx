@@ -10,6 +10,7 @@ import FichasTab from "./FichasTab";
 import NominaTab from "./NominaTab";
 import Estrellas from "../../components/Estrellas";
 import CargosModal from "./CargosModal";
+import Modal from "../../components/Modal";
 import PersonaForm from "./PersonaForm";
 import {
   createPerson,
@@ -345,33 +346,26 @@ export default function PersonasPage() {
 
       {viendoCargos && <CargosModal onCerrar={() => setViendoCargos(false)} />}
 
+      {/* LA PIEZA DE LA CASA (Felipe, 18-08: "este modal está cortado, no
+          veo la parte de la derecha"). Era un modal a mano de 672 px, y la
+          fila de la jornada —día, entrada, salida, colación, horas— pide
+          más que eso: el sábado se salía por la derecha. Modal de la casa,
+          más ancho, con la cabecera siempre visible y Escape. */}
       {editando !== undefined && (
-        <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-4">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {editando ? editando.name : "Nueva persona"}
-              </h2>
-              <button
-                onClick={cerrarFicha}
-                aria-label="Cerrar"
-                className="p-1 text-gray-400 hover:text-gray-700 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <PersonaForm
-                persona={editando}
-                cargos={cargos}
-                guardando={guardar.isPending}
-                errorServidor={errorServidor}
-                onGuardar={(datos) => guardar.mutate(datos)}
-                onCancelar={cerrarFicha}
-              />
-            </div>
-          </div>
-        </div>
+        <Modal
+          titulo={editando ? editando.name : "Nueva persona"}
+          ancho="max-w-3xl"
+          onCerrar={cerrarFicha}
+        >
+          <PersonaForm
+            persona={editando}
+            cargos={cargos}
+            guardando={guardar.isPending}
+            errorServidor={errorServidor}
+            onGuardar={(datos) => guardar.mutate(datos)}
+            onCancelar={cerrarFicha}
+          />
+        </Modal>
       )}
     </div>
   );

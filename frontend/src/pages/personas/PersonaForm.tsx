@@ -3,6 +3,7 @@ import { Check, Info, Lock, Pencil } from "lucide-react";
 import RutInput from "../../components/inputs/RutInput";
 import {
   HoraInput,
+  SelectorColacion,
   formatoHoras,
   horasTrabajadas,
 } from "../../components/inputs";
@@ -106,8 +107,11 @@ const rellenarSemana = (persona: Persona): HorarioSemanal | null => {
 /** La rejilla de la jornada semanal: columnas FIJAS para que nada se
  *  mueva al escribir una hora, y para que el total caiga alineado bajo
  *  la columna de las horas. */
+// Día · entrada · "a" · salida · "colación" · selector · horas.
+// Los relojes toman lo que sobra (minmax) en vez de un ancho fijo, así la
+// fila cabe en el modal en vez de salirse por la derecha (Felipe, 18-08).
 const FILA =
-  "grid grid-cols-[7rem_9rem_0.75rem_9rem_4.5rem_auto_3.5rem] items-center gap-2";
+  "grid grid-cols-[6.5rem_minmax(7rem,1fr)_0.75rem_minmax(7rem,1fr)_auto_auto_3rem] items-center gap-2";
 
 export default function PersonaForm({
   persona,
@@ -595,23 +599,10 @@ export default function PersonaForm({
                           aria-label={`Salida del ${nombre.toLowerCase()}`}
                         />
                         <span className="text-xs text-gray-500">colación</span>
-                        <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs w-fit">
-                          {([30, 60] as const).map((min) => (
-                            <button
-                              key={min}
-                              type="button"
-                              onClick={() => ponerHorario({ break: min })}
-                              aria-label={`Colación del ${nombre.toLowerCase()}: ${String(min)} minutos`}
-                              className={`px-1.5 py-1 ${
-                                (suyo.break ?? 60) === min
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-white text-gray-500 hover:bg-gray-50"
-                              }`}
-                            >
-                              {min === 30 ? "30 m" : "1 h"}
-                            </button>
-                          ))}
-                        </div>
+                        <SelectorColacion
+                          value={suyo.break ?? 60}
+                          onChange={(min) => ponerHorario({ break: min })}
+                        />
                         <span className="text-sm tabular-nums text-gray-600 text-right">
                           {formatoHoras(horas)}
                         </span>
