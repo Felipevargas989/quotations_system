@@ -12,6 +12,7 @@ import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import {
   addStaff,
+  getSheets,
   getStaff,
   removeStaff,
   updateStaff,
@@ -162,14 +163,26 @@ export default function GrillaPersonal({
 
   const costoPersonal = filas.reduce((s, f) => s + plataDe(f), 0);
 
-  // EL GRIS DE FELIPE (17-08): confirmado el último, la sección se
-  // apaga — cantidad, días y valor de solo lectura, y el valor c/u pasa
-  // a ser el promedio real. Es dinámico: si Planificación suma una
-  // silla, esto se vuelve a encender solo.
+  // LOS DOS CANDADOS (Felipe, 18-08: "se debería bloquear solo cuando se
+  // marca como realizado o bien se liquidan los pagos, esas son las
+  // reglas"). Antes también se apagaba "el gris" —todas las sillas
+  // sentadas y confirmadas— y le impidió agregar a alguien que no había
+  // considerado. El gris se queda SOLO para el valor c/u (el promedio
+  // real, para no cruzar precios), no para bloquear cantidad ni días.
+  const { data: fichas = [] } = useQuery({
+    queryKey: ["people", "sheets"],
+    queryFn: getSheets,
+  });
+  const fichaCerrada = fichas.some(
+    (f) => f.quotation_id === quotationId && f.closed_at != null,
+  );
+  const soloLectura = congelado || fichaCerrada;
   const todoConfirmado =
     sillas.length > 0 &&
     sillas.every((s) => s.person_id != null && s.status === "confirmado");
-  const soloLectura = congelado || todoConfirmado;
+  // El valor c/u en gris (promedio real) cuando ya no hay nada que
+  // valorizar; sigue siendo dinámico: una silla nueva lo enciende.
+  const valorSoloLectura = soloLectura || todoConfirmado;
 
   // ---- Los días: los del evento, los con sillas y los agregados ----
   const dias = useMemo(() => {
@@ -383,7 +396,7 @@ export default function GrillaPersonal({
         <span key="t" className="font-medium text-gray-900">
           {total}
         </span>,
-        soloLectura ? (
+        valorSoloLectura ? (
           // El promedio REAL pagado, en gris: la propuesta de Felipe
           // para cuando cada silla tiene su monto y un solo "valor c/u"
           // ya no existe.
