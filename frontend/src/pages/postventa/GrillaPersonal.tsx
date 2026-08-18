@@ -140,15 +140,18 @@ export default function GrillaPersonal({
     return [...m.entries()].map(([id, f]) => ({ id, ...f }));
   }, [sillas, resources, cargosNuevos]);
 
-  /** El valor con que nacen las sillas nuevas de un cargo. */
+  /** El valor con que nacen las sillas nuevas de un cargo: el que ya
+   *  tenga alguna silla del cargo en este evento. No hay valor por
+   *  cargo en el catálogo (Felipe, 17-08: "si eso lo asignaremos día a
+   *  día, caso a caso") — la primera silla nace en blanco, se le pone
+   *  el valor una vez, y las siguientes lo copian. */
   const valorDe = (f: (typeof filas)[number]) =>
     preciosLocales.get(f.id) ??
     Number(
       f.todas.find((s) => s.person_id == null)?.amount ??
         f.todas[0]?.amount ??
-        resources.find((r) => r.id === f.id)?.list_price_fixed,
-    ) ??
-    0;
+        0,
+    );
 
   const plataDe = (f: (typeof filas)[number]) =>
     f.todas.reduce((s, a) => s + Number(a.amount ?? 0), 0);
@@ -210,9 +213,7 @@ export default function GrillaPersonal({
       .map((r) => ({
         value: String(r.id),
         label: r.name,
-        hint: Number(r.list_price_fixed)
-          ? clp(Number(r.list_price_fixed))
-          : "sin valor sugerido",
+        hint: undefined,
       }));
   }, [resources, filas]);
 

@@ -80,7 +80,6 @@ interface FilaSemana {
   evento: string;
   cargoId: number;
   cargo: string;
-  precio: number;
   necesita: Map<string, number>;
   sinRepartir: number;
   /** Los días que dura el evento, dentro del rango visible. Sirven para
@@ -248,7 +247,10 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         day: p.dia,
         // El restaurante no impone cargo: queda el habitual de la persona.
         role_id: p.fila.cargoId || undefined,
-        amount: p.fila.precio || null,
+        // Sin monto: en un evento la SILLA ya trae el suyo y el backend
+        // lo conserva al sentar; en el restaurante se escribe a mano en
+        // la casilla. No hay valor por cargo (Felipe, 17-08).
+        amount: null,
       });
     },
     // LA PANTALLA SE MUEVE AL INSTANTE (17-08, "asignar garzones está
@@ -271,7 +273,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           role_id: p.fila.cargoId || null,
           kind: persona?.default_kind ?? "freelance",
           status: "por_confirmar",
-          amount: p.fila.precio || null,
+          amount: null,
           starts_at: null,
           ends_at: null,
           break_minutes: null,
@@ -378,7 +380,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           evento: rotuloEvento(e),
           cargoId: a.role_id ?? 0,
           cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
-          precio: Number(a.amount) || Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: diasDe(e),
@@ -404,7 +405,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           evento: e ? rotuloEvento(e) : "Evento",
           cargoId: a.role_id ?? 0,
           cargo: r?.name ?? a.management_resources?.name ?? "Sin cargo",
-          precio: Number(r?.list_price_fixed) || 0,
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: e ? diasDe(e) : new Set<string>(),
@@ -440,7 +440,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: r.id,
         cargo: r.name,
-        precio: Number(r.list_price_fixed) || 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -456,7 +455,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: 0,
         cargo: "Sin cargo",
-        precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -486,7 +484,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         evento: "Staff",
         cargoId: -1,
         cargo: "",
-        precio: 0,
         necesita: new Map(),
         sinRepartir: 0,
         diasDelEvento: new Set<string>(),
@@ -1161,7 +1158,7 @@ function CasillaAbierta({
                     $
                   </span>
                   <NumberInput
-                    value={a.amount ?? fila.precio}
+                    value={a.amount ?? undefined}
                     onChange={(v: number | undefined) =>
                       onCambiar(a.id, { amount: v ?? null })
                     }

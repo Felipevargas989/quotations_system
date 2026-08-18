@@ -144,21 +144,28 @@ vacía**: cargo, día y valor estimado, sin nombre (`person_id NULL`).
 
 `event_resources` queda solo con arriendos y servicios externos.
 
-### Los tres números del personal
+### El personal es UN número que se afina (reescrito el 17-08)
 
-Son distintos y **se les permite no calzar** — esa diferencia es justo lo
-que se quiere medir: *"si vendiste 10 garzones y terminaste poniendo 12,
-la venta no cambia, el costo sí"*.
+⚠ Esta sección hablaba de "tres números" (estimado en Recursos, plan
+en la grilla, real al cerrar) que se permitía que no calzaran. Con las
+sillas quedó obsoleta: **hay un solo número, y se afina del plan a la
+realidad** — Felipe, 17-08: *"si sube de planificación o baja de
+planificación el costo es el mismo y siempre es el costo del evento; no
+hay un costo real con nombres y un cotizado"*.
 
-| | Qué es | Dónde se carga | Cuándo |
-|---|---|---|---|
-| **Estimado** | "voy a necesitar 9 garzones a $25.000" | **Recursos** | Al costear |
-| **Plan por día** | "3 el jueves, 2 el viernes…" | **La grilla** | Días antes |
-| **Real** | "fueron estos nombres, estas horas" | **La grilla** | Al confirmar y cerrar |
+| Momento | Qué se hace | Dónde |
+|---|---|---|
+| Al vender | Se ponen las **sillas**: cargo, día, cantidad, valor | Gestión |
+| Antes del evento | Se **sientan** nombres en las sillas; se ajusta el monto de quien pidió distinto | Planificación |
+| Al cerrar | Las sillas vacías se retiran; el costo queda en lo real | Liquidación |
 
-Un solo lugar para cada cosa: en Recursos se escribe la cantidad y el
-precio, y nada de días ni nombres; en la grilla se reparte y se nombra, y
-no se vuelven a escribir precios; en Gestión no se escribe nada.
+**Un cargo NO lleva precio.** El valor de referencia por cargo se sacó
+el 17-08 (*"si eso lo asignaremos día a día, caso a caso"*): el monto
+vive en cada silla. En Gestión, la primera silla de un cargo nace en
+blanco, se le pone el valor una vez, y las siguientes lo copian. Al
+sentar a alguien, hereda el monto de la silla salvo que se le ponga
+otro. Las columnas de precio siguen en la tabla de recursos porque las
+comparten los arriendos; Personal no las lee ni las escribe.
 
 Si al armar la grilla falta un cargo que no se costeó, **se agrega desde la
 grilla misma** — no tiene sentido mandar de vuelta a Recursos.

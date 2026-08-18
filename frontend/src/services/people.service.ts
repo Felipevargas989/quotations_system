@@ -63,7 +63,7 @@ export const createRole = async (name: string) =>
 
 export const updateRole = async (
   id: number,
-  cambios: { name?: string; is_active?: boolean; list_price_fixed?: number | null },
+  cambios: { name?: string; is_active?: boolean },
 ) =>
   (await apiRequest(
     `${API_ROUTES.PEOPLE_ROLES}/${id}`,

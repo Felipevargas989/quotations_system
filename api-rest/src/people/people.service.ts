@@ -173,7 +173,6 @@ export class PeopleService {
     cambios: {
       name?: string;
       is_active?: boolean;
-      list_price_fixed?: number | null;
     },
     companyId: number,
   ) {
