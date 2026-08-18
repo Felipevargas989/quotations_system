@@ -290,6 +290,13 @@ export const previaPayroll = async (dto: {
     dto,
   )) as PreviaNomina;
 
+/** La misma revisión, para un evento aún abierto: qué quedaría por
+ *  pagar si se liquida ahora (Felipe, 18-08). */
+export const previaPreliminar = async (quotation_id: string) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls/previa-preliminar`, "POST", {
+    quotation_id,
+  })) as PreviaNomina;
+
 export const createPayroll = async (dto: {
   label: string;
   hasta?: string;

@@ -21,6 +21,7 @@ import {
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
+  PreviaPreliminarDto,
   ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
@@ -264,6 +265,15 @@ export class PeopleController {
   }
 
   /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
+  /** La misma revisión, para un evento aún abierto: qué quedaría por pagar. */
+  @Post('payrolls/previa-preliminar')
+  previaPreliminar(
+    @Body() dto: PreviaPreliminarDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.peopleService.previaPreliminar(dto, user.company_id);
+  }
+
   @Post('payrolls/previa')
   previaPayroll(@Body() dto: SeleccionPayrollDto, @CurrentUser() user: User) {
     return this.peopleService.previaPayroll(dto, user.company_id);

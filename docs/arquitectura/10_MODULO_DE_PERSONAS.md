@@ -251,6 +251,23 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### Reabrir una liquidación (18-08)
+
+Felipe, revisando la nómina del 423: *"la idea de ese botón es que
+elimine la liquidación por pagar y la regrese a liquidaciones para
+liquidarlo otra vez (volver a repartir propina o ajustar pago por
+jornada)… es un ajuste, no todo de nuevo."* Una liquidación que está
+**por pagar** se puede **reabrir**: un evento vuelve de ficha *cerrada*
+a *trabajado*, un día de restaurante vuelve a pozo *sin repartir*. Nada
+se borra —horarios, jornadas, propina repartida y pozo quedan escritos—
+solo se destraba la ficha para corregir y liquidar de nuevo. **Regla
+de fierro:** se reabre solo si nada de esa liquidación entró ya a una
+nómina; lo pagado no se deshace, se ajusta en la nómina siguiente. La
+acción vive en cada liquidación de la lista de por pagar y, cuando se
+revisa una sola, en el modal de revisión. En ese modal no hay
+"Actualizar datos" ni "Volver": los datos se releen solos al abrir y
+la X cierra.
+
 ---
 
 ## 3. EL CICLO DE UNA FICHA
