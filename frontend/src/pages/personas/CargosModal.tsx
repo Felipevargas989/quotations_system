@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Power, X } from "lucide-react";
+import Modal from "../../components/Modal";
 import { NumberInput } from "../../components/inputs";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -91,21 +92,15 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
   const activos = cargos.filter((c) => c.is_active);
   const apagados = cargos.filter((c) => !c.is_active);
 
+  // LA PIEZA DE LA CASA (Felipe, 17-08: "no lo puedo cerrar"). Este modal
+  // estaba hecho a mano y centrado en un contenedor que desplaza: con
+  // muchos cargos crecía más que la pantalla, la cabecera con la X se iba
+  // hacia arriba fuera de la vista, y no tenía Escape ni cierre al fondo.
+  // Modal ancla arriba, tapa la altura, deja la cabecera siempre visible
+  // y cierra con Escape y clic afuera — justo lo que faltaba.
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md my-4">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Cargos</h2>
-          <button
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="p-1 text-gray-400 hover:text-gray-700 rounded"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4">
+    <Modal titulo="Cargos" ancho="max-w-md" onCerrar={onCerrar}>
+        <div className="space-y-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -253,7 +248,6 @@ export default function CargosModal({ onCerrar }: { readonly onCerrar: () => voi
             en cada reparto.
           </p>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
