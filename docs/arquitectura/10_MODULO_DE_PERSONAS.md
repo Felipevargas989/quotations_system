@@ -134,9 +134,15 @@ vacía**: cargo, día y valor estimado, sin nombre (`person_id NULL`).
   queda); borrar de verdad es bajar el plan o "no se presentó".
 - **El costo es UNO por construcción**: sillas con nombre al monto
   acordado, vacías al estimado. Sin propina, jamás.
-- **El gris**: con todas las sillas sentadas y confirmadas, la sección
-  de Gestión se apaga — el valor c/u pasa a ser el promedio real, de
-  solo lectura. Es dinámico: una silla nueva la vuelve a encender.
+- **El gris** (acotado el 18-08): con todas las sillas sentadas y
+  confirmadas, el **valor c/u** pasa a ser el promedio real, en gris y
+  de solo lectura — para no cruzar precios. Pero NO apaga la sección:
+  Felipe necesitó agregar a alguien que no había considerado y estaba
+  bloqueado. *"Se debería bloquear solo cuando se marca como realizado
+  o bien se liquidan los pagos, esas son las reglas."* Esos son los dos
+  candados de Gestión → Personal: evento **realizado** o ficha
+  **liquidada**. Sigue siendo dinámico: una silla nueva vuelve el valor
+  editable.
 - **Reglas de fierro**: una silla vacía JAMÁS llega a liquidación ni a
   nómina; al cerrar la ficha, las que siguen vacías se retiran y el
   costo converge a lo real. En los eventos con ficha ya cerrada la
