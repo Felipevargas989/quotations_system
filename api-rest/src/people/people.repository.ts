@@ -246,6 +246,31 @@ export class PeopleRepository {
     return data as unknown as EventStaffConPersona[];
   }
 
+  /** Muchas filas en UN viaje. La proyección de planta creaba 262
+   *  jornadas de a una —12 segundos al guardar una ficha (Felipe,
+   *  18-08). Sin devolver las filas: no hacen falta. */
+  async addStaffEnLote(rows: Record<string, unknown>[]) {
+    if (rows.length === 0) return 0;
+    this.logger.info(`addStaffEnLote ${rows.length} filas`);
+    const { error } = await this.supabase.client
+      .from('event_staff')
+      .insert(rows);
+    if (error) throw error;
+    return rows.length;
+  }
+
+  /** Muchas filas fuera en UN viaje, filtrando por empresa. */
+  async removeStaffEnLote(ids: number[], companyId: number) {
+    if (ids.length === 0) return 0;
+    const { error } = await this.supabase.client
+      .from('event_staff')
+      .delete()
+      .in('id', ids)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return ids.length;
+  }
+
   async addStaff(row: Record<string, unknown>) {
     this.logger.info(`addStaff ${JSON.stringify(row)}`);
     const { data, error } = await this.supabase.client
