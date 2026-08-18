@@ -354,7 +354,9 @@ export default function PersonasPage() {
       {editando !== undefined && (
         <Modal
           titulo={editando ? editando.name : "Nueva persona"}
-          ancho="max-w-3xl"
+          // Un escalón más que 3xl (Felipe, 18-08: "un pelito más ancho"):
+          // la fila de la jornada entraba, pero pegada al borde.
+          ancho="max-w-4xl"
           onCerrar={cerrarFicha}
         >
           <PersonaForm
