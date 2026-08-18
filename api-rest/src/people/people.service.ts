@@ -12,6 +12,7 @@ import {
   CreatePoolDto,
   CreateReviewDto,
   PagoDto,
+  PreviaPreliminarDto,
   ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
@@ -1089,6 +1090,38 @@ export class PeopleService {
    */
   async previaPayroll(dto: SeleccionPayrollDto, companyId: number) {
     const { jornadas, propinas } = await this.reunirLiquidado(dto, companyId);
+    const personas = consolidarPorRut(jornadas, propinas);
+    return {
+      personas,
+      total: personas.reduce((t, p) => t + p.total, 0),
+      sin_rut: personas.filter((p) => !p.rut).map((p) => p.nombre),
+      sin_cuenta: personas
+        .filter((p) => !p.account_number)
+        .map((p) => p.nombre),
+      fichas_repetidas: personas
+        .filter((p) => p.person_ids.length > 1)
+        .map((p) => p.nombre),
+    };
+  }
+
+  /**
+   * LA REVISIÓN ANTES DE LIQUIDAR (Felipe, 18-08): "cuando pincho
+   * liquidar evento, podría traerme preliminarmente el mismo modal que
+   * me mostrará después en nómina, así puedo tener una instancia de
+   * revisión con los totales para aprobar."
+   *
+   * Es la MISMA tabla y el MISMO cálculo que previaPayroll, con una
+   * sola diferencia: no pregunta si la ficha está cerrada — mira lo que
+   * QUEDARÍA por pagar de este evento si se cierra ahora. Solo lo de
+   * este evento, solo lo que no está ya en una nómina.
+   */
+  async previaPreliminar(dto: PreviaPreliminarDto, companyId: number) {
+    await this.sonDeLaEmpresa(companyId, { quotation_id: dto.quotation_id });
+    const filtro = { quotationIds: [dto.quotation_id] };
+    const [jornadas, propinas] = await Promise.all([
+      this.repo.jornadasPendientes(companyId, filtro),
+      this.repo.propinasPendientes(companyId, filtro),
+    ]);
     const personas = consolidarPorRut(jornadas, propinas);
     return {
       personas,

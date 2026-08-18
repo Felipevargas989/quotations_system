@@ -157,6 +157,13 @@ export class SeleccionPayrollDto {
 }
 
 /** La misma selección, más el nombre con que nace la nómina. */
+/** La misma revisión, pero para UN evento todavía abierto: qué quedaría
+ *  por pagar si se liquida ahora (Felipe, 18-08). */
+export class PreviaPreliminarDto {
+  @IsUUID()
+  quotation_id: string;
+}
+
 export class CreatePayrollDto extends SeleccionPayrollDto {
   @IsString()
   label: string;

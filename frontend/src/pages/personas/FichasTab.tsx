@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
+import { RevisionAntesDeLiquidar } from "./RevisionDeNomina";
 import NumberInput from "../../components/inputs/NumberInput";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
@@ -432,6 +433,7 @@ function FichaAbierta({
 }) {
   const qc = useQueryClient();
   const [evaluando, setEvaluando] = useState(false);
+  const [revisando, setRevisando] = useState(false);
   const cerrada = evento.estado === "cerrada";
 
   // LA PLANTA DE ESOS DÍAS ENTRA AL EVENTO (Felipe, 18-08): "como en
@@ -568,17 +570,31 @@ function FichaAbierta({
         onRefrescar={refrescar}
       />
 
-      {/* El cierre: reparte, evalúa y candado. */}
+      {/* El cierre: PRIMERO la revisión (la tabla de Nómina, con lo que
+          quedaría por pagar — Felipe, 18-08), y si aprueba, la evaluación
+          de la gente y el candado. */}
       {!cerrada && (
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => setEvaluando(true)}
+            onClick={() => setRevisando(true)}
             className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
           >
             Liquidar este evento…
           </button>
         </div>
+      )}
+
+      {revisando && (
+        <RevisionAntesDeLiquidar
+          quotationId={evento.id}
+          nombreEvento={evento.nombre}
+          onVolver={() => setRevisando(false)}
+          onAprobar={() => {
+            setRevisando(false);
+            setEvaluando(true);
+          }}
+        />
       )}
 
       {evaluando && (
