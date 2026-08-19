@@ -1904,7 +1904,9 @@ export default function DashboardPage() {
                                 </td>
                                 <td className="px-1">
                                   <span
-                                    className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
+                                    // DEL MISMO ANCHO, como los de al lado
+                                    // (Felipe, 18-08): una columna a plomo.
+                                    className={`inline-block w-32 text-center px-1.5 py-0.5 rounded text-[11px] font-medium ${
                                       ETIQUETA_ESTADO[f.estado]?.c ||
                                       "bg-gray-100 text-gray-600"
                                     }`}
