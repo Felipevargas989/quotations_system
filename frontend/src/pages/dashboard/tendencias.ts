@@ -229,10 +229,13 @@ const canonizar = (t?: string | null) =>
     .trim()
     .toLowerCase();
 
-type QCosecha = {
+export type QCosecha = {
   id?: string;
   quotation_number?: number;
   created_at?: string | Date | null;
+  /** La fecha del evento: manda cuando la pregunta es "qué eventos se
+   *  hicieron ese mes" (Felipe, 18-08). */
+  event_date?: string | Date | null;
   event_type?: string | null;
   total_amount?: number | null;
   quotation_status?: string | null;
@@ -270,9 +273,28 @@ const esEstado = (v?: string | null): EstadoCosecha | null =>
 // lista de tipos es cerrada, 8 valores, sin texto libre).
 const NO_SE_REPITE = new Set(["matrimonio", "matrimonios"]);
 
+/**
+ * POR QUÉ FECHA SE PREGUNTA (Felipe, 18-08). La misma tabla responde dos
+ * preguntas: "quién COTIZÓ ese mes" (por fecha de creación — la cosecha
+ * de siempre) y "qué EVENTOS se hicieron ese mes" (por fecha del evento,
+ * solo confirmados: lo que cuenta el gráfico de Eventos por Mes).
+ */
+export type MiradaDeCosecha = "cotizado" | "evento";
+
+export const perteneceAlMes = (
+  q: QCosecha,
+  claveMes: string,
+  mirada: MiradaDeCosecha,
+): boolean =>
+  mirada === "evento"
+    ? mesDe(q.event_date) === claveMes &&
+      ES_EVENTO.has(String(q.quotation_status || ""))
+    : mesDe(q.created_at) === claveMes;
+
 export const cosechaDelMes = (
   filas: QCosecha[],
   claveMes: string,
+  mirada: MiradaDeCosecha = "cotizado",
 ): FilaCosecha[] => {
   // La llave de la oportunidad. Si falta el cliente o el mandante no hay
   // nada que agrupar: la fila va sola con su propio id, para no arrastrar
@@ -300,7 +322,7 @@ export const cosechaDelMes = (
   });
 
   return filas
-    .filter((q) => mesDe(q.created_at) === claveMes)
+    .filter((q) => perteneceAlMes(q, claveMes, mirada))
     .map((q) => {
       const llave = llaveDe(q);
       const luego = posterior.get(llave);

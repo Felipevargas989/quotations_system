@@ -50,6 +50,7 @@ import {
 import { CompleteStatsResponse } from "../../types/analytics.types";
 import { etiquetaEstado, puntoEstado } from "../../utils/estadoCotizacion";
 import {
+  type MiradaDeCosecha,
   agruparPorMes,
   cosechaDelMes,
   ESTADOS_COSECHA,
@@ -446,9 +447,13 @@ export default function DashboardPage() {
   // la ventana) y cuál de las dos barras se pinchó: la firme es este año,
   // la tenue es el mismo mes del año pasado. Sin esto se pinchaba la
   // barra alta de 2025 y se abría la lista vacía de 2026 (Felipe, 06-08).
+  // Y desde CUÁL gráfico se pinchó (Felipe, 18-08): la misma tabla
+  // responde "quién cotizó ese mes" (Cotizaciones) o "qué eventos se
+  // hicieron ese mes" (Eventos, por fecha del evento, solo confirmados).
   const [mesElegido, setMesElegido] = useState<{
     base: string;
     anterior: boolean;
+    mirada: MiradaDeCosecha;
   } | null>(null);
   // Filtros y orden de la cosecha (07-08, pedido de Felipe). Viven acá
   // arriba, no dentro del panel, para que sobrevivan al salto entre las
@@ -502,7 +507,11 @@ export default function DashboardPage() {
       anterior ? unAnioAntes(mesElegido.base) : mesElegido.base;
     const porAnio = [true, false].map((ant) => {
       const clave = claveDe(ant);
-      return { ant, clave, filas: cosechaDelMes(todas, clave) };
+      return {
+        ant,
+        clave,
+        filas: cosechaDelMes(todas, clave, mesElegido.mirada),
+      };
     });
     const todasDelMes =
       porAnio.find((a) => a.ant === mesElegido.anterior)?.filas ?? [];
@@ -668,6 +677,7 @@ export default function DashboardPage() {
       evMonto: serieInteranual(mesesEv, porEvento, "monto", desde),
       // Los meses tal cual, para traducir un clic en la barra a su mes.
       mesesCot,
+      mesesEv,
       // El mes en curso va a medias; de ahí en adelante, proyección.
       mesActualCot: indiceMesActual(mesesCot),
       mesActualEv: indiceMesActual(mesesEv),
@@ -1445,26 +1455,29 @@ export default function DashboardPage() {
         // `elems` que entrega Chart.js viene en modo "index" (trae las
         // dos barras de la columna), así que preguntamos aparte por la
         // barra realmente pinchada para saber de qué año hablamos.
-        const alPinchar = (
-          e: ChartEvent,
-          elems: ActiveElement[],
-          chart: Chart,
-        ) => {
-          if (!elems.length) return setMesElegido(null);
-          const exacta = chart.getElementsAtEventForMode(
-            e.native as Event,
-            "nearest",
-            { intersect: true },
-            false,
-          );
-          const punto = exacta[0] ?? elems[0];
-          const m = tendencia.mesesCot[punto.index];
-          if (m)
-            setMesElegido({
-              base: m.clave,
-              anterior: punto.datasetIndex === 0,
-            });
-        };
+        // Cada gráfico abre la misma tabla con su propia pregunta
+        // (Felipe, 18-08): Cotizaciones → quién cotizó; Eventos → qué
+        // eventos se hicieron.
+        const alPincharCon =
+          (mirada: MiradaDeCosecha, meses: typeof tendencia.mesesCot) =>
+          (e: ChartEvent, elems: ActiveElement[], chart: Chart) => {
+            if (!elems.length) return setMesElegido(null);
+            const exacta = chart.getElementsAtEventForMode(
+              e.native as Event,
+              "nearest",
+              { intersect: true },
+              false,
+            );
+            const punto = exacta[0] ?? elems[0];
+            const m = meses[punto.index];
+            if (m)
+              setMesElegido({
+                base: m.clave,
+                anterior: punto.datasetIndex === 0,
+                mirada,
+              });
+          };
+        const alPinchar = alPincharCon("cotizado", tendencia.mesesCot);
         const opcionesBase = {
           responsive: true,
           maintainAspectRatio: false,
@@ -1484,6 +1497,10 @@ export default function DashboardPage() {
           scales: { y: { beginAtZero: true } },
         };
         const opcionesCot = { ...opcionesBase, onClick: alPinchar };
+        const opcionesEv = {
+          ...opcionesBase,
+          onClick: alPincharCon("evento", tendencia.mesesEv),
+        };
         const opcionesPlata = {
           ...opcionesBase,
           plugins: {
@@ -1550,7 +1567,7 @@ export default function DashboardPage() {
                     morado,
                     tendencia.mesActualEv,
                   )}
-                  options={opcionesBase}
+                  options={opcionesEv}
                 />,
               )}
             </div>
@@ -1625,12 +1642,18 @@ export default function DashboardPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
                       <div>
                         <h3 className="text-base font-bold text-gray-900">
-                          Quién cotizó en {etiquetaMes(clave)}
+                          {mesElegido.mirada === "evento"
+                            ? `Eventos de ${etiquetaMes(clave)}`
+                            : `Quién cotizó en ${etiquetaMes(clave)}`}
                         </h3>
                         <p className="text-xs text-gray-500">
-                          {hayFiltro
-                            ? `${filas.length} de ${todasDelMes.length} cotizaciones`
-                            : `${filas.length} cotización${filas.length === 1 ? "" : "es"}`}
+                          {mesElegido.mirada === "evento"
+                            ? hayFiltro
+                              ? `${filas.length} de ${todasDelMes.length} eventos`
+                              : `${filas.length} evento${filas.length === 1 ? "" : "s"}`
+                            : hayFiltro
+                              ? `${filas.length} de ${todasDelMes.length} cotizaciones`
+                              : `${filas.length} cotización${filas.length === 1 ? "" : "es"}`}
                           {pendientes > 0 && (
                             <>
                               {" · "}
@@ -1662,6 +1685,7 @@ export default function DashboardPage() {
                                 setMesElegido({
                                   base: mesElegido.base,
                                   anterior: a.ant,
+                                  mirada: mesElegido.mirada,
                                 })
                               }
                               className={`px-2.5 py-1 rounded-full text-xs border ${
