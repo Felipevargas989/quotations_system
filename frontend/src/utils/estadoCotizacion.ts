@@ -146,3 +146,23 @@ export const etiquetaConEmoji = (estado: string): string => {
   const d = defDe(estado);
   return d.emoji ? `${d.emoji} ${etiquetaEstado(estado)}` : etiquetaEstado(estado);
 };
+
+/**
+ * EL ESTADO CON QUE SE GUARDA UNA COTIZACIÓN (Felipe, 18-08).
+ *
+ * "Cuando creo una cotización queda por defecto en enviada… debería
+ * quedar en solicitada hasta que se envíe; puede estar momentáneamente
+ * en trabajo y no enviada de golpe."
+ *
+ * Antes, la cotización armada DESDE UN REQUERIMIENTO se forzaba a
+ * "enviada" al guardar — y como el servidor manda el correo al cliente
+ * cuando una cotización pasa a enviada, ese guardado la enviaba de golpe
+ * aunque estuviera a medias. La regla ahora es UNA, sin excepciones:
+ * se guarda con el estado que tiene el formulario (nace solicitada), y
+ * pasa a enviada solo cuando la persona la envía. Venga de cero o de un
+ * requerimiento.
+ */
+export const estadoAlGuardar = (
+  estadoDelFormulario: string,
+  _desdeRequerimiento: boolean,
+): string => estadoDelFormulario;

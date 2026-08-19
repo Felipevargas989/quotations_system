@@ -25,6 +25,7 @@ import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import { validateCompleteClientForm } from "../../utils/validation";
+import { estadoAlGuardar } from "../../utils/estadoCotizacion";
 import {
   emailProblem,
   normalizePhone,
@@ -1576,9 +1577,14 @@ export default function QuotationForm() {
         subtotal_amount: Math.round(t.subtotalAmount),
         total_amount: Math.round(t.totalAmount),
         items: itemsData,
-        quotation_status: isFromRequirement
-          ? QuotationStatus.ENVIADA
-          : formData.quotation_status,
+        // NADIE FUERZA "ENVIADA" (Felipe, 18-08): desde un requerimiento
+        // se guardaba como enviada —y el servidor mandaba el correo al
+        // cliente en ese mismo guardado. Se guarda con el estado del
+        // formulario; a enviada pasa solo cuando la persona la envía.
+        quotation_status: estadoAlGuardar(
+          formData.quotation_status,
+          isFromRequirement,
+        ) as QuotationStatus,
       };
 
       // UNA sola lista de campos editables, compartida por crear y

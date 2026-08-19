@@ -251,6 +251,23 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### La revisión antes de liquidar (18-08)
+
+Felipe: *"cuando pincho liquidar evento, podría traerme preliminarmente
+el mismo modal que me mostrará después en nómina, así puedo tener una
+instancia de revisión con los totales para aprobar… si apruebo paso a la
+evaluación de la gente."* Al pinchar **"Liquidar este evento…"** se
+abre **"Revisa antes de liquidar"**: la MISMA tabla de Nómina —por
+persona: RUT, banco, cuenta, jornadas, propinas, total, totales al pie
+y avisos— con lo que **quedaría** por pagar de ese evento si se cierra
+ahora (`previa-preliminar`: la misma consolidación por RUT, sin
+preguntar si la ficha está cerrada). **Aprobar** pasa a la evaluación
+del equipo y al cierre; **Volver** deja en la ficha para seguir
+ajustando, sin reabrir nada. El cuerpo de la revisión es una pieza
+compartida (`RevisionDeNomina`) para que Nómina y la ficha digan
+exactamente lo mismo. Sin RUT no bloquea liquidar (solo avisa); el
+bloqueo sigue siendo al generar la nómina.
+
 #### Reabrir una liquidación (18-08)
 
 Felipe, revisando la nómina del 423: *"la idea de ese botón es que
