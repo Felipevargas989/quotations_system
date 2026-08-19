@@ -1949,7 +1949,11 @@ export default function DashboardPage() {
                                       })
                                     }
                                     chipClass={metaEstado(f.efectivo).chip}
-                                    widthClass="w-full"
+                                    // TODOS DEL MISMO ANCHO (Felipe, 18-08):
+                                    // con w-full el envoltorio inline-block
+                                    // medía lo que medía cada texto. Fijo,
+                                    // con aire para el rótulo más largo.
+                                    widthClass="w-40"
                                     disabled={
                                       estadoMut.isPending &&
                                       !!estadoMut.variables?.ids.includes(f.id)
