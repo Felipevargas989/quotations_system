@@ -328,20 +328,27 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     },
     onSettled: refrescar,
   });
-  // LA PLANTA SE PROYECTA A 12 MESES, UNA SOLA VEZ (Felipe, 15-08:
-  // "no estar cargando y metiéndole sobrecarga cada vez que pincho y me
-  // desplazo"). Al abrir la sábana se deja el año entero listo;
-  // moverse por los meses ya no llama a nadie.
+  // LA PLANTA SE PROYECTA A 12 MESES, UNA VEZ POR SESIÓN (Felipe,
+  // 15-08: "no estar cargando y metiéndole sobrecarga cada vez que
+  // pincho"; y 18-08: "la navegabilidad está más lenta" — el useRef
+  // vivía con el componente, así que CADA entrada a la pestaña volvía a
+  // proyectar: 3 segundos de base de datos por paseo. sessionStorage
+  // sobrevive a la navegación; se proyecta al primer Personal del día y
+  // listo. Crear o editar una persona reproyecta lo suyo por su lado,
+  // así que no se pierde nada.
   const yaProyectado = useRef(false);
   useEffect(() => {
-    if (yaProyectado.current) return;
+    const LLAVE = "planta-proyectada";
+    if (yaProyectado.current || sessionStorage.getItem(LLAVE)) return;
     yaProyectado.current = true;
+    sessionStorage.setItem(LLAVE, "1");
     proyectarPlanta()
       .then((r) => {
         if (r.creadas > 0) refrescar();
       })
       .catch(() => {
         yaProyectado.current = false;
+        sessionStorage.removeItem(LLAVE);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
