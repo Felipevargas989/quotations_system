@@ -551,11 +551,14 @@ export class PeopleService {
     const personas = (await this.repo.findAll(companyId)).filter(
       (p) => p.status === 'activa' && p.default_kind === 'planta',
     );
-    let creadas = 0;
-    for (const p of personas) {
-      const r = await this.proyectarPlanta(companyId, p.id);
-      creadas += r.creados;
-    }
+    // EN PARALELO, no en fila india (Felipe, 18-08: la sábana tardaba
+    // 3,1 segundos en abrir, medido en los logs de producción). Cada persona proyecta lo suyo — filas
+    // propias, sin cruce entre ellas — así que pueden ir todas a la vez:
+    // el total tarda lo que la más lenta, no la suma de todas.
+    const resultados = await Promise.all(
+      personas.map((p) => this.proyectarPlanta(companyId, p.id)),
+    );
+    const creadas = resultados.reduce((t, r) => t + r.creados, 0);
     return { personas: personas.length, creadas };
   }
 
