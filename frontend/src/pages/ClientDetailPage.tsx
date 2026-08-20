@@ -613,26 +613,25 @@ export default function ClientDetailPage() {
               >
                 <Trash2 size={15} className="inline -mt-0.5" /> Eliminar
               </button>
+            ) : confirmDelete ? (
+              // La pregunta REEMPLAZA al botón (Felipe, 18-08): dos
+              // "Eliminar" a la vista confunden cuál es el definitivo.
+              <ConfirmInline
+                question="¿Eliminar este cliente definitivamente?"
+                yesLabel={deleting ? "Eliminando…" : "Eliminar"}
+                busy={deleting}
+                onYes={() => void handleDeleteClient()}
+                onNo={() => setConfirmDelete(false)}
+              />
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50"
-                  title="Eliminar cliente"
-                >
-                  <Trash2 size={15} className="inline -mt-0.5" /> Eliminar
-                </button>
-                {confirmDelete && (
-                  <ConfirmInline
-                    question="¿Eliminar este cliente definitivamente?"
-                    yesLabel={deleting ? "Eliminando…" : "Eliminar"}
-                    busy={deleting}
-                    onYes={() => void handleDeleteClient()}
-                    onNo={() => setConfirmDelete(false)}
-                  />
-                )}
-              </>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50"
+                title="Eliminar cliente"
+              >
+                <Trash2 size={15} className="inline -mt-0.5" /> Eliminar
+              </button>
             )}
           </span>
         </div>
