@@ -552,7 +552,7 @@ export class PeopleService {
       (p) => p.status === 'activa' && p.default_kind === 'planta',
     );
     // EN PARALELO, no en fila india (Felipe, 18-08: la sábana tardaba
-    // 3 segundos en abrir). Cada persona proyecta lo suyo — filas
+    // 3,1 segundos en abrir, medido en los logs de producción). Cada persona proyecta lo suyo — filas
     // propias, sin cruce entre ellas — así que pueden ir todas a la vez:
     // el total tarda lo que la más lenta, no la suma de todas.
     const resultados = await Promise.all(
