@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
 import { RevisionAntesDeLiquidar } from "./RevisionDeNomina";
 import NumberInput from "../../components/inputs/NumberInput";
+import { horasTrabajadas } from "../../components/inputs";
 import Estrellas from "../../components/Estrellas";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
@@ -621,7 +622,8 @@ function FichaAbierta({
   );
 }
 
-/** El pozo (con sus dos entregas) y el reparto por cargo y por horas. */
+/** El pozo y el reparto por puntos: el % de cada cargo es el valor de
+ *  su hora (Felipe, 21-08). */
 function Reparto({
   evento,
   pozo,
@@ -649,10 +651,16 @@ function Reparto({
   }, [staff]);
 
   // LOS PORCENTAJES YA REPARTIDOS SE LEEN DE VUELTA (Felipe, 15-08:
-  // repartió 90/10 y los vio en cero). Se calculan de lo que cada cargo
-  // se llevó, así que al volver a abrir la ficha está lo que se usó y
-  // no hay que adivinarlo.
+  // repartió 90/10 y los vio en cero). Desde el reparto por puntos
+  // (21-08) vienen guardados en el pozo tal como se escribieron; para
+  // los repartos anteriores a eso se deducen de lo que cada cargo se
+  // llevó, como antes.
   const yaRepartidos = useMemo(() => {
+    if (pozo?.porcentajes?.length) {
+      return new Map<number | null, number>(
+        pozo.porcentajes.map((p) => [p.role_id ?? null, p.pct]),
+      );
+    }
     const total = staff.reduce((t, a) => t + Number(a.tip_amount ?? 0), 0);
     if (total <= 0) return new Map<number | null, number>();
     const porCargo = new Map<number | null, number>();
@@ -667,7 +675,7 @@ function Reparto({
       m.set(k, Math.round((v / total) * 1000) / 10);
     }
     return m;
-  }, [staff]);
+  }, [staff, pozo]);
 
   const [sinPropinaCargo, setSinPropinaCargo] = useState<Set<number | null>>(
     new Set(),
@@ -693,6 +701,30 @@ function Reparto({
   const monto = pozo
     ? Number(pozo.first_amount) + Number(pozo.second_amount)
     : 0;
+
+  // LO QUE SE LLEVA CADA CARGO SALE DE SUS HORAS (21-08). El % es el
+  // valor de la hora del cargo, no su tajada: cada jornada junta
+  // horas × %, y la plata se reparte entre los puntos de todos. Gemelo
+  // del cálculo del backend (9 h si una jornada no tiene horario).
+  const puntosPorCargo = useMemo(() => {
+    const m = new Map<number | null, number>();
+    for (const a of staff) {
+      if (a.no_tip || a.person_id == null) continue;
+      const k = a.role_id ?? null;
+      const horas =
+        horasTrabajadas(a.starts_at, a.ends_at, a.break_minutes) ?? 9;
+      m.set(k, (m.get(k) ?? 0) + horas);
+    }
+    return m;
+  }, [staff]);
+  const totalPuntos = cargos.reduce(
+    (t, [id]) => t + (puntosPorCargo.get(id) ?? 0) * pct(id),
+    0,
+  );
+  const plataDe = (id: number | null) =>
+    totalPuntos > 0
+      ? (monto * (puntosPorCargo.get(id) ?? 0) * pct(id)) / totalPuntos
+      : 0;
 
   // CADA CAJA ES DE QUIEN LA ESCRIBE (Felipe, 17-08). Antes, al cambiar
   // un porcentaje los demás se recalculaban solos "para que sumara 100";
@@ -815,13 +847,24 @@ function Reparto({
                     />
                   </div>
                   <span className="text-sm text-gray-400">%</span>
-                  <span className="w-28 text-right tabular-nums text-sm text-gray-600">
-                    {clp((monto * pct(id)) / 100)}
+                  <span
+                    className="w-28 text-right tabular-nums text-sm text-gray-600"
+                    title={`${(puntosPorCargo.get(id) ?? 0).toLocaleString("es-CL")} h de ${nombre}`}
+                  >
+                    {clp(plataDe(id))}
                   </span>
                 </div>
               );
             })}
           </div>
+
+          {/* QUÉ SIGNIFICA EL % (Felipe, 21-08: "la distribuí igual
+              entre cocina y garzones y no entiendo la diferencia"). */}
+          <p className="text-xs text-gray-500">
+            El % es el valor de la hora de cada cargo: mismas horas y
+            mismo cargo, misma propina. Lo que se lleva cada cargo sale de
+            sus horas.
+          </p>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <span
@@ -963,8 +1006,8 @@ function EvaluacionesModal({
  *
  * El modal muestra quiénes trabajaron, pide el monto del pozo y el %
  * por cargo de los que estuvieron — sin plantillas: los porcentajes se
- * escriben según el día. Reparte (por horas dentro del cargo, la mejora
- * sobre el Excel que Felipe ratificó) y pasa solo al día siguiente.
+ * escriben según el día. Reparte por puntos (el % es el valor de la
+ * hora del cargo, 21-08) y pasa solo al día siguiente.
  * Un día flojo se marca "sin propina" y también queda liquidado.
  */
 function DiaRestaurante({
@@ -1029,6 +1072,20 @@ function DiaRestaurante({
     return [...m.entries()];
   }, [delDia]);
 
+  // LAS HORAS DE CADA CARGO, para mostrar lo que se lleva: el % es el
+  // valor de la hora, no la tajada (21-08). Gemelo del backend.
+  const horasPorCargo = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const a of delDia) {
+      if (a.no_tip || a.person_id == null) continue;
+      const k = a.role_id ?? 0;
+      const horas =
+        horasTrabajadas(a.starts_at, a.ends_at, a.break_minutes) ?? 9;
+      m.set(k, (m.get(k) ?? 0) + horas);
+    }
+    return m;
+  }, [delDia]);
+
   // UN SOLO CARGO SE LLEVA EL 100% SOLO (Felipe, 15-08). Si no hay
   // entre quiénes repartir, escribir "100" a mano era puro trámite: se
   // fija y la caja se bloquea. Vive en el getter y no en un estado, así
@@ -1040,6 +1097,10 @@ function DiaRestaurante({
   const pct = (id: number) =>
     soloUno ? (id === unico ? 100 : 0) : (pcts.get(id) ?? 0);
   const total = cargos.reduce((t, [id]) => t + pct(id), 0);
+  const totalPuntos = cargos.reduce(
+    (t, [id]) => t + (horasPorCargo.get(id) ?? 0) * pct(id),
+    0,
+  );
   const cuadra = Math.abs(total - 100) < 0.001;
 
   const pozoDia = useMemo(
@@ -1354,13 +1415,27 @@ function DiaRestaurante({
                       />
                     </div>
                     <span className="text-sm text-gray-400">%</span>
-                    <span className="w-24 text-right tabular-nums text-sm text-gray-600">
-                      {clp(((monto ?? 0) * pct(id)) / 100)}
+                    <span
+                      className="w-24 text-right tabular-nums text-sm text-gray-600"
+                      title={`${(horasPorCargo.get(id) ?? 0).toLocaleString("es-CL")} h de ${nombre}`}
+                    >
+                      {clp(
+                        totalPuntos > 0
+                          ? ((monto ?? 0) *
+                              (horasPorCargo.get(id) ?? 0) *
+                              pct(id)) /
+                              totalPuntos
+                          : 0,
+                      )}
                     </span>
                   </div>
                 );
               })}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              El % es el valor de la hora de cada cargo: mismas horas y
+              mismo cargo, misma propina.
+            </p>
             <p
               className={`text-sm mt-2 ${
                 cuadra ? "text-emerald-700" : "text-amber-700"

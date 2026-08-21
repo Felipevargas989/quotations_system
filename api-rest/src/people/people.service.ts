@@ -737,10 +737,22 @@ export class PeopleService {
   }
 
   /**
-   * EL REPARTO: por cargo según los porcentajes, y DENTRO del cargo
-   * por horas trabajadas. Al peso y SIN SOBRANTES — el redondeo
-   * reparte los pesos que faltan de a uno (en el Excel, Joker No 1
-   * dejó $8 en el aire y 8 de 9 eventos descuadraban).
+   * EL REPARTO POR PUNTOS (Felipe, 21-08). El porcentaje de un cargo es
+   * EL VALOR DE SU HORA, no su tajada del pozo: cada fila junta puntos
+   * (minutos trabajados × % de su cargo) y el pozo se reparte entre los
+   * puntos de todos. Mismas horas y mismo cargo = misma propina, sean
+   * 1 o 10 en el cargo. Antes se partía la plata por cargo y recién ahí
+   * se miraban las horas; en la #423 (Joker) cocina 45 / garzón 45
+   * pagaba $767 y $712 la hora porque los garzones sumaban más horas.
+   * "Es lo más defendible y refleja mejor el espíritu de cómo queremos
+   * repartir esto."
+   *
+   * La pantalla no cambia: los mismos porcentajes, sumando 100, en el
+   * mismo lugar ("es más familiar que hablar de puntos").
+   *
+   * Al peso y SIN SOBRANTES — el redondeo reparte los pesos que faltan
+   * de a uno (en el Excel, Joker No 1 dejó $8 en el aire y 8 de 9
+   * eventos descuadraban).
    *
    * Se puede volver a repartir mientras la ficha no esté cerrada y la
    * propina no haya caído en una nómina.
@@ -778,38 +790,12 @@ export class PeopleService {
       );
     }
 
-    // El pozo por cargo (mayor resto), y dentro del cargo por horas.
     // QUIEN NO LLEVA PROPINA QUEDA FUERA (Felipe, 15-08). Medido en el
     // Excel: el 28 de septiembre trabajaron 10 y recibieron 4. Su
-    // jornada se paga igual; lo que le toca al cargo se divide entre
-    // los que sí llevan.
+    // jornada se paga igual; sus horas no juntan puntos.
     filas = filas.filter((f) => !f.no_tip && f.person_id != null);
 
-    const conPct = dto.porcentajes.filter((p) => p.pct > 0);
-    const montosCargo = repartirAlPeso(
-      pozo,
-      conPct.map((p) => p.pct),
-    );
-    const asignado = new Map<number, number>();
-    conPct.forEach((p, i) => {
-      const delCargo = filas.filter(
-        (f) => (f.role_id ?? null) === (p.role_id ?? null),
-      );
-      if (delCargo.length === 0) {
-        throw new BadRequestException(
-          `Hay un ${String(p.pct)}% asignado a un cargo sin nadie puesto`,
-        );
-      }
-      const montos = repartirAlPeso(
-        montosCargo[i],
-        delCargo.map((f) =>
-          minutosTrabajados(f.starts_at, f.ends_at, f.break_minutes),
-        ),
-      );
-      delCargo.forEach((f, j) =>
-        asignado.set(f.id, (asignado.get(f.id) ?? 0) + montos[j]),
-      );
-    });
+    const asignado = repartirPorPuntos(pozo, filas, dto.porcentajes);
 
     await this.repo.clearTips(poolId, companyId);
     for (const [id, monto] of asignado) {
@@ -819,9 +805,18 @@ export class PeopleService {
         companyId,
       );
     }
+    // LOS PORCENTAJES SE GUARDAN (21-08). Antes la pantalla los
+    // deducía de cuánto se llevó cada cargo; con puntos esa cuenta ya
+    // no devuelve lo que se escribió (45/45/10 se leería 45,5/49/5,4).
     await this.repo.updatePool(
       poolId,
-      { distributed_at: new Date().toISOString() },
+      {
+        distributed_at: new Date().toISOString(),
+        porcentajes: dto.porcentajes.map((p) => ({
+          role_id: p.role_id ?? null,
+          pct: p.pct,
+        })),
+      },
       companyId,
     );
     const repartido = [...asignado.values()].reduce((t, m) => t + m, 0);
@@ -1544,6 +1539,48 @@ export const repartirAlPeso = (total: number, pesos: number[]): number[] => {
     faltan -= 1;
   }
   return pisos;
+};
+
+/** Lo mínimo de una fila para repartirle propina. */
+export interface FilaRepartible {
+  id: number;
+  role_id: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  break_minutes: number | null;
+}
+
+/**
+ * El reparto por puntos, puro para poder probarlo: cada fila junta
+ * minutos trabajados × porcentaje de su cargo, y el pozo se reparte al
+ * peso entre esos puntos. Un cargo con porcentaje y sin nadie puesto es
+ * un error (la pantalla lo evita; acá se cuida igual). Las filas de un
+ * cargo en 0% — o sin porcentaje — no juntan puntos y quedan fuera.
+ */
+export const repartirPorPuntos = (
+  pozo: number,
+  filas: readonly FilaRepartible[],
+  porcentajes: readonly { role_id?: number | null; pct: number }[],
+): Map<number, number> => {
+  const pctDe = new Map<number | null, number>();
+  for (const p of porcentajes) {
+    if (p.pct > 0) pctDe.set(p.role_id ?? null, p.pct);
+  }
+  for (const [roleId, pct] of pctDe) {
+    if (!filas.some((f) => (f.role_id ?? null) === roleId)) {
+      throw new BadRequestException(
+        `Hay un ${String(pct)}% asignado a un cargo sin nadie puesto`,
+      );
+    }
+  }
+  const conPuntos = filas.filter((f) => pctDe.has(f.role_id ?? null));
+  const puntos = conPuntos.map(
+    (f) =>
+      minutosTrabajados(f.starts_at, f.ends_at, f.break_minutes) *
+      (pctDe.get(f.role_id ?? null) ?? 0),
+  );
+  const montos = repartirAlPeso(pozo, puntos);
+  return new Map(conPuntos.map((f, i) => [f.id, montos[i]]));
 };
 
 /** Minutos trabajados descontando colación; 9 h si no hay horario

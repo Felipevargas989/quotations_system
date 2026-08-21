@@ -147,6 +147,10 @@ export class TipPool {
   first_amount: number;
   second_amount: number;
   distributed_at: string | null;
+  /** Los porcentajes (valor de la hora por cargo) del último reparto,
+   *  tal como se escribieron. NULL = sin repartir o reparto anterior
+   *  a la migración 87. */
+  porcentajes: { role_id: number | null; pct: number }[] | null;
   created_at: Date;
 }
 
