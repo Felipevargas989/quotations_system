@@ -159,6 +159,9 @@ export interface Ficha {
   quotation_id: string;
   status: EstadoFicha;
   closed_at: string | null;
+  /** Cerrada por SQL al arrancar el módulo (migración 86): no es
+   *  historial de nadie y la pantalla no la lista. */
+  cierre_administrativo?: boolean;
 }
 
 /** Un pozo de propina: de un evento o de un día de la planta. Llega
