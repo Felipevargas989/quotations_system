@@ -35,7 +35,7 @@ describe('QuotationsService', () => {
     // Create mock objects
     quotationsRepositoryMock = {
       findOne: jest.fn(),
-      // findAll: jest.fn(),
+      findAll: jest.fn(),
       // create: jest.fn(),
       update: jest.fn(),
       // delete: jest.fn(),
@@ -81,7 +81,7 @@ describe('QuotationsService', () => {
     } as any;
 
     loggerMock = {
-      // info: jest.fn(),
+      info: jest.fn(),
       error: jest.fn(),
       // warn: jest.fn(),
       // debug: jest.fn(),
@@ -142,6 +142,47 @@ describe('QuotationsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('checkConflictsWithExistingQuotations()', () => {
+    // Felipe (18-08): "el requerimiento se cuenta a él solo". Al editar,
+    // la propia fila no es un choque; otra en la misma fecha, sí.
+    const fila = (id: string) =>
+      ({
+        id,
+        event_date: '2026-09-09T00:00:00Z',
+        event_end_date: null,
+      }) as never;
+
+    it('editando, se excluye a sí misma: sola en el día no hay choque', async () => {
+      quotationsRepositoryMock.findAll.mockResolvedValue([fila('yo')] as never);
+      const r = await service.checkConflictsWithExistingQuotations(
+        { event_date: '2026-09-09', exclude_id: 'yo' } as never,
+        1,
+      );
+      expect(r.has_conflicts).toBe(false);
+    });
+
+    it('otra cotización en la misma fecha sigue chocando', async () => {
+      quotationsRepositoryMock.findAll.mockResolvedValue([
+        fila('yo'),
+        fila('otra'),
+      ] as never);
+      const r = await service.checkConflictsWithExistingQuotations(
+        { event_date: '2026-09-09', exclude_id: 'yo' } as never,
+        1,
+      );
+      expect(r.has_conflicts).toBe(true);
+    });
+
+    it('sin exclude_id (creando) se cuenta todo, como siempre', async () => {
+      quotationsRepositoryMock.findAll.mockResolvedValue([fila('a')] as never);
+      const r = await service.checkConflictsWithExistingQuotations(
+        { event_date: '2026-09-09' } as never,
+        1,
+      );
+      expect(r.has_conflicts).toBe(true);
+    });
   });
 
   describe('update()', () => {

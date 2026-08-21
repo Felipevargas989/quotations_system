@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 
 export class CheckConflictsWithExistingQuotationsDto {
   @IsDateString()
@@ -9,4 +9,10 @@ export class CheckConflictsWithExistingQuotationsDto {
   @IsDateString()
   @IsOptional()
   event_end_date?: string;
+
+  // Al EDITAR, la propia cotización/requerimiento no es un choque
+  // (Felipe, 18-08: "el requerimiento se cuenta a él solo").
+  @IsUUID()
+  @IsOptional()
+  exclude_id?: string;
 }

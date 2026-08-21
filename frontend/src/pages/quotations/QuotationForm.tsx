@@ -336,7 +336,11 @@ export default function QuotationForm() {
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
-    useDateAvailability(formData.event_date, formData.event_end_date);
+    useDateAvailability(
+      formData.event_date,
+      formData.event_end_date,
+      quotation?.id,
+    );
 
   // Secciones de categoría: la sección FIJA de una categoría hace que sus
   // servicios entren solos a la cotización al elegir la categoría, y no se

@@ -130,6 +130,8 @@ export const getQuotationById = async (quotationId: string) => {
 export const checkConflictsWithExistingQuotations = async (
   eventDate: string,
   eventEndDate?: string,
+  // Al editar: la propia cotización/requerimiento no es un choque.
+  excludeId?: string,
 ) => {
   const response = await apiRequest(
     `${API_ROUTES.QUOTATIONS_CHECK_CONFLICTS}`,
@@ -138,6 +140,7 @@ export const checkConflictsWithExistingQuotations = async (
     {
       event_date: eventDate,
       ...(eventEndDate ? { event_end_date: eventEndDate } : {}),
+      ...(excludeId ? { exclude_id: excludeId } : {}),
     },
   );
   return {
