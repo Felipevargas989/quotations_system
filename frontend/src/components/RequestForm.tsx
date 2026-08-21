@@ -80,7 +80,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
   // Use custom hook for date availability checking
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
-    useDateAvailability(formData.event_date);
+    useDateAvailability(formData.event_date, null, request?.id);
 
   const eventTypes = [
     "Almuerzo o Cena",

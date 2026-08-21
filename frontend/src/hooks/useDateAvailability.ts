@@ -9,6 +9,9 @@ interface UseDateAvailabilityReturn {
 export const useDateAvailability = (
   eventDate: string | Date | null | undefined,
   eventEndDate?: string | Date | null,
+  // Al EDITAR, el id propio: sin esto, un requerimiento guardado con
+  // fecha "chocaba" consigo mismo (Felipe, 18-08).
+  excludeId?: string,
 ): UseDateAvailabilityReturn => {
   const [hasConflicts, setHasConflicts] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -37,6 +40,7 @@ export const useDateAvailability = (
           const { data } = await checkConflictsWithExistingQuotations(
             dateString,
             endString,
+            excludeId,
           );
           setHasConflicts(data?.has_conflicts || false);
         } catch (error) {
@@ -52,7 +56,7 @@ export const useDateAvailability = (
 
     checkConflicts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventDate, eventEndDate]);
+  }, [eventDate, eventEndDate, excludeId]);
 
   return { hasConflicts, isChecking };
 };

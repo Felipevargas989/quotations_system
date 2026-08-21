@@ -1248,6 +1248,9 @@ export class QuotationsService {
       });
 
       const has_conflicts = data.some((q) => {
+        // La que se está editando no choca consigo misma (Felipe, 18-08).
+        if (params.exclude_id && String(q.id) === params.exclude_id)
+          return false;
         if (!q.event_date) return false;
         const qStart = new Date(q.event_date).getTime();
         const qEnd = q.event_end_date
