@@ -174,6 +174,10 @@ export interface Pozo {
   first_amount: number;
   second_amount: number;
   distributed_at: string | null;
+  /** Los porcentajes del último reparto, tal como se escribieron.
+   *  Con el reparto por puntos (21-08) el % es el valor de la hora del
+   *  cargo. NULL = sin repartir o anterior a la migración 87. */
+  porcentajes?: { role_id: number | null; pct: number }[] | null;
 }
 
 export interface Evaluacion {

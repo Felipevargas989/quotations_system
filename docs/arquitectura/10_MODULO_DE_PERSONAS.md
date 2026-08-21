@@ -251,6 +251,22 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### Todo evento pasado se liquida; el historial es lo que Felipe liquida (21-08)
+
+Dos decisiones de Felipe que cierran la lista "Eventos por liquidar":
+
+- **"Todo se debe liquidar."** Un evento pasado aparece por liquidar
+  aunque no tenga personal cargado; nada se oculta. El flujo de un
+  evento sin gente no se ha probado todavía en producción — *"esperemos
+  que pase y veamos cómo se comporta"*.
+- **El pliegue "ya liquidados" es su historial.** *"Quería tener el
+  historial de lo que voy liquidando, pero esos 14 son anteriores a esta
+  implementación."* Las 110 fichas cerradas por SQL al arrancar el
+  módulo (17/18-08, sin gente ni plata) quedan marcadas
+  `cierre_administrativo` (migración 86) y la lista no las muestra. NO
+  se usa "sin gente" como regla: un evento que él liquide vacío mañana
+  sí es historia suya y se ve. Ninguna ficha nueva nace con la marca.
+
 #### La revisión antes de liquidar (18-08)
 
 Felipe: *"cuando pincho liquidar evento, podría traerme preliminarmente
@@ -342,6 +358,33 @@ La pestaña se llama **Liquidación** y separa los dos caminos:
   pagó — sin datos bancarios.
 
 ### El reparto de la propina
+
+⚠ **Cambiado el 21-08-2026: el reparto es POR PUNTOS.** El porcentaje de
+un cargo es **el valor de su hora**, no su tajada del pozo. Cada jornada
+junta puntos = horas × % de su cargo, y el pozo se reparte entre los
+puntos de todos. Consecuencias, con palabras de Felipe:
+
+- **Mismas horas y mismo cargo, misma propina** — sean 1 o 10 en el cargo.
+  Antes la plata se partía por cargo y recién ahí se miraban las horas: en
+  la #423 (Joker) cocina 45 / garzón 45 pagaba $767 y $712 la hora porque
+  los garzones sumaban más horas. *"Es lo más defendible y refleja mejor
+  el espíritu de cómo queremos repartir esto."*
+- **Un cargo con poca gente nunca se lleva "su mitad"**: 1 cocinera y 3
+  garzones al 50/50 con las mismas horas ganan los cuatro lo mismo. Si se
+  quiere premiar a un cargo, se le sube el valor de la hora (cocina 60,
+  garzón 45), no una tajada fija.
+- **La pantalla no cambia**: los mismos porcentajes, sumando 100, en el
+  mismo lugar (*"es más familiar que hablar de puntos"*). Un texto bajo la
+  grilla dice qué significa el %, y la plata por cargo del preview sale de
+  sus horas. Los porcentajes se **guardan en el pozo** (migración 87)
+  porque ya no se pueden deducir de lo repartido.
+- La explicación para el equipo, con el ejemplo de $104.000 y 60/30/10,
+  vive en las pruebas (`reparto-por-puntos.spec.ts`): Luis 8 h garzón
+  $48.000, Carla 4 h garzón $24.000, Ana 8 h cocina $24.000, Pedro 8 h
+  aseo $8.000.
+
+Lo que sigue abajo es la regla original (15-08), vigente en todo lo que no
+contradiga lo anterior.
 
 - Se reparte **por horas**.
 - **Los cargos son solo una lista de nombres.** Ninguno trae escrito si
@@ -488,8 +531,9 @@ La pestaña se llama **Liquidación** y separa los dos caminos:
 
 ### El reparto
 
-Muestra el pozo (con sus dos entregas), los cargos que estuvieron, el
-porcentaje de cada uno y cuánto le toca. Cuadra o no avanza.
+Muestra el pozo, los cargos que estuvieron, el porcentaje de cada uno
+(el valor de su hora, desde el 21-08) y cuánto le toca según sus horas.
+Cuadra o no avanza.
 
 ### La nómina
 
