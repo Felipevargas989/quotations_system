@@ -184,12 +184,21 @@ export default function FichasTab() {
 
   const filas: EventoFila[] = useMemo(() => {
     const porEvento = new Map(sheets.map((s) => [s.quotation_id, s.status]));
+    // EL HISTORIAL ES DE LO QUE FELIPE LIQUIDA (21-08): "quería tener el
+    // historial de lo que voy liquidando, pero esos 14 son anteriores a
+    // esta implementación". Los cierres administrativos del arranque
+    // (migración 86) no se listan. Un evento que él liquide vacío
+    // mañana SÍ: es historia suya.
+    const administrativas = new Set(
+      sheets.filter((s) => s.cierre_administrativo).map((s) => s.quotation_id),
+    );
     return (
       eventos
         // SE LIQUIDA LO QUE YA PASÓ (Felipe, 15-08): "no pago un evento
         // de diciembre en agosto". Los futuros no aparecen acá — para
         // armarlos está la Planificación.
         .filter((q) => (q.termino || q.inicio) <= hoy)
+        .filter((q) => !administrativas.has(q.id))
         .map((q) => ({
           id: q.id,
           nombre: `N° ${String(q.numero)} · ${q.cliente}`,
