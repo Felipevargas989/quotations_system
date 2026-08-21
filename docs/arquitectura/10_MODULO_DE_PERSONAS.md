@@ -251,6 +251,22 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### Todo evento pasado se liquida; el historial es lo que Felipe liquida (21-08)
+
+Dos decisiones de Felipe que cierran la lista "Eventos por liquidar":
+
+- **"Todo se debe liquidar."** Un evento pasado aparece por liquidar
+  aunque no tenga personal cargado; nada se oculta. El flujo de un
+  evento sin gente no se ha probado todavía en producción — *"esperemos
+  que pase y veamos cómo se comporta"*.
+- **El pliegue "ya liquidados" es su historial.** *"Quería tener el
+  historial de lo que voy liquidando, pero esos 14 son anteriores a esta
+  implementación."* Las 110 fichas cerradas por SQL al arrancar el
+  módulo (17/18-08, sin gente ni plata) quedan marcadas
+  `cierre_administrativo` (migración 86) y la lista no las muestra. NO
+  se usa "sin gente" como regla: un evento que él liquide vacío mañana
+  sí es historia suya y se ve. Ninguna ficha nueva nace con la marca.
+
 #### La revisión antes de liquidar (18-08)
 
 Felipe: *"cuando pincho liquidar evento, podría traerme preliminarmente
