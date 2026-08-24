@@ -146,3 +146,82 @@ describe('PaymentsService', () => {
     });
   });
 });
+
+// LA CUOTA FANTASMA DE $0 (24-08, #486 de Quillón): supabase entrega
+// numeric como TEXTO; el abonado se sumaba con + (pegaba "020800") y la
+// comparación contra el monto era alfabética, así que un pago EXACTO
+// caía en la división y nacía una cuota de $0 vencida. Estas pruebas
+// usan los montos COMO TEXTO, igual que llegan de la base.
+describe('normalizePaymentAfterTransactions', () => {
+  const armar = (repo: Partial<PaymentsRepository>) =>
+    new PaymentsService(
+      repo as PaymentsRepository,
+      {} as QuotationsRepository,
+      {} as QuotationsService,
+      {} as EmailService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+
+  it('un pago exacto marca la cuota pagada y NO pare una cuota de $0', async () => {
+    const repo = {
+      findPaymentById: jest.fn().mockResolvedValue({
+        data: {
+          id: 'p11',
+          quotation_id: 'q486',
+          payment_number: 11,
+          amount: '20800',
+          due_date: '2026-08-20',
+        },
+        error: null,
+      }),
+      findAllTransactionsByPaymentId: jest
+        .fn()
+        .mockResolvedValue({ data: [{ amount: '20800' }] }),
+      updatePayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      createPayment: jest.fn(),
+      findAllPaymentsFromQuotation: jest
+        .fn()
+        .mockResolvedValue({ data: [], error: null }),
+    };
+    const service = armar(repo);
+    await service['normalizePaymentAfterTransactions']('p11', 1);
+    expect(repo.updatePayment).toHaveBeenCalledWith('p11', {
+      status: 'pagado',
+    });
+    expect(repo.createPayment).not.toHaveBeenCalled();
+  });
+
+  it('un pago parcial sí divide, con el remanente bien restado', async () => {
+    const repo = {
+      findPaymentById: jest.fn().mockResolvedValue({
+        data: {
+          id: 'p10',
+          quotation_id: 'q486',
+          payment_number: 10,
+          amount: '52000',
+          due_date: '2026-08-20',
+          payment_type: 'Cuota 1',
+          notes: '',
+        },
+        error: null,
+      }),
+      findAllTransactionsByPaymentId: jest
+        .fn()
+        .mockResolvedValue({ data: [{ amount: '31200' }] }),
+      updatePayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      createPayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      findAllPaymentsFromQuotation: jest
+        .fn()
+        .mockResolvedValue({ data: [], error: null }),
+    };
+    const service = armar(repo);
+    await service['normalizePaymentAfterTransactions']('p10', 1);
+    expect(repo.updatePayment).toHaveBeenCalledWith('p10', {
+      amount: 31200,
+      status: 'pagado',
+    });
+    expect(repo.createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 20800, payment_number: 11 }),
+    );
+  });
+});

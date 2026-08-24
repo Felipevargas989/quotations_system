@@ -368,11 +368,12 @@ export class PaymentsService {
       // 2. Compute the remaining amount per installment
       const withRemaining = payments
         .map((payment) => {
+          // Numeric llega como texto (ver normalizePaymentAfterTransactions).
           const alreadyPaid = (payment.payment_transactions || []).reduce(
-            (sum: number, t: PaymentTransaction) => sum + t.amount,
+            (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
             0,
           );
-          return { payment, remaining: payment.amount - alreadyPaid };
+          return { payment, remaining: Number(payment.amount) - alreadyPaid };
         })
         .filter((x) => x.remaining > 0);
 
@@ -706,10 +707,17 @@ export class PaymentsService {
     if (!payment) return;
     const { data: txs } =
       await this.paymentsRepository.findAllTransactionsByPaymentId(paymentId);
+    // AL PESO Y COMO NÚMERO (24-08). Supabase entrega los numeric como
+    // TEXTO: sumarlos con + pegaba "0" + "20800" = "020800", y la
+    // comparación de abajo, al ser texto contra texto, era alfabética.
+    // Un pago EXACTO ("020800" >= "20800" da falso) caía en la rama de
+    // división y paría una cuota fantasma de $0, vencida — la cuota 12
+    // de la #486 (Quillón), 20-08 a las 15:57.
     const paid = (txs || []).reduce(
-      (sum: number, t: PaymentTransaction) => sum + t.amount,
+      (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
       0,
     );
+    const monto = Number(payment.amount);
     const overdue = new Date(payment.due_date) < new Date();
 
     if (paid <= 0) {
@@ -719,7 +727,7 @@ export class PaymentsService {
       });
       return;
     }
-    if (paid >= payment.amount) {
+    if (paid >= monto) {
       await this.paymentsRepository.updatePayment(paymentId, {
         status: PaymentStatus.PAGADO,
       });
@@ -727,7 +735,7 @@ export class PaymentsService {
     }
 
     // Division de la cuota parcial
-    const remainder = payment.amount - paid;
+    const remainder = monto - paid;
     const { data: siblings } =
       await this.paymentsRepository.findAllPaymentsFromQuotation(
         [payment.quotation_id],
