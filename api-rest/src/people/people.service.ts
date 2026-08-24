@@ -325,9 +325,13 @@ export class PeopleService {
       // es una oferta, es su turno — no hay nada que confirmar. Lo que
       // sí pasa por confirmación es el día extra: su día libre, otro
       // cargo, o un evento. Es la misma regla que decide si se paga.
+      // Y EL CAMBIO DE DÍA TAMBIÉN NACE CONFIRMADO (Felipe, 24-08,
+      // migración 89): es su jornada normal movida de día, no una
+      // oferta — "aún me sale por confirmar".
       status:
         dto.status ??
-        (persona.default_kind === 'planta' && !esJornadaExtra(persona, dto)
+        (persona.default_kind === 'planta' &&
+        (dto.ajuste === 'trabaja' || !esJornadaExtra(persona, dto))
           ? 'confirmado'
           : 'por_confirmar'),
       // EL HORARIO VIENE PUESTO. La escalera (15-08): lo del día manda
