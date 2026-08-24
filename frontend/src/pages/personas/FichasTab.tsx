@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
@@ -1033,6 +1033,27 @@ function DiaRestaurante({
   const [pcts, setPcts] = useState<Map<number, number>>(new Map());
   const [sinCargo, setSinCargo] = useState<Set<number>>(new Set());
 
+  // CADA DÍA CON LO SUYO (Felipe, 24-08: "no está recordando los
+  // porcentajes" — el 14-08 mostraba un 100% pegado de otro día). Al
+  // entrar a un día, el monto y los porcentajes salen de SU pozo (los
+  // porcentajes se guardan al repartir, migración 87); sin pozo, en
+  // blanco. Nada se arrastra de un día al otro.
+  useEffect(() => {
+    const pozo = pools.find(
+      (p) => p.day && String(p.day).slice(0, 10) === dia,
+    );
+    const total = pozo
+      ? Number(pozo.first_amount) + Number(pozo.second_amount)
+      : 0;
+    setMonto(total > 0 ? total : undefined);
+    setPcts(
+      new Map(
+        (pozo?.porcentajes ?? []).map((p) => [p.role_id ?? 0, p.pct]),
+      ),
+    );
+    setSinCargo(new Set());
+  }, [dia, pools]);
+
   // LAS HORAS SE CONFIRMAN ACÁ TAMBIÉN (Felipe, 16-08). El día del
   // restaurante tenía la lista de solo lectura, pero es la misma
   // necesidad que en el evento: la gente entra y sale a horas distintas
@@ -1251,11 +1272,14 @@ function DiaRestaurante({
       return pozo;
     },
     onSuccess: () => {
-      // REPARTIR NO AVANZA (Felipe, 16-08): "para poder ver cuánto le
-      // queda a cada persona". Se reparte, se mira la plata en la lista
-      // de arriba, y al día siguiente se pasa con ‹ › cuando uno quiere.
+      // REPARTIR AVANZA (Felipe, 24-08, revierte lo del 16-08): se
+      // reparte y se pasa solo al día siguiente. Para revisar, ‹
+      // retrocede y el día muestra su propina, su reparto y sus
+      // porcentajes tal como quedaron (el efecto de arriba los lee del
+      // pozo).
       toast.success(`${formatISOUTCDateToString(dia)}: propina repartida.`);
       onCambio();
+      avanzar();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
