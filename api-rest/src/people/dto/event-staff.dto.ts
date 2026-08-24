@@ -12,6 +12,12 @@ import {
 /** Una persona trabajando un día de un evento. El cargo y planta/freelance
  *  se guardan acá porque son valores DEL DÍA, no de la persona. */
 export class CreateEventStaffDto {
+  /** Cambio de día de la planta (migración 89): el calendario de la
+   *  persona crea el día agregado ya marcado 'trabaja'. */
+  @IsOptional()
+  @IsIn(['trabaja', 'descansa'])
+  ajuste?: 'trabaja' | 'descansa';
+
   // Sin evento = RESTAURANTE, el evento permanente (15-08).
   @IsOptional()
   @IsUUID()
@@ -66,6 +72,11 @@ export class UpdateEventStaffDto {
   @IsOptional()
   @IsBoolean()
   no_tip?: boolean;
+
+  /** Cambio de día de la planta (migración 89). NULL = volver a normal. */
+  @IsOptional()
+  @IsIn(['trabaja', 'descansa'])
+  ajuste?: 'trabaja' | 'descansa' | null;
 
   // Mover la asignación a OTRO día (Felipe, 15-08: "pasa mucho que
   // cambiamos días para adecuarnos al trabajo").

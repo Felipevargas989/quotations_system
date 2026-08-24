@@ -465,7 +465,8 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
 
   const dePlanta = new Set(
     suyas
-      .filter((a) => a.quotation_id === null)
+      // El que descansa por cambio de día no se pinta: ese día no viene.
+      .filter((a) => a.quotation_id === null && a.ajuste !== "descansa")
       .map((a) => String(a.day).slice(0, 10)),
   );
   const enEventos = suyas.filter((a) => a.quotation_id !== null);
@@ -477,8 +478,32 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   // El día se pinta al toque con una jornada provisoria de id negativo,
   // y el guardado ocurre por detrás. Si falla, se devuelve solo.
   const marcar = useMutation({
-    mutationFn: (dia: string) =>
-      addStaff({ quotation_id: null, person_id: persona.id, day: dia }),
+    // EL CALENDARIO DE LA PERSONA ES CAMBIO DE DÍA (Felipe, 24-08): a
+    // Soledad le cambió el 23-24 por el 25-26 y el sistema la traía
+    // como freelance pidiendo monto. Desde acá, un planta viene DE
+    // PLANTA (su sueldo cubre el día) y el día queda marcado 'trabaja'
+    // para que la proyección no lo borre. Un freelance sigue igual.
+    // Desde Planificación, en cambio, sigue siendo refuerzo con monto.
+    mutationFn: (dia: string) => {
+      const dormida = suyas.find(
+        (a) =>
+          a.quotation_id === null &&
+          String(a.day).slice(0, 10) === dia &&
+          a.ajuste === "descansa",
+      );
+      if (dormida && dormida.id > 0) {
+        // El día quitado vuelve: se despierta la misma fila.
+        return updateStaff(dormida.id, { ajuste: null });
+      }
+      return addStaff({
+        quotation_id: null,
+        person_id: persona.id,
+        day: dia,
+        ...(persona.default_kind === "planta"
+          ? { kind: "planta", ajuste: "trabaja" }
+          : {}),
+      });
+    },
     onMutate: async (dia: string) => {
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
@@ -520,6 +545,12 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         (a) => String(a.day).slice(0, 10) === dia && a.quotation_id === null,
       );
       if (!suya || suya.id < 0) throw new Error("Ese día se está guardando");
+      // Quitarle un día a la PLANTA es cambio de día: la fila se queda
+      // dormida ('descansa') para que la proyección no la recree. Si el
+      // día era agregado a mano ('trabaja'), sí se borra de verdad.
+      if (suya.kind === "planta" && suya.ajuste !== "trabaja") {
+        return updateStaff(suya.id, { ajuste: "descansa" });
+      }
       return removeStaff(suya.id);
     },
     onMutate: async (dia: string) => {

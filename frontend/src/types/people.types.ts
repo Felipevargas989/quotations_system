@@ -142,6 +142,9 @@ export interface Asignacion {
    *  evento: solo carga su propina del día (migración 88). Sin pago;
    *  fuera de planificación y calendario. */
   solo_propina?: boolean;
+  /** Cambio de día de la planta (migración 89): 'trabaja' = día
+   *  agregado a mano; 'descansa' = día quitado (no se muestra). */
+  ajuste?: "trabaja" | "descansa" | null;
   /** En las filas de nómina el backend manda la persona COMPLETA
    *  (con sus datos bancarios); en el resto, solo lo básico. */
   people?:

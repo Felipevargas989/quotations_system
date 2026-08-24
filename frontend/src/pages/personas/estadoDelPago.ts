@@ -42,7 +42,12 @@ export const esPlanificacion = (a: {
   quotation_id: string | null;
   kind: string;
   solo_propina?: boolean;
+  ajuste?: "trabaja" | "descansa" | null;
 }): boolean =>
   // La fila solo-de-propina (migración 88) tampoco: existe para que el
   // que vino a un evento entre al pozo del día. Un turno, una jornada.
-  !a.solo_propina && (a.quotation_id === null || a.kind !== "planta");
+  // Y el que DESCANSA por cambio de día (migración 89) no viene: su
+  // fila existe solo para que la proyección no recree el día.
+  !a.solo_propina &&
+  a.ajuste !== "descansa" &&
+  (a.quotation_id === null || a.kind !== "planta");
