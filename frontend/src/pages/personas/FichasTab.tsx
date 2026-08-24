@@ -1039,7 +1039,9 @@ function DiaRestaurante({
           String(a.day).slice(0, 10) === dia &&
           // La fila solo-de-propina no se edita acá: es el reflejo de
           // un invitado del evento; abajo vive su checkbox.
-          !a.solo_propina,
+          !a.solo_propina &&
+          // Y el que descansa por cambio de día no vino (migración 89).
+          a.ajuste !== "descansa",
       ),
     [staff, dia],
   );

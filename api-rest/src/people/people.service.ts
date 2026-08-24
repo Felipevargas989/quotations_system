@@ -509,6 +509,12 @@ export class PeopleService {
       const debeVenir = activa && !libre && !conEvento.has(d);
       const yaEsta = dePlanta.get(d);
 
+      // EL CAMBIO DE DÍA ES SAGRADO (Felipe, 24-08, migración 89): un
+      // día agregado a mano ('trabaja') no se borra, y un día quitado
+      // ('descansa') no se recrea ni se corrige. La proyección pasa de
+      // largo en las dos direcciones.
+      if (yaEsta?.ajuste) continue;
+
       if (!debeVenir) {
         // Solo se quita lo que puso la máquina: lo puesto a mano y lo
         // que ya tiene plata se queda donde está.

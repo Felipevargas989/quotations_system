@@ -119,6 +119,10 @@ export class EventStaff {
    *  que vino a un evento: solo carga su propina del día (migración
    *  88). Sin pago; no aparece en planificación ni calendario. */
   solo_propina: boolean;
+  /** Cambio de día hecho a mano en el calendario de la persona
+   *  (migración 89): 'trabaja' = día agregado (la proyección no lo
+   *  borra); 'descansa' = día quitado (no se recrea ni se muestra). */
+  ajuste: 'trabaja' | 'descansa' | null;
   /** En qué nómina cayó cada cosa. NULL = pendiente — no hay que
    *  acordarse de nada (regla de la casa: la nómina es un selector). */
   payroll_id: number | null;

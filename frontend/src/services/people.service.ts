@@ -98,6 +98,8 @@ export const addStaff = async (fila: {
   person_id?: number | null;
   /** Sin día solo en eventos: silla "por ubicar". */
   day?: string | null;
+  /** Cambio de día desde el calendario de la persona (migración 89). */
+  ajuste?: "trabaja";
   role_id?: number | null;
   kind?: string;
   status?: string;
@@ -128,6 +130,8 @@ export const updateStaff = async (
       | "ends_at"
       | "break_minutes"
       | "no_tip"
+      // El cambio de día de la planta (migración 89).
+      | "ajuste"
     >
   >,
 ) =>

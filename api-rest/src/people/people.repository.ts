@@ -349,7 +349,7 @@ export class PeopleRepository {
       // Trae también la PLATA y el kind: sin eso, la proyección decidía
       // a ciegas a quién borrar (revisión del 16-08).
       .select(
-        'id, day, quotation_id, starts_at, ends_at, break_minutes, kind, amount, tip_amount, payroll_id, tip_payroll_id, role_id',
+        'id, day, quotation_id, starts_at, ends_at, break_minutes, kind, amount, tip_amount, payroll_id, tip_payroll_id, role_id, ajuste',
       )
       .eq('company_id', companyId)
       .eq('person_id', personId)
@@ -368,6 +368,8 @@ export class PeopleRepository {
       payroll_id: number | null;
       tip_payroll_id: number | null;
       role_id: number | null;
+      /** Cambio de día (migración 89): la proyección no lo toca. */
+      ajuste: 'trabaja' | 'descansa' | null;
     }[];
   }
 
@@ -802,7 +804,10 @@ export class PeopleRepository {
       )
       .eq('company_id', companyId)
       .is('quotation_id', null)
-      .eq('day', day);
+      .eq('day', day)
+      // El que descansa por cambio de día (migración 89) no vino: no
+      // entra al día ni a su reparto.
+      .or('ajuste.is.null,ajuste.neq.descansa');
     if (error) throw error;
     return data as unknown as EventStaffConPersona[];
   }

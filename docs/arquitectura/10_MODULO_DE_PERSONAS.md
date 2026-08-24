@@ -251,6 +251,25 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### El cambio de día de la planta (24-08, migración 89)
+
+Soledad libra domingo y lunes; Felipe le cambió los días — trabaja el
+23-24, descansa el 25-26 — y el sistema la traía como freelance
+pidiendo monto, y la proyección anual además deshacía el cambio. Las
+reglas que quedaron:
+
+- **El origen decide** (Felipe): desde el **calendario de la persona**
+  es un cambio de día de planta — viene de planta, sin plata, su sueldo
+  lo cubre. Desde **Planificación** sigue siendo refuerzo freelance con
+  monto (la jornada extra del 15-08 no cambia).
+- El ajuste vive en la jornada (`ajuste`): `'trabaja'` = día agregado a
+  mano; `'descansa'` = día quitado (la fila queda dormida, no se
+  muestra en ninguna pantalla y el día no la cuenta).
+- **La proyección pasa de largo** ante cualquier jornada con ajuste, en
+  las dos direcciones: ni borra el día agregado ni recrea el quitado.
+- Quitar desde el calendario un día agregado a mano (`trabaja`) sí lo
+  borra de verdad; quitar un día del patrón lo deja dormido.
+
 #### Histórico de pagos: Liquidación es puramente operativa (24-08)
 
 Pestaña nueva en Personal (Planificación · Liquidación · Nómina ·
