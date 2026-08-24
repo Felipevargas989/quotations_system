@@ -181,7 +181,15 @@ function LiquidacionesPorPagar({
   const qc = useQueryClient();
 
   const nombre = useMemo(() => {
-    const m = new Map(eventos.map((q) => [q.id, q.cliente]));
+    // CON NÚMERO Y FECHA (Felipe, 24-08): dos eventos del mismo cliente
+    // el mismo día (los #400 y #486 de Quillón) eran indistinguibles y
+    // hubo que ir a la base a saber cuál era.
+    const m = new Map(
+      eventos.map((q) => [
+        q.id,
+        `N° ${String(q.numero)} · ${q.cliente} · ${formatISOUTCDateToString(q.inicio)}`,
+      ]),
+    );
     return (l: LiquidacionPendiente) =>
       l.tipo === "dia"
         ? `Restaurante · ${formatISOUTCDateToString(l.day ?? "")}`
