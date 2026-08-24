@@ -115,6 +115,7 @@ export default function HistoricoTab() {
     );
     return eventos
       .filter((q) => cerradas.has(q.id))
+      .map((q) => ({ ...q, enNomina: !!cerradas.get(q.id)?.en_nomina }))
       .sort((a, b) => b.inicio.localeCompare(a.inicio));
   }, [eventos, sheets]);
 
@@ -312,18 +313,15 @@ export default function HistoricoTab() {
                   <span className="text-xs text-gray-500 tabular-nums shrink-0">
                     {formatISOUTCDateToString(q.inicio)}
                   </span>
-                  {esperando !== undefined ? (
-                    <>
-                      <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
-                        esperando nómina · {clp(esperando)}
-                      </span>
-                      <BotonReabrir
-                        clave={`ev-${q.id}`}
-                        onConfirmar={() =>
-                          reabrir.mutate({ quotation_id: q.id })
-                        }
-                      />
-                    </>
+                  {esperando !== undefined && (
+                    <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
+                      esperando nómina · {clp(esperando)}
+                    </span>
+                  )}
+                  {/* EN NÓMINA NO HAY VUELTA ATRÁS (Felipe, 24-08):
+                      candado, sin botón. El backend además lo rechaza. */}
+                  {q.enNomina ? (
+                    <Candado />
                   ) : (
                     <BotonReabrir
                       clave={`ev-${q.id}`}

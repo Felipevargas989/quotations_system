@@ -265,7 +265,11 @@ Liquidación es puramente operativa"*. Las reglas:
   nómina, gris "sin propina", candado si ya entró a una nómina). Los
   "sin propina" tienen **reabrir** a un clic (antes se esfumaban y un
   error no tenía arreglo). Reabrir usa el endpoint existente
-  (`payrolls/reabrir`), que ya cuida el candado de lo pagado.
+  (`payrolls/reabrir`). **En nómina no hay vuelta atrás** (Felipe,
+  24-08): cualquier jornada o propina con sello de nómina pone candado
+  — la pantalla no ofrece el botón (la ficha viaja con `en_nomina`) y
+  el backend lo rechaza igual. Da lo mismo si la nómina ya se pagó en
+  el banco o no: entró a nómina, se bloqueó.
 - **Arriba, tres gráficos** (elegidos el 24-08): en nóminas por mes
   (jornadas vs propinas, barras apiladas), quiénes más reciben (top 5,
   6 meses), y propina promedio por día de restaurante contando SOLO los

@@ -568,7 +568,31 @@ export class PeopleRepository {
       .select('*')
       .eq('company_id', companyId);
     if (error) throw error;
-    return data as unknown as StaffSheet[];
+    const sheets = data as unknown as StaffSheet[];
+    // EN NÓMINA NO HAY VUELTA ATRÁS (Felipe, 24-08): el Histórico
+    // necesita saber a quién ponerle candado. Una jornada o propina del
+    // evento con sello de nómina bloquea el reabrir (el backend además
+    // lo rechaza en payrolls/reabrir; esto es para pintarlo).
+    const ids = sheets.map((s) => s.quotation_id);
+    let enNomina = new Set<string>();
+    if (ids.length > 0) {
+      const { data: selladas, error: e2 } = await this.supabase.client
+        .from('event_staff')
+        .select('quotation_id')
+        .eq('company_id', companyId)
+        .in('quotation_id', ids)
+        .or('payroll_id.not.is.null,tip_payroll_id.not.is.null');
+      if (e2) throw e2;
+      enNomina = new Set(
+        (selladas ?? []).map((f) =>
+          String((f as { quotation_id: string }).quotation_id),
+        ),
+      );
+    }
+    return sheets.map((s) => ({
+      ...s,
+      en_nomina: enNomina.has(String(s.quotation_id)),
+    }));
   }
 
   async findSheetByQuotation(companyId: number, quotationId: string) {
