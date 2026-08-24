@@ -20,6 +20,7 @@ import {
   getSheets,
   getStaff,
   getStaffSemana,
+  crearSoloPropina,
   repartirPool,
   sinPropina,
   updatePool,
@@ -1038,7 +1039,15 @@ function DiaRestaurante({
   // de las planificadas, y el reparto se calcula POR HORAS.
   const qc = useQueryClient();
   const cambiarStaff = useMutation({
-    mutationFn: ({ id, cambios }: ParcheDeStaff) => updateStaff(id, cambios),
+    // El id negativo es la fila virtual de un invitado del evento: el
+    // primer cambio (chip o extra) la crea de verdad en el backend.
+    mutationFn: ({ id, cambios }: ParcheDeStaff) =>
+      id < 0
+        ? crearSoloPropina(
+            -id,
+            cambios as { amount?: number | null; no_tip?: boolean },
+          )
+        : updateStaff(id, cambios),
     // Optimista: se pinta ya, se confirma detrás, se deshace si falla.
     onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: ["people", "liquidacion-ventana"] });
@@ -1056,27 +1065,82 @@ function DiaRestaurante({
     () =>
       staff.filter(
         (a) =>
-          a.quotation_id === null && String(a.day).slice(0, 10) === dia,
+          a.quotation_id === null &&
+          String(a.day).slice(0, 10) === dia &&
+          // La fila solo-de-propina no se edita acá: es el reflejo de
+          // un invitado del evento; abajo vive su checkbox.
+          !a.solo_propina,
       ),
     [staff, dia],
   );
+
+  // LOS INVITADOS DEL EVENTO, DENTRO DE LA MISMA TABLA (Felipe, 24-08):
+  // "yo lo hubiera dejado dentro de la lista de quiénes trabajaron, con
+  // el horario en gris bloqueado, asignación extra que diga evento y el
+  // chip de sin propina". Entran al pozo del día POR DEFECTO; se excluye
+  // marcándoles "sin propina". Su fila de verdad es la solo-de-propina
+  // (si aún no existe, acá se arma una virtual con id negativo, y el
+  // primer chip o extra que se toque la crea en el backend).
+  const delEvento = useMemo(
+    () =>
+      staff.filter(
+        (a) =>
+          a.quotation_id !== null &&
+          a.person_id != null &&
+          String(a.day).slice(0, 10) === dia,
+      ),
+    [staff, dia],
+  );
+  const invitadosFilas = useMemo(() => {
+    const solos = new Map(
+      staff
+        .filter(
+          (a) =>
+            a.solo_propina &&
+            a.person_id != null &&
+            String(a.day).slice(0, 10) === dia,
+        )
+        .map((a) => [a.person_id, a]),
+    );
+    return delEvento.map((ev) => {
+      const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
+      return {
+        ...(solo ?? ev),
+        // El horario y el cargo mandan los del EVENTO (el backend los
+        // vuelve a copiar al repartir); el resto — extra, sin propina,
+        // propina del día — vive en la fila solo-de-propina.
+        id: solo ? solo.id : -ev.id,
+        starts_at: ev.starts_at,
+        ends_at: ev.ends_at,
+        break_minutes: ev.break_minutes,
+        role_id: ev.role_id,
+        management_resources: ev.management_resources,
+        people: ev.people,
+        person_id: ev.person_id,
+        solo_propina: true,
+        no_tip: solo ? solo.no_tip : false,
+        amount: solo ? solo.amount : null,
+        tip_amount: solo ? solo.tip_amount : null,
+      };
+    });
+  }, [delEvento, staff, dia]);
 
   // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
   // no aparece: no hay a quién repartirle.
   const cargos = useMemo(() => {
     const m = new Map<number, string>();
-    for (const a of delDia) {
+    for (const a of [...delDia, ...invitadosFilas]) {
       if (a.no_tip) continue;
       m.set(a.role_id ?? 0, a.management_resources?.name ?? "Sin cargo");
     }
     return [...m.entries()];
-  }, [delDia]);
+  }, [delDia, invitadosFilas]);
 
   // LAS HORAS DE CADA CARGO, para mostrar lo que se lleva: el % es el
   // valor de la hora, no la tajada (21-08). Gemelo del backend.
   const horasPorCargo = useMemo(() => {
     const m = new Map<number, number>();
-    for (const a of delDia) {
+    for (const a of [...delDia, ...invitadosFilas]) {
       if (a.no_tip || a.person_id == null) continue;
       const k = a.role_id ?? 0;
       const horas =
@@ -1084,7 +1148,7 @@ function DiaRestaurante({
       m.set(k, (m.get(k) ?? 0) + horas);
     }
     return m;
-  }, [delDia]);
+  }, [delDia, invitadosFilas]);
 
   // UN SOLO CARGO SE LLEVA EL 100% SOLO (Felipe, 15-08). Si no hay
   // entre quiénes repartir, escribir "100" a mano era puro trámite: se
@@ -1164,6 +1228,7 @@ function DiaRestaurante({
           role_id: role_id === 0 ? null : role_id,
           pct: pct(role_id),
         })),
+        delEvento.map((a) => a.id),
       );
       return pozo;
     },
@@ -1327,7 +1392,7 @@ function DiaRestaurante({
               (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
             titulo="Quiénes trabajaron"
-            secciones={[{ filas: delDia }]}
+            secciones={[{ filas: [...delDia, ...invitadosFilas] }]}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
@@ -1341,6 +1406,7 @@ function DiaRestaurante({
             </p>
           )}
         </div>
+
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">

@@ -123,15 +123,18 @@ export default function TablaDeJornadas({
                     {a.management_resources?.name ?? "sin cargo"}
                   </span>
 
-                  {cerrada ? (
+                  {/* EL INVITADO DEL EVENTO (Felipe, 24-08): su horario
+                      es el del evento y se corrige allá — acá va en
+                      gris, bloqueado. */}
+                  {cerrada || a.solo_propina ? (
                     <>
-                      <span className="tabular-nums text-gray-700 text-center">
+                      <span className="tabular-nums text-gray-400 text-center">
                         {a.starts_at?.slice(0, 5) ?? "—"}
                       </span>
-                      <span className="tabular-nums text-gray-700 text-center">
+                      <span className="tabular-nums text-gray-400 text-center">
                         {a.ends_at?.slice(0, 5) ?? "—"}
                       </span>
-                      <span className="text-gray-700">
+                      <span className="text-gray-400 text-center">
                         {!a.break_minutes
                           ? "—"
                           : a.break_minutes === 60
@@ -178,9 +181,11 @@ export default function TablaDeJornadas({
                     <div
                       className="relative"
                       title={
-                        a.kind === "planta"
-                          ? "Asignación extra (optativa)"
-                          : "Monto de la jornada"
+                        a.solo_propina
+                          ? "Extra del día (optativo): su jornada se paga en el evento"
+                          : a.kind === "planta"
+                            ? "Asignación extra (optativa)"
+                            : "Monto de la jornada"
                       }
                     >
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
@@ -200,14 +205,22 @@ export default function TablaDeJornadas({
                         // "planta" en gris explica por qué la caja está
                         // vacía: su sueldo cubre el día (Felipe, 18-08).
                         // Un freelance sin monto queda vacío y ámbar.
-                        placeholder={a.kind === "planta" ? "planta" : ""}
+                        // "evento" explica la caja vacía del invitado:
+                        // su jornada se paga allá (Felipe, 24-08).
+                        placeholder={
+                          a.solo_propina
+                            ? "evento"
+                            : a.kind === "planta"
+                              ? "planta"
+                              : ""
+                        }
                         aria-label={
-                          a.kind === "planta"
+                          a.solo_propina || a.kind === "planta"
                             ? `Asignación extra de ${nombreDe(a)}`
                             : `Monto de ${nombreDe(a)}`
                         }
                         className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right placeholder:text-gray-400 ${
-                          !a.amount && a.kind !== "planta"
+                          !a.amount && a.kind !== "planta" && !a.solo_propina
                             ? "!border-amber-400 bg-amber-50"
                             : "!border-gray-200"
                         }`}

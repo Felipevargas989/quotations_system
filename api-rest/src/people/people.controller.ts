@@ -25,6 +25,7 @@ import {
   ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
+  SoloPropinaDto,
   UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
@@ -206,6 +207,14 @@ export class PeopleController {
   sinPropina(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /people/pools/${id}/sin-propina`);
     return this.peopleService.marcarSinPropina(+id, user.company_id);
+  }
+
+  // La fila solo-de-propina del invitado del evento: se crea o corrige
+  // desde la tabla del día (el extra y el "sin propina" viven ahí).
+  @Post('staff/del-evento-al-dia')
+  soloPropinaDelDia(@Body() dto: SoloPropinaDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /people/staff/del-evento-al-dia ${logSafe(dto)}`);
+    return this.peopleService.soloPropinaDelDia(dto, user.company_id);
   }
 
   @Post('pools/:id/repartir')

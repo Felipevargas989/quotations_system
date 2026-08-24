@@ -115,6 +115,10 @@ export class EventStaff {
    *  Su jornada se paga igual. */
   no_tip: boolean;
   tip_pool_id: number | null;
+  /** Fila creada por el reparto del día de restaurante para alguien
+   *  que vino a un evento: solo carga su propina del día (migración
+   *  88). Sin pago; no aparece en planificación ni calendario. */
+  solo_propina: boolean;
   /** En qué nómina cayó cada cosa. NULL = pendiente — no hay que
    *  acordarse de nada (regla de la casa: la nómina es un selector). */
   payroll_id: number | null;

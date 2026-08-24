@@ -67,6 +67,9 @@ export default function EventoCajitas({
       const { data } = await checkConflictsWithExistingQuotations(
         i,
         f || undefined,
+        // EXCEPTO YO (Felipe, 21-08): sin esto, la #460 chocaba consigo
+        // misma al editarle la fecha.
+        quotationId,
       );
       setChoca(Boolean(data?.has_conflicts));
     } catch {
