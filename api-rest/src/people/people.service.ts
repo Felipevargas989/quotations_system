@@ -16,6 +16,7 @@ import {
   ReabrirLiquidacionDto,
   RepartirDto,
   SeleccionPayrollDto,
+  SoloPropinaDto,
   UpdateDayNoteDto,
   UpdatePoolDto,
   UpsertSheetDto,
@@ -765,13 +766,59 @@ export class PeopleService {
   }
 
   /**
+   * La fila solo-de-propina de UN invitado, creada o corregida desde la
+   * tabla del día: ahí viven su "extra" (asignación optativa por las
+   * mesas que atendió) y su "sin propina". El horario viene del evento.
+   */
+  async soloPropinaDelDia(dto: SoloPropinaDto, companyId: number) {
+    const evento = await this.repo.findStaffPorId(
+      dto.evento_staff_id,
+      companyId,
+    );
+    if (!evento || !evento.quotation_id || evento.person_id == null) {
+      throw new BadRequestException('Esa no es una jornada de evento');
+    }
+    const day = String(evento.day).slice(0, 10);
+    const cambios: Record<string, unknown> = {};
+    if (dto.amount !== undefined) cambios.amount = dto.amount;
+    if (dto.no_tip !== undefined) cambios.no_tip = dto.no_tip;
+
+    const ya = (await this.repo.findPlantaDelDia(companyId, day)).find(
+      (f) => f.solo_propina && f.person_id === evento.person_id,
+    );
+    if (ya) {
+      await this.repo.updateStaff(ya.id, cambios, companyId);
+      return { id: ya.id };
+    }
+    await this.repo.addStaffEnLote([
+      {
+        company_id: companyId,
+        quotation_id: null,
+        person_id: evento.person_id,
+        day,
+        kind: 'freelance',
+        role_id: evento.role_id ?? null,
+        starts_at: evento.starts_at,
+        ends_at: evento.ends_at,
+        break_minutes: evento.break_minutes,
+        amount: null,
+        status: 'confirmado',
+        solo_propina: true,
+        ...cambios,
+      },
+    ]);
+    return { id: null };
+  }
+
+  /**
    * LOS INVITADOS DEL EVENTO AL POZO DEL DÍA (Felipe, 24-08): "un
    * garzón que viene a un evento, si llegan un par de mesas, puede
    * atenderlas — son dos propinas distintas". La planificación no se
    * toca (un turno, una jornada, un calendario); al repartir el día,
-   * la gente del evento se ofrece aparte y el que se incluye recibe
-   * por dentro una fila SOLO-DE-PROPINA: mismo horario del evento,
-   * sin pago de jornada, invisible en planificación.
+   * la gente del evento aparece EN LA MISMA TABLA del día y entra al
+   * pozo POR DEFECTO (se excluye con "sin propina") vía una fila
+   * SOLO-DE-PROPINA: mismo horario del evento, sin pago de jornada
+   * (salvo el extra optativo), invisible en planificación.
    *
    * Idempotente: volver a repartir con otra selección crea las que
    * falten y borra las que sobren (nunca una con propina ya en nómina).

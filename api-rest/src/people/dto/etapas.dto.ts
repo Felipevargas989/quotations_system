@@ -91,6 +91,23 @@ export class PorcentajeDto {
   pct: number;
 }
 
+/** La fila solo-de-propina de un invitado del evento, creada o
+ *  corregida desde la tabla del día (Felipe, 24-08: "dentro de la
+ *  lista de quiénes trabajaron... con la opción de un extra y el chip
+ *  de sin propina"). */
+export class SoloPropinaDto {
+  @IsInt()
+  evento_staff_id: number;
+
+  @IsOptional()
+  @IsNumber()
+  amount?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  no_tip?: boolean;
+}
+
 export class RepartirDto {
   @IsArray()
   @ValidateNested({ each: true })

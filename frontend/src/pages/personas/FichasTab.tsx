@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
@@ -20,6 +20,7 @@ import {
   getSheets,
   getStaff,
   getStaffSemana,
+  crearSoloPropina,
   repartirPool,
   sinPropina,
   updatePool,
@@ -1038,7 +1039,15 @@ function DiaRestaurante({
   // de las planificadas, y el reparto se calcula POR HORAS.
   const qc = useQueryClient();
   const cambiarStaff = useMutation({
-    mutationFn: ({ id, cambios }: ParcheDeStaff) => updateStaff(id, cambios),
+    // El id negativo es la fila virtual de un invitado del evento: el
+    // primer cambio (chip o extra) la crea de verdad en el backend.
+    mutationFn: ({ id, cambios }: ParcheDeStaff) =>
+      id < 0
+        ? crearSoloPropina(
+            -id,
+            cambios as { amount?: number | null; no_tip?: boolean },
+          )
+        : updateStaff(id, cambios),
     // Optimista: se pinta ya, se confirma detrás, se deshace si falla.
     onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: ["people", "liquidacion-ventana"] });
@@ -1065,10 +1074,13 @@ function DiaRestaurante({
     [staff, dia],
   );
 
-  // LOS INVITADOS DEL EVENTO (Felipe, 24-08): "un garzón que viene a un
-  // evento, si llegan un par de mesas, puede atenderlas — son dos
-  // propinas distintas". Se ofrecen aparte, desmarcados; el marcado
-  // entra al pozo del día con su mismo horario del evento.
+  // LOS INVITADOS DEL EVENTO, DENTRO DE LA MISMA TABLA (Felipe, 24-08):
+  // "yo lo hubiera dejado dentro de la lista de quiénes trabajaron, con
+  // el horario en gris bloqueado, asignación extra que diga evento y el
+  // chip de sin propina". Entran al pozo del día POR DEFECTO; se excluye
+  // marcándoles "sin propina". Su fila de verdad es la solo-de-propina
+  // (si aún no existe, acá se arma una virtual con id negativo, y el
+  // primer chip o extra que se toque la crea en el backend).
   const delEvento = useMemo(
     () =>
       staff.filter(
@@ -1079,11 +1091,8 @@ function DiaRestaurante({
       ),
     [staff, dia],
   );
-  const [invitados, setInvitados] = useState<Set<number>>(new Set());
-  // Al entrar a un día, los ya incluidos (su fila solo-de-propina
-  // existe) parten marcados.
-  useEffect(() => {
-    const yaIncluidos = new Set(
+  const invitadosFilas = useMemo(() => {
+    const solos = new Map(
       staff
         .filter(
           (a) =>
@@ -1091,47 +1100,30 @@ function DiaRestaurante({
             a.person_id != null &&
             String(a.day).slice(0, 10) === dia,
         )
-        .map((a) => a.person_id),
+        .map((a) => [a.person_id, a]),
     );
-    setInvitados(
-      new Set(
-        staff
-          .filter(
-            (a) =>
-              a.quotation_id !== null &&
-              a.person_id != null &&
-              String(a.day).slice(0, 10) === dia &&
-              yaIncluidos.has(a.person_id),
-          )
-          .map((a) => a.id),
-      ),
-    );
-  }, [staff, dia]);
-  const invitadosFilas = useMemo(
-    () =>
-      delEvento
-        .filter((a) => invitados.has(a.id))
-        // El "sin propina" de su fila del EVENTO habla del pozo del
-        // evento; acá está invitado al del día, así que no lo excluye.
-        .map((a) => ({ ...a, no_tip: false })),
-    [delEvento, invitados],
-  );
-  // Lo que cada invitado ya recibió del pozo del DÍA (vive en su fila
-  // solo-de-propina; la de su evento carga la propina del evento).
-  const propinaDelDia = useMemo(() => {
-    const m = new Map<number, number>();
-    for (const a of staff) {
-      if (
-        a.solo_propina &&
-        a.person_id != null &&
-        String(a.day).slice(0, 10) === dia &&
-        a.tip_amount != null
-      ) {
-        m.set(a.person_id, Number(a.tip_amount));
-      }
-    }
-    return m;
-  }, [staff, dia]);
+    return delEvento.map((ev) => {
+      const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
+      return {
+        ...(solo ?? ev),
+        // El horario y el cargo mandan los del EVENTO (el backend los
+        // vuelve a copiar al repartir); el resto — extra, sin propina,
+        // propina del día — vive en la fila solo-de-propina.
+        id: solo ? solo.id : -ev.id,
+        starts_at: ev.starts_at,
+        ends_at: ev.ends_at,
+        break_minutes: ev.break_minutes,
+        role_id: ev.role_id,
+        management_resources: ev.management_resources,
+        people: ev.people,
+        person_id: ev.person_id,
+        solo_propina: true,
+        no_tip: solo ? solo.no_tip : false,
+        amount: solo ? solo.amount : null,
+        tip_amount: solo ? solo.tip_amount : null,
+      };
+    });
+  }, [delEvento, staff, dia]);
 
   // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
   // no aparece: no hay a quién repartirle.
@@ -1236,7 +1228,7 @@ function DiaRestaurante({
           role_id: role_id === 0 ? null : role_id,
           pct: pct(role_id),
         })),
-        [...invitados],
+        delEvento.map((a) => a.id),
       );
       return pozo;
     },
@@ -1400,7 +1392,7 @@ function DiaRestaurante({
               (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
             titulo="Quiénes trabajaron"
-            secciones={[{ filas: delDia }]}
+            secciones={[{ filas: [...delDia, ...invitadosFilas] }]}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
@@ -1415,46 +1407,6 @@ function DiaRestaurante({
           )}
         </div>
 
-        {delEvento.length > 0 && (
-          <div className="border border-gray-200 rounded-xl p-3">
-            <p className="text-sm font-medium text-gray-900">
-              Vinieron a un evento este día
-            </p>
-            <p className="text-xs text-gray-500 mb-2">
-              El que marques entra también al pozo del día, con su mismo
-              horario del evento. Su jornada se paga una sola vez, en el
-              evento.
-            </p>
-            <ul className="space-y-1">
-              {delEvento.map((a) => (
-                <li key={a.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={invitados.has(a.id)}
-                    onChange={() => {
-                      const s2 = new Set(invitados);
-                      if (s2.has(a.id)) s2.delete(a.id);
-                      else s2.add(a.id);
-                      setInvitados(s2);
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-gray-900">{a.people?.name}</span>
-                  <span className="text-gray-500">
-                    {a.management_resources?.name ?? "Sin cargo"}
-                  </span>
-                  <span className="text-gray-400 text-xs ml-auto tabular-nums">
-                    {(a.starts_at ?? "").slice(0, 5)}–
-                    {(a.ends_at ?? "").slice(0, 5)}
-                    {a.person_id != null &&
-                      propinaDelDia.has(a.person_id) &&
-                      ` · del día ${clp(propinaDelDia.get(a.person_id) ?? 0)}`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">

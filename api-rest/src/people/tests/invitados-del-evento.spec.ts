@@ -119,6 +119,43 @@ describe('repartir un día con invitados del evento', () => {
     expect(repo.addStaffEnLote).toHaveBeenCalledWith([]);
   });
 
+  it('el chip o el extra crean la fila solo-de-propina si no existe', async () => {
+    const { service, repo } = armar({
+      delDia: [],
+      porId: { 101: filaEvento(101, 8) },
+    });
+    await service.soloPropinaDelDia({ evento_staff_id: 101, no_tip: true }, 1);
+    expect(repo.addStaffEnLote).toHaveBeenCalledWith([
+      expect.objectContaining({
+        person_id: 8,
+        solo_propina: true,
+        no_tip: true,
+        amount: null,
+        starts_at: '12:00',
+      }),
+    ]);
+  });
+
+  it('si la fila ya existe, el chip y el extra solo la corrigen', async () => {
+    const solo = {
+      id: 60,
+      person_id: 8,
+      solo_propina: true,
+      no_tip: false,
+      tip_payroll_id: null,
+    };
+    const { service, repo } = armar({
+      delDia: [solo],
+      porId: { 101: filaEvento(101, 8) },
+    });
+    await service.soloPropinaDelDia(
+      { evento_staff_id: 101, amount: 15_000 },
+      1,
+    );
+    expect(repo.updateStaff).toHaveBeenCalledWith(60, { amount: 15_000 }, 1);
+    expect(repo.addStaffEnLote).not.toHaveBeenCalled();
+  });
+
   it('un invitado de otro día es un error', async () => {
     const otroDia = { ...filaEvento(102, 9), day: '2026-08-15' };
     const { service } = armar({ delDia: [], porId: { 102: otroDia } });

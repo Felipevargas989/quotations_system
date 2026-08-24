@@ -222,6 +222,17 @@ export const sinPropina = async (id: number) =>
     {},
   )) as Pozo;
 
+/** Crea o corrige la fila solo-de-propina de un invitado del evento
+ *  (Felipe, 24-08): ahí viven su extra y su "sin propina" del día. */
+export const crearSoloPropina = async (
+  eventoStaffId: number,
+  cambios: { amount?: number | null; no_tip?: boolean },
+) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/staff/del-evento-al-dia`, "POST", {
+    evento_staff_id: eventoStaffId,
+    ...cambios,
+  })) as { id: number | null };
+
 export const repartirPool = async (
   id: number,
   porcentajes: { role_id: number | null; pct: number }[],

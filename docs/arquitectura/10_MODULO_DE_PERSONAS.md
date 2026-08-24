@@ -262,10 +262,16 @@ tuvo que atender otras mesas."*
 - **La planificación no se toca.** La persona está asignada a UNA cosa
   ese día (el cruce del 15-08 sigue); el calendario muestra **una sola
   jornada** — no son dos trabajos.
-- **La regla vive en el reparto del día de restaurante**: el modal
-  ofrece aparte, **desmarcados**, a los que vinieron a un evento ese
-  día. El que Felipe marca entra al pozo del día pesando con su **mismo
-  horario del evento**.
+- **La regla vive en el reparto del día de restaurante**: los que
+  vinieron a un evento aparecen **dentro de la misma tabla "Quiénes
+  trabajaron"** — horario del evento en gris bloqueado, asignación
+  extra con "evento" de fondo (usable: el extra optativo por las mesas
+  que atendió se paga por nómina) y el chip "sin propina". **Entran al
+  pozo del día por defecto**, pesando con su mismo horario del evento;
+  se excluye al que no corresponde marcándole "sin propina" (Felipe,
+  24-08, corrigiendo el diseño anterior de checkbox aparte: "yo lo
+  hubiera dejado dentro de la lista de quiénes trabajaron... confirmo
+  el cambio de default").
 - Por dentro, el incluido recibe una **fila solo-de-propina** (migración
   88): `quotation_id null`, sin pago (`amount null`), `solo_propina =
   true`, horario copiado del evento. Invisible en planificación,
