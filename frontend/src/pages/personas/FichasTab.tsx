@@ -1102,10 +1102,26 @@ function DiaRestaurante({
         )
         .map((a) => [a.person_id, a]),
     );
-    return delEvento.map((ev) => {
+    // QUIEN YA ESTÁ EN LA PLANTA DEL DÍA NO ES INVITADO (Felipe, 24-08:
+    // el 14-08 "muestra mucha gente"). La ficha del evento trae a la
+    // planta para SU propina (traer-planta), pero esa gente ya está en
+    // la tabla por su jornada del restaurante: duplicarla repartiría
+    // doble. Invitado es solo quien vino al evento y NO tiene jornada
+    // de restaurante ese día. Y una persona, una sola fila de invitado,
+    // aunque tenga más de una jornada de evento.
+    const enLaPlanta = new Set(delDia.map((a) => a.person_id));
+    const unoPorPersona = new Map<number, (typeof delEvento)[number]>();
+    for (const ev of delEvento) {
+      if (ev.person_id == null || enLaPlanta.has(ev.person_id)) continue;
+      if (!unoPorPersona.has(ev.person_id)) unoPorPersona.set(ev.person_id, ev);
+    }
+    return [...unoPorPersona.values()].map((ev) => {
       const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
       return {
         ...(solo ?? ev),
+        // El reparto invita por la JORNADA DE EVENTO, no por la fila
+        // solo-de-propina: el backend valida contra ella.
+        eventoId: ev.id,
         // El horario y el cargo mandan los del EVENTO (el backend los
         // vuelve a copiar al repartir); el resto — extra, sin propina,
         // propina del día — vive en la fila solo-de-propina.
@@ -1123,7 +1139,7 @@ function DiaRestaurante({
         tip_amount: solo ? solo.tip_amount : null,
       };
     });
-  }, [delEvento, staff, dia]);
+  }, [delEvento, delDia, staff, dia]);
 
   // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
   // no aparece: no hay a quién repartirle.
@@ -1228,7 +1244,9 @@ function DiaRestaurante({
           role_id: role_id === 0 ? null : role_id,
           pct: pct(role_id),
         })),
-        delEvento.map((a) => a.id),
+        // Solo los invitados de verdad (los que no están ya en la
+        // planta del día), por su jornada de evento.
+        invitadosFilas.map((a) => a.eventoId),
       );
       return pozo;
     },
