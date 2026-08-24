@@ -97,9 +97,8 @@ describe('proyectarPlanta con cambio de día', () => {
       },
     ]);
     await service.proyectarPlanta(1, 7);
-    const creados = (repo.addStaffEnLote.mock.calls[0]?.[0] ?? []) as {
-      day: string;
-    }[];
+    const llamadas = repo.addStaffEnLote.mock.calls as [{ day: string }[]][];
+    const creados = llamadas[0]?.[0] ?? [];
     expect(creados.some((f) => f.day === MARTES)).toBe(false);
     expect(repo.updateStaff).not.toHaveBeenCalled();
   });
