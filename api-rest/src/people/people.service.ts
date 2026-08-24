@@ -847,6 +847,17 @@ export class PeopleService {
       traidos.set(fila.person_id, fila);
     }
 
+    // CINTURÓN (24-08, el 14-08 de la #423): la ficha trae a la planta
+    // al evento (traer-planta), pero esa gente YA está en el pozo por
+    // su jornada de restaurante — invitarla la repartiría doble. Quien
+    // tiene jornada de restaurante ese día no puede ser invitado.
+    const enLaPlanta = new Set(
+      delDia.filter((f) => !f.solo_propina).map((f) => f.person_id),
+    );
+    for (const personId of [...traidos.keys()]) {
+      if (enLaPlanta.has(personId)) traidos.delete(personId);
+    }
+
     const sobran = existentes.filter(
       (f) => f.person_id != null && !traidos.has(f.person_id),
     );

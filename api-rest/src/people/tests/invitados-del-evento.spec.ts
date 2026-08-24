@@ -156,6 +156,26 @@ describe('repartir un día con invitados del evento', () => {
     expect(repo.addStaffEnLote).not.toHaveBeenCalled();
   });
 
+  it('quien ya está en la planta del día no se invita: la ficha lo trajo al evento, pero su jornada de restaurante ya lo tiene en el pozo', async () => {
+    const planta = {
+      id: 50,
+      person_id: 8, // la misma persona que la jornada de evento
+      role_id: 2,
+      solo_propina: false,
+      no_tip: false,
+      tip_payroll_id: null,
+      starts_at: '10:00',
+      ends_at: '19:00',
+      break_minutes: 60,
+    };
+    const { service, repo } = armar({
+      delDia: [planta],
+      porId: { 101: filaEvento(101, 8) },
+    });
+    await service.repartir(9, { ...PCTS, invitados: [101] }, 1);
+    expect(repo.addStaffEnLote).toHaveBeenCalledWith([]);
+  });
+
   it('un invitado de otro día es un error', async () => {
     const otroDia = { ...filaEvento(102, 9), day: '2026-08-15' };
     const { service } = armar({ delDia: [], porId: { 102: otroDia } });
