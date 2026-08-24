@@ -1605,11 +1605,12 @@ export default function ServiciosTab({
               )}
             </div>
 
-            {/* Servicios fijos del evento — tarjeta propia, calco del cotizador
-          (04-08): título grande, lista seccionada adentro y el selector
-          SIEMPRE visible al final. Sin subtotal en el título — el
-          cotizador no lo muestra acá; el total vive en el Resumen. */}
-            <div className="bg-white rounded-xl shadow p-6 mt-6">
+            {/* Servicios fijos del evento — SECCIÓN PLANA, no tarjeta
+          (Felipe, 24-08: "mantener el mismo ancho de la lista que viene
+          arriba"). La pestaña entera ya vive en un panel blanco: una
+          tarjeta adentro era caja dentro de caja y quebraba la columna
+          de precios. Mismo ancho, mismas columnas; la separa una línea. */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Servicios fijos del evento
               </h3>
