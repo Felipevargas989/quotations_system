@@ -41,4 +41,8 @@ export const estadoDelPago = (p: {
 export const esPlanificacion = (a: {
   quotation_id: string | null;
   kind: string;
-}): boolean => a.quotation_id === null || a.kind !== "planta";
+  solo_propina?: boolean;
+}): boolean =>
+  // La fila solo-de-propina (migración 88) tampoco: existe para que el
+  // que vino a un evento entre al pozo del día. Un turno, una jornada.
+  !a.solo_propina && (a.quotation_id === null || a.kind !== "planta");

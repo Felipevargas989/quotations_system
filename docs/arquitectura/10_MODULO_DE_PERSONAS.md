@@ -251,6 +251,31 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### Los invitados del evento al pozo del día (24-08)
+
+La regla, con palabras de Felipe: *"un garzón que viene a un evento,
+eventualmente si llegan un par de mesas puede atenderlas — son dos
+propinas distintas que se distribuyen de forma distinta. El turno del
+garzón es el mismo; solo que cuando no estuvo atendiendo el evento,
+tuvo que atender otras mesas."*
+
+- **La planificación no se toca.** La persona está asignada a UNA cosa
+  ese día (el cruce del 15-08 sigue); el calendario muestra **una sola
+  jornada** — no son dos trabajos.
+- **La regla vive en el reparto del día de restaurante**: el modal
+  ofrece aparte, **desmarcados**, a los que vinieron a un evento ese
+  día. El que Felipe marca entra al pozo del día pesando con su **mismo
+  horario del evento**.
+- Por dentro, el incluido recibe una **fila solo-de-propina** (migración
+  88): `quotation_id null`, sin pago (`amount null`), `solo_propina =
+  true`, horario copiado del evento. Invisible en planificación,
+  calendario y ficha de persona (`esPlanificacion`); la nómina la suma
+  como cualquier propina. Volver a repartir con otra selección crea y
+  borra estas filas solo (nunca una con propina ya en nómina); sacar a
+  la persona del evento la borra también y reabre el pozo del día.
+- El garzón traído **solo para el restaurante** sigue entrando por
+  Personal Staff, como siempre.
+
 #### Todo evento pasado se liquida; el historial es lo que Felipe liquida (21-08)
 
 Dos decisiones de Felipe que cierran la lista "Eventos por liquidar":

@@ -138,6 +138,10 @@ export interface Asignacion {
   /** En qué nómina cayó cada cosa. NULL = pendiente. */
   payroll_id: number | null;
   tip_payroll_id: number | null;
+  /** Fila creada por el reparto del día para alguien que vino a un
+   *  evento: solo carga su propina del día (migración 88). Sin pago;
+   *  fuera de planificación y calendario. */
+  solo_propina?: boolean;
   /** En las filas de nómina el backend manda la persona COMPLETA
    *  (con sus datos bancarios); en el resto, solo lo básico. */
   people?:

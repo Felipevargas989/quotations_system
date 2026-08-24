@@ -25,7 +25,10 @@ import type {
   UpdateEventStaffDto,
 } from './dto/event-staff.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
-import type { EventStaffConPersona } from './entities/person.entity';
+import type {
+  EventStaff,
+  EventStaffConPersona,
+} from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
 import { normalizarRut } from './utils/rut';
@@ -421,6 +424,31 @@ export class PeopleService {
         `sacar ${id}: tenía propina, el pozo ${pozoId} vuelve a repartirse`,
       );
     }
+
+    // SI SE VA DEL EVENTO, SE VA DEL POZO DEL DÍA (24-08): su fila
+    // solo-de-propina era por haber venido. Se borra, y si ya tenía
+    // propina del día, ese pozo vuelve a repartirse.
+    if (fila.quotation_id && fila.person_id != null) {
+      const solo = (
+        await this.repo.findPlantaDelDia(companyId, String(fila.day))
+      ).find((f) => f.solo_propina && f.person_id === fila.person_id);
+      if (solo && solo.tip_payroll_id == null) {
+        const pozoDelDia = solo.tip_pool_id ?? null;
+        const conPropina = Number(solo.tip_amount ?? 0) > 0;
+        await this.repo.removeStaff(solo.id, companyId);
+        if (conPropina && pozoDelDia) {
+          await this.repo.clearTips(pozoDelDia, companyId);
+          await this.repo.updatePool(
+            pozoDelDia,
+            { distributed_at: null },
+            companyId,
+          );
+        }
+        this.logger.info(
+          `sacar ${id}: se va del evento, fuera también del pozo del día`,
+        );
+      }
+    }
     return { id };
   }
 
@@ -737,6 +765,85 @@ export class PeopleService {
   }
 
   /**
+   * LOS INVITADOS DEL EVENTO AL POZO DEL DÍA (Felipe, 24-08): "un
+   * garzón que viene a un evento, si llegan un par de mesas, puede
+   * atenderlas — son dos propinas distintas". La planificación no se
+   * toca (un turno, una jornada, un calendario); al repartir el día,
+   * la gente del evento se ofrece aparte y el que se incluye recibe
+   * por dentro una fila SOLO-DE-PROPINA: mismo horario del evento,
+   * sin pago de jornada, invisible en planificación.
+   *
+   * Idempotente: volver a repartir con otra selección crea las que
+   * falten y borra las que sobren (nunca una con propina ya en nómina).
+   */
+  private async sincronizarInvitados(
+    day: string,
+    invitados: number[],
+    companyId: number,
+  ) {
+    const delDia = await this.repo.findPlantaDelDia(companyId, day);
+    const existentes = delDia.filter((f) => f.solo_propina);
+
+    const traidos = new Map<number, EventStaff>();
+    for (const id of invitados) {
+      const fila = await this.repo.findStaffPorId(id, companyId);
+      if (!fila || !fila.quotation_id || fila.person_id == null) {
+        throw new BadRequestException(
+          'Un invitado no es una jornada de evento válida',
+        );
+      }
+      if (String(fila.day).slice(0, 10) !== day) {
+        throw new BadRequestException(
+          'Un invitado no trabajó el día de este pozo',
+        );
+      }
+      traidos.set(fila.person_id, fila);
+    }
+
+    const sobran = existentes.filter(
+      (f) => f.person_id != null && !traidos.has(f.person_id),
+    );
+    const pagada = sobran.find((f) => f.tip_payroll_id != null);
+    if (pagada) {
+      throw new BadRequestException(
+        'Hay un invitado con propina ya en nómina: no se puede sacar',
+      );
+    }
+    await this.repo.removeStaffEnLote(
+      sobran.map((f) => f.id),
+      companyId,
+    );
+
+    const porCrear: Record<string, unknown>[] = [];
+    for (const [personId, evento] of traidos) {
+      const ya = existentes.find((f) => f.person_id === personId);
+      const horario = {
+        starts_at: evento.starts_at,
+        ends_at: evento.ends_at,
+        break_minutes: evento.break_minutes,
+        role_id: evento.role_id ?? null,
+      };
+      if (ya) {
+        // El horario manda el del evento: es el mismo turno.
+        await this.repo.updateStaff(ya.id, horario, companyId);
+      } else {
+        porCrear.push({
+          company_id: companyId,
+          quotation_id: null,
+          person_id: personId,
+          day,
+          kind: 'freelance',
+          amount: null,
+          status: 'confirmado',
+          solo_propina: true,
+          ...horario,
+        });
+      }
+    }
+    await this.repo.addStaffEnLote(porCrear);
+  }
+
+  /**
    * EL REPARTO POR PUNTOS (Felipe, 21-08). El porcentaje de un cargo es
    * EL VALOR DE SU HORA, no su tajada del pozo: cada fila junta puntos
    * (minutos trabajados × % de su cargo) y el pozo se reparte entre los
@@ -782,6 +889,11 @@ export class PeopleService {
       }
       filas = await this.repo.findStaff(companyId, pool.quotation_id);
     } else {
+      await this.sincronizarInvitados(
+        pool.day!,
+        dto.invitados ?? [],
+        companyId,
+      );
       filas = await this.repo.findPlantaDelDia(companyId, pool.day!);
     }
     if (filas.some((f) => f.tip_payroll_id !== null)) {

@@ -96,6 +96,15 @@ export class RepartirDto {
   @ValidateNested({ each: true })
   @Type(() => PorcentajeDto)
   porcentajes: PorcentajeDto[];
+
+  /** Solo en pozos de DÍA de restaurante: ids de jornadas de EVENTO de
+   *  ese día cuya gente entra también al pozo del día (Felipe, 24-08:
+   *  atendieron al grupo y después las mesas). El sistema les crea la
+   *  fila solo-de-propina por dentro. */
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  invitados?: number[];
 }
 
 // ---- Las estrellas ----

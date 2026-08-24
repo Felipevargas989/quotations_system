@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import TablaDeJornadas from "../../components/personas/TablaDeJornadas";
@@ -1056,27 +1056,99 @@ function DiaRestaurante({
     () =>
       staff.filter(
         (a) =>
-          a.quotation_id === null && String(a.day).slice(0, 10) === dia,
+          a.quotation_id === null &&
+          String(a.day).slice(0, 10) === dia &&
+          // La fila solo-de-propina no se edita acá: es el reflejo de
+          // un invitado del evento; abajo vive su checkbox.
+          !a.solo_propina,
       ),
     [staff, dia],
   );
+
+  // LOS INVITADOS DEL EVENTO (Felipe, 24-08): "un garzón que viene a un
+  // evento, si llegan un par de mesas, puede atenderlas — son dos
+  // propinas distintas". Se ofrecen aparte, desmarcados; el marcado
+  // entra al pozo del día con su mismo horario del evento.
+  const delEvento = useMemo(
+    () =>
+      staff.filter(
+        (a) =>
+          a.quotation_id !== null &&
+          a.person_id != null &&
+          String(a.day).slice(0, 10) === dia,
+      ),
+    [staff, dia],
+  );
+  const [invitados, setInvitados] = useState<Set<number>>(new Set());
+  // Al entrar a un día, los ya incluidos (su fila solo-de-propina
+  // existe) parten marcados.
+  useEffect(() => {
+    const yaIncluidos = new Set(
+      staff
+        .filter(
+          (a) =>
+            a.solo_propina &&
+            a.person_id != null &&
+            String(a.day).slice(0, 10) === dia,
+        )
+        .map((a) => a.person_id),
+    );
+    setInvitados(
+      new Set(
+        staff
+          .filter(
+            (a) =>
+              a.quotation_id !== null &&
+              a.person_id != null &&
+              String(a.day).slice(0, 10) === dia &&
+              yaIncluidos.has(a.person_id),
+          )
+          .map((a) => a.id),
+      ),
+    );
+  }, [staff, dia]);
+  const invitadosFilas = useMemo(
+    () =>
+      delEvento
+        .filter((a) => invitados.has(a.id))
+        // El "sin propina" de su fila del EVENTO habla del pozo del
+        // evento; acá está invitado al del día, así que no lo excluye.
+        .map((a) => ({ ...a, no_tip: false })),
+    [delEvento, invitados],
+  );
+  // Lo que cada invitado ya recibió del pozo del DÍA (vive en su fila
+  // solo-de-propina; la de su evento carga la propina del evento).
+  const propinaDelDia = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const a of staff) {
+      if (
+        a.solo_propina &&
+        a.person_id != null &&
+        String(a.day).slice(0, 10) === dia &&
+        a.tip_amount != null
+      ) {
+        m.set(a.person_id, Number(a.tip_amount));
+      }
+    }
+    return m;
+  }, [staff, dia]);
 
   // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
   // no aparece: no hay a quién repartirle.
   const cargos = useMemo(() => {
     const m = new Map<number, string>();
-    for (const a of delDia) {
+    for (const a of [...delDia, ...invitadosFilas]) {
       if (a.no_tip) continue;
       m.set(a.role_id ?? 0, a.management_resources?.name ?? "Sin cargo");
     }
     return [...m.entries()];
-  }, [delDia]);
+  }, [delDia, invitadosFilas]);
 
   // LAS HORAS DE CADA CARGO, para mostrar lo que se lleva: el % es el
   // valor de la hora, no la tajada (21-08). Gemelo del backend.
   const horasPorCargo = useMemo(() => {
     const m = new Map<number, number>();
-    for (const a of delDia) {
+    for (const a of [...delDia, ...invitadosFilas]) {
       if (a.no_tip || a.person_id == null) continue;
       const k = a.role_id ?? 0;
       const horas =
@@ -1084,7 +1156,7 @@ function DiaRestaurante({
       m.set(k, (m.get(k) ?? 0) + horas);
     }
     return m;
-  }, [delDia]);
+  }, [delDia, invitadosFilas]);
 
   // UN SOLO CARGO SE LLEVA EL 100% SOLO (Felipe, 15-08). Si no hay
   // entre quiénes repartir, escribir "100" a mano era puro trámite: se
@@ -1164,6 +1236,7 @@ function DiaRestaurante({
           role_id: role_id === 0 ? null : role_id,
           pct: pct(role_id),
         })),
+        [...invitados],
       );
       return pozo;
     },
@@ -1341,6 +1414,47 @@ function DiaRestaurante({
             </p>
           )}
         </div>
+
+        {delEvento.length > 0 && (
+          <div className="border border-gray-200 rounded-xl p-3">
+            <p className="text-sm font-medium text-gray-900">
+              Vinieron a un evento este día
+            </p>
+            <p className="text-xs text-gray-500 mb-2">
+              El que marques entra también al pozo del día, con su mismo
+              horario del evento. Su jornada se paga una sola vez, en el
+              evento.
+            </p>
+            <ul className="space-y-1">
+              {delEvento.map((a) => (
+                <li key={a.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={invitados.has(a.id)}
+                    onChange={() => {
+                      const s2 = new Set(invitados);
+                      if (s2.has(a.id)) s2.delete(a.id);
+                      else s2.add(a.id);
+                      setInvitados(s2);
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-gray-900">{a.people?.name}</span>
+                  <span className="text-gray-500">
+                    {a.management_resources?.name ?? "Sin cargo"}
+                  </span>
+                  <span className="text-gray-400 text-xs ml-auto tabular-nums">
+                    {(a.starts_at ?? "").slice(0, 5)}–
+                    {(a.ends_at ?? "").slice(0, 5)}
+                    {a.person_id != null &&
+                      propinaDelDia.has(a.person_id) &&
+                      ` · del día ${clp(propinaDelDia.get(a.person_id) ?? 0)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">
