@@ -8,6 +8,7 @@ import { toast } from "../../components/toast/Toast";
 import SemanaTab from "./SemanaTab";
 import FichasTab from "./FichasTab";
 import NominaTab from "./NominaTab";
+import HistoricoTab from "./HistoricoTab";
 import Estrellas from "../../components/Estrellas";
 import CargosModal from "./CargosModal";
 import Modal from "../../components/Modal";
@@ -57,7 +58,7 @@ export default function PersonasPage() {
   const [viendoCargos, setViendoCargos] = useState(false);
   // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
   const [pestana, setPestana] = useState<
-    "directorio" | "armar" | "fichas" | "nomina"
+    "directorio" | "armar" | "fichas" | "nomina" | "historico"
   >(
     () =>
       (localStorage.getItem("eventia_personal_pestana") as
@@ -181,6 +182,7 @@ export default function PersonasPage() {
           ["armar", "Planificación"],
           ["fichas", "Liquidación"],
           ["nomina", "Nómina"],
+          ["historico", "Histórico de pagos"],
           ["directorio", "Staff"],
         ] as const).map(([id, texto]) => (
           <button
@@ -203,6 +205,8 @@ export default function PersonasPage() {
         <FichasTab />
       ) : pestana === "nomina" ? (
         <NominaTab />
+      ) : pestana === "historico" ? (
+        <HistoricoTab />
       ) : (
       <>
 

@@ -251,6 +251,31 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+#### Histórico de pagos: Liquidación es puramente operativa (24-08)
+
+Pestaña nueva en Personal (Planificación · Liquidación · Nómina ·
+**Histórico de pagos** · Staff), pedida por Felipe: *"así la pestaña
+Liquidación es puramente operativa"*. Las reglas:
+
+- **Liquidación muestra solo lo que pide acción**: días de restaurante
+  sin resolver (chips ámbar) y eventos por liquidar. Sin pliegues, sin
+  verdes.
+- **Nada desaparece**: todo lo resuelto vive en Histórico — eventos
+  liquidados y días de restaurante con su marca (verde esperando
+  nómina, gris "sin propina", candado si ya entró a una nómina). Los
+  "sin propina" tienen **reabrir** a un clic (antes se esfumaban y un
+  error no tenía arreglo). Reabrir usa el endpoint existente
+  (`payrolls/reabrir`), que ya cuida el candado de lo pagado.
+- **Arriba, tres gráficos** (elegidos el 24-08): en nóminas por mes
+  (jornadas vs propinas, barras apiladas), quiénes más reciben (top 5,
+  6 meses), y propina promedio por día de restaurante contando SOLO los
+  días con propina. Endpoint `historico/graficos`, función pura con
+  pruebas.
+- En el modal del día, **cada día muestra lo suyo** (monto y
+  porcentajes leídos de su pozo — migración 87) y **repartir avanza**
+  al día siguiente (revierte la decisión del 16-08, a pedido de Felipe:
+  para revisar se retrocede con ‹).
+
 #### Los invitados del evento al pozo del día (24-08)
 
 La regla, con palabras de Felipe: *"un garzón que viene a un evento,

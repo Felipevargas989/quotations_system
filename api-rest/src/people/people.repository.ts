@@ -612,6 +612,29 @@ export class PeopleRepository {
     return data as unknown as TipPool[];
   }
 
+  /** Las jornadas y propinas que YA entraron a una nómina, desde una
+   *  fecha: la materia prima del Histórico de pagos. */
+  async filasEnNominaDesde(companyId: number, desde: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select(
+        'day, amount, tip_amount, payroll_id, tip_payroll_id, person_id, people(name)',
+      )
+      .eq('company_id', companyId)
+      .gte('day', desde)
+      .or('payroll_id.not.is.null,tip_payroll_id.not.is.null');
+    if (error) throw error;
+    return data as unknown as {
+      day: string;
+      amount: number | null;
+      tip_amount: number | null;
+      payroll_id: number | null;
+      tip_payroll_id: number | null;
+      person_id: number | null;
+      people: { name: string } | null;
+    }[];
+  }
+
   /** ¿Algo de este evento (o de este día de restaurante) ya entró a
    *  una nómina? Es el candado para reabrir una liquidación. */
   async hayPagosEn(
