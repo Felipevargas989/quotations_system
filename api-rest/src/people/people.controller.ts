@@ -268,6 +268,11 @@ export class PeopleController {
   }
 
   /** Lo liquidado que todavía no entró a ninguna nómina. */
+  @Get('historico/graficos')
+  graficosHistorico(@CurrentUser() user: User) {
+    return this.peopleService.graficosHistorico(user.company_id);
+  }
+
   @Get('payrolls/pendientes')
   liquidacionesPendientes(@CurrentUser() user: User) {
     return this.peopleService.liquidacionesPendientes(user.company_id);

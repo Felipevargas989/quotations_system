@@ -139,7 +139,6 @@ interface EventoFila {
 export default function FichasTab() {
   const qc = useQueryClient();
   const [abierta, setAbierta] = useState<EventoFila | null>(null);
-  const [verLiquidados, setVerLiquidados] = useState(false);
   const [diaModal, setDiaModal] = useState<number | null>(null);
   // LA TANDA SE CONGELA AL ABRIR (Felipe, 16-08). Antes el día repartido
   // desaparecía de la lista en el acto y no se podía volver con ‹ › a
@@ -213,21 +212,7 @@ export default function FichasTab() {
     );
   }, [eventos, sheets, hoy]);
 
-  /** De los días que siguen en la mesa, cuáles ya están repartidos y
-   *  solo esperan la nómina: se pintan verdes para no confundirlos con
-   *  los que aún no se tocan. */
-  const diasRepartidos = useMemo(
-    () =>
-      new Set(
-        pools
-          .filter((p) => p.day && p.distributed_at)
-          .map((p) => String(p.day).slice(0, 10)),
-      ),
-    [pools],
-  );
-
   const pendientes = filas.filter((f) => f.estado !== "cerrada");
-  const liquidados = filas.filter((f) => f.estado === "cerrada");
 
   // Los días de restaurante que siguen en la mesa. UN DÍA SE VA CUANDO
   // LLEGA A LA NÓMINA, NO CUANDO SE REPARTE (Felipe, 16-08): entre las
@@ -243,23 +228,14 @@ export default function FichasTab() {
       const pozo = Number(p.first_amount) + Number(p.second_amount);
       resueltos.set(String(p.day).slice(0, 10), pozo <= 0);
     }
-    // Lo repartido que todavía NO fue a nómina mantiene vivo su día.
-    const esperandoNomina = new Set<string>();
-    for (const a of staffVentana) {
-      if (a.quotation_id !== null) continue;
-      if (Number(a.tip_amount ?? 0) > 0 && a.tip_payroll_id === null) {
-        esperandoNomina.add(String(a.day).slice(0, 10));
-      }
-    }
+    // LIQUIDACIÓN ES PURAMENTE OPERATIVA (Felipe, 24-08): acá solo lo
+    // que pide acción. Todo día resuelto — repartido o sin propina —
+    // vive en Histórico de pagos con su marca y su reabrir.
     const dias = new Set<string>();
     for (const a of staffVentana) {
       if (a.quotation_id !== null) continue;
       const d = String(a.day).slice(0, 10);
-      const sinPropinaEseDia = resueltos.get(d);
-      const listo =
-        sinPropinaEseDia === true || // día marcado sin propina
-        (resueltos.has(d) && !esperandoNomina.has(d)); // repartido y pagado
-      if (d <= hoy && !listo) dias.add(d);
+      if (d <= hoy && !resueltos.has(d)) dias.add(d);
     }
     return [...dias].sort();
   }, [staffVentana, pools, hoy]);
@@ -312,8 +288,7 @@ export default function FichasTab() {
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Día por día: quiénes trabajaron, cuánta propina hubo y cómo
-              se reparte. En verde, los que ya repartiste y esperan la
-              nómina.
+              se reparte. Lo ya resuelto vive en Histórico de pagos.
             </p>
           </div>
           {diasPendientes.length > 0 && (
@@ -344,16 +319,8 @@ export default function FichasTab() {
                   setTanda(diasPendientes);
                   setDiaModal(i);
                 }}
-                title={
-                  diasRepartidos.has(d)
-                    ? "Repartido: esperando la nómina"
-                    : "Sin repartir"
-                }
-                className={`px-2 py-1 text-xs tabular-nums border rounded-md ${
-                  diasRepartidos.has(d)
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                    : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                }`}
+                title="Sin repartir"
+                className="px-2 py-1 text-xs tabular-nums border rounded-md border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
               >
                 {formatISOUTCDateToString(d)}
               </button>
@@ -383,25 +350,7 @@ export default function FichasTab() {
             ))}
           </ul>
         )}
-        {liquidados.length > 0 && (
-          <div className="border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => setVerLiquidados(!verLiquidados)}
-              className="w-full px-4 py-2 text-left text-xs text-gray-500 hover:bg-gray-50"
-            >
-              {verLiquidados ? "▾" : "▸"} {liquidados.length} ya{" "}
-              {liquidados.length === 1 ? "liquidado" : "liquidados"}
-            </button>
-            {verLiquidados && (
-              <ul className="divide-y divide-gray-100">
-                {liquidados.map((f) => (
-                  <FilaEvento key={f.id} f={f} />
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+
       </div>
 
       {diaModal !== null && tanda[diaModal] && (

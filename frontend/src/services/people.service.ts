@@ -285,6 +285,18 @@ export const reabrirLiquidacion = async (origen: {
     reabierto: "evento" | "dia";
   };
 
+export interface GraficosHistorico {
+  porMes: { mes: string; jornadas: number; propinas: number }[];
+  top: { nombre: string; total: number }[];
+  promedioDia: { mes: string; dias: number; promedio: number }[];
+}
+
+export const getGraficosHistorico = async () =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/historico/graficos`,
+    "GET",
+  )) as GraficosHistorico;
+
 export const getLiquidacionesPendientes = async () =>
   (await apiRequest(
     `${API_ROUTES.PEOPLE}/payrolls/pendientes`,

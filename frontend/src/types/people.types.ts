@@ -166,6 +166,9 @@ export interface Ficha {
   /** Cerrada por SQL al arrancar el módulo (migración 86): no es
    *  historial de nadie y la pantalla no la lista. */
   cierre_administrativo?: boolean;
+  /** Algo de esta ficha (jornada o propina) ya entró a una nómina:
+   *  candado — en nómina no hay vuelta atrás (Felipe, 24-08). */
+  en_nomina?: boolean;
 }
 
 /** Un pozo de propina: de un evento o de un día de la planta. Llega

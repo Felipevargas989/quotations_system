@@ -766,6 +766,23 @@ export class PeopleService {
   }
 
   /**
+   * LOS GRÁFICOS DEL HISTÓRICO (Felipe, 24-08): el mensual de barras
+   * (jornadas vs propinas ya en nómina), el top de personas, y la
+   * propina promedio por día de restaurante contando SOLO los días que
+   * tuvieron propina ("tiene que considerar solo los días que hay
+   * propinas").
+   */
+  async graficosHistorico(companyId: number) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const desde = mesesAtras(hoy, 11);
+    const [filas, pozos] = await Promise.all([
+      this.repo.filasEnNominaDesde(companyId, `${desde}-01`),
+      this.repo.findPools(companyId),
+    ]);
+    return armarGraficosHistorico(filas, pozos, hoy);
+  }
+
+  /**
    * La fila solo-de-propina de UN invitado, creada o corregida desde la
    * tabla del día: ahí viven su "extra" (asignación optativa por las
    * mesas que atendió) y su "sin propina". El horario viene del evento.
@@ -1709,6 +1726,100 @@ export const repartirAlPeso = (total: number, pesos: number[]): number[] => {
     faltan -= 1;
   }
   return pisos;
+};
+
+/** 'YYYY-MM' de N meses atrás de una fecha ISO. */
+export const mesesAtras = (hoyISO: string, n: number): string => {
+  const [y, m] = hoyISO.split('-').map(Number);
+  const total = y * 12 + (m - 1) - n;
+  const yy = Math.floor(total / 12);
+  const mm = (total % 12) + 1;
+  return `${String(yy)}-${String(mm).padStart(2, '0')}`;
+};
+
+/** Los tres gráficos del Histórico, puros para poder probarlos. */
+export const armarGraficosHistorico = (
+  filas: readonly {
+    day: string;
+    amount: number | null;
+    tip_amount: number | null;
+    payroll_id: number | null;
+    tip_payroll_id: number | null;
+    person_id: number | null;
+    people: { name: string } | null;
+  }[],
+  pozos: readonly {
+    day?: string | null;
+    quotation_id?: string | null;
+    first_amount: number;
+    second_amount: number;
+    distributed_at: string | null;
+  }[],
+  hoyISO: string,
+) => {
+  const meses: string[] = [];
+  for (let i = 11; i >= 0; i--) meses.push(mesesAtras(hoyISO, i));
+
+  // 1) En nóminas por mes: jornadas y propinas.
+  const porMes = meses.map((mes) => {
+    const delMes = filas.filter((f) => String(f.day).slice(0, 7) === mes);
+    return {
+      mes,
+      jornadas: delMes.reduce(
+        (t, f) => t + (f.payroll_id != null ? Number(f.amount ?? 0) : 0),
+        0,
+      ),
+      propinas: delMes.reduce(
+        (t, f) =>
+          t + (f.tip_payroll_id != null ? Number(f.tip_amount ?? 0) : 0),
+        0,
+      ),
+    };
+  });
+
+  // 2) Top 5 personas de los últimos 6 meses (jornadas + propinas).
+  const desde6 = mesesAtras(hoyISO, 5);
+  const porPersona = new Map<number, { nombre: string; total: number }>();
+  for (const f of filas) {
+    if (f.person_id == null || String(f.day).slice(0, 7) < desde6) continue;
+    const plata =
+      (f.payroll_id != null ? Number(f.amount ?? 0) : 0) +
+      (f.tip_payroll_id != null ? Number(f.tip_amount ?? 0) : 0);
+    if (plata <= 0) continue;
+    const ya = porPersona.get(f.person_id);
+    if (ya) ya.total += plata;
+    else
+      porPersona.set(f.person_id, {
+        nombre: f.people?.name ?? 'Sin nombre',
+        total: plata,
+      });
+  }
+  const top = [...porPersona.values()]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  // 3) Propina promedio por día de restaurante, SOLO días con propina.
+  const promedioDia = meses.map((mes) => {
+    const delMes = pozos.filter(
+      (p) =>
+        p.day &&
+        !p.quotation_id &&
+        p.distributed_at &&
+        String(p.day).slice(0, 7) === mes &&
+        Number(p.first_amount) + Number(p.second_amount) > 0,
+    );
+    const total = delMes.reduce(
+      (t, p) => t + Number(p.first_amount) + Number(p.second_amount),
+      0,
+    );
+    return {
+      mes,
+      dias: delMes.length,
+      promedio: delMes.length > 0 ? Math.round(total / delMes.length) : 0,
+    };
+  });
+
+  return { porMes, top, promedioDia };
 };
 
 /** Lo mínimo de una fila para repartirle propina. */
