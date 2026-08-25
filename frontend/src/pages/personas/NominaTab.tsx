@@ -353,15 +353,18 @@ function LiquidacionesPorPagar({
             return (
               <li
                 key={k}
+                // El !border-l: el divide-y del ul pinta de gris TODOS
+                // los bordes de la segunda fila en adelante y pisaba el
+                // azul — "el borde azul solo quedó en el primero"
+                // (Felipe, 25-08). Y el hover va en la fila entera,
+                // Reabrir incluido.
                 className={`border-l-4 ${
-                  marcada ? "border-blue-600 bg-blue-50" : "border-transparent"
+                  marcada
+                    ? "!border-l-blue-600 bg-blue-50"
+                    : "!border-l-transparent hover:bg-gray-50"
                 }`}
               >
-                <label
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${
-                    marcada ? "" : "hover:bg-gray-50"
-                  }`}
-                >
+                <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={marcada}
