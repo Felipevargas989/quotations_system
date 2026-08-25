@@ -584,8 +584,11 @@ export default function QuotationsPage() {
               onClick={() => setStatusMenuId(null)}
             />
             {/* whitespace-normal: la celda es nowrap y sin esto las
-              opciones se forman en una línea horizontal. */}
-            <span className="absolute left-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
+              opciones se forman en una línea horizontal. right-0: el
+              menú se despliega hacia ADENTRO — anclado a la izquierda,
+              en la última columna del embudo se salía de la pantalla
+              (Felipe, 25-08). */}
+            <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block whitespace-normal">
               {statusOptionsFor(quotation).map((st) => (
                 <button
                   key={st}
