@@ -251,6 +251,25 @@ banco, cuenta y monto; y **el pago**, donde se va marcando uno a uno a
 quién ya se le pagó, con barra de avance. El pago se hace a mano en el
 portal del banco, así que el sistema acompaña, no transfiere.
 
+## El cajón (pendientes acordados, en orden)
+
+1. **La revisión se revalida al generar la nómina** (25-08, PRIMERO):
+   la noche del 24-08 el reparto del #400 se rehizo entre abrir "Revisa
+   antes de liquidar" y apretar Aprobar — se aprobó una foto vieja (el
+   total calzó de suerte porque el pozo no cambió). Guardia: al generar,
+   comparar lo mostrado contra la base; si difiere, "los números
+   cambiaron, revisa de nuevo".
+2. El aviso de choque de fechas **nombra** con quién choca (dos veces
+   hubo que ir a la base a adivinar: #493/#460 y #493/#491) y distingue
+   solicitud de evento agendado.
+3. La ficha de liquidación avisa si los **pagos del evento traen
+   propinas anotadas** (la #486 se cerró en $0 con $16.510 anotados en
+   sus pagos, que se repartieron en el #400).
+4. La nómina alerta **jornadas con monto ridículo** (< $1.000): el $1 y
+   $2 de relleno de Soledad antes del cambio de día.
+5. En "Cómo se reparte", mostrar **horas junto al monto** de cada cargo.
+6. `traer-planta` una sola vez por ficha; ámbar del calendario.
+
 #### El cambio de día de la planta (24-08, migración 89)
 
 Soledad libra domingo y lunes; Felipe le cambió los días — trabaja el
