@@ -324,14 +324,16 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.people}>
                     <PersonasPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* Marketing - solo administrador: campañas a toda la
+                  cartera (doc 11, 25-08). */}
               <Route
                 path="marketing"
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
                     <MarketingPage />
-                  </PermissionGuard>
-                }
-              />
                   </PermissionGuard>
                 }
               />
