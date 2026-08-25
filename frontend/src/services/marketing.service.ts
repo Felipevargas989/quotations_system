@@ -28,7 +28,7 @@ export interface CampanaMarketing {
 
 export interface FiltroSegmento {
   tipos_cliente?: string[];
-  con_estados?: ("realizada" | "aceptada" | "rechazada")[];
+  con_estados?: ("realizada" | "aceptada" | "rechazada" | "anulada")[];
   evento_desde?: string;
   evento_hasta?: string;
   sin_cotizacion_desde?: string;

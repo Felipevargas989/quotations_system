@@ -10,7 +10,7 @@ export interface FiltroSegmento {
   /** Tipos de cliente (client_type). Vacío/ausente = todos. */
   tipos_cliente?: string[];
   /** Tuvo cotización en estos estados… */
-  con_estados?: ('realizada' | 'aceptada' | 'rechazada')[];
+  con_estados?: ('realizada' | 'aceptada' | 'rechazada' | 'anulada')[];
   /** …con fecha de evento dentro del rango (opcional). */
   evento_desde?: string;
   evento_hasta?: string;
@@ -81,7 +81,11 @@ export const resolverSegmento = (
       const enRango = suyas.filter(
         (q) =>
           filtro.con_estados!.includes(
-            q.quotation_status as 'realizada' | 'aceptada' | 'rechazada',
+            q.quotation_status as
+              | 'realizada'
+              | 'aceptada'
+              | 'rechazada'
+              | 'anulada',
           ) &&
           (!filtro.evento_desde || dia(q.event_date) >= filtro.evento_desde) &&
           (!filtro.evento_hasta || dia(q.event_date) <= filtro.evento_hasta),
