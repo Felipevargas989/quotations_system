@@ -243,10 +243,13 @@ export const repartirPool = async (
   // Solo en pozos de día: jornadas de EVENTO cuya gente entra también
   // al pozo del día (Felipe, 24-08).
   invitados?: number[],
+  // El monto del pozo en el mismo viaje (25-08): un request menos.
+  monto?: number,
 ) =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}/repartir`, "POST", {
     porcentajes,
     ...(invitados ? { invitados } : {}),
+    ...(monto != null ? { monto } : {}),
   })) as { repartido: number; filas: number };
 
 // ---- Las estrellas ----

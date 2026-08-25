@@ -52,6 +52,15 @@ const sumarDias = (isoDia: string, n: number) =>
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
+/** Qué le falta (o sobra) a los porcentajes para sumar 100 (Felipe,
+ *  25-08: "en vez de suman XX% podría decir faltan"). */
+const faltanteDePorcentajes = (total: number): string => {
+  const resto = Math.round((100 - total) * 10) / 10;
+  return resto > 0
+    ? `Faltan ${resto.toLocaleString("es-CL")}% para llegar a 100.`
+    : `Sobran ${Math.abs(resto).toLocaleString("es-CL")}% — deben sumar 100.`;
+};
+
 /**
  * VELOCIDAD (Felipe, 18-08: "además que es lento"). Al cambiar una hora,
  * la colación, el monto o el chip, la fila se mueve AL INSTANTE en la
@@ -826,7 +835,7 @@ function Reparto({
             >
               {Math.abs(total - 100) < 0.001
                 ? `Cuadra: ${clp(monto)} completos al equipo.`
-                : `Los porcentajes suman ${total.toLocaleString("es-CL")}% — el botón se abre en 100.`}
+                : faltanteDePorcentajes(total)}
             </span>
             <button
               type="button"
@@ -1216,10 +1225,12 @@ function DiaRestaurante({
 
   const liquidar = useMutation({
     mutationFn: async () => {
+      // El monto viaja DENTRO del repartir (25-08): antes eran dos
+      // requests en fila y el cálculo se sentía lento. Solo si el pozo
+      // no existe hay que crearlo primero.
       const existente = poolDelDia();
-      const pozo = existente
-        ? await updatePool(existente.id, { first_amount: monto ?? 0 })
-        : await createPool({ day: dia, first_amount: monto ?? 0 });
+      const pozo =
+        existente ?? (await createPool({ day: dia, first_amount: monto ?? 0 }));
       await repartirPool(
         pozo.id,
         cargos.map(([role_id]) => ({
@@ -1229,6 +1240,7 @@ function DiaRestaurante({
         // Solo los invitados de verdad (los que no están ya en la
         // planta del día), por su jornada de evento.
         invitadosFilas.map((a) => a.eventoId),
+        monto ?? 0,
       );
       return pozo;
     },
@@ -1364,7 +1376,7 @@ function DiaRestaurante({
               !monto
                 ? "Ponle el monto del pozo"
                 : !cuadra
-                  ? `Los porcentajes suman ${total.toLocaleString("es-CL")}%`
+                  ? faltanteDePorcentajes(total)
                   : undefined
             }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 whitespace-nowrap"
@@ -1512,7 +1524,7 @@ function DiaRestaurante({
             >
               {cuadra
                 ? `Cuadra: ${clp(monto ?? 0)} completos al equipo.`
-                : `Suman ${total.toLocaleString("es-CL")}% — el botón se abre en 100.`}
+                : faltanteDePorcentajes(total)}
             </p>
           </div>
         )}

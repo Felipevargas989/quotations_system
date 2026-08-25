@@ -345,13 +345,26 @@ function LiquidacionesPorPagar({
           {pendientes.map((l) => {
             const k = clave(l);
             const marcada = marcadas.has(k);
+            // LA FILA MARCADA SE PINTA ENTERA (Felipe, 25-08: el azul
+            // cortado a la mitad "se ve raro"): el fondo va en el li
+            // —cubre también la línea del Reabrir— y un borde izquierdo
+            // azul más fuerte marca la selección. El borde transparente
+            // en las demás evita el salto de layout.
             return (
-              <li key={k}>
-                <label
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${
-                    marcada ? "bg-blue-50" : "hover:bg-gray-50"
-                  }`}
-                >
+              <li
+                key={k}
+                // El !border-l: el divide-y del ul pinta de gris TODOS
+                // los bordes de la segunda fila en adelante y pisaba el
+                // azul — "el borde azul solo quedó en el primero"
+                // (Felipe, 25-08). Y el hover va en la fila entera,
+                // Reabrir incluido.
+                className={`border-l-4 ${
+                  marcada
+                    ? "!border-l-blue-600 bg-blue-50"
+                    : "!border-l-transparent hover:bg-gray-50"
+                }`}
+              >
+                <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={marcada}

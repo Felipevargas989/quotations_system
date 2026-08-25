@@ -850,11 +850,14 @@ export class PeopleService {
    * Idempotente: volver a repartir con otra selección crea las que
    * falten y borra las que sobren (nunca una con propina ya en nómina).
    */
+  /** Devuelve la lista del día lista para repartir cuando nada
+   *  estructural cambió (nada creado ni borrado): se ahorra la segunda
+   *  lectura (25-08). NULL = hay que volver a leer. */
   private async sincronizarInvitados(
     day: string,
     invitados: number[],
     companyId: number,
-  ) {
+  ): Promise<EventStaffConPersona[] | null> {
     const delDia = await this.repo.findPlantaDelDia(companyId, day);
     const existentes = delDia.filter((f) => f.solo_propina);
 
@@ -932,6 +935,22 @@ export class PeopleService {
     }
     await Promise.all(correcciones);
     await this.repo.addStaffEnLote(porCrear);
+
+    if (sobran.length === 0 && porCrear.length === 0) {
+      // Nada nació ni murió: la lista leída sirve, con los horarios de
+      // los invitados corregidos en memoria (lo mismo que se escribió).
+      for (const f of delDia) {
+        if (!f.solo_propina || f.person_id == null) continue;
+        const evento = traidos.get(f.person_id);
+        if (!evento) continue;
+        f.starts_at = evento.starts_at;
+        f.ends_at = evento.ends_at;
+        f.break_minutes = evento.break_minutes;
+        f.role_id = evento.role_id ?? null;
+      }
+      return delDia;
+    }
+    return null;
   }
 
   /**
@@ -956,6 +975,14 @@ export class PeopleService {
    * propina no haya caído en una nómina.
    */
   async repartir(poolId: number, dto: RepartirDto, companyId: number) {
+    // El monto puede venir en el mismo viaje (25-08): un request menos.
+    if (dto.monto != null) {
+      await this.repo.updatePool(
+        poolId,
+        { first_amount: Math.round(dto.monto), second_amount: 0 },
+        companyId,
+      );
+    }
     const pool = await this.repo.findPool(poolId, companyId);
     const pozo = Math.round(
       Number(pool.first_amount) + Number(pool.second_amount),
@@ -980,12 +1007,13 @@ export class PeopleService {
       }
       filas = await this.repo.findStaff(companyId, pool.quotation_id);
     } else {
-      await this.sincronizarInvitados(
+      const listas = await this.sincronizarInvitados(
         pool.day!,
         dto.invitados ?? [],
         companyId,
       );
-      filas = await this.repo.findPlantaDelDia(companyId, pool.day!);
+      filas =
+        listas ?? (await this.repo.findPlantaDelDia(companyId, pool.day!));
     }
     if (filas.some((f) => f.tip_payroll_id !== null)) {
       throw new BadRequestException(
