@@ -267,15 +267,25 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       const persona = personas.find((x) => x.id === p.personId);
+      const idOptimista = -Math.floor(Math.random() * 1e9);
       qc.setQueryData<Asignacion[]>(clave, (viejo = []) => [
         ...viejo,
         {
-          id: -Math.floor(Math.random() * 1e9),
+          id: idOptimista,
           quotation_id: p.fila.quotationId,
           person_id: p.personId,
           day: p.dia,
           role_id: p.fila.cargoId || null,
-          kind: persona?.default_kind ?? "freelance",
+          // EN UN EVENTO LA FILA OPTIMISTA NACE FREELANCE (Felipe,
+          // 25-08: "se demoran en cargar los de planta libre"). Con el
+          // kind de la persona (planta), esPlanificacion la escondía y
+          // el "al instante" quedaba invisible hasta el refresco. En un
+          // evento lo planificado es SIEMPRE freelance — igual que hará
+          // el backend con el día extra.
+          kind:
+            p.fila.quotationId !== null
+              ? "freelance"
+              : (persona?.default_kind ?? "freelance"),
           status: "por_confirmar",
           amount: null,
           starts_at: null,
@@ -287,14 +297,42 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           management_resources: null,
         } as unknown as Asignacion,
       ]);
-      return { antes };
+      return { antes, idOptimista };
+    },
+    // SIN REFRESCO MASIVO AL PONER (Felipe, 25-08: "se vuelven a
+    // desordenar, pestañea, no entran limpios"). Cada agregado disparaba
+    // un re-pedido de TODA la semana; agregando rápido, un refresco
+    // viejo aterrizaba a destiempo y pisaba por un instante a los
+    // provisorios. Ahora la respuesta del servidor (la fila real, con
+    // su puesto_en) reemplaza a la provisoria EN SU LUGAR — sin
+    // re-pedir nada, no hay carrera posible.
+    onSuccess: (real, p, ctx) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      const persona = personas.find((x) => x.id === p.personId);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.map((a) =>
+          a.id === ctx?.idOptimista
+            ? ({
+                ...real,
+                people:
+                  real.people ??
+                  (persona
+                    ? {
+                        id: persona.id,
+                        name: persona.name,
+                        rut: persona.rut ?? null,
+                      }
+                    : null),
+              } as Asignacion)
+            : a,
+        ),
+      );
     },
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
       toast.error(humanizeApiError(e));
     },
-    onSettled: refrescar,
   });
   const sacar = useMutation({
     // En un evento, sacar a alguien LIBERA su silla: el cupo queda con
@@ -564,13 +602,17 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                 : (a.role_id ?? 0) === f.cargoId),
           )
         : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
-    // ORDEN ESTABLE EN LA CASILLA (Felipe, 25-08: "aún se revuelven los
-    // garzones en los días" — el arreglo anterior fue al modal del día,
-    // no acá). Por orden de llegada: el recién puesto (optimista, id
-    // negativo) va al final, y al guardarse recibe el id más nuevo, así
-    // que se queda donde estaba. La base ya no baraja nada.
-    const llegada = (a: Asignacion) =>
-      a.id < 0 ? Number.MAX_SAFE_INTEGER : a.id;
+    // LISTA DE AGREGADO (Felipe, 25-08, tercera y definitiva): "que el
+    // personal que voy agregando vaya quedando en el último lugar". Se
+    // ordena por el sello puesto_en (migración 90: cuándo se sentó a la
+    // persona — la silla reusada ya no engaña); lo anterior a la
+    // migración usa su created_at, y la fila optimista (id negativo) va
+    // al final, que es donde quedará al guardarse.
+    const llegada = (a: Asignacion) => {
+      if (a.id < 0) return Number.MAX_SAFE_INTEGER;
+      const sello = a.puesto_en ?? a.created_at;
+      return sello ? new Date(sello).getTime() : a.id;
+    };
     return xs.slice().sort((a, b) => llegada(a) - llegada(b));
   };
 

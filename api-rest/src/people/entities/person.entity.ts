@@ -123,6 +123,9 @@ export class EventStaff {
    *  (migración 89): 'trabaja' = día agregado (la proyección no lo
    *  borra); 'descansa' = día quitado (no se recrea ni se muestra). */
   ajuste: 'trabaja' | 'descansa' | null;
+  /** Cuándo se sentó a la persona (migración 90): las casillas ordenan
+   *  por esto — lista de agregado, el nuevo al final. */
+  puesto_en: string | null;
   /** En qué nómina cayó cada cosa. NULL = pendiente — no hay que
    *  acordarse de nada (regla de la casa: la nómina es un selector). */
   payroll_id: number | null;

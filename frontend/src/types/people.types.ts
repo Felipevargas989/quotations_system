@@ -145,6 +145,10 @@ export interface Asignacion {
   /** Cambio de día de la planta (migración 89): 'trabaja' = día
    *  agregado a mano; 'descansa' = día quitado (no se muestra). */
   ajuste?: "trabaja" | "descansa" | null;
+  /** Cuándo se sentó a la persona (migración 90): la casilla ordena
+   *  por esto — lista de agregado, el nuevo al final. */
+  puesto_en?: string | null;
+  created_at?: string;
   /** En las filas de nómina el backend manda la persona COMPLETA
    *  (con sus datos bancarios); en el resto, solo lo básico. */
   people?:
