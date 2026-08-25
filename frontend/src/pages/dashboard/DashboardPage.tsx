@@ -2674,29 +2674,25 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
                       <th className="py-2 pr-2 font-medium">Proveedor</th>
+                      {/* PODA DEL 25-08 (Felipe): quedan las cuatro que
+                          deciden — insumos, recetas, plata y
+                          concentración. Servicios era redundante con
+                          Recetas; Última compra no decidía nada;
+                          Comprado real comparaba peras con manzanas
+                          (período completo vs provisionado) y vivirá en
+                          una vista de compras; Sin precio dejó de ser
+                          columna y es alerta ámbar junto a Insumos. */}
                       <th className="py-2 px-2 text-right font-medium">
                         Insumos
-                      </th>
-                      <th className="py-2 px-2 text-right font-medium">
-                        Sin precio
                       </th>
                       <th className="py-2 px-2 text-right font-medium">
                         Recetas
                       </th>
                       <th className="py-2 px-2 text-right font-medium">
-                        Servicios
-                      </th>
-                      <th className="py-2 px-2 text-right font-medium">
                         Compra estimada
                       </th>
-                      <th className="py-2 px-2 text-right font-medium">
-                        % gasto
-                      </th>
-                      <th className="py-2 px-2 text-right font-medium">
-                        Comprado real
-                      </th>
                       <th className="py-2 pl-2 text-right font-medium">
-                        Última compra
+                        % gasto
                       </th>
                     </tr>
                   </thead>
@@ -2706,43 +2702,29 @@ export default function DashboardPage() {
                         <td className="py-1.5 pr-2 font-medium text-gray-800">
                           {f.nombre}
                         </td>
-                        <td className="py-1.5 px-2 text-right tabular-nums">
+                        <td className="py-1.5 px-2 text-right tabular-nums whitespace-nowrap">
                           {f.insumos || "—"}
-                        </td>
-                        <td
-                          className={`py-1.5 px-2 text-right tabular-nums ${
-                            f.sinPrecio > 0
-                              ? "text-amber-700 font-semibold"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {f.sinPrecio || "—"}
+                          {f.sinPrecio > 0 && (
+                            <span
+                              className="ml-1.5 text-amber-700 font-semibold"
+                              title="Insumos sin precio: la estimación de este proveedor está incompleta"
+                            >
+                              ⚠ {f.sinPrecio} sin precio
+                            </span>
+                          )}
                         </td>
                         <td className="py-1.5 px-2 text-right tabular-nums">
                           {f.recetas || "—"}
-                        </td>
-                        <td className="py-1.5 px-2 text-right tabular-nums">
-                          {f.servicios.size || "—"}
                         </td>
                         <td className="py-1.5 px-2 text-right tabular-nums font-semibold">
                           {f.est
                             ? formatCurrency(f.est, company?.currency || "CLP")
                             : "—"}
                         </td>
-                        <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">
+                        <td className="py-1.5 pl-2 text-right tabular-nums text-gray-600">
                           {proveedores.totalEst > 0 && f.est
                             ? `${((f.est * 100) / proveedores.totalEst).toLocaleString("es-CL", { maximumFractionDigits: 1 })}%`
                             : "—"}
-                        </td>
-                        <td className="py-1.5 px-2 text-right tabular-nums text-green-700">
-                          {f.real
-                            ? formatCurrency(f.real, company?.currency || "CLP")
-                            : "—"}
-                        </td>
-                        <td className="py-1.5 pl-2 text-right text-gray-500 whitespace-nowrap">
-                          {f.ultima
-                            ? new Date(f.ultima).toLocaleDateString("es-CL")
-                            : "nunca"}
                         </td>
                       </tr>
                     ))}
@@ -2750,10 +2732,9 @@ export default function DashboardPage() {
                 </table>
                 <p className="mt-2 text-[11px] text-gray-400">
                   Compra estimada: recetas de los eventos concretados del
-                  período (merma incluida en el costo). Comprado real: fotos de
-                  provisión de Compras. Recetas y Servicios miden en cuántas
-                  preparaciones participa cada proveedor — pocos puntos de
-                  contacto = candidato a consolidar.
+                  período (merma incluida en el costo). Recetas mide en
+                  cuántas preparaciones participa cada proveedor — pocos
+                  puntos de contacto = candidato a consolidar.
                 </p>
               </div>
 
