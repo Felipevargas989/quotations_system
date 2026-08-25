@@ -42,6 +42,7 @@ const importClients = () => import("./pages/ClientsPage");
 const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
+const importMarketing = () => import("./pages/marketing/MarketingPage");
 const importPersonaFicha = () =>
   import("./pages/personas/PersonaFichaPage");
 const PersonaFichaPage = lazy(importPersonaFicha);
@@ -60,6 +61,7 @@ const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
 const PersonasPage = lazy(importPersonas);
+const MarketingPage = lazy(importMarketing);
 const InventarioPage = lazy(importInventario);
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
@@ -322,6 +324,16 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.people}>
                     <PersonasPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* Marketing - solo administrador: campañas a toda la
+                  cartera (doc 11, 25-08). */}
+              <Route
+                path="marketing"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
+                    <MarketingPage />
                   </PermissionGuard>
                 }
               />
