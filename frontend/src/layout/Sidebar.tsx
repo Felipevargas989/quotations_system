@@ -13,7 +13,6 @@ import {
   Contact,
   Truck,
   Armchair,
-  Megaphone,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -115,13 +114,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Contact,
       section: "people",
       precargar: () => import("../pages/personas/PersonasPage.tsx"),
-    },
-    {
-      name: "Marketing",
-      href: "/marketing",
-      icon: Megaphone,
-      section: "marketing",
-      precargar: () => import("../pages/marketing/MarketingPage.tsx"),
     },
     {
       name: "Calendario",

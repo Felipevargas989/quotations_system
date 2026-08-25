@@ -8,9 +8,6 @@ import { validateEnv } from './config/validate-env';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    // rawBody: la firma Svix del webhook de Resend se verifica
-    // sobre el cuerpo crudo (modulo de marketing, Fase 2).
-    rawBody: true,
     bufferLogs: true,
   });
   // Fase 2: sin configuración crítica el servidor NO parte (lanza acá,
