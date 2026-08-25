@@ -122,6 +122,14 @@ export class RepartirDto {
   @IsArray()
   @IsInt({ each: true })
   invitados?: number[];
+
+  /** El monto del pozo, en el MISMO viaje (Felipe, 25-08: "se demora
+   *  mucho el cálculo de propina" — guardar el pozo era un request
+   *  aparte, con su preflight). Si viene, el reparto lo guarda antes
+   *  de repartir. */
+  @IsOptional()
+  @IsNumber()
+  monto?: number;
 }
 
 // ---- Las estrellas ----

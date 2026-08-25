@@ -1216,10 +1216,12 @@ function DiaRestaurante({
 
   const liquidar = useMutation({
     mutationFn: async () => {
+      // El monto viaja DENTRO del repartir (25-08): antes eran dos
+      // requests en fila y el cálculo se sentía lento. Solo si el pozo
+      // no existe hay que crearlo primero.
       const existente = poolDelDia();
-      const pozo = existente
-        ? await updatePool(existente.id, { first_amount: monto ?? 0 })
-        : await createPool({ day: dia, first_amount: monto ?? 0 });
+      const pozo =
+        existente ?? (await createPool({ day: dia, first_amount: monto ?? 0 }));
       await repartirPool(
         pozo.id,
         cargos.map(([role_id]) => ({
@@ -1229,6 +1231,7 @@ function DiaRestaurante({
         // Solo los invitados de verdad (los que no están ya en la
         // planta del día), por su jornada de evento.
         invitadosFilas.map((a) => a.eventoId),
+        monto ?? 0,
       );
       return pozo;
     },
