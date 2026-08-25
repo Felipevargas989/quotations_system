@@ -346,7 +346,7 @@ function LiquidacionesPorPagar({
             const k = clave(l);
             const marcada = marcadas.has(k);
             return (
-              <li key={k} className="group">
+              <li key={k}>
                 <label
                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${
                     marcada ? "bg-blue-50" : "hover:bg-gray-50"
@@ -382,15 +382,10 @@ function LiquidacionesPorPagar({
                     {clp(l.total)}
                   </span>
                 </label>
-                {/* EL REABRIR NO GRITA (Felipe, 25-08, la foto de la
-                    selección): una línea extra en CADA fila hacía pesada
-                    la lista. Aparece al pasar el mouse por la fila; si
-                    está confirmando, se queda a la vista. */}
-                <div
-                  className={`px-4 pb-2 -mt-1 justify-end ${
-                    reabriendo === k ? "flex" : "hidden group-hover:flex"
-                  }`}
-                >
+                {/* Siempre a la vista (Felipe, 25-08: se probó al hover
+                    y lo devolvió — "de todo no me pareció solamente el
+                    arreglo 3"). */}
+                <div className="px-4 pb-2 -mt-1 flex justify-end">
                   {reabriendo === k ? (
                     <ConfirmInline
                       question={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
