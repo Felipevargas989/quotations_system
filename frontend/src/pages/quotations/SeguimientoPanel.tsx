@@ -243,10 +243,9 @@ export function HiloSeguimiento({
   const [editTipo, setEditTipo] = useState("");
   const [editFecha, setEditFecha] = useState("");
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
-  // Focos de la franja de empujón: Registrar gestión → cuadro de nota;
-  // Reprogramar → casilla de fecha.
+  // Foco de la franja de empujón: Registrar gestión → cuadro de nota.
+  // ("Reprogramar" se eliminó el 25-08: hacía lo mismo.)
   const notaRef = useRef<HTMLTextAreaElement>(null);
-  const fechaRef = useRef<HTMLInputElement>(null);
 
   const refrescar = async () => {
     await queryClient.invalidateQueries({
@@ -492,19 +491,17 @@ export function HiloSeguimiento({
             <span className="font-semibold">
               Contacto comprometido: {ddmm(compromisoFecha)}
             </span>
+            {/* UN SOLO BOTÓN (Felipe, 25-08): "Reprogramar" solo movía
+                el cursor a la fecha — mismo formulario, misma nota
+                obligatoria, mismo Guardar. Dos enlaces idénticos eran
+                ruido; la fecha de próximo contacto ya vive en el
+                formulario. */}
             <button
               type="button"
               onClick={() => notaRef.current?.focus()}
               className="font-semibold underline hover:no-underline"
             >
               Registrar gestión
-            </button>
-            <button
-              type="button"
-              onClick={() => fechaRef.current?.focus()}
-              className="font-semibold underline hover:no-underline"
-            >
-              Reprogramar
             </button>
             {/* La puerta "Listo" es SOLO del evento ganado (nació el
                 07-08 para Post-Venta; reafirmado por Felipe el 12-08):
@@ -733,7 +730,6 @@ export function HiloSeguimiento({
               <label className="flex items-center gap-1.5 text-xs text-gray-600">
                 Próx. contacto
                 <input
-                  ref={fechaRef}
                   type="date"
                   value={proxima}
                   min={hoyLocal()}
