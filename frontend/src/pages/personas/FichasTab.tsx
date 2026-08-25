@@ -1042,6 +1042,12 @@ function DiaRestaurante({
           !a.solo_propina &&
           // Y el que descansa por cambio de día no vino (migración 89).
           a.ajuste !== "descansa",
+      )
+      // ORDEN ESTABLE (Felipe, 25-08: "se mueven los garzones al
+      // cargarlos"): la base devuelve las filas del día en cualquier
+      // orden y cada refresco las barajaba. Por nombre, siempre.
+      .sort((a, b) =>
+        (a.people?.name ?? "").localeCompare(b.people?.name ?? ""),
       ),
     [staff, dia],
   );
@@ -1087,7 +1093,11 @@ function DiaRestaurante({
       if (ev.person_id == null || enLaPlanta.has(ev.person_id)) continue;
       if (!unoPorPersona.has(ev.person_id)) unoPorPersona.set(ev.person_id, ev);
     }
-    return [...unoPorPersona.values()].map((ev) => {
+    return [...unoPorPersona.values()]
+      .sort((a, b) =>
+        (a.people?.name ?? "").localeCompare(b.people?.name ?? ""),
+      )
+      .map((ev) => {
       const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
       return {
         ...(solo ?? ev),

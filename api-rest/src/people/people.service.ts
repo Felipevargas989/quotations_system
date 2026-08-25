@@ -858,9 +858,13 @@ export class PeopleService {
     const delDia = await this.repo.findPlantaDelDia(companyId, day);
     const existentes = delDia.filter((f) => f.solo_propina);
 
+    // EN PARALELO (Felipe, 25-08: "se demora mucho el cálculo de
+    // propina"): eran viajes a la base uno tras otro.
+    const filasTraidas = await Promise.all(
+      invitados.map((id) => this.repo.findStaffPorId(id, companyId)),
+    );
     const traidos = new Map<number, EventStaff>();
-    for (const id of invitados) {
-      const fila = await this.repo.findStaffPorId(id, companyId);
+    for (const fila of filasTraidas) {
       if (!fila || !fila.quotation_id || fila.person_id == null) {
         throw new BadRequestException(
           'Un invitado no es una jornada de evento válida',
@@ -900,6 +904,7 @@ export class PeopleService {
     );
 
     const porCrear: Record<string, unknown>[] = [];
+    const correcciones: Promise<unknown>[] = [];
     for (const [personId, evento] of traidos) {
       const ya = existentes.find((f) => f.person_id === personId);
       const horario = {
@@ -910,7 +915,7 @@ export class PeopleService {
       };
       if (ya) {
         // El horario manda el del evento: es el mismo turno.
-        await this.repo.updateStaff(ya.id, horario, companyId);
+        correcciones.push(this.repo.updateStaff(ya.id, horario, companyId));
       } else {
         porCrear.push({
           company_id: companyId,
@@ -925,6 +930,7 @@ export class PeopleService {
         });
       }
     }
+    await Promise.all(correcciones);
     await this.repo.addStaffEnLote(porCrear);
   }
 
@@ -995,13 +1001,16 @@ export class PeopleService {
     const asignado = repartirPorPuntos(pozo, filas, dto.porcentajes);
 
     await this.repo.clearTips(poolId, companyId);
-    for (const [id, monto] of asignado) {
-      await this.repo.updateStaff(
-        id,
-        { tip_amount: monto, tip_pool_id: poolId },
-        companyId,
-      );
-    }
+    // EN PARALELO (25-08): con nueve personas eran nueve viajes en fila.
+    await Promise.all(
+      [...asignado].map(([id, monto]) =>
+        this.repo.updateStaff(
+          id,
+          { tip_amount: monto, tip_pool_id: poolId },
+          companyId,
+        ),
+      ),
+    );
     // LOS PORCENTAJES SE GUARDAN (21-08). Antes la pantalla los
     // deducía de cuánto se llevó cada cargo; con puntos esa cuenta ya
     // no devuelve lo que se escribió (45/45/10 se leería 45,5/49/5,4).
