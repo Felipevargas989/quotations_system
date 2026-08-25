@@ -573,16 +573,18 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                 : (a.role_id ?? 0) === f.cargoId),
           )
         : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
-    // ORDEN ALFABÉTICO EN LA CASILLA (Felipe, 25-08, segunda vuelta):
-    // "por llegada" usaba el id de la fila, pero sentarse en una SILLA
-    // del plan reusa una fila vieja — Matías llegó último y quedó
-    // arriba. Por nombre nadie se mueve jamás después de puesto, y las
-    // sillas vacías (sin nombre) al final.
-    return xs
-      .slice()
-      .sort((a, b) =>
-        (a.people?.name ?? "\uffff").localeCompare(b.people?.name ?? "\uffff"),
-      );
+    // LISTA DE AGREGADO (Felipe, 25-08, tercera y definitiva): "que el
+    // personal que voy agregando vaya quedando en el último lugar". Se
+    // ordena por el sello puesto_en (migración 90: cuándo se sentó a la
+    // persona — la silla reusada ya no engaña); lo anterior a la
+    // migración usa su created_at, y la fila optimista (id negativo) va
+    // al final, que es donde quedará al guardarse.
+    const llegada = (a: Asignacion) => {
+      if (a.id < 0) return Number.MAX_SAFE_INTEGER;
+      const sello = a.puesto_en ?? a.created_at;
+      return sello ? new Date(sello).getTime() : a.id;
+    };
+    return xs.slice().sort((a, b) => llegada(a) - llegada(b));
   };
 
   const faltan = filas.reduce(

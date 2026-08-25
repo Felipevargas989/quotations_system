@@ -290,6 +290,9 @@ export class PeopleService {
           {
             person_id: dto.person_id,
             day: dto.day,
+            // El sello de llegada (migración 90): la silla es vieja,
+            // pero la persona se sienta AHORA.
+            puesto_en: new Date().toISOString(),
             kind: kindS,
             role_id: dto.role_id ?? silla.role_id ?? null,
             amount:
@@ -314,6 +317,7 @@ export class PeopleService {
       ...dto,
       quotation_id: dto.quotation_id ?? null,
       company_id: companyId,
+      puesto_en: new Date().toISOString(),
       kind,
       role_id: dto.role_id ?? persona.default_role_id ?? null,
       amount: kind === 'planta' ? null : (dto.amount ?? null),
