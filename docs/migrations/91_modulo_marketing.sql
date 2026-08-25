@@ -56,3 +56,11 @@ CREATE TABLE IF NOT EXISTS public.marketing_sends (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS marketing_sends_una_vez
   ON public.marketing_sends (campaign_id, lower(email));
+
+-- PERMISOS (25-08, aprendido a golpe en el laboratorio): las tablas
+-- creadas por SQL directo NO heredan los grants del rol del backend
+-- (service_role) y todo el modulo respondia 42501 "permission denied".
+-- Estos GRANT son PARTE de la migracion.
+GRANT ALL ON TABLE public.marketing_contacts, public.marketing_suppressions,
+  public.marketing_campaigns, public.marketing_sends TO service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
