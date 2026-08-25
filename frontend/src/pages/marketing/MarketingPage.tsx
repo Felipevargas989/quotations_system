@@ -4,7 +4,9 @@ import { Mail, Send, Upload, Users } from "lucide-react";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import {
+  AudienciasMarketing,
   CampanaMarketing,
+  FiltroSegmento,
   crearCampanaMarketing,
   destinatariosDeCampana,
   enviarCampana,
@@ -12,7 +14,11 @@ import {
   getAudienciasMarketing,
   getCampanasMarketing,
   importarContactosMarketing,
+  reenviarCampana,
+  resultadosDeCampana,
+  sinAbrirDeCampana,
 } from "../../services/marketing.service";
+import SegmentoBuilder from "./SegmentoBuilder";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
 
@@ -106,10 +112,7 @@ function Audiencias({
   audiencias,
   onCambio,
 }: {
-  readonly audiencias?: {
-    importadas: { audiencia: string; contactos: number }[];
-    tipos: { tipo: string; total: number; conCorreo: number }[];
-  };
+  readonly audiencias?: AudienciasMarketing;
   readonly onCambio: () => void;
 }) {
   const [etiqueta, setEtiqueta] = useState("");
@@ -133,30 +136,24 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  const [filtro, setFiltro] = useState<FiltroSegmento>({});
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Users className="w-4 h-4 text-gray-500" /> Desde tu base (en vivo)
+          <Users className="w-4 h-4 text-gray-500" /> Constructor de segmentos
+          (en vivo)
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Tus clientes por tipo, siempre frescos — las campañas a
-          "Clientes por tipo" se calculan al momento de enviar.
+          Arma audiencias desde tus propios datos: cada condición que
+          enciendes se suma, y la previa muestra al tiro cuántos son y
+          quiénes. El mismo constructor vive en "Nueva campaña".
         </p>
-        <ul className="divide-y divide-gray-100">
-          {(audiencias?.tipos ?? []).map((t) => (
-            <li
-              key={t.tipo}
-              className="flex items-center justify-between py-1.5 text-sm"
-            >
-              <span className="text-gray-900">{t.tipo}</span>
-              <span className="tabular-nums text-gray-600">
-                {t.conCorreo} con correo{" "}
-                <span className="text-gray-400">de {t.total}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <SegmentoBuilder
+          audiencias={audiencias}
+          filtro={filtro}
+          onFiltro={setFiltro}
+        />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -224,10 +221,7 @@ function Campanas({
   onCambio,
 }: {
   readonly campanas: CampanaMarketing[];
-  readonly audiencias?: {
-    importadas: { audiencia: string; contactos: number }[];
-    tipos: { tipo: string; total: number; conCorreo: number }[];
-  };
+  readonly audiencias?: AudienciasMarketing;
   readonly onCambio: () => void;
 }) {
   const [creando, setCreando] = useState(false);
@@ -324,14 +318,13 @@ function FilaCampana({
             {c.asunto} ·{" "}
             {c.audiencia_tipo === "importada"
               ? `audiencia "${c.audiencia_ref ?? ""}"`
-              : `clientes: ${(c.tipos_cliente ?? []).join(", ")}`}
+              : c.audiencia_tipo === "segmento"
+                ? "segmento de tu base"
+                : `clientes: ${(c.tipos_cliente ?? []).join(", ")}`}
           </span>
         </span>
         {c.estado === "enviada" ? (
-          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
-            enviada · {c.total_destinatarios ?? 0} correos ·{" "}
-            {c.enviada_at ? formatISOUTCDateToString(c.enviada_at.slice(0, 10)) : ""}
-          </span>
+          <ResultadosDeCampana c={c} onCambio={onCambio} />
         ) : (
           <>
             <button
@@ -394,10 +387,7 @@ function NuevaCampana({
   onListo,
   onCancelar,
 }: {
-  readonly audiencias?: {
-    importadas: { audiencia: string; contactos: number }[];
-    tipos: { tipo: string; total: number; conCorreo: number }[];
-  };
+  readonly audiencias?: AudienciasMarketing;
   readonly onListo: () => void;
   readonly onCancelar: () => void;
 }) {
@@ -407,9 +397,12 @@ function NuevaCampana({
   const [cuerpo, setCuerpo] = useState("");
   const [botonTexto, setBotonTexto] = useState("");
   const [botonUrl, setBotonUrl] = useState("");
-  const [tipoAud, setTipoAud] = useState<"clientes" | "importada">("clientes");
+  const [tipoAud, setTipoAud] = useState<"clientes" | "importada" | "segmento">(
+    "clientes",
+  );
   const [tipos, setTipos] = useState<Set<string>>(new Set());
   const [ref, setRef] = useState("");
+  const [filtro, setFiltro] = useState<FiltroSegmento>({});
 
   const crear = useMutation({
     mutationFn: () =>
@@ -423,6 +416,7 @@ function NuevaCampana({
         audiencia_tipo: tipoAud,
         audiencia_ref: tipoAud === "importada" ? ref : undefined,
         tipos_cliente: tipoAud === "clientes" ? [...tipos] : undefined,
+        filtro: tipoAud === "segmento" ? filtro : undefined,
       }),
     onSuccess: () => {
       toast.success(
@@ -438,7 +432,11 @@ function NuevaCampana({
     asunto.trim() &&
     titulo.trim() &&
     cuerpo.trim() &&
-    (tipoAud === "clientes" ? tipos.size > 0 : !!ref);
+    (tipoAud === "clientes"
+      ? tipos.size > 0
+      : tipoAud === "importada"
+        ? !!ref
+        : Object.keys(filtro).length > 0);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
@@ -506,8 +504,22 @@ function NuevaCampana({
             />
             Audiencia importada
           </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="radio"
+              checked={tipoAud === "segmento"}
+              onChange={() => setTipoAud("segmento")}
+            />
+            Segmento de tu base
+          </label>
         </div>
-        {tipoAud === "clientes" ? (
+        {tipoAud === "segmento" ? (
+          <SegmentoBuilder
+            audiencias={audiencias}
+            filtro={filtro}
+            onFiltro={setFiltro}
+          />
+        ) : tipoAud === "clientes" ? (
           <div className="flex flex-wrap gap-1.5">
             {(audiencias?.tipos ?? []).map((t) => {
               const activo = tipos.has(t.tipo);
@@ -565,5 +577,89 @@ function NuevaCampana({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Fase 2: lo que pasó con una campaña enviada, y la segunda pasada.
+ * Los sellos llegan por el webhook de Resend; sin webhook configurado
+ * los contadores quedan en cero (se activa con RESEND_WEBHOOK_SECRET).
+ */
+function ResultadosDeCampana({
+  c,
+  onCambio,
+}: {
+  readonly c: CampanaMarketing;
+  readonly onCambio: () => void;
+}) {
+  const { data: r } = useQuery({
+    queryKey: ["marketing", "resultados", c.id],
+    queryFn: () => resultadosDeCampana(c.id),
+  });
+  const [confirmando, setConfirmando] = useState<number | null>(null);
+  const reenviar = useMutation({
+    mutationFn: () => reenviarCampana(c.id),
+    onSuccess: (res) => {
+      toast.success(`Segunda pasada enviada a ${res.reenviados} que no habían abierto.`);
+      setConfirmando(null);
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+  const preguntar = async () => {
+    try {
+      const { sin_abrir } = await sinAbrirDeCampana(c.id);
+      setConfirmando(sin_abrir);
+    } catch (e) {
+      toast.error(humanizeApiError(e));
+    }
+  };
+  return (
+    <span className="shrink-0 flex items-center gap-2">
+      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
+        enviada · {c.total_destinatarios ?? 0} ·{" "}
+        {c.enviada_at ? formatISOUTCDateToString(c.enviada_at.slice(0, 10)) : ""}
+      </span>
+      {r && (
+        <span
+          className="text-xs text-gray-500 tabular-nums whitespace-nowrap"
+          title="Aperturas · clicks · rebotes (webhook de Resend)"
+        >
+          👁 {r.abiertos} · 🔗 {r.clicks} · ↩ {r.rebotes}
+          {r.reenviados > 0 && ` · 2ª pasada ${r.reenviados}`}
+        </span>
+      )}
+      {confirmando !== null ? (
+        <span className="flex items-center gap-1.5 text-xs">
+          <span className="text-gray-700 font-medium tabular-nums">
+            ¿Reenviar a {confirmando} sin abrir?
+          </span>
+          <button
+            type="button"
+            onClick={() => reenviar.mutate()}
+            disabled={reenviar.isPending || confirmando === 0}
+            className="px-2.5 py-1 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {reenviar.isPending ? "Enviando…" : "Sí"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmando(null)}
+            className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+          >
+            No
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void preguntar()}
+          className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+          title="Una sola segunda pasada, solo a quienes no abrieron, con asunto variante"
+        >
+          Reenviar a los que no abrieron
+        </button>
+      )}
+    </span>
   );
 }

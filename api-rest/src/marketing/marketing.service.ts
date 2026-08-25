@@ -7,7 +7,11 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
-import { CrearCampanaDto, ImportarContactosDto } from './dto/marketing.dto';
+import {
+  CrearCampanaDto,
+  ImportarContactosDto,
+  PreviaSegmentoDto,
+} from './dto/marketing.dto';
 import { CampanaMarketing, MarketingRepository } from './marketing.repository';
 import {
   cuerpoAHtml,
@@ -15,6 +19,7 @@ import {
   plantillaCampana,
   resolverDestinatarios,
 } from './plantilla';
+import { FiltroSegmento, resolverSegmento } from './segmento';
 
 /** Lote del batch de Resend: hasta 100 por llamada; 40 deja aire. */
 const LOTE = 40;
@@ -103,6 +108,38 @@ export class MarketingService {
     return this.repo.tiposDeCliente(companyId);
   }
 
+  tiposDeEvento(companyId: number) {
+    return this.repo.tiposDeEvento(companyId);
+  }
+
+  // ---- Fase 3: el segmento desde los datos de la casa ----
+  private async resolverSegmentoDe(companyId: number, filtro: FiltroSegmento) {
+    const [clientes, cotizaciones] = await Promise.all([
+      this.repo.clientesSegmentables(companyId),
+      this.repo.cotizacionesSegmentables(companyId),
+    ]);
+    return resolverSegmento(
+      clientes,
+      cotizaciones,
+      filtro,
+      new Date().toISOString().slice(0, 10),
+    );
+  }
+
+  /** La previa en vivo del constructor: cuántos y una muestra. */
+  async previaSegmento(dto: PreviaSegmentoDto, companyId: number) {
+    const lista = await this.resolverSegmentoDe(companyId, dto.filtro);
+    const suprimidos = await this.repo.suprimidos(companyId);
+    const limpios = lista.filter((d) => !suprimidos.has(d.email.toLowerCase()));
+    return {
+      total: limpios.length,
+      muestra: limpios.slice(0, 12).map((d) => ({
+        email: d.email,
+        name: d.name,
+      })),
+    };
+  }
+
   // ---- Campañas ----
   async crearCampana(dto: CrearCampanaDto, companyId: number) {
     if (dto.audiencia_tipo === 'importada' && !dto.audiencia_ref) {
@@ -110,6 +147,9 @@ export class MarketingService {
     }
     if (dto.audiencia_tipo === 'clientes' && !dto.tipos_cliente?.length) {
       throw new BadRequestException('Elige al menos un tipo de cliente');
+    }
+    if (dto.audiencia_tipo === 'segmento' && !dto.filtro) {
+      throw new BadRequestException('Arma el segmento antes de guardar');
     }
     return this.repo.crearCampana({
       company_id: companyId,
@@ -122,6 +162,7 @@ export class MarketingService {
       audiencia_tipo: dto.audiencia_tipo,
       audiencia_ref: dto.audiencia_ref?.trim() || null,
       tipos_cliente: dto.tipos_cliente ?? null,
+      filtro: dto.filtro ?? null,
     });
   }
 
@@ -130,9 +171,16 @@ export class MarketingService {
   }
 
   private async candidatosDe(campana: CampanaMarketing, companyId: number) {
-    return campana.audiencia_tipo === 'importada'
-      ? this.repo.contactosDeAudiencia(companyId, campana.audiencia_ref!)
-      : this.repo.clientesPorTipo(companyId, campana.tipos_cliente ?? []);
+    if (campana.audiencia_tipo === 'importada') {
+      return this.repo.contactosDeAudiencia(companyId, campana.audiencia_ref!);
+    }
+    if (campana.audiencia_tipo === 'segmento') {
+      return this.resolverSegmentoDe(
+        companyId,
+        (campana.filtro ?? {}) as FiltroSegmento,
+      );
+    }
+    return this.repo.clientesPorTipo(companyId, campana.tipos_cliente ?? []);
   }
 
   /** Cuántos recibirían HOY la campaña (para el confirmar del front). */
@@ -208,6 +256,122 @@ export class MarketingService {
       prueba_enviada_at: new Date().toISOString(),
     });
     return { enviada_a: correoUsuario };
+  }
+
+  // ---- Fase 2: lo que pasó con cada correo ----
+
+  /**
+   * El webhook de Resend (abierto/click/rebote/queja). Con
+   * RESEND_WEBHOOK_SECRET configurado se verifica la firma Svix; sin
+   * él se procesa igual (el evento solo marca sellos por resend_id) y
+   * queda avisado en el log.
+   */
+  verificarFirmaSvix(
+    payload: string,
+    headers: { id?: string; timestamp?: string; firma?: string },
+  ): boolean {
+    const secreto = this.config.get<string>('RESEND_WEBHOOK_SECRET');
+    if (!secreto) {
+      this.logger.warn('webhook sin RESEND_WEBHOOK_SECRET: sin verificar');
+      return true;
+    }
+    if (!headers.id || !headers.timestamp || !headers.firma) return false;
+    const llave = Buffer.from(secreto.replace(/^whsec_/, ''), 'base64');
+    const esperada = createHmac('sha256', llave)
+      .update(`${headers.id}.${headers.timestamp}.${payload}`)
+      .digest('base64');
+    return headers.firma
+      .split(' ')
+      .some((f) => f.replace(/^v1,/, '') === esperada);
+  }
+
+  async procesarEventoResend(evento: {
+    type?: string;
+    data?: { email_id?: string };
+  }) {
+    const resendId = evento.data?.email_id;
+    if (!resendId || !evento.type) return { ok: true };
+    const ahora = new Date().toISOString();
+    const sello: Record<string, unknown> | null =
+      evento.type === 'email.opened'
+        ? { opened_at: ahora }
+        : evento.type === 'email.clicked'
+          ? { clicked_at: ahora, opened_at: ahora }
+          : evento.type === 'email.bounced' ||
+              evento.type === 'email.complained'
+            ? { bounced_at: ahora }
+            : null;
+    if (!sello) return { ok: true };
+    const fila = await this.repo.marcarEvento(resendId, sello);
+    // EL REBOTE DURO SE SUPRIME SOLO (regla de la Fase 2): no se le
+    // insiste nunca más a una casilla que no existe o que reclamó.
+    if (fila && sello.bounced_at) {
+      await this.repo.suprimir(fila.company_id, fila.email, 'rebote');
+      this.logger.info(`rebote suprimido: ${fila.email}`);
+    }
+    return { ok: true };
+  }
+
+  resultadosDe(id: number, companyId: number) {
+    return this.repo.resultadosDe(id, companyId);
+  }
+
+  /** Cuántos recibirían la segunda pasada (no abrieron, sin rebote,
+   *  sin reenvío previo, no suprimidos). */
+  async sinAbrirDe(id: number, companyId: number) {
+    const [filas, suprimidos] = await Promise.all([
+      this.repo.sinAbrirDe(id, companyId),
+      this.repo.suprimidos(companyId),
+    ]);
+    return filas.filter((f) => !suprimidos.has(f.email.toLowerCase()));
+  }
+
+  /**
+   * EL REENVÍO (Felipe: "reenviar a los que no abrieron"): una sola
+   * segunda pasada por destinatario, con asunto variante, solo sobre
+   * una campaña ya enviada.
+   */
+  async reenviarANoAbiertos(
+    id: number,
+    companyId: number,
+    nombreEmpresa: string,
+    asuntoVariante?: string,
+  ) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    if (campana.estado !== 'enviada') {
+      throw new BadRequestException('Esa campaña todavía no se envía');
+    }
+    const pendientes = await this.sinAbrirDe(id, companyId);
+    if (pendientes.length === 0) {
+      throw new BadRequestException('No queda nadie sin abrir por reenviar');
+    }
+    const asunto = (
+      asuntoVariante?.trim() || `¿Lo viste? ${campana.asunto}`
+    ).slice(0, 200);
+    const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
+    const from = this.remitente(nombreEmpresa);
+    let enviados = 0;
+    for (let i = 0; i < pendientes.length; i += LOTE) {
+      const lote = pendientes.slice(i, i + LOTE);
+      const payloads = lote.map((d) => {
+        const r = this.renderizar(
+          { ...campana, asunto },
+          { email: d.email, name: d.name, empresa: d.name },
+          nombreEmpresa,
+          companyId,
+        );
+        return { from, to: [d.email], subject: r.asunto, html: r.html };
+      });
+      const { error } = await resend.batch.send(payloads);
+      if (error) {
+        throw new BadRequestException(`Resend: ${error.message}`);
+      }
+      await this.repo.marcarReenviados(lote.map((d) => d.id));
+      enviados += lote.length;
+    }
+    this.logger.info(`reenvío campaña ${id}: ${enviados} sin-abrir`);
+    return { reenviados: enviados };
   }
 
   async enviarCampana(id: number, companyId: number, nombreEmpresa: string) {

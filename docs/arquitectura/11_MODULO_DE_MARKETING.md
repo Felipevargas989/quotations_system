@@ -40,16 +40,35 @@ sería exportar planillas que envejecen en una semana.
 - **Baja**: endpoint público firmado (HMAC del correo) que suprime y
   responde una página simple.
 
-## Fase 2 (pendiente)
+## Fase 2 (construida el 25-08)
 
-Webhooks de Resend (abierto/click/rebote por destinatario), tablero por
-campaña, "Reenviar a los que no abrieron" (solo no-abiertos
-no-suprimidos, asunto variante), rebote duro suprime solo.
+Webhook público `/marketing/webhook` (firma Svix verificada cuando
+`RESEND_WEBHOOK_SECRET` está puesto; sin él procesa igual — un evento
+solo marca sellos si su resend_id existe acá). Sellos por destinatario
+(abierto/click/rebote), contadores en la fila de la campaña
+(👁 · 🔗 · ↩), **"Reenviar a los que no abrieron"** (una sola segunda
+pasada por destinatario, asunto variante "¿Lo viste? …", solo
+no-abiertos no-rebotados no-suprimidos), y el rebote duro o queja
+**suprime solo**.
 
-## Fase 3 (pendiente)
+**Pendiente de Felipe para que los contadores vivan**: crear el webhook
+en el panel de Resend apuntando a
+`https://api-rest-production-d404.up.railway.app/marketing/webhook`
+(eventos: opened, clicked, bounced, complained) y poner el
+`RESEND_WEBHOOK_SECRET` en Railway.
 
-Segmentos finos: rango de presupuesto, aniversario de evento,
-rechazadas por precio.
+## Fase 3 (construida el 25-08)
+
+**El constructor de segmentos** ("quiero ver cómo crear audiencias
+desde los datos que ya tengo"): condiciones que se SUMAN — tipo de
+cliente, su historia (evento realizado/aceptado/rechazado, con rango de
+fechas), aniversario (evento realizado hace 11-13 meses), dormidos (sin
+cotizar desde una fecha), presupuesto histórico (su mayor evento
+aceptado/realizado ≥ X) y tipo de evento. **Previa en vivo** (cuántos y
+quiénes, bajas ya descontadas) en la pestaña Audiencias y dentro de
+Nueva campaña ("Segmento de tu base"). El segmento se guarda como
+filtro en la campaña y se recalcula al enviar: nunca listas viejas.
+Resolvedor puro con pruebas (`segmento.spec.ts`).
 
 ## Tablas (migración 91)
 

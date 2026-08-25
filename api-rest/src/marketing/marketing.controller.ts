@@ -1,9 +1,23 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
-import { CrearCampanaDto, ImportarContactosDto } from './dto/marketing.dto';
+import {
+  CrearCampanaDto,
+  ImportarContactosDto,
+  PreviaSegmentoDto,
+  ReenviarDto,
+} from './dto/marketing.dto';
 import { MarketingService } from './marketing.service';
 
 @Controller('marketing')
@@ -28,11 +42,18 @@ export class MarketingController {
   // ---- Audiencias ----
   @Get('audiencias')
   async audiencias(@CurrentUser() user: User) {
-    const [importadas, tipos] = await Promise.all([
+    const [importadas, tipos, tiposEvento] = await Promise.all([
       this.marketing.audienciasImportadas(user.company_id),
       this.marketing.tiposDeCliente(user.company_id),
+      this.marketing.tiposDeEvento(user.company_id),
     ]);
-    return { importadas, tipos };
+    return { importadas, tipos, tipos_evento: tiposEvento };
+  }
+
+  /** La previa EN VIVO del constructor de segmentos (Fase 3). */
+  @Post('segmento/previa')
+  previaSegmento(@Body() dto: PreviaSegmentoDto, @CurrentUser() user: User) {
+    return this.marketing.previaSegmento(dto, user.company_id);
   }
 
   @Post('contactos/importar')
@@ -79,6 +100,59 @@ export class MarketingController {
       user.company_id,
       await this.nombreEmpresa(user.company_id),
     );
+  }
+
+  // ---- Fase 2: resultados y reenvío ----
+  @Get('campanas/:id/resultados')
+  resultados(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.marketing.resultadosDe(+id, user.company_id);
+  }
+
+  @Get('campanas/:id/sin-abrir')
+  async sinAbrir(@Param('id') id: string, @CurrentUser() user: User) {
+    const filas = await this.marketing.sinAbrirDe(+id, user.company_id);
+    return { sin_abrir: filas.length };
+  }
+
+  @Post('campanas/:id/reenviar')
+  async reenviar(
+    @Param('id') id: string,
+    @Body() dto: ReenviarDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /marketing/campanas/${id}/reenviar`);
+    return this.marketing.reenviarANoAbiertos(
+      +id,
+      user.company_id,
+      await this.nombreEmpresa(user.company_id),
+      dto.asunto,
+    );
+  }
+
+  /** El webhook de Resend: abierto/click/rebote/queja. Público — la
+   *  firma Svix se verifica cuando RESEND_WEBHOOK_SECRET está puesto;
+   *  y un evento solo marca sellos si su resend_id existe acá. */
+  @Public()
+  @Post('webhook')
+  webhook(
+    @Req() req: { rawBody?: Buffer },
+    @Body() evento: { type?: string; data?: { email_id?: string } },
+    @Headers('svix-id') svixId?: string,
+    @Headers('svix-timestamp') svixTs?: string,
+    @Headers('svix-signature') svixFirma?: string,
+  ) {
+    const crudo = req.rawBody?.toString('utf8') ?? JSON.stringify(evento);
+    if (
+      !this.marketing.verificarFirmaSvix(crudo, {
+        id: svixId,
+        timestamp: svixTs,
+        firma: svixFirma,
+      })
+    ) {
+      this.logger.warn('webhook de Resend con firma inválida: ignorado');
+      return { ok: false };
+    }
+    return this.marketing.procesarEventoResend(evento);
   }
 
   // ---- La baja: pública, firmada, sin sesión ----
