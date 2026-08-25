@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Send, Upload, Users } from "lucide-react";
+import { Mail, Send, Upload, Users } from "lucide-react";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -49,47 +49,55 @@ export default function MarketingPage() {
   const refrescar = () =>
     void qc.invalidateQueries({ queryKey: ["marketing"] });
 
+  // MISMOS ESTILOS DE LA CASA (Felipe, 25-08: "mira Proveedores y mira
+  // Marketing"): título plano a la izquierda, subtítulo gris, tabs con
+  // ícono dentro del panel blanco, contenido a todo el ancho. Calcado
+  // de LogisticaPage.
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-2 mb-1">
-        <Megaphone className="w-6 h-6 text-gray-700" />
+    <div className="space-y-6">
+      <div>
         <h1 className="text-2xl font-bold text-gray-900">Marketing</h1>
-      </div>
-      <p className="text-sm text-gray-500 mb-4">
-        Campañas por correo con tus propios datos. Todo correo lleva su
-        link de baja; quien se baja no vuelve a recibir nada.
-      </p>
-
-      <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
-        {(
-          [
-            ["campanas", "Campañas"],
-            ["audiencias", "Audiencias"],
-          ] as const
-        ).map(([id, texto]) => (
-          <button
-            key={id}
-            onClick={() => setPestana(id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              pestana === id
-                ? "border-blue-600 text-blue-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {texto}
-          </button>
-        ))}
+        <p className="text-sm text-gray-500">
+          Campañas por correo con tus propios datos. Todo correo lleva su
+          link de baja; quien se baja no vuelve a recibir nada.
+        </p>
       </div>
 
-      {pestana === "audiencias" ? (
-        <Audiencias audiencias={audiencias} onCambio={refrescar} />
-      ) : (
-        <Campanas
-          campanas={campanas}
-          audiencias={audiencias}
-          onCambio={refrescar}
-        />
-      )}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="flex gap-1 px-4 border-b border-gray-200 overflow-x-auto">
+          {(
+            [
+              ["campanas", "Campañas", Mail],
+              ["audiencias", "Audiencias", Users],
+            ] as const
+          ).map(([id, texto, Icono]) => (
+            <button
+              key={id}
+              onClick={() => setPestana(id)}
+              className={`flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                pestana === id
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
+              }`}
+            >
+              <Icono size={16} />
+              {texto}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-4">
+          {pestana === "audiencias" ? (
+            <Audiencias audiencias={audiencias} onCambio={refrescar} />
+          ) : (
+            <Campanas
+              campanas={campanas}
+              audiencias={audiencias}
+              onCambio={refrescar}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
