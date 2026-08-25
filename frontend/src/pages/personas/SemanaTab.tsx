@@ -267,10 +267,11 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       const persona = personas.find((x) => x.id === p.personId);
+      const idOptimista = -Math.floor(Math.random() * 1e9);
       qc.setQueryData<Asignacion[]>(clave, (viejo = []) => [
         ...viejo,
         {
-          id: -Math.floor(Math.random() * 1e9),
+          id: idOptimista,
           quotation_id: p.fila.quotationId,
           person_id: p.personId,
           day: p.dia,
@@ -296,14 +297,42 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           management_resources: null,
         } as unknown as Asignacion,
       ]);
-      return { antes };
+      return { antes, idOptimista };
+    },
+    // SIN REFRESCO MASIVO AL PONER (Felipe, 25-08: "se vuelven a
+    // desordenar, pestañea, no entran limpios"). Cada agregado disparaba
+    // un re-pedido de TODA la semana; agregando rápido, un refresco
+    // viejo aterrizaba a destiempo y pisaba por un instante a los
+    // provisorios. Ahora la respuesta del servidor (la fila real, con
+    // su puesto_en) reemplaza a la provisoria EN SU LUGAR — sin
+    // re-pedir nada, no hay carrera posible.
+    onSuccess: (real, p, ctx) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      const persona = personas.find((x) => x.id === p.personId);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.map((a) =>
+          a.id === ctx?.idOptimista
+            ? ({
+                ...real,
+                people:
+                  real.people ??
+                  (persona
+                    ? {
+                        id: persona.id,
+                        name: persona.name,
+                        rut: persona.rut ?? null,
+                      }
+                    : null),
+              } as Asignacion)
+            : a,
+        ),
+      );
     },
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
       toast.error(humanizeApiError(e));
     },
-    onSettled: refrescar,
   });
   const sacar = useMutation({
     // En un evento, sacar a alguien LIBERA su silla: el cupo queda con
