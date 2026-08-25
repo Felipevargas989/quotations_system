@@ -1407,7 +1407,25 @@ function DiaRestaurante({
               (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
             titulo="Quiénes trabajaron"
-            secciones={[{ filas: [...delDia, ...invitadosFilas] }]}
+            // POR CARGO (Felipe, 25-08: "se lee más ordenado, da igual
+            // el nombre del garzón — importa cuántos garzones"): una
+            // sección por cargo con su conteo, y por nombre adentro.
+            secciones={(() => {
+              const porCargo = new Map<string, Asignacion[]>();
+              for (const a of [...delDia, ...invitadosFilas]) {
+                const c = a.management_resources?.name ?? "Sin cargo";
+                if (!porCargo.has(c)) porCargo.set(c, []);
+                porCargo.get(c)!.push(a);
+              }
+              return [...porCargo.entries()]
+                .sort(([a], [b]) =>
+                  a === "Sin cargo" ? 1 : b === "Sin cargo" ? -1 : a.localeCompare(b),
+                )
+                .map(([cargo, filas]) => ({
+                  titulo: `${cargo} (${filas.length})`,
+                  filas,
+                }));
+            })()}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
