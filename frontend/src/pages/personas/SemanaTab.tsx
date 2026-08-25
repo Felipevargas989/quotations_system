@@ -573,14 +573,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
                 : (a.role_id ?? 0) === f.cargoId),
           )
         : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
-    // ORDEN ESTABLE EN LA CASILLA (Felipe, 25-08: "aún se revuelven los
-    // garzones en los días" — el arreglo anterior fue al modal del día,
-    // no acá). Por orden de llegada: el recién puesto (optimista, id
-    // negativo) va al final, y al guardarse recibe el id más nuevo, así
-    // que se queda donde estaba. La base ya no baraja nada.
-    const llegada = (a: Asignacion) =>
-      a.id < 0 ? Number.MAX_SAFE_INTEGER : a.id;
-    return xs.slice().sort((a, b) => llegada(a) - llegada(b));
+    // ORDEN ALFABÉTICO EN LA CASILLA (Felipe, 25-08, segunda vuelta):
+    // "por llegada" usaba el id de la fila, pero sentarse en una SILLA
+    // del plan reusa una fila vieja — Matías llegó último y quedó
+    // arriba. Por nombre nadie se mueve jamás después de puesto, y las
+    // sillas vacías (sin nombre) al final.
+    return xs
+      .slice()
+      .sort((a, b) =>
+        (a.people?.name ?? "\uffff").localeCompare(b.people?.name ?? "\uffff"),
+      );
   };
 
   const faltan = filas.reduce(
