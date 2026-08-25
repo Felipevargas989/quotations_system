@@ -324,7 +324,14 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.people}>
                     <PersonasPage />
-              <Route path="marketing" element={<MarketingPage />} />
+              <Route
+                path="marketing"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
+                    <MarketingPage />
+                  </PermissionGuard>
+                }
+              />
                   </PermissionGuard>
                 }
               />
