@@ -790,11 +790,18 @@ function DesgloseDePago({
     prefijo: string,
   ) => (
     <section className="mt-4">
-      <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
-        <span>{titulo}</span>
-        <span className="tabular-nums text-gray-700">{clp(subtotal)}</span>
+      {/* LA SECCIÓN COMO BANDA (Felipe, 25-08: "es un número quizás muy
+          pequeño y no está marcada bien la sección"): mismo lenguaje que
+          el modal de compras — banda con el subtotal en grande. */}
+      <h4 className="flex items-center justify-between bg-gray-100 rounded-md px-2.5 py-1.5">
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+          {titulo}
+        </span>
+        <span className="tabular-nums text-sm font-semibold text-gray-900">
+          {clp(subtotal)}
+        </span>
       </h4>
-      <ul className="divide-y divide-gray-100 mt-1">
+      <ul className="divide-y divide-gray-100 mt-1 px-1">
         {porFecha(xs).map((a) => fila(a, monto(a), `${prefijo}-${String(a.id)}`))}
       </ul>
     </section>
