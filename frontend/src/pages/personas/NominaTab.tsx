@@ -345,12 +345,12 @@ function LiquidacionesPorPagar({
           {pendientes.map((l) => {
             const k = clave(l);
             const marcada = marcadas.has(k);
+            // LA FILA MARCADA SE PINTA ENTERA (Felipe, 25-08: el azul
+            // cortado a la mitad "se ve raro"): el fondo va en el li
+            // —cubre también la línea del Reabrir— y un borde izquierdo
+            // azul más fuerte marca la selección. El borde transparente
+            // en las demás evita el salto de layout.
             return (
-              {/* LA FILA MARCADA SE PINTA ENTERA (Felipe, 25-08: el azul
-                  cortado a la mitad "se ve raro"): el fondo va en el li
-                  —cubre también la línea del Reabrir— y un borde
-                  izquierdo azul más fuerte marca la selección. El borde
-                  transparente en las no marcadas evita el salto. */}
               <li
                 key={k}
                 className={`border-l-4 ${
