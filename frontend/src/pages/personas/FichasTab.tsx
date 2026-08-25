@@ -1407,7 +1407,22 @@ function DiaRestaurante({
               (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
             titulo="Quiénes trabajaron"
-            secciones={[{ filas: [...delDia, ...invitadosFilas] }]}
+            // ORDENADO POR CARGO, SIN RÓTULOS (Felipe, 25-08): "que
+            // estén todos los cocinas juntos... pero no hacer títulos y
+            // subtítulos, se lee muy cansado". Lista plana: cargo
+            // alfabético (sin cargo al final) y nombre adentro.
+            secciones={[
+              {
+                filas: [...delDia, ...invitadosFilas].sort((a, b) => {
+                  const ca = a.management_resources?.name ?? "\uffff";
+                  const cb = b.management_resources?.name ?? "\uffff";
+                  return (
+                    ca.localeCompare(cb) ||
+                    (a.people?.name ?? "").localeCompare(b.people?.name ?? "")
+                  );
+                }),
+              },
+            ]}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
