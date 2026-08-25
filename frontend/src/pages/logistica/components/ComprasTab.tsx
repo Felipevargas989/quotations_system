@@ -492,6 +492,85 @@ export default function ComprasTab({
     return pisos;
   };
 
+  const renderLinea = (l: LineaCompra, idx: number) => {
+    const c = filaDe(l.sid);
+    if (!c) return null;
+    const base = UNIT_FAMILY_INFO[c.supply.unit_family].base;
+    const tocada = l.comprado !== l.compradoSug || l.gastado !== l.gastadoSug;
+    const cambiar = (cambios: Partial<LineaCompra>) =>
+      setCompra((prev) =>
+        prev
+          ? {
+              ...prev,
+              lineas: prev.lineas.map((x, i) =>
+                i === idx ? { ...x, ...cambios } : x,
+              ),
+            }
+          : prev,
+      );
+    return (
+      <li
+        key={l.sid}
+        className="grid grid-cols-[minmax(0,1fr)_90px_110px_130px_110px] gap-2 items-center py-1.5 text-sm"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-gray-900">
+            {c.supply.name}
+            {tocada && (
+              <span className="ml-1.5 text-[10px] font-semibold text-blue-700">
+                actualiza catálogo
+              </span>
+            )}
+          </span>
+          {(c.supply.package_qty || 0) > 0 && (
+            <span className="block text-[11px] text-gray-400 truncate">
+              {c.supply.package_name || "formato"} de{" "}
+              {Number(c.supply.package_qty).toLocaleString("es-CL")} {base}
+            </span>
+          )}
+        </span>
+        {/* Lo necesitado: solo referencia, bloqueado. */}
+        <span className="text-right tabular-nums text-gray-500">
+          {fmtQty(c.totalBase)} {base}
+        </span>
+        <span className="relative">
+          <NumberInput
+            value={l.comprado || undefined}
+            onChange={(v) => cambiar({ comprado: v ?? 0 })}
+            min={0}
+            placeholder="0"
+            aria-label={`Comprado de ${c.supply.name}`}
+            className="w-full !border-gray-300 !rounded-lg !pl-2 !pr-8 !py-1 text-sm text-right tabular-nums"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">
+            {base}
+          </span>
+        </span>
+        <span className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+            $
+          </span>
+          <NumberInput
+            value={l.gastado || undefined}
+            onChange={(v) => cambiar({ gastado: v ?? 0 })}
+            min={0}
+            formatThousands
+            placeholder="0"
+            aria-label={`Gastado en ${c.supply.name}`}
+            className="w-full !border-gray-300 !rounded-lg !pl-5 !pr-2 !py-1 text-sm text-right tabular-nums"
+          />
+        </span>
+        <span
+          className={`text-right tabular-nums text-sm ${
+            tocada ? "text-blue-700 font-medium" : "text-gray-500"
+          }`}
+        >
+          {l.comprado > 0 ? `${fmtMoney(l.gastado / l.comprado)}/${base}` : "—"}
+        </span>
+      </li>
+    );
+  };
+
   const confirmarCompra = async () => {
     if (!compra) return;
     setSaving(true);
@@ -1615,92 +1694,50 @@ export default function ComprasTab({
                 <span className="text-right">Gasto total</span>
                 <span className="text-right">$ / unidad</span>
               </div>
-              <ul className="divide-y divide-gray-100">
-                {compra.lineas.map((l, idx) => {
+              {/* SE COMPRA POR PROVEEDOR (Felipe, 24-08): el modal agrupa
+                  igual que la lista, con el subtotal real de cada uno. */}
+              {(() => {
+                const porProveedor = new Map<
+                  number,
+                  { nombre: string; filas: { l: (typeof compra.lineas)[number]; idx: number }[] }
+                >();
+                const nombreProv = new Map(suppliers.map((x) => [x.id, x.name]));
+                compra.lineas.forEach((l, idx) => {
                   const c = filaDe(l.sid);
-                  if (!c) return null;
-                  const base = UNIT_FAMILY_INFO[c.supply.unit_family].base;
-                  const tocada =
-                    l.comprado !== l.compradoSug || l.gastado !== l.gastadoSug;
-                  const cambiar = (cambios: Partial<typeof l>) =>
-                    setCompra((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            lineas: prev.lineas.map((x, i) =>
-                              i === idx ? { ...x, ...cambios } : x,
-                            ),
-                          }
-                        : prev,
-                    );
-                  return (
-                    <li
-                      key={l.sid}
-                      className="grid grid-cols-[minmax(0,1fr)_90px_110px_130px_110px] gap-2 items-center py-1.5 text-sm"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-gray-900">
-                          {c.supply.name}
-                          {tocada && (
-                            <span className="ml-1.5 text-[10px] font-semibold text-blue-700">
-                              actualiza catálogo
-                            </span>
-                          )}
-                        </span>
-                        {(c.supply.package_qty || 0) > 0 && (
-                          <span className="block text-[11px] text-gray-400 truncate">
-                            {c.supply.package_name || "formato"} de{" "}
-                            {Number(c.supply.package_qty).toLocaleString(
-                              "es-CL",
-                            )}{" "}
-                            {base}
-                          </span>
-                        )}
+                  const key = c?.supply.supplier_id || 0;
+                  let g = porProveedor.get(key);
+                  if (!g) {
+                    g = {
+                      nombre: key ? (nombreProv.get(key) ?? "Proveedor") : "Sin proveedor",
+                      filas: [],
+                    };
+                    porProveedor.set(key, g);
+                  }
+                  g.filas.push({ l, idx });
+                });
+                const grupos = [...porProveedor.entries()]
+                  .sort(([ka, a], [kb, b]) => {
+                    if (!ka) return 1;
+                    if (!kb) return -1;
+                    return a.nombre.localeCompare(b.nombre);
+                  })
+                  .map(([, g]) => g);
+                return grupos.map((g) => (
+                  <div key={g.nombre}>
+                    <div className="flex items-center justify-between pt-2 pb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-blue-900">
+                        {g.nombre}
                       </span>
-                      {/* Lo necesitado: solo referencia, bloqueado. */}
-                      <span className="text-right tabular-nums text-gray-500">
-                        {fmtQty(c.totalBase)} {base}
+                      <span className="text-xs tabular-nums text-gray-500">
+                        {fmtMoney(g.filas.reduce((t, f) => t + (f.l.gastado || 0), 0))}
                       </span>
-                      <span className="relative">
-                        <NumberInput
-                          value={l.comprado || undefined}
-                          onChange={(v) => cambiar({ comprado: v ?? 0 })}
-                          min={0}
-                          placeholder="0"
-                          aria-label={`Comprado de ${c.supply.name}`}
-                          className="w-full !border-gray-300 !rounded-lg !pl-2 !pr-8 !py-1 text-sm text-right tabular-nums"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">
-                          {base}
-                        </span>
-                      </span>
-                      <span className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                          $
-                        </span>
-                        <NumberInput
-                          value={l.gastado || undefined}
-                          onChange={(v) => cambiar({ gastado: v ?? 0 })}
-                          min={0}
-                          formatThousands
-                          placeholder="0"
-                          aria-label={`Gastado en ${c.supply.name}`}
-                          className="w-full !border-gray-300 !rounded-lg !pl-5 !pr-2 !py-1 text-sm text-right tabular-nums"
-                        />
-                      </span>
-                      <span
-                        className={`text-right tabular-nums text-sm ${
-                          tocada ? "text-blue-700 font-medium" : "text-gray-500"
-                        }`}
-                      >
-                        {l.comprado > 0
-                          ? `${fmtMoney(l.gastado / l.comprado)}/${base}`
-                          : "—"}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                    </div>
+                    <ul className="divide-y divide-gray-100">
+                      {g.filas.map(({ l, idx }) => renderLinea(l, idx))}
+                    </ul>
+                  </div>
+                ));
+              })()}
             </div>
 
             <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-3">
