@@ -346,10 +346,20 @@ function LiquidacionesPorPagar({
             const k = clave(l);
             const marcada = marcadas.has(k);
             return (
-              <li key={k}>
+              {/* LA FILA MARCADA SE PINTA ENTERA (Felipe, 25-08: el azul
+                  cortado a la mitad "se ve raro"): el fondo va en el li
+                  —cubre también la línea del Reabrir— y un borde
+                  izquierdo azul más fuerte marca la selección. El borde
+                  transparente en las no marcadas evita el salto. */}
+              <li
+                key={k}
+                className={`border-l-4 ${
+                  marcada ? "border-blue-600 bg-blue-50" : "border-transparent"
+                }`}
+              >
                 <label
                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${
-                    marcada ? "bg-blue-50" : "hover:bg-gray-50"
+                    marcada ? "" : "hover:bg-gray-50"
                   }`}
                 >
                   <input
