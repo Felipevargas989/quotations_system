@@ -492,6 +492,12 @@ export default function ComprasTab({
     return pisos;
   };
 
+  // Una sola definición de columnas: el encabezado y todas las filas
+  // caen en la misma grilla (Felipe, 24-08: "ordenar un poco las
+  // columnas").
+  const GRILLA =
+    "grid grid-cols-[minmax(0,1fr)_80px_115px_135px_105px] gap-3 items-center";
+
   const renderLinea = (l: LineaCompra, idx: number) => {
     const c = filaDe(l.sid);
     if (!c) return null;
@@ -509,10 +515,7 @@ export default function ComprasTab({
           : prev,
       );
     return (
-      <li
-        key={l.sid}
-        className="grid grid-cols-[minmax(0,1fr)_90px_110px_130px_110px] gap-2 items-center py-1.5 text-sm"
-      >
+      <li key={l.sid} className={`${GRILLA} px-3 py-1.5 text-sm`}>
         <span className="min-w-0">
           <span className="block truncate text-gray-900">
             {c.supply.name}
@@ -1687,7 +1690,9 @@ export default function ComprasTab({
             </div>
 
             <div className="px-5 py-3 overflow-y-auto">
-              <div className="grid grid-cols-[minmax(0,1fr)_90px_110px_130px_110px] gap-2 items-center text-[11px] font-semibold uppercase tracking-wide text-gray-500 pb-1">
+              <div
+                className={`${GRILLA} px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 pb-1.5`}
+              >
                 <span>Insumo</span>
                 <span className="text-right">Necesito</span>
                 <span className="text-right">Compro</span>
@@ -1723,12 +1728,18 @@ export default function ComprasTab({
                   })
                   .map(([, g]) => g);
                 return grupos.map((g) => (
-                  <div key={g.nombre}>
-                    <div className="flex items-center justify-between pt-2 pb-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-blue-900">
+                  <div
+                    key={g.nombre}
+                    className="border border-gray-200 rounded-lg mb-3 overflow-hidden"
+                  >
+                    {/* La banda del proveedor: se compra por boleta, y la
+                        boleta es de él. Su subtotal se mueve en vivo. */}
+                    <div className="flex items-center justify-between bg-blue-50/70 border-b border-gray-200 px-3 py-2">
+                      <span className="text-xs font-bold uppercase tracking-wide text-blue-900 flex items-center gap-1.5">
+                        <Truck size={13} className="text-blue-700" />
                         {g.nombre}
                       </span>
-                      <span className="text-xs tabular-nums text-gray-500">
+                      <span className="text-sm font-semibold tabular-nums text-blue-900">
                         {fmtMoney(g.filas.reduce((t, f) => t + (f.l.gastado || 0), 0))}
                       </span>
                     </div>
