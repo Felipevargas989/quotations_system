@@ -1407,25 +1407,22 @@ function DiaRestaurante({
               (Felipe, 18-08), así que no lleva rótulo arriba. */}
           <TablaDeJornadas
             titulo="Quiénes trabajaron"
-            // POR CARGO (Felipe, 25-08: "se lee más ordenado, da igual
-            // el nombre del garzón — importa cuántos garzones"): una
-            // sección por cargo con su conteo, y por nombre adentro.
-            secciones={(() => {
-              const porCargo = new Map<string, Asignacion[]>();
-              for (const a of [...delDia, ...invitadosFilas]) {
-                const c = a.management_resources?.name ?? "Sin cargo";
-                if (!porCargo.has(c)) porCargo.set(c, []);
-                porCargo.get(c)!.push(a);
-              }
-              return [...porCargo.entries()]
-                .sort(([a], [b]) =>
-                  a === "Sin cargo" ? 1 : b === "Sin cargo" ? -1 : a.localeCompare(b),
-                )
-                .map(([cargo, filas]) => ({
-                  titulo: `${cargo} (${filas.length})`,
-                  filas,
-                }));
-            })()}
+            // ORDENADO POR CARGO, SIN RÓTULOS (Felipe, 25-08): "que
+            // estén todos los cocinas juntos... pero no hacer títulos y
+            // subtítulos, se lee muy cansado". Lista plana: cargo
+            // alfabético (sin cargo al final) y nombre adentro.
+            secciones={[
+              {
+                filas: [...delDia, ...invitadosFilas].sort((a, b) => {
+                  const ca = a.management_resources?.name ?? "\uffff";
+                  const cb = b.management_resources?.name ?? "\uffff";
+                  return (
+                    ca.localeCompare(cb) ||
+                    (a.people?.name ?? "").localeCompare(b.people?.name ?? "")
+                  );
+                }),
+              },
+            ]}
             onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
           />
           {/* La propina se reparte POR HORAS dentro del cargo, así que
