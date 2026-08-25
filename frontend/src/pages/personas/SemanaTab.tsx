@@ -275,7 +275,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           person_id: p.personId,
           day: p.dia,
           role_id: p.fila.cargoId || null,
-          kind: persona?.default_kind ?? "freelance",
+          // EN UN EVENTO LA FILA OPTIMISTA NACE FREELANCE (Felipe,
+          // 25-08: "se demoran en cargar los de planta libre"). Con el
+          // kind de la persona (planta), esPlanificacion la escondía y
+          // el "al instante" quedaba invisible hasta el refresco. En un
+          // evento lo planificado es SIEMPRE freelance — igual que hará
+          // el backend con el día extra.
+          kind:
+            p.fila.quotationId !== null
+              ? "freelance"
+              : (persona?.default_kind ?? "freelance"),
           status: "por_confirmar",
           amount: null,
           starts_at: null,
