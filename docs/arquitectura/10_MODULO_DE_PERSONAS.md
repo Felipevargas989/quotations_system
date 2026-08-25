@@ -259,16 +259,21 @@ portal del banco, así que el sistema acompaña, no transfiere.
    total calzó de suerte porque el pozo no cambió). Guardia: al generar,
    comparar lo mostrado contra la base; si difiere, "los números
    cambiaron, revisa de nuevo".
-2. El aviso de choque de fechas **nombra** con quién choca (dos veces
+2. El cruce de personas **nombra** dónde está la persona (25-08:
+   Alejandra bloqueada por una fila traer-planta invisible en la sábana
+   — "Esa persona ya está puesta ese día" sin decir dónde; Felipe no
+   pudo entender el error). Debe decir: "Ya está en el N° 400 ese día
+   (Cocina, traída por la ficha de liquidación)".
+3. El aviso de choque de fechas **nombra** con quién choca (dos veces
    hubo que ir a la base a adivinar: #493/#460 y #493/#491) y distingue
    solicitud de evento agendado.
-3. La ficha de liquidación avisa si los **pagos del evento traen
+4. La ficha de liquidación avisa si los **pagos del evento traen
    propinas anotadas** (la #486 se cerró en $0 con $16.510 anotados en
    sus pagos, que se repartieron en el #400).
-4. La nómina alerta **jornadas con monto ridículo** (< $1.000): el $1 y
+5. La nómina alerta **jornadas con monto ridículo** (< $1.000): el $1 y
    $2 de relleno de Soledad antes del cambio de día.
-5. En "Cómo se reparte", mostrar **horas junto al monto** de cada cargo.
-6. `traer-planta` una sola vez por ficha; ámbar del calendario.
+6. En "Cómo se reparte", mostrar **horas junto al monto** de cada cargo.
+7. `traer-planta` una sola vez por ficha; ámbar del calendario.
 
 #### El cambio de día de la planta (24-08, migración 89)
 
