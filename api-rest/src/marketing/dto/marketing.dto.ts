@@ -36,6 +36,47 @@ export class ImportarContactosDto {
   contactos: ContactoImportadoDto[];
 }
 
+export class FiltroSegmentoDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tipos_cliente?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(['realizada', 'aceptada', 'rechazada'], { each: true })
+  con_estados?: ('realizada' | 'aceptada' | 'rechazada')[];
+
+  @IsOptional()
+  @IsString()
+  evento_desde?: string;
+
+  @IsOptional()
+  @IsString()
+  evento_hasta?: string;
+
+  @IsOptional()
+  @IsString()
+  sin_cotizacion_desde?: string;
+
+  @IsOptional()
+  aniversario?: boolean;
+
+  @IsOptional()
+  monto_min?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tipos_evento?: string[];
+}
+
+export class PreviaSegmentoDto {
+  @ValidateNested()
+  @Type(() => FiltroSegmentoDto)
+  filtro: FiltroSegmentoDto;
+}
+
 export class CrearCampanaDto {
   @IsString()
   @MaxLength(120)
@@ -85,47 +126,6 @@ export class CrearCampanaDto {
 export class EnviarCampanaDto {
   @IsInt()
   id: number;
-}
-
-export class FiltroSegmentoDto {
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tipos_cliente?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsIn(['realizada', 'aceptada', 'rechazada'], { each: true })
-  con_estados?: ('realizada' | 'aceptada' | 'rechazada')[];
-
-  @IsOptional()
-  @IsString()
-  evento_desde?: string;
-
-  @IsOptional()
-  @IsString()
-  evento_hasta?: string;
-
-  @IsOptional()
-  @IsString()
-  sin_cotizacion_desde?: string;
-
-  @IsOptional()
-  aniversario?: boolean;
-
-  @IsOptional()
-  monto_min?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tipos_evento?: string[];
-}
-
-export class PreviaSegmentoDto {
-  @ValidateNested()
-  @Type(() => FiltroSegmentoDto)
-  filtro: FiltroSegmentoDto;
 }
 
 export class ReenviarDto {
