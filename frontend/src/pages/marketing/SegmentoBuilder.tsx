@@ -69,7 +69,9 @@ export default function SegmentoBuilder({
     "text-[11px] font-semibold uppercase tracking-wide text-gray-500";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-4">
+    // MITAD Y MITAD (Felipe 26-08): filtros compactos a la izquierda,
+    // la lista de contactos con todo el espacio de la derecha.
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="space-y-3">
         {encabezado}
         <div>
