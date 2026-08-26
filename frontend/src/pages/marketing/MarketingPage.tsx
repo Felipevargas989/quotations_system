@@ -655,7 +655,7 @@ function NuevaCampana({
           onFocus={() => setCampoTag("asunto")}
           value={asunto}
           onChange={(e) => setAsunto(e.target.value)}
-          placeholder="Asunto del correo"
+          placeholder="Asunto del correo — sirve {nombre} y {empresa}. Ej: {nombre}, ¿paseo de fin de año?"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
       </div>
@@ -665,7 +665,7 @@ function NuevaCampana({
           onFocus={() => setCampoTag("preencabezado")}
           value={preencabezado}
           onChange={(e) => setPreencabezado(e.target.value)}
-          placeholder="Preencabezado (optativo): la frase gris que se ve en la bandeja después del asunto"
+          placeholder="Preencabezado (optativo) — sirve {nombre}. Ej: Fechas de temporada abiertas, {nombre}"
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           maxLength={200}
         />
@@ -678,7 +678,7 @@ function NuevaCampana({
         onFocus={() => setCampoTag("titulo")}
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
-        placeholder="Título grande dentro del correo"
+        placeholder="Título grande dentro del correo — sirve {nombre} y {empresa}. Ej: ¡Nos volveremos a ver!"
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
       />
       <div>
@@ -688,7 +688,7 @@ function NuevaCampana({
           value={cuerpo}
           onChange={(e) => setCuerpo(e.target.value)}
           rows={6}
-          placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco."}
+          placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco.\nSirve {nombre} y {empresa}. Ej: Hola {nombre}, ¿cómo está? Le escribe Felipe de..."}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
         {/* Los merge tags a la vista: se insertan donde está el cursor. */}
