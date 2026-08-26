@@ -606,7 +606,7 @@ function Campanas({
                   >
                     Fecha envío{flecha("fecha")}
                   </th>
-                  <th className="px-3 py-2.5">Campaña</th>
+                  <th className="px-3 py-2.5 w-full">Campaña</th>
                   <th className="px-3 py-2.5">Audiencia</th>
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">
                     Destinatarios
