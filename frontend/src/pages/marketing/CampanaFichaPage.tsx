@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Send } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -21,7 +21,7 @@ import { formatISOUTCDateToString } from "../../utils/dates";
  * LA FICHA DE LA CAMPAÑA (Felipe 26-08), calcada de la ficha de
  * cliente: volver arriba, título con chip de estado, las cajitas de
  * KPIs de la industria (entrega, apertura, clics, CTOR, rebotes),
- * la tabla de personas con filtros y "Copiar correos", y el correo
+ * la tabla de personas con filtros, y el correo
  * TAL COMO SALIÓ a la derecha. Toda la gestión vive acá: prueba,
  * envío y la segunda pasada a los que no abrieron.
  */
@@ -90,18 +90,6 @@ export default function CampanaFichaPage() {
             ? !!f.bounced_at
             : !f.opened_at && !f.bounced_at; // sin abrir
   const visibles = filas.filter(pasa);
-
-  const copiarCorreos = async () => {
-    const correos = visibles.map((f) => f.email).join(", ");
-    try {
-      await navigator.clipboard.writeText(correos);
-      toast.success(
-        `${visibles.length} correo${visibles.length === 1 ? "" : "s"} copiado${visibles.length === 1 ? "" : "s"} al portapapeles`,
-      );
-    } catch {
-      toast.error("No se pudo copiar; selecciónalos a mano");
-    }
-  };
 
   // ---- Acciones de borrador: prueba y envío ----
   const prueba = useMutation({
@@ -390,15 +378,6 @@ export default function CampanaFichaPage() {
                 Rebotes ({k.rebotes})
               </button>
               <span className="flex-1" />
-              <button
-                type="button"
-                onClick={() => void copiarCorreos()}
-                disabled={visibles.length === 0}
-                title="Copia los correos del filtro activo, listos para pegar"
-                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-              >
-                <Copy className="w-3 h-3" /> Copiar correos
-              </button>
               {filas.filter((f) => !f.opened_at && !f.bounced_at).length >
                 0 && (
                 <button
