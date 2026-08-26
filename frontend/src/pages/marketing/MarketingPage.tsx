@@ -80,6 +80,11 @@ export default function MarketingPage() {
   const { data: audiencias } = useQuery({
     queryKey: ["marketing", "audiencias"],
     queryFn: getAudienciasMarketing,
+    // La materia prima de los filtros (tipos, estanteria) casi nunca
+    // cambia: 5 min en memoria para que "Nueva audiencia" abra al tiro
+    // y un hipo del servidor no se sienta (Felipe 26-08). Crear/borrar
+    // audiencias refresca igual via invalidateQueries.
+    staleTime: 5 * 60_000,
     // Es LA consulta pesada del modulo (resuelve cada audiencia contra
     // toda la base para los conteos en vivo). Solo corre cuando se
     // mira; entrar a Campanas y volver de una ficha no la paga.
