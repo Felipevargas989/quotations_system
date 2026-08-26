@@ -245,8 +245,14 @@ function Audiencias({
                 <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                   Importada
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
+                <span className="shrink-0 tabular-nums text-gray-600 text-right whitespace-nowrap">
                   {a.contactos} contactos
+                  {a.bajas > 0 && (
+                    <span className="text-gray-400">
+                      {" "}
+                      · {a.bajas} {a.bajas === 1 ? "baja" : "bajas"}
+                    </span>
+                  )}
                 </span>
                 <span className="shrink-0 w-[26px]" />
               </li>

@@ -12,7 +12,7 @@ export interface AudienciaGuardada {
 export interface AudienciasMarketing {
   guardadas: AudienciaGuardada[];
   clientes_con_correo: number;
-  importadas: { audiencia: string; contactos: number }[];
+  importadas: { audiencia: string; contactos: number; bajas: number }[];
   tipos: { tipo: string; total: number; conCorreo: number }[];
   tipos_evento: { tipo: string; n: number }[];
 }

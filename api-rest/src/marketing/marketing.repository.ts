@@ -62,20 +62,14 @@ export class MarketingRepository {
     return { insertados: rows.length };
   }
 
-  async audienciasImportadas(companyId: number) {
+  /** Crudo audiencia+correo: el servicio descuenta las bajas. */
+  async contactosImportados(companyId: number) {
     const { data, error } = await this.supabase.client
       .from('marketing_contacts')
-      .select('audiencia')
+      .select('audiencia, email')
       .eq('company_id', companyId);
     if (error) throw error;
-    const conteo = new Map<string, number>();
-    for (const r of (data ?? []) as { audiencia: string }[]) {
-      conteo.set(r.audiencia, (conteo.get(r.audiencia) ?? 0) + 1);
-    }
-    return [...conteo.entries()].map(([audiencia, contactos]) => ({
-      audiencia,
-      contactos,
-    }));
+    return (data ?? []) as { audiencia: string; email: string }[];
   }
 
   // ---- Audiencias guardadas (consulta viva con nombre) ----

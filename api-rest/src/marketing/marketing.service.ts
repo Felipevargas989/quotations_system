@@ -112,8 +112,21 @@ export class MarketingService {
     };
   }
 
-  audienciasImportadas(companyId: number) {
-    return this.repo.audienciasImportadas(companyId);
+  /** Las importadas con el número HONESTO: a cuántos les llegaría hoy
+   *  (bajas descontadas y visibles) — mismo criterio que las guardadas. */
+  async audienciasImportadas(companyId: number) {
+    const [filas, suprimidos] = await Promise.all([
+      this.repo.contactosImportados(companyId),
+      this.repo.suprimidos(companyId),
+    ]);
+    const por = new Map<string, { contactos: number; bajas: number }>();
+    for (const f of filas) {
+      const cur = por.get(f.audiencia) ?? { contactos: 0, bajas: 0 };
+      if (suprimidos.has(f.email.toLowerCase())) cur.bajas += 1;
+      else cur.contactos += 1;
+      por.set(f.audiencia, cur);
+    }
+    return [...por.entries()].map(([audiencia, c]) => ({ audiencia, ...c }));
   }
 
   tiposDeCliente(companyId: number) {
