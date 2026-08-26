@@ -229,6 +229,76 @@ revisar 'campo de hora nativo (type="time")' 0 \
   "cuando se haga la pieza de hora, migrar también el de la ficha de cocina" \
   'type="time"'
 
+# ══ EL TECHO DE TAMAÑO (26-08, autorizado por Felipe: "vamos con la 1") ═
+#
+# La industria recomienda archivos de 150-300 líneas, con 500 de techo;
+# más de 1.000 es señal de alerta (revisiones difíciles, choques entre
+# sesiones, miedo a tocar). Acá había 27 archivos sobre 800 líneas y
+# 7 verdaderos gigantes. Esta cerca no arregla el pasado — igual que el
+# techo de lint, solo impide que EMPEORE:
+#
+#   1. La cantidad de archivos +800 no puede crecer (techo 27).
+#   2. Los 7 gigantes quedan CONGELADOS con nombre: pueden bajar
+#      (cirugía por partes, patrón higuera), no crecer. La holgura de
+#      +50 líneas deja pasar arreglos chicos sin forzar una cirugía
+#      a destiempo.
+#
+# Si un gigante baja, se baja su techo acá EN EL MISMO commit. Si esta
+# cerca te rechazó: sácale al archivo la pieza que ibas a agregar (un
+# componente, un hook, un servicio) en vez de engordarlo.
+
+# El tamaño se mide también en el backend (../api-rest), que el resto
+# del portero no revisa.
+carpetasDeTamano="src"
+[ -d ../api-rest/src ] && carpetasDeTamano="src ../api-rest/src"
+
+archivosGrandes=$(find $carpetasDeTamano \( -name '*.ts' -o -name '*.tsx' \) -not -path '*/node_modules/*' -exec wc -l {} + 2>/dev/null | awk '$2 != "total" && $1 > 800 {n++} END {print n+0}')
+marcaTam="ok"; techoGrandes=27
+[ "$archivosGrandes" -gt "$techoGrandes" ] && marcaTam="RECHAZADO"
+[ "$archivosGrandes" -lt "$techoGrandes" ] && marcaTam="bajó"
+printf '  %-42s %3s / %-3s  %s\n' "archivos con más de 800 líneas" "$archivosGrandes" "$techoGrandes" "$marcaTam"
+resumen="${resumen}archivos con más de 800 líneas|${archivosGrandes}|${techoGrandes}"$'\n'
+if [ "$archivosGrandes" -gt "$techoGrandes" ]; then
+  fallas=$((fallas + 1))
+  echo ""
+  echo "  ── RECHAZADO: un archivo nuevo cruzó las 800 líneas"
+  echo "     Pártelo en piezas (componente, hook, servicio) antes de entrar."
+  echo "     Los que superan el límite hoy:"
+  find $carpetasDeTamano \( -name '*.ts' -o -name '*.tsx' \) -not -path '*/node_modules/*' -exec wc -l {} + 2>/dev/null | awk '$2 != "total" && $1 > 800 {print "       " $1 " " $2}' | sort -rn
+  echo ""
+fi
+
+# Los 7 gigantes, congelados uno a uno (líneas del 26-08 + 50 de holgura)
+congelar() {
+  local archivo="$1" techo="$2"
+  if [ ! -f "$archivo" ]; then
+    printf '  %-42s %3s / %-3s  %s\n' "≄ $(basename "$archivo")" "-" "$techo" "no existe (¿operado? borra su línea acá)"
+    return
+  fi
+  local hay
+  hay=$(wc -l < "$archivo" | tr -d ' ')
+  local marca="congelado"
+  [ "$hay" -gt "$techo" ] && marca="RECHAZADO"
+  [ "$hay" -lt "$((techo - 100))" ] && marca="bajó: nuevo techo $((hay + 50))"
+  printf '  %-42s %3s / %-3s  %s\n' "≄ $(basename "$archivo")" "$hay" "$techo" "$marca"
+  if [ "$hay" -gt "$techo" ]; then
+    fallas=$((fallas + 1))
+    echo ""
+    echo "  ── RECHAZADO: $archivo creció ($hay líneas, congelado en $techo)"
+    echo "     Un gigante no engorda más: extrae la pieza nueva a su propio"
+    echo "     archivo (higuera: sacar de a partes, jamás reescribir entero)."
+    echo ""
+  fi
+}
+
+congelar "src/pages/quotations/QuotationForm.tsx"            4027
+congelar "src/pages/postventa/PostVentaPage.tsx"             3180
+congelar "src/pages/dashboard/DashboardPage.tsx"             2950
+congelar "src/pages/postventa/ServiciosTab.tsx"              2285
+congelar "../api-rest/src/people/people.service.ts"          2040
+congelar "src/pages/logistica/components/ComprasTab.tsx"     1860
+congelar "src/pages/personas/FichasTab.tsx"                  1599
+
 # ══ VEREDICTO ════════════════════════════════════════════════════════
 
 echo ""
