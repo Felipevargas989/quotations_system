@@ -68,6 +68,7 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     cuerpoHtml: '<p>Cuerpo</p>',
     bajaUrl: 'https://api/baja?t=abc',
     cotizarUrl: 'https://www.eventi-app.com/public-quotation/1',
+    iconosBase: 'https://www.eventi-app.com',
   };
 
   it('encabezado blanco pintado, nombre en el color primario, y la baja siempre', () => {
@@ -100,7 +101,7 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     expect(plantillaCampana(base)).not.toContain('#25D366');
   });
 
-  it('la franja de cierre lleva el color secundario, nombre, tagline y solo las redes configuradas', () => {
+  it('la franja de cierre lleva el color secundario, nombre, tagline y solo los íconos configurados', () => {
     const html = plantillaCampana({
       ...base,
       marca: { ...marca, instagram: 'instagram.com/vds', sitioWeb: 'valledelsol.cl' },
@@ -109,7 +110,10 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     expect(html).toContain('Centro de Eventos');
     expect(html).toContain('https://instagram.com/vds');
     expect(html).toContain('https://valledelsol.cl');
-    expect(html).not.toContain('Facebook'); // no configurado, no aparece
+    // Los íconos clásicos como IMÁGENES (idénticas en claro y oscuro):
+    expect(html).toContain('/correo/instagram.png');
+    expect(html).toContain('/correo/web.png');
+    expect(html).not.toContain('facebook.png'); // no configurado, no aparece
   });
 
   it('con logo, la imagen va a la derecha del encabezado; el nombre queda igual', () => {

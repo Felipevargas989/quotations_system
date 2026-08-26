@@ -292,13 +292,18 @@ export class MarketingService {
     return { destinatarios: lista.length };
   }
 
+  /** El origen del frontend: ahí viven el formulario público y los
+   *  íconos del pie (public/correo). */
+  private baseFrontend(): string {
+    return (
+      this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com'
+    ).replace(/\/+$/, '');
+  }
+
   /** El formulario público de cotización de la empresa: el botón por
    *  defecto de todo correo de marketing (decisión de Felipe 25-08). */
   private urlDeCotizar(companyId: number): string {
-    const base = (
-      this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com'
-    ).replace(/\/+$/, '');
-    return `${base}/public-quotation/${String(companyId)}`;
+    return `${this.baseFrontend()}/public-quotation/${String(companyId)}`;
   }
 
   private renderizar(
@@ -321,6 +326,7 @@ export class MarketingService {
         cuerpoHtml: cuerpo,
         bajaUrl: this.urlDeBaja(companyId, destinatario.email),
         cotizarUrl: this.urlDeCotizar(companyId),
+        iconosBase: this.baseFrontend(),
         preencabezado: campana.preencabezado
           ? personalizar(campana.preencabezado, destinatario)
           : null,

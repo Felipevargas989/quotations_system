@@ -42,16 +42,22 @@ export const plantillaCampana = (p: {
   cuerpoHtml: string;
   bajaUrl: string;
   cotizarUrl: string;
+  /** Origen del frontend: ahí viven los íconos (public/correo/*.png). */
+  iconosBase: string;
   preencabezado?: string | null;
 }): string => {
   const m = p.marca;
   const whatsappUrl = m.whatsapp ? linkDeWhatsApp(m.whatsapp) : null;
   const boton = (url: string, color: string, texto: string) =>
     `<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 28px;border-radius:8px;font-size:15px;">${texto}</a>`;
+  // Los íconos clásicos (pedido de Felipe 25-08): imágenes, porque los
+  // modos oscuros no las repintan — se ven iguales siempre.
+  const icono = (url: string, archivo: string, alt: string) =>
+    `<a href="${urlAbsoluta(url)}" style="text-decoration:none;"><img src="${p.iconosBase}/correo/${archivo}" width="26" height="26" alt="${alt}" style="display:inline-block;border:0;vertical-align:middle;margin:0 7px;" /></a>`;
   const redes = [
-    m.instagram && `<a href="${urlAbsoluta(m.instagram)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Instagram</a>`,
-    m.facebook && `<a href="${urlAbsoluta(m.facebook)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Facebook</a>`,
-    m.sitioWeb && `<a href="${urlAbsoluta(m.sitioWeb)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Sitio web</a>`,
+    m.instagram && icono(m.instagram, 'instagram.png', 'Instagram'),
+    m.facebook && icono(m.facebook, 'facebook.png', 'Facebook'),
+    m.sitioWeb && icono(m.sitioWeb, 'web.png', 'Sitio web'),
   ].filter(Boolean);
   return `<!DOCTYPE html>
 <html lang="es">
@@ -93,7 +99,7 @@ export const plantillaCampana = (p: {
       <div style="background-color:${m.colorSecundario};padding:24px 30px;text-align:center;">
         <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${m.nombre}</p>
         ${m.tagline ? `<p style="font-size:12px;color:#4b5563;margin:4px 0 0;">${m.tagline}</p>` : ''}
-        ${redes.length ? `<p style="font-size:12px;margin:12px 0 0;">${redes.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</p>` : ''}
+        ${redes.length ? `<p style="margin:14px 0 0;">${redes.join('')}</p>` : ''}
         <p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
           Recibes este correo por tu relación con ${m.nombre}.
           <a href="${p.bajaUrl}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
