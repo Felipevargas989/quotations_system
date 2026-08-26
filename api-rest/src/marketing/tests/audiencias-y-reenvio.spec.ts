@@ -40,6 +40,15 @@ describe('plantillaCampana (el formato de la casa)', () => {
     expect(html).toContain('Dejar de recibir estos correos');
   });
 
+  it('el azul va en color SOLIDO ademas del degradado (Outlook bota los degradados)', () => {
+    // La leccion del 25-08: encabezado y boton invisibles en Outlook
+    // claro porque solo tenian linear-gradient. El color solido es el
+    // respaldo que entienden todos los clientes de correo.
+    const html = plantillaCampana({ ...base, botonTexto: 'Cotiza', botonUrl: 'https://x' });
+    expect(html).toContain('background-color:#134686;background-image:linear-gradient');
+    expect(html.match(/background-color:#134686/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('con preencabezado, va oculto al principio del correo', () => {
     const html = plantillaCampana({
       ...base,

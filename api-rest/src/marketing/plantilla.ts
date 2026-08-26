@@ -18,7 +18,7 @@ export const plantillaCampana = (p: {
   preencabezado?: string | null;
 }): string => `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${p.titulo}</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${p.titulo}</title></head>
 <body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
   ${
     p.preencabezado
@@ -27,7 +27,7 @@ export const plantillaCampana = (p: {
   }
   <div style="background-color:#f3f4f6;padding:20px 0;">
     <div style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <div style="background:linear-gradient(135deg,#134686 0%,#1e5a9e 100%);padding:40px 20px;text-align:center;">
+      <div style="background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#1e5a9e 100%);padding:40px 20px;text-align:center;">
         <p style="font-size:32px;font-weight:700;color:#ffffff;margin:0;letter-spacing:1px;">${p.empresa}</p>
       </div>
       <div style="padding:40px 30px;color:#111827;">
@@ -36,7 +36,7 @@ export const plantillaCampana = (p: {
         ${
           p.botonTexto && p.botonUrl
             ? `<div style="text-align:center;margin:30px 0 8px;">
-          <a href="${p.botonUrl}" style="display:inline-block;background:linear-gradient(135deg,#134686 0%,#0f3a6b 100%);color:#ffffff;text-decoration:none;font-weight:600;padding:14px 36px;border-radius:8px;font-size:15px;box-shadow:0 4px 6px rgba(19,70,134,0.25);">${p.botonTexto}</a>
+          <a href="${p.botonUrl}" style="display:inline-block;background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#0f3a6b 100%);color:#ffffff;text-decoration:none;font-weight:600;padding:14px 36px;border-radius:8px;font-size:15px;box-shadow:0 4px 6px rgba(19,70,134,0.25);">${p.botonTexto}</a>
         </div>`
             : ''
         }
