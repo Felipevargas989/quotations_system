@@ -53,7 +53,10 @@ export interface FiltroSegmento {
 export const previaSegmento = async (filtro: FiltroSegmento) =>
   (await apiRequest(`${API_ROUTES.MARKETING}/segmento/previa`, "POST", {
     filtro,
-  })) as { total: number; muestra: { email: string; name: string | null }[] };
+  })) as {
+    total: number;
+    muestra: { email: string; cliente: string; contacto: string | null }[];
+  };
 
 export const resultadosDeCampana = async (id: number) =>
   (await apiRequest(

@@ -128,16 +128,33 @@ export class MarketingService {
     );
   }
 
-  /** La previa en vivo del constructor: cuántos y una muestra. */
+  /** La previa en vivo del constructor: cuántos, y la lista COMPLETA
+   *  en dos columnas — cliente y su contacto (pedido de Felipe 25-08).
+   *  Si el cliente no tiene contacto anotado, va el correo. */
   async previaSegmento(dto: PreviaSegmentoDto, companyId: number) {
-    const lista = await this.resolverSegmentoDe(companyId, dto.filtro);
-    const suprimidos = await this.repo.suprimidos(companyId);
-    const limpios = lista.filter((d) => !suprimidos.has(d.email.toLowerCase()));
+    const [clientes, cotizaciones, suprimidos] = await Promise.all([
+      this.repo.clientesSegmentables(companyId),
+      this.repo.cotizacionesSegmentables(companyId),
+      this.repo.suprimidos(companyId),
+    ]);
+    const lista = resolverSegmento(
+      clientes,
+      cotizaciones,
+      dto.filtro,
+      new Date().toISOString().slice(0, 10),
+    ).filter((d) => !suprimidos.has(d.email.toLowerCase()));
+    const contactoPor = new Map(
+      clientes.map((c) => [
+        (c.email ?? '').toLowerCase(),
+        c.contact_person?.trim() || null,
+      ]),
+    );
     return {
-      total: limpios.length,
-      muestra: limpios.slice(0, 12).map((d) => ({
+      total: lista.length,
+      muestra: lista.slice(0, 500).map((d) => ({
         email: d.email,
-        name: d.name,
+        cliente: d.name,
+        contacto: contactoPor.get(d.email.toLowerCase()) ?? null,
       })),
     };
   }

@@ -158,15 +158,27 @@ export default function SegmentoBuilder({
           </span>{" "}
           contactos
         </p>
-        <ul className="mt-2 space-y-0.5 text-xs text-gray-600 flex-1 min-h-0 overflow-y-auto">
+        {/* LA LISTA EN DOS COLUMNAS (Felipe 25-08): cliente y contacto,
+            del alto completo desde arriba; si es larga, corre adentro. */}
+        <div className="grid grid-cols-2 gap-x-2 mt-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0">
+          <span>Cliente</span>
+          <span>Contacto</span>
+        </div>
+        <ul className="flex-1 min-h-0 overflow-y-auto text-xs divide-y divide-gray-100">
           {(previa.data?.muestra ?? []).map((m) => (
-            <li key={m.email} className="truncate">
-              {m.name ?? m.email}
-              <span className="text-gray-400"> · {m.email}</span>
+            <li
+              key={m.email}
+              className="grid grid-cols-2 gap-x-2 py-1"
+              title={m.email}
+            >
+              <span className="truncate text-gray-900">{m.cliente}</span>
+              <span className="truncate text-gray-500">
+                {m.contacto ?? m.email}
+              </span>
             </li>
           ))}
           {(previa.data?.total ?? 0) > (previa.data?.muestra.length ?? 0) && (
-            <li className="text-gray-400">
+            <li className="py-1 text-gray-400">
               … y {(previa.data?.total ?? 0) - (previa.data?.muestra.length ?? 0)}{" "}
               más
             </li>

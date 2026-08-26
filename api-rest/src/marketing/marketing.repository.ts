@@ -183,7 +183,7 @@ export class MarketingRepository {
   async clientesSegmentables(companyId: number) {
     const { data, error } = await this.supabase.client
       .from('clients')
-      .select('id, name, email, client_type')
+      .select('id, name, email, client_type, contact_person')
       .eq('company_id', companyId);
     if (error) throw error;
     return data as {
@@ -191,6 +191,7 @@ export class MarketingRepository {
       name: string;
       email: string | null;
       client_type: string | null;
+      contact_person: string | null;
     }[];
   }
 
