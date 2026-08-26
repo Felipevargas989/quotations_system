@@ -8,6 +8,7 @@ import { createHmac } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import {
+  CrearAudienciaDto,
   CrearCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
@@ -18,6 +19,7 @@ import {
   personalizar,
   plantillaCampana,
   resolverDestinatarios,
+  validarAsuntoDeReenvio,
 } from './plantilla';
 import { FiltroSegmento, resolverSegmento } from './segmento';
 
@@ -140,6 +142,56 @@ export class MarketingService {
     };
   }
 
+  // ---- Audiencias guardadas: la estantería ----
+  async crearAudiencia(dto: CrearAudienciaDto, companyId: number) {
+    const nombre = dto.nombre.trim();
+    if (!nombre) throw new BadRequestException('Ponle nombre a la audiencia');
+    try {
+      return await this.repo.crearAudiencia({
+        company_id: companyId,
+        nombre,
+        filtro: (dto.filtro ?? {}) as Record<string, unknown>,
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505') {
+        throw new BadRequestException('Ya existe una audiencia con ese nombre');
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * La estantería completa, cada audiencia con su conteo EN VIVO: las
+   * guardadas se recalculan contra la base de hoy (misma materia prima
+   * para todas: un solo viaje por clientes y otro por cotizaciones).
+   */
+  async listarAudiencias(companyId: number) {
+    const [guardadas, clientes, cotizaciones, suprimidos] = await Promise.all([
+      this.repo.audienciasGuardadas(companyId),
+      this.repo.clientesSegmentables(companyId),
+      this.repo.cotizacionesSegmentables(companyId),
+      this.repo.suprimidos(companyId),
+    ]);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const contar = (filtro: FiltroSegmento) =>
+      resolverSegmento(clientes, cotizaciones, filtro, hoy).filter(
+        (d) => !suprimidos.has(d.email.toLowerCase()),
+      ).length;
+    return {
+      guardadas: guardadas.map((a) => ({
+        id: a.id,
+        nombre: a.nombre,
+        filtro: a.filtro,
+        total: contar(a.filtro as FiltroSegmento),
+      })),
+      clientes_con_correo: contar({}),
+    };
+  }
+
+  borrarAudiencia(id: number, companyId: number) {
+    return this.repo.borrarAudiencia(id, companyId);
+  }
+
   // ---- Campañas ----
   async crearCampana(dto: CrearCampanaDto, companyId: number) {
     if (dto.audiencia_tipo === 'importada' && !dto.audiencia_ref) {
@@ -148,8 +200,26 @@ export class MarketingService {
     if (dto.audiencia_tipo === 'clientes' && !dto.tipos_cliente?.length) {
       throw new BadRequestException('Elige al menos un tipo de cliente');
     }
-    if (dto.audiencia_tipo === 'segmento' && !dto.filtro) {
-      throw new BadRequestException('Arma el segmento antes de guardar');
+    if (
+      dto.audiencia_tipo === 'segmento' &&
+      dto.audiencia_id == null &&
+      !dto.filtro
+    ) {
+      throw new BadRequestException('Elige una audiencia para la campaña');
+    }
+    // Audiencia guardada elegida: la campaña apunta a ella (consulta
+    // viva al enviar) y guarda una FOTO del filtro por si se borra.
+    let audienciaRef = dto.audiencia_ref?.trim() || null;
+    let filtro: Record<string, unknown> | null =
+      (dto.filtro as Record<string, unknown> | undefined) ?? null;
+    if (dto.audiencia_tipo === 'segmento' && dto.audiencia_id != null) {
+      const aud = await this.repo.audienciaGuardada(
+        dto.audiencia_id,
+        companyId,
+      );
+      if (!aud) throw new BadRequestException('Esa audiencia ya no existe');
+      audienciaRef = aud.nombre;
+      filtro = aud.filtro;
     }
     return this.repo.crearCampana({
       company_id: companyId,
@@ -159,10 +229,12 @@ export class MarketingService {
       cuerpo: dto.cuerpo,
       boton_texto: dto.boton_texto?.trim() || null,
       boton_url: dto.boton_url?.trim() || null,
+      preencabezado: dto.preencabezado?.trim() || null,
       audiencia_tipo: dto.audiencia_tipo,
-      audiencia_ref: dto.audiencia_ref?.trim() || null,
+      audiencia_id: dto.audiencia_id ?? null,
+      audiencia_ref: audienciaRef,
       tipos_cliente: dto.tipos_cliente ?? null,
-      filtro: dto.filtro ?? null,
+      filtro,
     });
   }
 
@@ -175,10 +247,18 @@ export class MarketingService {
       return this.repo.contactosDeAudiencia(companyId, campana.audiencia_ref!);
     }
     if (campana.audiencia_tipo === 'segmento') {
-      return this.resolverSegmentoDe(
-        companyId,
-        (campana.filtro ?? {}) as FiltroSegmento,
-      );
+      // CONSULTA VIVA: si la campaña apunta a una audiencia guardada,
+      // manda el filtro DE HOY de esa audiencia; la foto que guardó la
+      // campaña queda solo de respaldo por si la audiencia se borró.
+      let filtro = (campana.filtro ?? {}) as FiltroSegmento;
+      if (campana.audiencia_id != null) {
+        const aud = await this.repo.audienciaGuardada(
+          campana.audiencia_id,
+          companyId,
+        );
+        if (aud) filtro = aud.filtro as FiltroSegmento;
+      }
+      return this.resolverSegmentoDe(companyId, filtro);
     }
     return this.repo.clientesPorTipo(companyId, campana.tipos_cliente ?? []);
   }
@@ -217,6 +297,9 @@ export class MarketingService {
         botonTexto: campana.boton_texto,
         botonUrl: campana.boton_url,
         bajaUrl: this.urlDeBaja(companyId, destinatario.email),
+        preencabezado: campana.preencabezado
+          ? personalizar(campana.preencabezado, destinatario)
+          : null,
       }),
     };
   }
@@ -346,9 +429,10 @@ export class MarketingService {
     if (pendientes.length === 0) {
       throw new BadRequestException('No queda nadie sin abrir por reenviar');
     }
-    const asunto = (
-      asuntoVariante?.trim() || `¿Lo viste? ${campana.asunto}`
-    ).slice(0, 200);
+    // LA REGLA DEL MANUAL: la segunda pasada exige asunto nuevo.
+    const validado = validarAsuntoDeReenvio(campana.asunto, asuntoVariante);
+    if ('error' in validado) throw new BadRequestException(validado.error);
+    const asunto = validado.asunto;
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const from = this.remitente(nombreEmpresa);
     let enviados = 0;
@@ -370,6 +454,9 @@ export class MarketingService {
       await this.repo.marcarReenviados(lote.map((d) => d.id));
       enviados += lote.length;
     }
+    await this.repo.actualizarCampana(id, companyId, {
+      reenviada_con_asunto: asunto,
+    });
     this.logger.info(`reenvío campaña ${id}: ${enviados} sin-abrir`);
     return { reenviados: enviados };
   }

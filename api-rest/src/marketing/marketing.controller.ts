@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -13,6 +14,7 @@ import { CurrentUser, Public } from 'src/auth';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
 import {
+  CrearAudienciaDto,
   CrearCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
@@ -40,14 +42,36 @@ export class MarketingController {
   }
 
   // ---- Audiencias ----
+  /** La estantería completa: guardadas (conteo en vivo), importadas,
+   *  y la materia prima de los filtros (tipos de cliente y evento). */
   @Get('audiencias')
   async audiencias(@CurrentUser() user: User) {
-    const [importadas, tipos, tiposEvento] = await Promise.all([
+    const [estanteria, importadas, tipos, tiposEvento] = await Promise.all([
+      this.marketing.listarAudiencias(user.company_id),
       this.marketing.audienciasImportadas(user.company_id),
       this.marketing.tiposDeCliente(user.company_id),
       this.marketing.tiposDeEvento(user.company_id),
     ]);
-    return { importadas, tipos, tipos_evento: tiposEvento };
+    return {
+      guardadas: estanteria.guardadas,
+      clientes_con_correo: estanteria.clientes_con_correo,
+      importadas,
+      tipos,
+      tipos_evento: tiposEvento,
+    };
+  }
+
+  @Post('audiencias')
+  crearAudiencia(@Body() dto: CrearAudienciaDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /marketing/audiencias ${dto.nombre}`);
+    return this.marketing.crearAudiencia(dto, user.company_id);
+  }
+
+  @Delete('audiencias/:id')
+  async borrarAudiencia(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`DELETE /marketing/audiencias/${id}`);
+    await this.marketing.borrarAudiencia(+id, user.company_id);
+    return { ok: true };
   }
 
   /** La previa EN VIVO del constructor de segmentos (Fase 3). */

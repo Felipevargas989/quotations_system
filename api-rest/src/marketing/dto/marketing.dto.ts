@@ -77,6 +77,17 @@ export class PreviaSegmentoDto {
   filtro: FiltroSegmentoDto;
 }
 
+/** La audiencia guardada: un nombre y su pregunta (consulta viva). */
+export class CrearAudienciaDto {
+  @IsString()
+  @MaxLength(120)
+  nombre: string;
+
+  @ValidateNested()
+  @Type(() => FiltroSegmentoDto)
+  filtro: FiltroSegmentoDto;
+}
+
 export class CrearCampanaDto {
   @IsString()
   @MaxLength(120)
@@ -104,12 +115,23 @@ export class CrearCampanaDto {
   @MaxLength(500)
   boton_url?: string;
 
+  /** El segundo asunto: la frase gris de la bandeja (optativa). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  preencabezado?: string;
+
   @IsIn(['clientes', 'importada', 'segmento'])
   audiencia_tipo: 'clientes' | 'importada' | 'segmento';
 
+  /** Audiencia guardada elegida (tipo segmento). */
+  @IsOptional()
+  @IsInt()
+  audiencia_id?: number;
+
   @IsOptional()
   @IsString()
-  @MaxLength(80)
+  @MaxLength(120)
   audiencia_ref?: string;
 
   @IsOptional()
@@ -129,8 +151,8 @@ export class EnviarCampanaDto {
 }
 
 export class ReenviarDto {
-  @IsOptional()
+  /** La segunda pasada EXIGE asunto nuevo (regla del manual). */
   @IsString()
   @MaxLength(200)
-  asunto?: string;
+  asunto: string;
 }

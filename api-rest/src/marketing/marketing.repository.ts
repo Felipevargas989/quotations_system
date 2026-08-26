@@ -20,7 +20,9 @@ export interface CampanaMarketing {
   cuerpo: string;
   boton_texto: string | null;
   boton_url: string | null;
+  preencabezado: string | null;
   audiencia_tipo: 'clientes' | 'importada' | 'segmento';
+  audiencia_id: number | null;
   audiencia_ref: string | null;
   tipos_cliente: string[] | null;
   filtro: Record<string, unknown> | null;
@@ -28,6 +30,16 @@ export interface CampanaMarketing {
   prueba_enviada_at: string | null;
   enviada_at: string | null;
   total_destinatarios: number | null;
+  reenviada_con_asunto: string | null;
+  created_at: string;
+}
+
+/** La audiencia guardada: nombre + filtro (la pregunta, no la lista). */
+export interface AudienciaGuardada {
+  id: number;
+  company_id: number;
+  nombre: string;
+  filtro: Record<string, unknown>;
   created_at: string;
 }
 
@@ -66,6 +78,54 @@ export class MarketingRepository {
       audiencia,
       contactos,
     }));
+  }
+
+  // ---- Audiencias guardadas (consulta viva con nombre) ----
+  async crearAudiencia(row: {
+    company_id: number;
+    nombre: string;
+    filtro: Record<string, unknown>;
+  }): Promise<AudienciaGuardada> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_audiences')
+      .insert([row])
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as unknown as AudienciaGuardada;
+  }
+
+  async audienciasGuardadas(companyId: number): Promise<AudienciaGuardada[]> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_audiences')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('nombre', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as AudienciaGuardada[];
+  }
+
+  async audienciaGuardada(
+    id: number,
+    companyId: number,
+  ): Promise<AudienciaGuardada | null> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_audiences')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as AudienciaGuardada | null;
+  }
+
+  async borrarAudiencia(id: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('marketing_audiences')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
   }
 
   async contactosDeAudiencia(companyId: number, audiencia: string) {
