@@ -936,19 +936,20 @@ function ResultadosDeCampana({
     asuntoNuevo.trim().toLowerCase() === c.asunto.trim().toLowerCase();
   return (
     <span className="shrink-0 flex items-center gap-2">
-      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
+      {/* Anchos FIJOS para que las filas del historial queden alineadas
+          como tabla (Felipe 26-08). */}
+      <span className="inline-flex justify-center w-48 shrink-0 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums whitespace-nowrap">
         enviada · {c.total_destinatarios ?? 0} ·{" "}
         {c.enviada_at ? formatISOUTCDateToString(c.enviada_at.slice(0, 10)) : ""}
       </span>
-      {r && (
-        <span
-          className="text-xs text-gray-500 tabular-nums whitespace-nowrap"
-          title="Aperturas · clicks · rebotes (webhook de Resend)"
-        >
-          👁 {r.abiertos} · 🔗 {r.clicks} · ↩ {r.rebotes}
-          {r.reenviados > 0 && ` · 2ª pasada ${r.reenviados}`}
-        </span>
-      )}
+      <span
+        className="w-44 shrink-0 text-xs text-gray-500 tabular-nums whitespace-nowrap overflow-hidden"
+        title="Aperturas · clicks · rebotes — y 2ª: cuántos recibieron la segunda pasada (webhook de Resend)"
+      >
+        {r
+          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ↩ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª ${String(r.reenviados)}` : ""}`
+          : "…"}
+      </span>
       <button
         type="button"
         onClick={() => void preguntar()}
