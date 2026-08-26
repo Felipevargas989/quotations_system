@@ -674,28 +674,28 @@ function Campanas({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[860px] text-sm table-fixed">
               <thead className="bg-gray-50">
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                   <th
-                    className="px-4 py-2.5 cursor-pointer select-none whitespace-nowrap"
+                    className="w-[4%] px-4 py-2.5 cursor-pointer select-none whitespace-nowrap"
                     onClick={() => toggleSort("numero")}
                   >
                     N°{flecha("numero")}
                   </th>
                   <th
-                    className="px-3 py-2.5 cursor-pointer select-none whitespace-nowrap"
+                    className="w-[10%] px-3 py-2.5 cursor-pointer select-none whitespace-nowrap"
                     onClick={() => toggleSort("fecha")}
                   >
                     Fecha envío{flecha("fecha")}
                   </th>
-                  <th className="px-3 py-2.5 w-[42%]">Campaña</th>
-                  <th className="px-3 py-2.5 w-[22%]">Audiencia</th>
-                  <th className="px-3 py-2.5 w-[14%] text-center whitespace-nowrap">
+                  <th className="w-[37%] px-3 py-2.5">Campaña</th>
+                  <th className="w-[20%] px-3 py-2.5">Audiencia</th>
+                  <th className="w-[14%] px-3 py-2.5 text-center whitespace-nowrap">
                     Destinatarios
                   </th>
-                  <th className="px-3 py-2.5">Estado</th>
-                  <th className="px-2 py-2.5" />
+                  <th className="w-[11%] px-3 py-2.5">Estado</th>
+                  <th className="w-[4%] px-2 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -715,15 +715,15 @@ function Campanas({
                         ? formatISOUTCDateToString(c.enviada_at.slice(0, 10))
                         : "—"}
                     </td>
-                    <td className="px-3 py-2.5 min-w-[180px]">
-                      <span className="block font-medium text-gray-900 truncate max-w-[280px]">
+                    <td className="px-3 py-2.5">
+                      <span className="block font-medium text-gray-900 truncate">
                         {c.nombre}
                       </span>
-                      <span className="block text-xs text-gray-500 truncate max-w-[280px]">
+                      <span className="block text-xs text-gray-500 truncate">
                         {c.asunto}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-600 truncate max-w-[260px]">
+                    <td className="px-3 py-2.5 text-gray-600 truncate">
                       {c.audiencia_ref ?? "segmento de tu base"}
                     </td>
                     <td className="px-3 py-2.5 text-center text-gray-700 tabular-nums">
