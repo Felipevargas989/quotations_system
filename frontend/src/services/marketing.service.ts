@@ -81,6 +81,17 @@ export const reenviarCampana = async (id: number, asunto: string) =>
     { asunto },
   )) as { reenviados: number };
 
+export const contactosDeAudienciaImportada = async (nombre: string) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias/importada?nombre=${encodeURIComponent(nombre)}`,
+    "GET",
+  )) as {
+    email: string;
+    nombre: string | null;
+    empresa: string | null;
+    baja: boolean;
+  }[];
+
 export const crearAudienciaMarketing = async (dto: {
   nombre: string;
   filtro: FiltroSegmento;

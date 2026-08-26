@@ -129,6 +129,21 @@ export class MarketingService {
     return [...por.entries()].map(([audiencia, c]) => ({ audiencia, ...c }));
   }
 
+  /** Quiénes están dentro de una audiencia importada (Felipe 26-08):
+   *  la lista con los dados de baja MARCADOS, no escondidos. */
+  async contactosDeImportada(companyId: number, audiencia: string) {
+    const [filas, suprimidos] = await Promise.all([
+      this.repo.contactosDeAudiencia(companyId, audiencia),
+      this.repo.suprimidos(companyId),
+    ]);
+    return filas.map((f) => ({
+      email: f.email,
+      nombre: f.name,
+      empresa: f.empresa,
+      baja: suprimidos.has(f.email.toLowerCase()),
+    }));
+  }
+
   tiposDeCliente(companyId: number) {
     return this.repo.tiposDeCliente(companyId);
   }

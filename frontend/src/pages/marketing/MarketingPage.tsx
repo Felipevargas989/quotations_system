@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, Send, Trash2, Upload, Users } from "lucide-react";
+import { Eye, Mail, Send, Trash2, Upload, Users } from "lucide-react";
 import Modal from "../../components/Modal";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
@@ -8,6 +8,7 @@ import {
   AudienciasMarketing,
   CampanaMarketing,
   FiltroSegmento,
+  contactosDeAudienciaImportada,
   crearAudienciaMarketing,
   crearCampanaMarketing,
   destinatariosDeCampana,
@@ -17,6 +18,7 @@ import {
   getAudienciasMarketing,
   getCampanasMarketing,
   importarContactosMarketing,
+  previaSegmento,
   reenviarCampana,
   resultadosDeCampana,
   sinAbrirDeCampana,
@@ -165,12 +167,21 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
   const [borrando, setBorrando] = useState<number | null>(null);
+  // Ver quiénes están dentro (Felipe 26-08): el ojito de cada fila.
+  const [viendo, setViendo] = useState<
+    | { tipo: "guardada"; nombre: string; filtro: FiltroSegmento }
+    | { tipo: "importada"; nombre: string }
+    | null
+  >(null);
 
   const guardadas = audiencias?.guardadas ?? [];
   const importadas = audiencias?.importadas ?? [];
 
   return (
     <div className="space-y-4">
+      {viendo && (
+        <VerAudiencia viendo={viendo} onCerrar={() => setViendo(null)} />
+      )}
       {/* 1. LA ESTANTERÍA: todas las audiencias en una sola lista. */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -202,6 +213,20 @@ function Audiencias({
                 <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
                   {a.total} hoy
                 </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViendo({
+                      tipo: "guardada",
+                      nombre: a.nombre,
+                      filtro: a.filtro,
+                    })
+                  }
+                  title="Ver quiénes están dentro"
+                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
                 {borrando === a.id ? (
                   <span className="shrink-0 flex items-center gap-1 text-xs">
                     <button
@@ -254,6 +279,16 @@ function Audiencias({
                     </span>
                   )}
                 </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViendo({ tipo: "importada", nombre: a.audiencia })
+                  }
+                  title="Ver quiénes están dentro (bajas marcadas)"
+                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
                 <span className="shrink-0 w-[26px]" />
               </li>
             ))}
@@ -341,6 +376,113 @@ function Audiencias({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Quiénes están dentro de una audiencia (Felipe 26-08): la ventana del
+ * ojito. Guardadas: la lista EN VIVO del mismo motor de la previa
+ * (bajas ya descontadas). Importadas: la lista fija con los dados de
+ * baja MARCADOS en gris, no escondidos.
+ */
+function VerAudiencia({
+  viendo,
+  onCerrar,
+}: {
+  readonly viendo:
+    | { tipo: "guardada"; nombre: string; filtro: FiltroSegmento }
+    | { tipo: "importada"; nombre: string };
+  readonly onCerrar: () => void;
+}) {
+  const consulta = useQuery({
+    queryKey: ["marketing", "ver-audiencia", viendo.tipo, viendo.nombre],
+    queryFn: async () => {
+      if (viendo.tipo === "guardada") {
+        const r = await previaSegmento(viendo.filtro);
+        return {
+          total: r.total,
+          filas: r.muestra.map((m) => ({
+            cliente: m.cliente,
+            contacto: m.contacto,
+            email: m.email,
+            baja: false,
+          })),
+        };
+      }
+      const r = await contactosDeAudienciaImportada(viendo.nombre);
+      return {
+        total: r.length,
+        filas: r.map((c) => ({
+          cliente: c.empresa ?? "—",
+          contacto: c.nombre,
+          email: c.email,
+          baja: c.baja,
+        })),
+      };
+    },
+  });
+  const filas = consulta.data?.filas ?? [];
+  const total = consulta.data?.total ?? 0;
+  const bajas = filas.filter((f) => f.baja).length;
+
+  return (
+    <Modal
+      titulo={viendo.nombre}
+      subtitulo={
+        consulta.data
+          ? `${String(filas.length - bajas)} contactos` +
+            (bajas
+              ? ` · ${String(bajas)} ${bajas === 1 ? "baja" : "bajas"}`
+              : "") +
+            (viendo.tipo === "guardada"
+              ? " · lista en vivo, bajas ya descontadas"
+              : "")
+          : "Cargando…"
+      }
+      ancho="max-w-2xl"
+      onCerrar={onCerrar}
+    >
+      <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        <span>Cliente</span>
+        <span>Contacto</span>
+        <span>Correo</span>
+      </div>
+      <ul className="divide-y divide-gray-100 text-xs">
+        {filas.map((f) => (
+          <li
+            key={f.email}
+            className={`grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 py-1.5 ${
+              f.baja ? "opacity-50" : ""
+            }`}
+          >
+            <span className="truncate text-gray-900" title={f.cliente ?? ""}>
+              {f.cliente}
+            </span>
+            <span className="truncate text-gray-500">
+              {f.contacto ?? "—"}
+              {f.baja && (
+                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-500">
+                  baja
+                </span>
+              )}
+            </span>
+            <span className="truncate text-gray-400" title={f.email}>
+              {f.email}
+            </span>
+          </li>
+        ))}
+        {total > filas.length && (
+          <li className="py-1.5 text-gray-400">
+            … y {total - filas.length} más
+          </li>
+        )}
+        {consulta.data && filas.length === 0 && (
+          <li className="py-4 text-center text-gray-500">
+            Esta audiencia está vacía hoy.
+          </li>
+        )}
+      </ul>
+    </Modal>
   );
 }
 

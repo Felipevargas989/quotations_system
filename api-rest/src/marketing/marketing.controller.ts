@@ -90,6 +90,16 @@ export class MarketingController {
     };
   }
 
+  /** Quiénes están dentro de una importada (bajas marcadas). El nombre
+   *  va por query: puede traer espacios y tildes. */
+  @Get('audiencias/importada')
+  contactosDeImportada(
+    @Query('nombre') nombre: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.marketing.contactosDeImportada(user.company_id, nombre ?? '');
+  }
+
   @Post('audiencias')
   crearAudiencia(@Body() dto: CrearAudienciaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /marketing/audiencias ${dto.nombre}`);
