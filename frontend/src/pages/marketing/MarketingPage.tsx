@@ -947,7 +947,7 @@ function ResultadosDeCampana({
         title="Aperturas · clicks · rebotes — y 2ª: cuántos recibieron la segunda pasada (webhook de Resend)"
       >
         {r
-          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ↩ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª ${String(r.reenviados)}` : ""}`
+          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ⚠ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª ${String(r.reenviados)}` : ""}`
           : "…"}
       </span>
       <button
