@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import {
@@ -69,13 +69,38 @@ export class MarketingService {
     return `${this.baseApi()}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}`;
   }
 
-  async procesarBaja(c: string, e: string, t: string): Promise<boolean> {
+  /** Valida el enlace de baja SIN ejecutarla. Endurecido (revisión
+   *  26-08): parámetros ausentes o basura devuelven null, nunca 500 —
+   *  es la ruta que la ley exige que funcione. */
+  bajaValida(
+    c?: string,
+    e?: string,
+    t?: string,
+  ): { companyId: number; email: string } | null {
+    if (
+      typeof c !== 'string' ||
+      typeof e !== 'string' ||
+      typeof t !== 'string'
+    ) {
+      return null;
+    }
     const companyId = Number(c);
-    const email = Buffer.from(e, 'base64url').toString('utf8');
-    if (!companyId || !email.includes('@')) return false;
-    if (this.firmaDeBaja(companyId, email) !== t) return false;
-    await this.repo.suprimir(companyId, email, 'baja');
-    this.logger.info(`baja de marketing: ${email}`);
+    let email = '';
+    try {
+      email = Buffer.from(e, 'base64url').toString('utf8');
+    } catch {
+      return null;
+    }
+    if (!companyId || !email.includes('@')) return null;
+    if (this.firmaDeBaja(companyId, email) !== t) return null;
+    return { companyId, email };
+  }
+
+  async procesarBaja(c?: string, e?: string, t?: string): Promise<boolean> {
+    const valida = this.bajaValida(c, e, t);
+    if (!valida) return false;
+    await this.repo.suprimir(valida.companyId, valida.email, 'baja');
+    this.logger.info(`baja de marketing: ${valida.email}`);
     return true;
   }
 
@@ -156,9 +181,22 @@ export class MarketingService {
   // El filtro decide por CLIENTES; el resultado son sus PERSONAS
   // (client_contacts con correo; respaldo: el correo de la ficha).
   private async resolverSegmentoDe(companyId: number, filtro: FiltroSegmento) {
+    // Las cotizaciones solo se traen si el filtro las mira: el caso
+    // más frecuente ("Todos", tipo de cliente) no las necesita.
+    const miraCotizaciones = Boolean(
+      filtro.con_estados?.length ||
+        filtro.tipos_evento?.length ||
+        filtro.evento_desde ||
+        filtro.evento_hasta ||
+        filtro.sin_cotizacion_desde ||
+        filtro.aniversario ||
+        filtro.monto_min != null,
+    );
     const [clientes, cotizaciones, contactos] = await Promise.all([
       this.repo.clientesSegmentables(companyId),
-      this.repo.cotizacionesSegmentables(companyId),
+      miraCotizaciones
+        ? this.repo.cotizacionesSegmentables(companyId)
+        : Promise.resolve([]),
       this.repo.contactosDeClientes(companyId),
     ]);
     return resolverSegmento(
@@ -364,6 +402,16 @@ export class MarketingService {
     };
   }
 
+  /** El estándar de baja de los grandes: Gmail/Outlook muestran su
+   *  propio botón "Darse de baja" leyendo estas cabeceras, y el POST
+   *  de un clic cae en la misma ruta firmada. */
+  private cabecerasDeBaja(companyId: number, email: string) {
+    return {
+      'List-Unsubscribe': `<${this.urlDeBaja(companyId, email)}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+
   private remitente(nombreEmpresa: string): string {
     // Deuda anotada en el doc 11: cuando Felipe configure el subdominio
     // de marketing en Resend, MARKETING_FROM lo toma sin tocar código.
@@ -393,6 +441,7 @@ export class MarketingService {
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
+      headers: this.cabecerasDeBaja(companyId, correoUsuario),
       ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     });
     if (error) throw new BadRequestException(`Resend: ${error.message}`);
@@ -416,17 +465,31 @@ export class MarketingService {
   ): boolean {
     const secreto = this.config.get<string>('RESEND_WEBHOOK_SECRET');
     if (!secreto) {
+      // FAIL-CLOSED en producción (revisión 26-08): sin secreto no se
+      // acepta nada — antes procesaba igual y cualquiera podía marcar
+      // aperturas o suprimir correos a punta de rebotes falsos.
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('webhook sin RESEND_WEBHOOK_SECRET: RECHAZADO');
+        return false;
+      }
       this.logger.warn('webhook sin RESEND_WEBHOOK_SECRET: sin verificar');
       return true;
     }
     if (!headers.id || !headers.timestamp || !headers.firma) return false;
+    // Tolerancia ±5 minutos: una notificación capturada no sirve para
+    // siempre (anti-replay, igual que el verificador oficial de Svix).
+    const ts = Number(headers.timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) {
+      return false;
+    }
     const llave = Buffer.from(secreto.replace(/^whsec_/, ''), 'base64');
     const esperada = createHmac('sha256', llave)
       .update(`${headers.id}.${headers.timestamp}.${payload}`)
-      .digest('base64');
-    return headers.firma
-      .split(' ')
-      .some((f) => f.replace(/^v1,/, '') === esperada);
+      .digest();
+    return headers.firma.split(' ').some((f) => {
+      const dada = Buffer.from(f.replace(/^v1,/, ''), 'base64');
+      return dada.length === esperada.length && timingSafeEqual(dada, esperada);
+    });
   }
 
   async procesarEventoResend(evento: {
@@ -502,7 +565,7 @@ export class MarketingService {
       const payloads = lote.map((d) => {
         const r = this.renderizar(
           { ...campana, asunto },
-          { email: d.email, name: d.name, empresa: d.name },
+          { email: d.email, name: d.name, empresa: d.empresa ?? d.name },
           marca,
           companyId,
         );
@@ -511,6 +574,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
+          headers: this.cabecerasDeBaja(companyId, d.email),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });
@@ -563,6 +627,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
+          headers: this.cabecerasDeBaja(companyId, d.email),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });
@@ -572,6 +637,7 @@ export class MarketingService {
         campaign_id: id,
         email: d.email,
         name: d.name,
+        empresa: d.empresa,
         estado: error ? 'fallido' : 'enviado',
         error: error ? error.message : null,
         resend_id: error ? null : (data?.data?.[j]?.id ?? null),

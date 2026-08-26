@@ -17,7 +17,7 @@ import {
  */
 
 const ACEPTO: FiltroSegmento["con_estados"] = ["aceptada", "realizada"];
-const NO_ACEPTO: FiltroSegmento["con_estados"] = ["rechazada", "anulada"];
+const NO_ACEPTO: FiltroSegmento["con_estados"] = ["rechazada", "cancelada"];
 
 export default function SegmentoBuilder({
   audiencias,
@@ -43,10 +43,18 @@ export default function SegmentoBuilder({
     queryFn: () => previaSegmento(quieto),
   });
 
-  const resultado =
-    JSON.stringify(filtro.con_estados) === JSON.stringify(ACEPTO)
+  // Comparación por CONJUNTO, no por texto (revisión 26-08): un filtro
+  // guardado con otro orden — o con el alias viejo 'anulada' — debe
+  // encender el chip igual, no mentir "Todos".
+  const comoConjunto = (xs?: string[]) =>
+    [...new Set((xs ?? []).map((x) => (x === "anulada" ? "cancelada" : x)))]
+      .sort()
+      .join("|");
+  const resultado = !filtro.con_estados?.length
+    ? "todos"
+    : comoConjunto(filtro.con_estados) === comoConjunto(ACEPTO)
       ? "acepto"
-      : JSON.stringify(filtro.con_estados) === JSON.stringify(NO_ACEPTO)
+      : comoConjunto(filtro.con_estados) === comoConjunto(NO_ACEPTO)
         ? "no_acepto"
         : "todos";
 
@@ -109,7 +117,7 @@ export default function SegmentoBuilder({
             <MultiSelect
               options={(audiencias?.tipos ?? []).map((t) => ({
                 value: t.tipo,
-                label: `${t.tipo} (${String(t.conCorreo)})`,
+                label: `${t.tipo} (${String(t.total)})`,
               }))}
               value={filtro.tipos_cliente ?? []}
               onChange={(v) => ponerLista("tipos_cliente", v)}

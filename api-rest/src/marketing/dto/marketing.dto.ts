@@ -44,8 +44,16 @@ export class FiltroSegmentoDto {
 
   @IsOptional()
   @IsArray()
-  @IsIn(['realizada', 'aceptada', 'rechazada', 'anulada'], { each: true })
-  con_estados?: ('realizada' | 'aceptada' | 'rechazada' | 'anulada')[];
+  @IsIn(['realizada', 'aceptada', 'rechazada', 'cancelada', 'anulada'], {
+    each: true,
+  })
+  con_estados?: (
+    | 'realizada'
+    | 'aceptada'
+    | 'rechazada'
+    | 'cancelada'
+    | 'anulada'
+  )[];
 
   @IsOptional()
   @IsString()

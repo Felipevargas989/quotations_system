@@ -50,6 +50,28 @@ export class MarketingRepository {
     this.logger.setContext(MarketingRepository.name);
   }
 
+  /** Supabase corta en 1000 filas por consulta (lección ya pagada en
+   *  super-admin y backup): TODA lectura sin tope conocido se pagina.
+   *  Sin esto, al cruzar las 1000 filas los conteos y los envíos
+   *  quedarían silenciosamente cortos (revisión 26-08). */
+  private async todas<T>(
+    consulta: (
+      desde: number,
+      hasta: number,
+    ) => PromiseLike<{ data: unknown; error: unknown }>,
+  ): Promise<T[]> {
+    const PAGINA = 1000;
+    const filas: T[] = [];
+    for (let desde = 0; ; desde += PAGINA) {
+      const { data, error } = await consulta(desde, desde + PAGINA - 1);
+      if (error) throw new Error((error as { message?: string }).message);
+      const lote = (data ?? []) as T[];
+      filas.push(...lote);
+      if (lote.length < PAGINA) break;
+    }
+    return filas;
+  }
+
   async importarContactos(
     rows: Record<string, unknown>[],
   ): Promise<{ insertados: number }> {
@@ -64,12 +86,13 @@ export class MarketingRepository {
 
   /** Crudo audiencia+correo: el servicio descuenta las bajas. */
   async contactosImportados(companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('marketing_contacts')
-      .select('audiencia, email')
-      .eq('company_id', companyId);
-    if (error) throw error;
-    return (data ?? []) as { audiencia: string; email: string }[];
+    return this.todas<{ audiencia: string; email: string }>((d, h) =>
+      this.supabase.client
+        .from('marketing_contacts')
+        .select('audiencia, email')
+        .eq('company_id', companyId)
+        .range(d, h),
+    );
   }
 
   // ---- Audiencias guardadas (consulta viva con nombre) ----
@@ -121,17 +144,18 @@ export class MarketingRepository {
   }
 
   async contactosDeAudiencia(companyId: number, audiencia: string) {
-    const { data, error } = await this.supabase.client
-      .from('marketing_contacts')
-      .select('email, name, empresa')
-      .eq('company_id', companyId)
-      .eq('audiencia', audiencia);
-    if (error) throw error;
-    return data as {
+    return this.todas<{
       email: string;
       name: string | null;
       empresa: string | null;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('marketing_contacts')
+        .select('email, name, empresa')
+        .eq('company_id', companyId)
+        .eq('audiencia', audiencia)
+        .range(d, h),
+    );
   }
 
   /** La audiencia dinámica: clientes por tipo, solo con correo. */
@@ -173,53 +197,56 @@ export class MarketingRepository {
 
   /** La materia prima del segmento (Fase 3): clientes y cotizaciones. */
   async clientesSegmentables(companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('clients')
-      .select('id, name, email, client_type, contact_person')
-      .eq('company_id', companyId);
-    if (error) throw error;
-    return data as {
+    return this.todas<{
       id: number;
       name: string;
       email: string | null;
       client_type: string | null;
       contact_person: string | null;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('clients')
+        .select('id, name, email, client_type, contact_person')
+        .eq('company_id', companyId)
+        .range(d, h),
+    );
   }
 
   /** Las PERSONAS de las fichas (client_contacts) con correo: a ellas
    *  se les escribe cuando la audiencia viene de la base (26-08). */
   async contactosDeClientes(companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('client_contacts')
-      .select('client_id, name, email')
-      .eq('company_id', companyId)
-      .not('email', 'is', null)
-      .neq('email', '');
-    if (error) throw error;
-    return data as {
+    return this.todas<{
       client_id: number;
       name: string | null;
       email: string;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('client_contacts')
+        .select('client_id, name, email')
+        .eq('company_id', companyId)
+        .not('email', 'is', null)
+        .neq('email', '')
+        .range(d, h),
+    );
   }
 
   async cotizacionesSegmentables(companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('quotations')
-      .select(
-        'client_id, quotation_status, event_date, total_amount, event_type, created_at',
-      )
-      .eq('company_id', companyId);
-    if (error) throw error;
-    return data as {
+    return this.todas<{
       client_id: number | null;
       quotation_status: string;
       event_date: string | null;
       total_amount: number | null;
       event_type: string | null;
       created_at: string;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('quotations')
+        .select(
+          'client_id, quotation_status, event_date, total_amount, event_type, created_at',
+        )
+        .eq('company_id', companyId)
+        .range(d, h),
+    );
   }
 
   async tiposDeEvento(companyId: number) {
@@ -281,7 +308,7 @@ export class MarketingRepository {
   async sinAbrirDe(campaignId: number, companyId: number) {
     const { data, error } = await this.supabase.client
       .from('marketing_sends')
-      .select('id, email, name')
+      .select('id, email, name, empresa')
       .eq('campaign_id', campaignId)
       .eq('company_id', companyId)
       .eq('estado', 'enviado')
@@ -289,7 +316,12 @@ export class MarketingRepository {
       .is('bounced_at', null)
       .is('reenviado_at', null);
     if (error) throw error;
-    return data as { id: number; email: string; name: string | null }[];
+    return data as {
+      id: number;
+      email: string;
+      name: string | null;
+      empresa: string | null;
+    }[];
   }
 
   async marcarReenviados(ids: number[]) {

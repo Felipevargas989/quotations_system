@@ -9,8 +9,17 @@
 export interface FiltroSegmento {
   /** Tipos de cliente (client_type). Vacío/ausente = todos. */
   tipos_cliente?: string[];
-  /** Tuvo cotización en estos estados… */
-  con_estados?: ('realizada' | 'aceptada' | 'rechazada' | 'anulada')[];
+  /** Tuvo cotización en estos estados… El estado real del sistema es
+   *  'cancelada' (QuotationStatus.CANCELADA); 'anulada' se acepta como
+   *  alias por los filtros guardados antes de la corrección del 26-08
+   *  — la revisión pilló que 'anulada' no calzaba con NINGUNA fila. */
+  con_estados?: (
+    | 'realizada'
+    | 'aceptada'
+    | 'rechazada'
+    | 'cancelada'
+    | 'anulada'
+  )[];
   /** …con fecha de evento dentro del rango (opcional). */
   evento_desde?: string;
   evento_hasta?: string;
@@ -77,6 +86,12 @@ export const resolverSegmento = (
   const anivDesde = menosMeses(13);
   const anivHasta = menosMeses(11);
 
+  // Los estados del filtro, normalizados: 'anulada' (filtros viejos)
+  // significa 'cancelada' (el estado que existe de verdad).
+  const estadosBuscados = new Set<string>(
+    (filtro.con_estados ?? []).map((e) => (e === 'anulada' ? 'cancelada' : e)),
+  );
+
   // El FILTRO decide por la historia del CLIENTE; el correo ya no es
   // requisito acá — se resuelve al expandir a sus personas (26-08).
   const cumple = (c: ClienteSegmentable): boolean => {
@@ -88,16 +103,10 @@ export const resolverSegmento = (
     }
     const suyas = porCliente.get(String(c.id)) ?? [];
 
-    if (filtro.con_estados?.length) {
+    if (estadosBuscados.size > 0) {
       const enRango = suyas.filter(
         (q) =>
-          filtro.con_estados!.includes(
-            q.quotation_status as
-              | 'realizada'
-              | 'aceptada'
-              | 'rechazada'
-              | 'anulada',
-          ) &&
+          estadosBuscados.has(q.quotation_status) &&
           (!filtro.evento_desde || dia(q.event_date) >= filtro.evento_desde) &&
           (!filtro.evento_hasta || dia(q.event_date) <= filtro.evento_hasta),
       );
@@ -154,24 +163,31 @@ export const resolverSegmento = (
     personasPor.get(k)!.push(p);
   }
 
+  // UNA VEZ POR CORREO desde la fuente (revisión 26-08): el mismo
+  // correo puede aparecer en dos fichas o dos contactos; si contara
+  // repetido, la previa y la estantería mostrarían más que lo que el
+  // envío real despacha (que ya deduplicaba). Gana el primero.
+  const vistos = new Set<string>();
   const lista: { email: string; name: string | null; empresa: string }[] = [];
+  const agregar = (email: string, name: string | null, empresa: string) => {
+    const e = email.trim().toLowerCase();
+    if (!e || vistos.has(e)) return;
+    vistos.add(e);
+    lista.push({ email: email.trim(), name, empresa });
+  };
   for (const c of clientes) {
     if (!cumple(c)) continue;
     const personas = personasPor.get(String(c.id)) ?? [];
     if (personas.length > 0) {
       for (const p of personas) {
-        lista.push({
-          email: p.email!,
-          name: p.name?.trim() || c.contact_person?.trim() || c.name,
-          empresa: c.name,
-        });
+        agregar(
+          p.email!,
+          p.name?.trim() || c.contact_person?.trim() || c.name,
+          c.name,
+        );
       }
     } else if (c.email?.trim()) {
-      lista.push({
-        email: c.email,
-        name: c.contact_person?.trim() || c.name,
-        empresa: c.name,
-      });
+      agregar(c.email, c.contact_person?.trim() || c.name, c.name);
     }
   }
   return lista;

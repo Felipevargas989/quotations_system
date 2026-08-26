@@ -169,6 +169,49 @@ describe('resolverSegmento', () => {
       ]);
     });
 
+    it("'cancelada' filtra de verdad, y el alias viejo 'anulada' significa lo mismo", () => {
+      const conCancelada = [
+        ...cotizaciones,
+        {
+          client_id: 2,
+          quotation_status: 'cancelada',
+          event_date: '2026-05-10',
+          total_amount: 500_000,
+          event_type: 'Paseo de empresa',
+          created_at: '2026-04-01',
+        },
+      ];
+      const directa = resolverSegmento(
+        clientes,
+        conCancelada,
+        [],
+        { con_estados: ['cancelada'] },
+        HOY,
+      );
+      expect(directa.map((d) => d.name)).toEqual(['Colegio Alemán']);
+      // Los filtros guardados antes del arreglo decían 'anulada':
+      const alias = resolverSegmento(
+        clientes,
+        conCancelada,
+        [],
+        { con_estados: ['anulada'] },
+        HOY,
+      );
+      expect(alias.map((d) => d.name)).toEqual(['Colegio Alemán']);
+    });
+
+    it('el mismo correo en dos lugares cuenta UNA sola vez (como el envío)', () => {
+      const compartidos = [
+        { client_id: 1, name: 'Sandra Saez', email: 'compartido@x.cl' },
+        { client_id: 3, name: 'Pedro CCU', email: 'COMPARTIDO@x.cl' },
+      ];
+      const r = resolverSegmento(clientes, cotizaciones, compartidos, {}, HOY);
+      const veces = r.filter(
+        (d) => d.email.toLowerCase() === 'compartido@x.cl',
+      ).length;
+      expect(veces).toBe(1);
+    });
+
     it('con contactos, la ficha ya no manda: no se duplica el correo del cliente', () => {
       const r = resolverSegmento(
         clientes,

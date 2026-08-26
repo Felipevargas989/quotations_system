@@ -166,6 +166,50 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
   });
 });
 
+describe('colores legibles con CUALQUIER paleta (revisión 26-08)', () => {
+  const marca: MarcaEmpresa = {
+    nombre: 'Otra Empresa',
+    logo: null,
+    banner: null,
+    tagline: null,
+    replyTo: null,
+    whatsapp: null,
+    instagram: null,
+    facebook: null,
+    sitioWeb: null,
+    colorPrimario: '#667eea',
+    colorSecundario: '#059669', // el verde saturado por defecto de Configuración
+  };
+  const base = {
+    marca,
+    titulo: 'Hola',
+    cuerpoHtml: '<p>Cuerpo</p>',
+    bajaUrl: 'https://api/baja?t=abc',
+    cotizarUrl: 'https://www.eventi-app.com/public-quotation/2',
+    iconosBase: 'https://www.eventi-app.com',
+  };
+
+  it('secundario saturado: la franja cae al neutro claro, nunca ilegible', () => {
+    const html = plantillaCampana(base);
+    expect(html).toContain('background-color:#f9fafb');
+    expect(html).not.toContain('background-color:#059669');
+  });
+
+  it('el nombre sobre el primario elige blanco/negro solo', () => {
+    const html = plantillaCampana(base);
+    expect(html).toContain('color:#ffffff;margin:0;letter-spacing');
+  });
+
+  it('los datos con comillas o < no rompen el HTML del correo', () => {
+    const html = plantillaCampana({
+      ...base,
+      marca: { ...marca, nombre: 'Valle "X" <SpA>' },
+    });
+    expect(html).not.toContain('<SpA>');
+    expect(html).toContain('&lt;SpA&gt;');
+  });
+});
+
 describe('la audiencia "Todos los clientes" es el filtro vacío', () => {
   it('filtro {} = todo cliente con correo, sin condiciones', () => {
     const clientes = [

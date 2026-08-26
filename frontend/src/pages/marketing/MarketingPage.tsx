@@ -395,7 +395,12 @@ function VerAudiencia({
   readonly onCerrar: () => void;
 }) {
   const consulta = useQuery({
-    queryKey: ["marketing", "ver-audiencia", viendo.tipo, viendo.nombre],
+    // La guardada comparte caché con la previa del constructor: mismo
+    // filtro, misma consulta — el ojito no repite el viaje (revisión).
+    queryKey:
+      viendo.tipo === "guardada"
+        ? ["marketing", "segmento-previa", JSON.stringify(viendo.filtro)]
+        : ["marketing", "ver-audiencia", viendo.nombre],
     queryFn: async () => {
       if (viendo.tipo === "guardada") {
         const r = await previaSegmento(viendo.filtro);
@@ -430,7 +435,7 @@ function VerAudiencia({
       titulo={viendo.nombre}
       subtitulo={
         consulta.data
-          ? `${String(filas.length - bajas)} contactos` +
+          ? `${String(total - bajas)} contactos` +
             (bajas
               ? ` · ${String(bajas)} ${bajas === 1 ? "baja" : "bajas"}`
               : "") +
@@ -931,7 +936,7 @@ function ResultadosDeCampana({
   };
   const dias = c.enviada_at
     ? Math.floor((Date.now() - new Date(c.enviada_at).getTime()) / 86400000)
-    : 0;
+    : null;
   const asuntoRepetido =
     asuntoNuevo.trim().toLowerCase() === c.asunto.trim().toLowerCase();
   return (
@@ -961,7 +966,7 @@ function ResultadosDeCampana({
       {modal !== null && (
         <Modal
           titulo="Segunda pasada a los que no abrieron"
-          subtitulo={`Campaña "${c.nombre}" · enviada hace ${String(dias)} ${dias === 1 ? "día" : "días"}`}
+          subtitulo={`Campaña "${c.nombre}"${dias !== null ? ` · enviada hace ${String(dias)} ${dias === 1 ? "día" : "días"}` : ""}`}
           ancho="max-w-lg"
           onCerrar={() => setModal(null)}
           pie={
@@ -998,7 +1003,7 @@ function ResultadosDeCampana({
               contactos que no abrieron la primera. Es una sola segunda
               pasada: después de esta no hay más reenvíos.
             </p>
-            {dias < 2 ? (
+            {dias === null ? null : dias < 2 ? (
               <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
                 El manual dice esperar entre 2 y 7 días antes de la segunda
                 pasada — recién {dias === 0 ? "va hoy" : "va un día"}. Puedes

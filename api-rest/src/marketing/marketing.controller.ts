@@ -9,8 +9,10 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -23,6 +25,12 @@ import {
 import { MarketingService } from './marketing.service';
 import type { MarcaEmpresa } from './plantilla';
 
+// SOLO ADMINISTRADOR (revisión 26-08): la matriz del frontend ya lo
+// decía (permissions.ts: marketing = ADMIN_ONLY) y el backend no lo
+// aplicaba — cualquier sesión podía exportar correos o disparar
+// campañas por API. Las rutas @Public (webhook, baja) no pasan por
+// acá: RolesGuard las deja ir primero.
+@Roles(...ADMIN_ONLY)
 @Controller('marketing')
 export class MarketingController {
   constructor(
@@ -49,8 +57,16 @@ export class MarketingController {
       colorPrimario: '#134686',
       colorSecundario: '#f9fafb',
     };
-    try {
-      const { data } = await this.companies.findOne(companyId);
+    // Si la consulta FALLA (error transitorio), se corta el envío en
+    // vez de despachar toda la campaña con marca genérica y sin
+    // replyTo (revisión 26-08). El pordefecto queda solo para el caso
+    // real de "la empresa no existe".
+    const { data, error } = await this.companies.findOne(companyId);
+    if (error) {
+      this.logger.error(`empresaDe(${companyId}): ${error.message}`);
+      throw new Error('No se pudo cargar la marca de la empresa');
+    }
+    {
       if (!data) return pordefecto;
       return {
         nombre: data.name ?? 'Eventia',
@@ -65,8 +81,6 @@ export class MarketingController {
         colorSecundario: data.colors?.secondary?.trim() || '#f9fafb',
         replyTo: data.notifications?.replyTo?.trim() || null,
       };
-    } catch {
-      return pordefecto;
     }
   }
 
@@ -196,6 +210,7 @@ export class MarketingController {
    *  firma Svix se verifica cuando RESEND_WEBHOOK_SECRET está puesto;
    *  y un evento solo marca sellos si su resend_id existe acá. */
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('webhook')
   webhook(
     @Req() req: { rawBody?: Buffer },
@@ -219,15 +234,44 @@ export class MarketingController {
   }
 
   // ---- La baja: pública, firmada, sin sesión ----
+  // DOS TIEMPOS (revisión 26-08): el GET solo CONFIRMA — los escáneres
+  // de seguridad corporativos (Outlook SafeLinks y compañía) abren
+  // todos los links de un correo, y con la baja en el GET daban de
+  // baja gente sin querer. La baja real corre en el POST, que es
+  // además el formato "un clic" que Gmail/Outlook usan con las
+  // cabeceras List-Unsubscribe.
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Get('baja')
-  async baja(
+  bajaConfirmar(
+    @Query('c') c: string,
+    @Query('e') e: string,
+    @Query('t') t: string,
+  ) {
+    const valida = this.marketing.bajaValida(c, e, t);
+    if (!valida) return 'El enlace no es válido.';
+    const destino = `baja?c=${encodeURIComponent(c)}&e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dejar de recibir correos</title></head>
+<body style="margin:0;padding:40px 16px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;color:#111827;">
+  <div style="max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:32px 24px;">
+    <p style="font-size:16px;margin:0 0 20px;">¿Quieres dejar de recibir estos correos?</p>
+    <form method="POST" action="${destino}">
+      <button type="submit" style="background:#dc2626;color:#fff;border:0;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;">Sí, darme de baja</button>
+    </form>
+    <p style="font-size:12px;color:#6b7280;margin:16px 0 0;">Si llegaste acá por error, simplemente cierra esta página.</p>
+  </div>
+</body></html>`;
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('baja')
+  async bajaEjecutar(
     @Query('c') c: string,
     @Query('e') e: string,
     @Query('t') t: string,
   ) {
     const ok = await this.marketing.procesarBaja(c, e, t);
-    // Página mínima: el clic viene de un correo, sin app ni sesión.
     return ok
       ? 'Listo: no recibirás más correos de este tipo. Puedes cerrar esta página.'
       : 'El enlace no es válido.';

@@ -100,6 +100,7 @@ export default function CompanyConfiguration() {
     }
     setBannerFile(file);
     setBannerPreview(URL.createObjectURL(file));
+    setBannerQuitado(false);
     setErrorMessage("");
   };
 
