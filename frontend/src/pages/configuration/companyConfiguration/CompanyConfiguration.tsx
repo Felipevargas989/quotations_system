@@ -3,7 +3,7 @@ import { Coins, Landmark } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { NumberInput } from "../../../components/inputs";
 import { updateCompany } from "../../../services/companies.service";
-import { uploadCompanyLogo } from "../../../services/storage.service";
+import { uploadCompanyBanner, uploadCompanyLogo } from "../../../services/storage.service";
 import { BankDetails } from "../../../types/companies.types";
 
 export default function CompanyConfiguration() {
@@ -29,6 +29,13 @@ export default function CompanyConfiguration() {
   const [logoPreview, setLogoPreview] = useState<string | null>(
     company?.logo_url || null,
   );
+  // Banner de correos (migración 96): imagen ancha que reemplaza el
+  // encabezado del correo de marketing cuando existe.
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(
+    company?.banner_url || null,
+  );
+  const [bannerQuitado, setBannerQuitado] = useState(false);
   const [primaryColor, setPrimaryColor] = useState(
     company?.colors?.primary || "#667eea",
   );
@@ -52,38 +59,48 @@ export default function CompanyConfiguration() {
     setFacebook(company?.facebook || "");
     setSitioWeb(company?.sitio_web || "");
     setLogoPreview(company?.logo_url || null);
+    setBannerPreview(company?.banner_url || null);
+    setBannerQuitado(false);
     setPrimaryColor(company?.colors?.primary || "#667eea");
     setSecondaryColor(company?.colors?.secondary || "#059669");
   }, [company]);
 
+  // La misma validación para logo y banner: tipo y peso.
+  const validarImagen = (file: File): string | null => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      return "Tipo de archivo no válido. Solo se permiten imágenes (JPG, PNG, WebP)";
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return "El archivo es demasiado grande. Máximo 5MB";
+    }
+    return null;
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/webp",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        setErrorMessage(
-          "Tipo de archivo no válido. Solo se permiten imágenes (JPG, PNG, WebP)",
-        );
-        return;
-      }
-
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setErrorMessage("El archivo es demasiado grande. Máximo 5MB");
-        return;
-      }
-
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
-      setErrorMessage("");
+    if (!file) return;
+    const error = validarImagen(file);
+    if (error) {
+      setErrorMessage(error);
+      return;
     }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    setErrorMessage("");
+  };
+
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validarImagen(file);
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+    setErrorMessage("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,6 +132,20 @@ export default function CompanyConfiguration() {
         }
       }
 
+      // El banner: sube si hay archivo nuevo; null si lo quitó.
+      let bannerUrl = bannerQuitado ? null : (company?.banner_url ?? null);
+      if (bannerFile && company?.id) {
+        const subida = await uploadCompanyBanner(
+          company.id.toString(),
+          bannerFile,
+        );
+        if (subida.success && subida.url) {
+          bannerUrl = subida.url;
+        } else {
+          throw new Error(subida.error || "Error al subir el banner");
+        }
+      }
+
       // Prepare colors object
       const colors = {
         primary: primaryColor,
@@ -130,6 +161,7 @@ export default function CompanyConfiguration() {
         instagram: instagram.trim() || null,
         facebook: facebook.trim() || null,
         sitio_web: sitioWeb.trim() || null,
+        banner_url: bannerUrl,
       });
 
       // Refresh user profile to get updated data
@@ -137,6 +169,7 @@ export default function CompanyConfiguration() {
 
       setSuccessMessage("Información de la empresa actualizada exitosamente");
       setLogoFile(null);
+      setBannerFile(null);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -282,6 +315,48 @@ export default function CompanyConfiguration() {
           />
           <p className="mt-1 text-sm text-gray-500">
             Formatos permitidos: JPG, PNG, WebP. Tamaño máximo: 5MB
+          </p>
+        </div>
+
+        {/* Banner de correos (migración 96) */}
+        <div>
+          <label
+            htmlFor="companyBanner"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Banner de correos (optativo)
+          </label>
+          {bannerPreview && !bannerQuitado && (
+            <div className="mb-3 relative">
+              <img
+                src={bannerPreview}
+                alt="Vista previa del banner"
+                className="w-full max-h-40 object-contain border border-gray-300 rounded-md bg-gray-50"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerQuitado(true);
+                  setBannerFile(null);
+                  setBannerPreview(null);
+                }}
+                className="absolute top-2 right-2 px-2 py-1 text-xs bg-white/90 border border-gray-300 rounded-md text-gray-600 hover:text-red-600 hover:border-red-300"
+              >
+                Quitar banner
+              </button>
+            </div>
+          )}
+          <input
+            id="companyBanner"
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={handleBannerChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            Imagen ancha con tu marca (ideal ~1200×300). Cuando existe,
+            reemplaza el encabezado de los correos de marketing — y por ser
+            imagen se ve idéntica en modo claro y oscuro.
           </p>
         </div>
 

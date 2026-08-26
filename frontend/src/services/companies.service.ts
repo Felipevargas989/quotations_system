@@ -30,7 +30,8 @@ export const updateCompany = async (
     tagline?: Company["tagline"];
     high_value_threshold?: Company["high_value_threshold"];
     bank_details?: Company["bank_details"];
-    // Canales de la marca (migración 95): los usan los correos de marketing.
+    // Marca de los correos de marketing (migraciones 95-96).
+    banner_url?: Company["banner_url"];
     whatsapp?: Company["whatsapp"];
     instagram?: Company["instagram"];
     facebook?: Company["facebook"];
@@ -48,6 +49,9 @@ export const updateCompany = async (
       : {}),
     ...(extras?.bank_details !== undefined
       ? { bank_details: extras.bank_details }
+      : {}),
+    ...(extras?.banner_url !== undefined
+      ? { banner_url: extras.banner_url }
       : {}),
     ...(extras?.whatsapp !== undefined ? { whatsapp: extras.whatsapp } : {}),
     ...(extras?.instagram !== undefined

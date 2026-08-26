@@ -1,9 +1,12 @@
-/** La marca de la empresa que viste el correo (Configuración + migración 95). */
+/** La marca de la empresa que viste el correo (Configuración, migraciones 95-96). */
 export interface MarcaEmpresa {
   nombre: string;
   /** Una IMAGEN se ve idéntica en modo claro y oscuro (los modos
    *  oscuros repintan fondos y textos, jamás imágenes). */
   logo: string | null;
+  /** El banner ancho (~1200×300): cuando existe REEMPLAZA el
+   *  encabezado completo — la marca ya viene adentro. */
+  banner: string | null;
   tagline: string | null;
   whatsapp: string | null;
   instagram: string | null;
@@ -48,8 +51,12 @@ export const plantillaCampana = (p: {
 }): string => {
   const m = p.marca;
   const whatsappUrl = m.whatsapp ? linkDeWhatsApp(m.whatsapp) : null;
-  const boton = (url: string, color: string, texto: string) =>
-    `<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 28px;border-radius:8px;font-size:15px;">${texto}</a>`;
+  const boton = (url: string, color: string, texto: string, glifo?: string) =>
+    `<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 28px;border-radius:8px;font-size:15px;">${
+      glifo
+        ? `<img src="${p.iconosBase}/correo/${glifo}" width="18" height="18" alt="" style="display:inline-block;border:0;vertical-align:-4px;margin-right:8px;" />`
+        : ''
+    }${texto}</a>`;
   // Los íconos clásicos (pedido de Felipe 25-08): imágenes, porque los
   // modos oscuros no las repintan — se ven iguales siempre.
   const icono = (url: string, archivo: string, alt: string) =>
@@ -70,10 +77,13 @@ export const plantillaCampana = (p: {
   }
   <div style="background-color:#f3f4f6;padding:20px 0;">
     <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-bottom:1px solid #e5e7eb;">
+      ${
+        m.banner
+          ? `<img src="${m.banner}" alt="${m.nombre}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />`
+          : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${m.colorPrimario};">
         <tr>
           <td style="padding:24px 30px;vertical-align:middle;">
-            <p style="font-size:24px;font-weight:700;color:${m.colorPrimario};margin:0;letter-spacing:0.5px;">${m.nombre}</p>
+            <p style="font-size:24px;font-weight:700;color:${m.colorSecundario};margin:0;letter-spacing:0.5px;">${m.nombre}</p>
           </td>
           ${
             m.logo
@@ -81,7 +91,8 @@ export const plantillaCampana = (p: {
               : ''
           }
         </tr>
-      </table>
+      </table>`
+      }
       <div style="padding:36px 30px;color:#111827;">
         <h1 style="font-size:22px;margin:0 0 16px;">${p.titulo}</h1>
         <div style="font-size:15px;line-height:1.65;color:#374151;">${p.cuerpoHtml}</div>
@@ -89,7 +100,7 @@ export const plantillaCampana = (p: {
           <tr>
             ${
               whatsappUrl
-                ? `<td align="left" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp')}</td>
+                ? `<td align="left" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</td>
             <td align="right" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
                 : `<td align="center" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
             }

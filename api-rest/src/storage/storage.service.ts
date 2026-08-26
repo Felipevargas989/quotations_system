@@ -128,6 +128,15 @@ export class StorageService {
         path = `${companyId}_logo.${ext}`;
         break;
       }
+      // El banner de los correos de marketing (Felipe, 26-08): imagen
+      // ancha que reemplaza el encabezado; vive junto al logo.
+      case 'company-banner': {
+        bucket = 'company-logos';
+        publica = true;
+        upsert = true;
+        path = `${companyId}_banner.${ext}`;
+        break;
+      }
       default:
         throw new BadRequestException('Tipo de subida desconocido');
     }

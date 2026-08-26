@@ -80,6 +80,13 @@ export const uploadCompanyLogo = async (
   file: File,
 ): Promise<UploadResult> => subir(file, { kind: "company-logo" });
 
+// Banner de los correos de marketing (migración 96): imagen ancha que
+// reemplaza el encabezado del correo cuando existe.
+export const uploadCompanyBanner = async (
+  _companyId: string,
+  file: File,
+): Promise<UploadResult> => subir(file, { kind: "company-banner" });
+
 // Foto de referencia de un ítem de inventario (mobiliario). Bucket público
 // furniture-photos; se muestra en un popup, nunca como descarga.
 export const uploadFurniturePhoto = async (

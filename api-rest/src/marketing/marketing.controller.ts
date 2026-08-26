@@ -39,6 +39,7 @@ export class MarketingController {
     const pordefecto: MarcaEmpresa = {
       nombre: 'Eventia',
       logo: null,
+      banner: null,
       tagline: null,
       whatsapp: null,
       instagram: null,
@@ -53,6 +54,7 @@ export class MarketingController {
       return {
         nombre: data.name ?? 'Eventia',
         logo: data.logo_url?.trim() || null,
+        banner: data.banner_url?.trim() || null,
         tagline: data.tagline?.trim() || null,
         whatsapp: data.whatsapp?.trim() || null,
         instagram: data.instagram?.trim() || null,

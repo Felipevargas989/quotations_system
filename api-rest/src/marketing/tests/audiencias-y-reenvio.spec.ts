@@ -54,6 +54,7 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
   const marca: MarcaEmpresa = {
     nombre: 'Valle del Sol',
     logo: null,
+    banner: null,
     tagline: 'Centro de Eventos',
     whatsapp: null,
     instagram: null,
@@ -71,13 +72,31 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     iconosBase: 'https://www.eventi-app.com',
   };
 
-  it('encabezado blanco pintado, nombre en el color primario, y la baja siempre', () => {
+  it('encabezado en el color primario con el nombre en el secundario, y la baja siempre', () => {
     const html = plantillaCampana(base);
-    expect(html).toContain('background-color:#ffffff');
-    expect(html).toContain('color:#213A33');
+    expect(html).toContain(`background-color:#213A33`); // el encabezado
+    expect(html).toContain(`color:#E9E2D3`); // el nombre sobre el primario
     expect(html).toContain(base.bajaUrl);
     expect(html).toContain('Dejar de recibir estos correos');
     expect(html).not.toContain('linear-gradient'); // los degradados murieron en Outlook
+  });
+
+  it('con banner, la imagen REEMPLAZA el encabezado completo', () => {
+    const html = plantillaCampana({
+      ...base,
+      marca: { ...marca, banner: 'https://storage/banner.png', logo: 'https://storage/logo.png' },
+    });
+    expect(html).toContain('<img src="https://storage/banner.png"');
+    expect(html).not.toContain('https://storage/logo.png'); // el banner ya trae la marca
+    expect(html).not.toContain('font-size:24px'); // ni el nombre grande del encabezado
+  });
+
+  it('el botón de WhatsApp lleva el glifo blanco adentro', () => {
+    const html = plantillaCampana({
+      ...base,
+      marca: { ...marca, whatsapp: '987654321' },
+    });
+    expect(html).toContain('/correo/whatsapp.png');
   });
 
   it('el botón de cotizar va SIEMPRE, sólido, al formulario público', () => {

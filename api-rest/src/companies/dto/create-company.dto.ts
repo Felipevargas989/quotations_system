@@ -36,7 +36,11 @@ export class CreateCompanyDto {
   @IsOptional()
   high_value_threshold?: Company['high_value_threshold'];
 
-  // Migración 95: canales de la marca para los correos de marketing.
+  // Migraciones 95 y 96: marca para los correos de marketing.
+  @IsString()
+  @IsOptional()
+  banner_url?: Company['banner_url'];
+
   @IsString()
   @IsOptional()
   whatsapp?: Company['whatsapp'];
