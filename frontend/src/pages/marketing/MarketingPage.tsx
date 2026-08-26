@@ -691,10 +691,10 @@ function Campanas({
                   </th>
                   <th className="px-3 py-2.5 w-[42%]">Campaña</th>
                   <th className="px-3 py-2.5 w-[22%]">Audiencia</th>
+                  <th className="px-3 py-2.5">Estado</th>
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">
                     Destinatarios
                   </th>
-                  <th className="px-3 py-2.5">Estado</th>
                   <th className="px-2 py-2.5" />
                 </tr>
               </thead>
@@ -726,9 +726,6 @@ function Campanas({
                     <td className="px-3 py-2.5 text-gray-600 truncate max-w-[260px]">
                       {c.audiencia_ref ?? "segmento de tu base"}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">
-                      {c.total_destinatarios ?? "—"}
-                    </td>
                     <td className="px-3 py-2.5">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
@@ -739,6 +736,9 @@ function Campanas({
                       >
                         {c.estado === "enviada" ? "Enviada" : "Borrador"}
                       </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">
+                      {c.total_destinatarios ?? "—"}
                     </td>
                     <td className="px-2 py-2.5 text-gray-400">
                       <ChevronRight className="w-4 h-4" />
