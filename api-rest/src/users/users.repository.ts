@@ -37,7 +37,12 @@ export class UsersRepository {
           is_active,
           tagline,
           bank_details,
-          high_value_threshold
+          high_value_threshold,
+          banner_url,
+          whatsapp,
+          instagram,
+          facebook,
+          sitio_web
         )
         `,
       )

@@ -28,6 +28,8 @@ export type Section =
   // Es SOLO de administrador (14-08) porque ahí vive la cuenta corriente
   // de cada persona, y eso no lo tiene por qué ver el mostrador.
   | "people"
+  // Campañas de correo a toda la cartera: solo administrador (25-08).
+  | "marketing"
   | "customer_satisfaction_survey";
 
 // Define which roles can access which sections
@@ -74,6 +76,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "analytics",
     "logistics",
     "people",
+    "marketing",
     "customer_satisfaction_survey",
   ],
 };
@@ -121,5 +124,6 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   analytics: ROLE_GROUPS.ADMIN_ONLY,
   logistics: ROLE_GROUPS.OPERATIONS_AND_UP,
   people: ROLE_GROUPS.ADMIN_ONLY,
+  marketing: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
 };

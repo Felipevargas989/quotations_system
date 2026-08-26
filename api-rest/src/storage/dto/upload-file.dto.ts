@@ -8,6 +8,8 @@ export const KINDS = [
   'event-document',
   'furniture-photo',
   'company-logo',
+  // Banner de los correos de marketing: reemplaza el encabezado (26-08).
+  'company-banner',
   // Comprobante subido por el CLIENTE desde el portal (Fase 2b). No se
   // sube por /storage/upload (esa ruta exige sesión): lo usa el portal
   // internamente con el token del mandante ya validado.

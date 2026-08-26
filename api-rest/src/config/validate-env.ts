@@ -14,6 +14,10 @@ const IMPORTANTES = [
   'RESEND_API_KEY', // sin ella, todos los correos fallan
   'SUPABASE_PASSWORD_RECOVERY_REDIRECT_URL', // recuperar contraseña
   'SUPER_ADMIN_EMAILS', // área de super-admin
+  // Marketing (revisión 26-08): sin estas, el módulo degrada en silencio.
+  'PUBLIC_API_URL', // enlaces de baja del ambiente correcto
+  'RESEND_WEBHOOK_SECRET', // sin él, producción RECHAZA los webhooks
+  'MARKETING_BAJA_SECRET', // firma de la baja independiente de la API key
 ];
 
 export function validateEnv(): string[] {

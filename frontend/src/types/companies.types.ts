@@ -25,6 +25,14 @@ export interface Company {
   bank_details?: BankDetails | null;
   // Migración 60: umbral de cotización de alto valor (💎 en el tablero).
   high_value_threshold?: number | null;
+  // Migraciones 95-96: marca de los correos de marketing (WhatsApp,
+  // redes y banner). Vacío = no aparece; el banner reemplaza el
+  // encabezado del correo cuando existe.
+  banner_url?: string | null;
+  whatsapp?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  sitio_web?: string | null;
   is_premium: boolean;
   notifications?: {
     emails?: {

@@ -30,6 +30,12 @@ export const updateCompany = async (
     tagline?: Company["tagline"];
     high_value_threshold?: Company["high_value_threshold"];
     bank_details?: Company["bank_details"];
+    // Marca de los correos de marketing (migraciones 95-96).
+    banner_url?: Company["banner_url"];
+    whatsapp?: Company["whatsapp"];
+    instagram?: Company["instagram"];
+    facebook?: Company["facebook"];
+    sitio_web?: Company["sitio_web"];
   },
 ) => {
   const response = await apiRequest(`${API_ROUTES.COMPANIES}`, "PATCH", {
@@ -43,6 +49,17 @@ export const updateCompany = async (
       : {}),
     ...(extras?.bank_details !== undefined
       ? { bank_details: extras.bank_details }
+      : {}),
+    ...(extras?.banner_url !== undefined
+      ? { banner_url: extras.banner_url }
+      : {}),
+    ...(extras?.whatsapp !== undefined ? { whatsapp: extras.whatsapp } : {}),
+    ...(extras?.instagram !== undefined
+      ? { instagram: extras.instagram }
+      : {}),
+    ...(extras?.facebook !== undefined ? { facebook: extras.facebook } : {}),
+    ...(extras?.sitio_web !== undefined
+      ? { sitio_web: extras.sitio_web }
       : {}),
   });
   return { data: response };

@@ -14,6 +14,13 @@ export class Company {
   // Migración 60: umbral de cotización de alto valor (💎 en el
   // tablero). NULL o 0 = sin marca.
   high_value_threshold?: number | null;
+  // Migraciones 95 y 96: marca para los correos de marketing. Vacío =
+  // esa pieza no aparece. El banner (96) reemplaza el encabezado.
+  banner_url?: string | null;
+  whatsapp?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  sitio_web?: string | null;
   // Datos de cobro: los leen los correos de cobranza y el portal del
   // cliente (Fase 2). Migración 46.
   bank_details?: {

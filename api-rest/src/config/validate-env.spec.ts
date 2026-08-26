@@ -14,6 +14,10 @@ describe('validateEnv', () => {
     process.env.RESEND_API_KEY = 're_x';
     process.env.SUPABASE_PASSWORD_RECOVERY_REDIRECT_URL = 'https://x.cl/r';
     process.env.SUPER_ADMIN_EMAILS = 'a@x.cl';
+    // Marketing (revisión 26-08):
+    process.env.PUBLIC_API_URL = 'https://api.x.cl';
+    process.env.RESEND_WEBHOOK_SECRET = 'whsec_x';
+    process.env.MARKETING_BAJA_SECRET = 'secreto_x';
   };
 
   afterEach(() => {
