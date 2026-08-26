@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AudienciasMarketing,
@@ -22,10 +22,14 @@ export default function SegmentoBuilder({
   audiencias,
   filtro,
   onFiltro,
+  encabezado,
 }: {
   readonly audiencias?: AudienciasMarketing;
   readonly filtro: FiltroSegmento;
   readonly onFiltro: (f: FiltroSegmento) => void;
+  /** Título y explicación de la caja: viven en la columna izquierda
+   *  para que la previa suba hasta casi arriba (Felipe, 25-08). */
+  readonly encabezado?: ReactNode;
 }) {
   // La previa en vivo, con un respiro para no bombardear al servidor.
   const [quieto, setQuieto] = useState(filtro);
@@ -67,6 +71,7 @@ export default function SegmentoBuilder({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4">
       <div className="space-y-3">
+        {encabezado}
         <div>
           <p className={seccion}>Qué pasó con ellos</p>
           <div className="flex flex-wrap gap-1.5 mt-1">

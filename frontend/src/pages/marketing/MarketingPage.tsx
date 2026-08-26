@@ -255,19 +255,25 @@ function Audiencias({
         )}
       </div>
 
-      {/* 2. NUEVA AUDIENCIA DESDE LA BASE: filtrar → nombrar → guardar. */}
+      {/* 2. NUEVA AUDIENCIA DESDE LA BASE: filtrar → nombrar → guardar.
+          El título va DENTRO de la columna izquierda del constructor,
+          para que la previa suba hasta casi arriba de la caja. */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h2 className="font-semibold text-gray-900">
-          Nueva audiencia desde tu base
-        </h2>
-        <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Arma el filtro, mira la previa, ponle nombre y guárdala. Después
-          cualquier campaña la elige de la lista.
-        </p>
         <SegmentoBuilder
           audiencias={audiencias}
           filtro={filtro}
           onFiltro={setFiltro}
+          encabezado={
+            <div>
+              <h2 className="font-semibold text-gray-900">
+                Nueva audiencia desde tu base
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Arma el filtro, mira la previa, ponle nombre y guárdala.
+                Después cualquier campaña la elige de la lista.
+              </p>
+            </div>
+          }
         />
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
           <input
