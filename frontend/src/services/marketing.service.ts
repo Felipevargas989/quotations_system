@@ -23,8 +23,6 @@ export interface CampanaMarketing {
   asunto: string;
   titulo: string;
   cuerpo: string;
-  boton_texto: string | null;
-  boton_url: string | null;
   preencabezado: string | null;
   audiencia_tipo: "clientes" | "importada" | "segmento";
   audiencia_id: number | null;
@@ -130,8 +128,6 @@ export const crearCampanaMarketing = async (dto: {
   asunto: string;
   titulo: string;
   cuerpo: string;
-  boton_texto?: string;
-  boton_url?: string;
   preencabezado?: string;
   audiencia_tipo: "clientes" | "importada" | "segmento";
   audiencia_id?: number;

@@ -1,4 +1,10 @@
-import { plantillaCampana, validarAsuntoDeReenvio } from '../plantilla';
+import {
+  linkDeWhatsApp,
+  MarcaEmpresa,
+  plantillaCampana,
+  urlAbsoluta,
+  validarAsuntoDeReenvio,
+} from '../plantilla';
 import { resolverSegmento } from '../segmento';
 
 describe('validarAsuntoDeReenvio (la segunda pasada exige asunto nuevo)', () => {
@@ -25,56 +31,102 @@ describe('validarAsuntoDeReenvio (la segunda pasada exige asunto nuevo)', () => 
   });
 });
 
-describe('plantillaCampana (el formato de la casa)', () => {
+describe('linkDeWhatsApp (el link abreviado se genera solo)', () => {
+  it('antepone 56 al celular chileno y limpia el formato', () => {
+    expect(linkDeWhatsApp('9 8765 4321')).toBe('https://wa.me/56987654321');
+    expect(linkDeWhatsApp('+56 9 8765 4321')).toBe('https://wa.me/56987654321');
+  });
+  it('un número imposible no genera botón', () => {
+    expect(linkDeWhatsApp('123')).toBeNull();
+  });
+});
+
+describe('urlAbsoluta (links pegados sin https igual sirven)', () => {
+  it('completa el protocolo solo cuando falta', () => {
+    expect(urlAbsoluta('instagram.com/valledelsol')).toBe(
+      'https://instagram.com/valledelsol',
+    );
+    expect(urlAbsoluta('https://valledelsol.cl')).toBe('https://valledelsol.cl');
+  });
+});
+
+describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
+  const marca: MarcaEmpresa = {
+    nombre: 'Valle del Sol',
+    logo: null,
+    tagline: 'Centro de Eventos',
+    whatsapp: null,
+    instagram: null,
+    facebook: null,
+    sitioWeb: null,
+    colorPrimario: '#213A33',
+    colorSecundario: '#E9E2D3',
+  };
   const base = {
-    empresa: 'Valle del Sol',
+    marca,
     titulo: 'Hola {nombre}',
     cuerpoHtml: '<p>Cuerpo</p>',
     bajaUrl: 'https://api/baja?t=abc',
+    cotizarUrl: 'https://www.eventi-app.com/public-quotation/1',
   };
 
-  it('lleva el azul de la casa y la baja obligatoria, siempre', () => {
+  it('encabezado blanco pintado, nombre en el color primario, y la baja siempre', () => {
     const html = plantillaCampana(base);
-    expect(html).toContain('#134686'); // el azul de las cotizaciones
+    expect(html).toContain('background-color:#ffffff');
+    expect(html).toContain('color:#213A33');
     expect(html).toContain(base.bajaUrl);
     expect(html).toContain('Dejar de recibir estos correos');
+    expect(html).not.toContain('linear-gradient'); // los degradados murieron en Outlook
   });
 
-  it('el azul va en color SOLIDO ademas del degradado (Outlook bota los degradados)', () => {
-    // La leccion del 25-08: encabezado y boton invisibles en Outlook
-    // claro porque solo tenian linear-gradient. El color solido es el
-    // respaldo que entienden todos los clientes de correo.
-    const html = plantillaCampana({ ...base, botonTexto: 'Cotiza', botonUrl: 'https://x' });
-    expect(html).toContain('background-color:#134686;background-image:linear-gradient');
-    expect(html.match(/background-color:#134686/g)!.length).toBeGreaterThanOrEqual(2);
+  it('el botón de cotizar va SIEMPRE, sólido, al formulario público', () => {
+    const html = plantillaCampana(base);
+    expect(html).toContain(base.cotizarUrl);
+    expect(html).toContain('background-color:#213A33');
+    expect(html).toContain('Cotiza aquí');
   });
 
-  it('con preencabezado, va oculto al principio del correo', () => {
+  it('con WhatsApp: botón verde universal con el link abreviado', () => {
     const html = plantillaCampana({
       ...base,
-      preencabezado: 'Precios de temporada adentro',
+      marca: { ...marca, whatsapp: '+56 9 8765 4321' },
     });
-    expect(html).toContain('Precios de temporada adentro');
-    expect(html.indexOf('display:none')).toBeGreaterThan(-1);
-    expect(html.indexOf('Precios de temporada')).toBeLessThan(
-      html.indexOf('Valle del Sol'),
-    );
+    expect(html).toContain('https://wa.me/56987654321');
+    expect(html).toContain('#25D366');
+    expect(html).toContain('Escríbenos al WhatsApp');
   });
 
-  it('sin preencabezado no queda ni el envoltorio', () => {
-    expect(plantillaCampana(base)).not.toContain('display:none;max-height:0');
+  it('sin WhatsApp no hay botón verde', () => {
+    expect(plantillaCampana(base)).not.toContain('#25D366');
   });
 
-  it('con logo va la imagen (identica en modo claro y oscuro); sin logo, el nombre', () => {
-    const conLogo = plantillaCampana({
+  it('la franja de cierre lleva el color secundario, nombre, tagline y solo las redes configuradas', () => {
+    const html = plantillaCampana({
       ...base,
-      logoUrl: 'https://storage/logo.png',
+      marca: { ...marca, instagram: 'instagram.com/vds', sitioWeb: 'valledelsol.cl' },
     });
-    expect(conLogo).toContain('<img src="https://storage/logo.png"');
-    expect(conLogo).not.toContain('font-size:32px'); // el nombre en texto no va
-    const sinLogo = plantillaCampana(base);
-    expect(sinLogo).not.toContain('<img');
-    expect(sinLogo).toContain('Valle del Sol');
+    expect(html).toContain('background-color:#E9E2D3');
+    expect(html).toContain('Centro de Eventos');
+    expect(html).toContain('https://instagram.com/vds');
+    expect(html).toContain('https://valledelsol.cl');
+    expect(html).not.toContain('Facebook'); // no configurado, no aparece
+  });
+
+  it('con logo, la imagen va a la derecha del encabezado; el nombre queda igual', () => {
+    const html = plantillaCampana({
+      ...base,
+      marca: { ...marca, logo: 'https://storage/logo.png' },
+    });
+    expect(html).toContain('<img src="https://storage/logo.png"');
+    expect(html).toContain('align="right"');
+    expect(html).toContain('Valle del Sol');
+  });
+
+  it('el preencabezado va oculto al principio; sin él, ni el envoltorio', () => {
+    const con = plantillaCampana({ ...base, preencabezado: 'Ábreme' });
+    expect(con).toContain('Ábreme');
+    expect(con.indexOf('display:none')).toBeLessThan(con.indexOf('Valle del Sol'));
+    expect(plantillaCampana(base)).not.toContain('display:none;max-height:0');
   });
 });
 

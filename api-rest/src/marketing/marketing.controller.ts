@@ -21,6 +21,7 @@ import {
   ReenviarDto,
 } from './dto/marketing.dto';
 import { MarketingService } from './marketing.service';
+import type { MarcaEmpresa } from './plantilla';
 
 @Controller('marketing')
 export class MarketingController {
@@ -32,21 +33,36 @@ export class MarketingController {
     this.logger.setContext(MarketingController.name);
   }
 
-  /** Nombre y logo del remitente: con logo el correo se ve idéntico
-   *  en modo claro y oscuro (las imágenes no se repintan). */
-  private async empresaDe(
-    companyId: number,
-  ): Promise<{ nombre: string; logo: string | null }> {
+  /** La marca completa del remitente (Configuración + migración 95):
+   *  nombre, logo, tagline, canales y paleta. Los correos la visten. */
+  private async empresaDe(companyId: number): Promise<MarcaEmpresa> {
+    const pordefecto: MarcaEmpresa = {
+      nombre: 'Eventia',
+      logo: null,
+      tagline: null,
+      whatsapp: null,
+      instagram: null,
+      facebook: null,
+      sitioWeb: null,
+      colorPrimario: '#134686',
+      colorSecundario: '#f9fafb',
+    };
     try {
       const { data } = await this.companies.findOne(companyId);
+      if (!data) return pordefecto;
       return {
-        nombre: data?.name ?? 'Eventia',
-        logo:
-          (data as { logo_url?: string | null } | null)?.logo_url?.trim() ||
-          null,
+        nombre: data.name ?? 'Eventia',
+        logo: data.logo_url?.trim() || null,
+        tagline: data.tagline?.trim() || null,
+        whatsapp: data.whatsapp?.trim() || null,
+        instagram: data.instagram?.trim() || null,
+        facebook: data.facebook?.trim() || null,
+        sitioWeb: data.sitio_web?.trim() || null,
+        colorPrimario: data.colors?.primary?.trim() || '#134686',
+        colorSecundario: data.colors?.secondary?.trim() || '#f9fafb',
       };
     } catch {
-      return { nombre: 'Eventia', logo: null };
+      return pordefecto;
     }
   }
 

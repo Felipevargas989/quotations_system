@@ -16,6 +16,7 @@ import {
 import { CampanaMarketing, MarketingRepository } from './marketing.repository';
 import {
   cuerpoAHtml,
+  MarcaEmpresa,
   personalizar,
   plantillaCampana,
   resolverDestinatarios,
@@ -244,8 +245,6 @@ export class MarketingService {
       asunto: dto.asunto.trim(),
       titulo: dto.titulo.trim(),
       cuerpo: dto.cuerpo,
-      boton_texto: dto.boton_texto?.trim() || null,
-      boton_url: dto.boton_url?.trim() || null,
       preencabezado: dto.preencabezado?.trim() || null,
       audiencia_tipo: dto.audiencia_tipo,
       audiencia_id: dto.audiencia_id ?? null,
@@ -293,6 +292,15 @@ export class MarketingService {
     return { destinatarios: lista.length };
   }
 
+  /** El formulario público de cotización de la empresa: el botón por
+   *  defecto de todo correo de marketing (decisión de Felipe 25-08). */
+  private urlDeCotizar(companyId: number): string {
+    const base = (
+      this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com'
+    ).replace(/\/+$/, '');
+    return `${base}/public-quotation/${String(companyId)}`;
+  }
+
   private renderizar(
     campana: CampanaMarketing,
     destinatario: {
@@ -300,7 +308,7 @@ export class MarketingService {
       name: string | null;
       empresa: string | null;
     },
-    remitente: { nombre: string; logo: string | null },
+    marca: MarcaEmpresa,
     companyId: number,
   ) {
     const titulo = personalizar(campana.titulo, destinatario);
@@ -308,13 +316,11 @@ export class MarketingService {
     return {
       asunto: personalizar(campana.asunto, destinatario),
       html: plantillaCampana({
-        empresa: remitente.nombre,
-        logoUrl: remitente.logo,
+        marca,
         titulo,
         cuerpoHtml: cuerpo,
-        botonTexto: campana.boton_texto,
-        botonUrl: campana.boton_url,
         bajaUrl: this.urlDeBaja(companyId, destinatario.email),
+        cotizarUrl: this.urlDeCotizar(companyId),
         preencabezado: campana.preencabezado
           ? personalizar(campana.preencabezado, destinatario)
           : null,
@@ -335,19 +341,19 @@ export class MarketingService {
     id: number,
     companyId: number,
     correoUsuario: string,
-    empresa: { nombre: string; logo: string | null },
+    marca: MarcaEmpresa,
   ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
     const r = this.renderizar(
       campana,
       { email: correoUsuario, name: 'Prueba', empresa: 'Prueba' },
-      empresa,
+      marca,
       companyId,
     );
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
-      from: this.remitente(empresa.nombre),
+      from: this.remitente(marca.nombre),
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
@@ -435,7 +441,7 @@ export class MarketingService {
   async reenviarANoAbiertos(
     id: number,
     companyId: number,
-    empresa: { nombre: string; logo: string | null },
+    marca: MarcaEmpresa,
     asuntoVariante?: string,
   ) {
     const campana = await this.repo.campana(id, companyId);
@@ -452,7 +458,7 @@ export class MarketingService {
     if ('error' in validado) throw new BadRequestException(validado.error);
     const asunto = validado.asunto;
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
-    const from = this.remitente(empresa.nombre);
+    const from = this.remitente(marca.nombre);
     let enviados = 0;
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
@@ -460,7 +466,7 @@ export class MarketingService {
         const r = this.renderizar(
           { ...campana, asunto },
           { email: d.email, name: d.name, empresa: d.name },
-          empresa,
+          marca,
           companyId,
         );
         return { from, to: [d.email], subject: r.asunto, html: r.html };
@@ -482,7 +488,7 @@ export class MarketingService {
   async enviarCampana(
     id: number,
     companyId: number,
-    empresa: { nombre: string; logo: string | null },
+    marca: MarcaEmpresa,
   ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
@@ -506,13 +512,13 @@ export class MarketingService {
     }
 
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
-    const from = this.remitente(empresa.nombre);
+    const from = this.remitente(marca.nombre);
     let enviados = 0;
     let fallidos = 0;
     for (let i = 0; i < lista.length; i += LOTE) {
       const lote = lista.slice(i, i + LOTE);
       const payloads = lote.map((d) => {
-        const r = this.renderizar(campana, d, empresa, companyId);
+        const r = this.renderizar(campana, d, marca, companyId);
         return { from, to: [d.email], subject: r.asunto, html: r.html };
       });
       const { data, error } = await resend.batch.send(payloads);

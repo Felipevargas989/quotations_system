@@ -1,26 +1,59 @@
+/** La marca de la empresa que viste el correo (Configuración + migración 95). */
+export interface MarcaEmpresa {
+  nombre: string;
+  /** Una IMAGEN se ve idéntica en modo claro y oscuro (los modos
+   *  oscuros repintan fondos y textos, jamás imágenes). */
+  logo: string | null;
+  tagline: string | null;
+  whatsapp: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  sitioWeb: string | null;
+  colorPrimario: string;
+  colorSecundario: string;
+}
+
+/** El link abreviado de WhatsApp desde el número chileno: se limpia y
+ *  se antepone 56 si falta. Número imposible → sin link (sin botón). */
+export const linkDeWhatsApp = (numero: string): string | null => {
+  const digitos = numero.replace(/\D/g, '');
+  if (digitos.length < 8) return null;
+  return `https://wa.me/${digitos.startsWith('56') ? digitos : `56${digitos}`}`;
+};
+
+/** Links pegados sin https:// quedan absolutos igual. */
+export const urlAbsoluta = (u: string): string =>
+  /^https?:\/\//i.test(u) ? u : `https://${u}`;
+
 /**
- * La plantilla de campañas, en EL FORMATO DE LA CASA (Felipe, 25-08:
- * "muy similar al formato de cotización, homogéneo, estructurado y
- * elegante"): el mismo azul, cabecera, botón y pie que baseLayout.ts
- * usa en cotizaciones y seguimientos — con estilos en línea porque a
- * los clientes de correo no se les confía el <style>. Se suman las dos
- * piezas propias del marketing: el PREENCABEZADO oculto (la frase gris
- * de la bandeja) y la BAJA OBLIGATORIA (ley chilena — regla 2, doc 11).
+ * La plantilla de campañas (diseño validado por Felipe el 25-08):
+ * encabezado BLANCO pintado con el nombre a la izquierda (color
+ * primario de la paleta de la empresa) y el logo grande a la derecha;
+ * cuerpo; DOS BOTONES por defecto — WhatsApp (verde universal) y el
+ * formulario público de cotización (color primario) —; y la franja de
+ * cierre en el color secundario con nombre, tagline y redes. Estilos
+ * en línea y tablas: a los clientes de correo no se les confía más.
+ * Piezas obligadas: PREENCABEZADO oculto y BAJA (ley chilena, doc 11).
  * Sin editor libre: campos, a propósito.
  */
 export const plantillaCampana = (p: {
-  empresa: string;
-  /** El logo de la empresa: una IMAGEN se ve idéntica en modo claro y
-   *  oscuro (los modos oscuros repintan fondos, jamás imágenes). Sin
-   *  logo, va el nombre en texto. */
-  logoUrl?: string | null;
+  marca: MarcaEmpresa;
   titulo: string;
   cuerpoHtml: string;
-  botonTexto?: string | null;
-  botonUrl?: string | null;
   bajaUrl: string;
+  cotizarUrl: string;
   preencabezado?: string | null;
-}): string => `<!DOCTYPE html>
+}): string => {
+  const m = p.marca;
+  const whatsappUrl = m.whatsapp ? linkDeWhatsApp(m.whatsapp) : null;
+  const boton = (url: string, color: string, texto: string) =>
+    `<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 28px;border-radius:8px;font-size:15px;">${texto}</a>`;
+  const redes = [
+    m.instagram && `<a href="${urlAbsoluta(m.instagram)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Instagram</a>`,
+    m.facebook && `<a href="${urlAbsoluta(m.facebook)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Facebook</a>`,
+    m.sitioWeb && `<a href="${urlAbsoluta(m.sitioWeb)}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Sitio web</a>`,
+  ].filter(Boolean);
+  return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${p.titulo}</title></head>
 <body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
@@ -30,37 +63,47 @@ export const plantillaCampana = (p: {
       : ''
   }
   <div style="background-color:#f3f4f6;padding:20px 0;">
-    <div style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <div style="background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#1e5a9e 100%);padding:${p.logoUrl ? '28px' : '40px'} 20px;text-align:center;">
-        ${
-          p.logoUrl
-            ? `<img src="${p.logoUrl}" alt="${p.empresa}" height="64" style="display:block;margin:0 auto;max-height:64px;border:0;border-radius:8px;" />`
-            : `<p style="font-size:32px;font-weight:700;color:#ffffff;margin:0;letter-spacing:1px;">${p.empresa}</p>`
-        }
-      </div>
-      <div style="padding:40px 30px;color:#111827;">
+    <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-bottom:1px solid #e5e7eb;">
+        <tr>
+          <td style="padding:24px 30px;vertical-align:middle;">
+            <p style="font-size:24px;font-weight:700;color:${m.colorPrimario};margin:0;letter-spacing:0.5px;">${m.nombre}</p>
+          </td>
+          ${
+            m.logo
+              ? `<td align="right" style="padding:16px 30px;vertical-align:middle;"><img src="${m.logo}" alt="${m.nombre}" height="76" style="display:block;max-height:76px;border:0;" /></td>`
+              : ''
+          }
+        </tr>
+      </table>
+      <div style="padding:36px 30px;color:#111827;">
         <h1 style="font-size:22px;margin:0 0 16px;">${p.titulo}</h1>
         <div style="font-size:15px;line-height:1.65;color:#374151;">${p.cuerpoHtml}</div>
-        ${
-          p.botonTexto && p.botonUrl
-            ? `<div style="text-align:center;margin:30px 0 8px;">
-          <a href="${p.botonUrl}" style="display:inline-block;background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#0f3a6b 100%);color:#ffffff;text-decoration:none;font-weight:600;padding:14px 36px;border-radius:8px;font-size:15px;box-shadow:0 4px 6px rgba(19,70,134,0.25);">${p.botonTexto}</a>
-        </div>`
-            : ''
-        }
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 4px;">
+          <tr>
+            ${
+              whatsappUrl
+                ? `<td align="left" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp')}</td>
+            <td align="right" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
+                : `<td align="center" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
+            }
+          </tr>
+        </table>
       </div>
-      <div style="background-color:#f9fafb;padding:24px 30px;border-top:1px solid #e5e7eb;text-align:center;">
-        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
-          Recibes este correo por tu relación con ${p.empresa}.
-        </p>
-        <p style="font-size:12px;color:#6b7280;margin:0;">
-          <a href="${p.bajaUrl}" style="color:#134686;text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
+      <div style="background-color:${m.colorSecundario};padding:24px 30px;text-align:center;">
+        <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${m.nombre}</p>
+        ${m.tagline ? `<p style="font-size:12px;color:#4b5563;margin:4px 0 0;">${m.tagline}</p>` : ''}
+        ${redes.length ? `<p style="font-size:12px;margin:12px 0 0;">${redes.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</p>` : ''}
+        <p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
+          Recibes este correo por tu relación con ${m.nombre}.
+          <a href="${p.bajaUrl}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
         </p>
       </div>
     </div>
   </div>
 </body>
 </html>`;
+};
 
 /**
  * LA REGLA DEL REENVÍO (manual de los grandes): la segunda pasada sale

@@ -18,8 +18,6 @@ export interface CampanaMarketing {
   asunto: string;
   titulo: string;
   cuerpo: string;
-  boton_texto: string | null;
-  boton_url: string | null;
   preencabezado: string | null;
   audiencia_tipo: 'clientes' | 'importada' | 'segmento';
   audiencia_id: number | null;

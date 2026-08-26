@@ -18,6 +18,13 @@ export default function CompanyConfiguration() {
   const [umbral, setUmbral] = useState(
     company?.high_value_threshold ? String(company.high_value_threshold) : "",
   );
+  // Canales de la marca (migración 95): los correos de marketing los
+  // llevan por defecto — botón de WhatsApp y redes en el pie. Vacío =
+  // ese botón/enlace simplemente no aparece.
+  const [whatsapp, setWhatsapp] = useState(company?.whatsapp || "");
+  const [instagram, setInstagram] = useState(company?.instagram || "");
+  const [facebook, setFacebook] = useState(company?.facebook || "");
+  const [sitioWeb, setSitioWeb] = useState(company?.sitio_web || "");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(
     company?.logo_url || null,
@@ -40,6 +47,10 @@ export default function CompanyConfiguration() {
     setUmbral(
       company?.high_value_threshold ? String(company.high_value_threshold) : "",
     );
+    setWhatsapp(company?.whatsapp || "");
+    setInstagram(company?.instagram || "");
+    setFacebook(company?.facebook || "");
+    setSitioWeb(company?.sitio_web || "");
     setLogoPreview(company?.logo_url || null);
     setPrimaryColor(company?.colors?.primary || "#667eea");
     setSecondaryColor(company?.colors?.secondary || "#059669");
@@ -115,6 +126,10 @@ export default function CompanyConfiguration() {
         tagline: tagline.trim() || null,
         bank_details: bank,
         high_value_threshold: umbral.trim() ? Number(umbral) : null,
+        whatsapp: whatsapp.trim() || null,
+        instagram: instagram.trim() || null,
+        facebook: facebook.trim() || null,
+        sitio_web: sitioWeb.trim() || null,
       });
 
       // Refresh user profile to get updated data
@@ -175,6 +190,53 @@ export default function CompanyConfiguration() {
           />
           <p className="mt-1 text-sm text-gray-500">
             Aparece bajo el nombre en los correos que reciben tus clientes
+          </p>
+        </div>
+
+        {/* Canales de la marca (migración 95): los correos de marketing
+            los llevan por defecto. Vacío = no aparece. */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Canales de contacto (correos de marketing)
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              maxLength={20}
+              placeholder="WhatsApp (ej: +56 9 8765 4321)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              value={sitioWeb}
+              onChange={(e) => setSitioWeb(e.target.value)}
+              maxLength={200}
+              placeholder="Sitio web (ej: valledelsolquillon.cl)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              maxLength={200}
+              placeholder="Instagram (link del perfil)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              maxLength={200}
+              placeholder="Facebook (link de la página)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            Van por defecto en tus correos de marketing: botón de WhatsApp
+            (el link abreviado se genera solo) y los enlaces en el pie. El
+            que dejes vacío no aparece.
           </p>
         </div>
 

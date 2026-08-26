@@ -105,16 +105,6 @@ export class CrearCampanaDto {
   @MaxLength(8000)
   cuerpo: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  boton_texto?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  boton_url?: string;
-
   /** El segundo asunto: la frase gris de la bandeja (optativa). */
   @IsOptional()
   @IsString()

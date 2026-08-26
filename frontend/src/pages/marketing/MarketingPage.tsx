@@ -519,8 +519,6 @@ function NuevaCampana({
   const [preencabezado, setPreencabezado] = useState("");
   const [titulo, setTitulo] = useState("");
   const [cuerpo, setCuerpo] = useState("");
-  const [botonTexto, setBotonTexto] = useState("");
-  const [botonUrl, setBotonUrl] = useState("");
   // LA CAMPAÑA NO ARMA AUDIENCIAS: ELIGE UNA (flujo que validó Felipe).
   // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
   const [audSel, setAudSel] = useState("");
@@ -553,8 +551,6 @@ function NuevaCampana({
         titulo,
         cuerpo,
         preencabezado: preencabezado.trim() || undefined,
-        boton_texto: botonTexto.trim() || undefined,
-        boton_url: botonUrl.trim() || undefined,
         ...laAudiencia(),
       }),
     onSuccess: () => {
@@ -646,20 +642,11 @@ function NuevaCampana({
         placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco.\nSirve {nombre} y {empresa}."}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input
-          value={botonTexto}
-          onChange={(e) => setBotonTexto(e.target.value)}
-          placeholder="Texto del botón (optativo)"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-        />
-        <input
-          value={botonUrl}
-          onChange={(e) => setBotonUrl(e.target.value)}
-          placeholder="Enlace del botón (optativo)"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+      <p className="text-[11px] text-gray-400">
+        Los botones van solos: WhatsApp y "Cotiza aquí" (tu formulario
+        público) salen en todos los correos con lo configurado en
+        Configuración de la empresa.
+      </p>
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
         <button
