@@ -543,6 +543,30 @@ function Campanas({
   const flecha = (col: "numero" | "fecha") =>
     sortCol === col ? (sortDir === "desc" ? " ↓" : " ↑") : "";
 
+  // ALCANCE (Felipe 26-08): cuántos tiene la audiencia HOY — vivo,
+  // distinto de Destinatarios (a cuántos les llegó ese día).
+  const alcanceDe = (c: CampanaMarketing): number | null => {
+    if (!audiencias) return null;
+    if (c.audiencia_tipo === "importada") {
+      return (
+        audiencias.importadas.find((a) => a.audiencia === c.audiencia_ref)
+          ?.contactos ?? null
+      );
+    }
+    if (c.audiencia_tipo === "segmento") {
+      if (c.audiencia_id != null) {
+        return (
+          audiencias.guardadas.find((g) => g.id === c.audiencia_id)?.total ??
+          null
+        );
+      }
+      if (c.audiencia_ref === "Todos los clientes") {
+        return audiencias.clientes_con_correo;
+      }
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -608,7 +632,16 @@ function Campanas({
                   </th>
                   <th className="px-3 py-2.5">Campaña</th>
                   <th className="px-3 py-2.5">Audiencia</th>
-                  <th className="px-3 py-2.5 text-right whitespace-nowrap">
+                  <th
+                    className="px-3 py-2.5 text-right whitespace-nowrap"
+                    title="Cuántos tiene la audiencia HOY (se recalcula en vivo)"
+                  >
+                    Alcance
+                  </th>
+                  <th
+                    className="px-3 py-2.5 text-right whitespace-nowrap"
+                    title="A cuántos les llegó el día del envío"
+                  >
                     Destinatarios
                   </th>
                   <th className="px-3 py-2.5">Estado</th>
@@ -642,6 +675,9 @@ function Campanas({
                     </td>
                     <td className="px-3 py-2.5 text-gray-600 truncate max-w-[180px]">
                       {c.audiencia_ref ?? "segmento de tu base"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                      {alcanceDe(c) ?? "—"}
                     </td>
                     <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">
                       {c.total_destinatarios ?? "—"}
