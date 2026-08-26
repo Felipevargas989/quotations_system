@@ -185,6 +185,22 @@ export class MarketingController {
     );
   }
 
+  /** La ficha completa de la campaña: KPIs + destinatarios con sellos. */
+  @Get('campanas/:id/detalle')
+  detalle(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.marketing.detalleDe(+id, user.company_id);
+  }
+
+  /** El correo tal como salió, renderizado con la marca de hoy. */
+  @Get('campanas/:id/html')
+  async html(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.marketing.htmlDe(
+      +id,
+      user.company_id,
+      await this.empresaDe(user.company_id),
+    );
+  }
+
   // ---- Fase 2: resultados y reenvío ----
   @Get('campanas/:id/resultados')
   resultados(@Param('id') id: string, @CurrentUser() user: User) {

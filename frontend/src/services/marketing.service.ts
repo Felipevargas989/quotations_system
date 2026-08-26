@@ -62,6 +62,48 @@ export const previaSegmento = async (filtro: FiltroSegmento) =>
     muestra: { email: string; cliente: string; contacto: string | null }[];
   };
 
+export interface DestinatarioDeCampana {
+  id: number;
+  email: string;
+  name: string | null;
+  empresa: string | null;
+  estado: string;
+  opened_at: string | null;
+  clicked_at: string | null;
+  bounced_at: string | null;
+  reenviado_at: string | null;
+}
+
+export interface KpisDeCampana {
+  enviados: number;
+  entregados: number;
+  tasa_entrega: number;
+  aperturas: number;
+  tasa_apertura: number;
+  clics: number;
+  tasa_clics: number;
+  ctor: number;
+  rebotes: number;
+  tasa_rebote: number;
+  reenviados: number;
+}
+
+export const detalleDeCampana = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}/detalle`,
+    "GET",
+  )) as {
+    campana: CampanaMarketing;
+    kpis: KpisDeCampana;
+    destinatarios: DestinatarioDeCampana[];
+  };
+
+export const htmlDeCampana = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}/html`,
+    "GET",
+  )) as { html: string; asunto: string };
+
 export const resultadosDeCampana = async (id: number) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas/${String(id)}/resultados`,

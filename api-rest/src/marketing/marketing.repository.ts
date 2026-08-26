@@ -344,6 +344,31 @@ export class MarketingRepository {
     );
   }
 
+  /** Todas las filas de una campaña con sus sellos: la ficha (26-08). */
+  async destinatariosDetalle(campaignId: number, companyId: number) {
+    return this.todas<{
+      id: number;
+      email: string;
+      name: string | null;
+      empresa: string | null;
+      estado: string;
+      opened_at: string | null;
+      clicked_at: string | null;
+      bounced_at: string | null;
+      reenviado_at: string | null;
+    }>((d, h) =>
+      this.supabase.client
+        .from('marketing_sends')
+        .select(
+          'id, email, name, empresa, estado, opened_at, clicked_at, bounced_at, reenviado_at',
+        )
+        .eq('campaign_id', campaignId)
+        .eq('company_id', companyId)
+        .order('id', { ascending: true })
+        .range(d, h),
+    );
+  }
+
   async marcarReenviados(ids: number[]) {
     if (ids.length === 0) return;
     const { error } = await this.supabase.client

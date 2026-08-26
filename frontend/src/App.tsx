@@ -43,6 +43,9 @@ const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
 const importMarketing = () => import("./pages/marketing/MarketingPage");
+const CampanaFichaPage = lazy(
+  () => import("./pages/marketing/CampanaFichaPage"),
+);
 const importPersonaFicha = () =>
   import("./pages/personas/PersonaFichaPage");
 const PersonaFichaPage = lazy(importPersonaFicha);
@@ -334,6 +337,16 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
                     <MarketingPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* La ficha de una campaña: KPIs, destinatarios con
+                  sellos y el correo tal como salió (26-08). */}
+              <Route
+                path="marketing/campana/:id"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
+                    <CampanaFichaPage />
                   </PermissionGuard>
                 }
               />

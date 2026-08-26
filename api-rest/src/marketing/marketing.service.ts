@@ -527,6 +527,56 @@ export class MarketingService {
     return this.repo.resultadosDe(id, companyId);
   }
 
+  /**
+   * LA FICHA DE LA CAMPAÑA (Felipe 26-08): los KPIs de la industria
+   * (entrega, apertura, clics, CTOR, rebotes) + cada destinatario con
+   * sus sellos. Tasas sobre ENTREGADOS, como miden los grandes.
+   */
+  async detalleDe(id: number, companyId: number) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    const filas = await this.repo.destinatariosDetalle(id, companyId);
+    const enviados = filas.filter((f) => f.estado === 'enviado').length;
+    const rebotes = filas.filter((f) => f.bounced_at).length;
+    const entregados = Math.max(0, enviados - rebotes);
+    const aperturas = filas.filter((f) => f.opened_at).length;
+    const clics = filas.filter((f) => f.clicked_at).length;
+    const reenviados = filas.filter((f) => f.reenviado_at).length;
+    const pct = (parte: number, todo: number) =>
+      todo > 0 ? Math.round((parte / todo) * 1000) / 10 : 0;
+    return {
+      campana,
+      kpis: {
+        enviados,
+        entregados,
+        tasa_entrega: pct(entregados, enviados),
+        aperturas,
+        tasa_apertura: pct(aperturas, entregados),
+        clics,
+        tasa_clics: pct(clics, entregados),
+        ctor: pct(clics, aperturas),
+        rebotes,
+        tasa_rebote: pct(rebotes, enviados),
+        reenviados,
+      },
+      destinatarios: filas,
+    };
+  }
+
+  /** El correo TAL COMO SALIÓ, renderizado con la marca de hoy: la
+   *  vista previa de la ficha (con los respaldos de personalización). */
+  async htmlDe(id: number, companyId: number, marca: MarcaEmpresa) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    const r = this.renderizar(
+      campana,
+      { email: 'vista-previa@eventia', name: null, empresa: null },
+      marca,
+      companyId,
+    );
+    return { html: r.html, asunto: r.asunto };
+  }
+
   /** Cuántos recibirían la segunda pasada (no abrieron, sin rebote,
    *  sin reenvío previo, no suprimidos). */
   async sinAbrirDe(id: number, companyId: number) {

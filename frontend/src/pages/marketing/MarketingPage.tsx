@@ -1,6 +1,15 @@
 import { useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Mail, Send, Trash2, Upload, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Eye,
+  Mail,
+  Search,
+  Trash2,
+  Upload,
+  Users,
+} from "lucide-react";
 import Modal from "../../components/Modal";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
@@ -11,20 +20,15 @@ import {
   contactosDeAudienciaImportada,
   crearAudienciaMarketing,
   crearCampanaMarketing,
-  destinatariosDeCampana,
   eliminarAudienciaMarketing,
-  enviarCampana,
-  enviarPruebaCampana,
   getAudienciasMarketing,
   getCampanasMarketing,
   importarContactosMarketing,
   previaSegmento,
-  reenviarCampana,
-  resultadosDeCampana,
-  sinAbrirDeCampana,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
 import { humanizeApiError } from "../../utils/apiErrors";
+import { matchesSearch } from "../../utils/searchMatch";
 import { formatISOUTCDateToString } from "../../utils/dates";
 
 /**
@@ -489,6 +493,12 @@ function VerAudiencia({
   );
 }
 
+/**
+ * EL HISTORIAL COMO TABLA (Felipe 26-08, calcado de Post-Venta):
+ * N° · fecha de envío · nombre · audiencia · destinatarios · estado,
+ * con buscador y orden por columnas. Toda la gestión (prueba, envío,
+ * resultados, segunda pasada) vive DENTRO de la ficha de la campaña.
+ */
 function Campanas({
   campanas,
   audiencias,
@@ -498,10 +508,65 @@ function Campanas({
   readonly audiencias?: AudienciasMarketing;
   readonly onCambio: () => void;
 }) {
+  const navigate = useNavigate();
   const [creando, setCreando] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [sortCol, setSortCol] = useState<"numero" | "fecha" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (col: "numero" | "fecha") => {
+    if (sortCol !== col) {
+      setSortCol(col);
+      setSortDir("desc");
+    } else if (sortDir === "desc") {
+      setSortDir("asc");
+    } else {
+      setSortCol(null);
+    }
+  };
+
+  const filtradas = campanas.filter((c) =>
+    matchesSearch(busca, String(c.id), c.nombre, c.asunto, c.audiencia_ref ?? ""),
+  );
+  const ordenadas = [...filtradas].sort((a, b) => {
+    if (sortCol === "numero") {
+      return sortDir === "asc" ? a.id - b.id : b.id - a.id;
+    }
+    if (sortCol === "fecha") {
+      const fa = a.enviada_at ?? "";
+      const fb = b.enviada_at ?? "";
+      return sortDir === "asc" ? fa.localeCompare(fb) : fb.localeCompare(fa);
+    }
+    // Orden por defecto: lo más nuevo arriba (borradores incluidos).
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  const flecha = (col: "numero" | "fecha") =>
+    sortCol === col ? (sortDir === "desc" ? " ↓" : " ↑") : "";
+
   return (
     <div className="space-y-4">
-      {creando ? (
+      <div className="flex items-center gap-3 flex-wrap">
+        {creando ? null : (
+          <button
+            type="button"
+            onClick={() => setCreando(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+          >
+            + Nueva campaña
+          </button>
+        )}
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por N°, nombre, asunto o audiencia…"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+          />
+        </div>
+      </div>
+
+      {creando && (
         <NuevaCampana
           audiencias={audiencias}
           onListo={() => {
@@ -510,149 +575,99 @@ function Campanas({
           }}
           onCancelar={() => setCreando(false)}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setCreando(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Nueva campaña
-        </button>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Historial</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Sin prueba a tu casilla no se abre el envío real. Una campaña
-            jamás le llega dos veces al mismo correo.
+            Pincha una campaña para abrir su ficha: indicadores,
+            destinatarios, el correo enviado y la segunda pasada.
           </p>
         </div>
-        {campanas.length === 0 ? (
+        {ordenadas.length === 0 ? (
           <p className="text-sm text-gray-500 p-6 text-center">
-            Todavía no hay campañas.
+            {busca ? "Nada calza con la búsqueda." : "Todavía no hay campañas."}
           </p>
         ) : (
-          <ul className="divide-y divide-gray-100">
-            {campanas.map((c) => (
-              <FilaCampana key={c.id} c={c} onCambio={onCambio} />
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <th
+                    className="px-4 py-2.5 cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => toggleSort("numero")}
+                  >
+                    N°{flecha("numero")}
+                  </th>
+                  <th
+                    className="px-3 py-2.5 cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => toggleSort("fecha")}
+                  >
+                    Fecha envío{flecha("fecha")}
+                  </th>
+                  <th className="px-3 py-2.5">Campaña</th>
+                  <th className="px-3 py-2.5">Audiencia</th>
+                  <th className="px-3 py-2.5 text-right whitespace-nowrap">
+                    Destinatarios
+                  </th>
+                  <th className="px-3 py-2.5">Estado</th>
+                  <th className="px-2 py-2.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {ordenadas.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() =>
+                      navigate(`/marketing/campana/${String(c.id)}`)
+                    }
+                    className="cursor-pointer hover:bg-blue-50/40"
+                  >
+                    <td className="px-4 py-2.5 font-medium text-blue-600 tabular-nums">
+                      #{c.id}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600 tabular-nums whitespace-nowrap">
+                      {c.enviada_at
+                        ? formatISOUTCDateToString(c.enviada_at.slice(0, 10))
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 min-w-[180px]">
+                      <span className="block font-medium text-gray-900 truncate max-w-[280px]">
+                        {c.nombre}
+                      </span>
+                      <span className="block text-xs text-gray-500 truncate max-w-[280px]">
+                        {c.asunto}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600 truncate max-w-[180px]">
+                      {c.audiencia_ref ?? "segmento de tu base"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">
+                      {c.total_destinatarios ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                          c.estado === "enviada"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        {c.estado === "enviada" ? "Enviada" : "Borrador"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5 text-gray-400">
+                      <ChevronRight className="w-4 h-4" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
-  );
-}
-
-function FilaCampana({
-  c,
-  onCambio,
-}: {
-  readonly c: CampanaMarketing;
-  readonly onCambio: () => void;
-}) {
-  const [confirmando, setConfirmando] = useState<number | null>(null);
-  const prueba = useMutation({
-    mutationFn: () => enviarPruebaCampana(c.id),
-    onSuccess: (r) => {
-      toast.success(`Prueba enviada a ${r.enviada_a}. Revisa tu casilla.`);
-      onCambio();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-  const enviar = useMutation({
-    mutationFn: () => enviarCampana(c.id),
-    onSuccess: (r) => {
-      toast.success(
-        `Campaña enviada a ${r.enviados} destinatarios` +
-          (r.fallidos ? ` · ${r.fallidos} fallidos` : ""),
-      );
-      setConfirmando(null);
-      onCambio();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-  const preguntar = async () => {
-    try {
-      const { destinatarios } = await destinatariosDeCampana(c.id);
-      setConfirmando(destinatarios);
-    } catch (e) {
-      toast.error(humanizeApiError(e));
-    }
-  };
-
-  return (
-    <li className="px-4 py-3">
-      <div className="flex items-center gap-3">
-        <span className="flex-1 min-w-0">
-          <span className="block font-medium text-gray-900 truncate">
-            {c.nombre}
-          </span>
-          <span className="block text-xs text-gray-500 truncate">
-            {c.asunto} ·{" "}
-            {c.audiencia_ref
-              ? `audiencia "${c.audiencia_ref}"`
-              : c.audiencia_tipo === "segmento"
-                ? "segmento de tu base"
-                : `clientes: ${(c.tipos_cliente ?? []).join(", ")}`}
-          </span>
-        </span>
-        {c.estado === "enviada" ? (
-          <ResultadosDeCampana c={c} onCambio={onCambio} />
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => prueba.mutate()}
-              disabled={prueba.isPending}
-              className="shrink-0 px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {prueba.isPending
-                ? "Enviando…"
-                : c.prueba_enviada_at
-                  ? "Prueba de nuevo"
-                  : "Prueba a mi casilla"}
-            </button>
-            {confirmando !== null ? (
-              <span className="shrink-0 flex items-center gap-1.5 text-xs">
-                <span className="text-gray-700 font-medium tabular-nums">
-                  ¿Enviar a {confirmando} destinatarios?
-                </span>
-                <button
-                  type="button"
-                  onClick={() => enviar.mutate()}
-                  disabled={enviar.isPending || confirmando === 0}
-                  className="px-2.5 py-1 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {enviar.isPending ? "Enviando…" : "Sí, enviar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmando(null)}
-                  className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
-                >
-                  No
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void preguntar()}
-                disabled={!c.prueba_enviada_at}
-                title={
-                  c.prueba_enviada_at
-                    ? undefined
-                    : "Primero mándate la prueba: sin prueba no hay envío"
-                }
-                className="shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-gray-900 text-white hover:bg-black disabled:opacity-40"
-              >
-                <Send className="w-3 h-3" /> Enviar
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    </li>
   );
 }
 
@@ -896,148 +911,3 @@ function NuevaCampana({
  * Los sellos llegan por el webhook de Resend; sin webhook configurado
  * los contadores quedan en cero (se activa con RESEND_WEBHOOK_SECRET).
  */
-function ResultadosDeCampana({
-  c,
-  onCambio,
-}: {
-  readonly c: CampanaMarketing;
-  readonly onCambio: () => void;
-}) {
-  const { data: r } = useQuery({
-    queryKey: ["marketing", "resultados", c.id],
-    queryFn: () => resultadosDeCampana(c.id),
-  });
-  // EL REENVÍO CON MANUAL (validado 25-08): una sola segunda pasada,
-  // idealmente entre 2 y 7 días después, y SIEMPRE con asunto nuevo —
-  // el backend rechaza el asunto repetido; acá se guía antes de chocar.
-  const [modal, setModal] = useState<number | null>(null);
-  const [asuntoNuevo, setAsuntoNuevo] = useState("");
-  const reenviar = useMutation({
-    mutationFn: () => reenviarCampana(c.id, asuntoNuevo.trim()),
-    onSuccess: (res) => {
-      toast.success(
-        `Segunda pasada enviada a ${res.reenviados} que no habían abierto.`,
-      );
-      setModal(null);
-      onCambio();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-  const preguntar = async () => {
-    try {
-      const { sin_abrir } = await sinAbrirDeCampana(c.id);
-      setAsuntoNuevo(`¿Lo viste? ${c.asunto}`);
-      setModal(sin_abrir);
-    } catch (e) {
-      toast.error(humanizeApiError(e));
-    }
-  };
-  const dias = c.enviada_at
-    ? Math.floor((Date.now() - new Date(c.enviada_at).getTime()) / 86400000)
-    : null;
-  const asuntoRepetido =
-    asuntoNuevo.trim().toLowerCase() === c.asunto.trim().toLowerCase();
-  return (
-    <span className="shrink-0 flex items-center gap-2">
-      {/* Anchos FIJOS para que las filas del historial queden alineadas
-          como tabla (Felipe 26-08). */}
-      <span className="inline-flex justify-center w-48 shrink-0 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums whitespace-nowrap">
-        enviada · {c.total_destinatarios ?? 0} ·{" "}
-        {c.enviada_at ? formatISOUTCDateToString(c.enviada_at.slice(0, 10)) : ""}
-      </span>
-      <span
-        className="w-56 shrink-0 text-xs text-gray-500 tabular-nums whitespace-nowrap overflow-hidden"
-        title="Aperturas · clicks · rebotes — y 2ª: cuántos recibieron la segunda pasada (webhook de Resend)"
-      >
-        {r
-          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ⚠ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª pasada ${String(r.reenviados)}` : ""}`
-          : "…"}
-      </span>
-      <button
-        type="button"
-        onClick={() => void preguntar()}
-        className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
-        title="Una sola segunda pasada, solo a quienes no abrieron, con asunto nuevo"
-      >
-        Reenviar a los que no abrieron
-      </button>
-      {modal !== null && (
-        <Modal
-          titulo="Segunda pasada a los que no abrieron"
-          subtitulo={`Campaña "${c.nombre}"${dias !== null ? ` · enviada hace ${String(dias)} ${dias === 1 ? "día" : "días"}` : ""}`}
-          ancho="max-w-lg"
-          onCerrar={() => setModal(null)}
-          pie={
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => reenviar.mutate()}
-                disabled={
-                  reenviar.isPending ||
-                  modal === 0 ||
-                  !asuntoNuevo.trim() ||
-                  asuntoRepetido
-                }
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
-              >
-                {reenviar.isPending
-                  ? "Enviando…"
-                  : `Reenviar a ${String(modal)}`}
-              </button>
-            </div>
-          }
-        >
-          <div className="space-y-3 text-sm">
-            <p className="text-gray-700">
-              Van a recibirla{" "}
-              <span className="font-semibold tabular-nums">{modal}</span>{" "}
-              contactos que no abrieron la primera. Es una sola segunda
-              pasada: después de esta no hay más reenvíos.
-            </p>
-            {dias === null ? null : dias < 2 ? (
-              <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
-                El manual dice esperar entre 2 y 7 días antes de la segunda
-                pasada — recién {dias === 0 ? "va hoy" : "va un día"}. Puedes
-                reenviar igual, pero dar un respiro suele abrir más correos.
-              </p>
-            ) : dias > 7 ? (
-              <p className="text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-600 px-3 py-2">
-                Ya pasaron {dias} días — el manual recomienda entre 2 y 7,
-                pero reenviar tarde sigue siendo mejor que no reenviar.
-              </p>
-            ) : (
-              <p className="text-xs rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
-                Buen momento: el manual recomienda la segunda pasada entre
-                2 y 7 días después.
-              </p>
-            )}
-            <div>
-              <p className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                Asunto nuevo (obligatorio)
-              </p>
-              <input
-                value={asuntoNuevo}
-                onChange={(e) => setAsuntoNuevo(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                maxLength={200}
-              />
-              {asuntoRepetido && (
-                <p className="text-[11px] text-red-600 mt-1">
-                  Tiene que ser distinto al original ("{c.asunto}") — el
-                  mismo asunto dos veces huele a spam.
-                </p>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
-    </span>
-  );
-}
