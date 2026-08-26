@@ -73,9 +73,17 @@ export default function MarketingPage() {
     }
   };
   const qc = useQueryClient();
+  // El formulario de nueva campana vive en la pestana Campanas pero
+  // necesita la estanteria de audiencias: el estado sube aca para que
+  // la consulta sepa cuando hace falta.
+  const [creando, setCreando] = useState(false);
   const { data: audiencias } = useQuery({
     queryKey: ["marketing", "audiencias"],
     queryFn: getAudienciasMarketing,
+    // Es LA consulta pesada del modulo (resuelve cada audiencia contra
+    // toda la base para los conteos en vivo). Solo corre cuando se
+    // mira; entrar a Campanas y volver de una ficha no la paga.
+    enabled: pestana === "audiencias" || creando,
   });
   const { data: campanas = [] } = useQuery({
     queryKey: ["marketing", "campanas"],
@@ -128,6 +136,8 @@ export default function MarketingPage() {
             <Campanas
               campanas={campanas}
               audiencias={audiencias}
+              creando={creando}
+              onCreando={setCreando}
               onCambio={refrescar}
             />
           )}
@@ -522,14 +532,17 @@ function VerAudiencia({
 function Campanas({
   campanas,
   audiencias,
+  creando,
+  onCreando,
   onCambio,
 }: {
   readonly campanas: CampanaMarketing[];
   readonly audiencias?: AudienciasMarketing;
+  readonly creando: boolean;
+  readonly onCreando: (v: boolean) => void;
   readonly onCambio: () => void;
 }) {
   const navigate = useNavigate();
-  const [creando, setCreando] = useState(false);
   const [busca, setBuscaEstado] = useState(() => {
     try {
       return sessionStorage.getItem("mk.busca") ?? "";
@@ -619,7 +632,7 @@ function Campanas({
         {creando ? null : (
           <button
             type="button"
-            onClick={() => setCreando(true)}
+            onClick={() => onCreando(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
           >
             + Nueva campaña
@@ -640,10 +653,10 @@ function Campanas({
         <NuevaCampana
           audiencias={audiencias}
           onListo={() => {
-            setCreando(false);
+            onCreando(false);
             onCambio();
           }}
-          onCancelar={() => setCreando(false)}
+          onCancelar={() => onCreando(false)}
         />
       )}
 
@@ -676,8 +689,8 @@ function Campanas({
                   >
                     Fecha envío{flecha("fecha")}
                   </th>
-                  <th className="px-3 py-2.5 w-full">Campaña</th>
-                  <th className="px-3 py-2.5">Audiencia</th>
+                  <th className="px-3 py-2.5 w-[42%]">Campaña</th>
+                  <th className="px-3 py-2.5 w-[22%]">Audiencia</th>
                   <th className="px-3 py-2.5 text-right whitespace-nowrap">
                     Destinatarios
                   </th>
@@ -710,7 +723,7 @@ function Campanas({
                         {c.asunto}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-600 truncate max-w-[180px]">
+                    <td className="px-3 py-2.5 text-gray-600 truncate max-w-[260px]">
                       {c.audiencia_ref ?? "segmento de tu base"}
                     </td>
                     <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">

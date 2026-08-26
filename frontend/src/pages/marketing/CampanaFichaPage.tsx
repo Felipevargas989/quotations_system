@@ -43,6 +43,9 @@ export default function CampanaFichaPage() {
     enabled: Number.isFinite(campanaId),
   });
   const vista = useQuery({
+    // El correo tal como salio solo cambia si cambia la marca en
+    // Configuracion: 5 min de cache para que reabrir la ficha vuele.
+    staleTime: 5 * 60_000,
     queryKey: ["marketing", "campana-html", campanaId],
     queryFn: () => htmlDeCampana(campanaId),
     enabled: Number.isFinite(campanaId),
