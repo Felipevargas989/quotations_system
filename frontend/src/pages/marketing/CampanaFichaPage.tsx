@@ -201,6 +201,21 @@ export default function CampanaFichaPage() {
               ? `enviada · ${fechaCorta(c.enviada_at)}`
               : "borrador"}
           </span>
+          <span className="flex-1" />
+          {/* LA acción de la ficha, arriba de las cajas de KPIs
+              (Felipe 26-08). Usada la 2ª pasada, desaparece: el tope
+              de la industria son 2 envíos por campaña. */}
+          {enviada &&
+            !c.reenviada_con_asunto &&
+            filas.some((f) => !f.opened_at && !f.bounced_at) && (
+              <button
+                type="button"
+                onClick={() => void abrirReenvio()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
+                <Send className="w-4 h-4" /> Reenviar a los que no abrieron
+              </button>
+            )}
         </div>
         <p className="text-sm text-gray-500 mt-1">
           audiencia "{c.audiencia_ref ?? "segmento de tu base"}"
@@ -377,17 +392,6 @@ export default function CampanaFichaPage() {
               >
                 Rebotes ({k.rebotes})
               </button>
-              <span className="flex-1" />
-              {filas.filter((f) => !f.opened_at && !f.bounced_at).length >
-                0 && (
-                <button
-                  type="button"
-                  onClick={() => void abrirReenvio()}
-                  className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
-                >
-                  Reenviar a los que no abrieron
-                </button>
-              )}
             </div>
             <div className="grid grid-cols-[1fr_0.8fr_1.2fr_0.9fr] gap-x-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
               <span>Nombre</span>
