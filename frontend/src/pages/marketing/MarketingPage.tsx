@@ -51,7 +51,27 @@ const parsearContactos = (texto: string) =>
     .filter((c) => c.email && !c.email.toLowerCase().startsWith("email"));
 
 export default function MarketingPage() {
-  const [pestana, setPestana] = useState<"campanas" | "audiencias">("campanas");
+  // LOS FILTROS SE RECUERDAN al navegar (regla de Felipe 26-08).
+  const [pestana, setPestana] = useState<"campanas" | "audiencias">(() => {
+    try {
+      return (
+        (sessionStorage.getItem("mk.pestana") as
+          | "campanas"
+          | "audiencias"
+          | null) ?? "campanas"
+      );
+    } catch {
+      return "campanas";
+    }
+  });
+  const elegirPestana = (p: "campanas" | "audiencias") => {
+    setPestana(p);
+    try {
+      sessionStorage.setItem("mk.pestana", p);
+    } catch {
+      /* sin memoria de pestaña: no es grave */
+    }
+  };
   const qc = useQueryClient();
   const { data: audiencias } = useQuery({
     queryKey: ["marketing", "audiencias"],
@@ -88,7 +108,7 @@ export default function MarketingPage() {
           ).map(([id, texto, Icono]) => (
             <button
               key={id}
-              onClick={() => setPestana(id)}
+              onClick={() => elegirPestana(id)}
               className={`flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 pestana === id
                   ? "text-blue-600 border-blue-600"
@@ -510,9 +530,59 @@ function Campanas({
 }) {
   const navigate = useNavigate();
   const [creando, setCreando] = useState(false);
-  const [busca, setBusca] = useState("");
-  const [sortCol, setSortCol] = useState<"numero" | "fecha" | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [busca, setBuscaEstado] = useState(() => {
+    try {
+      return sessionStorage.getItem("mk.busca") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const setBusca = (v: string) => {
+    setBuscaEstado(v);
+    try {
+      sessionStorage.setItem("mk.busca", v);
+    } catch {
+      /* sin memoria de pestaña: no es grave */
+    }
+  };
+  const [sortCol, setSortColEstado] = useState<"numero" | "fecha" | null>(
+    () => {
+      try {
+        return (
+          (sessionStorage.getItem("mk.sortCol") as "numero" | "fecha" | null) ||
+          null
+        );
+      } catch {
+        return null;
+      }
+    },
+  );
+  const [sortDir, setSortDirEstado] = useState<"asc" | "desc">(() => {
+    try {
+      return (
+        (sessionStorage.getItem("mk.sortDir") as "asc" | "desc" | null) ??
+        "desc"
+      );
+    } catch {
+      return "desc";
+    }
+  });
+  const setSortCol = (v: "numero" | "fecha" | null) => {
+    setSortColEstado(v);
+    try {
+      sessionStorage.setItem("mk.sortCol", v ?? "");
+    } catch {
+      /* no es grave */
+    }
+  };
+  const setSortDir = (v: "asc" | "desc") => {
+    setSortDirEstado(v);
+    try {
+      sessionStorage.setItem("mk.sortDir", v);
+    } catch {
+      /* no es grave */
+    }
+  };
   const toggleSort = (col: "numero" | "fecha") => {
     if (sortCol !== col) {
       setSortCol(col);

@@ -58,7 +58,27 @@ export default function CampanaFichaPage() {
   );
 
   // ---- Filtros de la tabla de personas ----
-  const [filtro, setFiltro] = useState<FiltroFila>("todos");
+  // LOS FILTROS SE RECUERDAN al navegar (regla de Felipe 26-08):
+  // volver a la ficha no borra lo elegido.
+  const [filtro, setFiltro] = useState<FiltroFila>(() => {
+    try {
+      return (
+        (sessionStorage.getItem(
+          `mk.ficha.${String(campanaId)}.filtro`,
+        ) as FiltroFila | null) ?? "todos"
+      );
+    } catch {
+      return "todos";
+    }
+  });
+  const elegirFiltro = (f: FiltroFila) => {
+    setFiltro(f);
+    try {
+      sessionStorage.setItem(`mk.ficha.${String(campanaId)}.filtro`, f);
+    } catch {
+      /* sin memoria de pestaña: no es grave */
+    }
+  };
   const pasa = (f: DestinatarioDeCampana): boolean =>
     filtro === "todos"
       ? true
@@ -195,8 +215,7 @@ export default function CampanaFichaPage() {
           </span>
         </div>
         <p className="text-sm text-gray-500 mt-1">
-          {c.asunto}
-          {c.audiencia_ref ? ` · audiencia "${c.audiencia_ref}"` : ""}
+          audiencia "{c.audiencia_ref ?? "segmento de tu base"}"
           {dias !== null
             ? ` · hace ${String(dias)} ${dias === 1 ? "día" : "días"}`
             : ""}
@@ -336,28 +355,28 @@ export default function CampanaFichaPage() {
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <button
                 type="button"
-                onClick={() => setFiltro("todos")}
+                onClick={() => elegirFiltro("todos")}
                 className={chipFiltro(filtro === "todos")}
               >
                 Todos ({filas.length})
               </button>
               <button
                 type="button"
-                onClick={() => setFiltro("abrieron")}
+                onClick={() => elegirFiltro("abrieron")}
                 className={chipFiltro(filtro === "abrieron")}
               >
                 Abrieron ({k.aperturas})
               </button>
               <button
                 type="button"
-                onClick={() => setFiltro("clicaron")}
+                onClick={() => elegirFiltro("clicaron")}
                 className={chipFiltro(filtro === "clicaron")}
               >
                 Clicaron ({k.clics})
               </button>
               <button
                 type="button"
-                onClick={() => setFiltro("sin_abrir")}
+                onClick={() => elegirFiltro("sin_abrir")}
                 className={chipFiltro(filtro === "sin_abrir")}
               >
                 Sin abrir (
@@ -365,7 +384,7 @@ export default function CampanaFichaPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setFiltro("rebotes")}
+                onClick={() => elegirFiltro("rebotes")}
                 className={chipFiltro(filtro === "rebotes")}
               >
                 Rebotes ({k.rebotes})
