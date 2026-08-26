@@ -56,6 +56,7 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     logo: null,
     banner: null,
     tagline: 'Centro de Eventos',
+    replyTo: null,
     whatsapp: null,
     instagram: null,
     facebook: null,

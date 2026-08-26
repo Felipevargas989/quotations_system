@@ -41,6 +41,7 @@ export class MarketingController {
       logo: null,
       banner: null,
       tagline: null,
+      replyTo: null,
       whatsapp: null,
       instagram: null,
       facebook: null,
@@ -62,6 +63,7 @@ export class MarketingController {
         sitioWeb: data.sitio_web?.trim() || null,
         colorPrimario: data.colors?.primary?.trim() || '#134686',
         colorSecundario: data.colors?.secondary?.trim() || '#f9fafb',
+        replyTo: data.notifications?.replyTo?.trim() || null,
       };
     } catch {
       return pordefecto;

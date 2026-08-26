@@ -372,6 +372,7 @@ export class MarketingService {
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
+      ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     });
     if (error) throw new BadRequestException(`Resend: ${error.message}`);
     await this.repo.actualizarCampana(id, companyId, {
@@ -484,7 +485,13 @@ export class MarketingService {
           marca,
           companyId,
         );
-        return { from, to: [d.email], subject: r.asunto, html: r.html };
+        return {
+          from,
+          to: [d.email],
+          subject: r.asunto,
+          html: r.html,
+          ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
+        };
       });
       const { error } = await resend.batch.send(payloads);
       if (error) {
@@ -534,7 +541,13 @@ export class MarketingService {
       const lote = lista.slice(i, i + LOTE);
       const payloads = lote.map((d) => {
         const r = this.renderizar(campana, d, marca, companyId);
-        return { from, to: [d.email], subject: r.asunto, html: r.html };
+        return {
+          from,
+          to: [d.email],
+          subject: r.asunto,
+          html: r.html,
+          ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
+        };
       });
       const { data, error } = await resend.batch.send(payloads);
       const registros = lote.map((d, j) => ({

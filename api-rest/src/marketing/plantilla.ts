@@ -14,6 +14,10 @@ export interface MarcaEmpresa {
   sitioWeb: string | null;
   colorPrimario: string;
   colorSecundario: string;
+  /** "Responder a" (Configuración → Notificaciones): las respuestas
+   *  llegan a la casilla real de la empresa, no al dominio de envío.
+   *  Va en el sobre del correo, no en la plantilla. */
+  replyTo: string | null;
 }
 
 /** El link abreviado de WhatsApp desde el número chileno: se limpia y
