@@ -943,11 +943,11 @@ function ResultadosDeCampana({
         {c.enviada_at ? formatISOUTCDateToString(c.enviada_at.slice(0, 10)) : ""}
       </span>
       <span
-        className="w-44 shrink-0 text-xs text-gray-500 tabular-nums whitespace-nowrap overflow-hidden"
+        className="w-56 shrink-0 text-xs text-gray-500 tabular-nums whitespace-nowrap overflow-hidden"
         title="Aperturas · clicks · rebotes — y 2ª: cuántos recibieron la segunda pasada (webhook de Resend)"
       >
         {r
-          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ⚠ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª ${String(r.reenviados)}` : ""}`
+          ? `👁 ${String(r.abiertos)} · 🔗 ${String(r.clicks)} · ⚠ ${String(r.rebotes)}${r.reenviados > 0 ? ` · 2ª pasada ${String(r.reenviados)}` : ""}`
           : "…"}
       </span>
       <button
