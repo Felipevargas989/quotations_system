@@ -689,12 +689,12 @@ function Campanas({
                   >
                     Fecha envío{flecha("fecha")}
                   </th>
-                  <th className="w-[37%] px-3 py-2.5">Campaña</th>
-                  <th className="w-[20%] px-3 py-2.5">Audiencia</th>
-                  <th className="w-[14%] px-3 py-2.5 text-center whitespace-nowrap">
+                  <th className="w-[34%] px-3 py-2.5">Campaña</th>
+                  <th className="w-[14%] px-3 py-2.5">Audiencia</th>
+                  <th className="w-[20%] px-3 py-2.5 text-center whitespace-nowrap">
                     Destinatarios
                   </th>
-                  <th className="w-[11%] px-3 py-2.5">Estado</th>
+                  <th className="w-[14%] px-3 py-2.5 text-center">Estado</th>
                   <th className="w-[4%] px-2 py-2.5" />
                 </tr>
               </thead>
@@ -729,7 +729,7 @@ function Campanas({
                     <td className="px-3 py-2.5 text-center text-gray-700 tabular-nums">
                       {c.total_destinatarios ?? "—"}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 text-center">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
                           c.estado === "enviada"
