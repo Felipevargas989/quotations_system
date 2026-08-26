@@ -603,6 +603,15 @@ export class MarketingService {
     if (campana.estado !== 'enviada') {
       throw new BadRequestException('Esa campaña todavía no se envía');
     }
+    // EL TOPE DE LA INDUSTRIA (Felipe 26-08): máximo 2 envíos por
+    // campaña — el original y UNA segunda pasada. Una tercera va justo
+    // al grupo menos interesado: suben los reclamos de spam y eso quema
+    // la reputación del remitente (la llegada de TODO lo futuro).
+    if (campana.reenviada_con_asunto) {
+      throw new BadRequestException(
+        'Esta campaña ya tuvo su segunda pasada; el máximo sano son 2 envíos',
+      );
+    }
     const pendientes = await this.sinAbrirDe(id, companyId);
     if (pendientes.length === 0) {
       throw new BadRequestException('No queda nadie sin abrir por reenviar');
