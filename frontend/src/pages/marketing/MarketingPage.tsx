@@ -691,7 +691,7 @@ function Campanas({
                   </th>
                   <th className="px-3 py-2.5 w-[42%]">Campaña</th>
                   <th className="px-3 py-2.5 w-[22%]">Audiencia</th>
-                  <th className="px-3 py-2.5 text-center whitespace-nowrap">
+                  <th className="px-3 py-2.5 w-[14%] text-center whitespace-nowrap">
                     Destinatarios
                   </th>
                   <th className="px-3 py-2.5">Estado</th>
