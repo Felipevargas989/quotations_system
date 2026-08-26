@@ -143,16 +143,18 @@ export default function SegmentoBuilder({
         </div>
       </div>
 
-      {/* La previa en vivo: el espejo del segmento. */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 self-start">
-        <p className="text-sm text-gray-600">
+      {/* La previa en vivo: el espejo del segmento. Recuadro de alto
+          FIJO (pedido de Felipe 25-08): pegado arriba y abajo de su
+          columna, siempre igual, y la lista corre adentro con scroll. */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-64 lg:h-auto">
+        <p className="text-sm text-gray-600 shrink-0">
           Este segmento hoy son{" "}
           <span className="text-xl font-bold text-gray-900 tabular-nums">
             {previa.data?.total ?? "…"}
           </span>{" "}
           contactos
         </p>
-        <ul className="mt-2 space-y-0.5 text-xs text-gray-600">
+        <ul className="mt-2 space-y-0.5 text-xs text-gray-600 flex-1 min-h-0 overflow-y-auto">
           {(previa.data?.muestra ?? []).map((m) => (
             <li key={m.email} className="truncate">
               {m.name ?? m.email}
@@ -166,7 +168,7 @@ export default function SegmentoBuilder({
             </li>
           )}
         </ul>
-        <p className="text-[11px] text-gray-400 mt-2">
+        <p className="text-[11px] text-gray-400 mt-2 shrink-0">
           Se recalcula en vivo contra tu base al momento de enviar — nunca
           listas viejas. Los dados de baja ya están descontados.
         </p>
