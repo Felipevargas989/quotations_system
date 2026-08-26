@@ -77,3 +77,41 @@ satisfacción del Forms), `marketing_suppressions` (correo único por
 empresa, motivo baja/rebote), `marketing_campaigns` (contenido + estado
 borrador/enviada + sellos), `marketing_sends` (una fila por
 destinatario por campaña, única por campaña+correo).
+
+## Audiencias guardadas y el flujo definitivo (validado por Felipe el 25-08)
+
+Tras revisar cómo trabajan los grandes (Mailchimp como patrón), Felipe
+validó el plan de 5 puntos + formato. El flujo quedó:
+**Audiencias (crear y guardar) → Campañas (elegir audiencia + contenido
++ prueba + enviar) → Resultados (y segunda pasada)**.
+
+1. **La audiencia es una PREGUNTA guardada con nombre** (consulta
+   viva): tabla `marketing_audiences` (migración 93) con `filtro`
+   jsonb. El conteo se recalcula contra la base al mirarla y al
+   enviar — "si mañana entran 2 que calzan, quedan adentro solos".
+   La pestaña Audiencias es la estantería: guardadas (chip "De tu
+   base", conteo de hoy) e importadas (chip "Importada", lista fija)
+   en una sola lista.
+2. **La campaña no arma audiencias: ELIGE una** — un solo selector
+   (`SelectWithSearch` con grupos): "Todos los clientes" (= filtro
+   vacío), guardadas, importadas. La campaña guarda `audiencia_id` +
+   una FOTO del filtro (respaldo si la audiencia se borra; al enviar
+   manda el filtro DE HOY de la audiencia).
+3. **Nombres de negocio**: la sección se llama "Qué pasó con ellos" y
+   los chips "Nos compró" (aceptada+realizada) / "No nos compró"
+   (rechazada+anulada). Decisión de Felipe.
+4. **Preencabezado** (`preencabezado` en la campaña): la frase gris de
+   la bandeja; va oculto al inicio del HTML. Optativo.
+5. **Reenvío con manual**: el modal muestra "enviada hace X días" y
+   guía 2-7 días (ámbar si es antes, verde en ventana, gris si tarde);
+   el asunto nuevo es OBLIGATORIO y distinto al original
+   (`validarAsuntoDeReenvio`, puro con pruebas). Queda registrado en
+   `reenviada_con_asunto`.
+
+**Formato de la casa**: la plantilla de campañas usa el MISMO azul,
+cabecera, botón y pie que `email/templates/baseLayout.ts` (cotizaciones
+y seguimientos) — pedido de Felipe: "homogéneo, estructurado y
+elegante". Con estilos en línea (correo no confía en <style>) más las
+dos piezas propias: preencabezado oculto y baja obligatoria.
+
+Lo que a propósito NO se trajo: editor de bloques, journeys, A/B.
