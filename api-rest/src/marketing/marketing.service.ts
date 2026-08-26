@@ -52,12 +52,21 @@ export class MarketingService {
       .slice(0, 32);
   }
 
+  /** La dirección pública de ESTE backend. La lección del 26-08: el
+   *  respaldo apuntaba a producción y el enlace de baja del laboratorio
+   *  llevaba a una puerta inexistente. Railway inyecta el dominio
+   *  propio del servicio: cada ambiente apunta a sí mismo. */
+  private baseApi(): string {
+    const configurada = this.config.get<string>('PUBLIC_API_URL');
+    if (configurada) return configurada.replace(/\/+$/, '');
+    const dominio = this.config.get<string>('RAILWAY_PUBLIC_DOMAIN');
+    if (dominio) return `https://${dominio}`;
+    return 'https://api-rest-production-d404.up.railway.app';
+  }
+
   urlDeBaja(companyId: number, email: string): string {
-    const base =
-      this.config.get<string>('PUBLIC_API_URL') ??
-      'https://api-rest-production-d404.up.railway.app';
     const e = Buffer.from(email.toLowerCase()).toString('base64url');
-    return `${base}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}`;
+    return `${this.baseApi()}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}`;
   }
 
   async procesarBaja(c: string, e: string, t: string): Promise<boolean> {
