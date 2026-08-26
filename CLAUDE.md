@@ -196,6 +196,15 @@ writing a second guard. Ceilings measured 13-08-2026:
 | `confirm()` | 0 | `ConfirmInline` |
 | native `type="number"` | 0 | `NumberInput` |
 
+Since 26-08-2026 the guard also enforces **file size** (both apps,
+api-rest included): the count of files over 800 lines must not grow
+(ceiling 27, measured that day), and the 7 giants (QuotationForm,
+PostVentaPage, DashboardPage, ServiciosTab, people.service, ComprasTab,
+FichasTab) are frozen by name at their measured size +50 slack. When
+touching a giant, extract the piece you came to add into its own file
+(strangler style — never a big-bang rewrite); when one shrinks, lower
+its ceiling in the same commit.
+
 **Lowering a ceiling is part of migrating, not a follow-up.** The guard
 prints the new numbers when the debt drops; apply them in the same
 commit or the ground gained is left free to lose again.
