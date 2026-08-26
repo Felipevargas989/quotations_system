@@ -100,8 +100,8 @@ export const plantillaCampana = (p: {
           <tr>
             ${
               whatsappUrl
-                ? `<td align="left" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</td>
-            <td align="right" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
+                ? `<td align="left" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>
+            <td align="right" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</td>`
                 : `<td align="center" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
             }
           </tr>
