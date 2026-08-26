@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import MultiSelect from "../../components/MultiSelect";
 import {
   AudienciasMarketing,
   FiltroSegmento,
@@ -49,14 +50,13 @@ export default function SegmentoBuilder({
         ? "no_acepto"
         : "todos";
 
-  const toggleLista = (
+  // Las listas largas van en la pieza de la casa (MultiSelect): vacío
+  // significa "Todos". Los chips quedan solo para el filtro de 3.
+  const ponerLista = (
     campo: "tipos_cliente" | "tipos_evento",
-    valor: string,
+    valores: string[],
   ) => {
-    const actual = new Set<string>(filtro[campo] ?? []);
-    if (actual.has(valor)) actual.delete(valor);
-    else actual.add(valor);
-    onFiltro({ ...filtro, [campo]: actual.size ? [...actual] : undefined });
+    onFiltro({ ...filtro, [campo]: valores.length ? valores : undefined });
   };
 
   const chip = (activo: boolean) =>
@@ -69,7 +69,7 @@ export default function SegmentoBuilder({
     "text-[11px] font-semibold uppercase tracking-wide text-gray-500";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-4">
       <div className="space-y-3">
         {encabezado}
         <div>
@@ -103,47 +103,31 @@ export default function SegmentoBuilder({
 
         <div>
           <p className={seccion}>Tipo de cliente</p>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            <button
-              type="button"
-              onClick={() => onFiltro({ ...filtro, tipos_cliente: undefined })}
-              className={chip(!filtro.tipos_cliente?.length)}
-            >
-              Todos
-            </button>
-            {(audiencias?.tipos ?? []).map((t) => (
-              <button
-                key={t.tipo}
-                type="button"
-                onClick={() => toggleLista("tipos_cliente", t.tipo)}
-                className={chip(!!filtro.tipos_cliente?.includes(t.tipo))}
-              >
-                {t.tipo} ({t.conCorreo})
-              </button>
-            ))}
+          <div className="mt-1">
+            <MultiSelect
+              options={(audiencias?.tipos ?? []).map((t) => ({
+                value: t.tipo,
+                label: `${t.tipo} (${String(t.conCorreo)})`,
+              }))}
+              value={filtro.tipos_cliente ?? []}
+              onChange={(v) => ponerLista("tipos_cliente", v)}
+              placeholder="Todos los tipos de cliente"
+            />
           </div>
         </div>
 
         <div>
           <p className={seccion}>Tipo de evento</p>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            <button
-              type="button"
-              onClick={() => onFiltro({ ...filtro, tipos_evento: undefined })}
-              className={chip(!filtro.tipos_evento?.length)}
-            >
-              Todos
-            </button>
-            {(audiencias?.tipos_evento ?? []).map((t) => (
-              <button
-                key={t.tipo}
-                type="button"
-                onClick={() => toggleLista("tipos_evento", t.tipo)}
-                className={chip(!!filtro.tipos_evento?.includes(t.tipo))}
-              >
-                {t.tipo} ({t.n})
-              </button>
-            ))}
+          <div className="mt-1">
+            <MultiSelect
+              options={(audiencias?.tipos_evento ?? []).map((t) => ({
+                value: t.tipo,
+                label: `${t.tipo} (${String(t.n)})`,
+              }))}
+              value={filtro.tipos_evento ?? []}
+              onChange={(v) => ponerLista("tipos_evento", v)}
+              placeholder="Todos los tipos de evento"
+            />
           </div>
         </div>
       </div>
@@ -154,8 +138,8 @@ export default function SegmentoBuilder({
           crecer con su contenido, solo la lista corre adentro. El primer
           intento (flex + stretch) no servía: la celda de la grilla se
           agrandaba con la caja y el scroll no aparecía nunca. */}
-      <div className="relative lg:min-h-[16rem]">
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-64 lg:h-auto lg:absolute lg:inset-0">
+      <div className="relative lg:min-h-[27rem]">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-96 lg:h-auto lg:absolute lg:inset-0">
         <p className="text-sm text-gray-600 shrink-0">
           Este segmento hoy son{" "}
           <span className="text-xl font-bold text-gray-900 tabular-nums">
@@ -163,22 +147,30 @@ export default function SegmentoBuilder({
           </span>{" "}
           contactos
         </p>
-        {/* LA LISTA EN DOS COLUMNAS (Felipe 25-08): cliente y contacto,
-            del alto completo desde arriba; si es larga, corre adentro. */}
-        <div className="grid grid-cols-2 gap-x-2 mt-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0">
+        {/* LA LISTA EN TRES COLUMNAS (Felipe 25-08): cliente, contacto
+            y correo, del alto completo desde arriba; corre adentro. */}
+        <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 mt-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0">
           <span>Cliente</span>
           <span>Contacto</span>
+          <span>Correo</span>
         </div>
         <ul className="flex-1 min-h-0 overflow-y-auto text-xs divide-y divide-gray-100">
           {(previa.data?.muestra ?? []).map((m) => (
             <li
               key={m.email}
-              className="grid grid-cols-2 gap-x-2 py-1"
-              title={m.email}
+              className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 py-1"
             >
-              <span className="truncate text-gray-900">{m.cliente}</span>
-              <span className="truncate text-gray-500">
-                {m.contacto ?? m.email}
+              <span className="truncate text-gray-900" title={m.cliente}>
+                {m.cliente}
+              </span>
+              <span
+                className="truncate text-gray-500"
+                title={m.contacto ?? undefined}
+              >
+                {m.contacto ?? "—"}
+              </span>
+              <span className="truncate text-gray-400" title={m.email}>
+                {m.email}
               </span>
             </li>
           ))}
