@@ -300,7 +300,7 @@ export class MarketingService {
       name: string | null;
       empresa: string | null;
     },
-    nombreEmpresa: string,
+    remitente: { nombre: string; logo: string | null },
     companyId: number,
   ) {
     const titulo = personalizar(campana.titulo, destinatario);
@@ -308,7 +308,8 @@ export class MarketingService {
     return {
       asunto: personalizar(campana.asunto, destinatario),
       html: plantillaCampana({
-        empresa: nombreEmpresa,
+        empresa: remitente.nombre,
+        logoUrl: remitente.logo,
         titulo,
         cuerpoHtml: cuerpo,
         botonTexto: campana.boton_texto,
@@ -334,19 +335,19 @@ export class MarketingService {
     id: number,
     companyId: number,
     correoUsuario: string,
-    nombreEmpresa: string,
+    empresa: { nombre: string; logo: string | null },
   ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
     const r = this.renderizar(
       campana,
       { email: correoUsuario, name: 'Prueba', empresa: 'Prueba' },
-      nombreEmpresa,
+      empresa,
       companyId,
     );
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
-      from: this.remitente(nombreEmpresa),
+      from: this.remitente(empresa.nombre),
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
@@ -434,7 +435,7 @@ export class MarketingService {
   async reenviarANoAbiertos(
     id: number,
     companyId: number,
-    nombreEmpresa: string,
+    empresa: { nombre: string; logo: string | null },
     asuntoVariante?: string,
   ) {
     const campana = await this.repo.campana(id, companyId);
@@ -451,7 +452,7 @@ export class MarketingService {
     if ('error' in validado) throw new BadRequestException(validado.error);
     const asunto = validado.asunto;
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
-    const from = this.remitente(nombreEmpresa);
+    const from = this.remitente(empresa.nombre);
     let enviados = 0;
     for (let i = 0; i < pendientes.length; i += LOTE) {
       const lote = pendientes.slice(i, i + LOTE);
@@ -459,7 +460,7 @@ export class MarketingService {
         const r = this.renderizar(
           { ...campana, asunto },
           { email: d.email, name: d.name, empresa: d.name },
-          nombreEmpresa,
+          empresa,
           companyId,
         );
         return { from, to: [d.email], subject: r.asunto, html: r.html };
@@ -478,7 +479,11 @@ export class MarketingService {
     return { reenviados: enviados };
   }
 
-  async enviarCampana(id: number, companyId: number, nombreEmpresa: string) {
+  async enviarCampana(
+    id: number,
+    companyId: number,
+    empresa: { nombre: string; logo: string | null },
+  ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
     if (campana.estado !== 'borrador') {
@@ -501,13 +506,13 @@ export class MarketingService {
     }
 
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
-    const from = this.remitente(nombreEmpresa);
+    const from = this.remitente(empresa.nombre);
     let enviados = 0;
     let fallidos = 0;
     for (let i = 0; i < lista.length; i += LOTE) {
       const lote = lista.slice(i, i + LOTE);
       const payloads = lote.map((d) => {
-        const r = this.renderizar(campana, d, nombreEmpresa, companyId);
+        const r = this.renderizar(campana, d, empresa, companyId);
         return { from, to: [d.email], subject: r.asunto, html: r.html };
       });
       const { data, error } = await resend.batch.send(payloads);

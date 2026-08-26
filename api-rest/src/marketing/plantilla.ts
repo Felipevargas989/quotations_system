@@ -10,6 +10,10 @@
  */
 export const plantillaCampana = (p: {
   empresa: string;
+  /** El logo de la empresa: una IMAGEN se ve idéntica en modo claro y
+   *  oscuro (los modos oscuros repintan fondos, jamás imágenes). Sin
+   *  logo, va el nombre en texto. */
+  logoUrl?: string | null;
   titulo: string;
   cuerpoHtml: string;
   botonTexto?: string | null;
@@ -27,8 +31,12 @@ export const plantillaCampana = (p: {
   }
   <div style="background-color:#f3f4f6;padding:20px 0;">
     <div style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <div style="background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#1e5a9e 100%);padding:40px 20px;text-align:center;">
-        <p style="font-size:32px;font-weight:700;color:#ffffff;margin:0;letter-spacing:1px;">${p.empresa}</p>
+      <div style="background-color:#134686;background-image:linear-gradient(135deg,#134686 0%,#1e5a9e 100%);padding:${p.logoUrl ? '28px' : '40px'} 20px;text-align:center;">
+        ${
+          p.logoUrl
+            ? `<img src="${p.logoUrl}" alt="${p.empresa}" height="64" style="display:block;margin:0 auto;max-height:64px;border:0;border-radius:8px;" />`
+            : `<p style="font-size:32px;font-weight:700;color:#ffffff;margin:0;letter-spacing:1px;">${p.empresa}</p>`
+        }
       </div>
       <div style="padding:40px 30px;color:#111827;">
         <h1 style="font-size:22px;margin:0 0 16px;">${p.titulo}</h1>

@@ -32,12 +32,21 @@ export class MarketingController {
     this.logger.setContext(MarketingController.name);
   }
 
-  private async nombreEmpresa(companyId: number): Promise<string> {
+  /** Nombre y logo del remitente: con logo el correo se ve idéntico
+   *  en modo claro y oscuro (las imágenes no se repintan). */
+  private async empresaDe(
+    companyId: number,
+  ): Promise<{ nombre: string; logo: string | null }> {
     try {
       const { data } = await this.companies.findOne(companyId);
-      return data?.name ?? 'Eventia';
+      return {
+        nombre: data?.name ?? 'Eventia',
+        logo:
+          (data as { logo_url?: string | null } | null)?.logo_url?.trim() ||
+          null,
+      };
     } catch {
-      return 'Eventia';
+      return { nombre: 'Eventia', logo: null };
     }
   }
 
@@ -112,7 +121,7 @@ export class MarketingController {
       +id,
       user.company_id,
       user.email,
-      await this.nombreEmpresa(user.company_id),
+      await this.empresaDe(user.company_id),
     );
   }
 
@@ -122,7 +131,7 @@ export class MarketingController {
     return this.marketing.enviarCampana(
       +id,
       user.company_id,
-      await this.nombreEmpresa(user.company_id),
+      await this.empresaDe(user.company_id),
     );
   }
 
@@ -148,7 +157,7 @@ export class MarketingController {
     return this.marketing.reenviarANoAbiertos(
       +id,
       user.company_id,
-      await this.nombreEmpresa(user.company_id),
+      await this.empresaDe(user.company_id),
       dto.asunto,
     );
   }

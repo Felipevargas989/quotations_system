@@ -64,6 +64,18 @@ describe('plantillaCampana (el formato de la casa)', () => {
   it('sin preencabezado no queda ni el envoltorio', () => {
     expect(plantillaCampana(base)).not.toContain('display:none;max-height:0');
   });
+
+  it('con logo va la imagen (identica en modo claro y oscuro); sin logo, el nombre', () => {
+    const conLogo = plantillaCampana({
+      ...base,
+      logoUrl: 'https://storage/logo.png',
+    });
+    expect(conLogo).toContain('<img src="https://storage/logo.png"');
+    expect(conLogo).not.toContain('font-size:32px'); // el nombre en texto no va
+    const sinLogo = plantillaCampana(base);
+    expect(sinLogo).not.toContain('<img');
+    expect(sinLogo).toContain('Valle del Sol');
+  });
 });
 
 describe('la audiencia "Todos los clientes" es el filtro vacío', () => {
