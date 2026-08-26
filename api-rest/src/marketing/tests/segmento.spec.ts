@@ -56,14 +56,22 @@ describe('resolverSegmento', () => {
   });
 
   it('aniversario: evento realizado hace 11 a 13 meses', () => {
-    const r = resolverSegmento(clientes, cotizaciones, [], { aniversario: true },
+    const r = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { aniversario: true },
       HOY,
     );
     expect(r.map((d) => d.name)).toEqual(['Municipalidad']);
   });
 
   it('dormidos: sin cotización creada desde una fecha', () => {
-    const r = resolverSegmento(clientes, cotizaciones, [], { sin_cotizacion_desde: '2026-01-01' },
+    const r = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { sin_cotizacion_desde: '2026-01-01' },
       HOY,
     );
     // Colegio (jul-2026) y CCU (ago-2026) cotizaron este año: fuera.
@@ -71,26 +79,42 @@ describe('resolverSegmento', () => {
   });
 
   it('monto mínimo mira la mayor aceptada/realizada, no las rechazadas', () => {
-    const r = resolverSegmento(clientes, cotizaciones, [], { monto_min: 10_000_000 },
+    const r = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { monto_min: 10_000_000 },
       HOY,
     );
     expect(r.map((d) => d.name)).toEqual(['CCU']);
     // La rechazada de $3M del colegio no lo mete aunque el umbral baje:
-    const r2 = resolverSegmento(clientes, cotizaciones, [], { monto_min: 1_000_000 },
+    const r2 = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { monto_min: 1_000_000 },
       HOY,
     );
     expect(r2.map((d) => d.name).sort()).toEqual(['CCU', 'Municipalidad']);
   });
 
   it('estados con rango de fecha de evento', () => {
-    const r = resolverSegmento(clientes, cotizaciones, [], { con_estados: ['rechazada'], evento_desde: '2026-01-01' },
+    const r = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { con_estados: ['rechazada'], evento_desde: '2026-01-01' },
       HOY,
     );
     expect(r.map((d) => d.name)).toEqual(['Colegio Alemán']);
   });
 
   it('las condiciones se suman (Y), y tipo de evento filtra', () => {
-    const r = resolverSegmento(clientes, cotizaciones, [], { tipos_cliente: ['Empresas'], tipos_evento: ['Fiesta de fin de año'] },
+    const r = resolverSegmento(
+      clientes,
+      cotizaciones,
+      [],
+      { tipos_cliente: ['Empresas'], tipos_evento: ['Fiesta de fin de año'] },
       HOY,
     );
     expect(r.map((d) => d.name)).toEqual(['CCU']);

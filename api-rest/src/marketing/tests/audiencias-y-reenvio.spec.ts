@@ -46,7 +46,9 @@ describe('urlAbsoluta (links pegados sin https igual sirven)', () => {
     expect(urlAbsoluta('instagram.com/valledelsol')).toBe(
       'https://instagram.com/valledelsol',
     );
-    expect(urlAbsoluta('https://valledelsol.cl')).toBe('https://valledelsol.cl');
+    expect(urlAbsoluta('https://valledelsol.cl')).toBe(
+      'https://valledelsol.cl',
+    );
   });
 });
 
@@ -85,7 +87,11 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
   it('con banner, la imagen REEMPLAZA el encabezado completo', () => {
     const html = plantillaCampana({
       ...base,
-      marca: { ...marca, banner: 'https://storage/banner.png', logo: 'https://storage/logo.png' },
+      marca: {
+        ...marca,
+        banner: 'https://storage/banner.png',
+        logo: 'https://storage/logo.png',
+      },
     });
     expect(html).toContain('<img src="https://storage/banner.png"');
     expect(html).not.toContain('https://storage/logo.png'); // el banner ya trae la marca
@@ -124,7 +130,11 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
   it('la franja de cierre lleva el color secundario, nombre, tagline y solo los íconos configurados', () => {
     const html = plantillaCampana({
       ...base,
-      marca: { ...marca, instagram: 'instagram.com/vds', sitioWeb: 'valledelsol.cl' },
+      marca: {
+        ...marca,
+        instagram: 'instagram.com/vds',
+        sitioWeb: 'valledelsol.cl',
+      },
     });
     expect(html).toContain('background-color:#E9E2D3');
     expect(html).toContain('Centro de Eventos');
@@ -149,7 +159,9 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
   it('el preencabezado va oculto al principio; sin él, ni el envoltorio', () => {
     const con = plantillaCampana({ ...base, preencabezado: 'Ábreme' });
     expect(con).toContain('Ábreme');
-    expect(con.indexOf('display:none')).toBeLessThan(con.indexOf('Valle del Sol'));
+    expect(con.indexOf('display:none')).toBeLessThan(
+      con.indexOf('Valle del Sol'),
+    );
     expect(plantillaCampana(base)).not.toContain('display:none;max-height:0');
   });
 });

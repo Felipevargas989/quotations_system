@@ -513,11 +513,7 @@ export class MarketingService {
     return { reenviados: enviados };
   }
 
-  async enviarCampana(
-    id: number,
-    companyId: number,
-    marca: MarcaEmpresa,
-  ) {
+  async enviarCampana(id: number, companyId: number, marca: MarcaEmpresa) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
     if (campana.estado !== 'borrador') {
