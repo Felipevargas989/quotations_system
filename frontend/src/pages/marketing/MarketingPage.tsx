@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Mail, Send, Trash2, Upload, Users } from "lucide-react";
 import Modal from "../../components/Modal";
@@ -529,6 +529,40 @@ function NuevaCampana({
   // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
   const [audSel, setAudSel] = useState("");
 
+  // MERGE TAGS VISIBLES (Felipe 26-08): botoncitos que se insertan
+  // donde está el cursor, en el último campo personalizable tocado.
+  type CampoTag = "asunto" | "preencabezado" | "titulo" | "cuerpo";
+  const refsTag = {
+    asunto: useRef<HTMLInputElement>(null),
+    preencabezado: useRef<HTMLInputElement>(null),
+    titulo: useRef<HTMLInputElement>(null),
+    cuerpo: useRef<HTMLTextAreaElement>(null),
+  };
+  const setsTag: Record<CampoTag, (v: string) => void> = {
+    asunto: setAsunto,
+    preencabezado: setPreencabezado,
+    titulo: setTitulo,
+    cuerpo: setCuerpo,
+  };
+  const valoresTag: Record<CampoTag, string> = {
+    asunto,
+    preencabezado,
+    titulo,
+    cuerpo,
+  };
+  const [campoTag, setCampoTag] = useState<CampoTag>("cuerpo");
+  const insertarTag = (tag: string) => {
+    const el = refsTag[campoTag].current;
+    const valor = valoresTag[campoTag];
+    const ini = el?.selectionStart ?? valor.length;
+    const fin = el?.selectionEnd ?? ini;
+    setsTag[campoTag](valor.slice(0, ini) + tag + valor.slice(fin));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(ini + tag.length, ini + tag.length);
+    });
+  };
+
   const laAudiencia = () => {
     if (audSel === "todos") {
       return {
@@ -617,14 +651,18 @@ function NuevaCampana({
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
         <input
+          ref={refsTag.asunto}
+          onFocus={() => setCampoTag("asunto")}
           value={asunto}
           onChange={(e) => setAsunto(e.target.value)}
-          placeholder="Asunto del correo — sirve {nombre} y {empresa}"
+          placeholder="Asunto del correo"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
       </div>
       <div>
         <input
+          ref={refsTag.preencabezado}
+          onFocus={() => setCampoTag("preencabezado")}
           value={preencabezado}
           onChange={(e) => setPreencabezado(e.target.value)}
           placeholder="Preencabezado (optativo): la frase gris que se ve en la bandeja después del asunto"
@@ -636,18 +674,51 @@ function NuevaCampana({
         </p>
       </div>
       <input
+        ref={refsTag.titulo}
+        onFocus={() => setCampoTag("titulo")}
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
         placeholder="Título grande dentro del correo"
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
       />
-      <textarea
-        value={cuerpo}
-        onChange={(e) => setCuerpo(e.target.value)}
-        rows={6}
-        placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco.\nSirve {nombre} y {empresa}."}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-      />
+      <div>
+        <textarea
+          ref={refsTag.cuerpo}
+          onFocus={() => setCampoTag("cuerpo")}
+          value={cuerpo}
+          onChange={(e) => setCuerpo(e.target.value)}
+          rows={6}
+          placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco."}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        {/* Los merge tags a la vista: se insertan donde está el cursor. */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-xs">
+          <span className="text-gray-500">Personalizar:</span>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => insertarTag("{nombre}")}
+            className="px-2 py-0.5 rounded-md border border-gray-300 bg-gray-50 font-mono text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+            title="El nombre de la persona que recibe (ej: Sandra)"
+          >
+            {"{nombre}"}
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => insertarTag("{empresa}")}
+            className="px-2 py-0.5 rounded-md border border-gray-300 bg-gray-50 font-mono text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+            title="La empresa u organización de la persona (ej: Municipalidad de Quillón)"
+          >
+            {"{empresa}"}
+          </button>
+          <span className="text-gray-400">
+            — pínchalo y se escribe donde estás escribiendo (sirven en
+            asunto, preencabezado, título y cuerpo). Si el contacto no
+            tiene el dato, va "estimado cliente" / "su organización".
+          </span>
+        </div>
+      </div>
       <p className="text-[11px] text-gray-400">
         Los botones van solos: WhatsApp y "Cotiza aquí" (tu formulario
         público) salen en todos los correos con lo configurado en
