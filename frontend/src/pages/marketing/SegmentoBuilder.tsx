@@ -7,11 +7,12 @@ import {
 } from "../../services/marketing.service";
 
 /**
- * EL CONSTRUCTOR DE SEGMENTOS (Fase 3). Felipe lo dejó en TRES filtros
- * (25-08): resultado (Aceptó = aceptadas y realizadas / No aceptó =
- * rechazadas y anuladas), tipo de cliente y tipo de evento — cada uno
- * con su "Todos". Las condiciones se suman, y la previa de la derecha
- * se recalcula en vivo: cuántos son y quiénes.
+ * EL CONSTRUCTOR DE AUDIENCIAS (Fase 3). Felipe lo dejó en TRES filtros
+ * (25-08): qué pasó con ellos (Nos compró = aceptadas y realizadas /
+ * No nos compró = rechazadas y anuladas), tipo de cliente y tipo de
+ * evento — cada uno con su "Todos". Las condiciones se suman, y la
+ * previa de la derecha se recalcula en vivo: cuántos son y quiénes.
+ * Los nombres de negocio son los que él validó ese día.
  */
 
 const ACEPTO: FiltroSegmento["con_estados"] = ["aceptada", "realizada"];
@@ -67,7 +68,7 @@ export default function SegmentoBuilder({
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4">
       <div className="space-y-3">
         <div>
-          <p className={seccion}>Resultado con nosotros</p>
+          <p className={seccion}>Qué pasó con ellos</p>
           <div className="flex flex-wrap gap-1.5 mt-1">
             <button
               type="button"
@@ -82,15 +83,15 @@ export default function SegmentoBuilder({
               className={chip(resultado === "acepto")}
               title="Tuvo al menos una cotización aceptada o un evento realizado"
             >
-              Aceptó (incluye realizados)
+              Nos compró
             </button>
             <button
               type="button"
               onClick={() => onFiltro({ ...filtro, con_estados: NO_ACEPTO })}
               className={chip(resultado === "no_acepto")}
-              title="Nos rechazó o anuló alguna cotización"
+              title="Cotizó pero rechazó o anuló"
             >
-              No aceptó (incluye anulados)
+              No nos compró
             </button>
           </div>
         </div>

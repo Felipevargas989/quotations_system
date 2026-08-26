@@ -1,14 +1,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, Send, Upload, Users } from "lucide-react";
+import { Mail, Send, Trash2, Upload, Users } from "lucide-react";
+import Modal from "../../components/Modal";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import {
   AudienciasMarketing,
   CampanaMarketing,
   FiltroSegmento,
+  crearAudienciaMarketing,
   crearCampanaMarketing,
   destinatariosDeCampana,
+  eliminarAudienciaMarketing,
   enviarCampana,
   enviarPruebaCampana,
   getAudienciasMarketing,
@@ -136,24 +139,153 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  // LA AUDIENCIA GUARDADA (modelo Mailchimp que validó Felipe): se
+  // guarda la PREGUNTA con nombre, no la lista — el conteo es de hoy.
+  const [nombre, setNombre] = useState("");
   const [filtro, setFiltro] = useState<FiltroSegmento>({});
+  const guardar = useMutation({
+    mutationFn: () =>
+      crearAudienciaMarketing({ nombre: nombre.trim(), filtro }),
+    onSuccess: (a) => {
+      toast.success(
+        `Audiencia "${a.nombre}" guardada. Se recalcula sola: si mañana entran clientes que calzan, quedan adentro.`,
+      );
+      setNombre("");
+      setFiltro({});
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+  const eliminar = useMutation({
+    mutationFn: (id: number) => eliminarAudienciaMarketing(id),
+    onSuccess: () => {
+      toast.success("Audiencia eliminada");
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+  const [borrando, setBorrando] = useState<number | null>(null);
+
+  const guardadas = audiencias?.guardadas ?? [];
+  const importadas = audiencias?.importadas ?? [];
+
   return (
     <div className="space-y-4">
+      {/* 1. LA ESTANTERÍA: todas las audiencias en una sola lista. */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Users className="w-4 h-4 text-gray-500" /> Constructor de segmentos
-          (en vivo)
+          <Users className="w-4 h-4 text-gray-500" /> Tus audiencias
+        </h2>
+        <p className="text-xs text-gray-500 mt-0.5 mb-2">
+          Una audiencia guardada es una pregunta viva: el conteo es de hoy
+          y se recalcula solo al momento de enviar. Las importadas son
+          listas fijas que trajiste de afuera.
+        </p>
+        {guardadas.length === 0 && importadas.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">
+            Todavía no tienes audiencias. Crea una abajo desde tu base, o
+            importa una lista.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {guardadas.map((a) => (
+              <li
+                key={`g-${String(a.id)}`}
+                className="flex items-center gap-2 py-2 text-sm"
+              >
+                <span className="flex-1 min-w-0 truncate text-gray-900">
+                  {a.nombre}
+                </span>
+                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  De tu base
+                </span>
+                <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
+                  {a.total} hoy
+                </span>
+                {borrando === a.id ? (
+                  <span className="shrink-0 flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminar.mutate(a.id);
+                        setBorrando(null);
+                      }}
+                      className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                    >
+                      Borrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBorrando(null)}
+                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+                    >
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setBorrando(a.id)}
+                    title="Eliminar esta audiencia (las campañas ya creadas guardan su propia copia del filtro)"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </li>
+            ))}
+            {importadas.map((a) => (
+              <li
+                key={`i-${a.audiencia}`}
+                className="flex items-center gap-2 py-2 text-sm"
+              >
+                <span className="flex-1 min-w-0 truncate text-gray-900">
+                  {a.audiencia}
+                </span>
+                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                  Importada
+                </span>
+                <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
+                  {a.contactos} contactos
+                </span>
+                <span className="shrink-0 w-[26px]" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* 2. NUEVA AUDIENCIA DESDE LA BASE: filtrar → nombrar → guardar. */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 className="font-semibold text-gray-900">
+          Nueva audiencia desde tu base
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Arma audiencias desde tus propios datos: cada condición que
-          enciendes se suma, y la previa muestra al tiro cuántos son y
-          quiénes. El mismo constructor vive en "Nueva campaña".
+          Arma el filtro, mira la previa, ponle nombre y guárdala. Después
+          cualquier campaña la elige de la lista.
         </p>
         <SegmentoBuilder
           audiencias={audiencias}
           filtro={filtro}
           onFiltro={setFiltro}
         />
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder='Nombre de la audiencia (ej: "Empresas que nos compraron")'
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            maxLength={120}
+          />
+          <button
+            type="button"
+            onClick={() => guardar.mutate()}
+            disabled={!nombre.trim() || guardar.isPending}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+          >
+            {guardar.isPending ? "Guardando…" : "Guardar audiencia"}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -195,21 +327,6 @@ function Audiencias({
             </button>
           </div>
         </div>
-        {(audiencias?.importadas ?? []).length > 0 && (
-          <ul className="divide-y divide-gray-100 mt-3 border-t border-gray-100 pt-1">
-            {(audiencias?.importadas ?? []).map((a) => (
-              <li
-                key={a.audiencia}
-                className="flex items-center justify-between py-1.5 text-sm"
-              >
-                <span className="text-gray-900">{a.audiencia}</span>
-                <span className="tabular-nums text-gray-600">
-                  {a.contactos} contactos
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   );
@@ -316,8 +433,8 @@ function FilaCampana({
           </span>
           <span className="block text-xs text-gray-500 truncate">
             {c.asunto} ·{" "}
-            {c.audiencia_tipo === "importada"
-              ? `audiencia "${c.audiencia_ref ?? ""}"`
+            {c.audiencia_ref
+              ? `audiencia "${c.audiencia_ref}"`
               : c.audiencia_tipo === "segmento"
                 ? "segmento de tu base"
                 : `clientes: ${(c.tipos_cliente ?? []).join(", ")}`}
@@ -393,16 +510,34 @@ function NuevaCampana({
 }) {
   const [nombre, setNombre] = useState("");
   const [asunto, setAsunto] = useState("");
+  const [preencabezado, setPreencabezado] = useState("");
   const [titulo, setTitulo] = useState("");
   const [cuerpo, setCuerpo] = useState("");
   const [botonTexto, setBotonTexto] = useState("");
   const [botonUrl, setBotonUrl] = useState("");
-  const [tipoAud, setTipoAud] = useState<"clientes" | "importada" | "segmento">(
-    "clientes",
-  );
-  const [tipos, setTipos] = useState<Set<string>>(new Set());
-  const [ref, setRef] = useState("");
-  const [filtro, setFiltro] = useState<FiltroSegmento>({});
+  // LA CAMPAÑA NO ARMA AUDIENCIAS: ELIGE UNA (flujo que validó Felipe).
+  // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
+  const [audSel, setAudSel] = useState("");
+
+  const laAudiencia = () => {
+    if (audSel === "todos") {
+      return {
+        audiencia_tipo: "segmento" as const,
+        filtro: {} as FiltroSegmento,
+        audiencia_ref: "Todos los clientes",
+      };
+    }
+    if (audSel.startsWith("g:")) {
+      return {
+        audiencia_tipo: "segmento" as const,
+        audiencia_id: Number(audSel.slice(2)),
+      };
+    }
+    return {
+      audiencia_tipo: "importada" as const,
+      audiencia_ref: audSel.slice(2),
+    };
+  };
 
   const crear = useMutation({
     mutationFn: () =>
@@ -411,12 +546,10 @@ function NuevaCampana({
         asunto,
         titulo,
         cuerpo,
+        preencabezado: preencabezado.trim() || undefined,
         boton_texto: botonTexto.trim() || undefined,
         boton_url: botonUrl.trim() || undefined,
-        audiencia_tipo: tipoAud,
-        audiencia_ref: tipoAud === "importada" ? ref : undefined,
-        tipos_cliente: tipoAud === "clientes" ? [...tipos] : undefined,
-        filtro: tipoAud === "segmento" ? filtro : undefined,
+        ...laAudiencia(),
       }),
     onSuccess: () => {
       toast.success(
@@ -427,20 +560,47 @@ function NuevaCampana({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  const opciones = [
+    {
+      value: "todos",
+      label: `Todos los clientes (${String(audiencias?.clientes_con_correo ?? 0)})`,
+      group: "De tu base (en vivo)",
+    },
+    ...(audiencias?.guardadas ?? []).map((g) => ({
+      value: `g:${String(g.id)}`,
+      label: `${g.nombre} (${String(g.total)} hoy)`,
+      group: "Tus audiencias guardadas (en vivo)",
+    })),
+    ...(audiencias?.importadas ?? []).map((a) => ({
+      value: `i:${a.audiencia}`,
+      label: `${a.audiencia} (${String(a.contactos)})`,
+      group: "Importadas",
+    })),
+  ];
+
   const lista =
-    nombre.trim() &&
-    asunto.trim() &&
-    titulo.trim() &&
-    cuerpo.trim() &&
-    (tipoAud === "clientes"
-      ? tipos.size > 0
-      : tipoAud === "importada"
-        ? !!ref
-        : Object.keys(filtro).length > 0);
+    nombre.trim() && asunto.trim() && titulo.trim() && cuerpo.trim() && audSel;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
       <h2 className="font-semibold text-gray-900">Nueva campaña</h2>
+      <div className="pb-1">
+        <p className="text-xs font-semibold uppercase text-gray-500 mb-1.5">
+          ¿A quién va?
+        </p>
+        <div className="max-w-md">
+          <SelectWithSearch
+            options={opciones}
+            value={audSel}
+            onChange={setAudSel}
+            placeholder="Elegir audiencia…"
+          />
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1">
+          Las audiencias se crean y guardan en la pestaña Audiencias. Las
+          "en vivo" se recalculan solas al momento de enviar.
+        </p>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <input
           value={nombre}
@@ -454,6 +614,18 @@ function NuevaCampana({
           placeholder="Asunto del correo — sirve {nombre} y {empresa}"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
+      </div>
+      <div>
+        <input
+          value={preencabezado}
+          onChange={(e) => setPreencabezado(e.target.value)}
+          placeholder="Preencabezado (optativo): la frase gris que se ve en la bandeja después del asunto"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          maxLength={200}
+        />
+        <p className="text-[11px] text-gray-400 mt-1">
+          Es el segundo asunto: una buena frase acá sube las aperturas.
+        </p>
       </div>
       <input
         value={titulo}
@@ -481,82 +653,6 @@ function NuevaCampana({
           placeholder="Enlace del botón (optativo)"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
-      </div>
-
-      <div className="pt-1">
-        <p className="text-xs font-semibold uppercase text-gray-500 mb-1.5">
-          Audiencia
-        </p>
-        <div className="flex items-center gap-3 mb-2 text-sm">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              checked={tipoAud === "clientes"}
-              onChange={() => setTipoAud("clientes")}
-            />
-            Clientes por tipo (en vivo)
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              checked={tipoAud === "importada"}
-              onChange={() => setTipoAud("importada")}
-            />
-            Audiencia importada
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              checked={tipoAud === "segmento"}
-              onChange={() => setTipoAud("segmento")}
-            />
-            Segmento de tu base
-          </label>
-        </div>
-        {tipoAud === "segmento" ? (
-          <SegmentoBuilder
-            audiencias={audiencias}
-            filtro={filtro}
-            onFiltro={setFiltro}
-          />
-        ) : tipoAud === "clientes" ? (
-          <div className="flex flex-wrap gap-1.5">
-            {(audiencias?.tipos ?? []).map((t) => {
-              const activo = tipos.has(t.tipo);
-              return (
-                <button
-                  key={t.tipo}
-                  type="button"
-                  onClick={() => {
-                    const s2 = new Set(tipos);
-                    if (activo) s2.delete(t.tipo);
-                    else s2.add(t.tipo);
-                    setTipos(s2);
-                  }}
-                  className={`px-2.5 py-1 text-xs rounded-full border tabular-nums ${
-                    activo
-                      ? "bg-blue-50 text-blue-700 border-blue-300 font-medium"
-                      : "text-gray-600 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  {t.tipo} ({t.conCorreo})
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="max-w-sm">
-            <SelectWithSearch
-              options={(audiencias?.importadas ?? []).map((a) => ({
-                value: a.audiencia,
-                label: `${a.audiencia} (${String(a.contactos)})`,
-              }))}
-              value={ref}
-              onChange={setRef}
-              placeholder="Elegir audiencia importada…"
-            />
-          </div>
-        )}
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
@@ -596,12 +692,18 @@ function ResultadosDeCampana({
     queryKey: ["marketing", "resultados", c.id],
     queryFn: () => resultadosDeCampana(c.id),
   });
-  const [confirmando, setConfirmando] = useState<number | null>(null);
+  // EL REENVÍO CON MANUAL (validado 25-08): una sola segunda pasada,
+  // idealmente entre 2 y 7 días después, y SIEMPRE con asunto nuevo —
+  // el backend rechaza el asunto repetido; acá se guía antes de chocar.
+  const [modal, setModal] = useState<number | null>(null);
+  const [asuntoNuevo, setAsuntoNuevo] = useState("");
   const reenviar = useMutation({
-    mutationFn: () => reenviarCampana(c.id),
+    mutationFn: () => reenviarCampana(c.id, asuntoNuevo.trim()),
     onSuccess: (res) => {
-      toast.success(`Segunda pasada enviada a ${res.reenviados} que no habían abierto.`);
-      setConfirmando(null);
+      toast.success(
+        `Segunda pasada enviada a ${res.reenviados} que no habían abierto.`,
+      );
+      setModal(null);
       onCambio();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
@@ -609,11 +711,17 @@ function ResultadosDeCampana({
   const preguntar = async () => {
     try {
       const { sin_abrir } = await sinAbrirDeCampana(c.id);
-      setConfirmando(sin_abrir);
+      setAsuntoNuevo(`¿Lo viste? ${c.asunto}`);
+      setModal(sin_abrir);
     } catch (e) {
       toast.error(humanizeApiError(e));
     }
   };
+  const dias = c.enviada_at
+    ? Math.floor((Date.now() - new Date(c.enviada_at).getTime()) / 86400000)
+    : 0;
+  const asuntoRepetido =
+    asuntoNuevo.trim().toLowerCase() === c.asunto.trim().toLowerCase();
   return (
     <span className="shrink-0 flex items-center gap-2">
       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
@@ -629,36 +737,90 @@ function ResultadosDeCampana({
           {r.reenviados > 0 && ` · 2ª pasada ${r.reenviados}`}
         </span>
       )}
-      {confirmando !== null ? (
-        <span className="flex items-center gap-1.5 text-xs">
-          <span className="text-gray-700 font-medium tabular-nums">
-            ¿Reenviar a {confirmando} sin abrir?
-          </span>
-          <button
-            type="button"
-            onClick={() => reenviar.mutate()}
-            disabled={reenviar.isPending || confirmando === 0}
-            className="px-2.5 py-1 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-          >
-            {reenviar.isPending ? "Enviando…" : "Sí"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmando(null)}
-            className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
-          >
-            No
-          </button>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void preguntar()}
-          className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
-          title="Una sola segunda pasada, solo a quienes no abrieron, con asunto variante"
+      <button
+        type="button"
+        onClick={() => void preguntar()}
+        className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+        title="Una sola segunda pasada, solo a quienes no abrieron, con asunto nuevo"
+      >
+        Reenviar a los que no abrieron
+      </button>
+      {modal !== null && (
+        <Modal
+          titulo="Segunda pasada a los que no abrieron"
+          subtitulo={`Campaña "${c.nombre}" · enviada hace ${String(dias)} ${dias === 1 ? "día" : "días"}`}
+          ancho="max-w-lg"
+          onCerrar={() => setModal(null)}
+          pie={
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => reenviar.mutate()}
+                disabled={
+                  reenviar.isPending ||
+                  modal === 0 ||
+                  !asuntoNuevo.trim() ||
+                  asuntoRepetido
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+              >
+                {reenviar.isPending
+                  ? "Enviando…"
+                  : `Reenviar a ${String(modal)}`}
+              </button>
+            </div>
+          }
         >
-          Reenviar a los que no abrieron
-        </button>
+          <div className="space-y-3 text-sm">
+            <p className="text-gray-700">
+              Van a recibirla{" "}
+              <span className="font-semibold tabular-nums">{modal}</span>{" "}
+              contactos que no abrieron la primera. Es una sola segunda
+              pasada: después de esta no hay más reenvíos.
+            </p>
+            {dias < 2 ? (
+              <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
+                El manual dice esperar entre 2 y 7 días antes de la segunda
+                pasada — recién {dias === 0 ? "va hoy" : "va un día"}. Puedes
+                reenviar igual, pero dar un respiro suele abrir más correos.
+              </p>
+            ) : dias > 7 ? (
+              <p className="text-xs rounded-lg bg-gray-50 border border-gray-200 text-gray-600 px-3 py-2">
+                Ya pasaron {dias} días — el manual recomienda entre 2 y 7,
+                pero reenviar tarde sigue siendo mejor que no reenviar.
+              </p>
+            ) : (
+              <p className="text-xs rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
+                Buen momento: el manual recomienda la segunda pasada entre
+                2 y 7 días después.
+              </p>
+            )}
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                Asunto nuevo (obligatorio)
+              </p>
+              <input
+                value={asuntoNuevo}
+                onChange={(e) => setAsuntoNuevo(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                maxLength={200}
+              />
+              {asuntoRepetido && (
+                <p className="text-[11px] text-red-600 mt-1">
+                  Tiene que ser distinto al original ("{c.asunto}") — el
+                  mismo asunto dos veces huele a spam.
+                </p>
+              )}
+            </div>
+          </div>
+        </Modal>
       )}
     </span>
   );

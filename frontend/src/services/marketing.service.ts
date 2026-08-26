@@ -1,7 +1,17 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 
+export interface AudienciaGuardada {
+  id: number;
+  nombre: string;
+  filtro: FiltroSegmento;
+  /** Conteo EN VIVO: la audiencia es una pregunta, no una lista. */
+  total: number;
+}
+
 export interface AudienciasMarketing {
+  guardadas: AudienciaGuardada[];
+  clientes_con_correo: number;
   importadas: { audiencia: string; contactos: number }[];
   tipos: { tipo: string; total: number; conCorreo: number }[];
   tipos_evento: { tipo: string; n: number }[];
@@ -15,7 +25,9 @@ export interface CampanaMarketing {
   cuerpo: string;
   boton_texto: string | null;
   boton_url: string | null;
+  preencabezado: string | null;
   audiencia_tipo: "clientes" | "importada" | "segmento";
+  audiencia_id: number | null;
   audiencia_ref: string | null;
   tipos_cliente: string[] | null;
   filtro: FiltroSegmento | null;
@@ -23,6 +35,7 @@ export interface CampanaMarketing {
   prueba_enviada_at: string | null;
   enviada_at: string | null;
   total_destinatarios: number | null;
+  reenviada_con_asunto: string | null;
   created_at: string;
 }
 
@@ -60,12 +73,28 @@ export const sinAbrirDeCampana = async (id: number) =>
     "GET",
   )) as { sin_abrir: number };
 
-export const reenviarCampana = async (id: number, asunto?: string) =>
+export const reenviarCampana = async (id: number, asunto: string) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas/${String(id)}/reenviar`,
     "POST",
-    asunto ? { asunto } : {},
+    { asunto },
   )) as { reenviados: number };
+
+export const crearAudienciaMarketing = async (dto: {
+  nombre: string;
+  filtro: FiltroSegmento;
+}) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias`,
+    "POST",
+    dto,
+  )) as AudienciaGuardada;
+
+export const eliminarAudienciaMarketing = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias/${String(id)}`,
+    "DELETE",
+  )) as { ok: boolean };
 
 export const getAudienciasMarketing = async () =>
   (await apiRequest(
@@ -100,7 +129,9 @@ export const crearCampanaMarketing = async (dto: {
   cuerpo: string;
   boton_texto?: string;
   boton_url?: string;
+  preencabezado?: string;
   audiencia_tipo: "clientes" | "importada" | "segmento";
+  audiencia_id?: number;
   audiencia_ref?: string;
   tipos_cliente?: string[];
   filtro?: FiltroSegmento;
