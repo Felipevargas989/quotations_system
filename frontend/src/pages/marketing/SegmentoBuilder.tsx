@@ -144,9 +144,13 @@ export default function SegmentoBuilder({
       </div>
 
       {/* La previa en vivo: el espejo del segmento. Recuadro de alto
-          FIJO (pedido de Felipe 25-08): pegado arriba y abajo de su
-          columna, siempre igual, y la lista corre adentro con scroll. */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-64 lg:h-auto">
+          FIJO (pedido de Felipe 25-08): en pantalla ancha va ANCLADA
+          (absolute inset-0) al alto de la columna de filtros — no puede
+          crecer con su contenido, solo la lista corre adentro. El primer
+          intento (flex + stretch) no servía: la celda de la grilla se
+          agrandaba con la caja y el scroll no aparecía nunca. */}
+      <div className="relative lg:min-h-[16rem]">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-64 lg:h-auto lg:absolute lg:inset-0">
         <p className="text-sm text-gray-600 shrink-0">
           Este segmento hoy son{" "}
           <span className="text-xl font-bold text-gray-900 tabular-nums">
@@ -172,6 +176,7 @@ export default function SegmentoBuilder({
           Se recalcula en vivo contra tu base al momento de enviar — nunca
           listas viejas. Los dados de baja ya están descontados.
         </p>
+      </div>
       </div>
     </div>
   );
