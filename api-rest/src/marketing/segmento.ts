@@ -29,6 +29,15 @@ export interface ClienteSegmentable {
   name: string;
   email: string | null;
   client_type: string | null;
+  contact_person?: string | null;
+}
+
+/** Una PERSONA de la ficha del cliente (client_contacts): a ellas se
+ *  les escribe — el marketing le habla a gente, no a empresas. */
+export interface ContactoDeCliente {
+  client_id: number | string;
+  name: string | null;
+  email: string | null;
 }
 
 export interface CotizacionSegmentable {
@@ -46,6 +55,7 @@ const dia = (iso: string | null | undefined): string =>
 export const resolverSegmento = (
   clientes: readonly ClienteSegmentable[],
   cotizaciones: readonly CotizacionSegmentable[],
+  contactos: readonly ContactoDeCliente[],
   filtro: FiltroSegmento,
   hoyISO: string,
 ): { email: string; name: string | null; empresa: string | null }[] => {
@@ -67,8 +77,9 @@ export const resolverSegmento = (
   const anivDesde = menosMeses(13);
   const anivHasta = menosMeses(11);
 
+  // El FILTRO decide por la historia del CLIENTE; el correo ya no es
+  // requisito acá — se resuelve al expandir a sus personas (26-08).
   const cumple = (c: ClienteSegmentable): boolean => {
-    if (!c.email || !c.email.trim()) return false;
     if (
       filtro.tipos_cliente?.length &&
       !filtro.tipos_cliente.includes(c.client_type ?? '')
@@ -130,7 +141,38 @@ export const resolverSegmento = (
     return true;
   };
 
-  return clientes
-    .filter(cumple)
-    .map((c) => ({ email: c.email!, name: c.name, empresa: c.name }));
+  // LA EXPANSIÓN A PERSONAS (Felipe, 26-08: "¿se envía uno a cada
+  // uno?" — sí): cada cliente que calza se abre a TODOS sus contactos
+  // con correo (client_contacts). {nombre} pasa a ser la persona y
+  // {empresa} el cliente — se saluda a Sandra, no a la Municipalidad.
+  // Cliente sin contactos con correo: respaldo al correo de la ficha.
+  const personasPor = new Map<string, ContactoDeCliente[]>();
+  for (const p of contactos) {
+    if (!p.email?.trim()) continue;
+    const k = String(p.client_id);
+    if (!personasPor.has(k)) personasPor.set(k, []);
+    personasPor.get(k)!.push(p);
+  }
+
+  const lista: { email: string; name: string | null; empresa: string }[] = [];
+  for (const c of clientes) {
+    if (!cumple(c)) continue;
+    const personas = personasPor.get(String(c.id)) ?? [];
+    if (personas.length > 0) {
+      for (const p of personas) {
+        lista.push({
+          email: p.email!,
+          name: p.name?.trim() || c.contact_person?.trim() || c.name,
+          empresa: c.name,
+        });
+      }
+    } else if (c.email?.trim()) {
+      lista.push({
+        email: c.email,
+        name: c.contact_person?.trim() || c.name,
+        empresa: c.name,
+      });
+    }
+  }
+  return lista;
 };

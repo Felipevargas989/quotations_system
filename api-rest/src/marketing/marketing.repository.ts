@@ -187,6 +187,23 @@ export class MarketingRepository {
     }[];
   }
 
+  /** Las PERSONAS de las fichas (client_contacts) con correo: a ellas
+   *  se les escribe cuando la audiencia viene de la base (26-08). */
+  async contactosDeClientes(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('client_contacts')
+      .select('client_id, name, email')
+      .eq('company_id', companyId)
+      .not('email', 'is', null)
+      .neq('email', '');
+    if (error) throw error;
+    return data as {
+      client_id: number;
+      name: string | null;
+      email: string;
+    }[];
+  }
+
   async cotizacionesSegmentables(companyId: number) {
     const { data, error } = await this.supabase.client
       .from('quotations')

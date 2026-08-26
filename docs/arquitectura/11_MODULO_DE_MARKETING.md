@@ -115,3 +115,15 @@ elegante". Con estilos en línea (correo no confía en <style>) más las
 dos piezas propias: preencabezado oculto y baja obligatoria.
 
 Lo que a propósito NO se trajo: editor de bloques, journeys, A/B.
+
+## A personas, no a fichas (26-08, pregunta de Felipe)
+
+Las audiencias de la base resuelven a **PERSONAS**: el filtro decide
+por la historia del CLIENTE, y cada cliente que calza se expande a
+todos sus contactos con correo (`client_contacts` — el multi-contacto
+del CRM). `{nombre}` es la persona ("Hola Sandra"), `{empresa}` el
+cliente. Cliente sin contactos con correo: respaldo al correo simple
+de la ficha. La regla de una vez sigue siendo POR CORREO, igual que
+las bajas. Además el sobre lleva replyTo al "Responder a" de
+Configuración → Notificaciones, y las importadas muestran el conteo
+con bajas descontadas y visibles ("2 contactos · 1 baja").

@@ -161,7 +161,7 @@ describe('la audiencia "Todos los clientes" es el filtro vacío', () => {
       { id: 2, name: 'Beto', email: null, client_type: 'Particular' },
       { id: 3, name: 'Carla', email: 'carla@x.cl', client_type: null },
     ];
-    const r = resolverSegmento(clientes, [], {}, '2026-08-25');
+    const r = resolverSegmento(clientes, [], [], {}, '2026-08-25');
     expect(r.map((d) => d.email)).toEqual(['ana@x.cl', 'carla@x.cl']);
   });
 });

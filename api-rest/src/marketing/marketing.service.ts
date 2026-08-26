@@ -138,46 +138,37 @@ export class MarketingService {
   }
 
   // ---- Fase 3: el segmento desde los datos de la casa ----
+  // El filtro decide por CLIENTES; el resultado son sus PERSONAS
+  // (client_contacts con correo; respaldo: el correo de la ficha).
   private async resolverSegmentoDe(companyId: number, filtro: FiltroSegmento) {
-    const [clientes, cotizaciones] = await Promise.all([
+    const [clientes, cotizaciones, contactos] = await Promise.all([
       this.repo.clientesSegmentables(companyId),
       this.repo.cotizacionesSegmentables(companyId),
+      this.repo.contactosDeClientes(companyId),
     ]);
     return resolverSegmento(
       clientes,
       cotizaciones,
+      contactos,
       filtro,
       new Date().toISOString().slice(0, 10),
     );
   }
 
-  /** La previa en vivo del constructor: cuántos, y la lista COMPLETA
-   *  en dos columnas — cliente y su contacto (pedido de Felipe 25-08).
-   *  Si el cliente no tiene contacto anotado, va el correo. */
+  /** La previa en vivo del constructor: cuántas PERSONAS, y la lista
+   *  completa en tres columnas — cliente, contacto y correo. */
   async previaSegmento(dto: PreviaSegmentoDto, companyId: number) {
-    const [clientes, cotizaciones, suprimidos] = await Promise.all([
-      this.repo.clientesSegmentables(companyId),
-      this.repo.cotizacionesSegmentables(companyId),
+    const [lista, suprimidos] = await Promise.all([
+      this.resolverSegmentoDe(companyId, dto.filtro),
       this.repo.suprimidos(companyId),
     ]);
-    const lista = resolverSegmento(
-      clientes,
-      cotizaciones,
-      dto.filtro,
-      new Date().toISOString().slice(0, 10),
-    ).filter((d) => !suprimidos.has(d.email.toLowerCase()));
-    const contactoPor = new Map(
-      clientes.map((c) => [
-        (c.email ?? '').toLowerCase(),
-        c.contact_person?.trim() || null,
-      ]),
-    );
+    const limpios = lista.filter((d) => !suprimidos.has(d.email.toLowerCase()));
     return {
-      total: lista.length,
-      muestra: lista.slice(0, 500).map((d) => ({
+      total: limpios.length,
+      muestra: limpios.slice(0, 500).map((d) => ({
         email: d.email,
-        cliente: d.name,
-        contacto: contactoPor.get(d.email.toLowerCase()) ?? null,
+        cliente: d.empresa ?? d.name ?? '',
+        contacto: d.name,
       })),
     };
   }
@@ -206,15 +197,17 @@ export class MarketingService {
    * para todas: un solo viaje por clientes y otro por cotizaciones).
    */
   async listarAudiencias(companyId: number) {
-    const [guardadas, clientes, cotizaciones, suprimidos] = await Promise.all([
-      this.repo.audienciasGuardadas(companyId),
-      this.repo.clientesSegmentables(companyId),
-      this.repo.cotizacionesSegmentables(companyId),
-      this.repo.suprimidos(companyId),
-    ]);
+    const [guardadas, clientes, cotizaciones, contactos, suprimidos] =
+      await Promise.all([
+        this.repo.audienciasGuardadas(companyId),
+        this.repo.clientesSegmentables(companyId),
+        this.repo.cotizacionesSegmentables(companyId),
+        this.repo.contactosDeClientes(companyId),
+        this.repo.suprimidos(companyId),
+      ]);
     const hoy = new Date().toISOString().slice(0, 10);
     const contar = (filtro: FiltroSegmento) =>
-      resolverSegmento(clientes, cotizaciones, filtro, hoy).filter(
+      resolverSegmento(clientes, cotizaciones, contactos, filtro, hoy).filter(
         (d) => !suprimidos.has(d.email.toLowerCase()),
       ).length;
     return {
