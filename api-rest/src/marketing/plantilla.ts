@@ -185,20 +185,16 @@ export const validarAsuntoDeReenvio = (
   return { asunto: limpio.slice(0, 200) };
 };
 
-/** Reemplaza {nombre} y {empresa} respetando texto plano → HTML simple. */
+/** Reemplaza {nombre} y {empresa}. SIN escape acá: el asunto es texto
+ *  plano (Resend lo quiere crudo) y los sumideros HTML (título, cuerpo,
+ *  preencabezado) escapan ellos — escapar dos veces mostraba &amp;. */
 export const personalizar = (
   texto: string,
   destinatario: { name?: string | null; empresa?: string | null },
 ): string =>
   texto
-    .replaceAll(
-      '{nombre}',
-      esc(destinatario.name?.trim() || 'estimado cliente'),
-    )
-    .replaceAll(
-      '{empresa}',
-      esc(destinatario.empresa?.trim() || 'su organización'),
-    );
+    .replaceAll('{nombre}', destinatario.name?.trim() || 'estimado cliente')
+    .replaceAll('{empresa}', destinatario.empresa?.trim() || 'su organización');
 
 /** El cuerpo escrito en texto plano se vuelve párrafos HTML. */
 export const cuerpoAHtml = (cuerpo: string): string =>

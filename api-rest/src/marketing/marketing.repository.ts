@@ -54,6 +54,8 @@ export class MarketingRepository {
    *  super-admin y backup): TODA lectura sin tope conocido se pagina.
    *  Sin esto, al cruzar las 1000 filas los conteos y los envíos
    *  quedarían silenciosamente cortos (revisión 26-08). */
+  // NOTA: cada consulta DEBE llevar .order(...) estable — sin orden,
+  // las páginas pueden repetir o saltarse filas entre viajes.
   private async todas<T>(
     consulta: (
       desde: number,
@@ -91,6 +93,7 @@ export class MarketingRepository {
         .from('marketing_contacts')
         .select('audiencia, email')
         .eq('company_id', companyId)
+        .order('id', { ascending: true })
         .range(d, h),
     );
   }
@@ -154,23 +157,33 @@ export class MarketingRepository {
         .select('email, name, empresa')
         .eq('company_id', companyId)
         .eq('audiencia', audiencia)
+        .order('id', { ascending: true })
         .range(d, h),
     );
   }
 
   /** La audiencia dinámica: clientes por tipo, solo con correo. */
   async clientesPorTipo(companyId: number, tipos: string[]) {
-    const { data, error } = await this.supabase.client
-      .from('clients')
-      .select('email, name, client_type')
-      .eq('company_id', companyId)
-      .in('client_type', tipos)
-      .not('email', 'is', null)
-      .neq('email', '');
-    if (error) throw error;
-    return (data as { email: string; name: string; client_type: string }[]).map(
-      (c) => ({ email: c.email, name: c.name, empresa: c.name }),
+    const filas = await this.todas<{
+      email: string;
+      name: string;
+      client_type: string;
+    }>((d, h) =>
+      this.supabase.client
+        .from('clients')
+        .select('email, name, client_type')
+        .eq('company_id', companyId)
+        .in('client_type', tipos)
+        .not('email', 'is', null)
+        .neq('email', '')
+        .order('id', { ascending: true })
+        .range(d, h),
     );
+    return filas.map((c) => ({
+      email: c.email,
+      name: c.name,
+      empresa: c.name,
+    }));
   }
 
   async tiposDeCliente(companyId: number) {
@@ -208,6 +221,7 @@ export class MarketingRepository {
         .from('clients')
         .select('id, name, email, client_type, contact_person')
         .eq('company_id', companyId)
+        .order('id', { ascending: true })
         .range(d, h),
     );
   }
@@ -226,6 +240,7 @@ export class MarketingRepository {
         .eq('company_id', companyId)
         .not('email', 'is', null)
         .neq('email', '')
+        .order('id', { ascending: true })
         .range(d, h),
     );
   }
@@ -245,6 +260,7 @@ export class MarketingRepository {
           'client_id, quotation_status, event_date, total_amount, event_type, created_at',
         )
         .eq('company_id', companyId)
+        .order('id', { ascending: true })
         .range(d, h),
     );
   }
@@ -282,19 +298,21 @@ export class MarketingRepository {
   }
 
   async resultadosDe(campaignId: number, companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('marketing_sends')
-      .select('estado, opened_at, clicked_at, bounced_at, reenviado_at')
-      .eq('campaign_id', campaignId)
-      .eq('company_id', companyId);
-    if (error) throw error;
-    const filas = (data ?? []) as {
+    const filas = await this.todas<{
       estado: string;
       opened_at: string | null;
       clicked_at: string | null;
       bounced_at: string | null;
       reenviado_at: string | null;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('marketing_sends')
+        .select('estado, opened_at, clicked_at, bounced_at, reenviado_at')
+        .eq('campaign_id', campaignId)
+        .eq('company_id', companyId)
+        .order('id', { ascending: true })
+        .range(d, h),
+    );
     return {
       enviados: filas.filter((f) => f.estado === 'enviado').length,
       abiertos: filas.filter((f) => f.opened_at).length,
@@ -306,22 +324,24 @@ export class MarketingRepository {
 
   /** Los que NO abrieron y aún no reciben la segunda pasada. */
   async sinAbrirDe(campaignId: number, companyId: number) {
-    const { data, error } = await this.supabase.client
-      .from('marketing_sends')
-      .select('id, email, name, empresa')
-      .eq('campaign_id', campaignId)
-      .eq('company_id', companyId)
-      .eq('estado', 'enviado')
-      .is('opened_at', null)
-      .is('bounced_at', null)
-      .is('reenviado_at', null);
-    if (error) throw error;
-    return data as {
+    return this.todas<{
       id: number;
       email: string;
       name: string | null;
       empresa: string | null;
-    }[];
+    }>((d, h) =>
+      this.supabase.client
+        .from('marketing_sends')
+        .select('id, email, name, empresa')
+        .eq('campaign_id', campaignId)
+        .eq('company_id', companyId)
+        .eq('estado', 'enviado')
+        .is('opened_at', null)
+        .is('bounced_at', null)
+        .is('reenviado_at', null)
+        .order('id', { ascending: true })
+        .range(d, h),
+    );
   }
 
   async marcarReenviados(ids: number[]) {
@@ -334,14 +354,17 @@ export class MarketingRepository {
   }
 
   async suprimidos(companyId: number): Promise<Set<string>> {
-    const { data, error } = await this.supabase.client
-      .from('marketing_suppressions')
-      .select('email')
-      .eq('company_id', companyId);
-    if (error) throw error;
-    return new Set(
-      ((data ?? []) as { email: string }[]).map((s) => s.email.toLowerCase()),
+    // Paginado (barredora 26-08): con >1000 bajas truncadas, se les
+    // volvería a escribir a personas que se dieron de baja.
+    const filas = await this.todas<{ email: string }>((d, h) =>
+      this.supabase.client
+        .from('marketing_suppressions')
+        .select('email')
+        .eq('company_id', companyId)
+        .order('id', { ascending: true })
+        .range(d, h),
     );
+    return new Set(filas.map((s) => s.email.toLowerCase()));
   }
 
   async suprimir(companyId: number, email: string, motivo: 'baja' | 'rebote') {
@@ -402,14 +425,15 @@ export class MarketingRepository {
   }
 
   async enviosDe(campaignId: number): Promise<Set<string>> {
-    const { data, error } = await this.supabase.client
-      .from('marketing_sends')
-      .select('email')
-      .eq('campaign_id', campaignId);
-    if (error) throw error;
-    return new Set(
-      ((data ?? []) as { email: string }[]).map((s) => s.email.toLowerCase()),
+    const filas = await this.todas<{ email: string }>((d, h) =>
+      this.supabase.client
+        .from('marketing_sends')
+        .select('email')
+        .eq('campaign_id', campaignId)
+        .order('id', { ascending: true })
+        .range(d, h),
     );
+    return new Set(filas.map((s) => s.email.toLowerCase()));
   }
 
   async registrarEnvios(rows: Record<string, unknown>[]) {

@@ -395,12 +395,10 @@ function VerAudiencia({
   readonly onCerrar: () => void;
 }) {
   const consulta = useQuery({
-    // La guardada comparte caché con la previa del constructor: mismo
-    // filtro, misma consulta — el ojito no repite el viaje (revisión).
-    queryKey:
-      viendo.tipo === "guardada"
-        ? ["marketing", "segmento-previa", JSON.stringify(viendo.filtro)]
-        : ["marketing", "ver-audiencia", viendo.nombre],
+    // Caché PROPIO: compartir clave con la previa del constructor
+    // parecía gratis pero las dos consultas devuelven FORMAS distintas
+    // (muestra vs filas) y chocaban — la barredora lo pilló.
+    queryKey: ["marketing", "ver-audiencia", viendo.tipo, viendo.nombre],
     queryFn: async () => {
       if (viendo.tipo === "guardada") {
         const r = await previaSegmento(viendo.filtro);

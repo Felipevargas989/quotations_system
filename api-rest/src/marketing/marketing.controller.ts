@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
@@ -62,9 +63,14 @@ export class MarketingController {
     // replyTo (revisión 26-08). El pordefecto queda solo para el caso
     // real de "la empresa no existe".
     const { data, error } = await this.companies.findOne(companyId);
-    if (error) {
+    // PGRST116 = cero filas con .single(): empresa inexistente de
+    // verdad → marca por defecto. Cualquier otro error corta el envío
+    // con un mensaje que el administrador entiende (503), no un 500.
+    if (error && error.code !== 'PGRST116') {
       this.logger.error(`empresaDe(${companyId}): ${error.message}`);
-      throw new Error('No se pudo cargar la marca de la empresa');
+      throw new ServiceUnavailableException(
+        'No se pudo cargar la marca de la empresa; intenta de nuevo',
+      );
     }
     {
       if (!data) return pordefecto;
@@ -210,7 +216,10 @@ export class MarketingController {
    *  firma Svix se verifica cuando RESEND_WEBHOOK_SECRET está puesto;
    *  y un evento solo marca sellos si su resend_id existe acá. */
   @Public()
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  // Freno holgado: una campaña de cientos dispara cientos de avisos en
+  // el primer minuto y un 429 botaría rebotes reales (la barredora lo
+  // pilló). La puerta de verdad es la FIRMA, no la velocidad.
+  @Throttle({ default: { limit: 1200, ttl: 60_000 } })
   @Post('webhook')
   webhook(
     @Req() req: { rawBody?: Buffer },

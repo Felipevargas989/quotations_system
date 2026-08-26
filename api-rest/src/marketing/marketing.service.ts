@@ -92,7 +92,11 @@ export class MarketingService {
       return null;
     }
     if (!companyId || !email.includes('@')) return null;
-    if (this.firmaDeBaja(companyId, email) !== t) return null;
+    const esperada = Buffer.from(this.firmaDeBaja(companyId, email));
+    const dada = Buffer.from(t);
+    if (dada.length !== esperada.length || !timingSafeEqual(dada, esperada)) {
+      return null;
+    }
     return { companyId, email };
   }
 

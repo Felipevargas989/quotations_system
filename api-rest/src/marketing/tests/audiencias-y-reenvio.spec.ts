@@ -75,10 +75,12 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     iconosBase: 'https://www.eventi-app.com',
   };
 
-  it('encabezado en el color primario con el nombre en el secundario, y la baja siempre', () => {
+  it('encabezado en el color primario con nombre legible, y la baja siempre', () => {
     const html = plantillaCampana(base);
     expect(html).toContain(`background-color:#213A33`); // el encabezado
-    expect(html).toContain(`color:#E9E2D3`); // el nombre sobre el primario
+    // primario oscuro → el nombre elige blanco por luminancia:
+    expect(html).toContain('color:#ffffff;margin:0;letter-spacing');
+    expect(html).toContain(`background-color:#E9E2D3`); // la franja crema
     expect(html).toContain(base.bajaUrl);
     expect(html).toContain('Dejar de recibir estos correos');
     expect(html).not.toContain('linear-gradient'); // los degradados murieron en Outlook
