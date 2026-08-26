@@ -127,3 +127,16 @@ de la ficha. La regla de una vez sigue siendo POR CORREO, igual que
 las bajas. Además el sobre lleva replyTo al "Responder a" de
 Configuración → Notificaciones, y las importadas muestran el conteo
 con bajas descontadas y visibles ("2 contactos · 1 baja").
+
+## Pendiente menor de DNS (26-08, sin urgencia)
+
+En `send.eventi-app.com` conviven DOS registros TXT SPF (uno fusionado
+correcto + un duplicado corto que GoDaddy protege y no deja borrar ni
+editar — es de un servicio propio de ellos, `_spfm`). Dos SPF en el
+mismo nombre se invalidan entre sí; el correo llega igual porque DKIM
+firma y DMARC pasa por ese lado. Estado idéntico al que existía desde
+julio: higiene, no urgencia. Resolución futura: llamar a soporte
+GoDaddy para que quiten su registro `send` corto (el fusionado ya
+contiene ambos permisos). DMARC quedó único (p=quarantine) y el
+subdominio de rastreo track.eventi-app.com verificado con aperturas y
+clics encendidos.
