@@ -349,7 +349,7 @@ export default function CampanaFichaPage() {
       )}
 
       {/* Dos columnas: personas a la izquierda, el correo a la derecha */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_460px] gap-4 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_660px] gap-4 items-start">
         {enviada ? (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -498,12 +498,16 @@ export default function CampanaFichaPage() {
             Asunto: {vista.data?.asunto ?? c.asunto}
           </p>
           {vista.data ? (
-            <iframe
-              title="Vista del correo"
-              sandbox=""
-              srcDoc={vista.data.html}
-              className="w-full h-[560px] border border-gray-200 rounded-lg bg-white"
-            />
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              {/* 600px = el ancho REAL del correo en la bandeja: se
+                  muestra tal cual, sin aplastarlo (Felipe 26-08). */}
+              <iframe
+                title="Vista del correo"
+                sandbox=""
+                srcDoc={vista.data.html}
+                className="w-[600px] min-w-[600px] h-[640px] bg-white"
+              />
+            </div>
           ) : (
             <p className="text-sm text-gray-500">Cargando la vista…</p>
           )}
