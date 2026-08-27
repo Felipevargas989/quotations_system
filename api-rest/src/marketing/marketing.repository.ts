@@ -286,15 +286,23 @@ export class MarketingRepository {
   async marcarEvento(
     resendId: string,
     cambios: Record<string, unknown>,
-  ): Promise<{ company_id: number; email: string } | null> {
+  ): Promise<{
+    company_id: number;
+    email: string;
+    campaign_id: number;
+  } | null> {
     const { data, error } = await this.supabase.client
       .from('marketing_sends')
       .update(cambios)
       .eq('resend_id', resendId)
-      .select('company_id, email')
+      .select('company_id, email, campaign_id')
       .maybeSingle();
     if (error) throw error;
-    return data as { company_id: number; email: string } | null;
+    return data as {
+      company_id: number;
+      email: string;
+      campaign_id: number;
+    } | null;
   }
 
   async resultadosDe(campaignId: number, companyId: number) {
@@ -392,14 +400,40 @@ export class MarketingRepository {
     return new Set(filas.map((s) => s.email.toLowerCase()));
   }
 
-  async suprimir(companyId: number, email: string, motivo: 'baja' | 'rebote') {
+  async suprimir(
+    companyId: number,
+    email: string,
+    motivo: 'baja' | 'rebote',
+    campaignId?: number,
+  ) {
     const { error } = await this.supabase.client
       .from('marketing_suppressions')
-      .upsert([{ company_id: companyId, email: email.toLowerCase(), motivo }], {
-        onConflict: 'company_id,email',
-        ignoreDuplicates: true,
-      });
+      .upsert(
+        [
+          {
+            company_id: companyId,
+            email: email.toLowerCase(),
+            motivo,
+            // De qué campaña vino (migración 98); null en links viejos.
+            ...(campaignId ? { campaign_id: campaignId } : {}),
+          },
+        ],
+        { onConflict: 'company_id,email', ignoreDuplicates: true },
+      );
     if (error) throw error;
+  }
+
+  /** Los correos que se dieron de BAJA desde una campaña (deserción
+   *  voluntaria; los rebotes van aparte, son higiene). */
+  async bajasDe(campaignId: number, companyId: number): Promise<string[]> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_suppressions')
+      .select('email')
+      .eq('company_id', companyId)
+      .eq('campaign_id', campaignId)
+      .eq('motivo', 'baja');
+    if (error) throw error;
+    return ((data ?? []) as { email: string }[]).map((f) => f.email);
   }
 
   async crearCampana(row: Record<string, unknown>) {

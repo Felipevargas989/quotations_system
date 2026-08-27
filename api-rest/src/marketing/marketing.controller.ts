@@ -286,10 +286,12 @@ export class MarketingController {
     @Query('c') c: string,
     @Query('e') e: string,
     @Query('t') t: string,
+    @Query('ca') ca?: string,
   ) {
     const valida = this.marketing.bajaValida(c, e, t);
     if (!valida) return 'El enlace no es válido.';
-    const destino = `baja?c=${encodeURIComponent(c)}&e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;
+    const conCa = ca && /^\d+$/.test(ca) ? `&ca=${encodeURIComponent(ca)}` : '';
+    const destino = `baja?c=${encodeURIComponent(c)}&e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}${conCa}`;
     return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dejar de recibir correos</title></head>
 <body style="margin:0;padding:40px 16px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;color:#111827;">
   <div style="max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:32px 24px;">
@@ -309,8 +311,9 @@ export class MarketingController {
     @Query('c') c: string,
     @Query('e') e: string,
     @Query('t') t: string,
+    @Query('ca') ca?: string,
   ) {
-    const ok = await this.marketing.procesarBaja(c, e, t);
+    const ok = await this.marketing.procesarBaja(c, e, t, ca);
     return ok
       ? 'Listo: no recibirás más correos de este tipo. Puedes cerrar esta página.'
       : 'El enlace no es válido.';

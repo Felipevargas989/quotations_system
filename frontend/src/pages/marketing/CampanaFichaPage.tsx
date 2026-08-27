@@ -341,14 +341,16 @@ export default function CampanaFichaPage() {
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-xs font-medium text-gray-600">2ª pasada</p>
-            <p className="text-xl font-bold text-gray-700 tabular-nums">
-              {k.reenviados}
+            <p className="text-xs font-medium text-gray-600">Bajas</p>
+            <p
+              className={`text-xl font-bold tabular-nums ${
+                k.tasa_baja > 1 ? "text-red-600" : "text-gray-700"
+              }`}
+            >
+              {k.bajas}
             </p>
             <p className="text-xs text-gray-400">
-              {c.reenviada_con_asunto
-                ? `con asunto "${c.reenviada_con_asunto}"`
-                : "reenvíos a no abiertos"}
+              {k.tasa_baja}% de deserción · sana &lt;0,5%
             </p>
           </div>
         </div>
@@ -508,6 +510,14 @@ export default function CampanaFichaPage() {
                         title="Recibió la segunda pasada"
                       >
                         2ª
+                      </span>
+                    )}
+                    {f.baja && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-[10px]"
+                        title="Se dio de baja desde este correo: no recibirá más campañas"
+                      >
+                        se bajó
                       </span>
                     )}
                   </span>
