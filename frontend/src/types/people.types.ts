@@ -262,6 +262,15 @@ export interface LiquidacionPendiente {
 }
 
 /** De dónde viene la plata de una línea: un evento, o el restaurante. */
+/** Un día de una línea, para el desglose al pinchar la cifra. */
+export interface DiaDeLinea {
+  day: string | null;
+  quotation_id: string | null;
+  area: string | null;
+  jornada: number;
+  propina: number;
+}
+
 export interface OrigenDeLinea {
   /** null = días sueltos de restaurante. */
   quotation_id: string | null;
@@ -282,6 +291,7 @@ export interface LineaDeNomina {
   propinas: number;
   total: number;
   detalle: OrigenDeLinea[];
+  dias: DiaDeLinea[];
 }
 
 /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */

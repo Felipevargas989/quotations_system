@@ -1,13 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Modal from "../../components/Modal";
 import Tooltip from "../../components/Tooltip";
 import { previaPreliminar } from "../../services/people.service";
 import { eventosQueryOptions } from "./FichasTab";
-import type { LineaDeNomina, PreviaNomina } from "../../types/people.types";
+import type { DiaDeLinea, LineaDeNomina, PreviaNomina } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { nombreBanco, etiquetaTipoCuenta } from "../../utils/bancos";
 import { formatearRut } from "../../utils/rut";
+import { formatFechaEvento } from "../../utils/dates";
 
 /**
  * EL CUERPO DE LA REVISIÓN — compartido (18-08).
@@ -62,6 +64,12 @@ export default function CuerpoDeRevision({
     };
   };
 
+  // EL DESGLOSE AL PINCHAR (Felipe 27-08): el globito es el vistazo;
+  // el clic abre el mismo desglose día a día de la pantalla de pago.
+  const [viendoDetalle, setViendoDetalle] = useState<LineaDeNomina | null>(
+    null,
+  );
+
   /** La cifra con su explicación al pasar el mouse. */
   const cifra = (
     linea: LineaDeNomina,
@@ -94,7 +102,14 @@ export default function CuerpoDeRevision({
           </span>
         }
       >
-        <span className={clase}>{clp(monto)}</span>
+        <button
+          type="button"
+          onClick={() => setViendoDetalle(linea)}
+          title="Ver el desglose día a día"
+          className={clase}
+        >
+          {clp(monto)}
+        </button>
       </Tooltip>
     );
   };
@@ -217,7 +232,14 @@ export default function CuerpoDeRevision({
               </tfoot>
             </table>
           </div>
-        </div>
+        {viendoDetalle && (
+        <DetalleDeLinea
+          linea={viendoDetalle}
+          nombreOrigen={nombreOrigen}
+          onCerrar={() => setViendoDetalle(null)}
+        />
+      )}
+      </div>
       )}
     </>
   );
@@ -284,6 +306,83 @@ export function RevisionAntesDeLiquidar({
       }
     >
       <CuerpoDeRevision previa={previa} isLoading={isLoading} error={error} />
+    </Modal>
+  );
+}
+
+/** El mismo desglose día a día de la pantalla de pago (Felipe 27-08):
+ *  secciones como banda con subtotal, cada día con su evento y área. */
+function DetalleDeLinea({
+  linea,
+  nombreOrigen,
+  onCerrar,
+}: {
+  readonly linea: LineaDeNomina;
+  readonly nombreOrigen: (qid: string | null) => string;
+  readonly onCerrar: () => void;
+}) {
+  const fecha = (d: string | null) => {
+    if (!d) return "Sin fecha";
+    const t = formatFechaEvento(d, "largo", d);
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  };
+  const dias = linea.dias
+    .slice()
+    .sort((a, b) => (a.day ?? "").localeCompare(b.day ?? ""));
+  const fila = (d: DiaDeLinea, monto: number, k: string) => (
+    <li key={k} className="flex items-baseline justify-between gap-3 py-1.5">
+      <span className="min-w-0">
+        <span className="block text-sm text-gray-900">{fecha(d.day)}</span>
+        <span className="block text-xs text-gray-500 truncate">
+          {nombreOrigen(d.quotation_id)}
+          {d.area && ` · ${d.area}`}
+        </span>
+      </span>
+      <span className="tabular-nums text-sm text-gray-900 whitespace-nowrap">
+        {clp(monto)}
+      </span>
+    </li>
+  );
+  const seccion = (
+    titulo: string,
+    subtotal: number,
+    filas: readonly ReactNode[],
+  ) =>
+    subtotal > 0 && (
+      <section className="mt-4 first:mt-0">
+        <h4 className="flex items-center justify-between bg-gray-100 rounded-md px-2.5 py-1.5">
+          <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+            {titulo}
+          </span>
+          <span className="tabular-nums text-sm font-semibold text-gray-900">
+            {clp(subtotal)}
+          </span>
+        </h4>
+        <ul className="divide-y divide-gray-100">{filas}</ul>
+      </section>
+    );
+  return (
+    <Modal titulo={linea.nombre} ancho="max-w-md" onCerrar={onCerrar}>
+      {seccion(
+        "Jornadas",
+        linea.jornadas,
+        dias
+          .filter((d) => d.jornada > 0)
+          .map((d) => fila(d, d.jornada, `j-${d.quotation_id ?? "dia"}-${d.day ?? ""}`)),
+      )}
+      {seccion(
+        "Propinas",
+        linea.propinas,
+        dias
+          .filter((d) => d.propina > 0)
+          .map((d) => fila(d, d.propina, `p-${d.quotation_id ?? "dia"}-${d.day ?? ""}`)),
+      )}
+      <div className="flex items-center justify-between border-t border-gray-300 mt-4 pt-3">
+        <span className="text-base font-bold text-gray-900">Total</span>
+        <span className="tabular-nums text-base font-bold text-gray-900">
+          {clp(linea.total)}
+        </span>
+      </div>
     </Modal>
   );
 }

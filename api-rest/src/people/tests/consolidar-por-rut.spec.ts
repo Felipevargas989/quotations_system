@@ -146,3 +146,43 @@ describe('consolidarPorRut', () => {
     expect(r.map((l) => l.nombre)).toEqual(['Ana', 'Zoila']);
   });
 });
+
+describe('el desglose día a día para el pinchazo (27-08)', () => {
+  it('la fecha con jornada Y propina queda en UNA fila con ambos montos', () => {
+    const filas = [
+      fila({
+        person_id: 1,
+        day: '2026-08-20',
+        amount: 50000,
+        quotation_id: 'q1',
+      }),
+    ];
+    const propinas = [
+      fila({
+        person_id: 1,
+        day: '2026-08-20',
+        tip_amount: 6542,
+        quotation_id: 'q1',
+      }),
+    ];
+    const [linea] = consolidarPorRut(filas, propinas);
+    expect(linea.dias).toHaveLength(1);
+    expect(linea.dias[0]).toMatchObject({
+      day: '2026-08-20',
+      quotation_id: 'q1',
+      jornada: 50000,
+      propina: 6542,
+    });
+  });
+
+  it('trae el área del día cuando la consulta la incluye', () => {
+    const filas = [
+      {
+        ...fila({ person_id: 1, day: '2026-08-21', amount: 30000 }),
+        management_resources: { id: 7, name: 'Cocina' },
+      },
+    ];
+    const [linea] = consolidarPorRut(filas, []);
+    expect(linea.dias[0].area).toBe('Cocina');
+  });
+});
