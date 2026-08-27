@@ -200,6 +200,16 @@ export const crearCampanaMarketing = async (dto: {
     dto,
   )) as CampanaMarketing;
 
+export const editarCampanaMarketing = async (
+  id: number,
+  dto: { asunto: string; titulo: string; cuerpo: string; preencabezado?: string },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}`,
+    "PATCH",
+    dto,
+  )) as CampanaMarketing;
+
 export const destinatariosDeCampana = async (id: number) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas/${String(id)}/destinatarios`,

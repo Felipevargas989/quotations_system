@@ -96,6 +96,27 @@ export class CrearAudienciaDto {
   filtro: FiltroSegmentoDto;
 }
 
+/** Editar un BORRADOR desde su ficha (Felipe 26-08): solo contenido.
+ *  Una campaña enviada es registro histórico y no se toca. */
+export class EditarCampanaDto {
+  @IsString()
+  @MaxLength(200)
+  asunto: string;
+
+  @IsString()
+  @MaxLength(200)
+  titulo: string;
+
+  @IsString()
+  @MaxLength(8000)
+  cuerpo: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  preencabezado?: string;
+}
+
 export class CrearCampanaDto {
   @IsString()
   @MaxLength(120)

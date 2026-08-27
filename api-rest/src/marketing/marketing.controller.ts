@@ -5,6 +5,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -19,6 +20,7 @@ import type { User } from 'src/users/entities/user.entity';
 import {
   CrearAudienciaDto,
   CrearCampanaDto,
+  EditarCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
   ReenviarDto,
@@ -157,6 +159,17 @@ export class MarketingController {
   crear(@Body() dto: CrearCampanaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /marketing/campanas ${dto.nombre}`);
     return this.marketing.crearCampana(dto, user.company_id);
+  }
+
+  /** Editar un borrador desde su ficha; el motor invalida la prueba. */
+  @Patch('campanas/:id')
+  editar(
+    @Param('id') id: string,
+    @Body() dto: EditarCampanaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /marketing/campanas/${id}`);
+    return this.marketing.editarCampana(+id, user.company_id, dto);
   }
 
   @Get('campanas/:id/destinatarios')
