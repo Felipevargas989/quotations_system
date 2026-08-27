@@ -72,6 +72,8 @@ export interface DestinatarioDeCampana {
   clicked_at: string | null;
   bounced_at: string | null;
   reenviado_at: string | null;
+  /** Se dio de baja DESDE esta campaña (deserción voluntaria). */
+  baja: boolean;
 }
 
 export interface KpisDeCampana {
@@ -86,6 +88,8 @@ export interface KpisDeCampana {
   rebotes: number;
   tasa_rebote: number;
   reenviados: number;
+  bajas: number;
+  tasa_baja: number;
 }
 
 export const detalleDeCampana = async (id: number) =>

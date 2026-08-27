@@ -65,9 +65,12 @@ export class MarketingService {
     return 'https://api-rest-production-d404.up.railway.app';
   }
 
-  urlDeBaja(companyId: number, email: string): string {
+  urlDeBaja(companyId: number, email: string, campaignId?: number): string {
     const e = Buffer.from(email.toLowerCase()).toString('base64url');
-    return `${this.baseApi()}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}`;
+    // ca va FUERA de la firma: es atribución (de qué campaña vino la
+    // baja), no seguridad — así los links viejos siguen siendo válidos.
+    const ca = campaignId ? `&ca=${String(campaignId)}` : '';
+    return `${this.baseApi()}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}${ca}`;
   }
 
   /** Valida el enlace de baja SIN ejecutarla. Endurecido (revisión
@@ -101,10 +104,16 @@ export class MarketingService {
     return { companyId, email };
   }
 
-  async procesarBaja(c?: string, e?: string, t?: string): Promise<boolean> {
+  async procesarBaja(
+    c?: string,
+    e?: string,
+    t?: string,
+    ca?: string,
+  ): Promise<boolean> {
     const valida = this.bajaValida(c, e, t);
     if (!valida) return false;
-    await this.repo.suprimir(valida.companyId, valida.email, 'baja');
+    const campaignId = ca && /^\d+$/.test(ca) ? Number(ca) : undefined;
+    await this.repo.suprimir(valida.companyId, valida.email, 'baja', campaignId);
     this.logger.info(`baja de marketing: ${valida.email}`);
     return true;
   }
@@ -397,7 +406,7 @@ export class MarketingService {
         marca,
         titulo,
         cuerpoHtml: cuerpo,
-        bajaUrl: this.urlDeBaja(companyId, destinatario.email),
+        bajaUrl: this.urlDeBaja(companyId, destinatario.email, campana.id),
         cotizarUrl: this.urlDeCotizar(companyId),
         iconosBase: this.baseFrontend(),
         preencabezado: campana.preencabezado
@@ -410,9 +419,9 @@ export class MarketingService {
   /** El estándar de baja de los grandes: Gmail/Outlook muestran su
    *  propio botón "Darse de baja" leyendo estas cabeceras, y el POST
    *  de un clic cae en la misma ruta firmada. */
-  private cabecerasDeBaja(companyId: number, email: string) {
+  private cabecerasDeBaja(companyId: number, email: string, campaignId?: number) {
     return {
-      'List-Unsubscribe': `<${this.urlDeBaja(companyId, email)}>`,
+      'List-Unsubscribe': `<${this.urlDeBaja(companyId, email, campaignId)}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     };
   }
@@ -446,7 +455,7 @@ export class MarketingService {
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
-      headers: this.cabecerasDeBaja(companyId, correoUsuario),
+      headers: this.cabecerasDeBaja(companyId, correoUsuario, id),
       ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     });
     if (error) throw new BadRequestException(`Resend: ${error.message}`);
@@ -538,7 +547,12 @@ export class MarketingService {
     // EL REBOTE DURO SE SUPRIME SOLO (regla de la Fase 2): no se le
     // insiste nunca más a una casilla que no existe o que reclamó.
     if (fila && sello.bounced_at) {
-      await this.repo.suprimir(fila.company_id, fila.email, 'rebote');
+      await this.repo.suprimir(
+        fila.company_id,
+        fila.email,
+        'rebote',
+        fila.campaign_id,
+      );
       this.logger.info(`rebote suprimido: ${fila.email}`);
     }
     return { ok: true };
@@ -556,7 +570,11 @@ export class MarketingService {
   async detalleDe(id: number, companyId: number) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
-    const filas = await this.repo.destinatariosDetalle(id, companyId);
+    const [filas, bajas] = await Promise.all([
+      this.repo.destinatariosDetalle(id, companyId),
+      this.repo.bajasDe(id, companyId),
+    ]);
+    const seBajaron = new Set(bajas);
     const enviados = filas.filter((f) => f.estado === 'enviado').length;
     const rebotes = filas.filter((f) => f.bounced_at).length;
     const entregados = Math.max(0, enviados - rebotes);
@@ -579,8 +597,13 @@ export class MarketingService {
         rebotes,
         tasa_rebote: pct(rebotes, enviados),
         reenviados,
+        bajas: seBajaron.size,
+        tasa_baja: pct(seBajaron.size, entregados),
       },
-      destinatarios: filas,
+      destinatarios: filas.map((f) => ({
+        ...f,
+        baja: seBajaron.has(f.email.toLowerCase()),
+      })),
     };
   }
 
@@ -658,7 +681,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
-          headers: this.cabecerasDeBaja(companyId, d.email),
+          headers: this.cabecerasDeBaja(companyId, d.email, id),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });
@@ -724,7 +747,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
-          headers: this.cabecerasDeBaja(companyId, d.email),
+          headers: this.cabecerasDeBaja(companyId, d.email, id),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });
