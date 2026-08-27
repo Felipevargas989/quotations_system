@@ -60,6 +60,50 @@ export class MarketingService {
     return { ok: true, eliminados };
   }
 
+  /** El lápiz: renombrar. Hacia un nombre ocupado se RECHAZA — nada
+   *  de fusiones silenciosas (índice único por audiencia). */
+  async renombrarImportada(companyId: number, nombre: string, nuevo: string) {
+    const limpio = nuevo?.trim();
+    if (!limpio) throw new BadRequestException('Falta el nombre nuevo');
+    if (limpio === nombre.trim()) return { ok: true };
+    const ocupado = await this.repo.contarImportada(companyId, limpio);
+    if (ocupado > 0) {
+      throw new BadRequestException('Ya existe una audiencia con ese nombre');
+    }
+    const movidos = await this.repo.renombrarImportada(
+      companyId,
+      nombre.trim(),
+      limpio,
+    );
+    if (movidos === 0) {
+      throw new NotFoundException('No existe esa audiencia importada');
+    }
+    return { ok: true, movidos };
+  }
+
+  async renombrarAudiencia(id: number, companyId: number, nombre: string) {
+    const limpio = nombre?.trim();
+    if (!limpio) throw new BadRequestException('Falta el nombre nuevo');
+    await this.repo.renombrarAudiencia(id, companyId, limpio);
+    return { ok: true };
+  }
+
+  async borrarContactoImportado(
+    companyId: number,
+    nombre: string,
+    email: string,
+  ) {
+    const borrados = await this.repo.borrarContactoImportado(
+      companyId,
+      nombre?.trim() ?? '',
+      email?.trim() ?? '',
+    );
+    if (borrados === 0) {
+      throw new NotFoundException('Ese contacto no está en la audiencia');
+    }
+    return { ok: true };
+  }
+
   async importarContactos(dto: ImportarContactosDto, companyId: number) {
     const validos: Record<string, unknown>[] = [];
     const invalidos: string[] = [];

@@ -2,13 +2,16 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
   ChevronRight,
   Eye,
   Mail,
+  Pencil,
   Search,
   Trash2,
   Upload,
   Users,
+  X,
 } from "lucide-react";
 import Modal from "../../components/Modal";
 import MultiSelect from "../../components/MultiSelect";
@@ -23,10 +26,13 @@ import {
   crearCampanaMarketing,
   eliminarAudienciaImportada,
   eliminarAudienciaMarketing,
+  eliminarContactoImportado,
   getAudienciasMarketing,
   getCampanasMarketing,
   importarContactosMarketing,
   previaSegmento,
+  renombrarAudienciaGuardada,
+  renombrarAudienciaImportada,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
 import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
@@ -227,6 +233,27 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
   const [borrando, setBorrando] = useState<number | null>(null);
+  // EL LÁPIZ (Felipe 27-08): renombrar en línea, ✓ para guardar.
+  const [renombrando, setRenombrando] = useState<
+    { tipo: "g"; id: number; valor: string } | { tipo: "i"; nombre: string; valor: string } | null
+  >(null);
+  const renombrar = useMutation({
+    mutationFn: () => {
+      if (!renombrando) return Promise.reject(new Error("nada que renombrar"));
+      return renombrando.tipo === "g"
+        ? renombrarAudienciaGuardada(renombrando.id, renombrando.valor.trim())
+        : renombrarAudienciaImportada(
+            renombrando.nombre,
+            renombrando.valor.trim(),
+          );
+    },
+    onSuccess: () => {
+      toast.success("Nombre cambiado");
+      setRenombrando(null);
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
   // Borrar una IMPORTADA (Felipe 27-08): mismo ritual de confirmar.
   const [borrandoImp, setBorrandoImp] = useState<string | null>(null);
   const eliminarImp = useMutation({
@@ -276,9 +303,41 @@ function Audiencias({
                 key={`g-${String(a.id)}`}
                 className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="min-w-0 truncate text-gray-900">
-                  {a.nombre}
-                </span>
+                {renombrando?.tipo === "g" && renombrando.id === a.id ? (
+                  <span className="flex items-center gap-1 min-w-0">
+                    <input
+                      value={renombrando.valor}
+                      onChange={(e) =>
+                        setRenombrando({ ...renombrando, valor: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") renombrar.mutate();
+                        if (e.key === "Escape") setRenombrando(null);
+                      }}
+                      autoFocus
+                      className="flex-1 min-w-0 border border-blue-300 rounded-lg px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => renombrar.mutate()}
+                      disabled={!renombrando.valor.trim() || renombrar.isPending}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-40"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRenombrando(null)}
+                      className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="min-w-0 truncate text-gray-900">
+                    {a.nombre}
+                  </span>
+                )}
                 <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   De tu base
                 </span>
@@ -286,6 +345,16 @@ function Audiencias({
                   {a.total} hoy
                 </span>
                 <span className="flex items-center justify-end gap-0.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRenombrando({ tipo: "g", id: a.id, valor: a.nombre })
+                  }
+                  title="Cambiar el nombre"
+                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -338,9 +407,42 @@ function Audiencias({
                 key={`i-${a.audiencia}`}
                 className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="min-w-0 truncate text-gray-900">
-                  {a.audiencia}
-                </span>
+                {renombrando?.tipo === "i" &&
+                renombrando.nombre === a.audiencia ? (
+                  <span className="flex items-center gap-1 min-w-0">
+                    <input
+                      value={renombrando.valor}
+                      onChange={(e) =>
+                        setRenombrando({ ...renombrando, valor: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") renombrar.mutate();
+                        if (e.key === "Escape") setRenombrando(null);
+                      }}
+                      autoFocus
+                      className="flex-1 min-w-0 border border-blue-300 rounded-lg px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => renombrar.mutate()}
+                      disabled={!renombrando.valor.trim() || renombrar.isPending}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-40"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRenombrando(null)}
+                      className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="min-w-0 truncate text-gray-900">
+                    {a.audiencia}
+                  </span>
+                )}
                 <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                   Importada
                 </span>
@@ -354,6 +456,20 @@ function Audiencias({
                   )}
                 </span>
                 <span className="flex items-center justify-end gap-0.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRenombrando({
+                      tipo: "i",
+                      nombre: a.audiencia,
+                      valor: a.audiencia,
+                    })
+                  }
+                  title="Cambiar el nombre"
+                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -586,6 +702,20 @@ function VerAudiencia({
   const total = consulta.data?.total ?? 0;
   const bajas = filas.filter((f) => f.baja).length;
 
+  // Sacar UN contacto (solo importadas): las guardadas son una
+  // pregunta viva — ahí mandan las bajas o el filtro, no una lista.
+  const qc = useQueryClient();
+  const [sacando, setSacando] = useState<string | null>(null);
+  const sacar = useMutation({
+    mutationFn: (email: string) =>
+      eliminarContactoImportado(viendo.nombre, email),
+    onSuccess: () => {
+      toast.success("Contacto fuera de la audiencia");
+      void qc.invalidateQueries({ queryKey: ["marketing"] });
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+
   return (
     <Modal
       titulo={viendo.nombre}
@@ -603,16 +733,17 @@ function VerAudiencia({
       ancho="max-w-2xl"
       onCerrar={onCerrar}
     >
-      <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+      <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr_auto] gap-x-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
         <span>Cliente</span>
         <span>Contacto</span>
         <span>Correo</span>
+        <span className="w-6" />
       </div>
       <ul className="divide-y divide-gray-100 text-xs">
         {filas.map((f) => (
           <li
             key={f.email}
-            className={`grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 py-1.5 ${
+            className={`grid grid-cols-[1.1fr_0.9fr_1.2fr_auto] items-center gap-x-2 py-1.5 ${
               f.baja ? "opacity-50" : ""
             }`}
           >
@@ -630,6 +761,40 @@ function VerAudiencia({
             <span className="truncate text-gray-400" title={f.email}>
               {f.email}
             </span>
+            {viendo.tipo === "importada" ? (
+              sacando === f.email ? (
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sacar.mutate(f.email);
+                      setSacando(null);
+                    }}
+                    className="px-1.5 py-0.5 bg-red-600 text-white rounded font-semibold hover:bg-red-700 text-[10px]"
+                  >
+                    Sacar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSacando(null)}
+                    className="px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 rounded text-[10px]"
+                  >
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSacando(f.email)}
+                  title="Sacar este contacto de la audiencia"
+                  className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )
+            ) : (
+              <span className="w-6" />
+            )}
           </li>
         ))}
         {total > filas.length && (

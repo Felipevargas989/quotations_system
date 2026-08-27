@@ -461,6 +461,58 @@ export class MarketingRepository {
     return (data ?? []).length;
   }
 
+  /** ¿Cuántos contactos tiene una importada? (para chequear choques
+   *  de nombre antes de renombrar). */
+  async contarImportada(companyId: number, nombre: string): Promise<number> {
+    const { count, error } = await this.supabase.client
+      .from('marketing_contacts')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('audiencia', nombre);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  async renombrarImportada(
+    companyId: number,
+    nombre: string,
+    nuevo: string,
+  ): Promise<number> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_contacts')
+      .update({ audiencia: nuevo })
+      .eq('company_id', companyId)
+      .eq('audiencia', nombre)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
+  }
+
+  async renombrarAudiencia(id: number, companyId: number, nombre: string) {
+    const { error } = await this.supabase.client
+      .from('marketing_audiences')
+      .update({ nombre })
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+  }
+
+  async borrarContactoImportado(
+    companyId: number,
+    nombre: string,
+    email: string,
+  ): Promise<number> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_contacts')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('audiencia', nombre)
+      .eq('email', email.toLowerCase())
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
+  }
+
   async crearCampana(row: Record<string, unknown>) {
     const { data, error } = await this.supabase.client
       .from('marketing_campaigns')
