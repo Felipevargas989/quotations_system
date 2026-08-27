@@ -195,6 +195,7 @@ export class MarketingController {
       +id,
       user.company_id,
       await this.empresaDe(user.company_id),
+      user.email,
     );
   }
 

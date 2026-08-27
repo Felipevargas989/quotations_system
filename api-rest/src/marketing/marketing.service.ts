@@ -676,7 +676,12 @@ export class MarketingService {
     return { reenviados: enviados };
   }
 
-  async enviarCampana(id: number, companyId: number, marca: MarcaEmpresa) {
+  async enviarCampana(
+    id: number,
+    companyId: number,
+    marca: MarcaEmpresa,
+    copiaPara?: string,
+  ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
     if (campana.estado !== 'borrador') {
@@ -696,6 +701,14 @@ export class MarketingService {
     const lista = resolverDestinatarios(candidatos, suprimidos, yaEnviados);
     if (lista.length === 0) {
       throw new BadRequestException('La audiencia quedó vacía');
+    }
+    // LA COPIA DEL CAPITÁN (Felipe 26-08): toda campaña real le llega
+    // también a quien la despachó, registrada como un enviado más —
+    // ve en su casilla EXACTAMENTE lo que recibieron los clientes.
+    // Si ya estaba en la audiencia, no se duplica.
+    const copia = copiaPara?.trim().toLowerCase();
+    if (copia && !lista.some((d) => d.email.toLowerCase() === copia)) {
+      lista.push({ email: copia, name: null, empresa: null });
     }
 
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
