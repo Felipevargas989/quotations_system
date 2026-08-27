@@ -186,17 +186,22 @@ export const getCampanasMarketing = async () =>
     "GET",
   )) as CampanaMarketing[];
 
+export interface AudienciaElegida {
+  audiencia_tipo: "clientes" | "importada" | "segmento";
+  audiencia_id?: number;
+  audiencia_ref?: string;
+  tipos_cliente?: string[];
+  filtro?: FiltroSegmento;
+}
+
 export const crearCampanaMarketing = async (dto: {
   nombre: string;
   asunto: string;
   titulo: string;
   cuerpo: string;
   preencabezado?: string;
-  audiencia_tipo: "clientes" | "importada" | "segmento";
-  audiencia_id?: number;
-  audiencia_ref?: string;
-  tipos_cliente?: string[];
-  filtro?: FiltroSegmento;
+  /** Selección múltiple (27-08): la unión, deduplicada por correo. */
+  audiencias: AudienciaElegida[];
 }) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas`,

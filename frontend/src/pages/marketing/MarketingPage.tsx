@@ -11,9 +11,10 @@ import {
   Users,
 } from "lucide-react";
 import Modal from "../../components/Modal";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import {
+  AudienciaElegida,
   AudienciasMarketing,
   CampanaMarketing,
   FiltroSegmento,
@@ -773,9 +774,10 @@ function NuevaCampana({
   const [preencabezado, setPreencabezado] = useState("");
   const [titulo, setTitulo] = useState("");
   const [cuerpo, setCuerpo] = useState("");
-  // LA CAMPAÑA NO ARMA AUDIENCIAS: ELIGE UNA (flujo que validó Felipe).
+  // LA CAMPAÑA NO ARMA AUDIENCIAS: las ELIGE — y desde el 27-08 puede
+  // elegir VARIAS (unión deduplicada: quien está en dos recibe UNO).
   // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
-  const [audSel, setAudSel] = useState("");
+  const [audSels, setAudSels] = useState<string[]>([]);
 
   // MERGE TAGS VISIBLES (Felipe 26-08): botoncitos que se insertan
   // donde está el cursor, en el último campo personalizable tocado.
@@ -811,24 +813,18 @@ function NuevaCampana({
     });
   };
 
-  const laAudiencia = () => {
-    if (audSel === "todos") {
+  const unaAudiencia = (sel: string): AudienciaElegida => {
+    if (sel === "todos") {
       return {
-        audiencia_tipo: "segmento" as const,
+        audiencia_tipo: "segmento",
         filtro: {} as FiltroSegmento,
         audiencia_ref: "Todos los clientes",
       };
     }
-    if (audSel.startsWith("g:")) {
-      return {
-        audiencia_tipo: "segmento" as const,
-        audiencia_id: Number(audSel.slice(2)),
-      };
+    if (sel.startsWith("g:")) {
+      return { audiencia_tipo: "segmento", audiencia_id: Number(sel.slice(2)) };
     }
-    return {
-      audiencia_tipo: "importada" as const,
-      audiencia_ref: audSel.slice(2),
-    };
+    return { audiencia_tipo: "importada", audiencia_ref: sel.slice(2) };
   };
 
   const crear = useMutation({
@@ -839,7 +835,7 @@ function NuevaCampana({
         titulo,
         cuerpo,
         preencabezado: preencabezado.trim() || undefined,
-        ...laAudiencia(),
+        audiencias: audSels.map(unaAudiencia),
       }),
     onSuccess: () => {
       toast.success(
@@ -853,23 +849,24 @@ function NuevaCampana({
   const opciones = [
     {
       value: "todos",
-      label: `Todos los clientes (${String(audiencias?.clientes_con_correo ?? 0)})`,
-      group: "De tu base (en vivo)",
+      label: `Todos los clientes (${String(audiencias?.clientes_con_correo ?? 0)} en vivo)`,
     },
     ...(audiencias?.guardadas ?? []).map((g) => ({
       value: `g:${String(g.id)}`,
-      label: `${g.nombre} (${String(g.total)} hoy)`,
-      group: "Tus audiencias guardadas (en vivo)",
+      label: `${g.nombre} (${String(g.total)} hoy, en vivo)`,
     })),
     ...(audiencias?.importadas ?? []).map((a) => ({
       value: `i:${a.audiencia}`,
-      label: `${a.audiencia} (${String(a.contactos)})`,
-      group: "Importadas",
+      label: `${a.audiencia} (${String(a.contactos)}, importada)`,
     })),
   ];
 
   const lista =
-    nombre.trim() && asunto.trim() && titulo.trim() && cuerpo.trim() && audSel;
+    nombre.trim() &&
+    asunto.trim() &&
+    titulo.trim() &&
+    cuerpo.trim() &&
+    audSels.length > 0;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
@@ -879,16 +876,17 @@ function NuevaCampana({
           ¿A quién va?
         </p>
         <div className="max-w-md">
-          <SelectWithSearch
+          <MultiSelect
             options={opciones}
-            value={audSel}
-            onChange={setAudSel}
-            placeholder="Elegir audiencia…"
+            value={audSels}
+            onChange={setAudSels}
+            placeholder="Elegir una o varias audiencias…"
           />
         </div>
         <p className="text-[11px] text-gray-400 mt-1">
-          Las audiencias se crean y guardan en la pestaña Audiencias. Las
-          "en vivo" se recalculan solas al momento de enviar.
+          Puedes elegir varias: se juntan y quien esté en dos recibe UN
+          solo correo. Las audiencias se crean en la pestaña Audiencias;
+          las "en vivo" se recalculan solas al momento de enviar.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -17,6 +17,7 @@ import { CurrentUser, Public } from 'src/auth';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
+import { BajasService } from './bajas.service';
 import {
   CrearAudienciaDto,
   CrearCampanaDto,
@@ -38,6 +39,7 @@ import type { MarcaEmpresa } from './plantilla';
 export class MarketingController {
   constructor(
     private readonly marketing: MarketingService,
+    private readonly bajas: BajasService,
     private readonly companies: CompaniesRepository,
     private readonly logger: PinoLogger,
   ) {
@@ -260,7 +262,7 @@ export class MarketingController {
   ) {
     const crudo = req.rawBody?.toString('utf8') ?? JSON.stringify(evento);
     if (
-      !this.marketing.verificarFirmaSvix(crudo, {
+      !this.bajas.verificarFirmaSvix(crudo, {
         id: svixId,
         timestamp: svixTs,
         firma: svixFirma,
@@ -269,7 +271,7 @@ export class MarketingController {
       this.logger.warn('webhook de Resend con firma inválida: ignorado');
       return { ok: false };
     }
-    return this.marketing.procesarEventoResend(evento);
+    return this.bajas.procesarEventoResend(evento);
   }
 
   // ---- La baja: pública, firmada, sin sesión ----
@@ -288,7 +290,7 @@ export class MarketingController {
     @Query('t') t: string,
     @Query('ca') ca?: string,
   ) {
-    const valida = this.marketing.bajaValida(c, e, t);
+    const valida = this.bajas.bajaValida(c, e, t);
     if (!valida) return 'El enlace no es válido.';
     const conCa = ca && /^\d+$/.test(ca) ? `&ca=${encodeURIComponent(ca)}` : '';
     const destino = `baja?c=${encodeURIComponent(c)}&e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}${conCa}`;
@@ -313,7 +315,7 @@ export class MarketingController {
     @Query('t') t: string,
     @Query('ca') ca?: string,
   ) {
-    const ok = await this.marketing.procesarBaja(c, e, t, ca);
+    const ok = await this.bajas.procesarBaja(c, e, t, ca);
     return ok
       ? 'Listo: no recibirás más correos de este tipo. Puedes cerrar esta página.'
       : 'El enlace no es válido.';

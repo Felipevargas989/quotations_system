@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsIn,
   IsInt,
@@ -117,6 +119,31 @@ export class EditarCampanaDto {
   preencabezado?: string;
 }
 
+/** Una audiencia elegida (selección múltiple, 27-08). */
+export class AudienciaElegidaDto {
+  @IsIn(['clientes', 'importada', 'segmento'])
+  audiencia_tipo: 'clientes' | 'importada' | 'segmento';
+
+  @IsOptional()
+  @IsInt()
+  audiencia_id?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  audiencia_ref?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tipos_cliente?: string[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FiltroSegmentoDto)
+  filtro?: FiltroSegmentoDto;
+}
+
 export class CrearCampanaDto {
   @IsString()
   @MaxLength(120)
@@ -140,8 +167,19 @@ export class CrearCampanaDto {
   @MaxLength(200)
   preencabezado?: string;
 
+  /** VARIAS audiencias (27-08): la unión, deduplicada por correo.
+   *  Si viene, manda; los campos sueltos de abajo son el camino viejo. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => AudienciaElegidaDto)
+  audiencias?: AudienciaElegidaDto[];
+
+  @IsOptional()
   @IsIn(['clientes', 'importada', 'segmento'])
-  audiencia_tipo: 'clientes' | 'importada' | 'segmento';
+  audiencia_tipo?: 'clientes' | 'importada' | 'segmento';
 
   /** Audiencia guardada elegida (tipo segmento). */
   @IsOptional()
