@@ -113,7 +113,12 @@ export class MarketingService {
     const valida = this.bajaValida(c, e, t);
     if (!valida) return false;
     const campaignId = ca && /^\d+$/.test(ca) ? Number(ca) : undefined;
-    await this.repo.suprimir(valida.companyId, valida.email, 'baja', campaignId);
+    await this.repo.suprimir(
+      valida.companyId,
+      valida.email,
+      'baja',
+      campaignId,
+    );
     this.logger.info(`baja de marketing: ${valida.email}`);
     return true;
   }
@@ -419,7 +424,11 @@ export class MarketingService {
   /** El estándar de baja de los grandes: Gmail/Outlook muestran su
    *  propio botón "Darse de baja" leyendo estas cabeceras, y el POST
    *  de un clic cae en la misma ruta firmada. */
-  private cabecerasDeBaja(companyId: number, email: string, campaignId?: number) {
+  private cabecerasDeBaja(
+    companyId: number,
+    email: string,
+    campaignId?: number,
+  ) {
     return {
       'List-Unsubscribe': `<${this.urlDeBaja(companyId, email, campaignId)}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
