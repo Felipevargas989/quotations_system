@@ -48,6 +48,7 @@ export const filasALineas = (
     String(x ?? "")
       .trim()
       .replace(/[,;\t]+/g, " ")
+      .replace(/\s+/g, " ")
       .slice(0, 200);
   const lineas: string[] = [];
   for (const f of datos) {
