@@ -28,6 +28,7 @@ import {
   previaSegmento,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
+import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
 import { formatISOUTCDateToString } from "../../utils/dates";
@@ -163,6 +164,24 @@ function Audiencias({
   const [etiqueta, setEtiqueta] = useState("");
   const [texto, setTexto] = useState("");
   const contactos = useMemo(() => parsearContactos(texto), [texto]);
+  // EL LECTOR DE ARCHIVOS (27-08): elige un .txt/.csv/.xlsx y cae en
+  // la caja de siempre — mismo conteo, misma validación, mismo botón.
+  const refArchivo = useRef<HTMLInputElement>(null);
+  const alElegirArchivo = async (input: HTMLInputElement) => {
+    const archivo = input.files?.[0];
+    input.value = "";
+    if (!archivo) return;
+    const r = await leerArchivoDeContactos(archivo);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    setTexto(r.texto);
+    if (!etiqueta.trim()) {
+      setEtiqueta(archivo.name.replace(/\.[^.]+$/, ""));
+    }
+    toast.success("Archivo leído: revisa el conteo y aprieta Importar");
+  };
 
   const importar = useMutation({
     mutationFn: () =>
@@ -380,11 +399,26 @@ function Audiencias({
           <Upload className="w-4 h-4 text-gray-500" /> Importar audiencia
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Pega desde Excel: una línea por contacto —{" "}
-          <span className="font-mono">correo, nombre, empresa</span> (nombre y
-          empresa optativos). Re-importar la misma etiqueta no duplica.
+          Elige un archivo (.txt, .csv, .xlsx) o pega desde Excel: una línea
+          por contacto — <span className="font-mono">correo, nombre, empresa</span>{" "}
+          (nombre y empresa optativos). Re-importar la misma etiqueta no
+          duplica.
         </p>
         <div className="space-y-2">
+          <input
+            ref={refArchivo}
+            type="file"
+            accept=".txt,.csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => void alElegirArchivo(e.target)}
+          />
+          <button
+            type="button"
+            onClick={() => refArchivo.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            <Upload className="w-4 h-4" /> Elegir archivo…
+          </button>
           <input
             value={etiqueta}
             onChange={(e) => setEtiqueta(e.target.value)}
