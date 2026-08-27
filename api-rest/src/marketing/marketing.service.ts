@@ -10,6 +10,7 @@ import { Resend } from 'resend';
 import {
   CrearAudienciaDto,
   CrearCampanaDto,
+  EditarCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
 } from './dto/marketing.dto';
@@ -453,6 +454,26 @@ export class MarketingService {
       prueba_enviada_at: new Date().toISOString(),
     });
     return { enviada_a: correoUsuario };
+  }
+
+  /** Editar un borrador desde su ficha (Felipe 26-08). La enviada es
+   *  registro histórico: no se toca. Y editar INVALIDA la prueba —
+   *  "sin prueba no hay envío" vale para la versión REAL del correo. */
+  async editarCampana(id: number, companyId: number, dto: EditarCampanaDto) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    if (campana.estado !== 'borrador') {
+      throw new BadRequestException(
+        'Una campaña enviada no se edita: es el registro de lo que salió',
+      );
+    }
+    return this.repo.actualizarCampana(id, companyId, {
+      asunto: dto.asunto.trim(),
+      titulo: dto.titulo.trim(),
+      cuerpo: dto.cuerpo,
+      preencabezado: dto.preencabezado?.trim() || null,
+      prueba_enviada_at: null,
+    });
   }
 
   // ---- Fase 2: lo que pasó con cada correo ----
