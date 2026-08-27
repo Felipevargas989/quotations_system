@@ -196,13 +196,28 @@ export const personalizar = (
     .replaceAll('{nombre}', destinatario.name?.trim() || 'estimado cliente')
     .replaceAll('{empresa}', destinatario.empresa?.trim() || 'su organización');
 
+/** *negrita* y _cursiva_, el idioma de WhatsApp (Felipe 26-08).
+ *  Corre DESPUÉS de esc(), así que solo produce las etiquetas nuestras.
+ *  El delimitador debe abrir pegado al texto y el par vivir en una
+ *  línea: juan_perez@gmail.com y "2 * 3 * 4" quedan en paz. */
+const formatoWhatsApp = (texto: string): string =>
+  texto
+    .replace(
+      /(^|[\s(¡¿>])\*([^*\s\n][^*\n]*?)\*(?=$|[\s).,;:!?…<])/gm,
+      '$1<strong>$2</strong>',
+    )
+    .replace(
+      /(^|[\s(¡¿>])_([^_\s\n][^_\n]*?)_(?=$|[\s).,;:!?…<])/gm,
+      '$1<em>$2</em>',
+    );
+
 /** El cuerpo escrito en texto plano se vuelve párrafos HTML. */
 export const cuerpoAHtml = (cuerpo: string): string =>
   cuerpo
     .split(/\n{2,}/)
     .map(
       (parr) =>
-        `<p style="margin:0 0 14px;">${esc(parr).replaceAll('\n', '<br/>')}</p>`,
+        `<p style="margin:0 0 14px;">${formatoWhatsApp(esc(parr)).replaceAll('\n', '<br/>')}</p>`,
     )
     .join('');
 

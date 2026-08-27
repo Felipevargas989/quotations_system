@@ -1,4 +1,5 @@
 import {
+  cuerpoAHtml,
   linkDeWhatsApp,
   MarcaEmpresa,
   plantillaCampana,
@@ -221,5 +222,32 @@ describe('la audiencia "Todos los clientes" es el filtro vacío', () => {
     ];
     const r = resolverSegmento(clientes, [], [], {}, '2026-08-25');
     expect(r.map((d) => d.email)).toEqual(['ana@x.cl', 'carla@x.cl']);
+  });
+});
+
+describe('formato WhatsApp en el cuerpo: *negrita* y _cursiva_ (26-08)', () => {
+  it('traduce los delimitadores al formato del correo', () => {
+    const html = cuerpoAHtml('Ven al *paseo del curso* y _no te lo pierdas_');
+    expect(html).toContain('<strong>paseo del curso</strong>');
+    expect(html).toContain('<em>no te lo pierdas</em>');
+  });
+
+  it('deja en paz correos con guion bajo y multiplicaciones', () => {
+    const html = cuerpoAHtml('Escribe a juan_perez@gmail.com: 2 * 3 * 4');
+    expect(html).not.toContain('<em>');
+    expect(html).not.toContain('<strong>');
+    expect(html).toContain('juan_perez@gmail.com');
+  });
+
+  it('escapa el HTML ANTES de formatear: nada inyectable', () => {
+    const html = cuerpoAHtml('*<script>alert(1)</script>*');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('<strong>&lt;script&gt;');
+  });
+
+  it('negrita y cursiva conviven en la misma frase y por lineas', () => {
+    const html = cuerpoAHtml('*hola _mundo_*\nsegunda linea');
+    expect(html).toContain('<strong>hola <em>mundo</em></strong>');
+    expect(html).toContain('<br/>');
   });
 });
