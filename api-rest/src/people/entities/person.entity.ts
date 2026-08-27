@@ -193,6 +193,8 @@ export class Payroll {
  */
 export type EventStaffConPersona = EventStaff & {
   people?: Person | null;
+  /** El área/cargo del día (las consultas la traen con el select). */
+  management_resources?: { id?: number; name?: string | null } | null;
 };
 
 export class PayrollPerson {

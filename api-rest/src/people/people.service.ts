@@ -1653,6 +1653,16 @@ export const laPuedeQuitarLaProyeccion = (fila: {
  * explicación, y al pagar en el banco hay que poder responder "¿por qué
  * $500.000?" (Felipe, 16-08).
  */
+/** UN DÍA de una línea, para el desglose al pinchar (Felipe 27-08):
+ *  la misma fecha puede traer jornada Y propina — va en una sola fila. */
+export interface DiaDeLinea {
+  day: string | null;
+  quotation_id: string | null;
+  area: string | null;
+  jornada: number;
+  propina: number;
+}
+
 export interface OrigenDeLinea {
   /** null = días sueltos de restaurante. */
   quotation_id: string | null;
@@ -1673,6 +1683,7 @@ export interface LineaDeNomina {
   propinas: number;
   total: number;
   detalle: OrigenDeLinea[];
+  dias: DiaDeLinea[];
 }
 
 export const consolidarPorRut = (
@@ -1680,9 +1691,9 @@ export const consolidarPorRut = (
   propinas: readonly EventStaffConPersona[],
 ) => {
   const lineas = new Map<string, LineaDeNomina>();
-  /** Días ya contados por línea, para no contar dos veces la fecha que
-   *  trae jornada Y propina. */
-  const diasPorOrigen = new Map<string, Map<string, boolean>>();
+  /** Días ya contados por línea: la fecha que trae jornada Y propina
+   *  se cuenta una vez, y su fila de desglose es UNA sola. */
+  const diasPorOrigen = new Map<string, Map<string, DiaDeLinea>>();
   const meter = (
     f: EventStaffConPersona,
     monto: number,
@@ -1703,6 +1714,7 @@ export const consolidarPorRut = (
         propinas: 0,
         total: 0,
         detalle: [],
+        dias: [],
       });
       diasPorOrigen.set(llave, new Map());
     }
@@ -1723,10 +1735,20 @@ export const consolidarPorRut = (
     suyo[cual] += monto;
     const vistos = diasPorOrigen.get(llave)!;
     const clave = `${origenId ?? 'dia'}|${String(f.day ?? '').slice(0, 10)}`;
-    if (!vistos.has(clave)) {
-      vistos.set(clave, true);
+    let dia = vistos.get(clave);
+    if (!dia) {
+      dia = {
+        day: f.day ? String(f.day).slice(0, 10) : null,
+        quotation_id: origenId,
+        area: f.management_resources?.name ?? null,
+        jornada: 0,
+        propina: 0,
+      };
+      vistos.set(clave, dia);
+      l.dias.push(dia);
       suyo.dias += 1;
     }
+    dia[cual === 'jornadas' ? 'jornada' : 'propina'] += monto;
   };
   for (const j of jornadas) meter(j, Number(j.amount ?? 0), 'jornadas');
   for (const t of propinas) meter(t, Number(t.tip_amount ?? 0), 'propinas');
