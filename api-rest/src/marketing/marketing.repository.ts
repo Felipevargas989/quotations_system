@@ -448,6 +448,19 @@ export class MarketingRepository {
     return ((data ?? []) as { email: string }[]).map((f) => f.email);
   }
 
+  /** Borra una audiencia IMPORTADA completa (sus contactos). Las
+   *  supresiones NO se tocan: una baja es para siempre. */
+  async borrarImportada(companyId: number, nombre: string): Promise<number> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_contacts')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('audiencia', nombre)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
+  }
+
   async crearCampana(row: Record<string, unknown>) {
     const { data, error } = await this.supabase.client
       .from('marketing_campaigns')

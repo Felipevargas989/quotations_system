@@ -21,6 +21,7 @@ import {
   contactosDeAudienciaImportada,
   crearAudienciaMarketing,
   crearCampanaMarketing,
+  eliminarAudienciaImportada,
   eliminarAudienciaMarketing,
   getAudienciasMarketing,
   getCampanasMarketing,
@@ -226,6 +227,18 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
   const [borrando, setBorrando] = useState<number | null>(null);
+  // Borrar una IMPORTADA (Felipe 27-08): mismo ritual de confirmar.
+  const [borrandoImp, setBorrandoImp] = useState<string | null>(null);
+  const eliminarImp = useMutation({
+    mutationFn: (nom: string) => eliminarAudienciaImportada(nom),
+    onSuccess: (r) => {
+      toast.success(
+        `Audiencia eliminada (${String(r.eliminados)} contactos fuera). Las bajas se conservan: son para siempre.`,
+      );
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
   // Ver quiénes están dentro (Felipe 26-08): el ojito de cada fila.
   const [viendo, setViendo] = useState<
     | { tipo: "guardada"; nombre: string; filtro: FiltroSegmento }
@@ -348,7 +361,36 @@ function Audiencias({
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
-                <span className="shrink-0 w-[26px]" />
+                {borrandoImp === a.audiencia ? (
+                  <span className="shrink-0 flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminarImp.mutate(a.audiencia);
+                        setBorrandoImp(null);
+                      }}
+                      className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                    >
+                      Borrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBorrandoImp(null)}
+                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+                    >
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setBorrandoImp(a.audiencia)}
+                    title="Eliminar esta lista importada (las bajas registradas se conservan)"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -432,9 +474,47 @@ function Audiencias({
             placeholder={"paola@empresa.cl, Paola Lagos, Colegio Alemán\njuan@otra.cl"}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
           />
+          {contactos.length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[1.2fr_1fr_1fr] gap-x-2 px-3 py-1.5 bg-gray-50 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                <span>Correo</span>
+                <span>Nombre</span>
+                <span>Empresa</span>
+              </div>
+              <ul className="divide-y divide-gray-100 max-h-56 overflow-y-auto text-xs">
+                {contactos.map((ct) => (
+                  <li
+                    key={ct.email}
+                    className="grid grid-cols-[1.2fr_1fr_1fr] gap-x-2 px-3 py-1"
+                  >
+                    <span className="truncate text-gray-700">{ct.email}</span>
+                    <span className="truncate text-gray-600">
+                      {ct.name ?? "—"}
+                    </span>
+                    <span className="truncate text-gray-500">
+                      {ct.empresa ?? "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 tabular-nums">
               {contactos.length} contactos detectados
+              {(() => {
+                const lineas = texto
+                  .split(/\r?\n/)
+                  .filter((l) => l.trim()).length;
+                const fuera = lineas - contactos.length;
+                return fuera > 0 ? (
+                  <span className="text-amber-600">
+                    {" "}
+                    · {fuera} línea{fuera === 1 ? "" : "s"} no parece
+                    {fuera === 1 ? "" : "n"} contacto
+                  </span>
+                ) : null;
+              })()}
             </span>
             <button
               type="button"

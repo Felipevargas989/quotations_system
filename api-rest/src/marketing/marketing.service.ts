@@ -47,6 +47,19 @@ export class MarketingService {
   }
 
   // ---- Audiencias ----
+  /** Eliminar una importada: borra la lista, no las bajas (esas son
+   *  para siempre). Las campañas ya enviadas guardan su historia. */
+  async borrarImportada(companyId: number, nombre: string) {
+    const limpio = nombre?.trim();
+    if (!limpio) throw new BadRequestException('Falta el nombre');
+    const eliminados = await this.repo.borrarImportada(companyId, limpio);
+    if (eliminados === 0) {
+      throw new NotFoundException('No existe esa audiencia importada');
+    }
+    this.logger.info(`importada eliminada: ${limpio} (${eliminados})`);
+    return { ok: true, eliminados };
+  }
+
   async importarContactos(dto: ImportarContactosDto, companyId: number) {
     const validos: Record<string, unknown>[] = [];
     const invalidos: string[] = [];
