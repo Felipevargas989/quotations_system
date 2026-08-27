@@ -4,17 +4,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
+import { BajasService } from './bajas.service';
 import {
+  AudienciaElegidaDto,
   CrearAudienciaDto,
   CrearCampanaDto,
   EditarCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
 } from './dto/marketing.dto';
-import { CampanaMarketing, MarketingRepository } from './marketing.repository';
+import {
+  AudienciaDeCampana,
+  CampanaMarketing,
+  MarketingRepository,
+} from './marketing.repository';
 import {
   cuerpoAHtml,
   MarcaEmpresa,
@@ -34,93 +39,11 @@ export class MarketingService {
     private readonly repo: MarketingRepository,
     private readonly config: ConfigService,
     private readonly logger: PinoLogger,
+    // La puerta pública (baja firmada + webhook) vive en su propia
+    // pieza desde el 27-08: la cerca de tamaño pilló a este archivo.
+    private readonly bajas: BajasService,
   ) {
     this.logger.setContext(MarketingService.name);
-  }
-
-  // ---- La baja firmada: HMAC del correo, sin sesión ----
-  private secreto(): string {
-    return (
-      this.config.get<string>('MARKETING_BAJA_SECRET') ??
-      (this.config.get<string>('RESEND_API_KEY') as string)
-    );
-  }
-
-  firmaDeBaja(companyId: number, email: string): string {
-    return createHmac('sha256', this.secreto())
-      .update(`${companyId}|${email.toLowerCase()}`)
-      .digest('hex')
-      .slice(0, 32);
-  }
-
-  /** La dirección pública de ESTE backend. La lección del 26-08: el
-   *  respaldo apuntaba a producción y el enlace de baja del laboratorio
-   *  llevaba a una puerta inexistente. Railway inyecta el dominio
-   *  propio del servicio: cada ambiente apunta a sí mismo. */
-  private baseApi(): string {
-    const configurada = this.config.get<string>('PUBLIC_API_URL');
-    if (configurada) return configurada.replace(/\/+$/, '');
-    const dominio = this.config.get<string>('RAILWAY_PUBLIC_DOMAIN');
-    if (dominio) return `https://${dominio}`;
-    return 'https://api-rest-production-d404.up.railway.app';
-  }
-
-  urlDeBaja(companyId: number, email: string, campaignId?: number): string {
-    const e = Buffer.from(email.toLowerCase()).toString('base64url');
-    // ca va FUERA de la firma: es atribución (de qué campaña vino la
-    // baja), no seguridad — así los links viejos siguen siendo válidos.
-    const ca = campaignId ? `&ca=${String(campaignId)}` : '';
-    return `${this.baseApi()}/marketing/baja?c=${String(companyId)}&e=${e}&t=${this.firmaDeBaja(companyId, email)}${ca}`;
-  }
-
-  /** Valida el enlace de baja SIN ejecutarla. Endurecido (revisión
-   *  26-08): parámetros ausentes o basura devuelven null, nunca 500 —
-   *  es la ruta que la ley exige que funcione. */
-  bajaValida(
-    c?: string,
-    e?: string,
-    t?: string,
-  ): { companyId: number; email: string } | null {
-    if (
-      typeof c !== 'string' ||
-      typeof e !== 'string' ||
-      typeof t !== 'string'
-    ) {
-      return null;
-    }
-    const companyId = Number(c);
-    let email = '';
-    try {
-      email = Buffer.from(e, 'base64url').toString('utf8');
-    } catch {
-      return null;
-    }
-    if (!companyId || !email.includes('@')) return null;
-    const esperada = Buffer.from(this.firmaDeBaja(companyId, email));
-    const dada = Buffer.from(t);
-    if (dada.length !== esperada.length || !timingSafeEqual(dada, esperada)) {
-      return null;
-    }
-    return { companyId, email };
-  }
-
-  async procesarBaja(
-    c?: string,
-    e?: string,
-    t?: string,
-    ca?: string,
-  ): Promise<boolean> {
-    const valida = this.bajaValida(c, e, t);
-    if (!valida) return false;
-    const campaignId = ca && /^\d+$/.test(ca) ? Number(ca) : undefined;
-    await this.repo.suprimir(
-      valida.companyId,
-      valida.email,
-      'baja',
-      campaignId,
-    );
-    this.logger.info(`baja de marketing: ${valida.email}`);
-    return true;
   }
 
   // ---- Audiencias ----
@@ -298,7 +221,86 @@ export class MarketingService {
   }
 
   // ---- Campañas ----
+  /** Valida y normaliza UNA audiencia elegida; para las guardadas
+   *  trae el nombre y la foto del filtro de hoy. */
+  private async normalizarAudiencia(
+    a: AudienciaElegidaDto,
+    companyId: number,
+  ): Promise<{ entrada: AudienciaDeCampana; nombre: string }> {
+    if (a.audiencia_tipo === 'importada' && !a.audiencia_ref) {
+      throw new BadRequestException('Falta la audiencia importada');
+    }
+    if (a.audiencia_tipo === 'clientes' && !a.tipos_cliente?.length) {
+      throw new BadRequestException('Elige al menos un tipo de cliente');
+    }
+    let ref = a.audiencia_ref?.trim() || null;
+    let filtro: Record<string, unknown> | null =
+      (a.filtro as Record<string, unknown> | undefined) ?? null;
+    if (a.audiencia_tipo === 'segmento') {
+      if (a.audiencia_id != null) {
+        const aud = await this.repo.audienciaGuardada(
+          a.audiencia_id,
+          companyId,
+        );
+        if (!aud) {
+          throw new BadRequestException('Una audiencia elegida ya no existe');
+        }
+        ref = aud.nombre;
+        filtro = aud.filtro;
+      } else if (!filtro) {
+        throw new BadRequestException('Elige una audiencia para la campaña');
+      }
+    }
+    return {
+      entrada: {
+        audiencia_tipo: a.audiencia_tipo,
+        audiencia_id: a.audiencia_id ?? null,
+        audiencia_ref: ref,
+        tipos_cliente: a.tipos_cliente ?? null,
+        filtro,
+      },
+      nombre:
+        ref ??
+        (a.audiencia_tipo === 'clientes'
+          ? `Clientes: ${(a.tipos_cliente ?? []).join(', ')}`
+          : 'segmento'),
+    };
+  }
+
   async crearCampana(dto: CrearCampanaDto, companyId: number) {
+    // SELECCIÓN MÚLTIPLE (27-08): si vienen varias, se guardan todas y
+    // las columnas viejas quedan de espejo (primera + nombre combinado).
+    if (dto.audiencias?.length) {
+      const normalizadas: AudienciaDeCampana[] = [];
+      const nombres: string[] = [];
+      for (const a of dto.audiencias) {
+        const { entrada, nombre } = await this.normalizarAudiencia(
+          a,
+          companyId,
+        );
+        normalizadas.push(entrada);
+        nombres.push(nombre);
+      }
+      const primera = normalizadas[0];
+      const sola = normalizadas.length === 1;
+      return this.repo.crearCampana({
+        company_id: companyId,
+        nombre: dto.nombre.trim(),
+        asunto: dto.asunto.trim(),
+        titulo: dto.titulo.trim(),
+        cuerpo: dto.cuerpo,
+        preencabezado: dto.preencabezado?.trim() || null,
+        audiencia_tipo: primera.audiencia_tipo,
+        audiencia_id: sola ? primera.audiencia_id : null,
+        audiencia_ref: nombres.join(' + ').slice(0, 120),
+        tipos_cliente: sola ? primera.tipos_cliente : null,
+        filtro: sola ? primera.filtro : null,
+        audiencias: normalizadas,
+      });
+    }
+    if (!dto.audiencia_tipo) {
+      throw new BadRequestException('Elige al menos una audiencia');
+    }
     if (dto.audiencia_tipo === 'importada' && !dto.audiencia_ref) {
       throw new BadRequestException('Falta la audiencia importada');
     }
@@ -345,25 +347,38 @@ export class MarketingService {
     return this.repo.campanas(companyId);
   }
 
-  private async candidatosDe(campana: CampanaMarketing, companyId: number) {
-    if (campana.audiencia_tipo === 'importada') {
-      return this.repo.contactosDeAudiencia(companyId, campana.audiencia_ref!);
+  private async candidatosDeUna(a: AudienciaDeCampana, companyId: number) {
+    if (a.audiencia_tipo === 'importada') {
+      return this.repo.contactosDeAudiencia(companyId, a.audiencia_ref!);
     }
-    if (campana.audiencia_tipo === 'segmento') {
-      // CONSULTA VIVA: si la campaña apunta a una audiencia guardada,
-      // manda el filtro DE HOY de esa audiencia; la foto que guardó la
-      // campaña queda solo de respaldo por si la audiencia se borró.
-      let filtro = (campana.filtro ?? {}) as FiltroSegmento;
-      if (campana.audiencia_id != null) {
+    if (a.audiencia_tipo === 'segmento') {
+      // CONSULTA VIVA: si apunta a una audiencia guardada, manda el
+      // filtro DE HOY; la foto guardada queda de respaldo por si la
+      // audiencia se borró.
+      let filtro = (a.filtro ?? {}) as FiltroSegmento;
+      if (a.audiencia_id != null) {
         const aud = await this.repo.audienciaGuardada(
-          campana.audiencia_id,
+          a.audiencia_id,
           companyId,
         );
         if (aud) filtro = aud.filtro as FiltroSegmento;
       }
       return this.resolverSegmentoDe(companyId, filtro);
     }
-    return this.repo.clientesPorTipo(companyId, campana.tipos_cliente ?? []);
+    return this.repo.clientesPorTipo(companyId, a.tipos_cliente ?? []);
+  }
+
+  private async candidatosDe(campana: CampanaMarketing, companyId: number) {
+    // SELECCIÓN MÚLTIPLE: la unión de todas las audiencias; el dedupe
+    // por correo lo hace resolverDestinatarios, así que quien está en
+    // dos audiencias recibe UN solo correo.
+    if (campana.audiencias?.length) {
+      const listas = await Promise.all(
+        campana.audiencias.map((a) => this.candidatosDeUna(a, companyId)),
+      );
+      return listas.flat();
+    }
+    return this.candidatosDeUna(campana, companyId);
   }
 
   /** Cuántos recibirían HOY la campaña (para el confirmar del front). */
@@ -411,27 +426,17 @@ export class MarketingService {
         marca,
         titulo,
         cuerpoHtml: cuerpo,
-        bajaUrl: this.urlDeBaja(companyId, destinatario.email, campana.id),
+        bajaUrl: this.bajas.urlDeBaja(
+          companyId,
+          destinatario.email,
+          campana.id,
+        ),
         cotizarUrl: this.urlDeCotizar(companyId),
         iconosBase: this.baseFrontend(),
         preencabezado: campana.preencabezado
           ? personalizar(campana.preencabezado, destinatario)
           : null,
       }),
-    };
-  }
-
-  /** El estándar de baja de los grandes: Gmail/Outlook muestran su
-   *  propio botón "Darse de baja" leyendo estas cabeceras, y el POST
-   *  de un clic cae en la misma ruta firmada. */
-  private cabecerasDeBaja(
-    companyId: number,
-    email: string,
-    campaignId?: number,
-  ) {
-    return {
-      'List-Unsubscribe': `<${this.urlDeBaja(companyId, email, campaignId)}>`,
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     };
   }
 
@@ -464,7 +469,7 @@ export class MarketingService {
       to: [correoUsuario],
       subject: `[PRUEBA] ${r.asunto}`,
       html: r.html,
-      headers: this.cabecerasDeBaja(companyId, correoUsuario, id),
+      headers: this.bajas.cabecerasDeBaja(companyId, correoUsuario, id),
       ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     });
     if (error) throw new BadRequestException(`Resend: ${error.message}`);
@@ -495,77 +500,6 @@ export class MarketingService {
   }
 
   // ---- Fase 2: lo que pasó con cada correo ----
-
-  /**
-   * El webhook de Resend (abierto/click/rebote/queja). Con
-   * RESEND_WEBHOOK_SECRET configurado se verifica la firma Svix; sin
-   * él se procesa igual (el evento solo marca sellos por resend_id) y
-   * queda avisado en el log.
-   */
-  verificarFirmaSvix(
-    payload: string,
-    headers: { id?: string; timestamp?: string; firma?: string },
-  ): boolean {
-    const secreto = this.config.get<string>('RESEND_WEBHOOK_SECRET');
-    if (!secreto) {
-      // FAIL-CLOSED en producción (revisión 26-08): sin secreto no se
-      // acepta nada — antes procesaba igual y cualquiera podía marcar
-      // aperturas o suprimir correos a punta de rebotes falsos.
-      if (process.env.NODE_ENV === 'production') {
-        this.logger.error('webhook sin RESEND_WEBHOOK_SECRET: RECHAZADO');
-        return false;
-      }
-      this.logger.warn('webhook sin RESEND_WEBHOOK_SECRET: sin verificar');
-      return true;
-    }
-    if (!headers.id || !headers.timestamp || !headers.firma) return false;
-    // Tolerancia ±5 minutos: una notificación capturada no sirve para
-    // siempre (anti-replay, igual que el verificador oficial de Svix).
-    const ts = Number(headers.timestamp);
-    if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) {
-      return false;
-    }
-    const llave = Buffer.from(secreto.replace(/^whsec_/, ''), 'base64');
-    const esperada = createHmac('sha256', llave)
-      .update(`${headers.id}.${headers.timestamp}.${payload}`)
-      .digest();
-    return headers.firma.split(' ').some((f) => {
-      const dada = Buffer.from(f.replace(/^v1,/, ''), 'base64');
-      return dada.length === esperada.length && timingSafeEqual(dada, esperada);
-    });
-  }
-
-  async procesarEventoResend(evento: {
-    type?: string;
-    data?: { email_id?: string };
-  }) {
-    const resendId = evento.data?.email_id;
-    if (!resendId || !evento.type) return { ok: true };
-    const ahora = new Date().toISOString();
-    const sello: Record<string, unknown> | null =
-      evento.type === 'email.opened'
-        ? { opened_at: ahora }
-        : evento.type === 'email.clicked'
-          ? { clicked_at: ahora, opened_at: ahora }
-          : evento.type === 'email.bounced' ||
-              evento.type === 'email.complained'
-            ? { bounced_at: ahora }
-            : null;
-    if (!sello) return { ok: true };
-    const fila = await this.repo.marcarEvento(resendId, sello);
-    // EL REBOTE DURO SE SUPRIME SOLO (regla de la Fase 2): no se le
-    // insiste nunca más a una casilla que no existe o que reclamó.
-    if (fila && sello.bounced_at) {
-      await this.repo.suprimir(
-        fila.company_id,
-        fila.email,
-        'rebote',
-        fila.campaign_id,
-      );
-      this.logger.info(`rebote suprimido: ${fila.email}`);
-    }
-    return { ok: true };
-  }
 
   resultadosDe(id: number, companyId: number) {
     return this.repo.resultadosDe(id, companyId);
@@ -690,7 +624,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
-          headers: this.cabecerasDeBaja(companyId, d.email, id),
+          headers: this.bajas.cabecerasDeBaja(companyId, d.email, id),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });
@@ -756,7 +690,7 @@ export class MarketingService {
           to: [d.email],
           subject: r.asunto,
           html: r.html,
-          headers: this.cabecerasDeBaja(companyId, d.email, id),
+          headers: this.bajas.cabecerasDeBaja(companyId, d.email, id),
           ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         };
       });

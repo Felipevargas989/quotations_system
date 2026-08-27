@@ -11,6 +11,15 @@ export interface ContactoMarketing {
   empresa: string | null;
 }
 
+/** Una audiencia dentro de una campaña (selección múltiple). */
+export interface AudienciaDeCampana {
+  audiencia_tipo: 'clientes' | 'importada' | 'segmento';
+  audiencia_id?: number | null;
+  audiencia_ref?: string | null;
+  tipos_cliente?: string[] | null;
+  filtro?: Record<string, unknown> | null;
+}
+
 export interface CampanaMarketing {
   id: number;
   company_id: number;
@@ -24,6 +33,9 @@ export interface CampanaMarketing {
   audiencia_ref: string | null;
   tipos_cliente: string[] | null;
   filtro: Record<string, unknown> | null;
+  /** Selección múltiple (27-08): la lista completa; null = campaña
+   *  vieja de una sola audiencia (mandan las columnas sueltas). */
+  audiencias: AudienciaDeCampana[] | null;
   estado: 'borrador' | 'enviada';
   prueba_enviada_at: string | null;
   enviada_at: string | null;
