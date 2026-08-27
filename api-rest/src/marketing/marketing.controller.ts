@@ -130,6 +130,17 @@ export class MarketingController {
     return this.marketing.crearAudiencia(dto, user.company_id);
   }
 
+  /** OJO CON EL ORDEN: esta va ANTES de 'audiencias/:id' — si no,
+   *  "importada" calza en :id y el motor busca la audiencia NaN. */
+  @Delete('audiencias/importada')
+  async borrarImportada(
+    @Query('nombre') nombre: string,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`DELETE /marketing/audiencias/importada ${nombre}`);
+    return this.marketing.borrarImportada(user.company_id, nombre ?? '');
+  }
+
   @Delete('audiencias/:id')
   async borrarAudiencia(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /marketing/audiencias/${id}`);

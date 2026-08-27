@@ -154,6 +154,12 @@ export const crearAudienciaMarketing = async (dto: {
     dto,
   )) as AudienciaGuardada;
 
+export const eliminarAudienciaImportada = async (nombre: string) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias/importada?nombre=${encodeURIComponent(nombre)}`,
+    "DELETE",
+  )) as { ok: boolean; eliminados: number };
+
 export const eliminarAudienciaMarketing = async (id: number) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/audiencias/${String(id)}`,

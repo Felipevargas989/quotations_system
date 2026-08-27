@@ -21,6 +21,7 @@ import {
   contactosDeAudienciaImportada,
   crearAudienciaMarketing,
   crearCampanaMarketing,
+  eliminarAudienciaImportada,
   eliminarAudienciaMarketing,
   getAudienciasMarketing,
   getCampanasMarketing,
@@ -28,6 +29,7 @@ import {
   previaSegmento,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
+import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
 import { formatISOUTCDateToString } from "../../utils/dates";
@@ -163,6 +165,24 @@ function Audiencias({
   const [etiqueta, setEtiqueta] = useState("");
   const [texto, setTexto] = useState("");
   const contactos = useMemo(() => parsearContactos(texto), [texto]);
+  // EL LECTOR DE ARCHIVOS (27-08): elige un .txt/.csv/.xlsx y cae en
+  // la caja de siempre — mismo conteo, misma validación, mismo botón.
+  const refArchivo = useRef<HTMLInputElement>(null);
+  const alElegirArchivo = async (input: HTMLInputElement) => {
+    const archivo = input.files?.[0];
+    input.value = "";
+    if (!archivo) return;
+    const r = await leerArchivoDeContactos(archivo);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    setTexto(r.texto);
+    if (!etiqueta.trim()) {
+      setEtiqueta(archivo.name.replace(/\.[^.]+$/, ""));
+    }
+    toast.success("Archivo leído: revisa el conteo y aprieta Importar");
+  };
 
   const importar = useMutation({
     mutationFn: () =>
@@ -207,6 +227,18 @@ function Audiencias({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
   const [borrando, setBorrando] = useState<number | null>(null);
+  // Borrar una IMPORTADA (Felipe 27-08): mismo ritual de confirmar.
+  const [borrandoImp, setBorrandoImp] = useState<string | null>(null);
+  const eliminarImp = useMutation({
+    mutationFn: (nom: string) => eliminarAudienciaImportada(nom),
+    onSuccess: (r) => {
+      toast.success(
+        `Audiencia eliminada (${String(r.eliminados)} contactos fuera). Las bajas se conservan: son para siempre.`,
+      );
+      onCambio();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
   // Ver quiénes están dentro (Felipe 26-08): el ojito de cada fila.
   const [viendo, setViendo] = useState<
     | { tipo: "guardada"; nombre: string; filtro: FiltroSegmento }
@@ -242,17 +274,18 @@ function Audiencias({
             {guardadas.map((a) => (
               <li
                 key={`g-${String(a.id)}`}
-                className="flex items-center gap-2 py-2 text-sm"
+                className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="flex-1 min-w-0 truncate text-gray-900">
+                <span className="min-w-0 truncate text-gray-900">
                   {a.nombre}
                 </span>
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   De tu base
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
+                <span className="tabular-nums text-gray-600 text-right whitespace-nowrap">
                   {a.total} hoy
                 </span>
+                <span className="flex items-center justify-end gap-0.5">
                 <button
                   type="button"
                   onClick={() =>
@@ -297,20 +330,21 @@ function Audiencias({
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
+                </span>
               </li>
             ))}
             {importadas.map((a) => (
               <li
                 key={`i-${a.audiencia}`}
-                className="flex items-center gap-2 py-2 text-sm"
+                className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="flex-1 min-w-0 truncate text-gray-900">
+                <span className="min-w-0 truncate text-gray-900">
                   {a.audiencia}
                 </span>
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                   Importada
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-600 text-right whitespace-nowrap">
+                <span className="tabular-nums text-gray-600 text-right whitespace-nowrap">
                   {a.contactos} contactos
                   {a.bajas > 0 && (
                     <span className="text-gray-400">
@@ -319,6 +353,7 @@ function Audiencias({
                     </span>
                   )}
                 </span>
+                <span className="flex items-center justify-end gap-0.5">
                 <button
                   type="button"
                   onClick={() =>
@@ -329,7 +364,37 @@ function Audiencias({
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
-                <span className="shrink-0 w-[26px]" />
+                {borrandoImp === a.audiencia ? (
+                  <span className="shrink-0 flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminarImp.mutate(a.audiencia);
+                        setBorrandoImp(null);
+                      }}
+                      className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                    >
+                      Borrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBorrandoImp(null)}
+                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+                    >
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setBorrandoImp(a.audiencia)}
+                    title="Eliminar esta lista importada (las bajas registradas se conservan)"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                </span>
               </li>
             ))}
           </ul>
@@ -380,11 +445,26 @@ function Audiencias({
           <Upload className="w-4 h-4 text-gray-500" /> Importar audiencia
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Pega desde Excel: una línea por contacto —{" "}
-          <span className="font-mono">correo, nombre, empresa</span> (nombre y
-          empresa optativos). Re-importar la misma etiqueta no duplica.
+          Elige un archivo (.txt, .csv, .xlsx) o pega desde Excel: una línea
+          por contacto — <span className="font-mono">correo, nombre, empresa</span>{" "}
+          (nombre y empresa optativos). Re-importar la misma etiqueta no
+          duplica.
         </p>
         <div className="space-y-2">
+          <input
+            ref={refArchivo}
+            type="file"
+            accept=".txt,.csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => void alElegirArchivo(e.target)}
+          />
+          <button
+            type="button"
+            onClick={() => refArchivo.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            <Upload className="w-4 h-4" /> Elegir archivo…
+          </button>
           <input
             value={etiqueta}
             onChange={(e) => setEtiqueta(e.target.value)}
@@ -398,9 +478,47 @@ function Audiencias({
             placeholder={"paola@empresa.cl, Paola Lagos, Colegio Alemán\njuan@otra.cl"}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
           />
+          {contactos.length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[1.2fr_1fr_1fr] gap-x-2 px-3 py-1.5 bg-gray-50 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                <span>Correo</span>
+                <span>Nombre</span>
+                <span>Empresa</span>
+              </div>
+              <ul className="divide-y divide-gray-100 max-h-56 overflow-y-auto text-xs">
+                {contactos.map((ct) => (
+                  <li
+                    key={ct.email}
+                    className="grid grid-cols-[1.2fr_1fr_1fr] gap-x-2 px-3 py-1"
+                  >
+                    <span className="truncate text-gray-700">{ct.email}</span>
+                    <span className="truncate text-gray-600">
+                      {ct.name ?? "—"}
+                    </span>
+                    <span className="truncate text-gray-500">
+                      {ct.empresa ?? "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 tabular-nums">
               {contactos.length} contactos detectados
+              {(() => {
+                const lineas = texto
+                  .split(/\r?\n/)
+                  .filter((l) => l.trim()).length;
+                const fuera = lineas - contactos.length;
+                return fuera > 0 ? (
+                  <span className="text-amber-600">
+                    {" "}
+                    · {fuera} línea{fuera === 1 ? "" : "s"} no parece
+                    {fuera === 1 ? "" : "n"} contacto
+                  </span>
+                ) : null;
+              })()}
             </span>
             <button
               type="button"
