@@ -274,17 +274,18 @@ function Audiencias({
             {guardadas.map((a) => (
               <li
                 key={`g-${String(a.id)}`}
-                className="flex items-center gap-2 py-2 text-sm"
+                className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="flex-1 min-w-0 truncate text-gray-900">
+                <span className="min-w-0 truncate text-gray-900">
                   {a.nombre}
                 </span>
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   De tu base
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-600 w-24 text-right">
+                <span className="tabular-nums text-gray-600 text-right whitespace-nowrap">
                   {a.total} hoy
                 </span>
+                <span className="flex items-center justify-end gap-0.5">
                 <button
                   type="button"
                   onClick={() =>
@@ -329,20 +330,21 @@ function Audiencias({
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
+                </span>
               </li>
             ))}
             {importadas.map((a) => (
               <li
                 key={`i-${a.audiencia}`}
-                className="flex items-center gap-2 py-2 text-sm"
+                className="grid grid-cols-[1fr_110px_170px_auto] items-center gap-2 py-2 text-sm"
               >
-                <span className="flex-1 min-w-0 truncate text-gray-900">
+                <span className="min-w-0 truncate text-gray-900">
                   {a.audiencia}
                 </span>
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                <span className="justify-self-start text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
                   Importada
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-600 text-right whitespace-nowrap">
+                <span className="tabular-nums text-gray-600 text-right whitespace-nowrap">
                   {a.contactos} contactos
                   {a.bajas > 0 && (
                     <span className="text-gray-400">
@@ -351,6 +353,7 @@ function Audiencias({
                     </span>
                   )}
                 </span>
+                <span className="flex items-center justify-end gap-0.5">
                 <button
                   type="button"
                   onClick={() =>
@@ -391,6 +394,7 @@ function Audiencias({
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
+                </span>
               </li>
             ))}
           </ul>
