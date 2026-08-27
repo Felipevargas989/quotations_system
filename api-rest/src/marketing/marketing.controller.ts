@@ -25,6 +25,8 @@ import {
   ImportarContactosDto,
   PreviaSegmentoDto,
   ReenviarDto,
+  RenombrarAudienciaDto,
+  RenombrarImportadaDto,
 } from './dto/marketing.dto';
 import { MarketingService } from './marketing.service';
 import type { MarcaEmpresa } from './plantilla';
@@ -128,6 +130,46 @@ export class MarketingController {
   crearAudiencia(@Body() dto: CrearAudienciaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /marketing/audiencias ${dto.nombre}`);
     return this.marketing.crearAudiencia(dto, user.company_id);
+  }
+
+  /** El lápiz de las importadas (27-08). ANTES de :id por el orden. */
+  @Patch('audiencias/importada')
+  renombrarImportada(
+    @Body() dto: RenombrarImportadaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /marketing/audiencias/importada ${dto.nombre}`);
+    return this.marketing.renombrarImportada(
+      user.company_id,
+      dto.nombre,
+      dto.nuevo,
+    );
+  }
+
+  /** El lápiz de las guardadas. */
+  @Patch('audiencias/:id')
+  renombrarAudiencia(
+    @Param('id') id: string,
+    @Body() dto: RenombrarAudienciaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /marketing/audiencias/${id}`);
+    return this.marketing.renombrarAudiencia(+id, user.company_id, dto.nombre);
+  }
+
+  /** Sacar UN contacto de una importada (desde el ojito). */
+  @Delete('audiencias/importada/contacto')
+  borrarContactoImportado(
+    @Query('nombre') nombre: string,
+    @Query('email') email: string,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`DELETE /marketing/audiencias/importada/contacto`);
+    return this.marketing.borrarContactoImportado(
+      user.company_id,
+      nombre ?? '',
+      email ?? '',
+    );
   }
 
   /** OJO CON EL ORDEN: esta va ANTES de 'audiencias/:id' — si no,

@@ -154,6 +154,31 @@ export const crearAudienciaMarketing = async (dto: {
     dto,
   )) as AudienciaGuardada;
 
+export const renombrarAudienciaImportada = async (
+  nombre: string,
+  nuevo: string,
+) =>
+  (await apiRequest(`${API_ROUTES.MARKETING}/audiencias/importada`, "PATCH", {
+    nombre,
+    nuevo,
+  })) as { ok: boolean };
+
+export const renombrarAudienciaGuardada = async (id: number, nombre: string) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias/${String(id)}`,
+    "PATCH",
+    { nombre },
+  )) as { ok: boolean };
+
+export const eliminarContactoImportado = async (
+  nombre: string,
+  email: string,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/audiencias/importada/contacto?nombre=${encodeURIComponent(nombre)}&email=${encodeURIComponent(email)}`,
+    "DELETE",
+  )) as { ok: boolean };
+
 export const eliminarAudienciaImportada = async (nombre: string) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/audiencias/importada?nombre=${encodeURIComponent(nombre)}`,

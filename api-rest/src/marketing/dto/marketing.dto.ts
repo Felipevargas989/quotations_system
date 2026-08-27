@@ -119,6 +119,24 @@ export class EditarCampanaDto {
   preencabezado?: string;
 }
 
+/** Renombrar una audiencia importada (el lápiz, 27-08). */
+export class RenombrarImportadaDto {
+  @IsString()
+  @MaxLength(80)
+  nombre: string;
+
+  @IsString()
+  @MaxLength(80)
+  nuevo: string;
+}
+
+/** Renombrar una audiencia guardada. */
+export class RenombrarAudienciaDto {
+  @IsString()
+  @MaxLength(120)
+  nombre: string;
+}
+
 /** Una audiencia elegida (selección múltiple, 27-08). */
 export class AudienciaElegidaDto {
   @IsIn(['clientes', 'importada', 'segmento'])
