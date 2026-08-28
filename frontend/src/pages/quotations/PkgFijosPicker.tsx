@@ -1,12 +1,11 @@
-import { useState } from "react";
-import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { FijoDeCatalogo } from "./paqueteFijos";
 
 /**
- * EL PICKER DE FIJOS del modal "Guardar paquete" (Felipe 28-08).
- * Vive fuera del gigante congelado a propósito (higuera). Mismo
- * lenguaje que los servicios sueltos: los elegidos siempre a la
- * vista con −/cantidad/+, y la pieza de la casa para agregar.
+ * EL PICKER DE FIJOS del modal "Crear paquete" (Felipe 28-08). Usa la
+ * MISMA pieza que los sueltos (SelectWithSearch): buscador visible,
+ * panel que se mide solo contra el modal, filas compactas. La lista
+ * de elegidos conserva EL ORDEN de selección. Vive fuera del gigante.
  */
 export default function PkgFijosPicker({
   catalogo,
@@ -14,29 +13,39 @@ export default function PkgFijosPicker({
   onCambio,
 }: {
   readonly catalogo: readonly FijoDeCatalogo[];
-  readonly elegidos: Record<string, number>;
-  readonly onCambio: (siguiente: Record<string, number>) => void;
+  readonly elegidos: readonly { codigo: string; cant: number }[];
+  readonly onCambio: (siguiente: { codigo: string; cant: number }[]) => void;
 }) {
-  const [abierto, setAbierto] = useState(false);
-  const conAlgo = catalogo.filter((f) => (elegidos[f.codigo] || 0) > 0);
+  const dentro = elegidos.flatMap((e) => {
+    const f = catalogo.find((x) => x.codigo === e.codigo);
+    return f ? [{ ...f, cantElegida: e.cant }] : [];
+  });
   const sumar = (codigo: string, delta: number) => {
-    const n = { ...elegidos };
-    const nuevo = (n[codigo] || 0) + delta;
-    if (nuevo <= 0) delete n[codigo];
-    else n[codigo] = nuevo;
-    onCambio(n);
+    if (!elegidos.some((x) => x.codigo === codigo) && delta > 0) {
+      onCambio([...elegidos, { codigo, cant: delta }]);
+      return;
+    }
+    onCambio(
+      elegidos.flatMap((x) =>
+        x.codigo === codigo
+          ? x.cant + delta <= 0
+            ? []
+            : [{ ...x, cant: x.cant + delta }]
+          : [x],
+      ),
+    );
   };
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+    <div className="bg-gray-50 rounded-lg p-3 mt-3">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
         Servicios fijos{" "}
         <span className="font-normal text-gray-500">
           (opcional — salón, decoración, audiovisual…)
         </span>
       </label>
-      {conAlgo.length > 0 && (
-        <div className="mb-2 border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {conAlgo.map((f) => (
+      {dentro.length > 0 && (
+        <div className="mb-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+          {dentro.map((f) => (
             <div key={f.codigo} className="flex items-center gap-2 px-3 py-2">
               <span className="flex-1 text-sm text-gray-900">{f.nombre}</span>
               <button
@@ -47,7 +56,7 @@ export default function PkgFijosPicker({
                 −
               </button>
               <span className="w-6 text-center text-sm tabular-nums">
-                {elegidos[f.codigo]}
+                {f.cantElegida}
               </span>
               <button
                 type="button"
@@ -60,22 +69,18 @@ export default function PkgFijosPicker({
           ))}
         </div>
       )}
-      <AgregadorDeItems
-        opciones={catalogo
+      <SelectWithSearch
+        options={catalogo
           .filter((f) => f.is_active !== false)
           .map((f) => ({
             value: f.codigo,
-            label: f.nombre,
-            hint: `$${(f.precio || 0).toLocaleString("es-CL")}`,
+            label: `${f.nombre} · $${(f.precio || 0).toLocaleString("es-CL")}`,
           }))}
-        onAgregar={(codigo) => sumar(codigo, 1)}
-        abierto={abierto}
-        onAbiertoChange={setAbierto}
+        value=""
+        onChange={(codigo) => sumar(codigo, 1)}
         placeholder="Agregar servicio fijo…"
         searchPlaceholder="Buscar servicio por nombre…"
         noResultsText="No se encontraron servicios"
-        tamano="sm"
-        haciaArriba
       />
     </div>
   );

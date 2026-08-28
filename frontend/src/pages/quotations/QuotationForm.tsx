@@ -24,7 +24,9 @@ import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollectio
 import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
+import Modal from "../../components/Modal";
 import PkgFijosPicker from "./PkgFijosPicker";
+import PkgMenusPicker from "./PkgMenusPicker";
 import { fijosDelPaquete } from "./paqueteFijos";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { estadoAlGuardar } from "../../utils/estadoCotizacion";
@@ -325,11 +327,17 @@ export default function QuotationForm() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   // Fijos del paquete (28-08): codigo -> cantidad. Vive acá; la UI en
   // PkgFijosPicker y la traducción en paqueteFijos.ts (higuera).
-  const [pkgFijos, setPkgFijos] = useState<Record<string, number>>({});
+  const [pkgFijos, setPkgFijos] = useState<
+    { codigo: string; cant: number }[]
+  >([]);
   // Servicios sueltos del paquete (13-08): id → cantidad. Es lo que
   // permite meter el alojamiento (× N noches) y la fiesta sin
   // disfrazarlos de menú.
-  const [pkgServices, setPkgServices] = useState<Record<number, number>>({});
+  // LISTA ordenada, no mapa (28-08, Felipe: "todo lo que agrego va
+  // quedando en el orden"): la secuencia de selección se conserva.
+  const [pkgServices, setPkgServices] = useState<
+    { id: number; cant: number }[]
+  >([]);
   const [savingCollection, setSavingCollection] = useState(false);
   // Los paquetes aplicados a esta cotización, en el orden en que se
   // fueron cargando. Es una LISTA y no uno solo desde el 14-08: un
@@ -1141,7 +1149,7 @@ export default function QuotationForm() {
   const openCollectionModal = () => {
     setSelectedGroupIds([]);
     setCollectionName("");
-    setPkgServices({});
+    setPkgServices([]);
     setShowCollectionModal(true);
   };
 
@@ -1156,27 +1164,37 @@ export default function QuotationForm() {
   // Los servicios sueltos ya elegidos para el paquete, en el orden del
   // catálogo. Se muestran fuera del desplegable para poder ajustar la
   // cantidad sin volver a abrirlo.
-  const elegidosPkg = variableServices.filter(
-    (v) => (pkgServices[v.id] || 0) > 0,
-  );
+  const elegidosPkg = pkgServices.flatMap((p) => {
+    const v = variableServices.find((x) => x.id === p.id);
+    return v ? [{ ...v, cantElegida: p.cant }] : [];
+  });
+  const sumarSuelto = (id: number, delta: number) =>
+    setPkgServices((prev) => {
+      if (!prev.some((x) => x.id === id) && delta > 0) {
+        return [...prev, { id, cant: delta }];
+      }
+      return prev.flatMap((x) =>
+        x.id === id
+          ? x.cant + delta <= 0
+            ? []
+            : [{ ...x, cant: x.cant + delta }]
+          : [x],
+      );
+    });
 
   const confirmCreateCollection = async () => {
     if (!collectionName.trim() || selectedGroupIds.length === 0) return;
 
     setSavingCollection(true);
     try {
-      const sueltos = Object.entries(pkgServices)
-        .filter(([, cant]) => cant > 0)
-        .map(([id, cant]) => ({
-          variable_service_id: Number(id),
-          quantity: cant,
-        }));
-      const fijosPkg = Object.entries(pkgFijos)
-        .filter(([, cant]) => cant > 0)
-        .map(([codigo, cant]) => ({
-          fixed_service_id: Number(codigo),
-          quantity: cant,
-        }));
+      const sueltos = pkgServices.map((p) => ({
+        variable_service_id: p.id,
+        quantity: p.cant,
+      }));
+      const fijosPkg = pkgFijos.map((f) => ({
+        fixed_service_id: Number(f.codigo),
+        quantity: f.cant,
+      }));
       await saveCollection({
         name: collectionName.trim(),
         items: selectedGroupIds.map((id) => ({ service_group_id: id })),
@@ -1186,8 +1204,8 @@ export default function QuotationForm() {
       setShowCollectionModal(false);
       setCollectionName("");
       setSelectedGroupIds([]);
-      setPkgServices({});
-      setPkgFijos({});
+      setPkgServices([]);
+      setPkgFijos([]);
       toast.success("Paquete guardado.");
     } catch (error) {
       toast.error("No se pudo guardar el paquete.");
@@ -1997,142 +2015,15 @@ export default function QuotationForm() {
 
       {/* Create Collection (paquete) Modal */}
       {showCollectionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Crear paquete
-              </h3>
-              <button
-                onClick={() => setShowCollectionModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Un paquete agrupa menús de varias categorías y, si hace falta,
-              servicios sueltos. Al elegirlo, el formulario se llena con todo.
-            </p>
-
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre del paquete
-            </label>
-            <input
-              type="text"
-              autoFocus
-              value={collectionName}
-              onChange={(e) => setCollectionName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-              placeholder="Ej: Paquete Matrimonio Full"
-            />
-
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Menús incluidos
-            </label>
-            <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
-              {serviceGroups.map((group) => (
-                <label
-                  key={group.id}
-                  className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedGroupIds.includes(group.id)}
-                    onChange={() => toggleSelectedGroup(group.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">{group.name}</span>
-                  <span className="text-sm text-gray-500">
-                    ({group.category})
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {/* Servicios sueltos (13-08): lo que no es un menú pero va
-                en el programa — el alojamiento por N noches, la fiesta.
-                Antes había que disfrazarlos de menú.
-                Desplegable con buscador pegajoso, calcado del selector
-                de servicios fijos: la lista vive DENTRO y no empuja el
-                resto de la ventana (la primera versión crecía y movía
-                los botones — pillada de Felipe). */}
-            <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
-              Servicios sueltos{" "}
-              <span className="font-normal text-gray-500">
-                (opcional — alojamiento, fiesta…)
-              </span>
-            </label>
-
-            {/* Los ya elegidos, siempre a la vista */}
-            {elegidosPkg.length > 0 && (
-              <div className="mb-2 border border-gray-200 rounded-lg divide-y divide-gray-100">
-                {elegidosPkg.map((v) => (
-                  <div key={v.id} className="flex items-center gap-2 px-3 py-2">
-                    <span className="flex-1 text-sm text-gray-900">
-                      {v.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPkgServices((p) => {
-                          const n = { ...p };
-                          if ((n[v.id] || 0) <= 1) delete n[v.id];
-                          else n[v.id] = n[v.id] - 1;
-                          return n;
-                        })
-                      }
-                      className="w-7 h-7 rounded border border-gray-300 text-gray-600"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-sm tabular-nums">
-                      {pkgServices[v.id]}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPkgServices((p) => ({
-                          ...p,
-                          [v.id]: (p[v.id] || 0) + 1,
-                        }))
-                      }
-                      className="w-7 h-7 rounded border border-gray-300 text-gray-600"
-                    >
-                      +
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <SelectWithSearch
-              options={variableServices
-                .filter((v) => v.is_active !== false)
-                .map((v) => ({
-                  value: String(v.id),
-                  label: `${v.name} · ${v.category}`,
-                }))}
-              value=""
-              onChange={(id) =>
-                setPkgServices((p) => ({
-                  ...p,
-                  [Number(id)]: (p[Number(id)] || 0) + 1,
-                }))
-              }
-              placeholder="Agregar servicio…"
-              searchPlaceholder="Buscar servicio por nombre…"
-              noResultsText="No se encontraron servicios"
-            />
-
-            <PkgFijosPicker
-              catalogo={fixedServices}
-              elegidos={pkgFijos}
-              onCambio={setPkgFijos}
-            />
-
-            <div className="flex justify-end space-x-3 pt-4">
+        /* LA PIEZA DE LA CASA (28-08, pillada de Felipe: con muchos
+           items los botones se iban de la pantalla). El contenido rueda
+           por dentro y los botones viven en el PIE, siempre a la vista. */
+        <Modal
+          titulo="Crear paquete"
+          ancho="max-w-md"
+          onCerrar={() => setShowCollectionModal(false)}
+          pie={
+            <>
               <button
                 type="button"
                 onClick={() => setShowCollectionModal(false)}
@@ -2161,9 +2052,104 @@ export default function QuotationForm() {
                   {savingCollection ? "Guardando..." : "Guardar paquete"}
                 </span>
               </button>
+            </>
+          }
+        >
+            <p className="text-sm text-gray-600 mb-4">
+              Un paquete agrupa menús, servicios sueltos y servicios fijos.
+              Al elegirlo, el formulario se llena con todo.
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del paquete
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={collectionName}
+              onChange={(e) => setCollectionName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              placeholder="Ej: Paquete Matrimonio Full"
+            />
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Menús incluidos
+              </label>
+              <PkgMenusPicker
+                menus={serviceGroups}
+                elegidos={selectedGroupIds}
+                onCambio={setSelectedGroupIds}
+              />
             </div>
-          </div>
-        </div>
+
+            {/* Servicios sueltos (13-08): lo que no es un menú pero va
+                en el programa — el alojamiento por N noches, la fiesta.
+                Antes había que disfrazarlos de menú.
+                Desplegable con buscador pegajoso, calcado del selector
+                de servicios fijos: la lista vive DENTRO y no empuja el
+                resto de la ventana (la primera versión crecía y movía
+                los botones — pillada de Felipe). */}
+            <div className="bg-gray-50 rounded-lg p-3 mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Servicios sueltos{" "}
+              <span className="font-normal text-gray-500">
+                (opcional — alojamiento, fiesta…)
+              </span>
+            </label>
+
+            {/* Los ya elegidos, siempre a la vista */}
+            {elegidosPkg.length > 0 && (
+              <div className="mb-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {elegidosPkg.map((v) => (
+                  <div key={v.id} className="flex items-center gap-2 px-3 py-2">
+                    <span className="flex-1 text-sm text-gray-900">
+                      {v.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => sumarSuelto(v.id, -1)}
+                      className="w-7 h-7 rounded border border-gray-300 text-gray-600"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center text-sm tabular-nums">
+                      {v.cantElegida}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => sumarSuelto(v.id, 1)}
+                      className="w-7 h-7 rounded border border-gray-300 text-gray-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <SelectWithSearch
+              options={variableServices
+                .filter((v) => v.is_active !== false)
+                .map((v) => ({
+                  value: String(v.id),
+                  label: `${v.name} · ${v.category}`,
+                }))}
+              value=""
+              onChange={(id) => sumarSuelto(Number(id), 1)}
+              placeholder="Agregar servicio…"
+              searchPlaceholder="Buscar servicio por nombre…"
+              noResultsText="No se encontraron servicios"
+            />
+            </div>
+
+            <PkgFijosPicker
+              catalogo={fixedServices}
+              elegidos={pkgFijos}
+              onCambio={setPkgFijos}
+            />
+
+        </Modal>
       )}
 
       <div className="flex items-center justify-between">
