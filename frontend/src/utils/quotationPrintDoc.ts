@@ -278,7 +278,12 @@ export function buildQuotationPrintDoc(
        Neto/IVA/TOTAL viajan como UNA sola pieza a la hoja siguiente
        si no caben. Cada cuadro por dentro tampoco se corta. Si el
        conjunto no cabe ni en una hoja completa, se parte igual —
-       nunca se pierde contenido. */
+       nunca se pierde contenido.
+       Y DESDE EL 27-08 (Felipe, cotización 506): las OBSERVACIONES
+       viven DENTRO del bloque — la plata y sus observaciones son una
+       sola historia, jamás el total en una hoja y el cuadro huérfano
+       en la siguiente. De paso queda UN solo bloque indivisible al
+       cierre, que era lo que confundía al paginador. */
     .qv-plata, .qv-bloque {
       page-break-inside: avoid;
       break-inside: avoid;
@@ -522,13 +527,13 @@ export function buildQuotationPrintDoc(
             : `<div class="final"><span>TOTAL</span><span>${clp(totalConIva)}</span></div>`
         }
       </div>
-      </div>
 
       ${
         quotation.observations
           ? `<div class="qv-obs"><b>Observaciones</b>${esc(quotation.observations)}</div>`
           : ""
       }
+      </div>
 
       <div class="qv-pie">
         <span>${esc(company?.name || "")}</span>
