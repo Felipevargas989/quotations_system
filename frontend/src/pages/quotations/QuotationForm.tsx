@@ -2056,8 +2056,8 @@ export default function QuotationForm() {
           }
         >
             <p className="text-sm text-gray-600 mb-4">
-              Un paquete agrupa menús de varias categorías y, si hace falta,
-              servicios sueltos. Al elegirlo, el formulario se llena con todo.
+              Un paquete agrupa menús, servicios sueltos y servicios fijos.
+              Al elegirlo, el formulario se llena con todo.
             </p>
 
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2072,14 +2072,16 @@ export default function QuotationForm() {
               placeholder="Ej: Paquete Matrimonio Full"
             />
 
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Menús incluidos
-            </label>
-            <PkgMenusPicker
-              menus={serviceGroups}
-              elegidos={selectedGroupIds}
-              onCambio={setSelectedGroupIds}
-            />
+            <div className="bg-gray-50 rounded-lg p-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Menús incluidos
+              </label>
+              <PkgMenusPicker
+                menus={serviceGroups}
+                elegidos={selectedGroupIds}
+                onCambio={setSelectedGroupIds}
+              />
+            </div>
 
             {/* Servicios sueltos (13-08): lo que no es un menú pero va
                 en el programa — el alojamiento por N noches, la fiesta.
@@ -2088,7 +2090,8 @@ export default function QuotationForm() {
                 de servicios fijos: la lista vive DENTRO y no empuja el
                 resto de la ventana (la primera versión crecía y movía
                 los botones — pillada de Felipe). */}
-            <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+            <div className="bg-gray-50 rounded-lg p-3 mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Servicios sueltos{" "}
               <span className="font-normal text-gray-500">
                 (opcional — alojamiento, fiesta…)
@@ -2097,7 +2100,7 @@ export default function QuotationForm() {
 
             {/* Los ya elegidos, siempre a la vista */}
             {elegidosPkg.length > 0 && (
-              <div className="mb-2 border border-gray-200 rounded-lg divide-y divide-gray-100">
+              <div className="mb-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
                 {elegidosPkg.map((v) => (
                   <div key={v.id} className="flex items-center gap-2 px-3 py-2">
                     <span className="flex-1 text-sm text-gray-900">
@@ -2138,6 +2141,7 @@ export default function QuotationForm() {
               searchPlaceholder="Buscar servicio por nombre…"
               noResultsText="No se encontraron servicios"
             />
+            </div>
 
             <PkgFijosPicker
               catalogo={fixedServices}

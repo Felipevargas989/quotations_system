@@ -36,15 +36,15 @@ export default function PkgFijosPicker({
     );
   };
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
+    <div className="bg-gray-50 rounded-lg p-3 mt-3">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
         Servicios fijos{" "}
         <span className="font-normal text-gray-500">
           (opcional — salón, decoración, audiovisual…)
         </span>
       </label>
       {dentro.length > 0 && (
-        <div className="mb-2 border border-gray-200 rounded-lg divide-y divide-gray-100">
+        <div className="mb-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {dentro.map((f) => (
             <div key={f.codigo} className="flex items-center gap-2 px-3 py-2">
               <span className="flex-1 text-sm text-gray-900">{f.nombre}</span>

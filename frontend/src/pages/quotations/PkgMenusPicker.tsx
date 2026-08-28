@@ -28,7 +28,7 @@ export default function PkgMenusPicker({
   return (
     <div>
       {dentro.length > 0 && (
-        <div className="mb-2 border border-gray-200 rounded-lg divide-y divide-gray-100">
+        <div className="mb-2 bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {dentro.map((m) => (
             <div key={m.id} className="flex items-center gap-2 px-3 py-2">
               <span className="flex-1 text-sm text-gray-900">
