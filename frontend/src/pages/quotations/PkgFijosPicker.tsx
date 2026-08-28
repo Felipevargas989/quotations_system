@@ -75,6 +75,7 @@ export default function PkgFijosPicker({
         searchPlaceholder="Buscar servicio por nombre…"
         noResultsText="No se encontraron servicios"
         tamano="sm"
+        haciaArriba
       />
     </div>
   );
