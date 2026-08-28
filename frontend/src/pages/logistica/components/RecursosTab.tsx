@@ -17,6 +17,7 @@ import {
   resourcePriceLabel,
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
+import Modal from "../../../components/Modal";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
@@ -368,19 +369,31 @@ export default function RecursosTab({
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">
-                {editing ? "Editar recurso" : "Nuevo recurso"}
-              </h3>
+        /* LA PIEZA DE LA CASA (28-08): el desplegable de proveedores se
+           salía por arriba del cascarón a mano — mismo mal y misma cura
+           que el modal de paquetes. Botones al PIE, siempre a la vista. */
+        <Modal
+          titulo={editing ? "Editar recurso" : "Nuevo recurso"}
+          ancho="max-w-md"
+          onCerrar={() => setShowModal(false)}
+          pie={
+            <>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="px-3 py-2 text-sm text-gray-600"
               >
-                <X size={18} />
+                Cancelar
               </button>
-            </div>
+              <button
+                onClick={save}
+                disabled={saving || !name.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+            </>
+          }
+        >
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-gray-600">
@@ -448,24 +461,8 @@ export default function RecursosTab({
                 </div>
               )}
               {err && <p className="text-xs text-red-600">{err}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-3 py-2 text-sm text-gray-600"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={save}
-                  disabled={saving || !name.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {saving ? "Guardando…" : "Guardar"}
-                </button>
-              </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
