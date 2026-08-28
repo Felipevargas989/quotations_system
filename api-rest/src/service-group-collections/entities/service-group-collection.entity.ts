@@ -1,6 +1,9 @@
 import { Company } from 'src/companies/entities/company.entity';
 import { ServiceGroup } from 'src/service-groups/entities/service-group.entity';
-import { VariableService } from 'src/services/entities/service.entity';
+import {
+  FixedService,
+  VariableService,
+} from 'src/services/entities/service.entity';
 
 export class ServiceGroupCollectionItem {
   id: number;
@@ -17,6 +20,16 @@ export class ServiceGroupCollectionService {
   created_at: Date;
   collection_id: ServiceGroupCollection['id'];
   variable_service_id: VariableService['id'];
+  quantity: number;
+}
+
+// Servicio FIJO del paquete (28-08, Felipe: "el salón y la decoración
+// SON parte del paquete"). Espejo del suelto variable.
+export class ServiceGroupCollectionFixedService {
+  id: number;
+  created_at: Date;
+  collection_id: ServiceGroupCollection['id'];
+  fixed_service_id: FixedService['id'];
   quantity: number;
 }
 

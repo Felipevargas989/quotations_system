@@ -4,6 +4,7 @@ import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import {
   ServiceGroupCollection,
+  ServiceGroupCollectionFixedService,
   ServiceGroupCollectionItem,
   ServiceGroupCollectionService,
 } from './entities/service-group-collection.entity';
@@ -50,6 +51,18 @@ export class ServiceGroupCollectionsRepository {
       .insert(services);
   }
 
+  // Fijos del paquete (28-08): salón, decoración, audiovisual.
+  createCollectionFixedServices(
+    services: Omit<ServiceGroupCollectionFixedService, 'id' | 'created_at'>[],
+  ) {
+    this.logger.info(
+      `createCollectionFixedServices with total ${services.length}`,
+    );
+    return this.supabase.client
+      .from('service_group_collection_fixed_services')
+      .insert(services);
+  }
+
   findAll(companyId: Company['id']) {
     this.logger.info(
       `findAll service group collections with companyId ${companyId}`,
@@ -58,7 +71,8 @@ export class ServiceGroupCollectionsRepository {
       .from('service_group_collections')
       .select(
         '*, groups:service_group_collection_items(group:service_groups(*, items:service_group_items(quantity, service:variable_services(*))))' +
-          ', services:service_group_collection_services(quantity, service:variable_services(*))',
+          ', services:service_group_collection_services(quantity, service:variable_services(*))' +
+          ', fixed_services:service_group_collection_fixed_services(quantity, service:fixed_services(*))',
       )
       .eq('company_id', companyId);
   }

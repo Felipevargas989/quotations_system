@@ -22,7 +22,7 @@ export class ServiceGroupCollectionsService {
       `create service group collection with dto ${JSON.stringify(createDto)}`,
     );
     try {
-      const { items, services, ...collection } = createDto;
+      const { items, services, fixed_services, ...collection } = createDto;
 
       // create the collection first to obtain its generated id
       const { data: createdCollection, error: collectionError } =
@@ -55,6 +55,22 @@ export class ServiceGroupCollectionsService {
             })),
           );
         if (servicesError) throw servicesError;
+      }
+
+      // Fijos del paquete (28-08): el salón y la decoración son parte
+      // del paquete de verdad.
+      if (fixed_services?.length) {
+        // Tipado de verdad (no repetir el any inseguro del vecino).
+        const idCreado = (createdCollection as ServiceGroupCollection).id;
+        const { error: fixedError } =
+          await this.repository.createCollectionFixedServices(
+            fixed_services.map((f) => ({
+              collection_id: idCreado,
+              fixed_service_id: f.fixed_service_id,
+              quantity: f.quantity,
+            })),
+          );
+        if (fixedError) throw fixedError;
       }
 
       return createdCollection;

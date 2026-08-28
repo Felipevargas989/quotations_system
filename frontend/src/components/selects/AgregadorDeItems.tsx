@@ -73,6 +73,10 @@ export interface AgregadorDeItemsProps {
    *  Apagarlo deja la lista filtrada para seguir sumando parecidos. */
   readonly limpiarAlAgregar?: boolean;
 
+  /** Abrir el panel HACIA ARRIBA (28-08, picker de fijos del paquete:
+   *  al final de un modal largo, hacia abajo se sale de la pantalla). */
+  readonly haciaArriba?: boolean;
+
   /** Si el buscador mira también el nombre de la sección. Encendido por
    *  omisión (los buscadores de ítems lo necesitan); los de servicios
    *  fijos lo apagan, porque ahí nunca se buscó por sección y el rótulo
@@ -93,6 +97,7 @@ export default function AgregadorDeItems({
   fondoBlanco = true,
   className = "",
   limpiarAlAgregar = true,
+  haciaArriba = false,
   buscarPorSeccion = true,
 }: AgregadorDeItemsProps) {
   const lista = useListaBuscable({
@@ -170,7 +175,9 @@ export default function AgregadorDeItems({
         // dejando las opciones montadas sobre el texto (pillada de
         // Felipe en el laboratorio, con pantallazo).
         <div
-          className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto"
+          className={`absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-[min(43rem,75vh)] overflow-y-auto ${
+            haciaArriba ? "bottom-full mb-1" : "mt-1"
+          }`}
           data-lista-scroll
         >
           {/* z-10 dentro del panel: la cabecera pegajosa tiene que

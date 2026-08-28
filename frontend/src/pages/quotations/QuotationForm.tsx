@@ -24,6 +24,8 @@ import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollectio
 import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
+import PkgFijosPicker from "./PkgFijosPicker";
+import { fijosDelPaquete } from "./paqueteFijos";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { estadoAlGuardar } from "../../utils/estadoCotizacion";
 import {
@@ -321,6 +323,9 @@ export default function QuotationForm() {
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  // Fijos del paquete (28-08): codigo -> cantidad. Vive acá; la UI en
+  // PkgFijosPicker y la traducción en paqueteFijos.ts (higuera).
+  const [pkgFijos, setPkgFijos] = useState<Record<string, number>>({});
   // Servicios sueltos del paquete (13-08): id → cantidad. Es lo que
   // permite meter el alojamiento (× N noches) y la fiesta sin
   // disfrazarlos de menú.
@@ -1109,8 +1114,16 @@ export default function QuotationForm() {
       }),
     );
 
+    // Fijos del paquete (28-08): el salón y la decoración entran solos.
+    const fijosNuevos = fijosDelPaquete(collection, fixedServices, (svc) =>
+      calculatePrice(svc, formData.people_count),
+    );
+    if (fijosNuevos.length) {
+      setSelectedFixedServices((prev) => [...prev, ...fijosNuevos]);
+    }
+
     const todas = [...boxes, ...cajasSueltas];
-    if (todas.length === 0) return;
+    if (todas.length === 0 && fijosNuevos.length === 0) return;
 
     setServiceBoxes((prev) => [
       // Las cajas en blanco —sin categoría y sin servicios— son el
@@ -1158,15 +1171,23 @@ export default function QuotationForm() {
           variable_service_id: Number(id),
           quantity: cant,
         }));
+      const fijosPkg = Object.entries(pkgFijos)
+        .filter(([, cant]) => cant > 0)
+        .map(([codigo, cant]) => ({
+          fixed_service_id: Number(codigo),
+          quantity: cant,
+        }));
       await saveCollection({
         name: collectionName.trim(),
         items: selectedGroupIds.map((id) => ({ service_group_id: id })),
         ...(sueltos.length ? { services: sueltos } : {}),
+        ...(fijosPkg.length ? { fixed_services: fijosPkg } : {}),
       });
       setShowCollectionModal(false);
       setCollectionName("");
       setSelectedGroupIds([]);
       setPkgServices({});
+      setPkgFijos({});
       toast.success("Paquete guardado.");
     } catch (error) {
       toast.error("No se pudo guardar el paquete.");
@@ -2103,6 +2124,12 @@ export default function QuotationForm() {
               placeholder="Agregar servicio…"
               searchPlaceholder="Buscar servicio por nombre…"
               noResultsText="No se encontraron servicios"
+            />
+
+            <PkgFijosPicker
+              catalogo={fixedServices}
+              elegidos={pkgFijos}
+              onCambio={setPkgFijos}
             />
 
             <div className="flex justify-end space-x-3 pt-4">
