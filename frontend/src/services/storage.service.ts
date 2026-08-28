@@ -87,6 +87,11 @@ export const uploadCompanyBanner = async (
   file: File,
 ): Promise<UploadResult> => subir(file, { kind: "company-banner" });
 
+// Banner PROPIO de una campaña (28-08): nombre único por subida.
+export const uploadCampaignBanner = async (
+  file: File,
+): Promise<UploadResult> => subir(file, { kind: "campaign-banner" });
+
 // Foto de referencia de un ítem de inventario (mobiliario). Bucket público
 // furniture-photos; se muestra en un popup, nunca como descarga.
 export const uploadFurniturePhoto = async (

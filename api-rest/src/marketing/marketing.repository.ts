@@ -41,6 +41,9 @@ export interface CampanaMarketing {
   enviada_at: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
+  /** Banner y WhatsApp PROPIOS (28-08): nulos = la marca de siempre. */
+  banner_url: string | null;
+  whatsapp: string | null;
   created_at: string;
 }
 
@@ -542,6 +545,16 @@ export class MarketingRepository {
       .maybeSingle();
     if (error) throw error;
     return data as unknown as CampanaMarketing | null;
+  }
+
+  /** Borrar una campaña (el servicio ya validó que es borrador). */
+  async borrarCampana(id: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('marketing_campaigns')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
   }
 
   async actualizarCampana(

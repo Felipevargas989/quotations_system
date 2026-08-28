@@ -17,6 +17,14 @@ export interface AudienciasMarketing {
   tipos_evento: { tipo: string; n: number }[];
 }
 
+export interface AudienciaElegida {
+  audiencia_tipo: "clientes" | "importada" | "segmento";
+  audiencia_id?: number;
+  audiencia_ref?: string;
+  tipos_cliente?: string[];
+  filtro?: FiltroSegmento;
+}
+
 export interface CampanaMarketing {
   id: number;
   nombre: string;
@@ -34,6 +42,11 @@ export interface CampanaMarketing {
   enviada_at: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
+  /** Banner y WhatsApp propios (28-08): nulos = la marca de siempre. */
+  banner_url: string | null;
+  whatsapp: string | null;
+  /** Selección múltiple guardada (27-08); null en campañas viejas. */
+  audiencias: AudienciaElegida[] | null;
   created_at: string;
 }
 
@@ -217,20 +230,14 @@ export const getCampanasMarketing = async () =>
     "GET",
   )) as CampanaMarketing[];
 
-export interface AudienciaElegida {
-  audiencia_tipo: "clientes" | "importada" | "segmento";
-  audiencia_id?: number;
-  audiencia_ref?: string;
-  tipos_cliente?: string[];
-  filtro?: FiltroSegmento;
-}
-
 export const crearCampanaMarketing = async (dto: {
   nombre: string;
   asunto: string;
   titulo: string;
   cuerpo: string;
   preencabezado?: string;
+  banner_url?: string;
+  whatsapp?: string;
   /** Selección múltiple (27-08): la unión, deduplicada por correo. */
   audiencias: AudienciaElegida[];
 }) =>
@@ -242,13 +249,27 @@ export const crearCampanaMarketing = async (dto: {
 
 export const editarCampanaMarketing = async (
   id: number,
-  dto: { asunto: string; titulo: string; cuerpo: string; preencabezado?: string },
+  dto: {
+    asunto: string;
+    titulo: string;
+    cuerpo: string;
+    preencabezado?: string;
+    banner_url?: string;
+    whatsapp?: string;
+    audiencias?: AudienciaElegida[];
+  },
 ) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas/${String(id)}`,
     "PATCH",
     dto,
   )) as CampanaMarketing;
+
+export const eliminarCampanaMarketing = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}`,
+    "DELETE",
+  )) as { ok: boolean };
 
 export const destinatariosDeCampana = async (id: number) =>
   (await apiRequest(

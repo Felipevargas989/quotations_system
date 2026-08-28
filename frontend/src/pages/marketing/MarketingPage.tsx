@@ -35,6 +35,11 @@ import {
   renombrarAudienciaImportada,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
+import CampanaMarcaPropia from "./CampanaMarcaPropia";
+import {
+  opcionesDeAudiencias,
+  unaAudiencia,
+} from "./audienciasDeCampana";
 import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
@@ -1061,6 +1066,9 @@ function NuevaCampana({
   // elegir VARIAS (unión deduplicada: quien está en dos recibe UNO).
   // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
   const [audSels, setAudSels] = useState<string[]>([]);
+  // Marca propia de la campana (28-08): vacios = la de Configuracion.
+  const [pBanner, setPBanner] = useState("");
+  const [pWhatsapp, setPWhatsapp] = useState("");
 
   // MERGE TAGS VISIBLES (Felipe 26-08): botoncitos que se insertan
   // donde está el cursor, en el último campo personalizable tocado.
@@ -1096,19 +1104,6 @@ function NuevaCampana({
     });
   };
 
-  const unaAudiencia = (sel: string): AudienciaElegida => {
-    if (sel === "todos") {
-      return {
-        audiencia_tipo: "segmento",
-        filtro: {} as FiltroSegmento,
-        audiencia_ref: "Todos los clientes",
-      };
-    }
-    if (sel.startsWith("g:")) {
-      return { audiencia_tipo: "segmento", audiencia_id: Number(sel.slice(2)) };
-    }
-    return { audiencia_tipo: "importada", audiencia_ref: sel.slice(2) };
-  };
 
   const crear = useMutation({
     mutationFn: () =>
@@ -1118,6 +1113,8 @@ function NuevaCampana({
         titulo,
         cuerpo,
         preencabezado: preencabezado.trim() || undefined,
+        ...(pBanner ? { banner_url: pBanner } : {}),
+        ...(pWhatsapp.trim() ? { whatsapp: pWhatsapp.trim() } : {}),
         audiencias: audSels.map(unaAudiencia),
       }),
     onSuccess: () => {
@@ -1129,20 +1126,7 @@ function NuevaCampana({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const opciones = [
-    {
-      value: "todos",
-      label: `Todos los clientes (${String(audiencias?.clientes_con_correo ?? 0)} en vivo)`,
-    },
-    ...(audiencias?.guardadas ?? []).map((g) => ({
-      value: `g:${String(g.id)}`,
-      label: `${g.nombre} (${String(g.total)} hoy, en vivo)`,
-    })),
-    ...(audiencias?.importadas ?? []).map((a) => ({
-      value: `i:${a.audiencia}`,
-      label: `${a.audiencia} (${String(a.contactos)}, importada)`,
-    })),
-  ];
+  const opciones = opcionesDeAudiencias(audiencias);
 
   const lista =
     nombre.trim() &&
@@ -1164,6 +1148,8 @@ function NuevaCampana({
             value={audSels}
             onChange={setAudSels}
             placeholder="Elegir una o varias audiencias…"
+            buscador
+            searchPlaceholder="Buscar audiencia por nombre…"
           />
         </div>
         <p className="text-[11px] text-gray-400 mt-1">
@@ -1253,6 +1239,13 @@ function NuevaCampana({
         público) salen en todos los correos con lo configurado en
         Configuración de la empresa.
       </p>
+
+      <CampanaMarcaPropia
+        bannerUrl={pBanner}
+        whatsapp={pWhatsapp}
+        onBanner={setPBanner}
+        onWhatsapp={setPWhatsapp}
+      />
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
         <button
