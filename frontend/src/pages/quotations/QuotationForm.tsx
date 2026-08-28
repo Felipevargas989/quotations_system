@@ -26,6 +26,7 @@ import { ServiceGroupCollection } from "../../types/serviceGroupCollections.type
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import Modal from "../../components/Modal";
 import PkgFijosPicker from "./PkgFijosPicker";
+import PkgMenusPicker from "./PkgMenusPicker";
 import { fijosDelPaquete } from "./paqueteFijos";
 import { validateCompleteClientForm } from "../../utils/validation";
 import { estadoAlGuardar } from "../../utils/estadoCotizacion";
@@ -2058,25 +2059,11 @@ export default function QuotationForm() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Menús incluidos
             </label>
-            <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
-              {serviceGroups.map((group) => (
-                <label
-                  key={group.id}
-                  className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedGroupIds.includes(group.id)}
-                    onChange={() => toggleSelectedGroup(group.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">{group.name}</span>
-                  <span className="text-sm text-gray-500">
-                    ({group.category})
-                  </span>
-                </label>
-              ))}
-            </div>
+            <PkgMenusPicker
+              menus={serviceGroups}
+              elegidos={selectedGroupIds}
+              onCambio={setSelectedGroupIds}
+            />
 
             {/* Servicios sueltos (13-08): lo que no es un menú pero va
                 en el programa — el alojamiento por N noches, la fiesta.
