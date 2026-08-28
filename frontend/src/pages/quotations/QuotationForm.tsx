@@ -327,11 +327,17 @@ export default function QuotationForm() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   // Fijos del paquete (28-08): codigo -> cantidad. Vive acá; la UI en
   // PkgFijosPicker y la traducción en paqueteFijos.ts (higuera).
-  const [pkgFijos, setPkgFijos] = useState<Record<string, number>>({});
+  const [pkgFijos, setPkgFijos] = useState<
+    { codigo: string; cant: number }[]
+  >([]);
   // Servicios sueltos del paquete (13-08): id → cantidad. Es lo que
   // permite meter el alojamiento (× N noches) y la fiesta sin
   // disfrazarlos de menú.
-  const [pkgServices, setPkgServices] = useState<Record<number, number>>({});
+  // LISTA ordenada, no mapa (28-08, Felipe: "todo lo que agrego va
+  // quedando en el orden"): la secuencia de selección se conserva.
+  const [pkgServices, setPkgServices] = useState<
+    { id: number; cant: number }[]
+  >([]);
   const [savingCollection, setSavingCollection] = useState(false);
   // Los paquetes aplicados a esta cotización, en el orden en que se
   // fueron cargando. Es una LISTA y no uno solo desde el 14-08: un
@@ -1143,7 +1149,7 @@ export default function QuotationForm() {
   const openCollectionModal = () => {
     setSelectedGroupIds([]);
     setCollectionName("");
-    setPkgServices({});
+    setPkgServices([]);
     setShowCollectionModal(true);
   };
 
@@ -1158,27 +1164,37 @@ export default function QuotationForm() {
   // Los servicios sueltos ya elegidos para el paquete, en el orden del
   // catálogo. Se muestran fuera del desplegable para poder ajustar la
   // cantidad sin volver a abrirlo.
-  const elegidosPkg = variableServices.filter(
-    (v) => (pkgServices[v.id] || 0) > 0,
-  );
+  const elegidosPkg = pkgServices.flatMap((p) => {
+    const v = variableServices.find((x) => x.id === p.id);
+    return v ? [{ ...v, cantElegida: p.cant }] : [];
+  });
+  const sumarSuelto = (id: number, delta: number) =>
+    setPkgServices((prev) => {
+      if (!prev.some((x) => x.id === id) && delta > 0) {
+        return [...prev, { id, cant: delta }];
+      }
+      return prev.flatMap((x) =>
+        x.id === id
+          ? x.cant + delta <= 0
+            ? []
+            : [{ ...x, cant: x.cant + delta }]
+          : [x],
+      );
+    });
 
   const confirmCreateCollection = async () => {
     if (!collectionName.trim() || selectedGroupIds.length === 0) return;
 
     setSavingCollection(true);
     try {
-      const sueltos = Object.entries(pkgServices)
-        .filter(([, cant]) => cant > 0)
-        .map(([id, cant]) => ({
-          variable_service_id: Number(id),
-          quantity: cant,
-        }));
-      const fijosPkg = Object.entries(pkgFijos)
-        .filter(([, cant]) => cant > 0)
-        .map(([codigo, cant]) => ({
-          fixed_service_id: Number(codigo),
-          quantity: cant,
-        }));
+      const sueltos = pkgServices.map((p) => ({
+        variable_service_id: p.id,
+        quantity: p.cant,
+      }));
+      const fijosPkg = pkgFijos.map((f) => ({
+        fixed_service_id: Number(f.codigo),
+        quantity: f.cant,
+      }));
       await saveCollection({
         name: collectionName.trim(),
         items: selectedGroupIds.map((id) => ({ service_group_id: id })),
@@ -1188,8 +1204,8 @@ export default function QuotationForm() {
       setShowCollectionModal(false);
       setCollectionName("");
       setSelectedGroupIds([]);
-      setPkgServices({});
-      setPkgFijos({});
+      setPkgServices([]);
+      setPkgFijos([]);
       toast.success("Paquete guardado.");
     } catch (error) {
       toast.error("No se pudo guardar el paquete.");
@@ -2089,29 +2105,17 @@ export default function QuotationForm() {
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setPkgServices((p) => {
-                          const n = { ...p };
-                          if ((n[v.id] || 0) <= 1) delete n[v.id];
-                          else n[v.id] = n[v.id] - 1;
-                          return n;
-                        })
-                      }
+                      onClick={() => sumarSuelto(v.id, -1)}
                       className="w-7 h-7 rounded border border-gray-300 text-gray-600"
                     >
                       −
                     </button>
                     <span className="w-6 text-center text-sm tabular-nums">
-                      {pkgServices[v.id]}
+                      {v.cantElegida}
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setPkgServices((p) => ({
-                          ...p,
-                          [v.id]: (p[v.id] || 0) + 1,
-                        }))
-                      }
+                      onClick={() => sumarSuelto(v.id, 1)}
                       className="w-7 h-7 rounded border border-gray-300 text-gray-600"
                     >
                       +
@@ -2129,12 +2133,7 @@ export default function QuotationForm() {
                   label: `${v.name} · ${v.category}`,
                 }))}
               value=""
-              onChange={(id) =>
-                setPkgServices((p) => ({
-                  ...p,
-                  [Number(id)]: (p[Number(id)] || 0) + 1,
-                }))
-              }
+              onChange={(id) => sumarSuelto(Number(id), 1)}
               placeholder="Agregar servicio…"
               searchPlaceholder="Buscar servicio por nombre…"
               noResultsText="No se encontraron servicios"
