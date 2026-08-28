@@ -129,6 +129,16 @@ export class EditarCampanaDto {
   @IsString()
   @MaxLength(25)
   whatsapp?: string;
+
+  /** Cambiar las audiencias del borrador (28-08). Si no viene, se
+   *  conservan las que tenía. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => AudienciaElegidaDto)
+  audiencias?: AudienciaElegidaDto[];
 }
 
 /** Renombrar una audiencia importada (el lápiz, 27-08). */

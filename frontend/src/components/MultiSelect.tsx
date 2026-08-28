@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, X, Check } from "lucide-react";
+import { ChevronDown, X, Check, Search } from "lucide-react";
+import { matchesSearch } from "../utils/searchMatch";
 
 export interface MultiSelectOption {
   value: string;
@@ -13,6 +14,9 @@ interface MultiSelectProps {
   readonly placeholder?: string;
   readonly disabled?: boolean;
   readonly className?: string;
+  /** Buscador arriba del panel (28-08): para listas largas. */
+  readonly buscador?: boolean;
+  readonly searchPlaceholder?: string;
 }
 
 export default function MultiSelect({
@@ -22,8 +26,15 @@ export default function MultiSelect({
   placeholder = "Seleccionar opciones",
   disabled = false,
   className = "",
+  buscador = false,
+  searchPlaceholder = "Buscar…",
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [busca, setBusca] = useState("");
+  // Lo que se ve en la lista: con buscador, solo lo que calza.
+  const visibles = buscador && busca.trim()
+    ? options.filter((o) => matchesSearch(busca, o.label))
+    : options;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -52,8 +63,9 @@ export default function MultiSelect({
   };
 
   const handleSelectAll = () => {
-    const allValues = options.map((option) => option.value);
-    onChange(allValues);
+    // Con búsqueda activa, "todo" es lo que se está viendo.
+    const nuevos = visibles.map((option) => option.value);
+    onChange([...new Set([...value, ...nuevos])]);
   };
 
   const handleClearAll = () => {
@@ -121,6 +133,21 @@ export default function MultiSelect({
       {/* Dropdown */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+          {buscador && (
+            <div className="relative border-b border-gray-200">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                autoFocus
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full pl-8 pr-3 py-2 text-sm border-0 focus:ring-0 focus:outline-none rounded-t-lg"
+              />
+            </div>
+          )}
           {/* Select All / Clear All buttons */}
           <div className="p-2 border-b border-gray-200 flex space-x-2">
             <button
@@ -141,7 +168,12 @@ export default function MultiSelect({
 
           {/* Options list */}
           <div className="max-h-60 overflow-y-auto">
-            {options.map((option) => {
+            {visibles.length === 0 && (
+              <p className="px-3 py-3 text-sm text-gray-400">
+                No se encontraron opciones
+              </p>
+            )}
+            {visibles.map((option) => {
               const isSelected = value.includes(option.value);
               return (
                 <button

@@ -547,6 +547,16 @@ export class MarketingRepository {
     return data as unknown as CampanaMarketing | null;
   }
 
+  /** Borrar una campaña (el servicio ya validó que es borrador). */
+  async borrarCampana(id: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('marketing_campaigns')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
+    if (error) throw error;
+  }
+
   async actualizarCampana(
     id: number,
     companyId: number,

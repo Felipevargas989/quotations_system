@@ -17,6 +17,7 @@ import { CurrentUser, Public } from 'src/auth';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
+import { AudienciasService } from './audiencias.service';
 import { BajasService } from './bajas.service';
 import {
   CrearAudienciaDto,
@@ -42,6 +43,7 @@ export class MarketingController {
   constructor(
     private readonly marketing: MarketingService,
     private readonly bajas: BajasService,
+    private readonly estanteria: AudienciasService,
     private readonly companies: CompaniesRepository,
     private readonly logger: PinoLogger,
   ) {
@@ -102,10 +104,10 @@ export class MarketingController {
   @Get('audiencias')
   async audiencias(@CurrentUser() user: User) {
     const [estanteria, importadas, tipos, tiposEvento] = await Promise.all([
-      this.marketing.listarAudiencias(user.company_id),
-      this.marketing.audienciasImportadas(user.company_id),
-      this.marketing.tiposDeCliente(user.company_id),
-      this.marketing.tiposDeEvento(user.company_id),
+      this.estanteria.listarAudiencias(user.company_id),
+      this.estanteria.audienciasImportadas(user.company_id),
+      this.estanteria.tiposDeCliente(user.company_id),
+      this.estanteria.tiposDeEvento(user.company_id),
     ]);
     return {
       guardadas: estanteria.guardadas,
@@ -123,13 +125,13 @@ export class MarketingController {
     @Query('nombre') nombre: string,
     @CurrentUser() user: User,
   ) {
-    return this.marketing.contactosDeImportada(user.company_id, nombre ?? '');
+    return this.estanteria.contactosDeImportada(user.company_id, nombre ?? '');
   }
 
   @Post('audiencias')
   crearAudiencia(@Body() dto: CrearAudienciaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /marketing/audiencias ${dto.nombre}`);
-    return this.marketing.crearAudiencia(dto, user.company_id);
+    return this.estanteria.crearAudiencia(dto, user.company_id);
   }
 
   /** El lápiz de las importadas (27-08). ANTES de :id por el orden. */
@@ -139,7 +141,7 @@ export class MarketingController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`PATCH /marketing/audiencias/importada ${dto.nombre}`);
-    return this.marketing.renombrarImportada(
+    return this.estanteria.renombrarImportada(
       user.company_id,
       dto.nombre,
       dto.nuevo,
@@ -154,7 +156,7 @@ export class MarketingController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`PATCH /marketing/audiencias/${id}`);
-    return this.marketing.renombrarAudiencia(+id, user.company_id, dto.nombre);
+    return this.estanteria.renombrarAudiencia(+id, user.company_id, dto.nombre);
   }
 
   /** Sacar UN contacto de una importada (desde el ojito). */
@@ -165,7 +167,7 @@ export class MarketingController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`DELETE /marketing/audiencias/importada/contacto`);
-    return this.marketing.borrarContactoImportado(
+    return this.estanteria.borrarContactoImportado(
       user.company_id,
       nombre ?? '',
       email ?? '',
@@ -180,20 +182,20 @@ export class MarketingController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`DELETE /marketing/audiencias/importada ${nombre}`);
-    return this.marketing.borrarImportada(user.company_id, nombre ?? '');
+    return this.estanteria.borrarImportada(user.company_id, nombre ?? '');
   }
 
   @Delete('audiencias/:id')
   async borrarAudiencia(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /marketing/audiencias/${id}`);
-    await this.marketing.borrarAudiencia(+id, user.company_id);
+    await this.estanteria.borrarAudiencia(+id, user.company_id);
     return { ok: true };
   }
 
   /** La previa EN VIVO del constructor de segmentos (Fase 3). */
   @Post('segmento/previa')
   previaSegmento(@Body() dto: PreviaSegmentoDto, @CurrentUser() user: User) {
-    return this.marketing.previaSegmento(dto, user.company_id);
+    return this.estanteria.previaSegmento(dto, user.company_id);
   }
 
   @Post('contactos/importar')
@@ -201,7 +203,7 @@ export class MarketingController {
     this.logger.info(
       `POST /marketing/contactos/importar ${dto.audiencia} (${dto.contactos.length})`,
     );
-    return this.marketing.importarContactos(dto, user.company_id);
+    return this.estanteria.importarContactos(dto, user.company_id);
   }
 
   // ---- Campañas ----
@@ -225,6 +227,13 @@ export class MarketingController {
   ) {
     this.logger.info(`PATCH /marketing/campanas/${id}`);
     return this.marketing.editarCampana(+id, user.company_id, dto);
+  }
+
+  /** Eliminar un BORRADOR desde su ficha (28-08). */
+  @Delete('campanas/:id')
+  borrarCampana(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`DELETE /marketing/campanas/${id}`);
+    return this.marketing.borrarCampana(+id, user.company_id);
   }
 
   @Get('campanas/:id/destinatarios')

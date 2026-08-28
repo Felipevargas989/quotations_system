@@ -36,6 +36,10 @@ import {
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
 import CampanaMarcaPropia from "./CampanaMarcaPropia";
+import {
+  opcionesDeAudiencias,
+  unaAudiencia,
+} from "./audienciasDeCampana";
 import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
@@ -1100,19 +1104,6 @@ function NuevaCampana({
     });
   };
 
-  const unaAudiencia = (sel: string): AudienciaElegida => {
-    if (sel === "todos") {
-      return {
-        audiencia_tipo: "segmento",
-        filtro: {} as FiltroSegmento,
-        audiencia_ref: "Todos los clientes",
-      };
-    }
-    if (sel.startsWith("g:")) {
-      return { audiencia_tipo: "segmento", audiencia_id: Number(sel.slice(2)) };
-    }
-    return { audiencia_tipo: "importada", audiencia_ref: sel.slice(2) };
-  };
 
   const crear = useMutation({
     mutationFn: () =>
@@ -1135,20 +1126,7 @@ function NuevaCampana({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const opciones = [
-    {
-      value: "todos",
-      label: `Todos los clientes (${String(audiencias?.clientes_con_correo ?? 0)} en vivo)`,
-    },
-    ...(audiencias?.guardadas ?? []).map((g) => ({
-      value: `g:${String(g.id)}`,
-      label: `${g.nombre} (${String(g.total)} hoy, en vivo)`,
-    })),
-    ...(audiencias?.importadas ?? []).map((a) => ({
-      value: `i:${a.audiencia}`,
-      label: `${a.audiencia} (${String(a.contactos)}, importada)`,
-    })),
-  ];
+  const opciones = opcionesDeAudiencias(audiencias);
 
   const lista =
     nombre.trim() &&
@@ -1170,6 +1148,8 @@ function NuevaCampana({
             value={audSels}
             onChange={setAudSels}
             placeholder="Elegir una o varias audiencias…"
+            buscador
+            searchPlaceholder="Buscar audiencia por nombre…"
           />
         </div>
         <p className="text-[11px] text-gray-400 mt-1">

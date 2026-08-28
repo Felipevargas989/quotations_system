@@ -1,14 +1,21 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Send } from "lucide-react";
+import { ArrowLeft, Pencil, Send, Trash2 } from "lucide-react";
 import Modal from "../../components/Modal";
-import CampanaMarcaPropia from "./CampanaMarcaPropia";
+import EditorDeBorrador from "./EditorDeBorrador";
+import {
+  opcionesDeAudiencias,
+  seleccionDeCampana,
+  unaAudiencia,
+} from "./audienciasDeCampana";
 import { toast } from "../../components/toast/Toast";
 import {
   DestinatarioDeCampana,
   destinatariosDeCampana,
   editarCampanaMarketing,
+  eliminarCampanaMarketing,
+  getAudienciasMarketing,
   detalleDeCampana,
   enviarCampana,
   enviarPruebaCampana,
@@ -109,66 +116,19 @@ export default function CampanaFichaPage() {
 
   // ---- Editar el borrador desde la ficha (Felipe 26-08) ----
   const [editando, setEditando] = useState(false);
-  const [fAsunto, setFAsunto] = useState("");
-  const [fPre, setFPre] = useState("");
-  const [fTitulo, setFTitulo] = useState("");
-  const [fCuerpo, setFCuerpo] = useState("");
-  const [fBanner, setFBanner] = useState("");
-  const [fWhatsapp, setFWhatsapp] = useState("");
-  // Los chips {nombre}/{empresa} insertan donde quedo el cursor,
-  // igual que en el creador de campanas.
-  type CampoTag = "asunto" | "titulo" | "cuerpo";
-  const [campoTag, setCampoTag] = useState<CampoTag>("cuerpo");
-  const refAsunto = useRef<HTMLInputElement>(null);
-  const refTitulo = useRef<HTMLInputElement>(null);
-  const refCuerpo = useRef<HTMLTextAreaElement>(null);
-  const refsTag = { asunto: refAsunto, titulo: refTitulo, cuerpo: refCuerpo };
-  const valoresTag = { asunto: fAsunto, titulo: fTitulo, cuerpo: fCuerpo };
-  const setsTag = { asunto: setFAsunto, titulo: setFTitulo, cuerpo: setFCuerpo };
-  const insertarTag = (tag: string) => {
-    const el = refsTag[campoTag].current;
-    const valor = valoresTag[campoTag];
-    const ini = el?.selectionStart ?? valor.length;
-    const fin = el?.selectionEnd ?? ini;
-    setsTag[campoTag](valor.slice(0, ini) + tag + valor.slice(fin));
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(ini + tag.length, ini + tag.length);
-    });
-  };
-  const abrirEdicion = () => {
-    if (!c) return;
-    setFAsunto(c.asunto);
-    setFPre(c.preencabezado ?? "");
-    setFTitulo(c.titulo);
-    setFCuerpo(c.cuerpo);
-    setFBanner(c.banner_url ?? "");
-    setFWhatsapp(c.whatsapp ?? "");
-    setEditando(true);
-  };
-  const guardar = useMutation({
-    mutationFn: () =>
-      editarCampanaMarketing(campanaId, {
-        asunto: fAsunto.trim(),
-        titulo: fTitulo.trim(),
-        cuerpo: fCuerpo,
-        ...(fPre.trim() ? { preencabezado: fPre.trim() } : {}),
-        ...(fBanner ? { banner_url: fBanner } : {}),
-        ...(fWhatsapp.trim() ? { whatsapp: fWhatsapp.trim() } : {}),
-      }),
+
+  // Eliminar el BORRADOR (28-08): las enviadas son historia y el motor
+  // las rechaza; acá el botón ni siquiera aparece.
+  const [borrando, setBorrando] = useState(false);
+  const eliminar = useMutation({
+    mutationFn: () => eliminarCampanaMarketing(campanaId),
     onSuccess: () => {
-      toast.success(
-        c?.prueba_enviada_at
-          ? "Guardado. La prueba anterior quedó invalidada: mándate una nueva antes de enviar."
-          : "Guardado.",
-      );
-      setEditando(false);
-      refrescar();
+      toast.success("Campaña eliminada");
+      qc.invalidateQueries({ queryKey: ["marketing"] });
+      navigate("/marketing");
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
-  const faltaAlgo =
-    !fAsunto.trim() || !fTitulo.trim() || !fCuerpo.trim();
   const enviar = useMutation({
     mutationFn: () => enviarCampana(campanaId),
     onSuccess: (r) => {
@@ -273,6 +233,34 @@ export default function CampanaFichaPage() {
           {/* LA acción de la ficha, arriba de las cajas de KPIs
               (Felipe 26-08). Usada la 2ª pasada, desaparece: el tope
               de la industria son 2 envíos por campaña. */}
+          {!enviada &&
+            (borrando ? (
+              <span className="flex items-center gap-1 text-sm">
+                <button
+                  type="button"
+                  onClick={() => eliminar.mutate()}
+                  className="px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                >
+                  Eliminar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBorrando(false)}
+                  className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
+                >
+                  No
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setBorrando(true)}
+                title="Eliminar este borrador"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4" /> Eliminar
+              </button>
+            ))}
           {enviada &&
             !c.reenviada_con_asunto &&
             filas.some((f) => !f.opened_at && !f.bounced_at) && (
@@ -544,7 +532,7 @@ export default function CampanaFichaPage() {
               {!editando && (
                 <button
                   type="button"
-                  onClick={abrirEdicion}
+                  onClick={() => setEditando(true)}
                   className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
                   <Pencil className="w-3 h-3" /> Editar
@@ -552,99 +540,14 @@ export default function CampanaFichaPage() {
               )}
             </div>
             {editando ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500">
-                  Insertar en {campoTag}:
-                  <button
-                    type="button"
-                    onClick={() => insertarTag("{nombre}")}
-                    className="px-2 py-0.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-mono"
-                  >
-                    {"{nombre}"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertarTag("{empresa}")}
-                    className="px-2 py-0.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-mono"
-                  >
-                    {"{empresa}"}
-                  </button>
-                </div>
-                <label className="block text-sm">
-                  <span className="text-gray-600">Asunto</span>
-                  <input
-                    ref={refAsunto}
-                    value={fAsunto}
-                    onChange={(e) => setFAsunto(e.target.value)}
-                    onFocus={() => setCampoTag("asunto")}
-                    maxLength={200}
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600">
-                    Preencabezado (la frase gris de la bandeja, optativo)
-                  </span>
-                  <input
-                    value={fPre}
-                    onChange={(e) => setFPre(e.target.value)}
-                    maxLength={200}
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600">Título grande del correo</span>
-                  <input
-                    ref={refTitulo}
-                    value={fTitulo}
-                    onChange={(e) => setFTitulo(e.target.value)}
-                    onFocus={() => setCampoTag("titulo")}
-                    maxLength={200}
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600">Cuerpo</span>
-                  <textarea
-                    ref={refCuerpo}
-                    value={fCuerpo}
-                    onChange={(e) => setFCuerpo(e.target.value)}
-                    onFocus={() => setCampoTag("cuerpo")}
-                    rows={12}
-                    maxLength={8000}
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <CampanaMarcaPropia
-                  bannerUrl={fBanner}
-                  whatsapp={fWhatsapp}
-                  onBanner={setFBanner}
-                  onWhatsapp={setFWhatsapp}
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => guardar.mutate()}
-                    disabled={faltaAlgo || guardar.isPending}
-                    className="px-3 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-black disabled:opacity-40"
-                  >
-                    {guardar.isPending ? "Guardando…" : "Guardar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditando(false)}
-                    className="px-3 py-2 text-sm rounded-lg text-gray-500 hover:bg-gray-100"
-                  >
-                    Cancelar
-                  </button>
-                  {c.prueba_enviada_at && (
-                    <span className="text-xs text-amber-600">
-                      Al guardar se invalida la prueba: tendrás que probarte
-                      la versión nueva.
-                    </span>
-                  )}
-                </div>
-              </div>
+              <EditorDeBorrador
+                campana={c}
+                onListo={() => {
+                  setEditando(false);
+                  refrescar();
+                }}
+                onCancelar={() => setEditando(false)}
+              />
             ) : (
               <>
                 <p className="text-xs text-gray-500 mb-3">

@@ -17,6 +17,14 @@ export interface AudienciasMarketing {
   tipos_evento: { tipo: string; n: number }[];
 }
 
+export interface AudienciaElegida {
+  audiencia_tipo: "clientes" | "importada" | "segmento";
+  audiencia_id?: number;
+  audiencia_ref?: string;
+  tipos_cliente?: string[];
+  filtro?: FiltroSegmento;
+}
+
 export interface CampanaMarketing {
   id: number;
   nombre: string;
@@ -37,6 +45,8 @@ export interface CampanaMarketing {
   /** Banner y WhatsApp propios (28-08): nulos = la marca de siempre. */
   banner_url: string | null;
   whatsapp: string | null;
+  /** Selección múltiple guardada (27-08); null en campañas viejas. */
+  audiencias: AudienciaElegida[] | null;
   created_at: string;
 }
 
@@ -220,14 +230,6 @@ export const getCampanasMarketing = async () =>
     "GET",
   )) as CampanaMarketing[];
 
-export interface AudienciaElegida {
-  audiencia_tipo: "clientes" | "importada" | "segmento";
-  audiencia_id?: number;
-  audiencia_ref?: string;
-  tipos_cliente?: string[];
-  filtro?: FiltroSegmento;
-}
-
 export const crearCampanaMarketing = async (dto: {
   nombre: string;
   asunto: string;
@@ -254,6 +256,7 @@ export const editarCampanaMarketing = async (
     preencabezado?: string;
     banner_url?: string;
     whatsapp?: string;
+    audiencias?: AudienciaElegida[];
   },
 ) =>
   (await apiRequest(
@@ -261,6 +264,12 @@ export const editarCampanaMarketing = async (
     "PATCH",
     dto,
   )) as CampanaMarketing;
+
+export const eliminarCampanaMarketing = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}`,
+    "DELETE",
+  )) as { ok: boolean };
 
 export const destinatariosDeCampana = async (id: number) =>
   (await apiRequest(
