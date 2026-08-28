@@ -3551,6 +3551,10 @@ export default function QuotationForm() {
                         ? `${people} de ${audienceCount(box)} personas`
                         : `${people} personas`,
                     );
+                    // La tarifa pp a la vista (Felipe 28-08). Solo
+                    // lectura: el subtotal sigue mandando.
+                    if (perPerson > 0)
+                      parts.push(`$${perPerson.toLocaleString("es-CL")} pp`);
                     return (
                       <div key={box.id} className="px-4 py-2 text-sm">
                         <div className="flex justify-between gap-2">
