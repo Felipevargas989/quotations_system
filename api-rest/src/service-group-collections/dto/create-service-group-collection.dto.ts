@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import {
   ServiceGroupCollection,
+  ServiceGroupCollectionFixedService,
   ServiceGroupCollectionItem,
   ServiceGroupCollectionService,
 } from '../entities/service-group-collection.entity';
@@ -31,6 +32,16 @@ export class CreateServiceGroupCollectionServiceDto {
   quantity: ServiceGroupCollectionService['quantity'];
 }
 
+export class CreateServiceGroupCollectionFixedServiceDto {
+  @IsInt()
+  @IsNotEmpty()
+  fixed_service_id: ServiceGroupCollectionFixedService['fixed_service_id'];
+
+  @IsInt()
+  @Min(1)
+  quantity: ServiceGroupCollectionFixedService['quantity'];
+}
+
 export class CreateServiceGroupCollectionDto {
   @IsString()
   @IsNotEmpty()
@@ -49,4 +60,12 @@ export class CreateServiceGroupCollectionDto {
   @ValidateNested({ each: true })
   @Type(() => CreateServiceGroupCollectionServiceDto)
   services?: CreateServiceGroupCollectionServiceDto[];
+
+  // Servicios FIJOS del paquete (28-08): el salón, la decoración, el
+  // audiovisual — parte del paquete de verdad, no un agregado a mano.
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateServiceGroupCollectionFixedServiceDto)
+  fixed_services?: CreateServiceGroupCollectionFixedServiceDto[];
 }

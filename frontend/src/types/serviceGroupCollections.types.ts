@@ -14,6 +14,13 @@ export interface ServiceGroupCollectionService {
   service: VariableService;
 }
 
+// Servicio FIJO del paquete (28-08): el salón, la decoración, el
+// audiovisual — parte del paquete de verdad.
+export interface ServiceGroupCollectionFixedService {
+  quantity: number;
+  service: { id: number; name: string } | null;
+}
+
 export interface ServiceGroupCollection {
   id: number;
   created_at: Date;
@@ -21,10 +28,12 @@ export interface ServiceGroupCollection {
   company_id: Company["id"];
   groups: ServiceGroupCollectionItem[];
   services?: ServiceGroupCollectionService[];
+  fixed_services?: ServiceGroupCollectionFixedService[];
 }
 
 export interface CreateServiceGroupCollection {
   name: string;
   items: { service_group_id: ServiceGroup["id"] }[];
   services?: { variable_service_id: VariableService["id"]; quantity: number }[];
+  fixed_services?: { fixed_service_id: number; quantity: number }[];
 }
