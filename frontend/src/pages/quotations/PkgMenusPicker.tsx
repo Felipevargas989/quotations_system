@@ -19,7 +19,12 @@ export default function PkgMenusPicker({
   readonly onCambio: (siguiente: number[]) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const dentro = menus.filter((m) => elegidos.includes(m.id));
+  // EN EL ORDEN QUE SE ELIGEN (Felipe 28-08, "mismo problema de cuando
+  // agregaba garzones"): se recorre la selección, no el catálogo.
+  const dentro = elegidos.flatMap((id) => {
+    const m = menus.find((x) => x.id === id);
+    return m ? [m] : [];
+  });
   return (
     <div>
       {dentro.length > 0 && (
