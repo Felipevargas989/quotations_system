@@ -137,6 +137,14 @@ export class StorageService {
         path = `${companyId}_banner.${ext}`;
         break;
       }
+      // Banner PROPIO de una campaña (Felipe 28-08): nombre único por
+      // subida — cada campaña puede vestir su propia foto.
+      case 'campaign-banner': {
+        bucket = 'company-logos';
+        publica = true;
+        path = `${companyId}_campaign_banner_${ts}.${ext}`;
+        break;
+      }
       default:
         throw new BadRequestException('Tipo de subida desconocido');
     }

@@ -35,6 +35,7 @@ import {
   renombrarAudienciaImportada,
 } from "../../services/marketing.service";
 import SegmentoBuilder from "./SegmentoBuilder";
+import CampanaMarcaPropia from "./CampanaMarcaPropia";
 import { leerArchivoDeContactos } from "./leerArchivoDeContactos";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
@@ -1061,6 +1062,9 @@ function NuevaCampana({
   // elegir VARIAS (unión deduplicada: quien está en dos recibe UNO).
   // "todos" = el filtro vacío · "g:id" = guardada · "i:nombre" = importada.
   const [audSels, setAudSels] = useState<string[]>([]);
+  // Marca propia de la campana (28-08): vacios = la de Configuracion.
+  const [pBanner, setPBanner] = useState("");
+  const [pWhatsapp, setPWhatsapp] = useState("");
 
   // MERGE TAGS VISIBLES (Felipe 26-08): botoncitos que se insertan
   // donde está el cursor, en el último campo personalizable tocado.
@@ -1118,6 +1122,8 @@ function NuevaCampana({
         titulo,
         cuerpo,
         preencabezado: preencabezado.trim() || undefined,
+        ...(pBanner ? { banner_url: pBanner } : {}),
+        ...(pWhatsapp.trim() ? { whatsapp: pWhatsapp.trim() } : {}),
         audiencias: audSels.map(unaAudiencia),
       }),
     onSuccess: () => {
@@ -1253,6 +1259,13 @@ function NuevaCampana({
         público) salen en todos los correos con lo configurado en
         Configuración de la empresa.
       </p>
+
+      <CampanaMarcaPropia
+        bannerUrl={pBanner}
+        whatsapp={pWhatsapp}
+        onBanner={setPBanner}
+        onWhatsapp={setPWhatsapp}
+      />
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
         <button

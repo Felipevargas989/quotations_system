@@ -117,6 +117,18 @@ export class EditarCampanaDto {
   @IsString()
   @MaxLength(200)
   preencabezado?: string;
+
+  /** Banner PROPIO de la campaña (opcional: vacío = el de la marca). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  banner_url?: string;
+
+  /** WhatsApp PROPIO de la campaña (opcional: vacío = el de la marca). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(25)
+  whatsapp?: string;
 }
 
 /** Renombrar una audiencia importada (el lápiz, 27-08). */
@@ -184,6 +196,18 @@ export class CrearCampanaDto {
   @IsString()
   @MaxLength(200)
   preencabezado?: string;
+
+  /** Banner PROPIO de la campaña (opcional: vacío = el de la marca). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  banner_url?: string;
+
+  /** WhatsApp PROPIO de la campaña (opcional: vacío = el de la marca). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(25)
+  whatsapp?: string;
 
   /** VARIAS audiencias (27-08): la unión, deduplicada por correo.
    *  Si viene, manda; los campos sueltos de abajo son el camino viejo. */

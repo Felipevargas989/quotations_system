@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Send } from "lucide-react";
 import Modal from "../../components/Modal";
+import CampanaMarcaPropia from "./CampanaMarcaPropia";
 import { toast } from "../../components/toast/Toast";
 import {
   DestinatarioDeCampana,
@@ -112,6 +113,8 @@ export default function CampanaFichaPage() {
   const [fPre, setFPre] = useState("");
   const [fTitulo, setFTitulo] = useState("");
   const [fCuerpo, setFCuerpo] = useState("");
+  const [fBanner, setFBanner] = useState("");
+  const [fWhatsapp, setFWhatsapp] = useState("");
   // Los chips {nombre}/{empresa} insertan donde quedo el cursor,
   // igual que en el creador de campanas.
   type CampoTag = "asunto" | "titulo" | "cuerpo";
@@ -139,6 +142,8 @@ export default function CampanaFichaPage() {
     setFPre(c.preencabezado ?? "");
     setFTitulo(c.titulo);
     setFCuerpo(c.cuerpo);
+    setFBanner(c.banner_url ?? "");
+    setFWhatsapp(c.whatsapp ?? "");
     setEditando(true);
   };
   const guardar = useMutation({
@@ -148,6 +153,8 @@ export default function CampanaFichaPage() {
         titulo: fTitulo.trim(),
         cuerpo: fCuerpo,
         ...(fPre.trim() ? { preencabezado: fPre.trim() } : {}),
+        ...(fBanner ? { banner_url: fBanner } : {}),
+        ...(fWhatsapp.trim() ? { whatsapp: fWhatsapp.trim() } : {}),
       }),
     onSuccess: () => {
       toast.success(
@@ -608,6 +615,12 @@ export default function CampanaFichaPage() {
                     className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   />
                 </label>
+                <CampanaMarcaPropia
+                  bannerUrl={fBanner}
+                  whatsapp={fWhatsapp}
+                  onBanner={setFBanner}
+                  onWhatsapp={setFWhatsapp}
+                />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"

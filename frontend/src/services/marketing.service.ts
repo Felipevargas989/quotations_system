@@ -34,6 +34,9 @@ export interface CampanaMarketing {
   enviada_at: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
+  /** Banner y WhatsApp propios (28-08): nulos = la marca de siempre. */
+  banner_url: string | null;
+  whatsapp: string | null;
   created_at: string;
 }
 
@@ -231,6 +234,8 @@ export const crearCampanaMarketing = async (dto: {
   titulo: string;
   cuerpo: string;
   preencabezado?: string;
+  banner_url?: string;
+  whatsapp?: string;
   /** Selección múltiple (27-08): la unión, deduplicada por correo. */
   audiencias: AudienciaElegida[];
 }) =>
@@ -242,7 +247,14 @@ export const crearCampanaMarketing = async (dto: {
 
 export const editarCampanaMarketing = async (
   id: number,
-  dto: { asunto: string; titulo: string; cuerpo: string; preencabezado?: string },
+  dto: {
+    asunto: string;
+    titulo: string;
+    cuerpo: string;
+    preencabezado?: string;
+    banner_url?: string;
+    whatsapp?: string;
+  },
 ) =>
   (await apiRequest(
     `${API_ROUTES.MARKETING}/campanas/${String(id)}`,

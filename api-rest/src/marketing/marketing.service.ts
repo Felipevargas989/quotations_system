@@ -353,6 +353,8 @@ export class MarketingService {
         tipos_cliente: sola ? primera.tipos_cliente : null,
         filtro: sola ? primera.filtro : null,
         audiencias: normalizadas,
+        banner_url: dto.banner_url?.trim() || null,
+        whatsapp: dto.whatsapp?.trim() || null,
       });
     }
     if (!dto.audiencia_tipo) {
@@ -397,6 +399,8 @@ export class MarketingService {
       audiencia_ref: audienciaRef,
       tipos_cliente: dto.tipos_cliente ?? null,
       filtro,
+      banner_url: dto.banner_url?.trim() || null,
+      whatsapp: dto.whatsapp?.trim() || null,
     });
   }
 
@@ -477,10 +481,22 @@ export class MarketingService {
   ) {
     const titulo = personalizar(campana.titulo, destinatario);
     const cuerpo = cuerpoAHtml(personalizar(campana.cuerpo, destinatario));
+    // EL PUNTO ÚNICO DEL REEMPLAZO (Felipe 28-08): si la campaña trae
+    // banner o WhatsApp propios, mandan sobre la marca — y como todo
+    // pasa por acá, cubre prueba, envío, segunda pasada y vista.
+    const marcaDeCampana: MarcaEmpresa = {
+      ...marca,
+      ...(campana.banner_url?.trim()
+        ? { banner: campana.banner_url.trim() }
+        : {}),
+      ...(campana.whatsapp?.trim()
+        ? { whatsapp: campana.whatsapp.trim() }
+        : {}),
+    };
     return {
       asunto: personalizar(campana.asunto, destinatario),
       html: plantillaCampana({
-        marca,
+        marca: marcaDeCampana,
         titulo,
         cuerpoHtml: cuerpo,
         bajaUrl: this.bajas.urlDeBaja(
@@ -552,6 +568,8 @@ export class MarketingService {
       titulo: dto.titulo.trim(),
       cuerpo: dto.cuerpo,
       preencabezado: dto.preencabezado?.trim() || null,
+      banner_url: dto.banner_url?.trim() || null,
+      whatsapp: dto.whatsapp?.trim() || null,
       prueba_enviada_at: null,
     });
   }

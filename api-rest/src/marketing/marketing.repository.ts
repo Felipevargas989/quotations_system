@@ -41,6 +41,9 @@ export interface CampanaMarketing {
   enviada_at: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
+  /** Banner y WhatsApp PROPIOS (28-08): nulos = la marca de siempre. */
+  banner_url: string | null;
+  whatsapp: string | null;
   created_at: string;
 }
 
