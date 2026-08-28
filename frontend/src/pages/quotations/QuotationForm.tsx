@@ -24,6 +24,7 @@ import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollectio
 import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
+import Modal from "../../components/Modal";
 import PkgFijosPicker from "./PkgFijosPicker";
 import { fijosDelPaquete } from "./paqueteFijos";
 import { validateCompleteClientForm } from "../../utils/validation";
@@ -1997,20 +1998,46 @@ export default function QuotationForm() {
 
       {/* Create Collection (paquete) Modal */}
       {showCollectionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Crear paquete
-              </h3>
+        /* LA PIEZA DE LA CASA (28-08, pillada de Felipe: con muchos
+           items los botones se iban de la pantalla). El contenido rueda
+           por dentro y los botones viven en el PIE, siempre a la vista. */
+        <Modal
+          titulo="Crear paquete"
+          ancho="max-w-md"
+          onCerrar={() => setShowCollectionModal(false)}
+          pie={
+            <>
               <button
+                type="button"
                 onClick={() => setShowCollectionModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                <X size={20} />
+                Cancelar
               </button>
-            </div>
-
+              <button
+                type="button"
+                onClick={confirmCreateCollection}
+                disabled={
+                  savingCollection ||
+                  !collectionName.trim() ||
+                  selectedGroupIds.length === 0
+                }
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  savingCollection ||
+                  !collectionName.trim() ||
+                  selectedGroupIds.length === 0
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Save size={16} />
+                <span>
+                  {savingCollection ? "Guardando..." : "Guardar paquete"}
+                </span>
+              </button>
+            </>
+          }
+        >
             <p className="text-sm text-gray-600 mb-4">
               Un paquete agrupa menús de varias categorías y, si hace falta,
               servicios sueltos. Al elegirlo, el formulario se llena con todo.
@@ -2132,38 +2159,7 @@ export default function QuotationForm() {
               onCambio={setPkgFijos}
             />
 
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowCollectionModal(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={confirmCreateCollection}
-                disabled={
-                  savingCollection ||
-                  !collectionName.trim() ||
-                  selectedGroupIds.length === 0
-                }
-                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                  savingCollection ||
-                  !collectionName.trim() ||
-                  selectedGroupIds.length === 0
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                <Save size={16} />
-                <span>
-                  {savingCollection ? "Guardando..." : "Guardar paquete"}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       <div className="flex items-center justify-between">
