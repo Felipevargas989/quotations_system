@@ -1233,11 +1233,10 @@ function EventModal({
   const [doneError, setDoneError] = useState<string | null>(null);
   // AVISO DE FACTURA (Felipe 28-08): marcar realizado sin su factura
   // cargada es plata sin respaldo. Se consulta al abrir la pregunta.
-  const facturasQuery = useQuery({
-    queryKey: ["event-documents", event.quotationId],
-    queryFn: () => getDocumentsByQuotation(event.quotationId),
-    enabled: confirmDone,
-  });
+  // MISMA consulta que la pestaña Documentos (misma clave: react-query
+  // la comparte). Corre al abrir la ficha, así el aviso ya está listo
+  // cuando se aprieta — antes tardaba un segundo (Felipe 28-08).
+  const facturasQuery = useQuery(docsQueryOpts(event.quotationId));
   const sinFactura =
     facturasQuery.isSuccess &&
     !facturasQuery.data.some((d) => d.category === "facturas");
