@@ -106,7 +106,6 @@ interface EventRow {
   contactPerson?: string;
   phone?: string;
   contactEmail?: string;
-  requiresInvoice?: boolean;
   hasContract?: boolean;
   total: number;
   paid: number; // bruto: suma de abonos del cliente
@@ -373,7 +372,6 @@ export default function PostVentaPage() {
         contactPerson,
         phone,
         contactEmail,
-        requiresInvoice: q?.requires_invoice,
         hasContract: q?.has_contract,
         portalToken:
           (q as unknown as { mandante?: { portal_token?: string | null } })
@@ -1233,6 +1231,15 @@ function EventModal({
     }
   };
   const [doneError, setDoneError] = useState<string | null>(null);
+  // AVISO DE FACTURA (Felipe 28-08): marcar realizado sin su factura
+  // cargada es plata sin respaldo. Se consulta al abrir la pregunta.
+  // MISMA consulta que la pestaña Documentos (misma clave: react-query
+  // la comparte). Corre al abrir la ficha, así el aviso ya está listo
+  // cuando se aprieta — antes tardaba un segundo (Felipe 28-08).
+  const facturasQuery = useQuery(docsQueryOpts(event.quotationId));
+  const sinFactura =
+    facturasQuery.isSuccess &&
+    !facturasQuery.data.some((d) => d.category === "facturas");
   const doMarkDone = async () => {
     setMarkingDone(true);
     setDoneError(null);
@@ -1290,7 +1297,6 @@ function EventModal({
             <p className="text-sm text-gray-500 mt-1">
               Cotización #{event.quotationNumber}
               {event.hasContract ? " · 📄 con contrato" : ""}
-              {event.requiresInvoice ? " · 🧾 requiere factura" : ""}
             </p>
             {/* Apilados bajo el nombre (07-08, pedido de Felipe): así
                 cada dato tiene su línea y el ícono vuelve a servir de
@@ -1382,10 +1388,16 @@ function EventModal({
                   )}
                 </span>
               ) : confirmDone ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-700">
                     ¿Marcar como realizado? Se enviará la encuesta al contacto
                     de la cotización.
+                    {sinFactura && (
+                      <b className="block text-amber-700">
+                        Ojo: este evento no tiene ninguna factura cargada en
+                        Documentos.
+                      </b>
+                    )}
                   </span>
                   <button
                     disabled={markingDone}
