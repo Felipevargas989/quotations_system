@@ -37,6 +37,27 @@ import { PaymentsRepository } from './payments.repository';
  * Service responsible for managing payment operations including
  * payment plans, transactions, and automated overdue payment updates.
  */
+/**
+ * LA FECHA DEL ÚLTIMO ABONO (28-08). Resuelve el TODO original
+ * —"¿tiene sentido transacciones[0]? quizás necesita ordenarse"— que
+ * llevaba ahí desde el principio: la consulta NO ordena, así que
+ * tomar el primero mostraba la fecha del PRIMER abono. Medido ese día
+ * en producción: de 52 cuotas pagadas en varios abonos, 38 mostraban
+ * la fecha equivocada (la peor, 149 días antes de la real).
+ *
+ * Se calcula el MÁXIMO explícitamente en vez de confiar en el orden:
+ * así sigue siendo correcto aunque alguien cambie la consulta. Las
+ * fechas son ISO (YYYY-MM-DD…), que comparan bien como texto.
+ */
+export const fechaDelUltimoAbono = (
+  transacciones: readonly { transaction_date: string }[],
+): string | null =>
+  transacciones.reduce<string | null>(
+    (ultima, t) =>
+      !ultima || t.transaction_date > ultima ? t.transaction_date : ultima,
+    null,
+  );
+
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -293,9 +314,7 @@ export class PaymentsService {
         0,
       );
       const payment_count = transactions.length;
-      // TODO: check if tranasctions[0] makes sense now. Maybe now it requires a sort
-      const last_payment_date =
-        transactions.length > 0 ? transactions[0].transaction_date : null;
+      const last_payment_date = fechaDelUltimoAbono(transactions);
 
       // delete payment_transactions from payment object
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
