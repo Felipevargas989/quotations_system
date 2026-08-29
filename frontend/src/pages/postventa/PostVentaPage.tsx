@@ -1231,6 +1231,16 @@ function EventModal({
     }
   };
   const [doneError, setDoneError] = useState<string | null>(null);
+  // AVISO DE FACTURA (Felipe 28-08): marcar realizado sin su factura
+  // cargada es plata sin respaldo. Se consulta al abrir la pregunta.
+  const facturasQuery = useQuery({
+    queryKey: ["event-documents", event.quotationId],
+    queryFn: () => getDocumentsByQuotation(event.quotationId),
+    enabled: confirmDone,
+  });
+  const sinFactura =
+    facturasQuery.isSuccess &&
+    !facturasQuery.data.some((d) => d.category === "facturas");
   const doMarkDone = async () => {
     setMarkingDone(true);
     setDoneError(null);
@@ -1379,10 +1389,16 @@ function EventModal({
                   )}
                 </span>
               ) : confirmDone ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-700">
                     ¿Marcar como realizado? Se enviará la encuesta al contacto
                     de la cotización.
+                    {sinFactura && (
+                      <b className="block text-amber-700">
+                        Ojo: este evento no tiene ninguna factura cargada en
+                        Documentos.
+                      </b>
+                    )}
                   </span>
                   <button
                     disabled={markingDone}
