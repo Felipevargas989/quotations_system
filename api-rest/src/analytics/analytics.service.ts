@@ -232,7 +232,7 @@ export class AnalyticsService {
         paid_date: string | null;
         due_date: string | null;
         amount: number;
-        payment_transactions?: { transaction_date: string }[];
+        payment_transactions?: { transaction_date: string; amount?: number }[];
       };
       ((payments || []) as unknown as FilaPago[]).forEach((payment) => {
         const isPaid = payment.status === 'pagado';
@@ -256,7 +256,20 @@ export class AnalyticsService {
         if (isPaid) {
           totalPaymentsDetailByMonth[key].cobrado += payment.amount;
         } else {
-          totalPaymentsDetailByMonth[key].porCobrar += payment.amount;
+          // LO QUE FALTA POR COBRAR, DE VERDAD (28-08, pillado por
+          // Felipe): antes sumaba el monto COMPLETO de la cuota aunque
+          // el cliente ya hubiera abonado parte. Su caso: la cuota de
+          // Brito Pradenas ($1.623.600) figuraba entera aunque tenía
+          // $800.000 abonados — el panel pedía cobrar $800 mil de más.
+          // Post-Venta siempre mostró el saldo bien; ahora coinciden.
+          const abonado = (payment.payment_transactions ?? []).reduce(
+            (suma, t) => suma + Number((t as { amount?: number }).amount ?? 0),
+            0,
+          );
+          totalPaymentsDetailByMonth[key].porCobrar += Math.max(
+            0,
+            payment.amount - abonado,
+          );
         }
       });
 
