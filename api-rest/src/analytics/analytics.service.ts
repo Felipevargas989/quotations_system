@@ -1,9 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { HORA_MS, cachePanel } from 'src/cache/memoria';
+import { cachePanel, HORA_MS } from 'src/cache/memoria';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
-import { PaymentsService } from 'src/payments/payments.service';
+import {
+  fechaDelUltimoAbono,
+  PaymentsService,
+} from 'src/payments/payments.service';
 import {
   QuotationStatus,
   RequestType,
@@ -229,13 +232,24 @@ export class AnalyticsService {
         paid_date: string | null;
         due_date: string | null;
         amount: number;
+        payment_transactions?: { transaction_date: string }[];
       };
       ((payments || []) as unknown as FilaPago[]).forEach((payment) => {
         const isPaid = payment.status === 'pagado';
+        // EN QUÉ MES ENTRÓ LA PLATA (28-08). Antes: si la cuota no
+        // tenía la columna vieja paid_date —lo normal hoy— se usaba el
+        // VENCIMIENTO, o sea cuándo DEBÍA pagarse. Medido ese día en
+        // producción: de 174 cuotas pagadas así, 55 caían en el mes
+        // equivocado ($101.066.964; la peor, 410 días de desfase).
+        // Ahora manda la fecha del último abono (el dato ya venía en
+        // la consulta, sin usarse); paid_date queda de respaldo para
+        // las 40 cuotas viejas sin abonos registrados, y el
+        // vencimiento solo para lo que aún no se cobra.
+        const fechaDeCobro =
+          fechaDelUltimoAbono(payment.payment_transactions ?? []) ??
+          payment.paid_date;
         const date = new Date(
-          (isPaid && payment.paid_date
-            ? payment.paid_date
-            : payment.due_date) as string,
+          (isPaid && fechaDeCobro ? fechaDeCobro : payment.due_date) as string,
         );
         const key = `${date.getFullYear()}-${date.getMonth()}`;
         if (!(key in totalPaymentsDetailByMonth)) return;
