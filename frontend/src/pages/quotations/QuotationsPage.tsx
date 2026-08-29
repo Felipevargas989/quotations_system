@@ -15,6 +15,7 @@ import {
   Search,
   Star,
 } from "lucide-react";
+import { getDocumentsByQuotation } from "../../services/documents.service";
 import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
@@ -162,6 +163,12 @@ export default function QuotationsPage() {
   };
 
   // Cambio post-venta → pre-venta pendiente de confirmación (Tanda 3a).
+  // AVISO DE FACTURA (Felipe 28-08): marcar un evento como realizado
+  // sin su factura cargada es plata sin respaldo. Avisa, no bloquea.
+  const [avisoFactura, setAvisoFactura] = useState<{
+    quotationId: string;
+    newStatus: string;
+  } | null>(null);
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     quotationId: string;
     newStatus: string;
@@ -340,6 +347,20 @@ export default function QuotationsPage() {
     if (newStatus === "rechazada" || newStatus === "cancelada") {
       setPidiendoMotivo({ quotationId, newStatus });
       return;
+    }
+    // Realizada SIN factura cargada: se avisa antes (Felipe 28-08).
+    // Es aviso, no candado — él decide seguir.
+    if (newStatus === "realizada") {
+      try {
+        const docs = await getDocumentsByQuotation(quotationId);
+        if (!docs.some((d) => d.category === "facturas")) {
+          setAvisoFactura({ quotationId, newStatus });
+          return;
+        }
+      } catch {
+        // Si los documentos no se pueden consultar, no se estorba el
+        // cambio de estado: el aviso es una ayuda, no un requisito.
+      }
     }
     await applyStatusChange(quotationId, newStatus);
   };
@@ -1163,6 +1184,41 @@ export default function QuotationsPage() {
 
       {/* Ventanita de la casa (Tanda 3a): confirmar la vuelta de
           post-venta a pre-venta (reemplaza al confirm() del navegador). */}
+      {avisoFactura && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5 space-y-3">
+            <h3 className="text-base font-bold text-gray-900">
+              Este evento no tiene factura cargada
+            </h3>
+            <p className="text-sm text-gray-600">
+              No hay ningún documento en la categoría <b>Facturas</b>. Puedes
+              subirla en Post-Venta → Documentos y volver a marcarlo, o
+              marcarlo igual y cargarla después.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setAvisoFactura(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const a = avisoFactura;
+                  setAvisoFactura(null);
+                  void applyStatusChange(a.quotationId, a.newStatus);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+              >
+                Marcar igual
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pendingStatusChange && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5 space-y-3">
