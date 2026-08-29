@@ -4,7 +4,7 @@ import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { mockPinoLogger } from '../../testing/mocks';
 import { PaymentsRepository } from '../payments.repository';
-import { PaymentsService } from '../payments.service';
+import { fechaDelUltimoAbono, PaymentsService } from '../payments.service';
 
 // Esqueleto reparado (Fase 2 Bloque B). Construcción directa por la
 // dependencia circular (forwardRef a QuotationsService).
@@ -223,5 +223,38 @@ describe('normalizePaymentAfterTransactions', () => {
     expect(repo.createPayment).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 20800, payment_number: 11 }),
     );
+  });
+});
+
+describe('fechaDelUltimoAbono (la cuota pagada de a poco, 28-08)', () => {
+  it('devuelve la fecha del ÚLTIMO abono, no la del primero', () => {
+    // El caso real de la cotización 114: 3 abonos, 149 días entre el
+    // primero y el último. La pantalla decía marzo; se pagó en agosto.
+    expect(
+      fechaDelUltimoAbono([
+        { transaction_date: '2025-03-29' },
+        { transaction_date: '2025-06-10' },
+        { transaction_date: '2025-08-25' },
+      ]),
+    ).toBe('2025-08-25');
+  });
+
+  it('no depende del orden en que lleguen', () => {
+    expect(
+      fechaDelUltimoAbono([
+        { transaction_date: '2025-08-25' },
+        { transaction_date: '2025-03-29' },
+      ]),
+    ).toBe('2025-08-25');
+  });
+
+  it('un solo abono: esa misma fecha', () => {
+    expect(fechaDelUltimoAbono([{ transaction_date: '2026-01-05' }])).toBe(
+      '2026-01-05',
+    );
+  });
+
+  it('sin abonos: null (la cuota no está pagada)', () => {
+    expect(fechaDelUltimoAbono([])).toBeNull();
   });
 });
