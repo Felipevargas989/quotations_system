@@ -1,6 +1,7 @@
 import { DollarSign } from "lucide-react";
 import { MONTHS } from "../../constants/dates";
 import { formatCurrency } from "../../utils/currencies";
+import Tooltip from "../../components/Tooltip";
 
 /**
  * INGRESOS Y CAJA POR MES — partido en dos mitades (Felipe, 29-08-2026).
@@ -397,16 +398,27 @@ export default function IngresosYCaja({
               {bloque.filas.map((fila) => (
                 <tr key={fila.label} className="hover:bg-gray-50">
                   <td
-                    title={fila.ayuda}
                     className={`py-1.5 pr-2 sticky left-0 bg-white whitespace-nowrap ${
-                      fila.ayuda ? "cursor-help" : ""
-                    } ${
                       fila.hija
                         ? "pl-3 font-normal text-gray-600"
                         : "font-semibold text-gray-700"
                     }`}
                   >
-                    {fila.label}
+                    {fila.ayuda ? (
+                      // El Tooltip de la casa (el `title` pelado no se
+                      // alcanzaba a ver: solo cambiaba el cursor).
+                      <Tooltip
+                        contenido={fila.ayuda}
+                        titulo={fila.ayuda}
+                        lado="derecha"
+                      >
+                        <span className="cursor-help border-b border-dotted border-gray-300">
+                          {fila.label}
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      fila.label
+                    )}
                   </td>
                   {meses.map((r) => celda(fila, r))}
                   {(() => {
