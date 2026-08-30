@@ -18,6 +18,11 @@ import {
   TipPool,
 } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
+import {
+  pagadoDePersonalPorMes,
+  PagoDeNomina,
+  SillaDeNomina,
+} from './utils/pagado-por-mes';
 
 /** Código de Postgres para "ya existe uno igual". */
 const YA_EXISTE = '23505';
@@ -1053,6 +1058,28 @@ export class PeopleRepository {
       .from('payroll_people')
       .upsert(rows, { onConflict: 'payroll_id,person_id' });
     if (error) throw error;
+  }
+
+  /** Lo pagado al equipo, mes a mes, para el flujo de caja del panel. */
+  async pagadoDePersonalPorMes(companyId: number) {
+    const [pagos, sillas] = await Promise.all([
+      this.supabase.client
+        .from('payroll_people')
+        .select('payroll_id, person_id, jornada_paid, propina_paid, paid_at')
+        .eq('company_id', companyId)
+        .not('paid_at', 'is', null),
+      this.supabase.client
+        .from('event_staff')
+        .select('person_id, payroll_id, tip_payroll_id, amount, tip_amount')
+        .eq('company_id', companyId)
+        .or('payroll_id.not.is.null,tip_payroll_id.not.is.null'),
+    ]);
+    if (pagos.error) throw pagos.error;
+    if (sillas.error) throw sillas.error;
+    return pagadoDePersonalPorMes(
+      (pagos.data || []) as unknown as PagoDeNomina[],
+      (sillas.data || []) as unknown as SillaDeNomina[],
+    );
   }
 
   async findPagos(payrollId: number, companyId: number) {

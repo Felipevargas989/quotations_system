@@ -156,7 +156,7 @@ export class LogisticsRepository {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, clients(name)',
+        'id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, quotation_status, clients(name)',
       )
       .eq('company_id', companyId)
       .in('quotation_status', ['aceptada', 'realizada'])

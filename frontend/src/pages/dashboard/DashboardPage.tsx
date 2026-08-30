@@ -2,7 +2,11 @@ import {
   costoDeRecursos,
   type LineaDeRecurso,
 } from "../../utils/costoDeRecursos";
-import { getCostoPersonal } from "../../services/people.service";
+import {
+  getCostoPersonal,
+  getPagadoPersonalPorMes,
+} from "../../services/people.service";
+import IngresosYCaja from "./IngresosYCaja";
 import React, { useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -735,6 +739,15 @@ export default function DashboardPage() {
     queryFn: getCostoPersonal,
   });
 
+  // Lo YA PAGADO al equipo, por mes de la nómina (Felipe, 29-08): en la
+  // caja el personal entra cuando se marca pagado, no cuando se hizo el
+  // evento. Trae jornada y propina; en caja van las dos.
+  const pagadoPersonalQuery = useQuery({
+    queryKey: ["dashboard-pagado-personal", company?.id],
+    enabled: !!user && !!company?.id,
+    queryFn: getPagadoPersonalPorMes,
+  });
+
   const provQuery = useQuery({
     queryKey: ["dashboard-proveedores", company?.id],
     enabled: !!user && !!company?.id,
@@ -754,14 +767,26 @@ export default function DashboardPage() {
   const marginData = (() => {
     const base = marginBaseQuery.data;
     const events = wonEventsQuery.data || [];
-    const map = new Map<string, { costo: number; estimado: boolean }>();
+    const map = new Map<
+      string,
+      { proveedores: number; personal: number; estimado: boolean }
+    >();
+    // LA PLATA QUE SALIÓ HACIA PROVEEDORES (regla de Felipe, 29-08-2026):
+    //   · provisionaste el evento  → sale el día que provisionaste
+    //   · no provisionaste pero el evento se REALIZÓ → sale el día del
+    //     evento (nunca el día que lo marcaste realizado: eso pudo ser
+    //     semanas después y ensuciaría el mes equivocado)
+    //   · evento aceptado y sin provisionar → todavía no compraste nada
+    // Se calcula aquí y no en el motor porque el costo de insumos vive
+    // en este cálculo (congelado si hay provisión, receta si no).
+    const salidas = new Map<string, number>();
     // Acumulador COMPARTIDO entre los eventos del período: alimenta el
     // análisis de proveedores e insumos (23-07) sin recorrer dos veces.
     const acc = newAccumulator();
     // 24-07: se espera también a los recursos. Si se calculara sin ellos
     // se vería medio segundo el margen viejo (inflado) antes de corregirse.
     if (!base || !provQuery.data || events.length === 0)
-      return { byMonth: map, acc };
+      return { byMonth: map, salidas, acc };
     const ctx = buildConsolidationContext(
       base.recipes,
       base.supplies,
@@ -800,11 +825,15 @@ export default function DashboardPage() {
     }
     // El personal viene de LAS SILLAS (migración 84): con nombre al
     // monto acordado, vacías al estimado — el mismo número de Gestión.
+    // 29-08 (pedido de Felipe): va en su PROPIO mapa, ya no sumado a los
+    // recursos, para poder mostrarlo en su propia fila y validarlo. El
+    // total no cambia: proveedores + personal da el mismo costo de antes.
+    const personalPorEvento = new Map<string, number>();
     for (const cp of costoPersonalQuery.data ?? []) {
       if (!personasPorEvento.has(cp.quotation_id)) continue;
-      recursosPorEvento.set(
+      personalPorEvento.set(
         cp.quotation_id,
-        (recursosPorEvento.get(cp.quotation_id) || 0) + cp.total,
+        (personalPorEvento.get(cp.quotation_id) || 0) + cp.total,
       );
     }
 
@@ -824,25 +853,68 @@ export default function DashboardPage() {
         ? Number(ev.provisioned_cost) || 0
         : r.costoInsumos;
       const recursos = recursosPorEvento.get(ev.id);
-      const costo =
-        costoInsumos + (recursos !== undefined ? recursos : r.costoFijos);
+      const personal = personalPorEvento.get(ev.id);
+      // El respaldo a costoFijos entra solo si el evento NO tiene nada
+      // cargado —ni recursos ni gente—, igual que antes de partir el
+      // mapa: si no, un evento con solo personal contaría los fijos de
+      // catálogo ENCIMA y el costo saldría inflado.
+      const tieneCargados = recursos !== undefined || personal !== undefined;
+      const proveedores =
+        costoInsumos + (tieneCargados ? (recursos ?? 0) : r.costoFijos);
       // "~" = el costo todavía no está cerrado: o los insumos son
       // estimación de receta, o el evento no tiene recursos cargados
-      const estimado = !provisionado || recursos === undefined;
-      const cur = map.get(key) || { costo: 0, estimado: false };
-      cur.costo += costo;
+      const estimado = !provisionado || !tieneCargados;
+      const cur = map.get(key) || {
+        proveedores: 0,
+        personal: 0,
+        estimado: false,
+      };
+      cur.proveedores += proveedores;
+      cur.personal += personal ?? 0;
       cur.estimado = cur.estimado || estimado;
       map.set(key, cur);
+
+      const realizado = ev.quotation_status === "realizada";
+      if (ev.provisioned_at || realizado) {
+        const cuando = ev.provisioned_at
+          ? new Date(ev.provisioned_at)
+          : new Date(ev.event_date || 0);
+        const mesDeSalida = `${cuando.getUTCFullYear()}-${cuando.getUTCMonth()}`;
+        salidas.set(
+          mesDeSalida,
+          (salidas.get(mesDeSalida) || 0) + proveedores,
+        );
+      }
     });
-    return { byMonth: map, acc };
+    return { byMonth: map, salidas, acc };
   })();
   const marginByMonth = marginData.byMonth;
+  // LO QUE SALIÓ DE CAJA, mes a mes: proveedores (calculado arriba, con
+  // la regla de provisión) y equipo (lo marcado pagado en Nómina).
+  const pagadoPorMes = (() => {
+    const mapa = new Map<string, { proveedores: number; personal: number }>();
+    const casilla = (k: string) => {
+      let c = mapa.get(k);
+      if (!c) {
+        c = { proveedores: 0, personal: 0 };
+        mapa.set(k, c);
+      }
+      return c;
+    };
+    marginData.salidas.forEach((monto, mes) => {
+      casilla(mes).proveedores += monto;
+    });
+    Object.entries(pagadoPersonalQuery.data ?? {}).forEach(([mes, p]) => {
+      casilla(mes).personal += (p?.jornadas || 0) + (p?.propinas || 0);
+    });
+    return mapa;
+  })();
   const margenTotales = data?.moneyByMonth
     ? data.moneyByMonth.reduce(
         (acc, row) => {
           const m = marginByMonth.get(row.monthKey);
           acc.ventas += row.ventas;
-          acc.costo += m?.costo || 0;
+          acc.costo += (m?.proveedores || 0) + (m?.personal || 0);
           acc.estimado = acc.estimado || !!m?.estimado;
           return acc;
         },
@@ -1017,17 +1089,6 @@ export default function DashboardPage() {
   };
 
   // Helper function to determine if a month is in the future
-  const isMonthInFuture = (monthYearKey: string): boolean => {
-    const [year, monthIndex] = monthYearKey.split("-").map(Number);
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    if (year > currentYear) return true;
-    if (year === currentYear && monthIndex > currentMonth) return true;
-    return false;
-  };
-
   // Esqueleto SOLO en la primera visita de la sesión (sin datos aún);
   // después, la pantalla nunca se borra: muestra lo último y refresca.
   if (loading && !dashboardQuery.data) {
@@ -2070,270 +2131,20 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* Ingresos y Caja por Mes — TRANSPUESTA (23-07, pedido Felipe):
-          los MESES son columnas (máx 12, los más recientes del período,
-          futuros incluidos) y los CONCEPTOS son filas, como un estado de
-          resultados. Cifras abreviadas (16M) con el monto exacto en el
-          tooltip; columna TOTAL de los meses visibles. */}
+      {/* Ingresos y Caja por Mes — el panel vive en IngresosYCaja.tsx
+          desde el 29-08 (higuera: aquí ya no cabía). Ahí se partió en
+          RESULTADO y CAJA, con el costo y el pago separados en
+          proveedores y personal, a pedido de Felipe. */}
       {(() => {
         const meses = data.moneyByMonth.slice(-12);
-        const recortada = data.moneyByMonth.length > meses.length;
-        // Cifras EN MILES (pedido Felipe 23-07): 1.000.000 se lee 1.000.
-        // El monto exacto sigue en el tooltip.
-        const miles = (n: number) =>
-          Math.round(n / 1000).toLocaleString("es-CL");
-        const shortMonth = (monthKey: string) => {
-          const [year, monthIndex] = monthKey.split("-");
-          return `${MONTHS[parseInt(monthIndex)].slice(0, 3)} ${year.slice(2)}`;
-        };
-        const filas: {
-          label: string;
-          cell: (r: (typeof meses)[number]) => {
-            text: string;
-            title?: string;
-            cls?: string;
-          };
-          total: () => { text: string; title?: string; cls?: string };
-        }[] = [
-          {
-            label: "Eventos",
-            cell: (r) => ({
-              text: r.eventos ? String(r.eventos) : "—",
-            }),
-            total: () => ({
-              text: String(meses.reduce((sum, r) => sum + r.eventos, 0)),
-            }),
-          },
-          {
-            label: "Ventas",
-            cell: (r) => ({
-              text: r.ventas ? miles(r.ventas) : "—",
-              title: r.ventas
-                ? formatCurrency(r.ventas, company?.currency || "CLP")
-                : undefined,
-              cls: "font-semibold",
-            }),
-            total: () => {
-              const t = meses.reduce((sum, r) => sum + r.ventas, 0);
-              return {
-                text: miles(t),
-                title: formatCurrency(t, company?.currency || "CLP"),
-                cls: "font-bold",
-              };
-            },
-          },
-          {
-            label: "Costo",
-            cell: (r) => {
-              const m = marginByMonth.get(r.monthKey);
-              return {
-                text:
-                  m && m.costo > 0
-                    ? `${m.estimado ? "~" : ""}${miles(m.costo)}`
-                    : "—",
-                title:
-                  m && m.costo > 0
-                    ? formatCurrency(m.costo, company?.currency || "CLP")
-                    : undefined,
-              };
-            },
-            total: () => ({
-              text: `${margenTotales.estimado ? "~" : ""}${miles(
-                meses.reduce(
-                  (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
-                  0,
-                ),
-              )}`,
-              cls: "font-bold",
-            }),
-          },
-          {
-            label: "Margen",
-            cell: (r) => {
-              const m = marginByMonth.get(r.monthKey);
-              if (!m || r.ventas === 0) return { text: "—" };
-              const val = r.ventas - m.costo;
-              return {
-                text: miles(val),
-                title: formatCurrency(val, company?.currency || "CLP"),
-                cls:
-                  val >= 0
-                    ? "text-emerald-700 font-semibold"
-                    : "text-red-600 font-semibold",
-              };
-            },
-            total: () => {
-              const v = meses.reduce((sum, r) => sum + r.ventas, 0);
-              const c = meses.reduce(
-                (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
-                0,
-              );
-              return {
-                text: v ? miles(v - c) : "—",
-                title: formatCurrency(v - c, company?.currency || "CLP"),
-                cls:
-                  v - c >= 0
-                    ? "text-emerald-700 font-bold"
-                    : "text-red-600 font-bold",
-              };
-            },
-          },
-          {
-            label: "Margen %",
-            cell: (r) => {
-              const m = marginByMonth.get(r.monthKey);
-              if (!m || r.ventas === 0) return { text: "—" };
-              const val = r.ventas - m.costo;
-              return {
-                text: `${((val * 100) / r.ventas).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`,
-                cls:
-                  val >= 0 ? "text-emerald-700" : "text-red-600 font-semibold",
-              };
-            },
-            total: () => {
-              const v = meses.reduce((sum, r) => sum + r.ventas, 0);
-              const c = meses.reduce(
-                (sum, r) => sum + (marginByMonth.get(r.monthKey)?.costo || 0),
-                0,
-              );
-              return {
-                text: v
-                  ? `${(((v - c) * 100) / v).toLocaleString("es-CL", { maximumFractionDigits: 0 })}%`
-                  : "—",
-                cls:
-                  v - c >= 0
-                    ? "text-emerald-700 font-bold"
-                    : "text-red-600 font-bold",
-              };
-            },
-          },
-          {
-            label: "Cobrado",
-            cell: (r) => ({
-              text: r.cobrado ? miles(r.cobrado) : "—",
-              title: r.cobrado
-                ? formatCurrency(r.cobrado, company?.currency || "CLP")
-                : undefined,
-              cls: "text-green-700",
-            }),
-            total: () => {
-              const t = meses.reduce((sum, r) => sum + r.cobrado, 0);
-              return {
-                text: miles(t),
-                title: formatCurrency(t, company?.currency || "CLP"),
-                cls: "text-green-700 font-bold",
-              };
-            },
-          },
-          {
-            label: "Por cobrar",
-            cell: (r) => ({
-              text: r.porCobrar ? miles(r.porCobrar) : "—",
-              title: r.porCobrar
-                ? formatCurrency(r.porCobrar, company?.currency || "CLP")
-                : undefined,
-              cls:
-                r.porCobrar && !isMonthInFuture(r.monthKey)
-                  ? "text-red-600 font-semibold"
-                  : "",
-            }),
-            total: () => {
-              const t = meses.reduce((sum, r) => sum + r.porCobrar, 0);
-              return {
-                text: miles(t),
-                title: formatCurrency(t, company?.currency || "CLP"),
-                cls: "text-red-700 font-bold",
-              };
-            },
-          },
-        ];
         return (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center space-x-2 mb-4">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Ingresos y Caja por Mes
-              </h2>
-              <span className="text-sm text-gray-500">
-                (en miles de pesos
-                {recortada ? " · últimos 12 meses del período" : ""})
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
-                    <th className="py-2 pr-2 text-left font-medium sticky left-0 bg-white">
-                      Concepto
-                    </th>
-                    {meses.map((r) => (
-                      <th
-                        key={r.monthKey}
-                        className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
-                          isMonthInFuture(r.monthKey) ? "text-gray-300" : ""
-                        }`}
-                        title={r.month}
-                      >
-                        {shortMonth(r.monthKey)}
-                        {isMonthInFuture(r.monthKey) ? " ·f" : ""}
-                      </th>
-                    ))}
-                    <th className="py-2 pl-2 text-right font-bold text-gray-700 border-l border-gray-200">
-                      TOTAL
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filas.map((fila) => (
-                    <tr key={fila.label} className="hover:bg-gray-50">
-                      <td className="py-1.5 pr-2 font-semibold text-gray-700 sticky left-0 bg-white whitespace-nowrap">
-                        {fila.label}
-                      </td>
-                      {meses.map((r) => {
-                        const c = fila.cell(r);
-                        return (
-                          <td
-                            key={r.monthKey}
-                            title={c.title}
-                            className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
-                              isMonthInFuture(r.monthKey)
-                                ? "text-gray-400"
-                                : c.cls || ""
-                            }`}
-                          >
-                            {c.text}
-                          </td>
-                        );
-                      })}
-                      {(() => {
-                        const t = fila.total();
-                        return (
-                          <td
-                            title={t.title}
-                            className={`py-1.5 pl-2 text-right tabular-nums whitespace-nowrap border-l border-gray-200 bg-gray-50 ${t.cls || ""}`}
-                          >
-                            {t.text}
-                          </td>
-                        );
-                      })()}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-2 text-[11px] text-gray-400">
-                Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro
-                (venta agendada). Ventas y Margen van SIN propina: la propina la
-                paga el cliente pero va entera al equipo, no es venta ni margen.
-                Cobrado y Por cobrar sí la incluyen, porque es plata que se
-                factura; por eso Ventas y Cobrado no calzan al peso. El costo
-                son los insumos más los recursos asignados al evento. Costo con
-                ~ = todavía no está cerrado (evento sin provisionar en Compras,
-                o sin recursos cargados en Post-venta); sin ~ = insumos
-                congelados y recursos ya asignados. La merma va solo en el
-                costo. Pasa el mouse por una cifra para ver el monto exacto.
-              </p>
-            </div>
-          </div>
+          <IngresosYCaja
+            meses={meses}
+            recortada={data.moneyByMonth.length > meses.length}
+            costoPorMes={marginByMonth}
+            pagadoPorMes={pagadoPorMes}
+            currency={company?.currency || "CLP"}
+          />
         );
       })()}
 

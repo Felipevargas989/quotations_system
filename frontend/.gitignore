@@ -7,3 +7,5 @@ dist/*
 .DS_Store
 .DS_Store?
 ._*
+frontend/.netlify/
+.netlify/
