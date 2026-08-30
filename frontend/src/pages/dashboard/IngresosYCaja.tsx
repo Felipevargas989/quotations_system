@@ -55,6 +55,10 @@ interface Fila {
   label: string;
   /** Sangría: las que suman dentro de un bloque van corridas. */
   hija?: boolean;
+  /** Qué es esta fila, al pasar el mouse por su nombre. Reemplaza al
+   *  ladrillo de texto que vivía al pie (Felipe, 29-08): la explicación
+   *  aparece cuando se pregunta, no antes. */
+  ayuda?: string;
   cell: (r: MesDeCaja) => Celda;
   total: () => Celda;
 }
@@ -113,10 +117,16 @@ export default function IngresosYCaja({
   const filaDePlata = (
     label: string,
     valor: (r: MesDeCaja) => number,
-    opciones: { hija?: boolean; cls?: string; clsTotal?: string } = {},
+    opciones: {
+      hija?: boolean;
+      cls?: string;
+      clsTotal?: string;
+      ayuda?: string;
+    } = {},
   ): Fila => ({
     label,
     hija: opciones.hija,
+    ayuda: opciones.ayuda,
     cell: (r) => {
       const v = valor(r);
       return {
@@ -139,13 +149,20 @@ export default function IngresosYCaja({
   const filasResultado: Fila[] = [
     {
       label: "Eventos",
+      ayuda: "Eventos con fecha en el mes, ya cerrados (aceptados y realizados).",
       cell: (r) => ({ text: r.eventos ? String(r.eventos) : "—" }),
       total: () => ({ text: String(sumar((r) => r.eventos)) }),
     },
-    filaDePlata("Ventas", (r) => r.ventas, { cls: "font-semibold" }),
+    filaDePlata("Ventas", (r) => r.ventas, {
+      cls: "font-semibold",
+      ayuda:
+        "Lo vendido, SIN propina: la propina la paga el cliente y va entera al equipo, no es venta tuya.",
+    }),
     {
       ...filaDePlata("Costo proveedores", (r) => costo(r).proveedores, {
         hija: true,
+        ayuda:
+          "Todo lo que le pagas a terceros por el evento: insumos más arriendos. Congelado si lo provisionaste en Compras; estimado por receta si todavía no.",
       }),
       // El "~" avisa que el costo todavía no está cerrado.
       cell: (r) => {
@@ -166,9 +183,14 @@ export default function IngresosYCaja({
         };
       },
     },
-    filaDePlata("Costo personal", (r) => costo(r).personal, { hija: true }),
+    filaDePlata("Costo personal", (r) => costo(r).personal, {
+      hija: true,
+      ayuda:
+        "Las jornadas de las sillas asignadas al evento. Sin propina: esa no sale de tu bolsillo.",
+    }),
     {
       label: "Margen",
+      ayuda: "Ventas menos los dos costos.",
       cell: (r) => {
         if (!r.ventas) return { text: "—" };
         const v = r.ventas - costoTotalDe(r);
@@ -196,6 +218,7 @@ export default function IngresosYCaja({
     },
     {
       label: "Margen %",
+      ayuda: "Cuánto de cada peso vendido te queda.",
       cell: (r) => {
         if (!r.ventas) return { text: "—" };
         const v = r.ventas - costoTotalDe(r);
@@ -237,13 +260,24 @@ export default function IngresosYCaja({
     filaDePlata("Cobrado", (r) => r.cobrado, {
       cls: "text-green-700",
       clsTotal: "text-green-700 font-bold",
+      ayuda:
+        "Lo que entró, en el mes del último abono. CON propina, porque es plata que se factura: por eso Ventas y Cobrado no calzan al peso.",
     }),
     filaDePlata("Pagado proveedores", (r) => pagado(r).proveedores, {
       hija: true,
+      ayuda:
+        "Salió el día que provisionaste el evento en Compras. Si el evento se realizó sin provisionar, se cuenta el día del evento.",
     }),
-    filaDePlata("Pagado personal", (r) => pagado(r).personal, { hija: true }),
+    filaDePlata("Pagado personal", (r) => pagado(r).personal, {
+      hija: true,
+      ayuda:
+        "Salió el día que lo marcaste pagado en Nómina, con propina incluida.",
+    }),
     {
-      ...filaDePlata("Por cobrar", (r) => r.porCobrar),
+      ...filaDePlata("Por cobrar", (r) => r.porCobrar, {
+        ayuda:
+          "Lo que falta, por fecha de vencimiento y descontando los abonos parciales. En rojo cuando ya venció.",
+      }),
       cell: (r) => ({
         text: r.porCobrar ? miles(r.porCobrar) : "—",
         title: r.porCobrar ? plata(r.porCobrar) : undefined,
@@ -263,6 +297,7 @@ export default function IngresosYCaja({
     },
     {
       label: "Flujo de caja",
+      ayuda: "Cobrado − pagado + por cobrar.",
       cell: (r) => {
         const v = flujoDe(r);
         if (!v) return { text: "—" };
@@ -362,7 +397,10 @@ export default function IngresosYCaja({
               {bloque.filas.map((fila) => (
                 <tr key={fila.label} className="hover:bg-gray-50">
                   <td
+                    title={fila.ayuda}
                     className={`py-1.5 pr-2 sticky left-0 bg-white whitespace-nowrap ${
+                      fila.ayuda ? "cursor-help" : ""
+                    } ${
                       fila.hija
                         ? "pl-3 font-normal text-gray-600"
                         : "font-semibold text-gray-700"
@@ -389,19 +427,14 @@ export default function IngresosYCaja({
             </tbody>
           ))}
         </table>
+        {/* El pie era un ladrillo de ocho líneas que nadie leía dos veces.
+            Desde el 29-08 cada concepto se explica solo al pasar el mouse
+            por su nombre, y aquí quedan únicamente las claves de los
+            símbolos, que no tienen dónde más vivir. */}
         <p className="mt-2 text-[11px] text-gray-400">
-          Cifras en MILES de pesos ($1.000 = un millón). ·f = mes futuro (venta
-          agendada). <b>Arriba</b> va por fecha del evento: Ventas y Margen SIN
-          propina (la paga el cliente y va entera al equipo, no es venta ni
-          margen). Costo proveedores = insumos + arriendos; costo personal = las
-          jornadas de las sillas asignadas. Con ~ = todavía no está cerrado
-          (evento sin provisionar en Compras o sin recursos en Post-venta).{" "}
-          <b>Abajo</b> va por fecha del movimiento: Cobrado y Por cobrar SÍ
-          incluyen propina porque es plata que se factura (por eso Ventas y
-          Cobrado no calzan al peso); Pagado personal entra el día que se marca
-          pagado en Nómina, con propina incluida. Flujo de caja = cobrado −
-          pagado + por cobrar. Pasa el mouse por una cifra para ver el monto
-          exacto.
+          <b>·f</b> = mes futuro (venta agendada) · <b>~</b> = costo todavía no
+          cerrado · pasa el mouse por un concepto o una cifra para ver el
+          detalle
         </p>
       </div>
     </div>
