@@ -156,7 +156,9 @@ export class LogisticsRepository {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, quotation_number, event_date, event_end_date, people_count, total_amount, items, provisioned_at, provisioned_cost, quotation_status, clients(name)',
+        // subtotal/fijos/propina: para que el panel calcule la venta SIN
+        // propina POR EVENTO (el desglose al pasar el mouse, 31-08).
+        'id, quotation_number, event_date, event_end_date, people_count, total_amount, subtotal_amount, fixed_value, tip_percentage, tip_amount, items, provisioned_at, provisioned_cost, quotation_status, clients(name)',
       )
       .eq('company_id', companyId)
       .in('quotation_status', ['aceptada', 'realizada'])
