@@ -308,16 +308,30 @@ export default function IngresosYCaja({
     },
   ];
 
-  const bloques: { titulo: string; subtitulo: string; filas: Fila[] }[] = [
+  // El globo de cada bloque abre hacia donde tiene aire: el de arriba
+  // hacia abajo (hacia arriba lo cortaba el techo del panel, Felipe
+  // 31-08) y el de abajo hacia arriba.
+  const bloques: {
+    titulo: string;
+    subtitulo: string;
+    filas: Fila[];
+    globoHacia: "arriba" | "abajo";
+  }[] = [
     {
       titulo: "Resultado",
       subtitulo: "por fecha del evento",
       filas: filasResultado,
+      globoHacia: "abajo",
     },
-    { titulo: "Caja", subtitulo: "por fecha del movimiento", filas: filasCaja },
+    {
+      titulo: "Caja",
+      subtitulo: "por fecha del movimiento",
+      filas: filasCaja,
+      globoHacia: "arriba",
+    },
   ];
 
-  const celda = (fila: Fila, r: MesDeCaja) => {
+  const celda = (fila: Fila, r: MesDeCaja, hacia: "arriba" | "abajo") => {
     const c = fila.cell(r);
     // El globo con la composición (Felipe, 31-08): cliente por cliente,
     // ordenado del monto más grande al más chico. La suma ES la celda,
@@ -338,9 +352,6 @@ export default function IngresosYCaja({
         </td>
       );
     }
-    const titulo = lineas
-      .map((l) => `${l.cliente} (#${l.cot}): ${plata(l.monto)}`)
-      .join(" · ");
     return (
       <td
         key={r.monthKey}
@@ -350,7 +361,8 @@ export default function IngresosYCaja({
       >
         <Tooltip
           lado="izquierda"
-          titulo={titulo}
+          direccion={hacia}
+          titulo=""
           contenido={
             <span className="block space-y-0.5">
               {lineas.map((l) => (
@@ -445,7 +457,7 @@ export default function IngresosYCaja({
                   >
                     {fila.label}
                   </td>
-                  {meses.map((r) => celda(fila, r))}
+                  {meses.map((r) => celda(fila, r, bloque.globoHacia))}
                   {(() => {
                     const t = fila.total();
                     return (
