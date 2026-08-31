@@ -14,13 +14,16 @@ export interface EventDocument {
 }
 
 // Categorías de documentos del evento.
+// OJO: la categoría "comercial" existe en los datos pero NO va aquí.
+// Es de los respaldos de Seguimiento (pantallazos de WhatsApp, correos),
+// que se suben desde allá con la categoría fija. El 07-08 se ocultó de
+// la LISTA de Documentos pero el selector de subida la siguió
+// ofreciendo: lo subido ahí desaparecía al instante de la vista
+// (Felipe la pilló el 30-08). Documentos es el archivador contractual.
 export const DOCUMENT_CATEGORIES: { key: string; label: string }[] = [
   { key: "contratos", label: "Contratos" },
   { key: "ordenes_compra", label: "Órdenes de compra" },
   { key: "facturas", label: "Facturas" },
-  // Respaldo de la negociación (ficha del negocio, 04-08): pantallazos
-  // de WhatsApp, correos del cliente — la evidencia comercial.
-  { key: "comercial", label: "Comercial" },
   { key: "otros", label: "Otros" },
 ];
 
