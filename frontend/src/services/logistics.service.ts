@@ -413,6 +413,9 @@ export interface PurchasingEvent {
   items: unknown;
   provisioned_at: string | null;
   provisioned_cost: number | null;
+  /** Solo viene en los eventos concretados: distingue lo ya hecho de lo
+   *  agendado. El flujo de caja lo usa para saber si la plata YA salió. */
+  quotation_status?: string;
   client_name: string;
 }
 

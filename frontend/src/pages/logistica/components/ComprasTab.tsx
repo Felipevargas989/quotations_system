@@ -90,10 +90,6 @@ export default function ComprasTab({
   const [desde, setDesde] = useState(hoyLocal);
   const [hasta, setHasta] = useState("");
   const [search, setSearch] = useState("");
-  // Estados de evento visibles (default: pendientes y parciales).
-  const [kindChips, setKindChips] = useState<Set<"none" | "partial" | "full">>(
-    () => new Set(["none", "partial"] as const),
-  );
   // Filtro de la lista de compra (default: lo que falta pedir).
   const [supFilter, setSupFilter] = useState<
     "faltantes" | "provisionados" | "todos"
@@ -217,23 +213,15 @@ export default function ComprasTab({
     return { label: "Pendiente", kind: "none" };
   };
 
-  // Los chips solo filtran la TABLA; la selección/consolidación sigue
-  // operando sobre todos los eventos del rango.
-  const visibleEvents = useMemo(
-    () => filtered.filter((e) => kindChips.has(eventStatus(e).kind)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filtered, kindChips, perEvent, provByEvent],
-  );
-
-  // Un evento que el filtro oculta se DES-selecciona solo: el contador de
-  // la lista de compra siempre cuadra con lo que se ve.
+  // Un evento que la búsqueda o el rango de fechas oculta se DES-selecciona
+  // solo: el contador de la lista de compra siempre cuadra con lo que se ve.
   useEffect(() => {
     setSelected((prev) => {
-      const visibles = new Set(visibleEvents.map((e) => e.id));
+      const visibles = new Set(filtered.map((e) => e.id));
       const next = new Set([...prev].filter((id) => visibles.has(id)));
       return next.size === prev.size ? prev : next;
     });
-  }, [visibleEvents]);
+  }, [filtered]);
 
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
@@ -253,9 +241,9 @@ export default function ComprasTab({
   const toggleAll = () => {
     setConfirmAction("");
     setSelected((prev) =>
-      prev.size === visibleEvents.length
+      prev.size === filtered.length
         ? new Set()
-        : new Set(visibleEvents.map((e) => e.id)),
+        : new Set(filtered.map((e) => e.id)),
     );
   };
 
@@ -1075,68 +1063,14 @@ export default function ComprasTab({
         </div>
       </div>
 
-      {/* Filtro de estado de los eventos: control segmentado del sistema,
-          con contadores (default: pendientes y parciales) */}
-      <div className="flex rounded-lg border border-gray-300 overflow-hidden w-fit -mb-3">
-        {(
-          [
-            ["none", "Pendientes"],
-            ["partial", "Parciales"],
-            ["full", "Completos"],
-          ] as const
-        ).map(([kind, label]) => {
-          const count = filtered.filter(
-            (e) => eventStatus(e).kind === kind,
-          ).length;
-          const on = kindChips.has(kind);
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() =>
-                setKindChips((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(kind)) next.delete(kind);
-                  else next.add(kind);
-                  return next;
-                })
-              }
-              className={`px-3 py-1.5 text-xs font-bold border-r border-gray-300 last:border-r-0 ${
-                on
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              {label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
       {/* ---------- Lista de eventos ---------- */}
-      {visibleEvents.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
           <ShoppingCart className="mx-auto mb-3 text-gray-300" size={34} />
-          {filtered.length > 0 ? (
-            <>
-              <p className="font-medium">
-                No hay eventos con esos estados en este rango
-              </p>
-              <p className="text-sm mt-1">
-                Hay {filtered.length} evento{filtered.length === 1 ? "" : "s"}{" "}
-                oculto{filtered.length === 1 ? "" : "s"} por el filtro de
-                estado — actívalo arriba para verlo
-                {filtered.length === 1 ? "" : "s"}.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-medium">Sin eventos cerrados en este rango</p>
-              <p className="text-sm mt-1">
-                Ajusta el rango de fechas o cierra ventas en Post Venta.
-              </p>
-            </>
-          )}
+          <p className="font-medium">Sin eventos cerrados en este rango</p>
+          <p className="text-sm mt-1">
+            Ajusta el rango de fechas o cierra ventas en Post Venta.
+          </p>
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1147,8 +1081,8 @@ export default function ComprasTab({
                   <input
                     type="checkbox"
                     checked={
-                      visibleEvents.length > 0 &&
-                      selected.size === visibleEvents.length
+                      filtered.length > 0 &&
+                      selected.size === filtered.length
                     }
                     onChange={toggleAll}
                     className="rounded"
@@ -1173,7 +1107,7 @@ export default function ComprasTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {visibleEvents.map((e) => {
+              {filtered.map((e) => {
                 const st = eventStatus(e);
                 const dias = daysOf(e);
                 return (

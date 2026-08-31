@@ -728,6 +728,11 @@ export class PeopleService {
   // ================= LOS POZOS Y EL REPARTO =================
 
   /** El costo de personal por evento y cargo, desde las sillas. */
+  /** Lo pagado al equipo por mes (flujo de caja del panel). */
+  pagadoDePersonalPorMes(companyId: number) {
+    return this.repo.pagadoDePersonalPorMes(companyId);
+  }
+
   costoPersonal(companyId: number) {
     return this.repo.costoPersonalPorEvento(companyId);
   }

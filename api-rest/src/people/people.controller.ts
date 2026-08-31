@@ -142,6 +142,13 @@ export class PeopleController {
     );
   }
 
+  /** Lo que YA se le pagó al equipo, mes a mes: el flujo de caja del
+   *  panel usa la fecha en que se marcó pagado en la nómina. */
+  @Get('pagado-por-mes')
+  pagadoPorMes(@CurrentUser() user: User) {
+    return this.peopleService.pagadoDePersonalPorMes(user.company_id);
+  }
+
   /** El costo de personal por evento y cargo, desde las sillas. */
   @Get('costo-personal')
   costoPersonal(@CurrentUser() user: User) {
