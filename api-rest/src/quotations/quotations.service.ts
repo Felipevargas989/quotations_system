@@ -252,11 +252,22 @@ export class QuotationsService {
 
         const adminEmails = companyAdmins.map((admin) => admin.email);
 
-        // send email to the company admin
+        // send email to the company admin, con los datos de la
+        // solicitud a la vista (Felipe, 01-09): cliente, personas y
+        // evento sin tener que entrar al sistema.
         void this.emailService.sendEmail(
           adminEmails,
           EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
           company_id,
+          {
+            clientName: createQuotationPublicDto.name,
+            peopleCount: createQuotationPublicDto.people_count,
+            eventType: createQuotationPublicDto.event_type,
+            eventDate: createQuotationPublicDto.event_date,
+            phone: createQuotationPublicDto.phone,
+            email: createQuotationPublicDto.email,
+            observations: createQuotationPublicDto.observations,
+          },
         );
       } catch (error) {
         this.logger.error(error);
