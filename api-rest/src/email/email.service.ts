@@ -183,20 +183,24 @@ export class EmailService {
       },
       {
         // El aviso INTERNO del link público (01-09): con los datos de
-        // la solicitud a la vista y el botón que Outlook sí muestra.
+        // la solicitud a la vista, cabecera de marca y el botón que
+        // Outlook sí muestra.
         subject: '[PRUEBA] Solicitud de cotización recibida desde link público',
-        html: newPublicQuotationAdminTemplate({
-          clientName: 'Camila Carvajal',
-          peopleCount: 120,
-          eventType: 'Paseo de empresa',
-          eventDate: new Date(Date.now() + 45 * 86400000)
-            .toISOString()
-            .slice(0, 10),
-          phone: '+56 9 8765 4321',
-          email: 'camila@empresa.cl',
-          observations:
-            'Necesitamos cotizar con almuerzo y actividades al aire libre.',
-        }),
+        html: newPublicQuotationAdminTemplate(
+          {
+            clientName: 'Camila Carvajal',
+            peopleCount: 120,
+            eventType: 'Paseo de empresa',
+            eventDate: new Date(Date.now() + 45 * 86400000)
+              .toISOString()
+              .slice(0, 10),
+            phone: '+56 9 8765 4321',
+            email: 'camila@empresa.cl',
+            observations:
+              'Necesitamos cotizar con almuerzo y actividades al aire libre.',
+          },
+          branding,
+        ),
       },
       {
         subject: `[PRUEBA] ¿Pudiste revisar tu cotización? — ${branding.companyName}`,
@@ -589,8 +593,11 @@ export class EmailService {
       case EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN:
         subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN];
         sendTo = to as string[];
+        // Cabecera de marca también en el aviso interno (01-09): la
+        // empresa viaja en la 3ª posición (paramsAsId) en este flujo.
         html = newPublicQuotationAdminTemplate(
           typeof companyId === 'object' ? companyId : undefined,
+          paramsAsId ? await this.getBranding(paramsAsId) : undefined,
         );
         break;
 
