@@ -289,6 +289,24 @@ export class AnalyticsService {
         }
       });
 
+      // El desglose va por EVENTO, no por cuota (Felipe, 31-08): un
+      // evento cobrado en nueve cuotas es UNA línea con todo sumado.
+      const porEvento = (
+        lineas: { cliente: string; cot: number; monto: number }[],
+      ) => {
+        const juntas = new Map<number, (typeof lineas)[number]>();
+        for (const l of lineas) {
+          const ya = juntas.get(l.cot);
+          if (ya) ya.monto += l.monto;
+          else juntas.set(l.cot, { ...l });
+        }
+        return [...juntas.values()];
+      };
+      for (const mes of Object.values(totalPaymentsDetailByMonth)) {
+        mes.cobros = porEvento(mes.cobros);
+        mes.deudores = porEvento(mes.deudores);
+      }
+
       // 3. return stats
       const respuesta: DashboardStatsResponse = {
         totalQuotations,
