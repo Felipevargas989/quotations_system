@@ -4,6 +4,7 @@ import EventoCajitas from "../../components/EventoCajitas";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
 import CelebracionRealizada from "../../components/CelebracionRealizada";
 import MotivoPerdida from "../../components/MotivoPerdida";
+import QuotationViewer from "../../components/QuotationViewer";
 import { useNavigate, useParams } from "react-router-dom";
 import { resolveStorageUrl } from "../../services/storage.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,7 +52,11 @@ import {
   unmarkEventDone,
   updateQuotation,
 } from "../../services/quotations.service";
-import { Quotation, QuotationStatus } from "../../types/quotations.types";
+import {
+  Quotation,
+  QuotationStatus,
+  QuotationWithClient,
+} from "../../types/quotations.types";
 import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -1121,6 +1126,9 @@ function EventModal({
   const [deletingTx, setDeletingTx] = useState(false);
   // Portal del cliente: feedback del botón "copiar enlace de pagos".
   const [linkCopiado, setLinkCopiado] = useState(false);
+  // El PDF de la propuesta, el mismo visor de Cotizaciones (Felipe,
+  // 01-09: "por si necesito imprimir la propuesta").
+  const [verPdf, setVerPdf] = useState(false);
   // Teléfono y correo del contacto: en azul y pinchables para COPIAR,
   // igual que en la ficha del cliente (07-08, pedido de Felipe).
   const { copiado: datoCopiado, copiar: copiarDato } = useCopiarDato();
@@ -1492,6 +1500,14 @@ function EventModal({
                 {linkCopiado ? "Copiado" : "Enlace de pagos"}
               </button>
             )}
+            <button
+              onClick={() => setVerPdf(true)}
+              disabled={!quote}
+              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 flex items-center gap-1 disabled:opacity-50"
+              title="Ver e imprimir el documento de la propuesta"
+            >
+              <FileText size={13} /> PDF
+            </button>
           </div>
         </div>
         {cancelError && (
@@ -1501,6 +1517,12 @@ function EventModal({
         )}
         {doneError && (
           <p className="shrink-0 px-6 pt-2 text-sm text-red-600">{doneError}</p>
+        )}
+        {verPdf && quote && (
+          <QuotationViewer
+            quotation={quote as unknown as QuotationWithClient}
+            onClose={() => setVerPdf(false)}
+          />
         )}
         {pidiendoMotivo && (
           <MotivoPerdida
