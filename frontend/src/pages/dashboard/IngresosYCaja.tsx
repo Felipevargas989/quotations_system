@@ -1,6 +1,7 @@
 import { DollarSign } from "lucide-react";
 import { MONTHS } from "../../constants/dates";
 import { formatCurrency } from "../../utils/currencies";
+import Tooltip from "../../components/Tooltip";
 
 /**
  * INGRESOS Y CAJA POR MES — partido en dos mitades (Felipe, 29-08-2026).
@@ -31,6 +32,9 @@ export interface MesDeCaja {
   ventas: number;
   cobrado: number;
   porCobrar: number;
+  /** Desglose por cliente que manda el motor (31-08). */
+  cobros?: LineaDeDesglose[];
+  deudores?: LineaDeDesglose[];
 }
 
 export interface CostoDelMes {
@@ -43,6 +47,28 @@ export interface CostoDelMes {
 export interface PagadoDelMes {
   proveedores: number;
   personal: number;
+  /** El desglose del personal es por PERSONA, no por cliente: una
+   *  nómina cruza varios eventos (31-08). */
+  personas?: { nombre: string; monto: number }[];
+}
+
+/** Una línea del desglose: quién y cuánto. Sin `cot` cuando el quién
+ *  no es un evento (las personas del equipo en Pagado personal). */
+export interface LineaDeDesglose {
+  cliente: string;
+  cot?: number;
+  monto: number;
+}
+
+/** De qué se compone cada cifra del mes (Felipe, 31-08): al pasar el
+ *  mouse, los clientes con su monto — "dice más que el cod de
+ *  cotización". Se junta en DashboardPage, en el mismo recorrido que
+ *  suma los totales, así el desglose SIEMPRE suma la celda. */
+export interface DesgloseDeMes {
+  ventas: LineaDeDesglose[];
+  proveedores: LineaDeDesglose[];
+  personal: LineaDeDesglose[];
+  pagadoProv: LineaDeDesglose[];
 }
 
 interface Celda {
@@ -57,6 +83,9 @@ interface Fila {
   hija?: boolean;
   cell: (r: MesDeCaja) => Celda;
   total: () => Celda;
+  /** Las líneas que componen la cifra del mes: el globo al pasar el
+   *  mouse. Sin líneas no hay globo, queda el title de siempre. */
+  desglose?: (r: MesDeCaja) => LineaDeDesglose[];
 }
 
 interface Props {
@@ -64,6 +93,7 @@ interface Props {
   recortada: boolean;
   costoPorMes: Map<string, CostoDelMes>;
   pagadoPorMes: Map<string, PagadoDelMes>;
+  desglosePorMes: Map<string, DesgloseDeMes>;
   currency: string;
 }
 
@@ -88,6 +118,7 @@ export default function IngresosYCaja({
   recortada,
   costoPorMes,
   pagadoPorMes,
+  desglosePorMes,
   currency,
 }: Props) {
   const plata = (n: number) => formatCurrency(n, currency);
@@ -106,9 +137,6 @@ export default function IngresosYCaja({
     const c = costo(r);
     return c.proveedores + c.personal;
   };
-  // El "~" del total: si CUALQUIER mes visible sigue abierto.
-  const algoEstimado = meses.some((r) => costo(r).estimado);
-
   /** Una fila de plata simple: cifra en miles, monto exacto al pasar. */
   const filaDePlata = (
     label: string,
@@ -135,6 +163,12 @@ export default function IngresosYCaja({
     },
   });
 
+  // El desglose del mes para una fuente dada; vacío = sin globo.
+  const lineasDe =
+    (fuente: keyof DesgloseDeMes) =>
+    (r: MesDeCaja): LineaDeDesglose[] =>
+      desglosePorMes.get(r.monthKey)?.[fuente] ?? [];
+
   // ---------------- ARRIBA: cómo anduvo el negocio ----------------
   const filasResultado: Fila[] = [
     {
@@ -142,35 +176,23 @@ export default function IngresosYCaja({
       cell: (r) => ({ text: r.eventos ? String(r.eventos) : "—" }),
       total: () => ({ text: String(sumar((r) => r.eventos)) }),
     },
-    filaDePlata("Ventas", (r) => r.ventas, {
-      cls: "font-semibold",
-    }),
+    {
+      ...filaDePlata("Ventas", (r) => r.ventas, { cls: "font-semibold" }),
+      desglose: lineasDe("ventas"),
+    },
+    // Sin el "~" de estimación: a Felipe no le decía nada (31-08).
     {
       ...filaDePlata("Costo proveedores", (r) => costo(r).proveedores, {
         hija: true,
       }),
-      // El "~" avisa que el costo todavía no está cerrado.
-      cell: (r) => {
-        const c = costo(r);
-        return {
-          text: c.proveedores
-            ? `${c.estimado ? "~" : ""}${miles(c.proveedores)}`
-            : "—",
-          title: c.proveedores ? plata(c.proveedores) : undefined,
-        };
-      },
-      total: () => {
-        const t = sumar((r) => costo(r).proveedores);
-        return {
-          text: t ? `${algoEstimado ? "~" : ""}${miles(t)}` : "—",
-          title: t ? plata(t) : undefined,
-          cls: "font-bold",
-        };
-      },
+      desglose: lineasDe("proveedores"),
     },
-    filaDePlata("Costo personal", (r) => costo(r).personal, {
-      hija: true,
-    }),
+    {
+      ...filaDePlata("Costo personal", (r) => costo(r).personal, {
+        hija: true,
+      }),
+      desglose: lineasDe("personal"),
+    },
     {
       label: "Margen",
       cell: (r) => {
@@ -238,19 +260,32 @@ export default function IngresosYCaja({
   };
 
   const filasCaja: Fila[] = [
-    filaDePlata("Cobrado", (r) => r.cobrado, {
-      cls: "text-green-700",
-      clsTotal: "text-green-700 font-bold",
-    }),
-    filaDePlata("Pagado proveedores", (r) => pagado(r).proveedores, {
-      hija: true,
-    }),
-    filaDePlata("Pagado personal", (r) => pagado(r).personal, {
-      hija: true,
-    }),
     {
-      ...filaDePlata("Por cobrar", (r) => r.porCobrar, {
+      ...filaDePlata("Cobrado", (r) => r.cobrado, {
+        cls: "text-green-700",
+        clsTotal: "text-green-700 font-bold",
       }),
+      desglose: (r) => r.cobros ?? [],
+    },
+    {
+      ...filaDePlata("Pagado proveedores", (r) => pagado(r).proveedores, {
+        hija: true,
+      }),
+      desglose: lineasDe("pagadoProv"),
+    },
+    {
+      ...filaDePlata("Pagado personal", (r) => pagado(r).personal, {
+        hija: true,
+      }),
+      desglose: (r) =>
+        (pagado(r).personas ?? []).map((p) => ({
+          cliente: p.nombre,
+          monto: p.monto,
+        })),
+    },
+    {
+      ...filaDePlata("Por cobrar", (r) => r.porCobrar, {}),
+      desglose: (r) => r.deudores ?? [],
       cell: (r) => ({
         text: r.porCobrar ? miles(r.porCobrar) : "—",
         title: r.porCobrar ? plata(r.porCobrar) : undefined,
@@ -290,26 +325,96 @@ export default function IngresosYCaja({
     },
   ];
 
-  const bloques: { titulo: string; subtitulo: string; filas: Fila[] }[] = [
+  // El globo de cada bloque abre hacia donde tiene aire: el de arriba
+  // hacia abajo (hacia arriba lo cortaba el techo del panel, Felipe
+  // 31-08) y el de abajo hacia arriba.
+  const bloques: {
+    titulo: string;
+    subtitulo: string;
+    filas: Fila[];
+    globoHacia: "arriba" | "abajo";
+  }[] = [
     {
       titulo: "Resultado",
       subtitulo: "por fecha del evento",
       filas: filasResultado,
+      globoHacia: "abajo",
     },
-    { titulo: "Caja", subtitulo: "por fecha del movimiento", filas: filasCaja },
+    {
+      titulo: "Caja",
+      subtitulo: "por fecha del movimiento",
+      filas: filasCaja,
+      globoHacia: "arriba",
+    },
   ];
 
-  const celda = (fila: Fila, r: MesDeCaja) => {
+  const celda = (fila: Fila, r: MesDeCaja, hacia: "arriba" | "abajo") => {
     const c = fila.cell(r);
+    // El globo con la composición (Felipe, 31-08): cliente por cliente,
+    // ordenado del monto más grande al más chico. La suma ES la celda,
+    // porque el desglose se junta en el mismo recorrido que los totales.
+    const lineas = (fila.desglose?.(r) ?? [])
+      .filter((l) => l.monto)
+      .sort((a, b) => b.monto - a.monto);
+    if (c.text === "—" || lineas.length === 0) {
+      return (
+        <td
+          key={r.monthKey}
+          title={c.title}
+          className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
+            esMesFuturo(r.monthKey) ? "text-gray-400" : c.cls || ""
+          }`}
+        >
+          {c.text}
+        </td>
+      );
+    }
     return (
       <td
         key={r.monthKey}
-        title={c.title}
         className={`py-1.5 px-2 text-right tabular-nums whitespace-nowrap ${
           esMesFuturo(r.monthKey) ? "text-gray-400" : c.cls || ""
         }`}
       >
-        {c.text}
+        <Tooltip
+          lado="izquierda"
+          direccion={hacia}
+          ancho="amplio"
+          titulo=""
+          contenido={
+            <span className="block space-y-0.5">
+              {lineas.map((l) => (
+                <span
+                  key={`${l.cot ?? l.cliente}-${l.cliente}`}
+                  className="flex justify-between gap-3"
+                >
+                  {/* El nombre cede (se corta con …) y el monto es firme:
+                      así ningún nombre largo descuadra la columna de
+                      plata (Felipe, 31-08: la Iglesia Adventista). */}
+                  <span className="min-w-0 truncate text-gray-300">
+                    {l.cliente}
+                    {l.cot != null && (
+                      <span className="text-gray-500"> #{l.cot}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    {plata(l.monto)}
+                  </span>
+                </span>
+              ))}
+              {lineas.length > 1 && (
+                <span className="flex justify-between gap-3 border-t border-gray-700 pt-0.5 font-semibold whitespace-nowrap">
+                  <span>Total</span>
+                  <span className="tabular-nums">
+                    {plata(lineas.reduce((t, l) => t + l.monto, 0))}
+                  </span>
+                </span>
+              )}
+            </span>
+          }
+        >
+          <span className="cursor-help">{c.text}</span>
+        </Tooltip>
       </td>
     );
   };
@@ -377,7 +482,7 @@ export default function IngresosYCaja({
                   >
                     {fila.label}
                   </td>
-                  {meses.map((r) => celda(fila, r))}
+                  {meses.map((r) => celda(fila, r, bloque.globoHacia))}
                   {(() => {
                     const t = fila.total();
                     return (
@@ -401,8 +506,8 @@ export default function IngresosYCaja({
             tapaban la tabla y Felipe los mandó a sacar: "yo me entiendo".
             Quedan solo las claves de los símbolos. */}
         <p className="mt-2 text-[11px] text-gray-400">
-          <b>·f</b> = mes futuro (venta agendada) · <b>~</b> = costo todavía no
-          cerrado · pasa el mouse por una cifra para ver el monto exacto
+          <b>·f</b> = mes futuro (venta agendada) · pasa el mouse por una
+          cifra para ver de qué clientes se compone
         </p>
       </div>
     </div>

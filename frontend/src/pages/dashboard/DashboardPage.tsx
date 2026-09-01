@@ -6,7 +6,8 @@ import {
   getCostoPersonal,
   getPagadoPersonalPorMes,
 } from "../../services/people.service";
-import IngresosYCaja from "./IngresosYCaja";
+import { saleWithoutTip } from "../../utils/quotationMoney";
+import IngresosYCaja, { DesgloseDeMes } from "./IngresosYCaja";
 import React, { useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -130,6 +131,8 @@ interface DashboardData {
     ventas: number;
     cobrado: number;
     porCobrar: number;
+    cobros: { cliente: string; cot: number; monto: number }[];
+    deudores: { cliente: string; cot: number; monto: number }[];
   }[];
 }
 
@@ -352,6 +355,8 @@ export default function DashboardPage() {
         ventas: byEvent[monthYearKey]?.amount || 0,
         cobrado: detail[monthYearKey]?.cobrado || 0,
         porCobrar: detail[monthYearKey]?.porCobrar || 0,
+        cobros: detail[monthYearKey]?.cobros || [],
+        deudores: detail[monthYearKey]?.deudores || [],
       }));
 
       return {
@@ -780,13 +785,24 @@ export default function DashboardPage() {
     // Se calcula aquí y no en el motor porque el costo de insumos vive
     // en este cálculo (congelado si hay provisión, receta si no).
     const salidas = new Map<string, number>();
+    // EL DESGLOSE (Felipe, 31-08): al pasar el mouse por una cifra, ver
+    // de qué clientes se compone. Se junta aquí, en el mismo recorrido.
+    const desglose = new Map<string, DesgloseDeMes>();
+    const enDesglose = (mes: string) => {
+      let d = desglose.get(mes);
+      if (!d) {
+        d = { ventas: [], proveedores: [], personal: [], pagadoProv: [] };
+        desglose.set(mes, d);
+      }
+      return d;
+    };
     // Acumulador COMPARTIDO entre los eventos del período: alimenta el
     // análisis de proveedores e insumos (23-07) sin recorrer dos veces.
     const acc = newAccumulator();
     // 24-07: se espera también a los recursos. Si se calculara sin ellos
     // se vería medio segundo el margen viejo (inflado) antes de corregirse.
     if (!base || !provQuery.data || events.length === 0)
-      return { byMonth: map, salidas, acc };
+      return { byMonth: map, salidas, desglose, acc };
     const ctx = buildConsolidationContext(
       base.recipes,
       base.supplies,
@@ -874,6 +890,12 @@ export default function DashboardPage() {
       cur.estimado = cur.estimado || estimado;
       map.set(key, cur);
 
+      const quien = { cliente: ev.client_name, cot: ev.quotation_number };
+      const delMes = enDesglose(key);
+      delMes.ventas.push({ ...quien, monto: saleWithoutTip(ev) });
+      if (proveedores) delMes.proveedores.push({ ...quien, monto: proveedores });
+      if (personal) delMes.personal.push({ ...quien, monto: personal });
+
       const realizado = ev.quotation_status === "realizada";
       if (ev.provisioned_at || realizado) {
         const cuando = ev.provisioned_at
@@ -884,19 +906,31 @@ export default function DashboardPage() {
           mesDeSalida,
           (salidas.get(mesDeSalida) || 0) + proveedores,
         );
+        if (proveedores)
+          enDesglose(mesDeSalida).pagadoProv.push({
+            ...quien,
+            monto: proveedores,
+          });
       }
     });
-    return { byMonth: map, salidas, acc };
+    return { byMonth: map, salidas, desglose, acc };
   })();
   const marginByMonth = marginData.byMonth;
   // LO QUE SALIÓ DE CAJA, mes a mes: proveedores (calculado arriba, con
   // la regla de provisión) y equipo (lo marcado pagado en Nómina).
   const pagadoPorMes = (() => {
-    const mapa = new Map<string, { proveedores: number; personal: number }>();
+    const mapa = new Map<
+      string,
+      {
+        proveedores: number;
+        personal: number;
+        personas: { nombre: string; monto: number }[];
+      }
+    >();
     const casilla = (k: string) => {
       let c = mapa.get(k);
       if (!c) {
-        c = { proveedores: 0, personal: 0 };
+        c = { proveedores: 0, personal: 0, personas: [] };
         mapa.set(k, c);
       }
       return c;
@@ -905,7 +939,9 @@ export default function DashboardPage() {
       casilla(mes).proveedores += monto;
     });
     Object.entries(pagadoPersonalQuery.data ?? {}).forEach(([mes, p]) => {
-      casilla(mes).personal += (p?.jornadas || 0) + (p?.propinas || 0);
+      const c = casilla(mes);
+      c.personal += (p?.jornadas || 0) + (p?.propinas || 0);
+      c.personas = p?.personas ?? [];
     });
     return mapa;
   })();
@@ -2143,6 +2179,7 @@ export default function DashboardPage() {
             recortada={data.moneyByMonth.length > meses.length}
             costoPorMes={marginByMonth}
             pagadoPorMes={pagadoPorMes}
+            desglosePorMes={marginData.desglose}
             currency={company?.currency || "CLP"}
           />
         );

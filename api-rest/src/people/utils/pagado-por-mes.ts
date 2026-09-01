@@ -35,6 +35,11 @@ export interface SillaDeNomina {
 export interface PagadoDelMes {
   jornadas: number;
   propinas: number;
+  /** A quién se le pagó ese mes, con jornada y propina sumadas: el
+   *  desglose que el panel muestra al pasar el mouse (31-08). El
+   *  "quién" del personal es la PERSONA, no el cliente: una nómina
+   *  cruza varios eventos. */
+  personas: { nombre: string; monto: number }[];
 }
 
 const llaveDelMes = (iso: string): string => {
@@ -45,6 +50,7 @@ const llaveDelMes = (iso: string): string => {
 export const pagadoDePersonalPorMes = (
   pagos: readonly PagoDeNomina[],
   sillas: readonly SillaDeNomina[],
+  nombres: ReadonlyMap<number, string> = new Map(),
 ): Record<string, PagadoDelMes> => {
   // Índices por (nómina, persona): una persona puede tener varias
   // sillas en la misma nómina (varios días del mismo evento, o varios
@@ -64,13 +70,34 @@ export const pagadoDePersonalPorMes = (
   }
 
   const meses: Record<string, PagadoDelMes> = {};
+  // (mes, persona) → monto: una persona pagada en dos nóminas el mismo
+  // mes aparece UNA vez en el desglose, con todo sumado.
+  const porPersona = new Map<string, number>();
   for (const p of pagos) {
     if (!p.paid_at) continue;
     const mes = llaveDelMes(p.paid_at);
-    const casilla = (meses[mes] ??= { jornadas: 0, propinas: 0 });
+    const casilla = (meses[mes] ??= {
+      jornadas: 0,
+      propinas: 0,
+      personas: [],
+    });
     const k = `${p.payroll_id}|${p.person_id}`;
-    if (p.jornada_paid) casilla.jornadas += porJornada.get(k) ?? 0;
-    if (p.propina_paid) casilla.propinas += porPropina.get(k) ?? 0;
+    let suyo = 0;
+    if (p.jornada_paid) suyo += porJornada.get(k) ?? 0;
+    if (p.propina_paid) suyo += porPropina.get(k) ?? 0;
+    casilla.jornadas += p.jornada_paid ? (porJornada.get(k) ?? 0) : 0;
+    casilla.propinas += p.propina_paid ? (porPropina.get(k) ?? 0) : 0;
+    if (suyo > 0) {
+      const kp = `${mes}|${p.person_id}`;
+      porPersona.set(kp, (porPersona.get(kp) ?? 0) + suyo);
+    }
+  }
+  for (const [kp, monto] of porPersona) {
+    const [mes, personId] = kp.split('|');
+    meses[mes].personas.push({
+      nombre: nombres.get(Number(personId)) ?? `Persona ${personId}`,
+      monto,
+    });
   }
   return meses;
 };

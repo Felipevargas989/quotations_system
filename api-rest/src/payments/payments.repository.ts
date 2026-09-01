@@ -38,7 +38,11 @@ export class PaymentsRepository {
       `
         *,
         quotations (
-          company_id
+          company_id,
+          quotation_number,
+          clients (
+            name
+          )
         ),
         payment_transactions (
           id,

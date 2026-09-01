@@ -224,7 +224,7 @@ export class AnalyticsService {
         Object.fromEntries(
           Object.keys(extendedMonthRange).map((m) => [
             m,
-            { cobrado: 0, porCobrar: 0 },
+            { cobrado: 0, porCobrar: 0, cobros: [], deudores: [] },
           ]),
         );
       type FilaPago = {
@@ -233,6 +233,10 @@ export class AnalyticsService {
         due_date: string | null;
         amount: number;
         payment_transactions?: { transaction_date: string; amount?: number }[];
+        quotations?: {
+          quotation_number?: number;
+          clients?: { name?: string } | null;
+        } | null;
       };
       ((payments || []) as unknown as FilaPago[]).forEach((payment) => {
         const isPaid = payment.status === 'pagado';
@@ -253,8 +257,17 @@ export class AnalyticsService {
         );
         const key = `${date.getFullYear()}-${date.getMonth()}`;
         if (!(key in totalPaymentsDetailByMonth)) return;
+        // Quién es la cuota, para el desglose del panel (31-08).
+        const quien = {
+          cliente: payment.quotations?.clients?.name || '—',
+          cot: payment.quotations?.quotation_number ?? 0,
+        };
         if (isPaid) {
           totalPaymentsDetailByMonth[key].cobrado += payment.amount;
+          totalPaymentsDetailByMonth[key].cobros.push({
+            ...quien,
+            monto: payment.amount,
+          });
         } else {
           // LO QUE FALTA POR COBRAR, DE VERDAD (28-08, pillado por
           // Felipe): antes sumaba el monto COMPLETO de la cuota aunque
@@ -266,10 +279,13 @@ export class AnalyticsService {
             (suma, t) => suma + Number((t as { amount?: number }).amount ?? 0),
             0,
           );
-          totalPaymentsDetailByMonth[key].porCobrar += Math.max(
-            0,
-            payment.amount - abonado,
-          );
+          const saldo = Math.max(0, payment.amount - abonado);
+          totalPaymentsDetailByMonth[key].porCobrar += saldo;
+          if (saldo > 0)
+            totalPaymentsDetailByMonth[key].deudores.push({
+              ...quien,
+              monto: saldo,
+            });
         }
       });
 

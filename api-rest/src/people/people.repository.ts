@@ -1060,9 +1060,10 @@ export class PeopleRepository {
     if (error) throw error;
   }
 
-  /** Lo pagado al equipo, mes a mes, para el flujo de caja del panel. */
+  /** Lo pagado al equipo, mes a mes, para el flujo de caja del panel.
+   *  Con nombres: el desglose por persona del globo (31-08). */
   async pagadoDePersonalPorMes(companyId: number) {
-    const [pagos, sillas] = await Promise.all([
+    const [pagos, sillas, gente] = await Promise.all([
       this.supabase.client
         .from('payroll_people')
         .select('payroll_id, person_id, jornada_paid, propina_paid, paid_at')
@@ -1073,12 +1074,24 @@ export class PeopleRepository {
         .select('person_id, payroll_id, tip_payroll_id, amount, tip_amount')
         .eq('company_id', companyId)
         .or('payroll_id.not.is.null,tip_payroll_id.not.is.null'),
+      this.supabase.client
+        .from('people')
+        .select('id, name')
+        .eq('company_id', companyId),
     ]);
     if (pagos.error) throw pagos.error;
     if (sillas.error) throw sillas.error;
+    if (gente.error) throw gente.error;
+    const nombres = new Map(
+      ((gente.data || []) as { id: number; name: string }[]).map((p) => [
+        p.id,
+        p.name,
+      ]),
+    );
     return pagadoDePersonalPorMes(
       (pagos.data || []) as unknown as PagoDeNomina[],
       (sillas.data || []) as unknown as SillaDeNomina[],
+      nombres,
     );
   }
 

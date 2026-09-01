@@ -410,6 +410,12 @@ export interface PurchasingEvent {
   event_end_date: string | null;
   people_count: number;
   total_amount: number;
+  /** Campos de la propina (31-08): el panel calcula la venta SIN
+   *  propina por evento para el desglose al pasar el mouse. */
+  subtotal_amount?: number | null;
+  fixed_value?: number | null;
+  tip_percentage?: number | null;
+  tip_amount?: number | null;
   items: unknown;
   provisioned_at: string | null;
   provisioned_cost: number | null;
