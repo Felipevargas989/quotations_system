@@ -32,6 +32,9 @@ export interface MesDeCaja {
   ventas: number;
   cobrado: number;
   porCobrar: number;
+  /** Desglose por cliente que manda el motor (31-08). */
+  cobros?: LineaDeDesglose[];
+  deudores?: LineaDeDesglose[];
 }
 
 export interface CostoDelMes {
@@ -44,12 +47,16 @@ export interface CostoDelMes {
 export interface PagadoDelMes {
   proveedores: number;
   personal: number;
+  /** El desglose del personal es por PERSONA, no por cliente: una
+   *  nómina cruza varios eventos (31-08). */
+  personas?: { nombre: string; monto: number }[];
 }
 
-/** Una línea del desglose: quién y cuánto. */
+/** Una línea del desglose: quién y cuánto. Sin `cot` cuando el quién
+ *  no es un evento (las personas del equipo en Pagado personal). */
 export interface LineaDeDesglose {
   cliente: string;
-  cot: number;
+  cot?: number;
   monto: number;
 }
 
@@ -253,22 +260,32 @@ export default function IngresosYCaja({
   };
 
   const filasCaja: Fila[] = [
-    filaDePlata("Cobrado", (r) => r.cobrado, {
-      cls: "text-green-700",
-      clsTotal: "text-green-700 font-bold",
-    }),
+    {
+      ...filaDePlata("Cobrado", (r) => r.cobrado, {
+        cls: "text-green-700",
+        clsTotal: "text-green-700 font-bold",
+      }),
+      desglose: (r) => r.cobros ?? [],
+    },
     {
       ...filaDePlata("Pagado proveedores", (r) => pagado(r).proveedores, {
         hija: true,
       }),
       desglose: lineasDe("pagadoProv"),
     },
-    filaDePlata("Pagado personal", (r) => pagado(r).personal, {
-      hija: true,
-    }),
     {
-      ...filaDePlata("Por cobrar", (r) => r.porCobrar, {
+      ...filaDePlata("Pagado personal", (r) => pagado(r).personal, {
+        hija: true,
       }),
+      desglose: (r) =>
+        (pagado(r).personas ?? []).map((p) => ({
+          cliente: p.nombre,
+          monto: p.monto,
+        })),
+    },
+    {
+      ...filaDePlata("Por cobrar", (r) => r.porCobrar, {}),
+      desglose: (r) => r.deudores ?? [],
       cell: (r) => ({
         text: r.porCobrar ? miles(r.porCobrar) : "—",
         title: r.porCobrar ? plata(r.porCobrar) : undefined,
@@ -362,19 +379,27 @@ export default function IngresosYCaja({
         <Tooltip
           lado="izquierda"
           direccion={hacia}
+          ancho="amplio"
           titulo=""
           contenido={
             <span className="block space-y-0.5">
               {lineas.map((l) => (
                 <span
-                  key={`${l.cot}-${l.cliente}`}
-                  className="flex justify-between gap-3 whitespace-nowrap"
+                  key={`${l.cot ?? l.cliente}-${l.cliente}`}
+                  className="flex justify-between gap-3"
                 >
-                  <span className="text-gray-300">
-                    {l.cliente}{" "}
-                    <span className="text-gray-500">#{l.cot}</span>
+                  {/* El nombre cede (se corta con …) y el monto es firme:
+                      así ningún nombre largo descuadra la columna de
+                      plata (Felipe, 31-08: la Iglesia Adventista). */}
+                  <span className="min-w-0 truncate text-gray-300">
+                    {l.cliente}
+                    {l.cot != null && (
+                      <span className="text-gray-500"> #{l.cot}</span>
+                    )}
                   </span>
-                  <span className="tabular-nums">{plata(l.monto)}</span>
+                  <span className="shrink-0 tabular-nums">
+                    {plata(l.monto)}
+                  </span>
                 </span>
               ))}
               {lineas.length > 1 && (

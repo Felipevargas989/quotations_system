@@ -28,6 +28,7 @@ export default function Tooltip({
   children,
   lado = "centro",
   direccion = "arriba",
+  ancho = "normal",
 }: {
   /** Lo que se muestra al pasar el mouse. */
   readonly contenido: ReactNode;
@@ -40,6 +41,10 @@ export default function Tooltip({
   readonly lado?: "centro" | "izquierda" | "derecha";
   /** "abajo" para filas pegadas al techo del contenedor. */
   readonly direccion?: "arriba" | "abajo";
+  /** "amplio" cuando las líneas llevan nombre + monto: con el ancho
+   *  normal un nombre largo desbordaba y su monto invadía el borde
+   *  (Felipe, 31-08: "el segundo monto se ve descuadrado"). */
+  readonly ancho?: "normal" | "amplio";
 }) {
   const posicion =
     lado === "izquierda"
@@ -49,12 +54,13 @@ export default function Tooltip({
         : "left-1/2 -translate-x-1/2";
   const vertical =
     direccion === "abajo" ? "top-full mt-1.5" : "bottom-full mb-1.5";
+  const anchoMax = ancho === "amplio" ? "max-w-md" : "max-w-xs";
   return (
     <span className="group relative inline-flex" title={titulo || undefined}>
       {children}
       <span
         role="tooltip"
-        className={`pointer-events-none invisible absolute z-30 w-max max-w-xs rounded-lg bg-gray-900 px-2.5 py-1.5 text-left text-xs font-normal leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 ${vertical} ${posicion}`}
+        className={`pointer-events-none invisible absolute z-30 w-max ${anchoMax} rounded-lg bg-gray-900 px-2.5 py-1.5 text-left text-xs font-normal leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 ${vertical} ${posicion}`}
       >
         {contenido}
       </span>

@@ -150,11 +150,16 @@ export const removeStaff = async (id: number, liberar = false) =>
   );
 
 /** El costo de personal por evento y cargo, desde las sillas. */
-/** Lo pagado al equipo por mes (clave `año-mesBase0`), para el flujo de caja. */
+/** Lo pagado al equipo por mes (clave `año-mesBase0`), para el flujo de
+ *  caja. `personas` (31-08): el desglose del globo, por persona. */
 export const getPagadoPersonalPorMes = async () =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/pagado-por-mes`, "GET")) as Record<
     string,
-    { jornadas: number; propinas: number }
+    {
+      jornadas: number;
+      propinas: number;
+      personas?: { nombre: string; monto: number }[];
+    }
   >;
 
 export const getCostoPersonal = async () =>

@@ -131,6 +131,8 @@ interface DashboardData {
     ventas: number;
     cobrado: number;
     porCobrar: number;
+    cobros: { cliente: string; cot: number; monto: number }[];
+    deudores: { cliente: string; cot: number; monto: number }[];
   }[];
 }
 
@@ -353,6 +355,8 @@ export default function DashboardPage() {
         ventas: byEvent[monthYearKey]?.amount || 0,
         cobrado: detail[monthYearKey]?.cobrado || 0,
         porCobrar: detail[monthYearKey]?.porCobrar || 0,
+        cobros: detail[monthYearKey]?.cobros || [],
+        deudores: detail[monthYearKey]?.deudores || [],
       }));
 
       return {
@@ -915,11 +919,18 @@ export default function DashboardPage() {
   // LO QUE SALIÓ DE CAJA, mes a mes: proveedores (calculado arriba, con
   // la regla de provisión) y equipo (lo marcado pagado en Nómina).
   const pagadoPorMes = (() => {
-    const mapa = new Map<string, { proveedores: number; personal: number }>();
+    const mapa = new Map<
+      string,
+      {
+        proveedores: number;
+        personal: number;
+        personas: { nombre: string; monto: number }[];
+      }
+    >();
     const casilla = (k: string) => {
       let c = mapa.get(k);
       if (!c) {
-        c = { proveedores: 0, personal: 0 };
+        c = { proveedores: 0, personal: 0, personas: [] };
         mapa.set(k, c);
       }
       return c;
@@ -928,7 +939,9 @@ export default function DashboardPage() {
       casilla(mes).proveedores += monto;
     });
     Object.entries(pagadoPersonalQuery.data ?? {}).forEach(([mes, p]) => {
-      casilla(mes).personal += (p?.jornadas || 0) + (p?.propinas || 0);
+      const c = casilla(mes);
+      c.personal += (p?.jornadas || 0) + (p?.propinas || 0);
+      c.personas = p?.personas ?? [];
     });
     return mapa;
   })();

@@ -28,7 +28,11 @@ describe('pagadoDePersonalPorMes — la plata que sale hacia el equipo', () => {
       [silla({ payroll_id: 10, amount: 30000 })],
     );
     // agosto es el mes 7 en base 0
-    expect(r['2026-7']).toEqual({ jornadas: 30000, propinas: 0 });
+    expect(r['2026-7']).toEqual({
+      jornadas: 30000,
+      propinas: 0,
+      personas: [{ nombre: 'Persona 1', monto: 30000 }],
+    });
   });
 
   it('jornada y propina se pagan por separado', () => {
@@ -40,7 +44,10 @@ describe('pagadoDePersonalPorMes — la plata que sale hacia el equipo', () => {
       [pago({ jornada_paid: true, paid_at: '2026-08-25T12:00:00Z' })],
       sillas,
     );
-    expect(soloJornada['2026-7']).toEqual({ jornadas: 30000, propinas: 0 });
+    expect(soloJornada['2026-7']).toMatchObject({
+      jornadas: 30000,
+      propinas: 0,
+    });
 
     const ambas = pagadoDePersonalPorMes(
       [
@@ -52,7 +59,10 @@ describe('pagadoDePersonalPorMes — la plata que sale hacia el equipo', () => {
       ],
       sillas,
     );
-    expect(ambas['2026-7']).toEqual({ jornadas: 30000, propinas: 5000 });
+    expect(ambas['2026-7']).toMatchObject({ jornadas: 30000, propinas: 5000 });
+    expect(ambas['2026-7'].personas).toEqual([
+      { nombre: 'Persona 1', monto: 35000 },
+    ]);
   });
 
   it('suma TODAS las sillas de la persona en esa nómina', () => {
@@ -89,6 +99,28 @@ describe('pagadoDePersonalPorMes — la plata que sale hacia el equipo', () => {
       ],
     );
     expect(r['2026-7'].jornadas).toBe(30000);
+  });
+
+  it('el desglose usa el nombre real y junta las nóminas del mes', () => {
+    const r = pagadoDePersonalPorMes(
+      [
+        pago({ jornada_paid: true, paid_at: '2026-08-25T12:00:00Z' }),
+        pago({
+          payroll_id: 11,
+          jornada_paid: true,
+          paid_at: '2026-08-28T12:00:00Z',
+        }),
+      ],
+      [
+        silla({ payroll_id: 10, amount: 30000 }),
+        silla({ payroll_id: 11, amount: 20000 }),
+      ],
+      new Map([[1, 'María Garzón']]),
+    );
+    // una sola línea con las dos nóminas del mes sumadas
+    expect(r['2026-7'].personas).toEqual([
+      { nombre: 'María Garzón', monto: 50000 },
+    ]);
   });
 
   it('cada pago cae en SU mes', () => {

@@ -6,9 +6,15 @@ export type DashboardStatsResponse = {
   totalQuotationsByEventDate: Record<string, { count: number; amount: number }>;
   totalPaymentsByMonth: Record<string, number>;
   // FASE 3 (23-07): cobrado vs por cobrar por mes (tabla de ingresos).
+  // cobros/deudores (31-08): el desglose por cliente de los globos.
   totalPaymentsDetailByMonth?: Record<
     string,
-    { cobrado: number; porCobrar: number }
+    {
+      cobrado: number;
+      porCobrar: number;
+      cobros?: { cliente: string; cot: number; monto: number }[];
+      deudores?: { cliente: string; cot: number; monto: number }[];
+    }
   >;
 };
 
