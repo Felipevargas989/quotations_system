@@ -12,7 +12,10 @@ import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfacti
 import { newAccountTemplate } from './templates/newAccount';
 import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
 import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
-import { newPublicQuotationAdminTemplate } from './templates/newPublicQuotationCreated/forAdmin';
+import {
+  NewPublicQuotationAdminParams,
+  newPublicQuotationAdminTemplate,
+} from './templates/newPublicQuotationCreated/forAdmin';
 import { newPublicQuotationClientTemplate } from './templates/newPublicQuotationCreated/forClient';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentOverdueAdminTemplate } from './templates/paymentOverdue/paymentOverdueAdmin';
@@ -179,6 +182,27 @@ export class EmailService {
         html: newPublicQuotationClientTemplate(branding),
       },
       {
+        // El aviso INTERNO del link público (01-09): con los datos de
+        // la solicitud a la vista, cabecera de marca y el botón que
+        // Outlook sí muestra.
+        subject: '[PRUEBA] Solicitud de cotización recibida desde link público',
+        html: newPublicQuotationAdminTemplate(
+          {
+            clientName: 'Camila Carvajal',
+            peopleCount: 120,
+            eventType: 'Paseo de empresa',
+            eventDate: new Date(Date.now() + 45 * 86400000)
+              .toISOString()
+              .slice(0, 10),
+            phone: '+56 9 8765 4321',
+            email: 'camila@empresa.cl',
+            observations:
+              'Necesitamos cotizar con almuerzo y actividades al aire libre.',
+          },
+          branding,
+        ),
+      },
+      {
         subject: `[PRUEBA] ¿Pudiste revisar tu cotización? — ${branding.companyName}`,
         html: quotationFollowUpTemplate(
           {
@@ -322,15 +346,24 @@ export class EmailService {
    */
   async sendEmail(
     to: string | string[] | undefined | null,
-    emailStructure:
-      | EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT
-      | EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
+    emailStructure: EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT,
     companyId: Company['id'],
     // En este overload el companyId viaja en la posición de params
     // (herencia histórica); el token va en la 5ª posición como en el
     // resto, dejando la 4ª vacía.
     unused?: undefined,
     portalToken?: string | null,
+  ): Promise<void>;
+
+  /**
+   * Aviso interno de solicitud del link público, con los datos a la
+   * vista (01-09): la solicitud viaja en la 4ª posición.
+   */
+  async sendEmail(
+    to: string | string[] | undefined | null,
+    emailStructure: EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN,
+    companyId: Company['id'],
+    solicitud?: NewPublicQuotationAdminParams,
   ): Promise<void>;
   /**
    * Sends an email with events (to multiple recipients)
@@ -475,7 +508,10 @@ export class EmailService {
     to: string | undefined | null | (string | undefined | null)[],
     emailStructure: EmailStructure,
     params?: any,
-    companyId?: Company['id'],
+    // En el aviso interno del link público la 4ª posición trae la
+    // SOLICITUD, no la empresa — por eso las guardas de más abajo
+    // preguntan typeof === 'number' antes de usarla como empresa.
+    companyId?: Company['id'] | NewPublicQuotationAdminParams,
     portalToken?: string | null,
   ): Promise<void> {
     // Silenciador de laboratorio (03-08, pedido de Felipe): con
@@ -492,7 +528,10 @@ export class EmailService {
     }
     // Check if email should be sent based on company configuration
     // Only check for client-facing emails
-    if (EMAILS_SEND_TO_CLIENT.includes(emailStructure) && companyId) {
+    if (
+      EMAILS_SEND_TO_CLIENT.includes(emailStructure) &&
+      typeof companyId === 'number'
+    ) {
       const shouldSend = await this.shouldSendEmail(emailStructure, companyId);
       if (!shouldSend) {
         return;
@@ -512,7 +551,8 @@ export class EmailService {
       Number.isFinite(Number(params))
         ? Number(params)
         : undefined;
-    const brandCompanyId = companyId ?? paramsAsId;
+    const brandCompanyId =
+      typeof companyId === 'number' ? companyId : paramsAsId;
     let branding: EmailBranding = {
       companyName:
         ((params as { companyName?: string })?.companyName as string) ||
@@ -553,7 +593,12 @@ export class EmailService {
       case EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN:
         subject = EMAIL_SUBJECTS[EmailStructure.NEW_PUBLIC_QUOTATION_ADMIN];
         sendTo = to as string[];
-        html = newPublicQuotationAdminTemplate();
+        // Cabecera de marca también en el aviso interno (01-09): la
+        // empresa viaja en la 3ª posición (paramsAsId) en este flujo.
+        html = newPublicQuotationAdminTemplate(
+          typeof companyId === 'object' ? companyId : undefined,
+          paramsAsId ? await this.getBranding(paramsAsId) : undefined,
+        );
         break;
 
       case EmailStructure.SOON_EVENTS:
