@@ -182,6 +182,23 @@ export class EmailService {
         html: newPublicQuotationClientTemplate(branding),
       },
       {
+        // El aviso INTERNO del link público (01-09): con los datos de
+        // la solicitud a la vista y el botón que Outlook sí muestra.
+        subject: '[PRUEBA] Solicitud de cotización recibida desde link público',
+        html: newPublicQuotationAdminTemplate({
+          clientName: 'Camila Carvajal',
+          peopleCount: 120,
+          eventType: 'Paseo de empresa',
+          eventDate: new Date(Date.now() + 45 * 86400000)
+            .toISOString()
+            .slice(0, 10),
+          phone: '+56 9 8765 4321',
+          email: 'camila@empresa.cl',
+          observations:
+            'Necesitamos cotizar con almuerzo y actividades al aire libre.',
+        }),
+      },
+      {
         subject: `[PRUEBA] ¿Pudiste revisar tu cotización? — ${branding.companyName}`,
         html: quotationFollowUpTemplate(
           {
