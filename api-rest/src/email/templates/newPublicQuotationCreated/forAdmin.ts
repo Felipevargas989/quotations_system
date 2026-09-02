@@ -1,4 +1,4 @@
-import { brandEmailTemplate, EmailBranding } from '../brandLayout';
+import { correoInternoTemplate, EmailBranding } from '../brandLayout';
 
 /** Lo que el formulario público sabe de la solicitud: el aviso al
  *  administrador lo muestra para decidir sin entrar al sistema
@@ -73,19 +73,15 @@ export const newPublicQuotationAdminTemplate = (
     <p style="color:#6b7280;font-size:13px;">
       En el sistema aparece con "[Desde formulario publico]" en las observaciones.
     </p>`;
-  return brandEmailTemplate({
-    branding: {
-      ...(branding ?? { companyName: 'Eventia' }),
-      // el título del correo en el lugar del tagline
-      tagline: 'Nueva solicitud de cotización',
-      // sin botón de portal en un correo interno
-      portalUrl: null,
-    },
+  // El molde común de los correos internos (02-09): nació aquí y ahora
+  // lo comparten todos.
+  return correoInternoTemplate({
+    branding,
+    titulo: 'Nueva solicitud de cotización',
     bodyHtml,
     cta: {
       text: 'Ver la solicitud',
       link: 'https://www.eventi-app.com/requests',
     },
-    footerNote: 'Mensaje automático de Eventia. No respondas a este correo.',
   });
 };

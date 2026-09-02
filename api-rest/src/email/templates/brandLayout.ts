@@ -114,6 +114,31 @@ export interface BrandEmailParams {
   footerNote?: string;
 }
 
+/**
+ * Correo INTERNO con la cabecera de marca de la casa (Felipe, 02-09):
+ * banda del color primario, nombre de la empresa (o "Eventia" si el
+ * flujo no la conoce), y el TÍTULO del correo como subtítulo — en un
+ * correo interno lo que sirve es saber qué pasó de un vistazo. Sin
+ * botón de portal. Nació con el aviso del link público (PR #80) y acá
+ * se volvió el molde de todos.
+ */
+export const correoInternoTemplate = (p: {
+  branding?: EmailBranding | null;
+  titulo: string;
+  bodyHtml: string;
+  cta?: { text: string; link: string };
+}): string =>
+  brandEmailTemplate({
+    branding: {
+      ...(p.branding ?? { companyName: 'Eventia' }),
+      tagline: p.titulo,
+      portalUrl: null,
+    },
+    bodyHtml: p.bodyHtml,
+    cta: p.cta,
+    footerNote: 'Mensaje automático de Eventia. No respondas a este correo.',
+  });
+
 export const brandEmailTemplate = (p: BrandEmailParams): string => {
   const primary = p.branding.primary || EVENTIA_BLUE;
   // Cabecera BLANCA (decisión de Felipe 29-07): franja fina del color
