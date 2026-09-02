@@ -138,16 +138,19 @@ export const plantillaCampana = (p: {
       <div style="padding:36px 30px;color:#111827;">
         <h1 style="font-size:22px;margin:0 0 16px;">${esc(p.titulo)}</h1>
         <div style="font-size:15px;line-height:1.65;color:#374151;">${p.cuerpoHtml}</div>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 4px;">
-          <tr>
-            ${
-              whatsappUrl
-                ? `<td align="left" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>
-            <td align="right" style="padding:0;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</td>`
-                : `<td align="center" style="padding:0;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</td>`
-            }
-          </tr>
-        </table>
+        <!-- Botones como bloques que se ENVUELVEN solos: en pantalla
+             ancha quedan lado a lado con aire, y en el celular el
+             segundo baja a su propia línea. Antes eran dos columnas de
+             tabla y en el teléfono quedaban aplastados uno contra otro
+             (Felipe, 02-09, pantallazo desde su celular). -->
+        <div style="margin:30px 0 4px;text-align:center;">
+          ${
+            whatsappUrl
+              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>
+          <div style="display:inline-block;margin:0 8px 12px;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</div>`
+              : `<div style="display:inline-block;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>`
+          }
+        </div>
       </div>
       <div style="background-color:${fondoFranja};padding:24px 30px;text-align:center;">
         <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${nombre}</p>
