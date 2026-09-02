@@ -93,8 +93,11 @@ export const plantillaCampana = (p: {
     ? m.colorSecundario
     : '#f9fafb';
   const nombre = esc(m.nombre);
+  // Ancho FIJO e igual para ambos botones (Felipe, 02-09: "¿podrían
+  // tener el mismo ancho?"): 250px cada uno — apilados se ven parejos,
+  // y lado a lado caben en los 540px útiles del correo.
   const boton = (url: string, color: string, texto: string, glifo?: string) =>
-    `<a href="${esc(url)}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 28px;border-radius:8px;font-size:15px;">${
+    `<a href="${esc(url)}" style="display:inline-block;width:250px;text-align:center;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 0;border-radius:8px;font-size:15px;">${
       glifo
         ? `<img src="${p.iconosBase}/correo/${glifo}" width="18" height="18" alt="" style="display:inline-block;border:0;vertical-align:-4px;margin-right:8px;" />`
         : ''
