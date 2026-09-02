@@ -131,6 +131,7 @@ export class CustomerSatisfactionSurveyService {
             templateId: templateResult.id,
             answers: createAnswerDto.answers,
           },
+          companyId,
         );
       } catch (error) {
         this.logger.error(

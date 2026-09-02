@@ -1,63 +1,38 @@
-import { baseLayoutTemplate } from '../baseLayout';
+import { correoInternoTemplate, EmailBranding } from '../brandLayout';
 import { formatCurrency, formatDate } from '../utils';
 import { PaymentReminderParams } from './types';
 
 /**
- * Email template for payment reminder
- * Sent to clients with a pending payment
- * @param params - Payment reminder details
- * @returns HTML string for the email
+ * Aviso INTERNO al administrador: una cuota está por vencer y al
+ * cliente ya se le mandó su recordatorio. Con la cabecera de marca de
+ * la casa desde el 02-09 (antes: plantilla genérica que Outlook
+ * mostraba con un bloque blanco).
  */
 export const paymentReminderAdminTemplate = (
   params: PaymentReminderParams,
+  branding?: EmailBranding,
 ): string => {
-  // Build the email content
-  const emailContent = `
-    <style>
-      .greeting {
-        font-size: 18px;
-        color: #374151;
-        margin: 0 0 20px 0;
-      }
-      .intro-text {
-        font-size: 16px;
-        color: #4b5563;
-        line-height: 1.6;
-        margin: 0 0 30px 0;
-      }
-      .help-text {
-        font-size: 14px;
-        color: #6b7280;
-        text-align: center;
-        margin: 30px 0 10px 0;
-        line-height: 1.6;
-      }
-    </style>
-
-    <p class="greeting">Hola,</p>
-
-    <p class="intro-text">
-      Pronto se vence el pago de la cotización #${params.quotationId} para la empresa ${params.companyName}.
-      <strong>#${params.quotationId}</strong>.
-    </p>
-
-    <p>
-      Le enviamos un recordatorio de pago al cliente recordandole que el pago se vence el día ${formatDate(params.payment.due_date)}.
-    </p>
-
-    <div class="intro-text">
-      A continuación te indicamos los detalles del pago:
-    </div>
-
-    <div class="intro-text">
-      <p><strong>Número de Pago:</strong>${params.payment.payment_number}</p>
-      <p><strong>Monto a Pagar:</strong> ${formatCurrency(params.payment.amount)}</p>
-      <p><strong>Fecha de Vencimiento:</strong> ${formatDate(params.payment.due_date)}</p>
-    </div>
-  `;
-
-  // Use the base layout
-  return baseLayoutTemplate({
-    content: emailContent,
+  const bodyHtml = `
+    <p style="margin:0 0 12px;">Pronto vence una cuota de la cotización
+    <b>N° ${params.quotationId}</b>. Al cliente ya le mandamos su
+    recordatorio automático.</p>
+    <table cellpadding="0" cellspacing="0" style="margin:4px 0 12px;border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;width:100%;">
+      <tr>
+        <td style="padding:6px 12px;color:#6b7280;font-size:13px;white-space:nowrap;">Cuota</td>
+        <td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:600;">N° ${params.payment.payment_number}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 12px;color:#6b7280;font-size:13px;white-space:nowrap;">Monto</td>
+        <td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:600;">${formatCurrency(params.payment.amount)}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 12px;color:#6b7280;font-size:13px;white-space:nowrap;">Vence</td>
+        <td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:600;">${formatDate(params.payment.due_date)}</td>
+      </tr>
+    </table>`;
+  return correoInternoTemplate({
+    branding,
+    titulo: 'Pago por vencer',
+    bodyHtml,
   });
 };

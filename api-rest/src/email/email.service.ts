@@ -182,6 +182,43 @@ export class EmailService {
         html: newPublicQuotationClientTemplate(branding),
       },
       {
+        // Los avisos INTERNOS con la cabecera de marca (02-09): las
+        // muestras de abajo dejan ver en Outlook real cómo llegan.
+        subject: '[PRUEBA] Pago por vencer — aviso interno',
+        html: paymentReminderAdminTemplate(cuota(en3), branding),
+      },
+      {
+        subject: '[PRUEBA] Pago vencido — aviso interno',
+        html: paymentOverdueAdminTemplate(cuota(hace7), branding),
+      },
+      {
+        subject: '[PRUEBA] Encuesta respondida — aviso interno',
+        html: newAnswerCustomerSatisfactionSurveyTemplate(
+          {
+            templateId: 1,
+            answers: [
+              { id: 1, answer: '5' },
+              { id: 2, answer: 'Todo excelente, volveríamos sin dudarlo.' },
+            ],
+          },
+          branding,
+        ),
+      },
+      {
+        subject: '[PRUEBA] Comprobante por confirmar — aviso interno',
+        html: portalReceiptAdminTemplate(
+          {
+            companyName: branding.companyName,
+            mandante: 'María Fernanda',
+            clienteEmpresa: 'Colegio Los Aromos',
+            quotationNumber: 463,
+            cuotaNumero: 2,
+            monto: 925000,
+          },
+          branding,
+        ),
+      },
+      {
         // El aviso INTERNO del link público (01-09): con los datos de
         // la solicitud a la vista, cabecera de marca y el botón que
         // Outlook sí muestra.
@@ -392,6 +429,8 @@ export class EmailService {
     to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY,
     params: NewAnswerCustomerSatisfactionSurveyParams,
+    // La empresa, para la cabecera de marca del aviso interno (02-09).
+    companyId?: Company['id'],
   ): Promise<void>;
   /**
    * Sends payment reminder (to single recipient)
@@ -484,6 +523,8 @@ export class EmailService {
     to: (string | undefined | null)[] | undefined | null,
     emailStructure: EmailStructure.PORTAL_RECEIPT_ADMIN,
     params: PortalReceiptAdminParams,
+    // La empresa, para la cabecera de marca del aviso interno (02-09).
+    companyId?: Company['id'],
   ): Promise<void>;
   /**
    * Torre de Control: alerta de nuevo interesado ("Prueba gratis")
@@ -636,7 +677,13 @@ export class EmailService {
             'Params are required for PAYMENT_REMINDER_ADMIN template',
           );
         }
-        html = paymentReminderAdminTemplate(params as PaymentReminderParams);
+        // Cabecera de marca también en los avisos internos (02-09).
+        html = paymentReminderAdminTemplate(
+          params as PaymentReminderParams,
+          typeof companyId === 'number'
+            ? await this.getBranding(companyId)
+            : undefined,
+        );
         break;
 
       case EmailStructure.PAYMENT_OVERDUE:
@@ -659,7 +706,12 @@ export class EmailService {
             'Params are required for PAYMENT_OVERDUE_ADMIN template',
           );
         }
-        html = paymentOverdueAdminTemplate(params as PaymentReminderParams);
+        html = paymentOverdueAdminTemplate(
+          params as PaymentReminderParams,
+          typeof companyId === 'number'
+            ? await this.getBranding(companyId)
+            : undefined,
+        );
         break;
 
       case EmailStructure.QUOTATION_IS_SENT: {
@@ -741,6 +793,9 @@ export class EmailService {
         }
         html = newAnswerCustomerSatisfactionSurveyTemplate(
           params as NewAnswerCustomerSatisfactionSurveyParams,
+          typeof companyId === 'number'
+            ? await this.getBranding(companyId)
+            : undefined,
         );
         break;
 
@@ -786,7 +841,12 @@ export class EmailService {
         const pr = params as PortalReceiptAdminParams;
         subject = `💸 Comprobante por confirmar — ${pr.mandante} · cot. N° ${pr.quotationNumber}`;
         sendTo = to as string[];
-        html = portalReceiptAdminTemplate(pr);
+        html = portalReceiptAdminTemplate(
+          pr,
+          typeof companyId === 'number'
+            ? await this.getBranding(companyId)
+            : undefined,
+        );
         break;
       }
 

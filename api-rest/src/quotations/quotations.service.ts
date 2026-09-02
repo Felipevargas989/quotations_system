@@ -828,6 +828,7 @@ export class QuotationsService {
             cuotaNumero: cuota.payment_number,
             monto,
           },
+          companyId,
         );
       }
     } catch (error) {

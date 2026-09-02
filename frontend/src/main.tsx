@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.tsx";
+import RedDeSeguridad from "./components/RedDeSeguridad";
 import { queryClient } from "./lib/queryClient";
 import "./index.css";
 
@@ -21,8 +22,12 @@ window.addEventListener("vite:preloadError", (event) => {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    {/* La red bajo TODA la app (02-09): el vigilante de arriba no
+        atajó la pantalla blanca del 01-09 — ver RedDeSeguridad. */}
+    <RedDeSeguridad>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </RedDeSeguridad>
   </React.StrictMode>,
 );

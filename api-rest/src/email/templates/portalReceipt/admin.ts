@@ -1,5 +1,4 @@
-import { baseLayoutTemplate } from '../baseLayout';
-import { fmtCLP } from '../brandLayout';
+import { correoInternoTemplate, EmailBranding, fmtCLP } from '../brandLayout';
 
 export interface PortalReceiptAdminParams {
   companyName: string;
@@ -12,13 +11,14 @@ export interface PortalReceiptAdminParams {
 
 /**
  * Aviso INTERNO (Fase 2b): un cliente subió un comprobante desde el
- * portal y espera confirmación en Post-Venta.
+ * portal y espera confirmación en Post-Venta. Con la cabecera de marca
+ * de la casa desde el 02-09.
  */
 export const portalReceiptAdminTemplate = (
   params: PortalReceiptAdminParams,
+  branding?: EmailBranding,
 ): string => {
-  const content = `
-    <p style="font-size:16px;font-weight:700;margin:0 0 14px;">💸 Comprobante recibido por el portal</p>
+  const bodyHtml = `
     <p style="margin:0 0 10px;"><b>${params.mandante}</b>${
       params.clienteEmpresa && params.clienteEmpresa !== params.mandante
         ? ` (${params.clienteEmpresa})`
@@ -28,7 +28,10 @@ export const portalReceiptAdminTemplate = (
     <b>N° ${params.quotationNumber}</b>.</p>
     <p style="margin:0 0 10px;">El pago NO está registrado todavía: entra a
     <b>Post-Venta → Comprobantes</b>, revisa el archivo y confírmalo o
-    recházalo.</p>
-  `;
-  return baseLayoutTemplate({ content });
+    recházalo.</p>`;
+  return correoInternoTemplate({
+    branding: branding ?? { companyName: params.companyName },
+    titulo: 'Comprobante por confirmar',
+    bodyHtml,
+  });
 };
