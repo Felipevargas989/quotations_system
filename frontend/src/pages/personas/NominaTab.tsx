@@ -607,8 +607,13 @@ function NominaAbierta({
     );
   }, [nomina]);
 
-  const refrescar = () =>
-    qc.invalidateQueries({ queryKey: ["people", "payroll", id] });
+  const refrescar = () => {
+    void qc.invalidateQueries({ queryKey: ["people", "payroll", id] });
+    // También la LISTA de nóminas (Felipe, 03-09): marcaba los 10 pagos,
+    // volvía, y afuera seguía "0 de 10 · En el banco" — el aviso de
+    // refresco solo le llegaba al detalle.
+    void qc.invalidateQueries({ queryKey: ["people", "payrolls"] });
+  };
 
   const pagadas = porPersona.filter(
     (p) =>
