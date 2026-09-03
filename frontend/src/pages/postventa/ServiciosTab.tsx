@@ -2110,7 +2110,7 @@ export default function ServiciosTab({
                               <div className="flex justify-between">
                                 <span className="text-gray-600">
                                   {provisionado
-                                    ? "Insumos (foto de Compras)"
+                                    ? "Insumos"
                                     : "Insumos (estimados)"}
                                 </span>
                                 <span className="text-gray-900">
@@ -2173,7 +2173,7 @@ export default function ServiciosTab({
                           {enPostVenta
                             ? `Cuenta real del evento (la misma de Gestión): ${
                                 provisionado
-                                  ? "foto de Compras"
+                                  ? "insumos comprados"
                                   : "insumos estimados"
                               } + recursos cargados. La propina no entra en el cálculo.`
                             : "Estimación de catálogo (recetas + costos fijos), no el costo real de compra. La propina no entra en el cálculo."}
