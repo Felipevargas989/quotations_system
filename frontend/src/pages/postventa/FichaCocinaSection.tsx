@@ -600,13 +600,6 @@ export default function FichaCocinaSection({
             .slice(0, 2)
             .toUpperCase(),
         );
-    const fmtLarga = (d: Date) =>
-      d.toLocaleDateString("es-CL", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
     const generada = new Date().toLocaleString("es-CL");
 
     // Una página completa de ficha (evento de un día = una sola página;
@@ -678,8 +671,12 @@ export default function FichaCocinaSection({
     let paginas: string;
     let daysPrinted: number[] = [];
     if (!multiDay) {
+      // La fecha del evento es medianoche UTC: formatearla con el reloj
+      // de Chile la corría UN DÍA hacia atrás (Felipe, 03-09, la ficha
+      // impresa decía la víspera). El multi-día siempre usó fmtLargaUTC;
+      // ahora el caso de un día también.
       const fechaTxt = quote.event_date
-        ? fmtLarga(new Date(quote.event_date))
+        ? fmtLargaUTC(String(quote.event_date).slice(0, 10))
         : "—";
       paginas = paginaDe(
         fechaTxt,
