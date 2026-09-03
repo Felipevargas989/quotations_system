@@ -10,7 +10,7 @@ import {
   getAllIngredientRecipeItems,
   getSupplies,
 } from "../../services/logistics.service";
-import { toBaseQty } from "../../types/logistics.types";
+import { grossQty, toBaseQty } from "../../types/logistics.types";
 import {
   deleteCategoryById,
   removeFixedService,
@@ -133,14 +133,22 @@ export default function ServicesPage() {
         getAllIngredientRecipeItems(companyId),
         getSupplies(companyId),
       ]);
-      const priceById = new Map(supplies.map((s) => [s.id, s.price || 0]));
+      const supplyById = new Map(supplies.map((s) => [s.id, s]));
       const costs: Record<number, number> = {};
       items.forEach((it) => {
         if (it.service_type !== "variable" || !it.supply_id) return;
-        const price = priceById.get(it.supply_id) || 0;
+        const supply = supplyById.get(it.supply_id);
+        if (!supply) return;
+        // Costo sobre la cantidad BRUTA (neta + merma), con la MISMA
+        // pieza compartida del modal de receta, Compras y los eventos.
+        // Antes multiplicaba la neta a secas y la carta mostraba un
+        // costo optimista: $4.500 donde la receta decía $5.000
+        // (Felipe, 04-09: "no me calzan los costos, hay un problema
+        // con las mermas").
         costs[it.service_id] =
           (costs[it.service_id] || 0) +
-          toBaseQty(it.qty_per_person, it.unit) * price;
+          grossQty(toBaseQty(it.qty_per_person, it.unit), supply) *
+            (supply.price || 0);
       });
       return costs;
     },
