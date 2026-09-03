@@ -23,6 +23,7 @@ import { useServiceGroups } from "../../hooks/useServiceGroups";
 import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollections";
 import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
+import SelectorDePaquetes from "../../components/selects/SelectorDePaquetes";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import Modal from "../../components/Modal";
 import PkgFijosPicker from "./PkgFijosPicker";
@@ -278,12 +279,8 @@ export default function QuotationForm() {
   const [endDateCleared, setEndDateCleared] = useState(false);
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  // Confirmaciones inline (sin popups del navegador): paquete a
-  // reemplazar/eliminar y menú guardado a eliminar.
-  const [confirmPkg, setConfirmPkg] = useState<{
-    id: number;
-    action: "replace" | "delete";
-  } | null>(null);
+  // Confirmación inline del menú guardado a eliminar (la del paquete
+  // vive ahora dentro de SelectorDePaquetes, higuera del 03-09).
   const [confirmGroupDel, setConfirmGroupDel] = useState<number | null>(null);
   // In-memory search term to filter items inside the open service box dropdown.
   // Búsqueda del desplegable de Categoría (04-08): mismo patrón sticky
@@ -2325,122 +2322,26 @@ export default function QuotationForm() {
                 </button>
               </span>
             ))}
-          <div className="relative dropdown-container">
-            <button
-              type="button"
-              onClick={() =>
-                setOpenDropdown(
-                  openDropdown === "service-group-collections"
-                    ? null
-                    : "service-group-collections",
-                )
-              }
-              disabled={
-                isRestrictedEditing ||
-                (serviceGroupCollections.length === 0 &&
-                  serviceGroups.length === 0)
-              }
-              className="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-              title="Usar o crear un paquete (evento completo guardado)"
-            >
-              <Package size={16} />
-              <span>Partir de un paquete</span>
-            </button>
-
-            {openDropdown === "service-group-collections" && (
-              <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {serviceGroupCollections.map((collection) =>
-                  confirmPkg?.id === collection.id ? (
-                    <div key={collection.id} className="px-3 py-2">
-                      <ConfirmInline
-                        question={
-                          confirmPkg.action === "replace"
-                            ? "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza."
-                            : `¿Eliminar "${collection.name}"?`
-                        }
-                        yesLabel={
-                          confirmPkg.action === "replace"
-                            ? "Agregar"
-                            : "Sí, eliminar"
-                        }
-                        onYes={async () => {
-                          if (confirmPkg.action === "replace") {
-                            loadCollectionAsBoxes(collection);
-                            setConfirmPkg(null);
-                            setOpenDropdown(null);
-                          } else {
-                            await removeServiceGroupCollection(collection.id);
-                            setPaquetesAplicados((prev) =>
-                              prev.filter((p) => p.id !== collection.id),
-                            );
-                            setConfirmPkg(null);
-                          }
-                        }}
-                        onNo={() => setConfirmPkg(null)}
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      key={collection.id}
-                      className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const hasExistingServices = serviceBoxes.some(
-                            (box) => box.services.length > 0,
-                          );
-                          if (hasExistingServices) {
-                            setConfirmPkg({
-                              id: collection.id,
-                              action: "replace",
-                            });
-                          } else {
-                            loadCollectionAsBoxes(collection);
-                            setOpenDropdown(null);
-                          }
-                        }}
-                        className="flex-1 text-left text-sm"
-                      >
-                        <span className="text-gray-900">{collection.name}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmPkg({
-                            id: collection.id,
-                            action: "delete",
-                          });
-                        }}
-                        className="ml-2 text-red-600 hover:text-red-800"
-                        title="Eliminar paquete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ),
-                )}
-                {serviceGroupCollections.length === 0 && (
-                  <p className="px-3 py-2 text-sm text-gray-400">
-                    Aún no hay paquetes guardados.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    openCollectionModal();
-                  }}
-                  disabled={serviceGroups.length === 0}
-                  className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
-                  title="Crear un paquete agrupando menús guardados"
-                >
-                  + Crear paquete nuevo…
-                </button>
-              </div>
-            )}
-          </div>
+          <SelectorDePaquetes
+            paquetes={serviceGroupCollections}
+            deshabilitado={
+              isRestrictedEditing ||
+              (serviceGroupCollections.length === 0 &&
+                serviceGroups.length === 0)
+            }
+            puedeCrear={serviceGroups.length > 0}
+            hayServiciosCargados={() =>
+              serviceBoxes.some((box) => box.services.length > 0)
+            }
+            onCargar={loadCollectionAsBoxes}
+            onEliminar={async (paquete) => {
+              await removeServiceGroupCollection(paquete.id);
+              setPaquetesAplicados((prev) =>
+                prev.filter((p) => p.id !== paquete.id),
+              );
+            }}
+            onCrearNuevo={openCollectionModal}
+          />
           <button
             onClick={handleSubmit}
             disabled={loading || !isQuotationFormValid()}

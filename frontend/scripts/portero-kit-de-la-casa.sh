@@ -160,7 +160,7 @@ revisar "lista nativa <select>" 0 \
 # acciones legítimos, y está bien: que un panel nuevo obligue a
 # detenerse un segundo es justamente la idea.
 
-revisar "panel flotante a mano (cualquiera)" 15 \
+revisar "panel flotante a mano (cualquiera)" 14 \
   "<SelectWithSearch /> si es elegir UNA, <MultiSelect /> si es elegir VARIAS. Si de verdad es otra cosa (un menú de acciones), sube el techo acá y explica por qué en el commit" \
   'absolute.*z-[0-9]+.*bg-white.*shadow-(lg|md|xl)'
 
@@ -291,7 +291,7 @@ congelar() {
   fi
 }
 
-congelar "src/pages/quotations/QuotationForm.tsx"            4027
+congelar "src/pages/quotations/QuotationForm.tsx"            3945
 congelar "src/pages/postventa/PostVentaPage.tsx"             3180
 congelar "src/pages/dashboard/DashboardPage.tsx"             2950
 congelar "src/pages/postventa/ServiciosTab.tsx"              2285
