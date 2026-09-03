@@ -398,14 +398,57 @@ export default function VariableServicesByCategory({
     onReordered();
   };
 
-  const moveSection = async (categoryId: number, id: number, dir: -1 | 1) => {
-    const list = sectionsFor(categoryId).map((s) => s.id);
-    const idx = list.indexOf(id);
-    const swap = idx + dir;
-    if (swap < 0 || swap >= list.length) return;
-    [list[idx], list[swap]] = [list[swap], list[idx]];
-    await reorderCategorySections(list);
-    loadSections();
+  // Flechitas ▲▼ de las SECCIONES (Felipe, 03-09: "se demora harto"):
+  // calcado de moverCategoria, el patrón bueno que vive 200 líneas más
+  // arriba. Antes cada clic ESPERABA el viaje completo al servidor y su
+  // recarga antes de mover la fila; ahora el clic mueve al tiro en el
+  // orden local y UNA sola llamada viaja cuando dejas de mover (0,6 s).
+  const [localSectionOrder, setLocalSectionOrder] = useState<{
+    categoryId: number;
+    ids: number[];
+  } | null>(null);
+  const sectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sectionPendiente = useRef<number[] | null>(null);
+  const guardarOrdenDeSecciones = (ids: number[]) =>
+    void reorderCategorySections(ids)
+      .then(loadSections)
+      .catch(() => setLocalSectionOrder(null));
+  /** Si hay un orden en el bolsillo, sale AHORA (cerrar modal, irse). */
+  const flushSectionOrder = () => {
+    if (sectionTimer.current) {
+      clearTimeout(sectionTimer.current);
+      sectionTimer.current = null;
+    }
+    if (sectionPendiente.current) {
+      const ids = sectionPendiente.current;
+      sectionPendiente.current = null;
+      guardarOrdenDeSecciones(ids);
+    }
+  };
+  useEffect(
+    () => () => flushSectionOrder(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const moveSection = (categoryId: number, id: number, dir: -1 | 1) => {
+    const base =
+      localSectionOrder?.categoryId === categoryId
+        ? localSectionOrder.ids
+        : sectionsFor(categoryId).map((s) => s.id);
+    const i = base.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= base.length) return;
+    const next = [...base];
+    [next[i], next[j]] = [next[j], next[i]];
+    setLocalSectionOrder({ categoryId, ids: next });
+    sectionPendiente.current = next;
+    if (sectionTimer.current) clearTimeout(sectionTimer.current);
+    sectionTimer.current = setTimeout(() => {
+      sectionTimer.current = null;
+      const ids = sectionPendiente.current;
+      sectionPendiente.current = null;
+      if (ids) guardarOrdenDeSecciones(ids);
+    }, 600);
   };
 
   // Marcar/desmarcar la sección FIJA de la categoría (a lo más una).
@@ -422,6 +465,8 @@ export default function VariableServicesByCategory({
   };
 
   const closeSectionsModal = () => {
+    flushSectionOrder();
+    setLocalSectionOrder(null);
     setSectionsEditFor(null);
     setRenamingSectionId(null);
     setNewSectionName("");
@@ -946,7 +991,19 @@ export default function VariableServicesByCategory({
         const editCat =
           sectionsEditFor !== null ? catById.get(sectionsEditFor) : null;
         if (!editCat) return null;
-        const modalSections = sectionsFor(editCat.id);
+        const baseSections = sectionsFor(editCat.id);
+        // El orden local manda mientras el guardado viaja: sin esto la
+        // lista saltaría al orden viejo hasta que vuelva el servidor.
+        const modalSections =
+          localSectionOrder?.categoryId === editCat.id
+            ? [...baseSections].sort((a, b) => {
+                const pos = (x: number) => {
+                  const k = localSectionOrder.ids.indexOf(x);
+                  return k === -1 ? 999 : k;
+                };
+                return pos(a.id) - pos(b.id);
+              })
+            : baseSections;
         return (
           <div
             className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
