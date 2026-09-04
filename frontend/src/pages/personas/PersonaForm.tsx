@@ -23,14 +23,10 @@ import {
   type TipoCuenta,
 } from "../../utils/bancos";
 import {
-  ESTADOS_PERSONA,
   TIPOS_PERSONA,
   chipEstadoPersona,
-  etiquetaEstadoPersona,
   etiquetaTipoPersona,
-  explicacionEstadoPersona,
   explicacionTipoPersona,
-  puntoEstadoPersona,
   type TipoPersona,
 } from "../../utils/estadoPersona";
 import { cuentaRutDesde, rutEsValido } from "../../utils/rut";
@@ -57,8 +53,6 @@ interface Props {
   readonly errorServidor?: string | null;
   readonly onGuardar: (datos: PersonaFormData) => void;
   readonly onCancelar: () => void;
-  /** El estado se maneja en la cabecera de la ficha; acá solo el motivo. */
-  readonly sinSelectorDeEstado?: boolean;
 }
 
 const vacia: PersonaFormData = {
@@ -121,7 +115,6 @@ export default function PersonaForm({
   errorServidor = null,
   onGuardar,
   onCancelar,
-  sinSelectorDeEstado = false,
 }: Props) {
   const [datos, setDatos] = useState<PersonaFormData>(vacia);
   const [rutOk, setRutOk] = useState(true);
@@ -227,13 +220,6 @@ export default function PersonaForm({
       ) ?? 0)
     );
   }, 0);
-
-  const opcionesEstado: SelectOption[] = ESTADOS_PERSONA.map((e) => ({
-    value: e,
-    label: etiquetaEstadoPersona(e),
-    hint: explicacionEstadoPersona(e),
-    dotClass: puntoEstadoPersona(e),
-  }));
 
   // El portero del teléfono es de la casa: pilla correos metidos en el
   // campo, letras y largos imposibles.

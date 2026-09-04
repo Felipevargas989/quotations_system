@@ -77,12 +77,13 @@ jobs:
       # que el techo 19 del backend: no juzga la deuda de hoy, solo
       # impide que crezca; se paga "al tocar" y cuando baje, se baja
       # este número en el mismo commit. Lote 1a (04-09): de 153 a 98.
-      - name: Lint (techo 98 — la deuda solo baja)
+      # Lote 1b (04-09): de 98 a 89 — se enterraron los muertos grandes.
+      - name: Lint (techo 89 — la deuda solo baja)
         run: |
           ERRORES=$(npx eslint . --ext ts,tsx --report-unused-disable-directives 2>/dev/null | grep -oE '[0-9]+ problems' | grep -oE '^[0-9]+' | head -1)
           ERRORES=${ERRORES:-0}
-          echo "avisos de lint: $ERRORES (techo: 98)"
-          test "$ERRORES" -le 98
+          echo "avisos de lint: $ERRORES (techo: 89)"
+          test "$ERRORES" -le 89
       # Portero del kit de la casa (13-08): mismo principio que el techo
       # de lint del backend. El sistema tiene piezas propias —desplegable
       # con buscador, elección múltiple, avisos, confirmaciones, campo

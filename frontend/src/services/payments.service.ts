@@ -34,25 +34,6 @@ export const getPaymentsByQuotationId = async (quotationId: string) => {
   return { data: response };
 };
 
-// Delete payment and all its related transactions
-export const deletePayment = async (
-  paymentId: string,
-  transactions: any[] = [],
-) => {
-  try {
-    const { error } = await apiRequest(
-      `${API_ROUTES.PAYMENTS}/${paymentId}`,
-      "DELETE",
-    );
-
-    if (error) throw error;
-
-    return { success: true, error: null };
-  } catch (error) {
-    return { success: false, error };
-  }
-};
-
 export const createPaymentPlan = async (
   quotationId: Quotation["id"],
   payments: CreatePayment[],

@@ -326,7 +326,7 @@ export default function AnswersView() {
                 </div>
 
                 <div className="space-y-4">
-                  {response.answers.map((answer: any, answerIndex: number) => {
+                  {response.answers.map((answer: any) => {
                     const question = getQuestionById(answer.id);
                     const getQuestionTypeLabel = (type: string) => {
                       if (type === "number") return "Escala numérica";

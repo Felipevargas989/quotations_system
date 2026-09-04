@@ -1149,14 +1149,6 @@ export default function QuotationForm() {
     setShowCollectionModal(true);
   };
 
-  const toggleSelectedGroup = (groupId: number) => {
-    setSelectedGroupIds((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId],
-    );
-  };
-
   // Los servicios sueltos ya elegidos para el paquete, en el orden del
   // catálogo. Se muestran fuera del desplegable para poder ajustar la
   // cantidad sin volver a abrirlo.

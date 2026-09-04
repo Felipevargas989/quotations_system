@@ -74,7 +74,6 @@ const rotulo = (isoDia: string) => {
   };
 };
 
-const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : null);
 
 interface FilaSemana {
@@ -675,16 +674,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     0,
   );
   const sinRepartir = filas.reduce((s, f) => s + f.sinRepartir, 0);
-
-  // Agrupar filas por evento para pintar el encabezado una sola vez.
-  const grupos = useMemo(() => {
-    const g = new Map<string, FilaSemana[]>();
-    for (const f of filas) {
-      if (!g.has(f.evento)) g.set(f.evento, []);
-      g.get(f.evento)!.push(f);
-    }
-    return [...g.entries()];
-  }, [filas]);
 
   const r0 = rotulo(domingo);
   const r6 = rotulo(hasta);
