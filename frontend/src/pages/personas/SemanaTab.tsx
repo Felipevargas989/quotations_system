@@ -364,6 +364,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
       const clave = ["people", "staff-semana", domingo, RANGO];
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
+      const laFila = antes?.find((a) => a.id === id) ?? null;
       qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
         viejo.flatMap((a) => {
           if (a.id !== id) return [a];
@@ -372,14 +373,32 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
             : [];
         }),
       );
-      return { antes };
+      return { antes, laFila };
     },
     onError: (e: unknown, _id, ctx) => {
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
       toast.error(humanizeApiError(e));
     },
-    onSettled: refrescar,
+    // SIN REFRESCO MASIVO AL SACAR (Felipe, 04-09: "parpadeó un día que
+    // saqué") — la misma enfermedad del 25-08 en poner, misma cura: la
+    // pantalla ya quedó bien con el optimista y no se re-pide la
+    // semana. SÍ se re-pide cuando el motor tocó más que esta fila:
+    // una silla de evento liberada, o una jornada con propina (el pozo
+    // vuelve a repartirse y limpia otras filas). Y ante un error, para
+    // volver a la verdad del servidor.
+    onSettled: (_r, e, _id, ctx) => {
+      const f = ctx?.laFila;
+      if (
+        e ||
+        !f ||
+        f.quotation_id ||
+        Number(f.tip_amount ?? 0) > 0 ||
+        f.tip_pool_id != null
+      ) {
+        refrescar();
+      }
+    },
   });
   // LA PLANTA SE PROYECTA A 12 MESES, UNA VEZ POR SESIÓN (Felipe,
   // 15-08: "no estar cargando y metiéndole sobrecarga cada vez que
