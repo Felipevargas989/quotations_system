@@ -9,7 +9,6 @@ import {
   X,
   MessageCircle,
   Receipt,
-  Package,
   Contact,
   Truck,
   Armchair,

@@ -31,7 +31,6 @@ import {
   explicacionEstadoPersona,
   explicacionTipoPersona,
   puntoEstadoPersona,
-  type EstadoPersona,
   type TipoPersona,
 } from "../../utils/estadoPersona";
 import { cuentaRutDesde, rutEsValido } from "../../utils/rut";
@@ -177,7 +176,6 @@ export default function PersonaForm({
       bank_code: CODIGO_BANCOESTADO,
       account_number: numeroCuentaRut ?? "",
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esCuentaRut, numeroCuentaRut]);
 
   const opcionesBanco: SelectOption[] = useMemo(

@@ -17,7 +17,6 @@ import Modal from "../../components/Modal";
 import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import {
-  AudienciaElegida,
   AudienciasMarketing,
   CampanaMarketing,
   FiltroSegmento,

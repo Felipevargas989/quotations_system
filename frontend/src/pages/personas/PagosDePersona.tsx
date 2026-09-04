@@ -8,7 +8,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import type { ActiveElement, Chart, ChartEvent } from "chart.js";
+import type { ActiveElement, ChartEvent } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getHistorial } from "../../services/people.service";
