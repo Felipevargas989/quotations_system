@@ -70,6 +70,19 @@ jobs:
         run: npm run build
       - name: Pruebas (vitest)
         run: npm run test
+      # Techo de lint del frontend (04-09): hubo script de lint desde el
+      # día uno pero NUNCA un archivo de configuración — cada npm run
+      # lint moría sin revisar nada y nadie miraba el código de salida.
+      # Al crear .eslintrc.cjs se midieron 153 problemas. Mismo candado
+      # que el techo 19 del backend: no juzga la deuda de hoy, solo
+      # impide que crezca; se paga "al tocar" y cuando baje, se baja
+      # este número en el mismo commit.
+      - name: Lint (techo 153 — la deuda solo baja)
+        run: |
+          ERRORES=$(npx eslint . --ext ts,tsx --report-unused-disable-directives 2>/dev/null | grep -oE '[0-9]+ problems' | grep -oE '^[0-9]+' | head -1)
+          ERRORES=${ERRORES:-0}
+          echo "avisos de lint: $ERRORES (techo: 153)"
+          test "$ERRORES" -le 153
       # Portero del kit de la casa (13-08): mismo principio que el techo
       # de lint del backend. El sistema tiene piezas propias —desplegable
       # con buscador, elección múltiple, avisos, confirmaciones, campo
