@@ -4,7 +4,8 @@ import {
   formatoHoras,
   horasTrabajadas,
 } from "../../components/inputs";
-import AdvertenciaHorasSemana from "./AdvertenciaHorasSemana";
+import { Clock } from "lucide-react";
+import AdvertenciaHorasSemana, { diasConExceso } from "./AdvertenciaHorasSemana";
 import type { Asignacion, Persona } from "../../types/people.types";
 
 const rotulo = (isoDia: string) => {
@@ -72,6 +73,7 @@ export default function MiniCalendario({
   onEditar,
   onCambiarHorario,
   onCerrar,
+  jornadasParaHoras,
   soloLectura = false,
 }: {
   readonly dias: readonly string[];
@@ -101,6 +103,9 @@ export default function MiniCalendario({
    *  Planificación). En la ficha es una pestaña: no hay nada que
    *  cerrar, y el botón no hacía nada (Felipe, 15-08). */
   readonly onCerrar?: () => void;
+  /** Sus jornadas CRUDAS (sin filtro de pantalla) para sumar las horas
+   *  de la semana. Si no viene, se usan las mismas `asignaciones`. */
+  readonly jornadasParaHoras?: readonly Asignacion[];
   /** Abierto desde la casilla de un EVENTO: se mira, no se marca. Los
    *  días de evento se cambian en la planificación del evento (regla
    *  del 15-08); acá solo se ve en qué anda la persona (17-08). */
@@ -122,6 +127,15 @@ export default function MiniCalendario({
     ) ?? [];
 
   const enEdicion = editando ? asignacionDe(editando) : null;
+
+  // EL RELOJ ROJO (Felipe, 04-09): los días extraordinarios de una
+  // semana pasada de horas, marcados a la vista. Mismo cálculo que la
+  // línea del editor — una sola matemática para las dos caras.
+  const relojes = diasConExceso(
+    persona,
+    dias,
+    jornadasParaHoras ?? asignaciones ?? [],
+  );
 
   // El resumen del mes: cuántos días y cuántas horas suman.
   const marcados = [...dias].filter((d) => diasQueViene.has(d));
@@ -236,6 +250,11 @@ export default function MiniCalendario({
                         </span>
                       )}
                     </span>
+                    {relojes.has(d) && (
+                      <span title={relojes.get(d)}>
+                        <Clock className="w-3 h-3 text-red-600" />
+                      </span>
+                    )}
                   </div>
                   {/* Su jornada la ocupa el evento: no se le pone planta
                       encima, para que nunca aparezca duplicada. Se ve
@@ -301,7 +320,7 @@ export default function MiniCalendario({
                   }`}
                 >
                   <span
-                    className={`text-xs tabular-nums ${
+                    className={`text-xs tabular-nums flex items-center gap-1 ${
                       viene ? "font-semibold text-gray-900" : "text-gray-400"
                     }`}
                   >
@@ -309,6 +328,11 @@ export default function MiniCalendario({
                     {primeroDelMes && (
                       <span className="ml-1 text-[10px] text-gray-400">
                         {r.mes}
+                      </span>
+                    )}
+                    {relojes.has(d) && (
+                      <span title={relojes.get(d)}>
+                        <Clock className="w-3 h-3 text-red-600" />
                       </span>
                     )}
                   </span>
@@ -432,7 +456,7 @@ export default function MiniCalendario({
               <AdvertenciaHorasSemana
                 persona={persona}
                 dia={editando}
-                jornadas={asignaciones ?? []}
+                jornadas={jornadasParaHoras ?? asignaciones ?? []}
               />
             </div>
           )}

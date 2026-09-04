@@ -542,12 +542,10 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         (a) => String(a.day).slice(0, 10) === dia && a.quotation_id === null,
       );
       if (!suya || suya.id < 0) throw new Error("Ese día se está guardando");
-      // Quitarle un día a la PLANTA es cambio de día: la fila se queda
-      // dormida ('descansa') para que la proyección no la recree. Si el
-      // día era agregado a mano ('trabaja'), sí se borra de verdad.
-      if (suya.kind === "planta" && suya.ajuste !== "trabaja") {
-        return updateStaff(suya.id, { ajuste: "descansa" });
-      }
+      // La regla del cambio de día vive en el MOTOR (04-09, capítulo
+      // 11): él decide si la fila se duerme (día de patrón) o se borra
+      // ('trabaja' o freelance). Así las dos vistas del calendario
+      // quitan igual por construcción.
       return removeStaff(suya.id);
     },
     onMutate: async (dia: string) => {

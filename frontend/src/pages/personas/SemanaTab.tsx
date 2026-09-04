@@ -984,6 +984,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           diasDePlanta={diasDePlanta}
           diasEnEvento={diasEnEvento}
           todoElStaff={staff}
+          todoElStaffCrudo={staffCrudo}
           onPonerEnDia={(personId, d, eleccion) =>
             poner.mutate({ personId, dia: d, fila: casilla.fila, eleccion })
           }
@@ -1137,6 +1138,7 @@ function CasillaAbierta({
   diasDePlanta,
   diasEnEvento,
   todoElStaff,
+  todoElStaffCrudo,
   onPonerEnDia,
   onSacarDelDia,
 }: {
@@ -1160,6 +1162,9 @@ function CasillaAbierta({
   /** Todas las jornadas del rango, para que el mini calendario muestre
    *  cargo, horas y estado de cada día de la persona. */
   readonly todoElStaff: readonly Asignacion[];
+  /** Las jornadas SIN filtro de pantalla: para sumar horas de semana
+   *  igual que la ficha (la planta en eventos también cuenta). */
+  readonly todoElStaffCrudo: readonly Asignacion[];
   readonly onPonerEnDia: (
     personId: number,
     dia: string,
@@ -1406,6 +1411,9 @@ function CasillaAbierta({
                 asignaciones={todoElStaff.filter(
                   (s) => s.person_id === a.person_id,
                 )}
+                jornadasParaHoras={todoElStaffCrudo.filter(
+                  (s) => s.person_id === a.person_id,
+                )}
                 diasEnEvento={diasEnEvento(a.person_id)}
                 soloLectura={fila.quotationId !== null}
                 onMarcar={(d) => {
@@ -1440,7 +1448,7 @@ function CasillaAbierta({
                   <AdvertenciaHorasSemana
                     persona={p}
                     dia={dia}
-                    jornadas={todoElStaff.filter(
+                    jornadas={todoElStaffCrudo.filter(
                       (s) => s.person_id === a.person_id,
                     )}
                   />
