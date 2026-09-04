@@ -16,6 +16,8 @@ import GrillaDeDias, {
 import Modal from "../../components/Modal";
 import ResumenDelDia from "./ResumenDelDia";
 import MiniCalendario from "./MiniCalendario";
+import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
+import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
@@ -221,7 +223,12 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     // día, no puede estar además en un evento — ya está comprometida.
     // Y al revés: si está en un evento, no se le agrega jornada de
     // planta el mismo día.
-    mutationFn: (p: { personId: number; dia: string; fila: FilaSemana }) => {
+    mutationFn: (p: {
+      personId: number;
+      dia: string;
+      fila: FilaSemana;
+      eleccion?: EleccionDiaExtra;
+    }) => {
       const suyas = staff.filter(
         (a) => a.person_id === p.personId && iso(a.day) === p.dia,
       );
@@ -251,10 +258,16 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         day: p.dia,
         // El restaurante no impone cargo: queda el habitual de la persona.
         role_id: p.fila.cargoId || undefined,
-        // Sin monto: en un evento la SILLA ya trae el suyo y el backend
-        // lo conserva al sentar; en el restaurante se escribe a mano en
-        // la casilla. No hay valor por cargo (Felipe, 17-08).
-        amount: null,
+        // LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09, capítulo 11): si el
+        // día no le correspondía, el tipo lo eligió el usuario en la
+        // ventana y viaja explícito — planta sin monto y pegado con
+        // 'trabaja', o freelance con su monto obligatorio. Sin
+        // elección: en un evento la SILLA ya trae su monto y en el
+        // restaurante se escribe a mano en la casilla (17-08).
+        ...(p.eleccion?.kind === "planta"
+          ? { kind: "planta", ajuste: "trabaja" as const }
+          : (p.eleccion ?? {})),
+        ...(p.eleccion?.kind !== "freelance" ? { amount: null } : {}),
       });
     },
     // LA PANTALLA SE MUEVE AL INSTANTE (17-08, "asignar garzones está
@@ -283,11 +296,12 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           // evento lo planificado es SIEMPRE freelance — igual que hará
           // el backend con el día extra.
           kind:
-            p.fila.quotationId !== null
+            p.eleccion?.kind ??
+            (p.fila.quotationId !== null
               ? "freelance"
-              : (persona?.default_kind ?? "freelance"),
-          status: "por_confirmar",
-          amount: null,
+              : (persona?.default_kind ?? "freelance")),
+          status: p.eleccion?.kind === "planta" ? "confirmado" : "por_confirmar",
+          amount: p.eleccion?.kind === "freelance" ? p.eleccion.amount : null,
           starts_at: null,
           ends_at: null,
           break_minutes: null,
@@ -916,8 +930,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           asignados={enCasilla(casilla.fila, casilla.dia)}
           personas={personas}
           onCerrar={() => setCasilla(null)}
-          onPoner={(personId) =>
-            poner.mutate({ personId, dia: casilla.dia, fila: casilla.fila })
+          onPoner={(personId, eleccion) =>
+            poner.mutate({
+              personId,
+              dia: casilla.dia,
+              fila: casilla.fila,
+              eleccion,
+            })
           }
           onSacar={(id) => sacar.mutate(id)}
           onCambiar={(id, cambios) => cambiar.mutate({ id, cambios })}
@@ -944,8 +963,8 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
           diasDePlanta={diasDePlanta}
           diasEnEvento={diasEnEvento}
           todoElStaff={staff}
-          onPonerEnDia={(personId, d) =>
-            poner.mutate({ personId, dia: d, fila: casilla.fila })
+          onPonerEnDia={(personId, d, eleccion) =>
+            poner.mutate({ personId, dia: d, fila: casilla.fila, eleccion })
           }
           onSacarDelDia={(personId, d) => {
             const suya = staff.find(
@@ -1107,7 +1126,7 @@ function CasillaAbierta({
   readonly asignados: Asignacion[];
   readonly personas: readonly Persona[];
   readonly onCerrar: () => void;
-  readonly onPoner: (personId: number) => void;
+  readonly onPoner: (personId: number, eleccion?: EleccionDiaExtra) => void;
   readonly onSacar: (id: number) => void;
   readonly onCambiar: (id: number, cambios: Parameters<typeof updateStaff>[1]) => void;
   /** Los días del mes en que esa persona ya viene de planta. */
@@ -1120,11 +1139,20 @@ function CasillaAbierta({
   /** Todas las jornadas del rango, para que el mini calendario muestre
    *  cargo, horas y estado de cada día de la persona. */
   readonly todoElStaff: readonly Asignacion[];
-  readonly onPonerEnDia: (personId: number, dia: string) => void;
+  readonly onPonerEnDia: (
+    personId: number,
+    dia: string,
+    eleccion?: EleccionDiaExtra,
+  ) => void;
   readonly onSacarDelDia: (personId: number, dia: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [moviendo, setMoviendo] = useState<number | null>(null);
+  // La pregunta del día extra abierta (a quién y qué día), si hay una.
+  const [pregunta, setPregunta] = useState<{
+    personId: number;
+    dia: string;
+  } | null>(null);
   const r = rotulo(dia);
   const necesita = fila.necesita.get(dia) || 0;
   const puestos = new Set(asignados.map((a) => a.person_id));
@@ -1197,7 +1225,7 @@ function CasillaAbierta({
         </>
       }
       ancho="max-w-3xl"
-      bloquearEscape={abierto}
+      bloquearEscape={abierto || pregunta !== null}
       sinTope
       onCerrar={onCerrar}
     >
@@ -1328,7 +1356,14 @@ function CasillaAbierta({
                 )}
                 diasEnEvento={diasEnEvento(a.person_id)}
                 soloLectura={fila.quotationId !== null}
-                onMarcar={(d) => onPonerEnDia(a.person_id!, d)}
+                onMarcar={(d) => {
+                  const p = personas.find((x) => x.id === a.person_id);
+                  if (!esEvento && esDiaExtra(p, d, fila.cargoId || null)) {
+                    setPregunta({ personId: a.person_id!, dia: d });
+                  } else {
+                    onPonerEnDia(a.person_id!, d);
+                  }
+                }}
                 onDesmarcar={(d) => onSacarDelDia(a.person_id!, d)}
                 onCerrar={() => setMoviendo(null)}
               />
@@ -1350,7 +1385,15 @@ function CasillaAbierta({
           está, para que la lista desplegada no la tape. */}
       <AgregadorDeItems
         opciones={disponibles}
-        onAgregar={(v) => onPoner(Number(v))}
+        onAgregar={(v) => {
+          const id = Number(v);
+          const p = personas.find((x) => x.id === id);
+          if (!esEvento && esDiaExtra(p, dia, fila.cargoId || null)) {
+            setPregunta({ personId: id, dia });
+          } else {
+            onPoner(id);
+          }
+        }}
         abierto={abierto}
         onAbiertoChange={setAbierto}
         placeholder={
@@ -1383,6 +1426,27 @@ function CasillaAbierta({
           </>
         )}
       </p>
+
+      {pregunta &&
+        (() => {
+          const p = personas.find((x) => x.id === pregunta.personId);
+          if (!p) return null;
+          return (
+            <PreguntaDiaExtra
+              persona={p}
+              dia={pregunta.dia}
+              roleId={fila.cargoId || null}
+              jornadas={todoElStaff.filter(
+                (s) => s.person_id === pregunta.personId,
+              )}
+              onCerrar={() => setPregunta(null)}
+              onElegir={(eleccion) => {
+                setPregunta(null);
+                onPonerEnDia(pregunta.personId, pregunta.dia, eleccion);
+              }}
+            />
+          );
+        })()}
       </div>
     </Modal>
   );

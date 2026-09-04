@@ -11,6 +11,8 @@ import { toast } from "../../components/toast/Toast";
 import PersonaForm from "./PersonaForm";
 import { esPlanificacion } from "./estadoDelPago";
 import MiniCalendario, { horarioHabitual } from "./MiniCalendario";
+import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
+import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PagosDePersona from "./PagosDePersona";
 import EvaluacionesDePersona from "./EvaluacionesDePersona";
 import {
@@ -478,33 +480,23 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
   // El día se pinta al toque con una jornada provisoria de id negativo,
   // y el guardado ocurre por detrás. Si falla, se devuelve solo.
   const marcar = useMutation({
-    // EL CALENDARIO DE LA PERSONA ES CAMBIO DE DÍA (Felipe, 24-08): a
-    // Soledad le cambió el 23-24 por el 25-26 y el sistema la traía
-    // como freelance pidiendo monto. Desde acá, un planta viene DE
-    // PLANTA (su sueldo cubre el día) y el día queda marcado 'trabaja'
-    // para que la proyección no lo borre. Un freelance sigue igual.
-    // Desde Planificación, en cambio, sigue siendo refuerzo con monto.
-    mutationFn: (dia: string) => {
-      const dormida = suyas.find(
-        (a) =>
-          a.quotation_id === null &&
-          String(a.day).slice(0, 10) === dia &&
-          a.ajuste === "descansa",
-      );
-      if (dormida && dormida.id > 0) {
-        // El día quitado vuelve: se despierta la misma fila.
-        return updateStaff(dormida.id, { ajuste: null });
-      }
-      return addStaff({
+    // LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09, capítulo 11): en un día
+    // que no le corresponde, el tipo lo elige el usuario en la ventana
+    // y viaja explícito. En su día normal, un planta viene DE PLANTA y
+    // el día queda 'trabaja' para que la proyección no lo borre. La
+    // fila dormida ya no se busca acá: toda alta la revive el backend.
+    mutationFn: (v: { dia: string } & Partial<EleccionDiaExtra>) =>
+      addStaff({
         quotation_id: null,
         person_id: persona.id,
-        day: dia,
-        ...(persona.default_kind === "planta"
-          ? { kind: "planta", ajuste: "trabaja" }
-          : {}),
-      });
-    },
-    onMutate: async (dia: string) => {
+        day: v.dia,
+        ...(v.kind === "freelance"
+          ? { kind: "freelance", amount: v.amount ?? null }
+          : persona.default_kind === "planta"
+            ? { kind: "planta", ajuste: "trabaja" }
+            : {}),
+      }),
+    onMutate: async ({ dia, ...v }) => {
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       const hab = horarioHabitual(persona, dia);
@@ -516,12 +508,12 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
           person_id: persona.id,
           day: dia,
           role_id: persona.default_role_id ?? null,
-          kind: persona.default_kind ?? "freelance",
+          kind: v.kind ?? persona.default_kind ?? "freelance",
           starts_at: hab.in,
           ends_at: hab.out,
           break_minutes: hab.break,
-          status: "confirmado",
-          amount: null,
+          status: v.kind === "freelance" ? "por_confirmar" : "confirmado",
+          amount: v.kind === "freelance" ? (v.amount ?? null) : null,
           notes: null,
           tip_amount: null,
           tip_pool_id: null,
@@ -531,13 +523,16 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
       ]);
       return { antes };
     },
-    onError: (e: unknown, _dia, ctx) => {
+    onError: (e: unknown, _v, ctx) => {
       if (ctx?.antes) qc.setQueryData(clave, ctx.antes);
       toast.error(humanizeApiError(e));
     },
     onSuccess: avisarGuardado,
     onSettled: refrescar,
   });
+
+  // El día de la pregunta abierta (planta o freelance), si hay una.
+  const [pregunta, setPregunta] = useState<string | null>(null);
 
   const desmarcar = useMutation({
     mutationFn: (dia: string) => {
@@ -656,13 +651,30 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         }
         guardado={guardado}
         editando={editandoDia}
-        onMarcar={(d) => marcar.mutate(d)}
+        onMarcar={(d) =>
+          esDiaExtra(persona, d)
+            ? setPregunta(d)
+            : marcar.mutate({ dia: d })
+        }
         onDesmarcar={(d) => desmarcar.mutate(d)}
         onEditar={setEditandoDia}
         onCambiarHorario={(dia, cambios) =>
           cambiarHorario.mutate({ dia, cambios })
         }
       />
+
+      {pregunta && (
+        <PreguntaDiaExtra
+          persona={persona}
+          dia={pregunta}
+          jornadas={suyas}
+          onCerrar={() => setPregunta(null)}
+          onElegir={(eleccion) => {
+            setPregunta(null);
+            marcar.mutate({ dia: pregunta, ...eleccion });
+          }}
+        />
+      )}
 
       {/* Los días de EVENTO se muestran, pero no se marcan acá: esos
           vienen de la planificación del evento y se cambian allá. */}
