@@ -1007,3 +1007,93 @@ pagado en otra**, fila por fila.
 - **El RUT `55.555.555-5` pasa el cálculo del módulo 11** y es el que el
   SII reserva para extranjeros sin RUT. Igual que los de un dígito
   repetido, del 11111111-1 al 99999999-9: **todos dan válidos**.
+
+## 11. LA PREGUNTA DEL DÍA EXTRA (04-09-2026 — reemplaza dos reglas)
+
+Definida por Felipe el 04-09, tras el caso Alejandra/Soledad: un
+intercambio de turnos de cocina terminó con la persona equivocada
+recibiendo la propina de un evento, porque dos reglas automáticas e
+invisibles decidieron por él (el freelance automático del día libre y
+"el origen decide"). Sus palabras: *"creo que las reglas están mal,
+quizás es más fácil preguntar… así se simplifica la forma"*.
+
+**La regla: el sistema deja de adivinar y PREGUNTA.**
+
+Al poner a una persona **de planta** en un día que no le corresponde
+(su día libre, o fuera de su patrón), desde **cualquier puerta** — la
+ficha de la persona o el calendario de Planificación, se comportan
+IGUAL — el sistema pregunta:
+
+> **¿Este día va como planta o como freelance?**
+
+La ventana es MÍNIMA: solo las dos opciones. Ni monto ni cálculo de
+horas ahí — en ese momento todavía no hay jornada definida para el día
+(no se sabe si vendrá 5, 10 o 12 horas), así que cualquier suma sería
+inventada (segunda vuelta de Felipe, 04-09).
+
+- **Planta**: jornada de planta, sin monto. Nace confirmada (es su
+  jornada, movida de día). Sus horas SÍ cuentan en la semana laboral:
+  el exceso son horas extra que se pagan a fin de mes — o una falta
+  laboral. Por eso la **advertencia de horas** es de ESTE lado.
+- **Freelance**: acuerdo aparte — no toca su semana laboral. Nace por
+  confirmar y sin monto; el monto se pone al confirmar la jornada, y
+  ahí manda el candado que ya existía del 15-08: **sin monto no se
+  confirma** (lo frena la pantalla y lo rechaza el motor). Y la
+  casilla de Planificación **no se deja cerrar** mientras haya un
+  freelance sin monto: la cajita vibra en cada intento (Felipe, 04-09,
+  probándolo: sin salida). Las salidas son ponerle el monto o sacarlo
+  con el basurero. El hoyo del
+  caso Alejandra era que la regla automática vieja hacía NACER la
+  jornada confirmada, saltándose ese candado; con la pregunta, ningún
+  freelance del restaurante nace confirmado.
+
+**La advertencia de horas vive donde se asignan las horas**: en los
+editores de horario del día (el del calendario de la persona y el de
+la casilla de Planificación). Con las horas REALES puestas, si la
+semana queda sobre su jornada definida aparece la línea ámbar —
+*"queda con X h esta semana: Z h extra sobre sus Y definidas"* — en el
+momento de la gestión, cuando el número ya es de verdad.
+
+**La semana laboral se suma con las jornadas marcadas PLANTA, estén
+donde estén** (restaurante, o un evento adonde la llevó el imán). Las
+jornadas freelance son acuerdos aparte y no suman. La jornada definida
+sale de la ficha: días no libres × horario habitual.
+
+**El reloj rojo** (tercera vuelta, 04-09): además de la línea en los
+editores, el calendario marca A LA VISTA los días extraordinarios de
+una semana pasada — los trabajados fuera de patrón y los de patrón con
+horario alargado — con un reloj rojo en la celda. La marca sigue el
+neto de la semana: un día extra compensado (se quitó otro día) no se
+marca, y el reloj se queda en el día que originó el exceso. Un solo
+cálculo alimenta la línea y el reloj, y las dos vistas del calendario
+(ficha y modal de Planificación) lo muestran igual por ser la misma
+pieza.
+
+**Quitar un día vale igual desde cualquier puerta** (mismo movimiento):
+la regla del cambio de día vive en el MOTOR — sacar una jornada planta
+de patrón del restaurante la DUERME ('descansa') en vez de borrarla,
+para que la proyección no la recree; el día 'trabaja' y el freelance
+sí se borran. Antes la ficha dormía y el modal borraba: el día quitado
+desde el modal resucitaba al abrir la sábana.
+
+**Reglas retiradas por esta** (quedan en la historia, no en el motor):
+
+- El freelance automático del día libre (17-08): `esJornadaExtra` ya no
+  decide el tipo — queda solo como el detector de CUÁNDO preguntar.
+- "El origen decide" (24-08, migración 89): las dos puertas del
+  calendario pasan a comportarse igual. Lo que SÍ sobrevive de la
+  migración 89: el mecanismo `ajuste` ('trabaja'/'descansa'), la fila
+  dormida y que la proyección pase de largo.
+
+**Lo que este caso además destapó (fixes del mismo movimiento):**
+
+- `plantaEnDias` (el imán traer-planta-al-evento) no filtraba las
+  filas dormidas: trajo a Soledad al día 25 estando de descanso y le
+  repartió propina. La fila dormida "no la cuenta ninguna pantalla" —
+  ahora el imán también lo cumple.
+- Re-agregar un día quitado desde Planificación chocaba con la fila
+  dormida ("esa persona ya está puesta ese día"): ahora TODA alta la
+  revive, igual que ya lo hacía la ficha de la persona.
+- Los eventos no cambian: la planta entra por el imán como planta; un
+  refuerzo puesto a mano en un evento sigue naciendo freelance con su
+  aviso de pago.

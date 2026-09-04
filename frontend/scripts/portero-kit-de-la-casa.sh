@@ -293,10 +293,10 @@ congelar() {
 
 congelar "src/pages/quotations/QuotationForm.tsx"            3945
 congelar "src/pages/postventa/PostVentaPage.tsx"             3180
-congelar "src/pages/dashboard/DashboardPage.tsx"             2950
+congelar "src/pages/dashboard/DashboardPage.tsx"             2798
 congelar "src/pages/postventa/ServiciosTab.tsx"              2285
 congelar "../api-rest/src/people/people.service.ts"          2040
-congelar "src/pages/logistica/components/ComprasTab.tsx"     1860
+congelar "src/pages/logistica/components/ComprasTab.tsx"     1794
 congelar "src/pages/personas/FichasTab.tsx"                  1599
 
 # ══ VEREDICTO ════════════════════════════════════════════════════════
