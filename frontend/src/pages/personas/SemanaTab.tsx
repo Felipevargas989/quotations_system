@@ -1154,6 +1154,31 @@ function CasillaAbierta({
     personId: number;
     dia: string;
   } | null>(null);
+  // EL FRENO DEL MONTO (Felipe, 04-09: "no debería dejarme salir del
+  // modal sin que coloque un monto... ¿podría vibrar la cajita?"). Al
+  // intentar cerrar con un freelance sin monto, la primera vez NO se
+  // cierra: la cajita vibra y un aviso explica. Al segundo intento sí
+  // sale — a veces el monto aún no está pactado, y para eso la jornada
+  // queda por confirmar (el candado del 15-08 la espera ahí). Un freno
+  // sin salida obligaría a inventar plata o a borrar a la persona.
+  const [vibrando, setVibrando] = useState(false);
+  const [avisado, setAvisado] = useState(false);
+  const intentarCerrar = () => {
+    const sinMonto = asignados.some(
+      (x) => x.kind === "freelance" && !x.amount && x.person_id != null,
+    );
+    if (sinMonto && !avisado) {
+      setAvisado(true);
+      setVibrando(true);
+      setTimeout(() => setVibrando(false), 1400);
+      toast.warn(
+        "Ese día freelance quedó sin monto: pónselo antes de salir. " +
+          "Si aún no lo pactan, cierra de nuevo y queda por confirmar.",
+      );
+      return;
+    }
+    onCerrar();
+  };
   const r = rotulo(dia);
   const necesita = fila.necesita.get(dia) || 0;
   const puestos = new Set(asignados.map((a) => a.person_id));
@@ -1228,7 +1253,7 @@ function CasillaAbierta({
       ancho="max-w-3xl"
       bloquearEscape={abierto || pregunta !== null}
       sinTope
-      onCerrar={onCerrar}
+      onCerrar={intentarCerrar}
     >
       <div className="space-y-3">
 
@@ -1256,7 +1281,11 @@ function CasillaAbierta({
               {a.kind === "planta" ? (
                 <span className="w-24" />
               ) : (
-                <div className="w-24 relative">
+                <div
+                  className={`w-24 relative ${
+                    vibrando && !a.amount ? "animate-vibrar" : ""
+                  }`}
+                >
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
                     $
                   </span>
