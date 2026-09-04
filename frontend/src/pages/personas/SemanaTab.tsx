@@ -409,8 +409,28 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
   const cambiar = useMutation({
     mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
       updateStaff(p.id, p.cambios),
+    // AL INSTANTE, como poner y sacar. Sin esto, el monto recién
+    // escrito viajaba al servidor pero la casilla seguía viendo el
+    // dato viejo hasta el refresco — y el freno del monto vibraba con
+    // los $25.000 ya puestos (Felipe, 04-09, probándolo). Si el
+    // servidor rechaza (p. ej. confirmar sin monto), se devuelve solo.
+    onMutate: async (p) => {
+      const clave = ["people", "staff-semana", domingo, RANGO];
+      await qc.cancelQueries({ queryKey: clave });
+      const antes = qc.getQueryData<Asignacion[]>(clave);
+      qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
+        viejo.map((a) =>
+          a.id === p.id ? ({ ...a, ...p.cambios } as Asignacion) : a,
+        ),
+      );
+      return { antes };
+    },
     onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+    onError: (e: unknown, _p, ctx) => {
+      if (ctx?.antes)
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+      toast.error(humanizeApiError(e));
+    },
   });
 
   // Las filas de la semana: cada (evento, cargo) que necesita gente en
