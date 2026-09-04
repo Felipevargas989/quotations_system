@@ -44,6 +44,45 @@ describe('la pregunta del día extra (04-09)', () => {
     ).resolves.toBeDefined();
   });
 
+  const armarSacar = (fila: Record<string, unknown>) => {
+    const repo = {
+      findStaffRow: jest.fn().mockResolvedValue({
+        quotation_id: null,
+        person_id: 7,
+        payroll_id: null,
+        tip_payroll_id: null,
+        tip_amount: null,
+        tip_pool_id: null,
+        ...fila,
+      }),
+      updateStaff: jest.fn().mockResolvedValue({}),
+      removeStaff: jest.fn().mockResolvedValue({}),
+    };
+    const logger = { setContext: jest.fn(), info: jest.fn(), warn: jest.fn() };
+    const service = new PeopleService(
+      repo as unknown as PeopleRepository,
+      logger as never,
+    );
+    return { service, repo };
+  };
+
+  it('sacar un día de patrón del restaurante lo DUERME, no lo borra', async () => {
+    const { service, repo } = armarSacar({ kind: 'planta', ajuste: null });
+    await service.removeStaff(1, 1);
+    expect(repo.updateStaff).toHaveBeenCalledWith(1, { ajuste: 'descansa' }, 1);
+    expect(repo.removeStaff).not.toHaveBeenCalled();
+  });
+
+  it("el día agregado a mano ('trabaja') y el freelance sí se borran", async () => {
+    const conTrabaja = armarSacar({ kind: 'planta', ajuste: 'trabaja' });
+    await conTrabaja.service.removeStaff(2, 1);
+    expect(conTrabaja.repo.removeStaff).toHaveBeenCalledWith(2, 1);
+
+    const freelance = armarSacar({ kind: 'freelance', ajuste: null });
+    await freelance.service.removeStaff(3, 1);
+    expect(freelance.repo.removeStaff).toHaveBeenCalledWith(3, 1);
+  });
+
   it('revivir como planta: sin monto y confirmada (es su jornada)', () => {
     const c = cambiosParaRevivir({ kind: 'planta', amount: 99000 });
     expect(c.amount).toBeNull();

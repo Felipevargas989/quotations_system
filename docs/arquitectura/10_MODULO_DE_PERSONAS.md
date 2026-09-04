@@ -1059,6 +1059,23 @@ donde estén** (restaurante, o un evento adonde la llevó el imán). Las
 jornadas freelance son acuerdos aparte y no suman. La jornada definida
 sale de la ficha: días no libres × horario habitual.
 
+**El reloj rojo** (tercera vuelta, 04-09): además de la línea en los
+editores, el calendario marca A LA VISTA los días extraordinarios de
+una semana pasada — los trabajados fuera de patrón y los de patrón con
+horario alargado — con un reloj rojo en la celda. La marca sigue el
+neto de la semana: un día extra compensado (se quitó otro día) no se
+marca, y el reloj se queda en el día que originó el exceso. Un solo
+cálculo alimenta la línea y el reloj, y las dos vistas del calendario
+(ficha y modal de Planificación) lo muestran igual por ser la misma
+pieza.
+
+**Quitar un día vale igual desde cualquier puerta** (mismo movimiento):
+la regla del cambio de día vive en el MOTOR — sacar una jornada planta
+de patrón del restaurante la DUERME ('descansa') en vez de borrarla,
+para que la proyección no la recree; el día 'trabaja' y el freelance
+sí se borran. Antes la ficha dormía y el modal borraba: el día quitado
+desde el modal resucitaba al abrir la sábana.
+
 **Reglas retiradas por esta** (quedan en la historia, no en el motor):
 
 - El freelance automático del día libre (17-08): `esJornadaExtra` ya no

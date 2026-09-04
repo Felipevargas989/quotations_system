@@ -451,6 +451,19 @@ export class PeopleService {
         },
         companyId,
       );
+    } else if (
+      !fila.quotation_id &&
+      fila.kind === 'planta' &&
+      fila.ajuste !== 'trabaja'
+    ) {
+      // EL CAMBIO DE DÍA VALE DESDE CUALQUIER PUERTA (04-09, capítulo
+      // 11): quitarle a la planta un día de su patrón deja la fila
+      // DORMIDA ('descansa') — si se borrara, la proyección lo
+      // recrearía al abrir la sábana. La ficha ya lo hacía por su
+      // cuenta; con la regla acá, las dos vistas del calendario quedan
+      // iguales por construcción. El día agregado a mano ('trabaja') y
+      // el freelance sí se borran de verdad.
+      await this.repo.updateStaff(id, { ajuste: 'descansa' }, companyId);
     } else {
       await this.repo.removeStaff(id, companyId);
     }
