@@ -1,34 +1,10 @@
 /**
  * LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09 — capítulo 11 del documento
  * de arquitectura): el tipo del día fuera de patrón lo elige el usuario
- * y viaja explícito. Estas piezas puras guardan las dos consecuencias:
- * el freelance elegido exige monto, y toda alta revive la fila dormida.
+ * y viaja explícito. El monto NO se exige en el alta (segunda vuelta
+ * del 04-09): el freelance del restaurante nace por confirmar y el
+ * candado del 15-08 —sin monto no se confirma— hace el resto.
  */
-
-interface PersonaMinima {
-  default_kind?: string | null;
-}
-
-interface AltaMinima {
-  quotation_id?: string | null;
-  kind?: string | null;
-  amount?: number | null;
-}
-
-/**
- * El freelance ELEGIDO en el restaurante exige su monto: sin plata
- * definida, esa jornada aparece después en la nómina sin saber cuánto
- * pagarle — el problema que el módulo vino a resolver. Los eventos no
- * pasan por acá: su silla trae el valor.
- */
-export const faltaElMontoDelFreelance = (
-  dto: AltaMinima,
-  persona: PersonaMinima,
-): boolean =>
-  !dto.quotation_id &&
-  dto.kind === 'freelance' &&
-  persona.default_kind === 'planta' &&
-  (dto.amount == null || dto.amount <= 0);
 
 /**
  * Los cambios con que se despierta una fila dormida (ajuste 'descansa',

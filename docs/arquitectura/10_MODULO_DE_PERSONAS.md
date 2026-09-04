@@ -1026,15 +1026,34 @@ IGUAL — el sistema pregunta:
 
 > **¿Este día va como planta o como freelance?**
 
-- **Planta**: jornada de planta, sin monto. Las horas de más quedan a
-  la vista y las horas extra se pagan a fin de mes como Felipe decida.
-  Nace confirmada (es su jornada, movida de día).
-- **Freelance**: se muestra la **advertencia de horas** — *"queda con
-  X h esta semana, sobre las Y de su jornada definida"* (calculadas de
-  días laborales + horario habitual de la ficha) — y con eso se decide:
-  ajustar la semana en el calendario para cuadrar horas, cambiarlo a
-  planta, o mantener freelance. Si queda freelance, **el monto del día
-  es OBLIGATORIO**: sin monto no se guarda. Nace por confirmar.
+La ventana es MÍNIMA: solo las dos opciones. Ni monto ni cálculo de
+horas ahí — en ese momento todavía no hay jornada definida para el día
+(no se sabe si vendrá 5, 10 o 12 horas), así que cualquier suma sería
+inventada (segunda vuelta de Felipe, 04-09).
+
+- **Planta**: jornada de planta, sin monto. Nace confirmada (es su
+  jornada, movida de día). Sus horas SÍ cuentan en la semana laboral:
+  el exceso son horas extra que se pagan a fin de mes — o una falta
+  laboral. Por eso la **advertencia de horas** es de ESTE lado.
+- **Freelance**: acuerdo aparte — no toca su semana laboral. Nace por
+  confirmar y sin monto; el monto se pone al confirmar la jornada, y
+  ahí manda el candado que ya existía del 15-08: **sin monto no se
+  confirma** (lo frena la pantalla y lo rechaza el motor). El hoyo del
+  caso Alejandra era que la regla automática vieja hacía NACER la
+  jornada confirmada, saltándose ese candado; con la pregunta, ningún
+  freelance del restaurante nace confirmado.
+
+**La advertencia de horas vive donde se asignan las horas**: en los
+editores de horario del día (el del calendario de la persona y el de
+la casilla de Planificación). Con las horas REALES puestas, si la
+semana queda sobre su jornada definida aparece la línea ámbar —
+*"queda con X h esta semana: Z h extra sobre sus Y definidas"* — en el
+momento de la gestión, cuando el número ya es de verdad.
+
+**La semana laboral se suma con las jornadas marcadas PLANTA, estén
+donde estén** (restaurante, o un evento adonde la llevó el imán). Las
+jornadas freelance son acuerdos aparte y no suman. La jornada definida
+sale de la ficha: días no libres × horario habitual.
 
 **Reglas retiradas por esta** (quedan en la historia, no en el motor):
 

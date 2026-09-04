@@ -1,43 +1,47 @@
-import {
-  cambiosParaRevivir,
-  faltaElMontoDelFreelance,
-} from '../utils/alta-de-jornada';
+import type { PeopleRepository } from '../people.repository';
+import { PeopleService } from '../people.service';
+import { cambiosParaRevivir } from '../utils/alta-de-jornada';
+
+// La pregunta del día extra (04-09, capítulo 11). El monto ya no se
+// exige en el alta (segunda vuelta del mismo día): el freelance del
+// restaurante nace por confirmar y el candado del 15-08 —sin monto no
+// se confirma— hace el resto. Ese candado carga toda la regla, así que
+// acá tiene su prueba.
+const armar = (filaActual: unknown) => {
+  const repo = {
+    findStaffPorId: jest.fn().mockResolvedValue(filaActual),
+    updateStaff: jest.fn().mockResolvedValue({}),
+  };
+  const logger = { setContext: jest.fn(), info: jest.fn(), warn: jest.fn() };
+  return new PeopleService(
+    repo as unknown as PeopleRepository,
+    logger as never,
+  );
+};
 
 describe('la pregunta del día extra (04-09)', () => {
-  const planta = { default_kind: 'planta' };
-
-  it('freelance elegido sin monto: no se guarda', () => {
-    expect(
-      faltaElMontoDelFreelance({ kind: 'freelance', amount: null }, planta),
-    ).toBe(true);
-    expect(
-      faltaElMontoDelFreelance({ kind: 'freelance', amount: 0 }, planta),
-    ).toBe(true);
+  it('el candado del 15-08: un freelance sin monto no se confirma', async () => {
+    const service = armar({ kind: 'freelance', amount: null });
+    await expect(
+      service.updateStaff(1716, { status: 'confirmado' }, 1),
+    ).rejects.toThrow('Ponle el monto del día antes de confirmarla');
   });
 
-  it('freelance con monto pasa; planta no necesita monto', () => {
-    expect(
-      faltaElMontoDelFreelance({ kind: 'freelance', amount: 30000 }, planta),
-    ).toBe(false);
-    expect(faltaElMontoDelFreelance({ kind: 'planta' }, planta)).toBe(false);
-  });
-
-  it('en un evento no aplica: la silla trae el valor', () => {
-    expect(
-      faltaElMontoDelFreelance(
-        { quotation_id: 'ev-1', kind: 'freelance', amount: null },
-        planta,
+  it('con monto sí se confirma; la planta no lo necesita', async () => {
+    await expect(
+      armar({ kind: 'freelance', amount: 30000 }).updateStaff(
+        1,
+        { status: 'confirmado' },
+        1,
       ),
-    ).toBe(false);
-  });
-
-  it('una persona freelance de siempre no pasa por la pregunta', () => {
-    expect(
-      faltaElMontoDelFreelance(
-        { kind: 'freelance', amount: null },
-        { default_kind: 'freelance' },
+    ).resolves.toBeDefined();
+    await expect(
+      armar({ kind: 'planta', amount: null }).updateStaff(
+        2,
+        { status: 'confirmado' },
+        1,
       ),
-    ).toBe(false);
+    ).resolves.toBeDefined();
   });
 
   it('revivir como planta: sin monto y confirmada (es su jornada)', () => {
@@ -47,9 +51,12 @@ describe('la pregunta del día extra (04-09)', () => {
     expect(c.ajuste).toBeNull();
   });
 
-  it('revivir como freelance: con su monto y por confirmar', () => {
+  it('revivir como freelance: por confirmar, monto si lo trae', () => {
     const c = cambiosParaRevivir({ kind: 'freelance', amount: 30000 });
     expect(c.amount).toBe(30000);
     expect(c.status).toBe('por_confirmar');
+    const sinMonto = cambiosParaRevivir({ kind: 'freelance' });
+    expect(sinMonto.amount).toBeNull();
+    expect(sinMonto.status).toBe('por_confirmar');
   });
 });

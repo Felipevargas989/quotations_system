@@ -32,11 +32,7 @@ import type {
 } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
-import {
-  cambiosParaRevivir,
-  faltaElMontoDelFreelance,
-  horarioDelDia,
-} from './utils/alta-de-jornada';
+import { cambiosParaRevivir, horarioDelDia } from './utils/alta-de-jornada';
 import { normalizarRut } from './utils/rut';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
@@ -318,14 +314,10 @@ export class PeopleService {
       (esJornadaExtra(persona, dto) ? 'freelance' : persona.default_kind) ??
       'freelance';
 
-    // La pregunta del día extra (04-09, capítulo 11): reglas en
-    // utils/alta-de-jornada — el freelance elegido exige monto, y toda
-    // alta del restaurante revive la fila dormida en vez de chocar.
-    if (faltaElMontoDelFreelance(dto, persona)) {
-      throw new BadRequestException(
-        'Un día freelance de una persona de planta necesita su monto',
-      );
-    }
+    // La pregunta del día extra (04-09, capítulo 11): toda alta del
+    // restaurante revive la fila dormida en vez de chocar. El monto no
+    // se exige acá: el freelance nace por confirmar y el candado del
+    // 15-08 (sin monto no se confirma) lo espera en updateStaff.
     if (!dto.quotation_id) {
       const dormida = await this.repo.findDormida(
         companyId,
