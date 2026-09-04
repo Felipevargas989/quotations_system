@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -39,7 +39,6 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { chipTipoPersona, etiquetaTipoPersona } from "../../utils/estadoPersona";
 import { esPlanificacion } from "./estadoDelPago";
-import { formatearRut } from "../../utils/rut";
 
 // LA SÁBANA — DONDE LA PLANIFICACIÓN RECIBE NOMBRE Y APELLIDO
 //
@@ -75,7 +74,6 @@ const rotulo = (isoDia: string) => {
   };
 };
 
-const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : null);
 
 interface FilaSemana {
@@ -676,16 +674,6 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
     0,
   );
   const sinRepartir = filas.reduce((s, f) => s + f.sinRepartir, 0);
-
-  // Agrupar filas por evento para pintar el encabezado una sola vez.
-  const grupos = useMemo(() => {
-    const g = new Map<string, FilaSemana[]>();
-    for (const f of filas) {
-      if (!g.has(f.evento)) g.set(f.evento, []);
-      g.get(f.evento)!.push(f);
-    }
-    return [...g.entries()];
-  }, [filas]);
 
   const r0 = rotulo(domingo);
   const r6 = rotulo(hasta);

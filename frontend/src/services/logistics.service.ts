@@ -312,7 +312,7 @@ export const getAllIngredientRecipeItems = async (
 // Mapa nombre → id de los servicios del catálogo (variables y fijos), para
 // resolver los items de cotizaciones antiguas cuyo `codigo` no es el id.
 export const getCatalogServiceNameIds = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<{
   variable: Record<string, number>;
   fixed: Record<string, number>;
@@ -357,7 +357,7 @@ export const getCatalogServiceNameIds = async (
 // Costos cacheados de los servicios fijos (componente fijo + por persona),
 // para el análisis de rentabilidad del evento.
 export const getFixedServiceCostsById = async (
-  companyId: number,
+  _companyId: number,
 ): Promise<
   Record<number, { cost_fixed: number | null; cost_per_person: number | null }>
 > => {

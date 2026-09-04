@@ -1,21 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Send, Trash2 } from "lucide-react";
 import Modal from "../../components/Modal";
 import EditorDeBorrador from "./EditorDeBorrador";
-import {
-  opcionesDeAudiencias,
-  seleccionDeCampana,
-  unaAudiencia,
-} from "./audienciasDeCampana";
 import { toast } from "../../components/toast/Toast";
 import {
   DestinatarioDeCampana,
   destinatariosDeCampana,
-  editarCampanaMarketing,
   eliminarCampanaMarketing,
-  getAudienciasMarketing,
   detalleDeCampana,
   enviarCampana,
   enviarPruebaCampana,

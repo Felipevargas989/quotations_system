@@ -2028,8 +2028,6 @@ function RegistrarPagoPanel({
     left -= portion;
   }
 
-  if (maxAmount <= 0) return null;
-
   const reset = () => {
     setAmount(0);
     setDate(todayISO());
@@ -2068,6 +2066,12 @@ function RegistrarPagoPanel({
       window.removeEventListener("drop", frenar);
     };
   }, []);
+
+  // Nada que cobrar, nada que mostrar. OJO: este corte va DESPUÉS de
+  // todos los hooks — un return temprano entre hooks descuadra a React
+  // y da pantalla blanca justo al registrar el pago que deja el saldo
+  // en cero.
+  if (maxAmount <= 0) return null;
 
   // Monto válido: mayor que cero y hasta el saldo pendiente. Mientras
   // no lo sea, el botón queda bloqueado (el campo vibra y avisa).

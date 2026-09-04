@@ -5,9 +5,7 @@ import {
   Check,
   ChevronLeft,
   FileText,
-  Plus,
 } from "lucide-react";
-import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import ConfirmInline from "../../components/ConfirmInline";
 import { eventosQueryOptions } from "./FichasTab";

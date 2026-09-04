@@ -254,7 +254,6 @@ export default function CalendarPage() {
       map.set(e.id, lane);
     });
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotations]);
 
   const getQuotationsForDate = (date: Date): QuotationWithClient[] => {

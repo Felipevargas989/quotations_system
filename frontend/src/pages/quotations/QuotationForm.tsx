@@ -361,7 +361,6 @@ export default function QuotationForm() {
   useEffect(() => {
     if (!company?.id) return;
     getCategorySections(Number(company.id)).then(setCategorySections);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.id]);
 
   // Días del evento según el rango (1..N; sin "hasta" = 1). Con más de un
@@ -1150,14 +1149,6 @@ export default function QuotationForm() {
     setShowCollectionModal(true);
   };
 
-  const toggleSelectedGroup = (groupId: number) => {
-    setSelectedGroupIds((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId],
-    );
-  };
-
   // Los servicios sueltos ya elegidos para el paquete, en el orden del
   // catálogo. Se muestran fuera del desplegable para poder ajustar la
   // cantidad sin volver a abrirlo.
@@ -1302,7 +1293,6 @@ export default function QuotationForm() {
       return;
     }
     getClientContacts(formData.client_id).then(setClientContacts);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.client_id]);
 
   const addClientContact = async () => {
@@ -1481,7 +1471,6 @@ export default function QuotationForm() {
     if (!selectedFixedServices.some((sv) => !sv?.codigo)) {
       addNewFixedServiceSlot();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFixedServices]);
 
   const addNewFixedServiceSlot = () => {

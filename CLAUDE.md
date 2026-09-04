@@ -231,8 +231,8 @@ wrong — it double-counted a tab bar and missed a dead file):
   reach zero.
 - **1 hand-rolled multi-select** — `Calendar`'s status filter. Its home
   is `MultiSelect`, not `SelectWithSearch`.
-- **1 dead file** — `pages/services/components/variableServices/CategorySelector.tsx`,
-  169 lines, imported by nobody.
+- ~~1 dead file — `CategorySelector.tsx`~~ — buried 04-09-2026 (lint
+  lote 1b); the floating-panel ceiling dropped 14 → 13 with it.
 
 As of 13-08 `SelectWithSearch` carries every feature the copies had
 (that is why `group`, `hint`, `dotClass` and `keepOpenOnSelect` exist),

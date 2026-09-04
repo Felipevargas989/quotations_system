@@ -166,7 +166,6 @@ export default function ServiciosTab({
   useEffect(() => {
     if (!company?.id) return;
     getCategorySections(Number(company.id)).then(setCategorySections);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.id]);
   // Servicios de una categoría (una entrada por vínculo servicio-categoría)
   // y nombres de categoría en el orden del catálogo.
@@ -957,7 +956,6 @@ export default function ServiciosTab({
     }
     const timer = setTimeout(() => void autoRef.current(), 20000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obs]);
 
   // ---- Post-Venta: el margen deja la estimación y usa la REALIDAD ----

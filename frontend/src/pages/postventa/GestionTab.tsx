@@ -379,8 +379,6 @@ export default function GestionTab({
     );
   }
 
-  const empty = insumos.length === 0 && mobiliario.length === 0;
-
   return (
     <div className="space-y-6">
       {/* ---------- Advertencias post-provisión ---------- */}

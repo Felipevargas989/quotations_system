@@ -113,7 +113,6 @@ export default function VariableServicesByCategory({
     if (companyId === null) return;
     getCategorySections(companyId).then(setSections);
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadSections, [companyId]);
 
   const sectionsFor = (categoryId: number) =>

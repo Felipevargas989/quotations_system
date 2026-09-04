@@ -55,7 +55,6 @@ export const useDateAvailability = (
     };
 
     checkConflicts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventDate, eventEndDate, excludeId]);
 
   return { hasConflicts, isChecking };

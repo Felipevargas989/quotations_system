@@ -27,10 +27,6 @@ import {
 } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { nombreBanco } from "../../utils/bancos";
-import {
-  chipEstadoPersona,
-  etiquetaEstadoPersona,
-} from "../../utils/estadoPersona";
 import { formatPhone } from "../../utils/phone";
 import { matchesSearch } from "../../utils/searchMatch";
 
