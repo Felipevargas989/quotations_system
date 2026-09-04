@@ -4,6 +4,7 @@ import {
   formatoHoras,
   horasTrabajadas,
 } from "../../components/inputs";
+import AdvertenciaHorasSemana from "./AdvertenciaHorasSemana";
 import type { Asignacion, Persona } from "../../types/people.types";
 
 const rotulo = (isoDia: string) => {
@@ -423,6 +424,18 @@ export default function MiniCalendario({
               cerrar
             </button>
           </div>
+          {/* La advertencia de horas, donde se asignan las horas
+              (capítulo 11): solo para jornadas de planta, solo si la
+              semana queda pasada. */}
+          {persona && enEdicion.kind === "planta" && (
+            <div className="mt-2">
+              <AdvertenciaHorasSemana
+                persona={persona}
+                dia={editando}
+                jornadas={asignaciones ?? []}
+              />
+            </div>
+          )}
         </div>
       )}
 

@@ -490,8 +490,10 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         quotation_id: null,
         person_id: persona.id,
         day: v.dia,
+        // El monto no viaja acá (segunda vuelta 04-09): el freelance
+        // nace por confirmar y el monto se pone al confirmar.
         ...(v.kind === "freelance"
-          ? { kind: "freelance", amount: v.amount ?? null }
+          ? { kind: "freelance" }
           : persona.default_kind === "planta"
             ? { kind: "planta", ajuste: "trabaja" }
             : {}),
@@ -513,7 +515,7 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
           ends_at: hab.out,
           break_minutes: hab.break,
           status: v.kind === "freelance" ? "por_confirmar" : "confirmado",
-          amount: v.kind === "freelance" ? (v.amount ?? null) : null,
+          amount: null,
           notes: null,
           tip_amount: null,
           tip_pool_id: null,
@@ -667,7 +669,6 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         <PreguntaDiaExtra
           persona={persona}
           dia={pregunta}
-          jornadas={suyas}
           onCerrar={() => setPregunta(null)}
           onElegir={(eleccion) => {
             setPregunta(null);

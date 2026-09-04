@@ -16,6 +16,7 @@ import GrillaDeDias, {
 import Modal from "../../components/Modal";
 import ResumenDelDia from "./ResumenDelDia";
 import MiniCalendario from "./MiniCalendario";
+import AdvertenciaHorasSemana from "./AdvertenciaHorasSemana";
 import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import type { SelectOption } from "../../components/selects/types";
@@ -261,13 +262,13 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
         // LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09, capítulo 11): si el
         // día no le correspondía, el tipo lo eligió el usuario en la
         // ventana y viaja explícito — planta sin monto y pegado con
-        // 'trabaja', o freelance con su monto obligatorio. Sin
-        // elección: en un evento la SILLA ya trae su monto y en el
-        // restaurante se escribe a mano en la casilla (17-08).
+        // 'trabaja', o freelance que nace por confirmar. El monto nunca
+        // viaja en el alta: en un evento la SILLA ya trae el suyo y en
+        // el restaurante se pone al confirmar (candado del 15-08).
         ...(p.eleccion?.kind === "planta"
           ? { kind: "planta", ajuste: "trabaja" as const }
           : (p.eleccion ?? {})),
-        ...(p.eleccion?.kind !== "freelance" ? { amount: null } : {}),
+        amount: null,
       });
     },
     // LA PANTALLA SE MUEVE AL INSTANTE (17-08, "asignar garzones está
@@ -301,7 +302,7 @@ export default function SemanaTab({ companyId }: { readonly companyId: number })
               ? "freelance"
               : (persona?.default_kind ?? "freelance")),
           status: p.eleccion?.kind === "planta" ? "confirmado" : "por_confirmar",
-          amount: p.eleccion?.kind === "freelance" ? p.eleccion.amount : null,
+          amount: null,
           starts_at: null,
           ends_at: null,
           break_minutes: null,
@@ -1376,6 +1377,24 @@ function CasillaAbierta({
                 un freelance de 12 horas está bien pagado; el aviso sirve
                 para pensar si convenían dos turnos. */}
             <HorarioDelDia asignacion={a} onCambiar={onCambiar} />
+            {/* La advertencia de horas, donde se asignan las horas
+                (capítulo 11): solo jornadas de planta — en un evento lo
+                planificado siempre es freelance, así que acá solo puede
+                aparecer en la fila del restaurante. */}
+            {a.kind === "planta" &&
+              a.person_id != null &&
+              (() => {
+                const p = personas.find((x) => x.id === a.person_id);
+                return p ? (
+                  <AdvertenciaHorasSemana
+                    persona={p}
+                    dia={dia}
+                    jornadas={todoElStaff.filter(
+                      (s) => s.person_id === a.person_id,
+                    )}
+                  />
+                ) : null;
+              })()}
             </li>
           ))}
         </ul>
@@ -1435,10 +1454,6 @@ function CasillaAbierta({
             <PreguntaDiaExtra
               persona={p}
               dia={pregunta.dia}
-              roleId={fila.cargoId || null}
-              jornadas={todoElStaff.filter(
-                (s) => s.person_id === pregunta.personId,
-              )}
               onCerrar={() => setPregunta(null)}
               onElegir={(eleccion) => {
                 setPregunta(null);
