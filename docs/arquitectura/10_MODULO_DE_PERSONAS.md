@@ -1038,7 +1038,11 @@ inventada (segunda vuelta de Felipe, 04-09).
 - **Freelance**: acuerdo aparte — no toca su semana laboral. Nace por
   confirmar y sin monto; el monto se pone al confirmar la jornada, y
   ahí manda el candado que ya existía del 15-08: **sin monto no se
-  confirma** (lo frena la pantalla y lo rechaza el motor). El hoyo del
+  confirma** (lo frena la pantalla y lo rechaza el motor). Y la
+  casilla de Planificación **no se deja cerrar** mientras haya un
+  freelance sin monto: la cajita vibra en cada intento (Felipe, 04-09,
+  probándolo: sin salida). Las salidas son ponerle el monto o sacarlo
+  con el basurero. El hoyo del
   caso Alejandra era que la regla automática vieja hacía NACER la
   jornada confirmada, saltándose ese candado; con la pregunta, ningún
   freelance del restaurante nace confirmado.

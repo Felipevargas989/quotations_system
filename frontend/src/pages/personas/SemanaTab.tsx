@@ -1155,26 +1155,28 @@ function CasillaAbierta({
     dia: string;
   } | null>(null);
   // EL FRENO DEL MONTO (Felipe, 04-09: "no debería dejarme salir del
-  // modal sin que coloque un monto... ¿podría vibrar la cajita?"). Al
-  // intentar cerrar con un freelance sin monto, la primera vez NO se
-  // cierra: la cajita vibra y un aviso explica. Al segundo intento sí
-  // sale — a veces el monto aún no está pactado, y para eso la jornada
-  // queda por confirmar (el candado del 15-08 la espera ahí). Un freno
-  // sin salida obligaría a inventar plata o a borrar a la persona.
+  // modal sin que coloque un monto... ¿podría vibrar la cajita?" — y
+  // al probarlo pidió que fuera SIN salida). Mientras haya un
+  // freelance sin monto, la casilla no se cierra: cada intento hace
+  // vibrar la cajita, y el aviso explica la primera vez. Las salidas
+  // legítimas son ponerle el monto — o sacarlo con el basurero si al
+  // final no va.
   const [vibrando, setVibrando] = useState(false);
   const [avisado, setAvisado] = useState(false);
   const intentarCerrar = () => {
     const sinMonto = asignados.some(
       (x) => x.kind === "freelance" && !x.amount && x.person_id != null,
     );
-    if (sinMonto && !avisado) {
-      setAvisado(true);
+    if (sinMonto) {
       setVibrando(true);
       setTimeout(() => setVibrando(false), 1400);
-      toast.warn(
-        "Ese día freelance quedó sin monto: pónselo antes de salir. " +
-          "Si aún no lo pactan, cierra de nuevo y queda por confirmar.",
-      );
+      if (!avisado) {
+        setAvisado(true);
+        toast.warn(
+          "Ese día freelance necesita su monto para salir. " +
+            "Pónselo — o sácalo de la casilla si al final no va.",
+        );
+      }
       return;
     }
     onCerrar();
