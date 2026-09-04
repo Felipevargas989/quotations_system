@@ -732,6 +732,22 @@ export class PeopleRepository {
   }
 
   /** La planta con turno de restaurante en esos días. */
+  /** La fila dormida (ajuste 'descansa') de esa persona ese día en el
+   *  restaurante, si existe — para revivirla en vez de chocar. */
+  async findDormida(companyId: number, personId: number, day: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('*')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .eq('person_id', personId)
+      .eq('day', day)
+      .eq('ajuste', 'descansa')
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as EventStaff | null;
+  }
+
   async plantaEnDias(companyId: number, dias: string[]) {
     if (dias.length === 0) return [] as EventStaff[];
     const { data, error } = await this.supabase.client
@@ -741,6 +757,10 @@ export class PeopleRepository {
       .is('quotation_id', null)
       .eq('kind', 'planta')
       .not('person_id', 'is', null)
+      // La fila dormida (cambio de día, migración 89) no la cuenta
+      // ninguna pantalla — el imán tampoco (04-09): trajo a Soledad a
+      // un evento el día que DESCANSABA y le repartió propina.
+      .or('ajuste.is.null,ajuste.neq.descansa')
       .in('day', dias);
     if (error) throw error;
     return data as unknown as EventStaff[];

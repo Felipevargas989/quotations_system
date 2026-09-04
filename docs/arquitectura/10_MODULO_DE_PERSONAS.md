@@ -1007,3 +1007,53 @@ pagado en otra**, fila por fila.
 - **El RUT `55.555.555-5` pasa el cálculo del módulo 11** y es el que el
   SII reserva para extranjeros sin RUT. Igual que los de un dígito
   repetido, del 11111111-1 al 99999999-9: **todos dan válidos**.
+
+## 11. LA PREGUNTA DEL DÍA EXTRA (04-09-2026 — reemplaza dos reglas)
+
+Definida por Felipe el 04-09, tras el caso Alejandra/Soledad: un
+intercambio de turnos de cocina terminó con la persona equivocada
+recibiendo la propina de un evento, porque dos reglas automáticas e
+invisibles decidieron por él (el freelance automático del día libre y
+"el origen decide"). Sus palabras: *"creo que las reglas están mal,
+quizás es más fácil preguntar… así se simplifica la forma"*.
+
+**La regla: el sistema deja de adivinar y PREGUNTA.**
+
+Al poner a una persona **de planta** en un día que no le corresponde
+(su día libre, o fuera de su patrón), desde **cualquier puerta** — la
+ficha de la persona o el calendario de Planificación, se comportan
+IGUAL — el sistema pregunta:
+
+> **¿Este día va como planta o como freelance?**
+
+- **Planta**: jornada de planta, sin monto. Las horas de más quedan a
+  la vista y las horas extra se pagan a fin de mes como Felipe decida.
+  Nace confirmada (es su jornada, movida de día).
+- **Freelance**: se muestra la **advertencia de horas** — *"queda con
+  X h esta semana, sobre las Y de su jornada definida"* (calculadas de
+  días laborales + horario habitual de la ficha) — y con eso se decide:
+  ajustar la semana en el calendario para cuadrar horas, cambiarlo a
+  planta, o mantener freelance. Si queda freelance, **el monto del día
+  es OBLIGATORIO**: sin monto no se guarda. Nace por confirmar.
+
+**Reglas retiradas por esta** (quedan en la historia, no en el motor):
+
+- El freelance automático del día libre (17-08): `esJornadaExtra` ya no
+  decide el tipo — queda solo como el detector de CUÁNDO preguntar.
+- "El origen decide" (24-08, migración 89): las dos puertas del
+  calendario pasan a comportarse igual. Lo que SÍ sobrevive de la
+  migración 89: el mecanismo `ajuste` ('trabaja'/'descansa'), la fila
+  dormida y que la proyección pase de largo.
+
+**Lo que este caso además destapó (fixes del mismo movimiento):**
+
+- `plantaEnDias` (el imán traer-planta-al-evento) no filtraba las
+  filas dormidas: trajo a Soledad al día 25 estando de descanso y le
+  repartió propina. La fila dormida "no la cuenta ninguna pantalla" —
+  ahora el imán también lo cumple.
+- Re-agregar un día quitado desde Planificación chocaba con la fila
+  dormida ("esa persona ya está puesta ese día"): ahora TODA alta la
+  revive, igual que ya lo hacía la ficha de la persona.
+- Los eventos no cambian: la planta entra por el imán como planta; un
+  refuerzo puesto a mano en un evento sigue naciendo freelance con su
+  aviso de pago.

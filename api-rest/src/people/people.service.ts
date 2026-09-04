@@ -32,6 +32,11 @@ import type {
 } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
+import {
+  cambiosParaRevivir,
+  faltaElMontoDelFreelance,
+  horarioDelDia,
+} from './utils/alta-de-jornada';
 import { normalizarRut } from './utils/rut';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
@@ -304,15 +309,47 @@ export class PeopleService {
         );
       }
     }
-    // UN PLANTA QUE VA A UN EVENTO ES UN DÍA EXTRA (Felipe, 15-08): su
-    // sueldo cubre su jornada, no esto. Ese día nace FREELANCE para que
-    // se le pague aparte. Mover sus días desde su calendario es otra
-    // cosa —ahí sigue siendo su jornada normal— y por eso la regla mira
-    // si hay evento, no el día.
+    // LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09, capítulo 11): para el
+    // restaurante, el TIPO del día fuera de patrón lo elige el usuario
+    // en pantalla y viaja explícito en dto.kind. El respaldo automático
+    // queda para los flujos que no preguntan (eventos, imán).
     const kind =
       dto.kind ??
       (esJornadaExtra(persona, dto) ? 'freelance' : persona.default_kind) ??
       'freelance';
+
+    // La pregunta del día extra (04-09, capítulo 11): reglas en
+    // utils/alta-de-jornada — el freelance elegido exige monto, y toda
+    // alta del restaurante revive la fila dormida en vez de chocar.
+    if (faltaElMontoDelFreelance(dto, persona)) {
+      throw new BadRequestException(
+        'Un día freelance de una persona de planta necesita su monto',
+      );
+    }
+    if (!dto.quotation_id) {
+      const dormida = await this.repo.findDormida(
+        companyId,
+        dto.person_id,
+        dto.day,
+      );
+      if (dormida) {
+        return this.repo.updateStaff(
+          dormida.id,
+          {
+            ...cambiosParaRevivir({
+              kind,
+              ajuste: dto.ajuste,
+              role_id: dto.role_id,
+              roleDormida: dormida.role_id,
+              amount: dto.amount,
+              status: dto.status,
+            }),
+            ...horarioDelDia(persona, dto.day, dto),
+          },
+          companyId,
+        );
+      }
+    }
     return this.repo.addStaff({
       ...dto,
       quotation_id: dto.quotation_id ?? null,
@@ -1959,59 +1996,8 @@ const minutosTrabajados = (
   return Math.max(0, minutos);
 };
 
-/**
- * El horario que le toca a una persona un día dado, bajando la
- * escalera: lo que venga escrito para ese día > su horario de ESE día
- * de la semana > su horario único de la ficha > el estándar de la casa
- * (09:00 a 19:00 con una hora de colación).
- */
-export const horarioDelDia = (
-  persona: {
-    weekly_schedule?: Record<
-      string,
-      { in?: string; out?: string; break?: number }
-    > | null;
-    default_starts_at?: string | null;
-    default_ends_at?: string | null;
-    default_break_minutes?: number | null;
-  },
-  dia: string,
-  escrito?: {
-    starts_at?: string | null;
-    ends_at?: string | null;
-    break_minutes?: number | null;
-  },
-) => {
-  const diaSemana = String(new Date(`${dia}T00:00:00Z`).getUTCDay());
-  const suyo = persona.weekly_schedule?.[diaSemana];
-  return {
-    starts_at:
-      escrito?.starts_at ??
-      suyo?.in ??
-      persona.default_starts_at?.slice(0, 5) ??
-      '09:00',
-    ends_at:
-      escrito?.ends_at ??
-      suyo?.out ??
-      persona.default_ends_at?.slice(0, 5) ??
-      '19:00',
-    break_minutes:
-      escrito?.break_minutes ??
-      suyo?.break ??
-      persona.default_break_minutes ??
-      60,
-  };
-};
-
 /** El día siguiente (o el de N días más), sin pelear con los meses. */
 const diaMas = (iso: string, n: number) =>
   new Date(new Date(`${iso}T00:00:00Z`).getTime() + n * 86_400_000)
     .toISOString()
     .slice(0, 10);
-
-/**
- * El horario que le toca a una persona un día dado, bajando la
- * escalera: lo que venga escrito para ese día > su horario de ESE día
- * de la semana > su horario único de la ficha > el estándar de la casa
- * (09:00 a 19:00 con una hora de colación).
- */
