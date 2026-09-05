@@ -1,76 +1,74 @@
-import { Facebook, Globe, Instagram } from "lucide-react";
-import IconoWhatsApp from "./IconoWhatsApp";
 import type { Company } from "../types/companies.types";
 
 /**
- * EL PIE CON LA MARCA de las páginas públicas (Felipe, 05-09): nombre,
- * tagline y redes — el mismo lenguaje del pie de los correos. Nació en
- * el formulario público de cotización (la higuera lo trajo acá al
- * cruzar el formulario las 800 líneas); cualquier página pública nueva
- * lo reusa en vez de clonarlo.
+ * EL PIE CON LA MARCA de las páginas públicas — EL MISMO del correo
+ * (Felipe, 05-09: "el footer no es el mismo del correo"): la franja
+ * del color secundario, el nombre en el primario, el tagline y los
+ * íconos clásicos de imagen (public/correo/*.png) que usan las
+ * campañas. Si cambia el pie de los correos, cambiar este igual.
  */
+
+/** Gemela de esClaro en api-rest/src/marketing/plantilla.ts: la
+ *  franja usa el secundario solo si es claro; un acento saturado va
+ *  sobre neutro. */
+const esClaro = (hex: string): boolean => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 200;
+};
+
 export default function PieDeMarcaPublico({
   company,
   colorPrimario,
+  colorSecundario,
 }: {
   readonly company: Pick<
     Company,
-    "name" | "tagline" | "whatsapp" | "instagram" | "facebook" | "sitio_web"
+    "name" | "tagline" | "instagram" | "facebook" | "sitio_web"
   > | null;
   readonly colorPrimario: string;
+  readonly colorSecundario?: string | null;
 }) {
+  const fondoFranja =
+    colorSecundario && esClaro(colorSecundario) ? colorSecundario : "#f9fafb";
+  const icono = (url: string, archivo: string, alt: string) => (
+    <a href={url} target="_blank" rel="noreferrer" title={alt}>
+      <img
+        src={`/correo/${archivo}`}
+        width={26}
+        height={26}
+        alt={alt}
+        className="inline-block align-middle mx-[7px]"
+      />
+    </a>
+  );
   return (
-    <div className="px-6 sm:px-10 py-6 bg-gray-50 border-t border-gray-200 text-center">
-      <p className="text-sm font-bold" style={{ color: colorPrimario }}>
+    <div
+      className="px-[30px] py-6 text-center"
+      style={{ backgroundColor: fondoFranja }}
+    >
+      <p
+        className="text-[15px] font-bold m-0"
+        style={{ color: colorPrimario }}
+      >
         {company?.name || "Empresa"}
       </p>
       {company?.tagline && (
-        <p className="text-xs text-gray-500 mt-0.5">{company.tagline}</p>
+        <p className="text-xs text-gray-600 mt-1 mb-0">{company.tagline}</p>
       )}
-      <div className="flex items-center justify-center gap-4 mt-3">
-        {company?.whatsapp && (
-          <a
-            href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noreferrer"
-            title="WhatsApp"
-            className="text-gray-400 hover:text-emerald-600"
-          >
-            <IconoWhatsApp size={20} />
-          </a>
-        )}
-        {company?.instagram && (
-          <a
-            href={company.instagram}
-            target="_blank"
-            rel="noreferrer"
-            title="Instagram"
-            className="text-gray-400 hover:text-pink-600"
-          >
-            <Instagram className="w-5 h-5" />
-          </a>
-        )}
-        {company?.facebook && (
-          <a
-            href={company.facebook}
-            target="_blank"
-            rel="noreferrer"
-            title="Facebook"
-            className="text-gray-400 hover:text-blue-600"
-          >
-            <Facebook className="w-5 h-5" />
-          </a>
-        )}
-        {company?.sitio_web && (
-          <a
-            href={company.sitio_web}
-            title="Sitio web"
-            className="text-gray-400 hover:text-gray-700"
-          >
-            <Globe className="w-5 h-5" />
-          </a>
-        )}
-      </div>
+      {(company?.instagram || company?.facebook || company?.sitio_web) && (
+        <p className="mt-3.5 mb-0">
+          {company.instagram &&
+            icono(company.instagram, "instagram.png", "Instagram")}
+          {company.facebook &&
+            icono(company.facebook, "facebook.png", "Facebook")}
+          {company.sitio_web && icono(company.sitio_web, "web.png", "Sitio web")}
+        </p>
+      )}
     </div>
   );
 }

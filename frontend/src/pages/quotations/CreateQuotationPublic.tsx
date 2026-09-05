@@ -302,18 +302,18 @@ export default function CreateQuotationPublic() {
   return (
     <div className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
+        {/* Volver al sitio (05-09): FUERA de la caja, sobre la tarjeta
+            — el formulario vive enlazado desde la página web. */}
+        {company?.sitio_web && (
+          <a
+            href={company.sitio_web}
+            className="inline-block mb-3 text-sm font-medium hover:underline"
+            style={{ color: brandP }}
+          >
+            ← Volver a {company.name}
+          </a>
+        )}
         <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-          {/* Volver al sitio (05-09): el formulario vive enlazado desde
-              la página web de la empresa — que se pueda volver. */}
-          {company?.sitio_web && (
-            <a
-              href={company.sitio_web}
-              className="block px-6 sm:px-10 pt-3 text-xs font-medium hover:underline"
-              style={{ color: brandP }}
-            >
-              ← Volver a {company.name}
-            </a>
-          )}
           {/* El BANNER de la marca cuando existe (Felipe, 05-09):
               la misma imagen de campañas y correos; sin banner, la
               cabecera de documentos de siempre. */}
@@ -354,19 +354,20 @@ export default function CreateQuotationPublic() {
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <div
-                  className="text-[11px] font-extrabold uppercase tracking-[2px]"
-                  style={{ color: brandP }}
-                >
-                  Solicitud de Cotización
-                </div>
-              </div>
             </div>
           </div>
           )}
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-6">
+            {/* El título, grande y adentro (Felipe, 05-09): con banner
+                la cabecera clásica no está, y el nombre del trámite
+                tiene que verse igual. */}
+            <h1
+              className="text-2xl sm:text-3xl font-extrabold tracking-tight"
+              style={{ color: brandP }}
+            >
+              Solicitud de Cotización
+            </h1>
             {seccion("Tus datos")}
             <div className="space-y-4">
               <div>
@@ -731,7 +732,11 @@ export default function CreateQuotationPublic() {
           </form>
 
           {/* El pie con la marca: pieza compartida de páginas públicas. */}
-          <PieDeMarcaPublico company={company} colorPrimario={brandP} />
+          <PieDeMarcaPublico
+            company={company}
+            colorPrimario={brandP}
+            colorSecundario={(company?.colors as { secondary?: string } | undefined)?.secondary}
+          />
         </div>
 
         <div className="mt-5 text-center text-gray-500 text-xs">
