@@ -106,6 +106,15 @@ export class StorageService {
         path = `c${companyId}/refund-receipts/${q}/${r}_${ts}.${ext}`;
         break;
       }
+      // Los brochures del embudo de consultas (05-09, doc 12): el PDF
+      // que se adjunta al correo automático; category = tipo de evento.
+      case 'consulta-brochure': {
+        const cat = sanitize(dto.category || 'general');
+        path = `c${companyId}/consulta-brochures/${cat}/${ts}_${sanitize(
+          file.originalname,
+        )}`;
+        break;
+      }
       case 'event-document': {
         const q = soloId(dto.quotation_id, 'quotation_id');
         const cat = sanitize(dto.category || 'general');

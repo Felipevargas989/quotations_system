@@ -11,6 +11,9 @@ export const KINDS = [
   // Banner de los correos de marketing: reemplaza el encabezado (26-08).
   'company-banner',
   'campaign-banner',
+  // Brochure del embudo de consultas (05-09): el PDF que se adjunta al
+  // correo automático; category lleva el tipo de evento.
+  'consulta-brochure',
   // Comprobante subido por el CLIENTE desde el portal (Fase 2b). No se
   // sube por /storage/upload (esa ruta exige sesión): lo usa el portal
   // internamente con el token del mandante ya validado.

@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
+import { ConsultasService } from 'src/consultas/consultas.service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types/index';
 import { PaymentStatus } from 'src/payments/constants';
@@ -57,6 +58,9 @@ export class QuotationsService {
     private readonly storageService: StorageService,
     private readonly portalReceiptsRepository: PortalReceiptsRepository,
     private readonly logger: PinoLogger,
+    // AL FINAL a propósito: las pruebas arman este servicio por
+    // posición — insertarla al medio rompió 34 de una (05-09).
+    private readonly consultasService: ConsultasService,
   ) {
     this.logger.setContext(QuotationsService.name);
   }
@@ -179,6 +183,22 @@ export class QuotationsService {
     this.logger.info(
       `createPublic quotation with createQuotationPublicDto ${logSafe(createQuotationPublicDto)}`,
     );
+    // EL EMBUDO DE CONSULTAS (05-09, doc 12): si el tipo de evento
+    // tiene brochures configurados, la solicitud NO crea cliente ni
+    // cotización — queda como consulta y recibe el brochure al tiro.
+    // Sin brochures configurados, todo sigue como siempre.
+    const embudo = await this.consultasService.embudoPara(
+      company_id,
+      createQuotationPublicDto.event_type,
+    );
+    if (embudo) {
+      const consulta = await this.consultasService.registrar(
+        company_id,
+        createQuotationPublicDto,
+        embudo,
+      );
+      return { tipo: 'consulta' as const, id: consulta.id };
+    }
     // Anti-duplicados (22-07): match robusto por correo (sin mayúsculas)
     // O teléfono (solo dígitos) — la solicitud se engancha al cliente
     // existente en vez de fabricar uno nuevo.
