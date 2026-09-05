@@ -140,3 +140,58 @@ GoDaddy para que quiten su registro `send` corto (el fusionado ya
 contiene ambos permisos). DMARC quedó único (p=quarantine) y el
 subdominio de rastreo track.eventi-app.com verificado con aperturas y
 clics encendidos.
+
+## Programar envío + la recomendación de horario (04-09-2026, "ok vamos")
+
+Pedido de Felipe: dejar una campaña programada para un día y hora, y
+que la pantalla recomiende CUÁNDO — asociado a sus audiencias.
+
+**La ruta elegida es el RELOJ DEL MOTOR (ruta B), no el scheduled_at
+de Resend**: el batch de Resend no acepta programación (solo el envío
+de a uno), y partir el despacho en dos caminos duplicaría el flujo ya
+validado con campañas reales. En cambio: la campaña guarda su hora, y
+un cron del motor (Railway, 24/7 — no depende del computador de nadie)
+dispara EL MISMO despacho de siempre a la hora dicha.
+
+**Reglas:**
+
+1. Programar exige lo mismo que enviar: campaña en borrador CON prueba
+   hecha, y una fecha futura. Al programar, la campaña pasa al estado
+   **`programada`** — que además la deja no-editable (los candados de
+   "solo borrador se edita" la protegen solos). Para editarla, primero
+   se cancela la programación (vuelve a borrador, sin perder nada).
+2. El cron corre cada minuto (solo producción, como todos los crones
+   de la casa): toma las campañas programadas cuya hora llegó, con un
+   candado atómico anti-doble-disparo, y llama al despacho existente —
+   lotes, regla de una vez, supresiones DE HOY, audiencia recalculada
+   al enviar ("nunca listas viejas") y la copia del capitán a QUIEN LA
+   PROGRAMÓ (`programada_por`).
+3. Si el despacho falla, la campaña vuelve a borrador con su
+   programación limpia y el error queda en el log — nada de reintentos
+   infinitos en silencio.
+4. En el laboratorio el cron no corre (los crones son solo de
+   producción): allá se valida la pantalla completa; el disparo real
+   se valida en producción con una campaña a una audiencia de una sola
+   persona (el propio Felipe).
+
+**La recomendación de horario, POR AUDIENCIA (regla de Felipe):**
+
+Cada audiencia de la campaña muestra su recomendación en la ventana de
+programar:
+
+- **Con historial propio** (≥ 30 aperturas de campañas pasadas a esa
+  audiencia): "Tus [Empresas] abren más los martes entre 10 y 12 h" —
+  calculado de los `opened_at` reales (migración 92) agrupados por día
+  de semana y bloque de 2 horas, en hora de Chile.
+- **Sin historial**, el respaldo de los estudios según el público de
+  la audiencia (clasificador puro `publicoDeAudiencia`, con pruebas):
+  - Público de OFICINA (empresas, colegios/universidades, convenios,
+    instituciones, tour operadores, empresas públicas): **martes o
+    jueves, 9:30–11:00** — llegan al escritorio con la bandeja fresca.
+  - Público de CASA (particulares, paseos de curso —los cotiza el
+    apoderado, no el colegio—, iglesias, cabañas): **martes a jueves,
+    17:00–19:00** — el celular en la casa.
+  - Sin señales (importada sin tipos reconocibles): casa.
+
+Migración 103: `programada_para` (timestamptz) y `programada_por`
+(text) en `marketing_campaigns`.
