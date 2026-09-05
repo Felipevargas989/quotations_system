@@ -33,3 +33,8 @@ CREATE TABLE IF NOT EXISTS public.consulta_config (
   brochures jsonb NOT NULL DEFAULT '[]'::jsonb,
   PRIMARY KEY (company_id, event_type)
 );
+
+-- El motor entra con service_role: sin estos GRANT, las tablas nuevas
+-- responden "permission denied" (quemadura del 05-09 en el lab).
+GRANT ALL ON TABLE public.consultas, public.consulta_config TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.consultas_id_seq TO service_role;

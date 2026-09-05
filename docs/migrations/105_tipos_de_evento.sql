@@ -33,3 +33,7 @@ CROSS JOIN (VALUES
   ('Graduación', 8)
 ) AS t(name, ord)
 ON CONFLICT (company_id, name) DO NOTHING;
+
+-- El motor entra con service_role (misma quemadura del 05-09).
+GRANT ALL ON TABLE public.event_types TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.event_types_id_seq TO service_role;
