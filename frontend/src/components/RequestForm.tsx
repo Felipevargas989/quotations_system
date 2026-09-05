@@ -25,6 +25,7 @@ import {
 } from "../types/quotations.types";
 import { NumberInput } from "./inputs";
 import SelectWithSearch from "./selects/SelectWithSearch";
+import { getClientContacts } from "../services/clientContacts.service";
 
 interface RequestFormProps {
   request?: any;
@@ -45,7 +46,23 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     people_count: 1,
     observations: "",
     client_id: "",
+    contact_name: null,
   });
+  // Los contactos del cliente elegido, para la persona de contacto
+  // (Felipe, 05-09: "no trae el nombre de la persona a pesar de estar
+  // sus datos" — el dato viajaba en la solicitud y acá no se veía).
+  const [clientContacts, setClientContacts] = useState<
+    { id: number; name: string }[]
+  >([]);
+  useEffect(() => {
+    if (!formData.client_id) {
+      setClientContacts([]);
+      return;
+    }
+    getClientContacts(formData.client_id)
+      .then((cs) => setClientContacts(cs as { id: number; name: string }[]))
+      .catch(() => setClientContacts([]));
+  }, [formData.client_id]);
   // Clientes desde el caché compartido de React Query (Etapa 2)
   const queryClientRQ = useQueryClient();
   const { data: clients = [] } = useQuery(clientsQueryOptions);
@@ -103,6 +120,10 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         people_count: request.people_count,
         observations: request.observations,
         client_id: request.client_id,
+        // La persona que escribió la solicitud viene guardada: se
+        // muestra en vez de perderse (Felipe, 05-09).
+        contact_name: (request as { contact_name?: string | null })
+          .contact_name ?? null,
       };
 
       setFormData(requestData);
@@ -488,6 +509,31 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
               <span className="hidden sm:inline">Nuevo Cliente</span>
             </button>
           </div>
+        </div>
+
+        {/* La persona de contacto: la misma pieza del cotizador — los
+            contactos del cliente, con el nombre guardado visible aunque
+            haya salido del catálogo (SelectWithSearch lo garantiza). */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Persona de contacto
+          </label>
+          <SelectWithSearch
+            options={clientContacts
+              .map((c) => c.name)
+              .sort((a, b) => a.localeCompare(b))
+              .map((n) => ({ value: n, label: n }))}
+            value={formData.contact_name || ""}
+            onChange={(value) =>
+              setFormData((prev) => ({
+                ...prev,
+                contact_name: value || null,
+              }))
+            }
+            placeholder={
+              formData.client_id ? "Sin contacto" : "Elige un cliente primero"
+            }
+          />
         </div>
 
         {/* Información del cliente */}
