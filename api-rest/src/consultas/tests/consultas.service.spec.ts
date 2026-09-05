@@ -7,7 +7,7 @@ jest.mock('resend', () => ({
 }));
 
 import type { ClientsService } from 'src/clients/clients.service';
-import type { EmailService } from 'src/email/email.service';
+import type { CompaniesRepository } from 'src/companies/companies.repository';
 import type { ConsultasRepository } from '../consultas.repository';
 import { ConsultasService } from '../consultas.service';
 import type { EventTypesService } from '../event-types.service';
@@ -49,8 +49,8 @@ const armar = (sobre: {
     create: jest.fn().mockResolvedValue({ id: 'cli-9' }),
     ...sobre.clients,
   };
-  const email = {
-    getBranding: jest.fn().mockResolvedValue({ companyName: 'Eventia' }),
+  const companies = {
+    findOne: jest.fn().mockResolvedValue({ data: { name: 'Eventia' } }),
   };
   const tipos = {
     entradaDe: jest.fn().mockResolvedValue(sobre.entrada ?? 'consulta'),
@@ -61,7 +61,7 @@ const armar = (sobre: {
     repo as unknown as ConsultasRepository,
     tipos as unknown as EventTypesService,
     clients as unknown as ClientsService,
-    email as unknown as EmailService,
+    companies as unknown as CompaniesRepository,
     config as never,
     logger as never,
   );

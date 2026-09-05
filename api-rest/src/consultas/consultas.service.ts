@@ -7,9 +7,10 @@ import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import { ClientsService } from 'src/clients/clients.service';
-import { EmailService } from 'src/email/email.service';
-import { brandEmailTemplate } from 'src/email/templates/brandLayout';
+import { CompaniesRepository } from 'src/companies/companies.repository';
 import { escaparHtml } from 'src/email/templates/utils';
+import { marcaDesdeFila } from 'src/marketing/marca';
+import { plantillaCampana } from 'src/marketing/plantilla';
 import {
   Brochure,
   ConfigDeConsulta,
@@ -76,7 +77,7 @@ export class ConsultasService {
     private readonly repo: ConsultasRepository,
     private readonly tipos: EventTypesService,
     private readonly clients: ClientsService,
-    private readonly email: EmailService,
+    private readonly companies: CompaniesRepository,
     private readonly config: ConfigService,
     private readonly logger: PinoLogger,
   ) {
@@ -160,7 +161,14 @@ export class ConsultasService {
     config: ConfigDeConsulta | null,
     companyId: number,
   ) {
-    const branding = await this.email.getBranding(companyId);
+    // LA MARCA COMPLETA de marketing (Felipe, 05-09: "aprovechemos esa
+    // configuración que ya la hicimos"): banner si hay, pie con redes
+    // y botón de WhatsApp — la misma plantilla de las campañas, sin
+    // link de baja (esto es respuesta a SU consulta, no campaña) y
+    // sin botón de cotizar (lo que se busca es que RESPONDA).
+    const { data, error: errMarca } = await this.companies.findOne(companyId);
+    if (errMarca && errMarca.code !== 'PGRST116') throw errMarca;
+    const marca = data ? marcaDesdeFila(data) : marcaDesdeFila({});
     const attachments = await Promise.all(
       (config?.brochures ?? []).map(async (b: Brochure) => ({
         filename: b.nombre,
@@ -171,7 +179,7 @@ export class ConsultasService {
       '{nombre}',
       primerNombre(consulta.name),
     );
-    const bodyHtml = texto
+    const cuerpoHtml = texto
       .split(/\n+/)
       .filter((p) => p.trim())
       .map(
@@ -179,14 +187,18 @@ export class ConsultasService {
           `<p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 12px;">${escaparHtml(p.trim())}</p>`,
       )
       .join('');
+    const iconosBase = (
+      this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com'
+    ).replace(/\/+$/, '');
+    const titulo = `Valores para tu ${nombreNatural(consulta.event_type)}`;
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
-      from: `${branding.companyName} <hola@eventi-app.com>`,
+      from: `${marca.nombre} <hola@eventi-app.com>`,
       to: [consulta.email],
-      subject: `${branding.companyName}: valores para tu ${nombreNatural(consulta.event_type)}`,
-      html: brandEmailTemplate({ branding, bodyHtml }),
+      subject: `${marca.nombre}: valores para tu ${nombreNatural(consulta.event_type)}`,
+      html: plantillaCampana({ marca, titulo, cuerpoHtml, iconosBase }),
       attachments,
-      ...(branding.replyTo ? { replyTo: branding.replyTo } : {}),
+      ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     });
     if (error) throw new Error(error.message);
   }
