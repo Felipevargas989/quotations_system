@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle, Send } from "lucide-react";
-import PieDeMarcaPublico from "../../components/PieDeMarcaPublico";
+import PieDeMarcaPublico, {
+  urlAbsoluta,
+} from "../../components/PieDeMarcaPublico";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
@@ -263,37 +265,40 @@ export default function CreateQuotationPublic() {
             {company?.name || "la empresa"} se pondrá en contacto contigo a la
             brevedad.
           </p>
-          <button
-            onClick={() => {
-              setSubmitted(false);
-              setSubmitError(false);
-              setTouchedFields({ name: false, email: false, phone: false });
-              setFormData({
-                name: "",
-                email: "",
-                phone: "",
-                client_type: DEFAULT_CLIENT_TYPE,
-                event_type: EventType.ALMUERZO_O_CENA,
-                event_date: "",
-                people_count: 1,
-                children_count: 0,
-                observations: "",
-              });
-            }}
-            style={{ backgroundColor: brandP, color: onBrandP }}
-            className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all"
-          >
-            Enviar otra solicitud
-          </button>
-          {company?.sitio_web && (
-            <a
-              href={company.sitio_web}
-              className="block mt-4 text-sm font-medium hover:underline"
-              style={{ color: brandP }}
+          {/* DOS botones (Felipe, 05-09): volver a la web es EL camino
+              — enviar otra solicitud, el raro. */}
+          <div className="flex flex-col gap-2.5">
+            {company?.sitio_web && (
+              <a
+                href={urlAbsoluta(company.sitio_web)}
+                style={{ backgroundColor: brandP, color: onBrandP }}
+                className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all"
+              >
+                Volver a nuestra web
+              </a>
+            )}
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setSubmitError(false);
+                setTouchedFields({ name: false, email: false, phone: false });
+                setFormData({
+                  name: "",
+                  email: "",
+                  phone: "",
+                  client_type: DEFAULT_CLIENT_TYPE,
+                  event_type: EventType.ALMUERZO_O_CENA,
+                  event_date: "",
+                  people_count: 1,
+                  children_count: 0,
+                  observations: "",
+                });
+              }}
+              className="px-6 py-3 rounded-lg font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 transition-all"
             >
-              ← Volver al sitio de {company.name}
-            </a>
-          )}
+              Enviar otra solicitud
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -306,7 +311,7 @@ export default function CreateQuotationPublic() {
             — el formulario vive enlazado desde la página web. */}
         {company?.sitio_web && (
           <a
-            href={company.sitio_web}
+            href={urlAbsoluta(company.sitio_web)}
             className="inline-block mb-3 text-sm font-medium hover:underline"
             style={{ color: brandP }}
           >

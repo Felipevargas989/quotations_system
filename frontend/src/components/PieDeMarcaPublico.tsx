@@ -8,6 +8,12 @@ import type { Company } from "../types/companies.types";
  * campañas. Si cambia el pie de los correos, cambiar este igual.
  */
 
+/** Gemela de urlAbsoluta en la plantilla de correos: el sitio suele
+ *  guardarse "www.algo.cl" y sin protocolo el navegador lo trata como
+ *  ruta interna rota (quemadura del 05-09). */
+export const urlAbsoluta = (u: string): string =>
+  /^https?:\/\//i.test(u.trim()) ? u.trim() : `https://${u.trim()}`;
+
 /** Gemela de esClaro en api-rest/src/marketing/plantilla.ts: la
  *  franja usa el secundario solo si es claro; un acento saturado va
  *  sobre neutro. */
@@ -36,7 +42,7 @@ export default function PieDeMarcaPublico({
   const fondoFranja =
     colorSecundario && esClaro(colorSecundario) ? colorSecundario : "#f9fafb";
   const icono = (url: string, archivo: string, alt: string) => (
-    <a href={url} target="_blank" rel="noreferrer" title={alt}>
+    <a href={urlAbsoluta(url)} target="_blank" rel="noreferrer" title={alt}>
       <img
         src={`/correo/${archivo}`}
         width={26}
