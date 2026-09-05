@@ -10,7 +10,6 @@ import {
   Min,
 } from 'class-validator';
 import {
-  EventType,
   PaymentPlanType,
   QuotationStatus,
   RequestType,
@@ -22,9 +21,12 @@ export class CreateQuotationDto {
   @IsNotEmpty()
   client_id: string;
 
-  @IsEnum(EventType)
+  // El catálogo de tipos es VIVO desde el 05-09 (tabla event_types):
+  // un enum acá rechazaría los tipos que Felipe cree en pantalla.
+  @IsString()
   @IsNotEmpty()
-  event_type: EventType;
+  @IsNotEmpty()
+  event_type: string;
 
   @IsDateString()
   @IsNotEmpty()

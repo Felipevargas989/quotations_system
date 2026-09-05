@@ -76,8 +76,12 @@ export const plantillaCampana = (p: {
   marca: MarcaEmpresa;
   titulo: string;
   cuerpoHtml: string;
-  bajaUrl: string;
-  cotizarUrl: string;
+  /** Sin bajaUrl, el pie va sin la línea de baja: el correo del embudo
+   *  de consultas es RESPUESTA a una solicitud, no campaña (05-09). */
+  bajaUrl?: string | null;
+  /** Sin cotizarUrl no hay botón primario (la consulta ya cotizó: lo
+   *  que se busca es que RESPONDA el correo). */
+  cotizarUrl?: string | null;
   /** Origen del frontend: ahí viven los íconos (public/correo/*.png). */
   iconosBase: string;
   preencabezado?: string | null;
@@ -147,22 +151,28 @@ export const plantillaCampana = (p: {
              tabla y en el teléfono quedaban aplastados uno contra otro
              (Felipe, 02-09, pantallazo desde su celular). -->
         <div style="margin:30px 0 4px;text-align:center;">
-          ${
+          ${[
+            p.cotizarUrl
+              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>`
+              : '',
             whatsappUrl
-              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>
-          <div style="display:inline-block;margin:0 8px 12px;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</div>`
-              : `<div style="display:inline-block;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>`
-          }
+              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</div>`
+              : '',
+          ].join('')}
         </div>
       </div>
       <div style="background-color:${fondoFranja};padding:24px 30px;text-align:center;">
         <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${nombre}</p>
         ${m.tagline ? `<p style="font-size:12px;color:#4b5563;margin:4px 0 0;">${esc(m.tagline)}</p>` : ''}
         ${redes.length ? `<p style="margin:14px 0 0;">${redes.join('')}</p>` : ''}
-        <p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
+        ${
+          p.bajaUrl
+            ? `<p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
           Recibes este correo por tu relación con ${nombre}.
           <a href="${p.bajaUrl}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
-        </p>
+        </p>`
+            : ''
+        }
       </div>
     </div>
   </div>

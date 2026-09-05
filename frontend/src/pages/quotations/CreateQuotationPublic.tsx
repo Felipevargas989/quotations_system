@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle, Send } from "lucide-react";
+import PieDeMarcaPublico from "../../components/PieDeMarcaPublico";
+import { urlAbsoluta } from "../../utils/urls";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
+import { getEventTypesPublic } from "../../services/eventTypes.service";
 import { getCompanyPublic } from "../../services/companies.service";
 import {
   EventType,
@@ -50,6 +53,33 @@ export default function CreateQuotationPublic() {
   const [clientTypesList, setClientTypesList] = useState<string[]>([
     ...CLIENT_TYPES,
   ]);
+  const [eventTypesList, setEventTypesList] = useState<string[]>(
+    Object.values(EventType),
+  );
+  // LA ORGANIZACIÓN (Felipe, 05-09): "tus datos" son LA PERSONA de
+  // contacto; si el tipo de cliente no es particular, se pregunta
+  // además por quién cotiza — y ESE nombre queda como cliente. La
+  // etiqueta se adapta por palabra clave del tipo (configurable);
+  // un tipo desconocido cae al genérico.
+  const [companyName, setCompanyName] = useState("");
+  // Presupuesto estimado (Felipe, 05-09): opcional, orienta la
+  // propuesta; viaja dentro de las observaciones.
+  const [presupuesto, setPresupuesto] = useState<number | undefined>();
+  const sinTildes = (t: string) =>
+    t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const pideOrganizacion =
+    !!formData.client_type &&
+    !sinTildes(formData.client_type).includes("particular");
+  const etiquetaOrganizacion = (() => {
+    const t = sinTildes(formData.client_type || "");
+    if (t.includes("colegio") || t.includes("universidad"))
+      return "Nombre del colegio o institución";
+    if (t.includes("tour")) return "Nombre del tour operador";
+    if (t.includes("iglesia")) return "Nombre de la iglesia";
+    if (t.includes("empresa") || t.includes("convenio"))
+      return "Nombre de la empresa";
+    return "Nombre de la organización";
+  })();
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -104,6 +134,11 @@ export default function CreateQuotationPublic() {
       getClientTypesPublic(company_id)
         .then((types) => setClientTypesList(types.map((t) => t.name)))
         .catch(() => setClientTypesList([...CLIENT_TYPES]));
+      // El catálogo VIVO de tipos de evento (05-09, doc 12); si no
+      // responde, los 8 históricos del enum.
+      getEventTypesPublic(company_id)
+        .then((types) => setEventTypesList(types.map((t) => t.name)))
+        .catch(() => setEventTypesList(Object.values(EventType)));
     }
   }, [company_id]);
 
@@ -114,6 +149,14 @@ export default function CreateQuotationPublic() {
     const nameError = validateName(formData.name);
     const emailError = validateEmail(formData.email);
     const phoneError = validatePhone(formData.phone);
+
+    if (pideOrganizacion && !companyName.trim()) {
+      setSubmitError(false);
+      setTouchedFields({ name: true, email: true, phone: true });
+      setClientErrors((prev) => ({ ...prev }));
+      document.getElementById("company_name")?.focus();
+      return;
+    }
 
     if (nameError || emailError || phoneError) {
       setClientErrors({
@@ -141,7 +184,13 @@ export default function CreateQuotationPublic() {
         people_count: adults + kids,
         children_count: kids,
         event_date: formData.event_date as any,
-      };
+        ...(pideOrganizacion && companyName.trim()
+          ? { company_name: companyName.trim() }
+          : {}),
+        // Número puro: el motor lo anexa a las observaciones y el
+        // aviso interno lo muestra como fila propia (05-09).
+        ...(presupuesto ? { budget_estimate: presupuesto } : {}),
+      } as QuotationPublicFormData;
 
       const { error } = await createQuotationPublic(company_id, quotationData);
       if (error) throw error;
@@ -215,28 +264,40 @@ export default function CreateQuotationPublic() {
             {company?.name || "la empresa"} se pondrá en contacto contigo a la
             brevedad.
           </p>
-          <button
-            onClick={() => {
-              setSubmitted(false);
-              setSubmitError(false);
-              setTouchedFields({ name: false, email: false, phone: false });
-              setFormData({
-                name: "",
-                email: "",
-                phone: "",
-                client_type: DEFAULT_CLIENT_TYPE,
-                event_type: EventType.ALMUERZO_O_CENA,
-                event_date: "",
-                people_count: 1,
-                children_count: 0,
-                observations: "",
-              });
-            }}
-            style={{ backgroundColor: brandP, color: onBrandP }}
-            className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all"
-          >
-            Enviar otra solicitud
-          </button>
+          {/* DOS botones (Felipe, 05-09): volver a la web es EL camino
+              — enviar otra solicitud, el raro. */}
+          <div className="flex flex-col gap-2.5">
+            {company?.sitio_web && (
+              <a
+                href={urlAbsoluta(company.sitio_web)}
+                style={{ backgroundColor: brandP, color: onBrandP }}
+                className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all"
+              >
+                Volver a nuestra web
+              </a>
+            )}
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setSubmitError(false);
+                setTouchedFields({ name: false, email: false, phone: false });
+                setFormData({
+                  name: "",
+                  email: "",
+                  phone: "",
+                  client_type: DEFAULT_CLIENT_TYPE,
+                  event_type: EventType.ALMUERZO_O_CENA,
+                  event_date: "",
+                  people_count: 1,
+                  children_count: 0,
+                  observations: "",
+                });
+              }}
+              className="px-6 py-3 rounded-lg font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 transition-all"
+            >
+              Enviar otra solicitud
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -245,8 +306,29 @@ export default function CreateQuotationPublic() {
   return (
     <div className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
+        {/* Volver al sitio (05-09): FUERA de la caja, sobre la tarjeta
+            — el formulario vive enlazado desde la página web. */}
+        {company?.sitio_web && (
+          <a
+            href={urlAbsoluta(company.sitio_web)}
+            className="inline-block mb-3 text-sm font-medium hover:underline"
+            style={{ color: brandP }}
+          >
+            ← Volver a {company.name}
+          </a>
+        )}
         <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-          {/* Encabezado con el lenguaje de los documentos de la empresa */}
+          {/* El BANNER de la marca cuando existe (Felipe, 05-09):
+              la misma imagen de campañas y correos; sin banner, la
+              cabecera de documentos de siempre. */}
+          {company?.banner_url ? (
+            <img
+              src={company.banner_url}
+              alt={company.name}
+              className="block w-full h-auto"
+              style={{ borderBottom: `3px solid ${brandP}` }}
+            />
+          ) : (
           <div
             className="px-6 sm:px-10 pt-8 pb-5"
             style={{ borderBottom: `3px solid ${brandP}` }}
@@ -276,18 +358,20 @@ export default function CreateQuotationPublic() {
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <div
-                  className="text-[11px] font-extrabold uppercase tracking-[2px]"
-                  style={{ color: brandP }}
-                >
-                  Solicitud de Cotización
-                </div>
-              </div>
             </div>
           </div>
+          )}
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-6">
+            {/* El título, grande y adentro (Felipe, 05-09): con banner
+                la cabecera clásica no está, y el nombre del trámite
+                tiene que verse igual. */}
+            <h1
+              className="text-2xl sm:text-3xl font-extrabold tracking-tight"
+              style={{ color: brandP }}
+            >
+              Solicitud de Cotización
+            </h1>
             {seccion("Tus datos")}
             <div className="space-y-4">
               <div>
@@ -430,6 +514,30 @@ export default function CreateQuotationPublic() {
                   required
                 />
               </div>
+
+              {pideOrganizacion && (
+                <div>
+                  <label
+                    htmlFor="company_name"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {etiquetaOrganizacion} *
+                  </label>
+                  <input
+                    id="company_name"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    maxLength={160}
+                    required
+                    placeholder="Por quién cotizas"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Tus datos de arriba quedan como persona de contacto.
+                  </p>
+                </div>
+              )}
             </div>
 
             {seccion("Tu evento")}
@@ -443,7 +551,7 @@ export default function CreateQuotationPublic() {
                     Tipo de evento *
                   </label>
                   <SelectWithSearch
-                    options={Object.values(EventType).map((type) => ({
+                    options={eventTypesList.map((type) => ({
                       value: type,
                       label: type,
                     }))}
@@ -533,6 +641,34 @@ export default function CreateQuotationPublic() {
 
               <div>
                 <label
+                  htmlFor="presupuesto"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Presupuesto estimado (opcional)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    $
+                  </span>
+                  <NumberInput
+                    id="presupuesto"
+                    name="presupuesto"
+                    value={presupuesto}
+                    onChange={(value) =>
+                      setPresupuesto(value ? Number(value) : undefined)
+                    }
+                    min={0}
+                    placeholder="0"
+                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Nos ayuda a armar una propuesta a tu medida.
+                </p>
+              </div>
+
+              <div>
+                <label
                   htmlFor="observations"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
@@ -598,6 +734,13 @@ export default function CreateQuotationPublic() {
               </button>
             </div>
           </form>
+
+          {/* El pie con la marca: pieza compartida de páginas públicas. */}
+          <PieDeMarcaPublico
+            company={company}
+            colorPrimario={brandP}
+            colorSecundario={(company?.colors as { secondary?: string } | undefined)?.secondary}
+          />
         </div>
 
         <div className="mt-5 text-center text-gray-500 text-xs">

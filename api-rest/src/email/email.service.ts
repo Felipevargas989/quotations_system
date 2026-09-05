@@ -115,7 +115,7 @@ export class EmailService {
    * nombre, subtítulo, logo, color primario y datos de cobro. Si la
    * carga falla, el correo sale igual con la marca mínima.
    */
-  private async getBranding(
+  async getBranding(
     companyId: Company['id'],
     fallbackName?: string,
   ): Promise<EmailBranding> {

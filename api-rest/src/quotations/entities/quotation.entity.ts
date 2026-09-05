@@ -1,5 +1,4 @@
 import {
-  EventType,
   PaymentPlanType,
   QuotationStatus,
   RequestType,
@@ -40,7 +39,7 @@ export interface Quotation {
   observations?: string;
   created_at: Date;
   client_id: string;
-  event_type: EventType;
+  event_type: string;
   event_date: Date;
   // Último día del evento (null = un solo día).
   event_end_date?: Date | null;

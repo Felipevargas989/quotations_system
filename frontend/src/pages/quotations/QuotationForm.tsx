@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { computeMoney } from "@dinero";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { eventTypesQueryOptions } from "../../services/eventTypes.service";
 import {
   Save,
   ArrowLeft,
@@ -136,6 +137,9 @@ export default function QuotationForm() {
   // - duplicateFrom: "Duplicar" una cotización existente (se copia todo
   //   menos la fecha del evento; se crea con número y estado nuevos).
   const location = useLocation();
+  // El catálogo VIVO de tipos de evento (05-09, doc 12): las opciones
+  // ya no salen del enum — se administran en la página Consultas.
+  const { data: tiposDeEvento = [] } = useQuery(eventTypesQueryOptions);
   const navClientId = (location.state as any)?.clientId as string | undefined;
   const duplicateFrom = (location.state as any)?.duplicateFrom as
     | string
@@ -661,6 +665,41 @@ export default function QuotationForm() {
       setFormData((prev) => ({ ...prev, client_id: navClientId }));
     }
   }, [navClientId, clients, id, duplicateFrom]);
+
+  // CONVERTIDA DESDE UNA CONSULTA (05-09, doc 12): el tipo, la fecha
+  // tentativa y las cantidades llegan puestos — de ahí en adelante es
+  // el flujo normal.
+  const desdeConsulta = (location.state as any)?.desdeConsulta as
+    | {
+        event_type?: string | null;
+        event_date?: string | null;
+        people_count?: number | null;
+        children_count?: number | null;
+        contact_name?: string | null;
+      }
+    | undefined;
+  useEffect(() => {
+    if (id || duplicateFrom || !desdeConsulta) return;
+    setFormData((prev) => ({
+      ...prev,
+      ...(desdeConsulta.event_type
+        ? { event_type: desdeConsulta.event_type as EventType }
+        : {}),
+      ...(desdeConsulta.event_date
+        ? { event_date: desdeConsulta.event_date.slice(0, 10) as any }
+        : {}),
+      ...(desdeConsulta.people_count
+        ? { people_count: desdeConsulta.people_count }
+        : {}),
+      ...(desdeConsulta.children_count
+        ? { children_count: desdeConsulta.children_count }
+        : {}),
+      ...(desdeConsulta.contact_name
+        ? { contact_name: desdeConsulta.contact_name }
+        : {}),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Obtener categorías únicas de productos
@@ -2478,7 +2517,7 @@ export default function QuotationForm() {
                   Tipo de Evento *
                 </label>
                 <SelectWithSearch
-                  options={Object.values(EventType).map((type) => ({
+                  options={tiposDeEvento.filter((t) => t.activo).map((t) => t.name).map((type) => ({
                     value: type,
                     label: type,
                   }))}

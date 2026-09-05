@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
+import { ConsultasModule } from 'src/consultas/consultas.module';
 import { EmailModule } from 'src/email/email.module';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { RefundsModule } from 'src/refunds/refunds.module';
@@ -23,6 +24,7 @@ import { QuotationsService } from './quotations.service';
   imports: [
     RefundsModule,
     ClientsModule,
+    ConsultasModule,
     EmailModule,
     StorageModule,
     forwardRef(() => PaymentsModule),

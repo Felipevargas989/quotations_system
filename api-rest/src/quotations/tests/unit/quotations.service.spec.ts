@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
+import { ConsultasService } from 'src/consultas/consultas.service';
 import { EmailService } from 'src/email/email.service';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentsService } from 'src/payments/payments.service';
@@ -118,6 +119,11 @@ describe('QuotationsService', () => {
         {
           provide: StorageService,
           useValue: { upload: jest.fn() } as any,
+        },
+        // El embudo de consultas (05-09): acá no filtra nada.
+        {
+          provide: ConsultasService,
+          useValue: { embudoPara: jest.fn().mockResolvedValue(null) },
         },
         {
           provide: PortalReceiptsRepository,

@@ -11,6 +11,11 @@ export interface NewPublicQuotationAdminParams {
   phone?: string | null;
   email?: string | null;
   observations?: string | null;
+  /** La organización por quien cotiza (05-09): ese nombre queda como
+   *  cliente; clientName es la persona de contacto. */
+  organizacion?: string | null;
+  /** Presupuesto estimado (05-09), si lo dio. */
+  presupuesto?: number | null;
 }
 
 const fila = (etiqueta: string, valor: string): string => `
@@ -48,12 +53,24 @@ export const newPublicQuotationAdminTemplate = (
 ): string => {
   const filas = params
     ? [
-        fila('Cliente', limpio(params.clientName)),
+        params.organizacion
+          ? fila('Organización', limpio(params.organizacion))
+          : '',
+        fila(
+          params.organizacion ? 'Persona de contacto' : 'Cliente',
+          limpio(params.clientName),
+        ),
         fila('Personas', String(params.peopleCount)),
         params.eventType ? fila('Evento', limpio(params.eventType)) : '',
         params.eventDate ? fila('Fecha', fechaLegible(params.eventDate)) : '',
         params.phone ? fila('Teléfono', limpio(params.phone)) : '',
         params.email ? fila('Correo', limpio(params.email)) : '',
+        params.presupuesto
+          ? fila(
+              'Presupuesto estimado',
+              `$${params.presupuesto.toLocaleString('es-CL')}`,
+            )
+          : '',
       ].join('')
     : '';
   const observaciones = params?.observations?.trim()

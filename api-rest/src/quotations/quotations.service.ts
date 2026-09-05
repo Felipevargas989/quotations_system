@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
+import { ConsultasService } from 'src/consultas/consultas.service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types/index';
 import { PaymentStatus } from 'src/payments/constants';
@@ -57,6 +58,9 @@ export class QuotationsService {
     private readonly storageService: StorageService,
     private readonly portalReceiptsRepository: PortalReceiptsRepository,
     private readonly logger: PinoLogger,
+    // AL FINAL a propósito: las pruebas arman este servicio por
+    // posición — insertarla al medio rompió 34 de una (05-09).
+    private readonly consultasService: ConsultasService,
   ) {
     this.logger.setContext(QuotationsService.name);
   }
@@ -179,13 +183,42 @@ export class QuotationsService {
     this.logger.info(
       `createPublic quotation with createQuotationPublicDto ${logSafe(createQuotationPublicDto)}`,
     );
-    // Anti-duplicados (22-07): match robusto por correo (sin mayúsculas)
-    // O teléfono (solo dígitos) — la solicitud se engancha al cliente
-    // existente en vez de fabricar uno nuevo.
+    // El presupuesto estimado viaja como número y se ANEXA a las
+    // observaciones (05-09): una sola fuente, visible en
+    // requerimientos y consultas sin tocar la estructura.
+    const presupuesto = createQuotationPublicDto.budget_estimate;
+    if (presupuesto) {
+      const linea = `Presupuesto estimado: $${presupuesto.toLocaleString('es-CL')}`;
+      createQuotationPublicDto.observations =
+        createQuotationPublicDto.observations
+          ? `${linea}\n${createQuotationPublicDto.observations}`
+          : linea;
+    }
+
+    // EL EMBUDO DE CONSULTAS (05-09, doc 12): si el tipo de evento
+    // tiene brochures configurados, la solicitud NO crea cliente ni
+    // cotización — queda como consulta y recibe el brochure al tiro.
+    // Sin brochures configurados, todo sigue como siempre.
+    const embudo = await this.consultasService.embudoPara(
+      company_id,
+      createQuotationPublicDto.event_type,
+    );
+    if (embudo !== false) {
+      const consulta = await this.consultasService.registrar(
+        company_id,
+        createQuotationPublicDto,
+        embudo.config,
+      );
+      return { tipo: 'consulta' as const, id: consulta.id };
+    }
+    // Anti-duplicados (22-07, afinado 05-09): match SOLO por correo —
+    // regla de Felipe: la gente cambia de empresa o colegio y conserva
+    // su número, así que el teléfono engancharía la solicitud a la
+    // organización VIEJA. El correo acompaña a la organización.
     const existingClient = await this.clientsService.findMatch(
       company_id,
       createQuotationPublicDto.email,
-      createQuotationPublicDto.phone,
+      undefined,
     );
 
     // if not client, create a new one
@@ -194,11 +227,17 @@ export class QuotationsService {
       clientId = existingClient.id;
     } else {
       // throw new Error('Client does not exists');
+      // "Tus datos" son LA PERSONA (05-09): si viene la empresa o
+      // institución, el CLIENTE se nombra por ella y la persona queda
+      // como su contacto principal (la garantía de nacimiento del
+      // 31-07 usa contact_person). Sin empresa: como siempre.
+      const nombreEmpresa = createQuotationPublicDto.company_name?.trim();
       const newClient = await this.clientsService.create(
         {
           client_type: createQuotationPublicDto.client_type,
           email: createQuotationPublicDto.email,
-          name: createQuotationPublicDto.name,
+          name: nombreEmpresa || createQuotationPublicDto.name,
+          contact_person: createQuotationPublicDto.name,
           phone: createQuotationPublicDto.phone,
         },
         company_id,
@@ -267,6 +306,9 @@ export class QuotationsService {
             phone: createQuotationPublicDto.phone,
             email: createQuotationPublicDto.email,
             observations: createQuotationPublicDto.observations,
+            // Los dos datos nuevos del formulario (Felipe, 05-09).
+            organizacion: createQuotationPublicDto.company_name,
+            presupuesto,
           },
         );
       } catch (error) {
