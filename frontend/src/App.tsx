@@ -61,6 +61,7 @@ const ClientsPage = lazy(importClients);
 const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
 // Ficha del negocio (04-08): la página propia de cada cotización.
 const NegocioPage = lazy(() => import("./pages/quotations/NegocioPage"));
+const ConsultasPage = lazy(() => import("./pages/consultas/ConsultasPage"));
 const PostVentaPage = lazy(importPostVenta);
 const LogisticaPage = lazy(importLogistica);
 const PersonasPage = lazy(importPersonas);
@@ -203,6 +204,17 @@ function App() {
                 element={
                   <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
                     <QuotationsPage />
+                  </PermissionGuard>
+                }
+              />
+
+              {/* El embudo de consultas (05-09, doc 12): la bandeja de
+                  las consultas masivas y la configuración del embudo. */}
+              <Route
+                path="consultas"
+                element={
+                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                    <ConsultasPage />
                   </PermissionGuard>
                 }
               />

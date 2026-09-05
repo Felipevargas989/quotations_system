@@ -13,6 +13,7 @@ import {
   Truck,
   Armchair,
   Megaphone,
+  Inbox,
 } from "lucide-react";
 import { canAccessSection } from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
@@ -61,6 +62,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: FileText,
       section: "quotations",
       precargar: () => import("../pages/quotations/QuotationsPage"),
+    },
+    {
+      // El embudo (05-09, doc 12): las consultas masivas con su brochure.
+      name: "Consultas",
+      href: "/consultas",
+      icon: Inbox,
+      section: "quotations",
+      precargar: () => import("../pages/consultas/ConsultasPage.tsx"),
     },
     {
       name: "Clientes",

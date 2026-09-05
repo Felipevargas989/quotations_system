@@ -138,6 +138,11 @@ export const deleteStorageFileByUrl = async (
 export const deletePaymentReceipt = async (url: string): Promise<boolean> =>
   deleteStorageFileByUrl(url);
 
+/** El brochure del embudo de consultas (05-09, doc 12): el PDF que se
+ *  adjunta al correo automático. Balde privado; devuelve la RUTA. */
+export const uploadConsultaBrochure = (file: File, eventType: string) =>
+  subir(file, { kind: "consulta-brochure", category: eventType });
+
 export const validateImageFile = (
   file: File,
 ): { valid: boolean; error?: string } => {
