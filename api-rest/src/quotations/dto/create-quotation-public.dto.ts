@@ -2,9 +2,11 @@ import { IntersectionType, OmitType } from '@nestjs/mapped-types';
 import {
   IsEmail,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { CreateClientDto } from 'src/clients/dto/create-client.dto';
 import { CreateQuotationDto } from './create-quotation.dto';
@@ -41,4 +43,12 @@ export class CreateQuotationPublicDto extends IntersectionType(
   @IsString()
   @MaxLength(160)
   company_name?: string;
+
+  /** Presupuesto estimado (05-09): orienta la propuesta. El motor lo
+   *  anexa a las observaciones (visible en requerimientos y
+   *  consultas) y el aviso interno lo muestra como fila propia. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  budget_estimate?: number;
 }

@@ -183,6 +183,18 @@ export class QuotationsService {
     this.logger.info(
       `createPublic quotation with createQuotationPublicDto ${logSafe(createQuotationPublicDto)}`,
     );
+    // El presupuesto estimado viaja como número y se ANEXA a las
+    // observaciones (05-09): una sola fuente, visible en
+    // requerimientos y consultas sin tocar la estructura.
+    const presupuesto = createQuotationPublicDto.budget_estimate;
+    if (presupuesto) {
+      const linea = `Presupuesto estimado: $${presupuesto.toLocaleString('es-CL')}`;
+      createQuotationPublicDto.observations = createQuotationPublicDto
+        .observations
+        ? `${linea}\n${createQuotationPublicDto.observations}`
+        : linea;
+    }
+
     // EL EMBUDO DE CONSULTAS (05-09, doc 12): si el tipo de evento
     // tiene brochures configurados, la solicitud NO crea cliente ni
     // cotización — queda como consulta y recibe el brochure al tiro.
@@ -294,6 +306,9 @@ export class QuotationsService {
             phone: createQuotationPublicDto.phone,
             email: createQuotationPublicDto.email,
             observations: createQuotationPublicDto.observations,
+            // Los dos datos nuevos del formulario (Felipe, 05-09).
+            organizacion: createQuotationPublicDto.company_name,
+            presupuesto,
           },
         );
       } catch (error) {
