@@ -191,11 +191,11 @@ export class QuotationsService {
       company_id,
       createQuotationPublicDto.event_type,
     );
-    if (embudo) {
+    if (embudo !== false) {
       const consulta = await this.consultasService.registrar(
         company_id,
         createQuotationPublicDto,
-        embudo,
+        embudo.config,
       );
       return { tipo: 'consulta' as const, id: consulta.id };
     }

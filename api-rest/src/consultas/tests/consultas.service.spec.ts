@@ -1,7 +1,16 @@
+// El cartero de mentira: estas pruebas miran la LÓGICA del embudo,
+// no a Resend — el envío responde ok sin salir a Internet.
+jest.mock('resend', () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: { send: jest.fn().mockResolvedValue({ error: null }) },
+  })),
+}));
+
 import type { ClientsService } from 'src/clients/clients.service';
 import type { EmailService } from 'src/email/email.service';
 import type { ConsultasRepository } from '../consultas.repository';
 import { ConsultasService } from '../consultas.service';
+import type { EventTypesService } from '../event-types.service';
 
 // El embudo de consultas (05-09, doc 12): la regla de una vez, el
 // correo que falla sin perder la consulta, y el convertir idempotente.
@@ -16,6 +25,7 @@ const CONFIG = {
 const armar = (sobre: {
   repo?: Partial<Record<string, unknown>>;
   clients?: Partial<Record<string, unknown>>;
+  entrada?: 'cotizacion' | 'consulta' | null;
 }) => {
   const repo = {
     config: jest.fn().mockResolvedValue(CONFIG),
@@ -42,10 +52,14 @@ const armar = (sobre: {
   const email = {
     getBranding: jest.fn().mockResolvedValue({ companyName: 'Eventia' }),
   };
+  const tipos = {
+    entradaDe: jest.fn().mockResolvedValue(sobre.entrada ?? 'consulta'),
+  };
   const config = { get: jest.fn().mockReturnValue('clave') };
   const logger = { setContext: jest.fn(), info: jest.fn(), error: jest.fn() };
   const service = new ConsultasService(
     repo as unknown as ConsultasRepository,
+    tipos as unknown as EventTypesService,
     clients as unknown as ClientsService,
     email as unknown as EmailService,
     config as never,
@@ -63,13 +77,24 @@ const DATOS = {
 };
 
 describe('el embudo de consultas', () => {
-  it('sin brochures no hay embudo: el formulario sigue como siempre', async () => {
-    const { service } = armar({
-      repo: {
-        config: jest.fn().mockResolvedValue({ ...CONFIG, brochures: [] }),
-      },
+  it('la categoría decide: tipo cotización no filtra; tipo consulta sí, aun sin config', async () => {
+    const directo = armar({ entrada: 'cotizacion' });
+    expect(await directo.service.embudoPara(1, 'Matrimonios')).toBe(false);
+
+    const sinConfig = armar({
+      entrada: 'consulta',
+      repo: { config: jest.fn().mockResolvedValue(null) },
     });
-    expect(await service.embudoPara(1, 'Matrimonios')).toBeNull();
+    expect(await sinConfig.service.embudoPara(1, 'Matrimonios')).toEqual({
+      config: null,
+    });
+  });
+
+  it('sin config el correo sale igual: texto de la casa, sin adjunto', async () => {
+    const { service, repo } = armar({});
+    const c = await service.registrar(1, DATOS, null);
+    expect(c.correo_enviado).toBe(true);
+    expect(repo.descargarBrochure).not.toHaveBeenCalled();
   });
 
   it('la regla de una vez: consulta repetida queda registrada SIN reenvío', async () => {

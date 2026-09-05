@@ -16,6 +16,7 @@ import {
   Consulta,
   ConsultasRepository,
 } from './consultas.repository';
+import { EventTypesService } from './event-types.service';
 
 /**
  * EL EMBUDO DE CONSULTAS (05-09, doc 12). Las consultas masivas
@@ -73,6 +74,7 @@ export interface DatosDeConsulta {
 export class ConsultasService {
   constructor(
     private readonly repo: ConsultasRepository,
+    private readonly tipos: EventTypesService,
     private readonly clients: ClientsService,
     private readonly email: EmailService,
     private readonly config: ConfigService,
@@ -81,10 +83,18 @@ export class ConsultasService {
     this.logger.setContext(ConsultasService.name);
   }
 
-  /** ¿Este tipo de evento está en el embudo? (tiene brochures) */
-  async embudoPara(companyId: number, eventType: string) {
-    const c = await this.repo.config(companyId, eventType);
-    return c && (c.brochures ?? []).length > 0 ? c : null;
+  /** ¿Este tipo de evento entra como CONSULTA? La decide su categoría
+   *  en el catálogo (segunda vuelta de Felipe, 05-09) — ya no la
+   *  existencia de brochure. Devuelve la config del correo (puede ser
+   *  null: sale el texto de la casa, sin adjunto) o false si el tipo
+   *  entra como cotización. */
+  async embudoPara(
+    companyId: number,
+    eventType: string,
+  ): Promise<{ config: ConfigDeConsulta | null } | false> {
+    const entrada = await this.tipos.entradaDe(companyId, eventType);
+    if (entrada !== 'consulta') return false;
+    return { config: await this.repo.config(companyId, eventType) };
   }
 
   /**
@@ -97,7 +107,7 @@ export class ConsultasService {
   async registrar(
     companyId: number,
     datos: DatosDeConsulta,
-    config: ConfigDeConsulta,
+    config: ConfigDeConsulta | null,
   ) {
     const desde = new Date(
       Date.now() - DIAS_SIN_REPETIR * 86_400_000,
@@ -147,17 +157,17 @@ export class ConsultasService {
 
   private async enviarBrochure(
     consulta: Consulta,
-    config: ConfigDeConsulta,
+    config: ConfigDeConsulta | null,
     companyId: number,
   ) {
     const branding = await this.email.getBranding(companyId);
     const attachments = await Promise.all(
-      (config.brochures ?? []).map(async (b: Brochure) => ({
+      (config?.brochures ?? []).map(async (b: Brochure) => ({
         filename: b.nombre,
         content: (await this.repo.descargarBrochure(b.path)).toString('base64'),
       })),
     );
-    const texto = (config.texto?.trim() || TEXTO_DE_LA_CASA).replaceAll(
+    const texto = (config?.texto?.trim() || TEXTO_DE_LA_CASA).replaceAll(
       '{nombre}',
       primerNombre(consulta.name),
     );

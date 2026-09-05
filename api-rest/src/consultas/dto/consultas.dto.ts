@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -37,4 +38,15 @@ export class GuardarConfigDto {
   @ValidateNested({ each: true })
   @Type(() => BrochureDto)
   brochures?: BrochureDto[];
+}
+
+export class CrearTipoDeEventoDto {
+  @IsString()
+  @MaxLength(80)
+  name!: string;
+}
+
+export class CambiarEntradaDto {
+  @IsIn(['cotizacion', 'consulta'])
+  entrada!: 'cotizacion' | 'consulta';
 }
