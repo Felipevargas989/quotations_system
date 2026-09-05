@@ -69,3 +69,28 @@ como cotización, saturando la lista.
 - No lee el buzón de correo.
 - No manda el brochure dos veces en 14 días.
 - No aparece en analytics ni en el pipeline: vive aparte.
+
+## La persona y el cliente (05-09-2026 — el orden del formulario público)
+
+Regla de oro, definida con Felipe: **"Tus datos" del formulario son
+SIEMPRE la persona de contacto. El CLIENTE es quien organiza: la
+organización si la hay, la persona misma si es particular.**
+
+- Si el tipo de cliente NO es particular, el formulario muestra una
+  caja OBLIGATORIA con etiqueta adaptada por palabra clave del tipo
+  ("Nombre de la empresa" / "del colegio o institución" / "del tour
+  operador" / "de la iglesia"; genérico si el tipo es nuevo). Ese
+  nombre queda como CLIENTE; la persona nace como su contacto
+  principal (garantía de nacimiento del 31-07).
+- **El match anti-duplicados es SOLO POR CORREO** (regla de Felipe: la
+  gente cambia de empresa o colegio y conserva su número — el teléfono
+  engancharía la solicitud a la organización vieja; el correo acompaña
+  a la organización). Rige en el formulario público y al convertir
+  consultas.
+- "Presupuesto estimado" (opcional, NumberInput de la casa) viaja
+  dentro de las observaciones — visible en requerimientos y consultas
+  sin tocar la estructura; si algún día se quiere filtrar por
+  presupuesto, se vuelve columna.
+- Vale IGUAL en las tres puertas: cotización directa, consulta del
+  embudo al convertir, y requerimiento (que además muestra y conserva
+  a su persona de contacto desde el 05-09).
