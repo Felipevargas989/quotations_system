@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle, Send } from "lucide-react";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
+import { getEventTypesPublic } from "../../services/eventTypes.service";
 import { getCompanyPublic } from "../../services/companies.service";
 import {
   EventType,
@@ -50,6 +51,9 @@ export default function CreateQuotationPublic() {
   const [clientTypesList, setClientTypesList] = useState<string[]>([
     ...CLIENT_TYPES,
   ]);
+  const [eventTypesList, setEventTypesList] = useState<string[]>(
+    Object.values(EventType),
+  );
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -104,6 +108,11 @@ export default function CreateQuotationPublic() {
       getClientTypesPublic(company_id)
         .then((types) => setClientTypesList(types.map((t) => t.name)))
         .catch(() => setClientTypesList([...CLIENT_TYPES]));
+      // El catálogo VIVO de tipos de evento (05-09, doc 12); si no
+      // responde, los 8 históricos del enum.
+      getEventTypesPublic(company_id)
+        .then((types) => setEventTypesList(types.map((t) => t.name)))
+        .catch(() => setEventTypesList(Object.values(EventType)));
     }
   }, [company_id]);
 
@@ -443,7 +452,7 @@ export default function CreateQuotationPublic() {
                     Tipo de evento *
                   </label>
                   <SelectWithSearch
-                    options={Object.values(EventType).map((type) => ({
+                    options={eventTypesList.map((type) => ({
                       value: type,
                       label: type,
                     }))}

@@ -25,6 +25,13 @@ import {
   type Brochure,
   type Consulta,
 } from "../../services/consultas.service";
+import {
+  cambiarEntradaEventType,
+  createEventType,
+  deleteEventType,
+  eventTypesQueryOptions,
+  type TipoDeEvento,
+} from "../../services/eventTypes.service";
 import { uploadConsultaBrochure } from "../../services/storage.service";
 
 /**
@@ -34,9 +41,10 @@ import { uploadConsultaBrochure } from "../../services/storage.service";
  * las que CONTESTAN se convierten — un clic, el cliente nace o se
  * matchea, y el cotizador se abre con él puesto.
  *
- * El embudo se activa por configuración: un tipo de evento filtra
- * cuando tiene brochure(s). Eso se administra acá mismo, en la
- * pestaña Configuración.
+ * La ENTRADA la declara cada tipo de evento en su catálogo (segunda
+ * vuelta de Felipe, 05-09): cotización directa, o consulta (el
+ * embudo). El catálogo se administra acá mismo, en la pestaña "Tipos
+ * de evento" — agregar, eliminar (solo sin uso) y elegir la entrada.
  */
 
 const fmtFecha = (iso: string) =>
@@ -137,7 +145,7 @@ export default function ConsultasPage() {
         >
           {pestana === "bandeja" ? (
             <>
-              <Settings2 className="w-4 h-4" /> Configurar el embudo
+              <Settings2 className="w-4 h-4" /> Tipos de evento
             </>
           ) : (
             <>
@@ -330,8 +338,12 @@ export default function ConsultasPage() {
   );
 }
 
-/** La configuración del embudo: por tipo de evento, sus brochures
- *  (hasta 2 PDF) y el texto del correo. Con brochures = embudo activo. */
+/** EL ADMINISTRADOR DE TIPOS DE EVENTO (segunda vuelta de Felipe,
+ *  05-09): el catálogo dejó de ser lista fija. Acá se agrega y
+ *  elimina (solo sin uso, "como siempre"), y cada tipo declara su
+ *  ENTRADA — cotización directa, o consulta (el embudo). OJO: tipo de
+ *  CLIENTE (quién compra, vive en Clientes) y tipo de EVENTO (qué
+ *  celebran) son ejes separados. */
 function ConfiguracionDelEmbudo({
   configs,
 }: {
@@ -342,26 +354,66 @@ function ConfiguracionDelEmbudo({
   }[];
 }) {
   const qc = useQueryClient();
-  const tipos = Object.values(EventType);
+  const { data: tipos = [] } = useQuery(eventTypesQueryOptions);
+  const [nuevo, setNuevo] = useState("");
+  const refrescarTipos = () =>
+    void qc.invalidateQueries({ queryKey: ["eventTypes"] });
+
+  const crear = useMutation({
+    mutationFn: (name: string) => createEventType(name),
+    onSuccess: (t) => {
+      toast.success(`Tipo "${t.name}" creado. Ya aparece en el cotizador.`);
+      setNuevo("");
+      refrescarTipos();
+    },
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <p className="lg:col-span-2 text-sm text-gray-500">
-        Un tipo de evento entra al embudo cuando tiene brochure: sus
-        consultas del formulario público dejan de crear cotizaciones,
-        quedan en la bandeja y reciben el correo con los adjuntos al tiro.
-        Sin brochure, ese tipo sigue creando cotización como siempre.
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500">
+        Cada tipo declara cómo <strong>entra</strong> desde el formulario
+        público: <strong>Cotización</strong> (directa, como siempre) o{" "}
+        <strong>Consulta</strong> (queda en la bandeja y recibe el correo
+        con brochure al tiro). Eliminar solo se puede sin uso. Ojo: esto
+        es el <strong>qué celebran</strong> — los tipos de cliente (quién
+        compra) viven en la página Clientes.
       </p>
-      {tipos.map((tipo) => (
-        <TarjetaDeTipo
-          key={tipo}
-          tipo={tipo}
-          config={configs.find((c) => c.event_type === tipo) ?? null}
-          onCambio={() =>
-            void qc.invalidateQueries({ queryKey: ["consultas", "config"] })
-          }
+
+      <div className="flex items-center gap-2">
+        <input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && nuevo.trim()) crear.mutate(nuevo.trim());
+          }}
+          placeholder="Nuevo tipo de evento…"
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-64"
+          aria-label="Nombre del nuevo tipo de evento"
         />
-      ))}
+        <button
+          type="button"
+          onClick={() => nuevo.trim() && crear.mutate(nuevo.trim())}
+          disabled={!nuevo.trim() || crear.isPending}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+        >
+          Agregar
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {tipos.map((tipo) => (
+          <TarjetaDeTipo
+            key={tipo.id}
+            tipo={tipo}
+            config={configs.find((c) => c.event_type === tipo.name) ?? null}
+            onCambio={() =>
+              void qc.invalidateQueries({ queryKey: ["consultas", "config"] })
+            }
+            onCambioDeTipos={refrescarTipos}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -370,25 +422,46 @@ function TarjetaDeTipo({
   tipo,
   config,
   onCambio,
+  onCambioDeTipos,
 }: {
-  readonly tipo: string;
+  readonly tipo: TipoDeEvento;
   readonly config: {
     texto: string | null;
     brochures: Brochure[];
   } | null;
   readonly onCambio: () => void;
+  readonly onCambioDeTipos: () => void;
 }) {
   const [texto, setTexto] = useState(config?.texto ?? "");
   const [subiendo, setSubiendo] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const brochures = config?.brochures ?? [];
-  const activo = brochures.length > 0;
+  const esConsulta = tipo.entrada === "consulta";
+
+  const cambiarEntrada = useMutation({
+    mutationFn: (entrada: "cotizacion" | "consulta") =>
+      cambiarEntradaEventType(tipo.id, entrada),
+    onSuccess: onCambioDeTipos,
+    onError: (e: unknown) => toast.error(humanizeApiError(e)),
+  });
+  const eliminar = useMutation({
+    mutationFn: () => deleteEventType(tipo.id),
+    onSuccess: () => {
+      toast.success(`Tipo "${tipo.name}" eliminado`);
+      onCambioDeTipos();
+    },
+    onError: (e: unknown) => {
+      setBorrando(false);
+      toast.error(humanizeApiError(e));
+    },
+  });
 
   const guardar = useMutation({
     mutationFn: (cambios: { texto?: string | null; brochures?: Brochure[] }) =>
-      guardarConfigDeConsulta(tipo, cambios),
+      guardarConfigDeConsulta(tipo.name, cambios),
     onSuccess: () => {
-      toast.success(`${tipo}: configuración guardada`);
+      toast.success(`${tipo.name}: configuración guardada`);
       onCambio();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
@@ -401,7 +474,7 @@ function TarjetaDeTipo({
     }
     setSubiendo(true);
     try {
-      const r = await uploadConsultaBrochure(file, tipo);
+      const r = await uploadConsultaBrochure(file, tipo.name);
       if (!r.success || !r.url) throw new Error(r.error);
       guardar.mutate({
         brochures: [
@@ -419,18 +492,60 @@ function TarjetaDeTipo({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <h3 className="font-semibold text-gray-900">{tipo}</h3>
-        <span
-          className={`text-xs px-2 py-0.5 rounded-full border ${
-            activo
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : "text-gray-400 border-gray-200"
-          }`}
-        >
-          {activo ? "en el embudo" : "sin embudo"}
+      <div className="flex items-center gap-2 flex-wrap">
+        <h3 className="font-semibold text-gray-900">{tipo.name}</h3>
+        {/* La ENTRADA: dos botones, uno prendido. */}
+        <span className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => !cambiarEntrada.isPending && cambiarEntrada.mutate("cotizacion")}
+            className={`px-2 py-1 ${
+              !esConsulta
+                ? "bg-gray-900 text-white"
+                : "text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Cotización
+          </button>
+          <button
+            type="button"
+            onClick={() => !cambiarEntrada.isPending && cambiarEntrada.mutate("consulta")}
+            className={`px-2 py-1 ${
+              esConsulta
+                ? "bg-blue-600 text-white"
+                : "text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Consulta
+          </button>
         </span>
+        <span className="flex-1" />
+        {borrando ? (
+          <ConfirmInline
+            question={`¿Eliminar "${tipo.name}"? Solo se puede si no está en uso.`}
+            yesLabel="Sí, eliminar"
+            onYes={() => eliminar.mutate()}
+            onNo={() => setBorrando(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setBorrando(true)}
+            title="Eliminar este tipo (solo sin uso)"
+            className="p-1 text-gray-300 hover:text-red-600 rounded"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
+      {esConsulta && brochures.length === 0 && (
+        <p className="text-xs bg-amber-50 text-amber-800 rounded-lg px-2.5 py-1.5">
+          Sin brochure: el correo automático saldrá solo con el texto, sin
+          adjunto.
+        </p>
+      )}
+      {esConsulta && (
+        <>
 
       <div className="space-y-1.5">
         {brochures.map((b) => (
@@ -485,7 +600,7 @@ function TarjetaDeTipo({
           rows={4}
           placeholder="Texto del correo (vacío = el de la casa). Usa {nombre} para saludar."
           className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
-          aria-label={`Texto del correo de ${tipo}`}
+          aria-label={`Texto del correo de ${tipo.name}`}
         />
         {(texto.trim() || "") !== (config?.texto?.trim() || "") && (
           <button
@@ -498,6 +613,8 @@ function TarjetaDeTipo({
           </button>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

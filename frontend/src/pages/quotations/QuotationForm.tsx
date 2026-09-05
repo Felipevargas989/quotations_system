@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { computeMoney } from "@dinero";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { eventTypesQueryOptions } from "../../services/eventTypes.service";
 import {
   Save,
   ArrowLeft,
@@ -136,6 +137,9 @@ export default function QuotationForm() {
   // - duplicateFrom: "Duplicar" una cotización existente (se copia todo
   //   menos la fecha del evento; se crea con número y estado nuevos).
   const location = useLocation();
+  // El catálogo VIVO de tipos de evento (05-09, doc 12): las opciones
+  // ya no salen del enum — se administran en la página Consultas.
+  const { data: tiposDeEvento = [] } = useQuery(eventTypesQueryOptions);
   const navClientId = (location.state as any)?.clientId as string | undefined;
   const duplicateFrom = (location.state as any)?.duplicateFrom as
     | string
@@ -2478,7 +2482,7 @@ export default function QuotationForm() {
                   Tipo de Evento *
                 </label>
                 <SelectWithSearch
-                  options={Object.values(EventType).map((type) => ({
+                  options={tiposDeEvento.map((t) => t.name).map((type) => ({
                     value: type,
                     label: type,
                   }))}

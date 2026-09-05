@@ -9,6 +9,7 @@ import { clientsQueryOptions } from "../services/clients.service";
 import { createClient } from "../services/clients.service";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { eventTypesQueryOptions } from "../services/eventTypes.service";
 
 import { ClientFormData } from "../types/clients.types";
 import {
@@ -82,16 +83,10 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   const { hasConflicts: hasDateConflicts, isChecking: checkingConflicts } =
     useDateAvailability(formData.event_date, null, request?.id);
 
-  const eventTypes = [
-    "Almuerzo o Cena",
-    "Paseo de Curso",
-    "Uso salones",
-    "Estadía y Alimentación",
-    "Paseo fin de año",
-    "Celebraciones",
-    "Matrimonios",
-    "Graduación",
-  ];
+  // El catálogo VIVO de tipos de evento (05-09, doc 12): ya no es
+  // lista fija — se administra en la página Consultas.
+  const { data: catalogoTipos = [] } = useQuery(eventTypesQueryOptions);
+  const eventTypes = catalogoTipos.map((t) => t.name);
 
   useEffect(() => {
     // (Clientes y tipos los carga React Query automáticamente.)
