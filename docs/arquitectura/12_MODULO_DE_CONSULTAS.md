@@ -11,10 +11,22 @@ como cotización, saturando la lista.
 
 ## Cómo funciona
 
-1. **El embudo se activa por configuración, no por código**: un tipo de
-   evento entra al embudo cuando tiene brochure(s) configurado(s). Sin
-   brochure, el formulario público sigue creando cotización como
-   siempre. Felipe decide qué tipos filtran, sin tocar código.
+1. **Los tipos de evento son ADMINISTRABLES y cada uno declara su
+   ENTRADA** (segunda vuelta de Felipe, 05-09: "ahí mismo se puede
+   marcar como cotización o consulta como una categoría, agregar o
+   eliminar"): tabla `event_types` por empresa (migración 105), con
+   categoría explícita 'cotizacion' o 'consulta'. El administrador
+   vive en la página Consultas → pestaña "Tipos de evento" — el
+   catálogo junto a su pantalla, igual que los tipos de cliente viven
+   en Clientes. OJO: tipo de CLIENTE (quién compra) y tipo de EVENTO
+   (qué celebran) son ejes separados; el embudo decide SOLO por el
+   tipo de evento. Se elimina solo un tipo sin uso (ni cotizaciones ni
+   consultas); renombrar NO existe en v1 (el histórico guarda el
+   texto). El cotizador y el formulario público leen el catálogo vivo
+   (con endpoint público, como los tipos de cliente); el enum del
+   código queda solo como respaldo si el catálogo no responde. Un tipo
+   marcado 'consulta' SIN brochure manda el correo solo con texto — la
+   pantalla lo advierte en ámbar.
 2. **La puerta bifurca**: cuando el formulario público llega con un
    tipo en embudo, NO se crea cliente ni cotización — se crea una
    CONSULTA (registro liviano: nombre, correo, teléfono, tipo, fecha
