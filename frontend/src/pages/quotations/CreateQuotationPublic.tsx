@@ -54,6 +54,30 @@ export default function CreateQuotationPublic() {
   const [eventTypesList, setEventTypesList] = useState<string[]>(
     Object.values(EventType),
   );
+  // LA ORGANIZACIÓN (Felipe, 05-09): "tus datos" son LA PERSONA de
+  // contacto; si el tipo de cliente no es particular, se pregunta
+  // además por quién cotiza — y ESE nombre queda como cliente. La
+  // etiqueta se adapta por palabra clave del tipo (configurable);
+  // un tipo desconocido cae al genérico.
+  const [companyName, setCompanyName] = useState("");
+  // Presupuesto estimado (Felipe, 05-09): opcional, orienta la
+  // propuesta; viaja dentro de las observaciones.
+  const [presupuesto, setPresupuesto] = useState<number | undefined>();
+  const sinTildes = (t: string) =>
+    t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const pideOrganizacion =
+    !!formData.client_type &&
+    !sinTildes(formData.client_type).includes("particular");
+  const etiquetaOrganizacion = (() => {
+    const t = sinTildes(formData.client_type || "");
+    if (t.includes("colegio") || t.includes("universidad"))
+      return "Nombre del colegio o institución";
+    if (t.includes("tour")) return "Nombre del tour operador";
+    if (t.includes("iglesia")) return "Nombre de la iglesia";
+    if (t.includes("empresa") || t.includes("convenio"))
+      return "Nombre de la empresa";
+    return "Nombre de la organización";
+  })();
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -124,6 +148,14 @@ export default function CreateQuotationPublic() {
     const emailError = validateEmail(formData.email);
     const phoneError = validatePhone(formData.phone);
 
+    if (pideOrganizacion && !companyName.trim()) {
+      setSubmitError(false);
+      setTouchedFields({ name: true, email: true, phone: true });
+      setClientErrors((prev) => ({ ...prev }));
+      document.getElementById("company_name")?.focus();
+      return;
+    }
+
     if (nameError || emailError || phoneError) {
       setClientErrors({
         name: nameError,
@@ -144,13 +176,24 @@ export default function CreateQuotationPublic() {
       // así que aquí se suma antes de enviar.
       const adults = Number(formData.people_count || 1);
       const kids = Number(formData.children_count || 0);
+      // El presupuesto viaja dentro de las observaciones: visible en
+      // requerimientos y consultas sin tocar la estructura.
+      const conPresupuesto = presupuesto
+        ? `Presupuesto estimado: $${presupuesto.toLocaleString("es-CL")}${
+            formData.observations ? `\n${formData.observations}` : ""
+          }`
+        : formData.observations;
       const quotationData: QuotationPublicFormData = {
         ...formData,
+        observations: conPresupuesto,
         phone: normalizePhone(formData.phone || ""),
         people_count: adults + kids,
         children_count: kids,
         event_date: formData.event_date as any,
-      };
+        ...(pideOrganizacion && companyName.trim()
+          ? { company_name: companyName.trim() }
+          : {}),
+      } as QuotationPublicFormData;
 
       const { error } = await createQuotationPublic(company_id, quotationData);
       if (error) throw error;
@@ -439,6 +482,30 @@ export default function CreateQuotationPublic() {
                   required
                 />
               </div>
+
+              {pideOrganizacion && (
+                <div>
+                  <label
+                    htmlFor="company_name"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {etiquetaOrganizacion} *
+                  </label>
+                  <input
+                    id="company_name"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    maxLength={160}
+                    required
+                    placeholder="Por quién cotizas"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Tus datos de arriba quedan como persona de contacto.
+                  </p>
+                </div>
+              )}
             </div>
 
             {seccion("Tu evento")}
@@ -538,6 +605,34 @@ export default function CreateQuotationPublic() {
                     Se suman a los adultos. Nos ayuda a preparar el menú.
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="presupuesto"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Presupuesto estimado (opcional)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    $
+                  </span>
+                  <NumberInput
+                    id="presupuesto"
+                    name="presupuesto"
+                    value={presupuesto}
+                    onChange={(value) =>
+                      setPresupuesto(value ? Number(value) : undefined)
+                    }
+                    min={0}
+                    placeholder="0"
+                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Nos ayuda a armar una propuesta a tu medida.
+                </p>
               </div>
 
               <div>

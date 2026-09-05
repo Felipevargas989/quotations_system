@@ -153,6 +153,9 @@ export type QuotationPublicFormData = Pick<
   "name" | "email" | "phone" | "client_type"
 > &
   Pick<Quotation, "event_type" | "people_count" | "observations"> & {
+  /** Empresa o institución (05-09): nombra al CLIENTE; "tus datos"
+   *  quedan como persona de contacto. Solo tipos no-particulares. */
+  company_name?: string;
     // string yyyy-mm-dd, igual que en el formulario interno.
     event_date: string;
     children_count?: number;
