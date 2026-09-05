@@ -189,10 +189,10 @@ export class QuotationsService {
     const presupuesto = createQuotationPublicDto.budget_estimate;
     if (presupuesto) {
       const linea = `Presupuesto estimado: $${presupuesto.toLocaleString('es-CL')}`;
-      createQuotationPublicDto.observations = createQuotationPublicDto
-        .observations
-        ? `${linea}\n${createQuotationPublicDto.observations}`
-        : linea;
+      createQuotationPublicDto.observations =
+        createQuotationPublicDto.observations
+          ? `${linea}\n${createQuotationPublicDto.observations}`
+          : linea;
     }
 
     // EL EMBUDO DE CONSULTAS (05-09, doc 12): si el tipo de evento

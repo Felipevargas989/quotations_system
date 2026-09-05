@@ -1,4 +1,5 @@
 import type { Company } from "../types/companies.types";
+import { urlAbsoluta } from "../utils/urls";
 
 /**
  * EL PIE CON LA MARCA de las páginas públicas — EL MISMO del correo
@@ -7,12 +8,6 @@ import type { Company } from "../types/companies.types";
  * íconos clásicos de imagen (public/correo/*.png) que usan las
  * campañas. Si cambia el pie de los correos, cambiar este igual.
  */
-
-/** Gemela de urlAbsoluta en la plantilla de correos: el sitio suele
- *  guardarse "www.algo.cl" y sin protocolo el navegador lo trata como
- *  ruta interna rota (quemadura del 05-09). */
-export const urlAbsoluta = (u: string): string =>
-  /^https?:\/\//i.test(u.trim()) ? u.trim() : `https://${u.trim()}`;
 
 /** Gemela de esClaro en api-rest/src/marketing/plantilla.ts: la
  *  franja usa el secundario solo si es claro; un acento saturado va

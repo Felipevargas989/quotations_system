@@ -15,7 +15,6 @@ import { toast } from "../../components/toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
 import { formatISOUTCDateToString } from "../../utils/dates";
-import { EventType } from "../../types/quotations.types";
 import {
   convertirConsulta,
   descartarConsulta,

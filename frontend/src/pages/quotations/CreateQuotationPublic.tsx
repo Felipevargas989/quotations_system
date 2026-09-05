@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle, Send } from "lucide-react";
-import PieDeMarcaPublico, {
-  urlAbsoluta,
-} from "../../components/PieDeMarcaPublico";
+import PieDeMarcaPublico from "../../components/PieDeMarcaPublico";
+import { urlAbsoluta } from "../../utils/urls";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
