@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -46,7 +47,13 @@ export class CrearTipoDeEventoDto {
   name!: string;
 }
 
-export class CambiarEntradaDto {
+export class ActualizarTipoDto {
+  @IsOptional()
   @IsIn(['cotizacion', 'consulta'])
-  entrada!: 'cotizacion' | 'consulta';
+  entrada?: 'cotizacion' | 'consulta';
+
+  /** Un tipo en uso no se elimina: se inactiva. */
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
 }

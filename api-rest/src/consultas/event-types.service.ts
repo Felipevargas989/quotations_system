@@ -49,12 +49,17 @@ export class EventTypesService {
     return r;
   }
 
-  async cambiarEntrada(
+  /** Cambia la entrada (cotización/consulta) o el estado activo. Un
+   *  tipo EN USO no se elimina — se inactiva (regla de siempre). */
+  async actualizar(
     id: number,
     companyId: number,
-    entrada: 'cotizacion' | 'consulta',
+    cambios: { entrada?: 'cotizacion' | 'consulta'; activo?: boolean },
   ) {
-    const r = await this.repo.cambiarEntrada(id, companyId, entrada);
+    if (cambios.entrada === undefined && cambios.activo === undefined) {
+      throw new BadRequestException('Nada que cambiar');
+    }
+    const r = await this.repo.actualizar(id, companyId, cambios);
     if (!r) throw new NotFoundException('No existe ese tipo de evento');
     return r;
   }

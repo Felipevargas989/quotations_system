@@ -11,7 +11,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
-import { CambiarEntradaDto, CrearTipoDeEventoDto } from './dto/consultas.dto';
+import { ActualizarTipoDto, CrearTipoDeEventoDto } from './dto/consultas.dto';
 import { EventTypesService } from './event-types.service';
 
 /** Tipos de evento administrables (05-09, doc 12). El administrador
@@ -45,13 +45,13 @@ export class EventTypesController {
   }
 
   @Patch(':id')
-  cambiarEntrada(
+  actualizar(
     @Param('id') id: string,
-    @Body() dto: CambiarEntradaDto,
+    @Body() dto: ActualizarTipoDto,
     @CurrentUser() user: User,
   ) {
-    this.logger.info(`PATCH /event-types/${id} → ${dto.entrada}`);
-    return this.tipos.cambiarEntrada(+id, user.company_id, dto.entrada);
+    this.logger.info(`PATCH /event-types/${id} ${JSON.stringify(dto)}`);
+    return this.tipos.actualizar(+id, user.company_id, dto);
   }
 
   @Delete(':id')

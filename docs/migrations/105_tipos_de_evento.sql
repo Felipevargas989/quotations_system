@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS public.event_types (
   name text NOT NULL,
   entrada text NOT NULL DEFAULT 'cotizacion'
     CHECK (entrada IN ('cotizacion', 'consulta')),
+  -- Un tipo EN USO no se elimina (regla de siempre): se INACTIVA — deja
+  -- de ofrecerse en los formularios, el histórico queda intacto.
+  activo boolean NOT NULL DEFAULT true,
   sort_order int,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (company_id, name)

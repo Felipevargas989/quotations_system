@@ -19,6 +19,8 @@ export interface TipoDeEvento {
   company_id: number;
   name: string;
   entrada: 'cotizacion' | 'consulta';
+  /** Un tipo en uso no se elimina: se inactiva y deja de ofrecerse. */
+  activo: boolean;
   sort_order: number | null;
 }
 
@@ -42,10 +44,11 @@ export class EventTypesRepository {
     return (data ?? []) as TipoDeEvento[];
   }
 
-  /** El nombre y nada más: lo que el formulario público necesita. */
+  /** El nombre y nada más — y SOLO los activos: un tipo inactivo no
+   *  se ofrece a nadie, ni por la puerta pública. */
   async listarPublico(companyId: number) {
     const tipos = await this.listar(companyId);
-    return tipos.map((t) => ({ name: t.name }));
+    return tipos.filter((t) => t.activo).map((t) => ({ name: t.name }));
   }
 
   /** La categoría de entrada de un tipo; null si no está en catálogo
@@ -75,14 +78,14 @@ export class EventTypesRepository {
     return data as TipoDeEvento;
   }
 
-  async cambiarEntrada(
+  async actualizar(
     id: number,
     companyId: number,
-    entrada: 'cotizacion' | 'consulta',
+    cambios: { entrada?: 'cotizacion' | 'consulta'; activo?: boolean },
   ) {
     const { data, error } = await this.supabase.client
       .from('event_types')
-      .update({ entrada })
+      .update(cambios)
       .eq('id', id)
       .eq('company_id', companyId)
       .select('*')
