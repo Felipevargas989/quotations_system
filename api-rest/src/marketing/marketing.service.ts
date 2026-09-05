@@ -26,6 +26,13 @@ import {
   resolverDestinatarios,
   validarAsuntoDeReenvio,
 } from './plantilla';
+import {
+  mejorVentana,
+  publicoDeAudiencia,
+  RECOMENDACION_ESTUDIOS,
+  rotuloDeAudiencia,
+  UMBRAL_APERTURAS,
+} from './programacion';
 import { FiltroSegmento } from './segmento';
 
 /** Lote del batch de Resend: hasta 100 por llamada; 40 deja aire. */
@@ -534,7 +541,9 @@ export class MarketingService {
   ) {
     const campana = await this.repo.campana(id, companyId);
     if (!campana) throw new NotFoundException('No existe esa campaña');
-    if (campana.estado !== 'borrador') {
+    // Una PROGRAMADA también se puede despachar: el reloj a su hora, o
+    // el "Enviar ahora" de un humano que no quiso esperar.
+    if (campana.estado !== 'borrador' && campana.estado !== 'programada') {
       throw new BadRequestException('Esa campaña ya se envió');
     }
     // SIN PRUEBA NO HAY ENVÍO (regla 4 del doc 11).
@@ -597,10 +606,124 @@ export class MarketingService {
       estado: 'enviada',
       enviada_at: new Date().toISOString(),
       total_destinatarios: enviados,
+      // Si estaba programada y alguien la despachó antes, la
+      // programación muere con el envío: el reloj no la re-dispara.
+      programada_para: null,
     });
     this.logger.info(
       `campaña ${id} enviada: ${enviados} ok, ${fallidos} fallidos`,
     );
     return { enviados, fallidos };
+  }
+
+  // ---- Programar envío (04-09, capítulo "Programar envío") ----
+
+  /** Programar exige lo mismo que enviar (borrador + prueba hecha) y
+   *  una hora futura. La campaña queda 'programada': los candados de
+   *  "solo borrador se edita" la protegen solos — para editarla,
+   *  primero se cancela la programación. */
+  async programarCampana(
+    id: number,
+    companyId: number,
+    cuando: string,
+    quien: string,
+  ) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    if (campana.estado !== 'borrador') {
+      throw new BadRequestException(
+        campana.estado === 'programada'
+          ? 'Ya está programada: cancela la programación para cambiarla'
+          : 'Esa campaña ya se envió',
+      );
+    }
+    if (!campana.prueba_enviada_at) {
+      throw new BadRequestException(
+        'Primero mándate la prueba a tu casilla: sin prueba no hay envío',
+      );
+    }
+    const hora = new Date(cuando);
+    if (Number.isNaN(hora.getTime())) {
+      throw new BadRequestException('Esa fecha no se entiende');
+    }
+    if (hora.getTime() < Date.now() + 60_000) {
+      throw new BadRequestException(
+        'La hora ya pasó (o está encima): elige un momento futuro',
+      );
+    }
+    this.logger.info(`campaña ${id} programada para ${hora.toISOString()}`);
+    return this.repo.actualizarCampana(id, companyId, {
+      estado: 'programada',
+      programada_para: hora.toISOString(),
+      programada_por: quien,
+    });
+  }
+
+  async cancelarProgramacion(id: number, companyId: number) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    if (campana.estado !== 'programada') {
+      throw new BadRequestException('Esa campaña no está programada');
+    }
+    this.logger.info(`campaña ${id}: programación cancelada`);
+    return this.repo.actualizarCampana(id, companyId, {
+      estado: 'borrador',
+      programada_para: null,
+      programada_por: null,
+    });
+  }
+
+  /** Las audiencias de una campaña, con la forma nueva o la vieja. */
+  private audienciasDe(campana: CampanaMarketing): AudienciaDeCampana[] {
+    return campana.audiencias?.length ? campana.audiencias : [campana];
+  }
+
+  /** Una audiencia "es la misma" para efectos de historial: por id de
+   *  guardada, o por etiqueta de importada. Los segmentos sueltos no
+   *  acumulan historial comparable → van directo a los estudios. */
+  private mismaAudiencia(a: AudienciaDeCampana, b: AudienciaDeCampana) {
+    if (a.audiencia_id != null || b.audiencia_id != null) {
+      return a.audiencia_id === b.audiencia_id;
+    }
+    if (a.audiencia_ref || b.audiencia_ref) {
+      return a.audiencia_ref === b.audiencia_ref;
+    }
+    return false;
+  }
+
+  /** La recomendación de horario POR AUDIENCIA (regla de Felipe): con
+   *  historial propio suficiente manda el dato; si no, los estudios
+   *  según el público de la audiencia. */
+  async recomendacionesDe(id: number, companyId: number) {
+    const campana = await this.repo.campana(id, companyId);
+    if (!campana) throw new NotFoundException('No existe esa campaña');
+    const { campanas, aperturas } =
+      await this.repo.aperturasPorCampana(companyId);
+    const porCampana = new Map<number, string[]>();
+    for (const a of aperturas) {
+      const lista = porCampana.get(a.campaign_id) ?? [];
+      lista.push(a.opened_at);
+      porCampana.set(a.campaign_id, lista);
+    }
+    return this.audienciasDe(campana).map((audiencia) => {
+      const propias = campanas
+        .filter((c) =>
+          (c.audiencias?.length ? c.audiencias : [c]).some((otra) =>
+            this.mismaAudiencia(audiencia, otra),
+          ),
+        )
+        .flatMap((c) => porCampana.get(c.id) ?? []);
+      const ventana =
+        propias.length >= UMBRAL_APERTURAS ? mejorVentana(propias) : null;
+      const publico = publicoDeAudiencia(audiencia);
+      return {
+        rotulo: rotuloDeAudiencia(audiencia),
+        publico,
+        fuente: ventana ? 'datos' : 'estudios',
+        texto: ventana
+          ? `Tus correos a esta audiencia se abren más ${ventana.texto} (${String(ventana.aperturas)} aperturas medidas).`
+          : RECOMENDACION_ESTUDIOS[publico],
+      };
+    });
   }
 }

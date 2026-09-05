@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   MaxLength,
@@ -264,4 +265,11 @@ export class ReenviarDto {
   @IsString()
   @MaxLength(200)
   asunto: string;
+}
+
+/** Programar envío (04-09): la hora viaja en ISO desde el navegador
+ *  (hora local de Chile convertida por el propio navegador). */
+export class ProgramarCampanaDto {
+  @IsISO8601()
+  cuando!: string;
 }

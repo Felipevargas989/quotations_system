@@ -3,6 +3,7 @@ import { CompaniesModule } from 'src/companies/companies.module';
 import { SupabaseModule } from 'src/supabase/supabase.module';
 import { AudienciasService } from './audiencias.service';
 import { BajasService } from './bajas.service';
+import { MarketingCronService } from './marketing-cron.service';
 import { MarketingController } from './marketing.controller';
 import { MarketingRepository } from './marketing.repository';
 import { MarketingService } from './marketing.service';
@@ -13,6 +14,7 @@ import { MarketingService } from './marketing.service';
   providers: [
     AudienciasService,
     BajasService,
+    MarketingCronService,
     MarketingService,
     MarketingRepository,
   ],
