@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle, Send } from "lucide-react";
+import PieDeMarcaPublico from "../../components/PieDeMarcaPublico";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
@@ -176,16 +177,8 @@ export default function CreateQuotationPublic() {
       // así que aquí se suma antes de enviar.
       const adults = Number(formData.people_count || 1);
       const kids = Number(formData.children_count || 0);
-      // El presupuesto viaja dentro de las observaciones: visible en
-      // requerimientos y consultas sin tocar la estructura.
-      const conPresupuesto = presupuesto
-        ? `Presupuesto estimado: $${presupuesto.toLocaleString("es-CL")}${
-            formData.observations ? `\n${formData.observations}` : ""
-          }`
-        : formData.observations;
       const quotationData: QuotationPublicFormData = {
         ...formData,
-        observations: conPresupuesto,
         phone: normalizePhone(formData.phone || ""),
         people_count: adults + kids,
         children_count: kids,
@@ -193,6 +186,9 @@ export default function CreateQuotationPublic() {
         ...(pideOrganizacion && companyName.trim()
           ? { company_name: companyName.trim() }
           : {}),
+        // Número puro: el motor lo anexa a las observaciones y el
+        // aviso interno lo muestra como fila propia (05-09).
+        ...(presupuesto ? { budget_estimate: presupuesto } : {}),
       } as QuotationPublicFormData;
 
       const { error } = await createQuotationPublic(company_id, quotationData);
@@ -289,6 +285,15 @@ export default function CreateQuotationPublic() {
           >
             Enviar otra solicitud
           </button>
+          {company?.sitio_web && (
+            <a
+              href={company.sitio_web}
+              className="block mt-4 text-sm font-medium hover:underline"
+              style={{ color: brandP }}
+            >
+              ← Volver al sitio de {company.name}
+            </a>
+          )}
         </div>
       </div>
     );
@@ -298,7 +303,28 @@ export default function CreateQuotationPublic() {
     <div className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-          {/* Encabezado con el lenguaje de los documentos de la empresa */}
+          {/* Volver al sitio (05-09): el formulario vive enlazado desde
+              la página web de la empresa — que se pueda volver. */}
+          {company?.sitio_web && (
+            <a
+              href={company.sitio_web}
+              className="block px-6 sm:px-10 pt-3 text-xs font-medium hover:underline"
+              style={{ color: brandP }}
+            >
+              ← Volver a {company.name}
+            </a>
+          )}
+          {/* El BANNER de la marca cuando existe (Felipe, 05-09):
+              la misma imagen de campañas y correos; sin banner, la
+              cabecera de documentos de siempre. */}
+          {company?.banner_url ? (
+            <img
+              src={company.banner_url}
+              alt={company.name}
+              className="block w-full h-auto"
+              style={{ borderBottom: `3px solid ${brandP}` }}
+            />
+          ) : (
           <div
             className="px-6 sm:px-10 pt-8 pb-5"
             style={{ borderBottom: `3px solid ${brandP}` }}
@@ -338,6 +364,7 @@ export default function CreateQuotationPublic() {
               </div>
             </div>
           </div>
+          )}
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-6">
             {seccion("Tus datos")}
@@ -702,6 +729,9 @@ export default function CreateQuotationPublic() {
               </button>
             </div>
           </form>
+
+          {/* El pie con la marca: pieza compartida de páginas públicas. */}
+          <PieDeMarcaPublico company={company} colorPrimario={brandP} />
         </div>
 
         <div className="mt-5 text-center text-gray-500 text-xs">
