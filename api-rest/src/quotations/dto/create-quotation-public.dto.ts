@@ -1,5 +1,11 @@
 import { IntersectionType, OmitType } from '@nestjs/mapped-types';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { CreateClientDto } from 'src/clients/dto/create-client.dto';
 import { CreateQuotationDto } from './create-quotation.dto';
 
@@ -26,4 +32,13 @@ export class CreateQuotationPublicDto extends IntersectionType(
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  /** Empresa o institución (05-09): "tus datos" son LA PERSONA de
+   *  contacto; si esto viene, el CLIENTE se nombra por la empresa y
+   *  la persona queda como su contacto principal. Vacío = el cliente
+   *  es la persona, como siempre (particulares). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  company_name?: string;
 }

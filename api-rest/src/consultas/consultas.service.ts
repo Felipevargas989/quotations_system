@@ -65,6 +65,7 @@ export interface DatosDeConsulta {
   email: string;
   phone: string;
   client_type?: string | null;
+  company_name?: string | null;
   event_type: string;
   event_date?: string | null;
   people_count?: number | null;
@@ -127,6 +128,7 @@ export class ConsultasService {
       email: datos.email.trim(),
       phone: datos.phone,
       client_type: datos.client_type ?? null,
+      company_name: datos.company_name?.trim() || null,
       event_type: datos.event_type,
       event_date: datos.event_date ?? null,
       people_count: datos.people_count ?? null,
@@ -237,7 +239,13 @@ export class ConsultasService {
     if (c.estado === 'convertida' && c.client_id) {
       return { consulta: c, client_id: c.client_id, contact_name: c.name };
     }
-    const existente = await this.clients.findMatch(companyId, c.email, c.phone);
+    // Match SOLO por correo (regla de Felipe, 05-09): el teléfono viaja
+    // con la persona entre organizaciones; el correo no.
+    const existente = await this.clients.findMatch(
+      companyId,
+      c.email,
+      undefined,
+    );
     let clientId: string;
     if (existente) {
       clientId = existente.id;
@@ -276,7 +284,11 @@ export class ConsultasService {
     } else {
       const nuevo = await this.clients.create(
         {
-          name: c.name,
+          // La empresa nombra al cliente cuando la hay; la persona
+          // queda como su contacto principal (mismo trato que el
+          // formulario público, 05-09).
+          name: c.company_name?.trim() || c.name,
+          contact_person: c.name,
           email: c.email,
           phone: c.phone,
           // El formulario público siempre manda el tipo; si una

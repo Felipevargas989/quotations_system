@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS public.consultas (
   email text NOT NULL,
   phone text NOT NULL,
   client_type text,
+  -- Empresa o institución (opcional): "tus datos" son LA PERSONA; el
+  -- cliente se nombra por la empresa cuando la hay (05-09).
+  company_name text,
   event_type text NOT NULL,
   event_date date,
   people_count int,

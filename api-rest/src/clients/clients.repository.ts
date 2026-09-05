@@ -195,6 +195,21 @@ export class ClientsRepository {
         `El tipo "${type.name}" está en uso por ${count} cliente(s) y no puede eliminarse`,
       );
     }
+    // Las CONSULTAS del embudo también lo usan (05-09): si se borrara
+    // con consultas pendientes, convertirlas crearía clientes con un
+    // tipo huérfano.
+    const { count: enConsultas, error: consultasError } =
+      await this.supabase.client
+        .from('consultas')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('client_type', type.name);
+    if (consultasError) throw consultasError;
+    if ((enConsultas ?? 0) > 0) {
+      throw new ConflictException(
+        `El tipo "${type.name}" está en uso por ${enConsultas} consulta(s) y no puede eliminarse`,
+      );
+    }
     const { error } = await this.supabase.client
       .from('client_types')
       .delete()

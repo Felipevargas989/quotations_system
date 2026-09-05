@@ -23,6 +23,7 @@ export interface Consulta {
   email: string;
   phone: string;
   client_type: string | null;
+  company_name: string | null;
   event_type: string;
   event_date: string | null;
   people_count: number | null;
