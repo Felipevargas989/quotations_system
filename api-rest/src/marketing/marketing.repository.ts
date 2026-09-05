@@ -36,9 +36,13 @@ export interface CampanaMarketing {
   /** Selección múltiple (27-08): la lista completa; null = campaña
    *  vieja de una sola audiencia (mandan las columnas sueltas). */
   audiencias: AudienciaDeCampana[] | null;
-  estado: 'borrador' | 'enviada';
+  estado: 'borrador' | 'programada' | 'enviada';
   prueba_enviada_at: string | null;
   enviada_at: string | null;
+  /** Programar envío (migración 103): para cuándo y quién programó
+   *  (esa persona recibe la copia del capitán al dispararse). */
+  programada_para: string | null;
+  programada_por: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
   /** Banner y WhatsApp PROPIOS (28-08): nulos = la marca de siempre. */
@@ -571,6 +575,71 @@ export class MarketingRepository {
       .single();
     if (error) throw error;
     return data as unknown as CampanaMarketing;
+  }
+
+  /** Las campañas programadas cuya hora ya llegó. SIN company_id a
+   *  propósito: es la consulta del RELOJ (cron), que barre todas las
+   *  empresas — cada fila trae el suyo y el despacho sigue filtrando
+   *  por empresa como siempre (mismo patrón del cron de pagos). */
+  async programadasVencidas() {
+    const { data, error } = await this.supabase.client
+      .from('marketing_campaigns')
+      .select('id, company_id, programada_por')
+      .eq('estado', 'programada')
+      .lte('programada_para', new Date().toISOString());
+    if (error) throw error;
+    return (data ?? []) as {
+      id: number;
+      company_id: number;
+      programada_por: string | null;
+    }[];
+  }
+
+  /** El candado anti-doble-disparo: solo UN reloj se la lleva. La
+   *  deja en borrador con la programación limpia — si el despacho
+   *  falla, queda visible como no-enviada (regla 3 del capítulo),
+   *  jamás en reintentos infinitos silenciosos. */
+  async tomarProgramada(id: number, companyId: number): Promise<boolean> {
+    const { data, error } = await this.supabase.client
+      .from('marketing_campaigns')
+      .update({ estado: 'borrador', programada_para: null })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .eq('estado', 'programada')
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  }
+
+  /** El historial para la recomendación de horario: cada campaña con
+   *  sus audiencias, y las aperturas (con su hora) por campaña. */
+  async aperturasPorCampana(companyId: number) {
+    const [campanas, aperturas] = await Promise.all([
+      this.supabase.client
+        .from('marketing_campaigns')
+        .select(
+          'id, audiencias, audiencia_tipo, audiencia_id, audiencia_ref, tipos_cliente, filtro',
+        )
+        .eq('company_id', companyId)
+        .eq('estado', 'enviada'),
+      this.supabase.client
+        .from('marketing_sends')
+        .select('campaign_id, opened_at')
+        .eq('company_id', companyId)
+        .not('opened_at', 'is', null),
+    ]);
+    if (campanas.error) throw campanas.error;
+    if (aperturas.error) throw aperturas.error;
+    return {
+      campanas: (campanas.data ?? []) as (AudienciaDeCampana & {
+        id: number;
+        audiencias: AudienciaDeCampana[] | null;
+      })[],
+      aperturas: (aperturas.data ?? []) as {
+        campaign_id: number;
+        opened_at: string;
+      }[],
+    };
   }
 
   async enviosDe(campaignId: number): Promise<Set<string>> {

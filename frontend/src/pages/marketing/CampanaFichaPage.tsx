@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Send, Trash2 } from "lucide-react";
 import Modal from "../../components/Modal";
 import EditorDeBorrador from "./EditorDeBorrador";
+import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
+import { BotonProgramar, CajaProgramada } from "./ProgramarEnvio";
 import {
   DestinatarioDeCampana,
   destinatariosDeCampana,
@@ -191,6 +193,7 @@ export default function CampanaFichaPage() {
   }
 
   const enviada = c.estado === "enviada";
+  const programada = c.estado === "programada";
   const chipFiltro = (activo: boolean) =>
     `px-2.5 py-1 text-xs rounded-full border tabular-nums ${
       activo
@@ -215,18 +218,22 @@ export default function CampanaFichaPage() {
             className={`text-xs px-2.5 py-1 rounded-full border ${
               enviada
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
+                : programada
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
             }`}
           >
             {enviada
               ? `enviada · ${fechaCorta(c.enviada_at)}`
-              : "borrador"}
+              : programada
+                ? `programada · ${fechaCorta(c.programada_para)}`
+                : "borrador"}
           </span>
           <span className="flex-1" />
           {/* LA acción de la ficha, arriba de las cajas de KPIs
               (Felipe 26-08). Usada la 2ª pasada, desaparece: el tope
               de la industria son 2 envíos por campaña. */}
-          {!enviada &&
+          {c.estado === "borrador" &&
             (borrando ? (
               <span className="flex items-center gap-1 text-sm">
                 <button
@@ -344,8 +351,27 @@ export default function CampanaFichaPage() {
         </div>
       )}
 
+      {/* La campaña PROGRAMADA: cuándo sale, cancelar, o enviar ya */}
+      {programada &&
+        (confirmando !== null ? (
+          <div className="bg-white rounded-xl border border-blue-200 p-4">
+            <ConfirmInline
+              question={`¿Enviar AHORA a ${String(confirmando)} destinatarios? La programación queda sin efecto.`}
+              yesLabel="Sí, enviar ahora"
+              onYes={() => enviar.mutate()}
+              onNo={() => setConfirmando(null)}
+            />
+          </div>
+        ) : (
+          <CajaProgramada
+            campana={c}
+            onCambio={refrescar}
+            onEnviarAhora={() => void preguntarEnvio()}
+          />
+        ))}
+
       {/* Acciones de borrador: prueba obligatoria y envío */}
-      {!enviada && (
+      {c.estado === "borrador" && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 flex-wrap">
           <p className="text-sm text-gray-600 flex-1 min-w-[220px]">
             Esta campaña es un borrador. Sin prueba a tu casilla no se abre
@@ -385,19 +411,26 @@ export default function CampanaFichaPage() {
               </button>
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={() => void preguntarEnvio()}
-              disabled={!c.prueba_enviada_at}
-              title={
-                c.prueba_enviada_at
-                  ? undefined
-                  : "Primero mándate la prueba: sin prueba no hay envío"
-              }
-              className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-black disabled:opacity-40"
-            >
-              <Send className="w-3.5 h-3.5" /> Enviar
-            </button>
+            <>
+              <BotonProgramar
+                campanaId={campanaId}
+                conPrueba={!!c.prueba_enviada_at}
+                onCambio={refrescar}
+              />
+              <button
+                type="button"
+                onClick={() => void preguntarEnvio()}
+                disabled={!c.prueba_enviada_at}
+                title={
+                  c.prueba_enviada_at
+                    ? undefined
+                    : "Primero mándate la prueba: sin prueba no hay envío"
+                }
+                className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-gray-900 text-white hover:bg-black disabled:opacity-40"
+              >
+                <Send className="w-3.5 h-3.5" /> Enviar
+              </button>
+            </>
           )}
         </div>
       )}

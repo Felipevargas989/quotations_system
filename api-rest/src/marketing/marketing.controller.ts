@@ -25,10 +25,12 @@ import {
   EditarCampanaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
+  ProgramarCampanaDto,
   ReenviarDto,
   RenombrarAudienciaDto,
   RenombrarImportadaDto,
 } from './dto/marketing.dto';
+import { marcaDesdeFila } from './marca';
 import { MarketingService } from './marketing.service';
 import type { MarcaEmpresa } from './plantilla';
 
@@ -80,22 +82,9 @@ export class MarketingController {
         'No se pudo cargar la marca de la empresa; intenta de nuevo',
       );
     }
-    {
-      if (!data) return pordefecto;
-      return {
-        nombre: data.name ?? 'Eventia',
-        logo: data.logo_url?.trim() || null,
-        banner: data.banner_url?.trim() || null,
-        tagline: data.tagline?.trim() || null,
-        whatsapp: data.whatsapp?.trim() || null,
-        instagram: data.instagram?.trim() || null,
-        facebook: data.facebook?.trim() || null,
-        sitioWeb: data.sitio_web?.trim() || null,
-        colorPrimario: data.colors?.primary?.trim() || '#134686',
-        colorSecundario: data.colors?.secondary?.trim() || '#f9fafb',
-        replyTo: data.notifications?.replyTo?.trim() || null,
-      };
-    }
+    // El mapeo vive en marcaDesdeFila para que el RELOJ de las
+    // campañas programadas arme LA MISMA marca (04-09).
+    return data ? marcaDesdeFila(data) : pordefecto;
   }
 
   // ---- Audiencias ----
@@ -250,6 +239,38 @@ export class MarketingController {
       user.email,
       await this.empresaDe(user.company_id),
     );
+  }
+
+  @Post('campanas/:id/programar')
+  async programar(
+    @Param('id') id: string,
+    @Body() dto: ProgramarCampanaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /marketing/campanas/${id}/programar`);
+    return this.marketing.programarCampana(
+      +id,
+      user.company_id,
+      dto.cuando,
+      user.email,
+    );
+  }
+
+  @Delete('campanas/:id/programar')
+  async cancelarProgramacion(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`DELETE /marketing/campanas/${id}/programar`);
+    return this.marketing.cancelarProgramacion(+id, user.company_id);
+  }
+
+  @Get('campanas/:id/recomendacion-horario')
+  async recomendacionHorario(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.marketing.recomendacionesDe(+id, user.company_id);
   }
 
   @Post('campanas/:id/enviar')

@@ -1027,10 +1027,16 @@ function Campanas({
                         className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
                           c.estado === "enviada"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
+                            : c.estado === "programada"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}
                       >
-                        {c.estado === "enviada" ? "Enviada" : "Borrador"}
+                        {c.estado === "enviada"
+                          ? "Enviada"
+                          : c.estado === "programada"
+                            ? "Programada"
+                            : "Borrador"}
                       </span>
                     </td>
                     <td className="px-2 py-2.5 text-gray-400">
