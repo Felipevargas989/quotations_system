@@ -24,12 +24,14 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
+import { EnvioCotizacionService } from './envio-cotizacion.service';
 import { QuotationsService } from './quotations.service';
 
 @Controller('quotations')
 export class QuotationsController {
   constructor(
     private readonly quotationsService: QuotationsService,
+    private readonly envioCotizacion: EnvioCotizacionService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(QuotationsController.name);
@@ -113,6 +115,17 @@ export class QuotationsController {
     );
   }
 
+  // La hoja para el navegador invisible del PDF (doc 13): token
+  // firmado de corta vida, misma lista blanca que el portal. VA ANTES
+  // de ':id' o esa ruta se la come.
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('imprimir/:token')
+  hojaParaImprimir(@Param('token') token: string) {
+    this.logger.info('GET /quotations/imprimir (token oculto)');
+    return this.envioCotizacion.hojaParaImprimir(token);
+  }
+
   // This is public becaue it is used to display the quotation details in the public customer satisfaction survey
   // TODO: maybe create public endpoint for this, instead of using the current one
   @Public()
@@ -120,6 +133,13 @@ export class QuotationsController {
   findOne(@Param('id') id: string) {
     this.logger.info(`GET /quotations/${id}`);
     return this.quotationsService.findOne(id);
+  }
+
+  // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
+  @Post(':id/enviar-correo')
+  enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/enviar-correo`);
+    return this.envioCotizacion.enviar(id, user);
   }
 
   // Declara el evento REALIZADO y dispara la encuesta de satisfacción al
