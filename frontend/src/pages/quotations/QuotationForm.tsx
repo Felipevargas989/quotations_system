@@ -666,6 +666,37 @@ export default function QuotationForm() {
     }
   }, [navClientId, clients, id, duplicateFrom]);
 
+  // CONVERTIDA DESDE UNA CONSULTA (05-09, doc 12): el tipo, la fecha
+  // tentativa y las cantidades llegan puestos — de ahí en adelante es
+  // el flujo normal.
+  const desdeConsulta = (location.state as any)?.desdeConsulta as
+    | {
+        event_type?: string | null;
+        event_date?: string | null;
+        people_count?: number | null;
+        children_count?: number | null;
+      }
+    | undefined;
+  useEffect(() => {
+    if (id || duplicateFrom || !desdeConsulta) return;
+    setFormData((prev) => ({
+      ...prev,
+      ...(desdeConsulta.event_type
+        ? { event_type: desdeConsulta.event_type as EventType }
+        : {}),
+      ...(desdeConsulta.event_date
+        ? { event_date: desdeConsulta.event_date.slice(0, 10) as any }
+        : {}),
+      ...(desdeConsulta.people_count
+        ? { people_count: desdeConsulta.people_count }
+        : {}),
+      ...(desdeConsulta.children_count
+        ? { children_count: desdeConsulta.children_count }
+        : {}),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Obtener categorías únicas de productos
     const categories = [

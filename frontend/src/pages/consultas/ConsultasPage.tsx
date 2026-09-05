@@ -97,7 +97,23 @@ export default function ConsultasPage() {
     onSuccess: (r) => {
       toast.success("Cliente listo: se abre el cotizador con él puesto.");
       refrescar();
-      navigate("/quotation-form", { state: { clientId: r.client_id } });
+      // El cliente puede haber NACIDO recién: sin esto, el selector
+      // del cotizador lo busca en una lista vieja y queda vacío.
+      void qc.invalidateQueries({ queryKey: ["clients"] });
+      navigate("/quotation-form", {
+        state: {
+          clientId: r.client_id,
+          // La consulta viaja completa: tipo, fecha tentativa y
+          // cantidades llegan precargados al cotizador (Felipe, 05-09:
+          // "no trajo la fecha y tampoco el nombre del cliente").
+          desdeConsulta: {
+            event_type: r.consulta.event_type,
+            event_date: r.consulta.event_date,
+            people_count: r.consulta.people_count,
+            children_count: r.consulta.children_count,
+          },
+        },
+      });
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
