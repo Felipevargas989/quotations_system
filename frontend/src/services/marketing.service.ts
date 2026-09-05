@@ -37,8 +37,11 @@ export interface CampanaMarketing {
   audiencia_ref: string | null;
   tipos_cliente: string[] | null;
   filtro: FiltroSegmento | null;
-  estado: "borrador" | "enviada";
+  estado: "borrador" | "programada" | "enviada";
   prueba_enviada_at: string | null;
+  /** Programar envío (migración 103): para cuándo y quién programó. */
+  programada_para: string | null;
+  programada_por: string | null;
   enviada_at: string | null;
   total_destinatarios: number | null;
   reenviada_con_asunto: string | null;
@@ -290,3 +293,32 @@ export const enviarCampana = async (id: number) =>
     "POST",
     {},
   )) as { enviados: number; fallidos: number };
+
+// ---- Programar envío (04-09, capítulo "Programar envío") ----
+
+export const programarCampana = async (id: number, cuando: string) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}/programar`,
+    "POST",
+    { cuando },
+  )) as CampanaMarketing;
+
+export const cancelarProgramacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}/programar`,
+    "DELETE",
+  )) as CampanaMarketing;
+
+/** La recomendación de horario por audiencia: dato propio si hay
+ *  historial (≥30 aperturas), si no los estudios según su público. */
+export const recomendacionHorario = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.MARKETING}/campanas/${String(id)}/recomendacion-horario`,
+    "GET",
+  )) as {
+    rotulo: string;
+    publico: "oficina" | "casa";
+    fuente: "datos" | "estudios";
+    texto: string;
+  }[];
+
