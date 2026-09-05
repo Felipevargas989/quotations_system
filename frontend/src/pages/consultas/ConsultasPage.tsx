@@ -26,10 +26,10 @@ import {
   type Consulta,
 } from "../../services/consultas.service";
 import {
-  cambiarEntradaEventType,
+  actualizarEventType,
   createEventType,
   deleteEventType,
-  eventTypesQueryOptions,
+  getEventTypes,
   type TipoDeEvento,
 } from "../../services/eventTypes.service";
 import { uploadConsultaBrochure } from "../../services/storage.service";
@@ -339,10 +339,13 @@ export default function ConsultasPage() {
 }
 
 /** EL ADMINISTRADOR DE TIPOS DE EVENTO (segunda vuelta de Felipe,
- *  05-09): el catálogo dejó de ser lista fija. Acá se agrega y
- *  elimina (solo sin uso, "como siempre"), y cada tipo declara su
- *  ENTRADA — cotización directa, o consulta (el embudo). OJO: tipo de
- *  CLIENTE (quién compra, vive en Clientes) y tipo de EVENTO (qué
+ *  05-09): el catálogo dejó de ser lista fija. Acá se agrega, se
+ *  INACTIVA cuando está en uso (eliminar solo sin uso, "como
+ *  siempre") y cada tipo declara su ENTRADA — cotización directa, o
+ *  consulta (el embudo). SIN respaldo silencioso: esta pantalla
+ *  administra el catálogo real o dice que no pudo cargarlo — un
+ *  respaldo con ids falsos hacía fallar el switch (05-09). OJO: tipo
+ *  de CLIENTE (quién compra, vive en Clientes) y tipo de EVENTO (qué
  *  celebran) son ejes separados. */
 function ConfiguracionDelEmbudo({
   configs,
@@ -354,10 +357,19 @@ function ConfiguracionDelEmbudo({
   }[];
 }) {
   const qc = useQueryClient();
-  const { data: tipos = [] } = useQuery(eventTypesQueryOptions);
+  const {
+    data: tipos = [],
+    isError,
+    isLoading,
+  } = useQuery({
+    queryKey: ["eventTypes", "admin"],
+    queryFn: getEventTypes,
+  });
   const [nuevo, setNuevo] = useState("");
-  const refrescarTipos = () =>
+  const [abierto, setAbierto] = useState<number | null>(null);
+  const refrescarTipos = () => {
     void qc.invalidateQueries({ queryKey: ["eventTypes"] });
+  };
 
   const crear = useMutation({
     mutationFn: (name: string) => createEventType(name),
@@ -369,14 +381,24 @@ function ConfiguracionDelEmbudo({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  if (isError) {
+    return (
+      <p className="text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2.5">
+        No se pudo cargar el catálogo de tipos de evento. Recarga la
+        página; si sigue, avísale a Felipe.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
         Cada tipo declara cómo <strong>entra</strong> desde el formulario
         público: <strong>Cotización</strong> (directa, como siempre) o{" "}
         <strong>Consulta</strong> (queda en la bandeja y recibe el correo
-        con brochure al tiro). Eliminar solo se puede sin uso. Ojo: esto
-        es el <strong>qué celebran</strong> — los tipos de cliente (quién
+        con brochure al tiro). Un tipo en uso no se elimina: se{" "}
+        <strong>inactiva</strong> y deja de ofrecerse. Ojo: esto es el{" "}
+        <strong>qué celebran</strong> — los tipos de cliente (quién
         compra) viven en la página Clientes.
       </p>
 
@@ -401,26 +423,62 @@ function ConfiguracionDelEmbudo({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {tipos.map((tipo) => (
-          <TarjetaDeTipo
-            key={tipo.id}
-            tipo={tipo}
-            config={configs.find((c) => c.event_type === tipo.name) ?? null}
-            onCambio={() =>
-              void qc.invalidateQueries({ queryKey: ["consultas", "config"] })
-            }
-            onCambioDeTipos={refrescarTipos}
-          />
-        ))}
+      {/* EN COLUMNAS (Felipe, 05-09: "ordena todo en columnas"): una
+          tabla alineada, no tarjetas de anchos dispares. La fila de un
+          tipo consulta se expande para configurar su correo. */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
+              <th className="px-3 py-2.5">Tipo de evento</th>
+              <th className="px-3 py-2.5">Entra como</th>
+              <th className="px-3 py-2.5">Correo del embudo</th>
+              <th className="px-3 py-2.5 text-center">Estado</th>
+              <th className="px-3 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {tipos.map((tipo) => (
+              <FilaDeTipo
+                key={tipo.id}
+                tipo={tipo}
+                config={
+                  configs.find((c) => c.event_type === tipo.name) ?? null
+                }
+                abierto={abierto === tipo.id}
+                onAbrir={() =>
+                  setAbierto(abierto === tipo.id ? null : tipo.id)
+                }
+                onCambio={() =>
+                  void qc.invalidateQueries({
+                    queryKey: ["consultas", "config"],
+                  })
+                }
+                onCambioDeTipos={refrescarTipos}
+              />
+            ))}
+            {tipos.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-3 py-8 text-center text-sm text-gray-400"
+                >
+                  {isLoading ? "Cargando…" : "Sin tipos de evento."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function TarjetaDeTipo({
+function FilaDeTipo({
   tipo,
   config,
+  abierto,
+  onAbrir,
   onCambio,
   onCambioDeTipos,
 }: {
@@ -429,19 +487,20 @@ function TarjetaDeTipo({
     texto: string | null;
     brochures: Brochure[];
   } | null;
+  readonly abierto: boolean;
+  readonly onAbrir: () => void;
   readonly onCambio: () => void;
   readonly onCambioDeTipos: () => void;
 }) {
-  const [texto, setTexto] = useState(config?.texto ?? "");
-  const [subiendo, setSubiendo] = useState(false);
   const [borrando, setBorrando] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const brochures = config?.brochures ?? [];
   const esConsulta = tipo.entrada === "consulta";
 
-  const cambiarEntrada = useMutation({
-    mutationFn: (entrada: "cotizacion" | "consulta") =>
-      cambiarEntradaEventType(tipo.id, entrada),
+  const actualizar = useMutation({
+    mutationFn: (cambios: {
+      entrada?: "cotizacion" | "consulta";
+      activo?: boolean;
+    }) => actualizarEventType(tipo.id, cambios),
     onSuccess: onCambioDeTipos,
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
@@ -456,6 +515,138 @@ function TarjetaDeTipo({
       toast.error(humanizeApiError(e));
     },
   });
+
+  return (
+    <>
+      <tr
+        className={`border-b border-gray-100 ${
+          tipo.activo ? "" : "opacity-50"
+        }`}
+      >
+        <td className="px-3 py-2.5 font-medium text-gray-900">{tipo.name}</td>
+        <td className="px-3 py-2.5">
+          <span className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() =>
+                !actualizar.isPending &&
+                actualizar.mutate({ entrada: "cotizacion" })
+              }
+              className={`px-2 py-1 ${
+                !esConsulta
+                  ? "bg-gray-900 text-white"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              Cotización
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                !actualizar.isPending &&
+                actualizar.mutate({ entrada: "consulta" })
+              }
+              className={`px-2 py-1 ${
+                esConsulta
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              Consulta
+            </button>
+          </span>
+        </td>
+        <td className="px-3 py-2.5">
+          {esConsulta ? (
+            <button
+              type="button"
+              onClick={onAbrir}
+              className={`text-xs px-2 py-1 rounded-lg border ${
+                brochures.length === 0
+                  ? "bg-amber-50 text-amber-800 border-amber-300"
+                  : "text-gray-600 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {brochures.length === 0
+                ? "⚠ sin brochure — configurar"
+                : `${String(brochures.length)} PDF${
+                    config?.texto ? " · texto propio" : ""
+                  } — ${abierto ? "cerrar" : "editar"}`}
+            </button>
+          ) : (
+            <span className="text-xs text-gray-300">—</span>
+          )}
+        </td>
+        <td className="px-3 py-2.5 text-center">
+          <button
+            type="button"
+            onClick={() =>
+              !actualizar.isPending &&
+              actualizar.mutate({ activo: !tipo.activo })
+            }
+            title={
+              tipo.activo
+                ? "Inactivar: deja de ofrecerse en los formularios"
+                : "Reactivar"
+            }
+            className={`text-xs px-2 py-0.5 rounded-full border ${
+              tipo.activo
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-gray-100 text-gray-500 border-gray-300"
+            }`}
+          >
+            {tipo.activo ? "Activo" : "Inactivo"}
+          </button>
+        </td>
+        <td className="px-3 py-2.5 text-right">
+          {borrando ? (
+            <ConfirmInline
+              question={`¿Eliminar "${tipo.name}"? Solo se puede sin uso; si está en uso, inactívalo.`}
+              yesLabel="Sí, eliminar"
+              onYes={() => eliminar.mutate()}
+              onNo={() => setBorrando(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setBorrando(true)}
+              title="Eliminar este tipo (solo sin uso)"
+              className="p-1 text-gray-300 hover:text-red-600 rounded"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </td>
+      </tr>
+      {abierto && esConsulta && (
+        <tr className="border-b border-gray-100 bg-gray-50/60">
+          <td colSpan={5} className="px-4 py-3">
+            <PanelDeCorreo tipo={tipo} config={config} onCambio={onCambio} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/** El correo del embudo de UN tipo: sus brochures (hasta 2 PDF) y el
+ *  texto (vacío = el de la casa). */
+function PanelDeCorreo({
+  tipo,
+  config,
+  onCambio,
+}: {
+  readonly tipo: TipoDeEvento;
+  readonly config: {
+    texto: string | null;
+    brochures: Brochure[];
+  } | null;
+  readonly onCambio: () => void;
+}) {
+  const [texto, setTexto] = useState(config?.texto ?? "");
+  const [subiendo, setSubiendo] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const brochures = config?.brochures ?? [];
 
   const guardar = useMutation({
     mutationFn: (cambios: { texto?: string | null; brochures?: Brochure[] }) =>
@@ -491,67 +682,15 @@ function TarjetaDeTipo({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        <h3 className="font-semibold text-gray-900">{tipo.name}</h3>
-        {/* La ENTRADA: dos botones, uno prendido. */}
-        <span className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
-          <button
-            type="button"
-            onClick={() => !cambiarEntrada.isPending && cambiarEntrada.mutate("cotizacion")}
-            className={`px-2 py-1 ${
-              !esConsulta
-                ? "bg-gray-900 text-white"
-                : "text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            Cotización
-          </button>
-          <button
-            type="button"
-            onClick={() => !cambiarEntrada.isPending && cambiarEntrada.mutate("consulta")}
-            className={`px-2 py-1 ${
-              esConsulta
-                ? "bg-blue-600 text-white"
-                : "text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            Consulta
-          </button>
-        </span>
-        <span className="flex-1" />
-        {borrando ? (
-          <ConfirmInline
-            question={`¿Eliminar "${tipo.name}"? Solo se puede si no está en uso.`}
-            yesLabel="Sí, eliminar"
-            onYes={() => eliminar.mutate()}
-            onNo={() => setBorrando(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setBorrando(true)}
-            title="Eliminar este tipo (solo sin uso)"
-            className="p-1 text-gray-300 hover:text-red-600 rounded"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-      {esConsulta && brochures.length === 0 && (
-        <p className="text-xs bg-amber-50 text-amber-800 rounded-lg px-2.5 py-1.5">
-          Sin brochure: el correo automático saldrá solo con el texto, sin
-          adjunto.
-        </p>
-      )}
-      {esConsulta && (
-        <>
-
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-1.5">
+        <p className="text-xs font-medium text-gray-600">
+          Brochures adjuntos (hasta 2 PDF)
+        </p>
         {brochures.map((b) => (
           <div
             key={b.path}
-            className="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-2.5 py-1.5"
+            className="flex items-center gap-2 text-sm bg-white border border-gray-200 rounded-lg px-2.5 py-1.5"
           >
             <FileText className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="flex-1 truncate text-gray-700">{b.nombre}</span>
@@ -592,13 +731,13 @@ function TarjetaDeTipo({
           </>
         )}
       </div>
-
       <div className="space-y-1">
+        <p className="text-xs font-medium text-gray-600">Texto del correo</p>
         <textarea
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          rows={4}
-          placeholder="Texto del correo (vacío = el de la casa). Usa {nombre} para saludar."
+          rows={5}
+          placeholder="Vacío = el texto de la casa. Usa {nombre} para saludar."
           className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm"
           aria-label={`Texto del correo de ${tipo.name}`}
         />
@@ -613,8 +752,6 @@ function TarjetaDeTipo({
           </button>
         )}
       </div>
-        </>
-      )}
     </div>
   );
 }

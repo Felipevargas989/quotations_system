@@ -2482,7 +2482,7 @@ export default function QuotationForm() {
                   Tipo de Evento *
                 </label>
                 <SelectWithSearch
-                  options={tiposDeEvento.map((t) => t.name).map((type) => ({
+                  options={tiposDeEvento.filter((t) => t.activo).map((t) => t.name).map((type) => ({
                     value: type,
                     label: type,
                   }))}

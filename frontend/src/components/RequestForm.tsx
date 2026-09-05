@@ -86,7 +86,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   // El catálogo VIVO de tipos de evento (05-09, doc 12): ya no es
   // lista fija — se administra en la página Consultas.
   const { data: catalogoTipos = [] } = useQuery(eventTypesQueryOptions);
-  const eventTypes = catalogoTipos.map((t) => t.name);
+  const eventTypes = catalogoTipos.filter((t) => t.activo).map((t) => t.name);
 
   useEffect(() => {
     // (Clientes y tipos los carga React Query automáticamente.)

@@ -12,6 +12,8 @@ export interface TipoDeEvento {
   id: number;
   name: string;
   entrada: "cotizacion" | "consulta";
+  /** Un tipo en uso no se elimina: se inactiva y deja de ofrecerse. */
+  activo: boolean;
   sort_order: number | null;
 }
 
@@ -31,6 +33,7 @@ export const eventTypesQueryOptions = {
         id: -(i + 1),
         name,
         entrada: "cotizacion" as const,
+        activo: true,
         sort_order: i,
       }));
     }
@@ -51,13 +54,15 @@ export const createEventType = async (name: string) =>
     name,
   })) as TipoDeEvento;
 
-export const cambiarEntradaEventType = async (
+export const actualizarEventType = async (
   id: number,
-  entrada: "cotizacion" | "consulta",
+  cambios: { entrada?: "cotizacion" | "consulta"; activo?: boolean },
 ) =>
-  (await apiRequest(`${API_ROUTES.EVENT_TYPES}/${String(id)}`, "PATCH", {
-    entrada,
-  })) as TipoDeEvento;
+  (await apiRequest(
+    `${API_ROUTES.EVENT_TYPES}/${String(id)}`,
+    "PATCH",
+    cambios,
+  )) as TipoDeEvento;
 
 export const deleteEventType = async (id: number) =>
   (await apiRequest(
