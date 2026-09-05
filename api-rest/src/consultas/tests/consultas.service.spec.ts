@@ -6,6 +6,7 @@ jest.mock('resend', () => ({
   })),
 }));
 
+import type { ClientContactsRepository } from 'src/clients/client-contacts.controller';
 import type { ClientsService } from 'src/clients/clients.service';
 import type { CompaniesRepository } from 'src/companies/companies.repository';
 import type { ConsultasRepository } from '../consultas.repository';
@@ -52,6 +53,10 @@ const armar = (sobre: {
   const companies = {
     findOne: jest.fn().mockResolvedValue({ data: { name: 'Eventia' } }),
   };
+  const contactos = {
+    findByClient: jest.fn().mockResolvedValue([]),
+    create: jest.fn().mockResolvedValue({}),
+  };
   const tipos = {
     entradaDe: jest.fn().mockResolvedValue(sobre.entrada ?? 'consulta'),
   };
@@ -61,11 +66,12 @@ const armar = (sobre: {
     repo as unknown as ConsultasRepository,
     tipos as unknown as EventTypesService,
     clients as unknown as ClientsService,
+    contactos as unknown as ClientContactsRepository,
     companies as unknown as CompaniesRepository,
     config as never,
     logger as never,
   );
-  return { service, repo, clients };
+  return { service, repo, clients, contactos };
 };
 
 const DATOS = {
@@ -149,6 +155,34 @@ describe('el embudo de consultas', () => {
     const r2 = await yaConvertida.service.convertir(7, 1);
     expect(r2.client_id).toBe('cli-1');
     expect(yaConvertida.clients.findMatch).not.toHaveBeenCalled();
+  });
+
+  it('cliente existente: el consultante queda como persona de contacto', async () => {
+    const consulta = {
+      id: 7,
+      estado: 'respondida',
+      client_id: null,
+      name: 'María',
+      email: 'maria@x.cl',
+      phone: '+569',
+      client_type: 'Particulares',
+    };
+    const { service, contactos } = armar({
+      repo: { una: jest.fn().mockResolvedValue(consulta) },
+      clients: { findMatch: jest.fn().mockResolvedValue({ id: 'cli-1' }) },
+    });
+    await service.convertir(7, 1);
+    expect(contactos.create).toHaveBeenCalled();
+
+    const yaConContacto = armar({
+      repo: { una: jest.fn().mockResolvedValue(consulta) },
+      clients: { findMatch: jest.fn().mockResolvedValue({ id: 'cli-1' }) },
+    });
+    yaConContacto.contactos.findByClient.mockResolvedValue([
+      { email: 'MARIA@x.cl' },
+    ]);
+    await yaConContacto.service.convertir(7, 1);
+    expect(yaConContacto.contactos.create).not.toHaveBeenCalled();
   });
 
   it('una consulta convertida no se descarta', async () => {

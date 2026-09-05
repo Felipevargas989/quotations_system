@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
+import { ClientContactsRepository } from 'src/clients/client-contacts.controller';
 import { ClientsService } from 'src/clients/clients.service';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { escaparHtml } from 'src/email/templates/utils';
@@ -77,6 +78,7 @@ export class ConsultasService {
     private readonly repo: ConsultasRepository,
     private readonly tipos: EventTypesService,
     private readonly clients: ClientsService,
+    private readonly contactos: ClientContactsRepository,
     private readonly companies: CompaniesRepository,
     private readonly config: ConfigService,
     private readonly logger: PinoLogger,
@@ -233,12 +235,44 @@ export class ConsultasService {
     const c = await this.repo.una(id, companyId);
     if (!c) throw new NotFoundException('No existe esa consulta');
     if (c.estado === 'convertida' && c.client_id) {
-      return { consulta: c, client_id: c.client_id };
+      return { consulta: c, client_id: c.client_id, contact_name: c.name };
     }
     const existente = await this.clients.findMatch(companyId, c.email, c.phone);
     let clientId: string;
     if (existente) {
       clientId = existente.id;
+      // EL CONSULTANTE QUEDA COMO PERSONA DE CONTACTO (Felipe, 05-09:
+      // "persona de contacto no me trajo a nadie"). El cliente NUEVO
+      // nace con su persona principal (garantía del 31-07); acá se
+      // cubre el cliente EXISTENTE: si el correo no está entre sus
+      // contactos, se agrega — sin duplicar y sin tocar al principal.
+      try {
+        const contactos = await this.contactos.findByClient(
+          companyId,
+          clientId,
+        );
+        const correo = c.email.trim().toLowerCase();
+        const yaEsta = (contactos as { email?: string | null }[]).some(
+          (ct) => (ct.email ?? '').trim().toLowerCase() === correo,
+        );
+        if (!yaEsta) {
+          await this.contactos.create(companyId, {
+            client_id: clientId,
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            is_primary: false,
+          } as never);
+        }
+      } catch (e) {
+        // Mejor esfuerzo, como la garantía de nacimiento: la persona
+        // se puede completar a mano si esto falla.
+        this.logger.error(
+          `convertir ${id}: no se pudo asegurar el contacto: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
     } else {
       const nuevo = await this.clients.create(
         {
@@ -258,7 +292,9 @@ export class ConsultasService {
       client_id: clientId,
     });
     this.logger.info(`consulta ${id} convertida: cliente ${clientId}`);
-    return { consulta: actualizada, client_id: clientId };
+    // contact_name viaja para que el cotizador preseleccione a la
+    // persona (el motor la vincula al guardar vía resolveContactId).
+    return { consulta: actualizada, client_id: clientId, contact_name: c.name };
   }
 
   async descartar(id: number, companyId: number) {

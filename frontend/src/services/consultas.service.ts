@@ -58,7 +58,7 @@ export const convertirConsulta = async (id: number) =>
     `${API_ROUTES.CONSULTAS}/${String(id)}/convertir`,
     "POST",
     {},
-  )) as { consulta: Consulta; client_id: string };
+  )) as { consulta: Consulta; client_id: string; contact_name: string };
 
 export const descartarConsulta = async (id: number) =>
   (await apiRequest(

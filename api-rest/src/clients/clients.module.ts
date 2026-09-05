@@ -16,6 +16,8 @@ import { ClientsService } from './clients.service';
     UsersRepository,
     ClientContactsRepository,
   ],
-  exports: [ClientsService],
+  // ClientContactsRepository también sale: el embudo de consultas
+  // asegura al consultante como persona de contacto al convertir.
+  exports: [ClientsService, ClientContactsRepository],
 })
 export class ClientsModule {}

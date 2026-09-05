@@ -675,6 +675,7 @@ export default function QuotationForm() {
         event_date?: string | null;
         people_count?: number | null;
         children_count?: number | null;
+        contact_name?: string | null;
       }
     | undefined;
   useEffect(() => {
@@ -692,6 +693,9 @@ export default function QuotationForm() {
         : {}),
       ...(desdeConsulta.children_count
         ? { children_count: desdeConsulta.children_count }
+        : {}),
+      ...(desdeConsulta.contact_name
+        ? { contact_name: desdeConsulta.contact_name }
         : {}),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps

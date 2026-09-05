@@ -111,6 +111,7 @@ export default function ConsultasPage() {
             event_date: r.consulta.event_date,
             people_count: r.consulta.people_count,
             children_count: r.consulta.children_count,
+            contact_name: r.contact_name,
           },
         },
       });
