@@ -200,8 +200,14 @@ export class ConsultasService {
     const { data, error: errMarca } = await this.companies.findOne(companyId);
     if (errMarca && errMarca.code !== 'PGRST116') throw errMarca;
     const marca = data ? marcaDesdeFila(data) : marcaDesdeFila({});
+    // Segundo cinturón del candado de dueño (el primero vive en
+    // guardarConfig): jamás descargar una ruta que no sea de la
+    // empresa, aunque la config venga de datos históricos.
+    const propios = (config?.brochures ?? []).filter((b: Brochure) =>
+      b.path.startsWith(`c${String(companyId)}/`),
+    );
     const attachments = await Promise.all(
-      (config?.brochures ?? []).map(async (b: Brochure) => ({
+      propios.map(async (b: Brochure) => ({
         filename: b.nombre,
         content: (await this.repo.descargarBrochure(b.path)).toString('base64'),
       })),
@@ -249,6 +255,18 @@ export class ConsultasService {
   ) {
     if ((cambios.brochures ?? []).length > 2) {
       throw new BadRequestException('Máximo 2 brochures por tipo de evento');
+    }
+    // Candado de dueño (revisión 06-09): el path viaja como texto libre
+    // en el body y el balde es COMPARTIDO entre empresas — sin este
+    // prefijo, una ruta ajena haría que el correo del embudo adjuntara
+    // archivos de otra empresa (misma regla que verificarDueno en
+    // storage.service).
+    for (const b of cambios.brochures ?? []) {
+      if (!b.path.startsWith(`c${String(companyId)}/`)) {
+        throw new BadRequestException(
+          'El brochure no pertenece a esta empresa',
+        );
+      }
     }
     return this.repo.guardarConfig(companyId, eventType, cambios);
   }

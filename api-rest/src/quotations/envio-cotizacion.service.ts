@@ -134,8 +134,14 @@ export class EnvioCotizacionService {
       await page.waitForSelector('.qv-hoja', { timeout: 15_000 });
       // Y la letra de la casa (Inter, en la pieza compartida) debe
       // estar descargada antes de imprimir — sin esto el PDF puede
-      // salir con la fuente de respaldo del servidor.
-      await page.evaluate(() => document.fonts.ready);
+      // salir con la fuente de respaldo del servidor. CON TOPE
+      // (revisión 06-09): si el CDN de fuentes se pega, mejor un PDF
+      // con la letra de respaldo a los 10 s que un envío colgado para
+      // siempre — era la única espera sin límite del método.
+      await Promise.race([
+        page.evaluate(() => document.fonts.ready),
+        new Promise((resolve) => setTimeout(resolve, 10_000)),
+      ]);
       const pdf = await page.pdf({
         format: 'a4',
         printBackground: true,
