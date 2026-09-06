@@ -138,9 +138,9 @@ describe('el correo tipo', () => {
     // Contra el "..." de Gmail (05-09): asunto propio para el reenvío
     // y un sello con fecha y hora que hace único cada correo.
     const enviadoEl = new Date('2026-09-06T17:32:00Z'); // 14:32 en Chile
-    const r = correoDeCotizacion(base(), MARCA, 'Ana', true, enviadoEl);
+    const r = correoDeCotizacion(base(), MARCA, 'Ana', 2, enviadoEl);
     expect(r.asunto).toBe(
-      'Cotización actualizada Matrimonio Colegio San Pedro — sábado 14 de marzo de 2026',
+      'Cotización actualizada Matrimonio Colegio San Pedro — sábado 14 de marzo de 2026 (v2)',
     );
     expect(r.cuerpoHtml).toContain('Hemos actualizado tu cotización');
     expect(r.cuerpoHtml).toContain(

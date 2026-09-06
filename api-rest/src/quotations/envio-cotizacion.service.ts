@@ -166,20 +166,22 @@ export class EnvioCotizacionService {
     if (errMarca && errMarca.code !== 'PGRST116') throw errMarca;
     const marca = marcaDesdeFila(filaEmpresa || {});
 
-    // ¿Segunda vez? La bitácora es la memoria: si ya hay una anotación
-    // de envío, el correo abre con "hemos actualizado tu cotización".
+    // ¿Qué versión es esta? La bitácora es la memoria: los envíos
+    // previos + 1. Del 2 en adelante el correo abre con "hemos
+    // actualizado tu cotización" y el asunto lleva "(vN)" — único por
+    // versión, o Gmail enhebra los reenvíos y los pliega con "...".
     // Best effort: si la bitácora no responde, sale como primera vez.
-    let esReenvio = false;
+    let numeroDeVersion = 1;
     try {
       const previos = await this.followups.findByQuotation(
         user.company_id,
         quotationId,
       );
-      esReenvio = (previos || []).some(
+      numeroDeVersion += (previos || []).filter(
         (f: { tipo?: string | null; note?: string | null }) =>
           f.tipo === 'correo' &&
           (f.note || '').startsWith('Cotización enviada por correo'),
-      );
+      ).length;
     } catch (e) {
       this.logger.error(`no se pudo leer la bitácora: ${String(e)}`);
     }
@@ -192,7 +194,7 @@ export class EnvioCotizacionService {
       q,
       marca,
       destino.nombre,
-      esReenvio,
+      numeroDeVersion,
     );
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
@@ -219,7 +221,9 @@ export class EnvioCotizacionService {
     try {
       await this.followups.create(user, {
         quotation_id: quotationId,
-        note: `Cotización enviada por correo a ${destino.correo as string}, con el PDF adjunto.`,
+        note: `Cotización enviada por correo a ${destino.correo as string}${
+          numeroDeVersion > 1 ? ` (versión ${String(numeroDeVersion)})` : ''
+        }, con el PDF adjunto.`,
         tipo: 'correo',
       });
     } catch (e) {
