@@ -15,9 +15,14 @@ import { QuotationStatus } from "../types/quotations.types";
 export default function AvisoPlanDePagos({
   quotationId,
   estado,
+  conGuardadoManual = false,
 }: {
   readonly quotationId?: string;
   readonly estado?: QuotationStatus | string;
+  /** Pestaña Servicios (Felipe, 06-09): con plan vivo el guardado
+   *  automático se apaga y el aviso lo dice — nada se confirma sin
+   *  apretar el botón Guardar. */
+  readonly conGuardadoManual?: boolean;
 }) {
   const aceptada = estado === QuotationStatus.ACEPTADA;
   const { data } = useQuery({
@@ -35,6 +40,9 @@ export default function AvisoPlanDePagos({
         ⚠ Este evento ya tiene plan de pagos
       </p>
       <p className="text-xs text-amber-700 mt-0.5">
+        {conGuardadoManual
+          ? "El guardado automático está apagado en esta pestaña: nada cambia hasta que aprietes «Guardar cambios». "
+          : ""}
         Si cambias el total y aprietas Guardar, el plan se ajusta solo: la
         diferencia se descuenta de las cuotas pendientes (desde la última), y
         si lo abonado supera el total nuevo se genera un reembolso; si el

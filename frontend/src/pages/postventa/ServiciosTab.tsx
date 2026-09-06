@@ -11,6 +11,8 @@ import { ChevronDown, ChevronUp, X, Trash2, Lock } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import { updateQuotation } from "../../services/quotations.service";
+import { getPaymentsByQuotationId } from "../../services/payments.service";
+import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import { Quotation } from "../../types/quotations.types";
 import {
   AVISO_EVENTO_CONGELADO,
@@ -62,6 +64,23 @@ export default function ServiciosTab({
   // que manda a repetir algo que nunca va a funcionar (lo pilló la
   // revisión del 13-08).
   const congelado = esEventoCongelado(quote.quotation_status);
+  // Plan de pagos VIVO (caso 501, 06-09 — pedido de Felipe): con la
+  // cotización aceptada y cuotas creadas, cada guardado dispara la
+  // cascada del plan. El guardado AUTOMÁTICO queda apagado — los
+  // cambios se confirman solo con el botón Guardar — y el aviso
+  // ámbar lo anuncia. Misma queryKey que AvisoPlanDePagos: una sola
+  // consulta real.
+  const aceptadaTab = quote.quotation_status === "aceptada";
+  const pagosQuery = useQuery({
+    queryKey: ["payments", String(quote.id)],
+    queryFn: () => getPaymentsByQuotationId(String(quote.id)),
+    enabled: aceptadaTab,
+    staleTime: 30_000,
+  });
+  const planVivo =
+    aceptadaTab &&
+    (((pagosQuery.data as { data?: unknown[] } | undefined)?.data ?? [])
+      .length > 0);
 
   // Contadores de la cotización: total = adultos + niños (Cotizador 2.0).
   const initKids = Number(quote.children_count || 0);
@@ -869,6 +888,8 @@ export default function ServiciosTab({
     // tocar el estado evita el cartel "no se pudo guardar — reintenta",
     // que mandaba a repetir algo que el servidor nunca va a aceptar.
     if (congelado) return;
+    // Con plan de pagos vivo, el reloj no guarda solo: manda el botón.
+    if (planVivo) return;
     if (vueloRef.current) {
       pendienteRef.current = true;
       return;
@@ -1148,6 +1169,15 @@ export default function ServiciosTab({
         <div className="mb-4 rounded-lg border border-gray-300 bg-gray-50 p-3 text-xs text-gray-700">
           <span className="font-bold">Evento congelado</span>{" "}
           {AVISO_EVENTO_CONGELADO}
+        </div>
+      )}
+      {planVivo && (
+        <div className="mb-4">
+          <AvisoPlanDePagos
+            quotationId={String(quote.id)}
+            estado={quote.quotation_status}
+            conGuardadoManual
+          />
         </div>
       )}
       <div
