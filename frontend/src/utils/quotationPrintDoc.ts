@@ -65,6 +65,24 @@ type VarGroup = {
   }[];
 };
 
+// LA LETRA DE LA HOJA (05-09-2026, revisión de Felipe): la tipografía
+// viaja CON la pieza — Inter desde Google Fonts, idéntica en el visor,
+// el portal, el PDF del motor y cualquier computador. Antes cada
+// aparato ponía la suya (Helvetica en Mac, Liberation en el servidor)
+// y los documentos se veían distintos. Si la fuente se cambia, se
+// cambia AQUÍ y aplica a todos los mundos.
+const INTER_FONT_FACES = `
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 800; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; } 
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 800; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }`;
+
 export function buildQuotationPrintDoc(
   quotation: PrintQuotation,
   company: PrintCompany | null,
@@ -172,9 +190,17 @@ export function buildQuotationPrintDoc(
   })();
   const dayHeader = (n: number) =>
     `Día ${n} — ${fmtLarga(startMs + (n - 1) * 86400000)}`;
+  // Hora de CHILE fija (05-09-2026): created_at es un instante real, y
+  // sin zona cada aparato ponía la suya — el PDF del motor (reloj UTC)
+  // decía "30 de julio" donde la Mac decía "29 de julio".
   const emittedLabel = new Date(quotation.created_at).toLocaleDateString(
     "es-CL",
-    { day: "numeric", month: "long", year: "numeric" },
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "America/Santiago",
+    },
   );
 
   // ---------- Colores de marca ----------
@@ -208,12 +234,16 @@ export function buildQuotationPrintDoc(
     `Cotización N° ${quotation.quotation_number} · válida por 30 días`,
   );
   const css = `
-    .qv-hoja { background:#fff; padding:48px 56px; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
+    ${INTER_FONT_FACES}
+    .qv-hoja { background:#fff; padding:48px 56px; font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
     .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
     .qv-marca { display:flex; gap:14px; align-items:center; }
     .qv-logo { width:88px; height:88px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:32px; overflow:hidden; }
     .qv-logo img { width:100%; height:100%; object-fit:cover; }
-    .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
+    /* Peso EXPLÍCITO (Felipe, 05-09): sin él, el nombre dependía del
+       entorno — negrita del navegador en el visor, plano dentro de la
+       SPA (el reset de Tailwind) y por lo tanto en el PDF del motor. */
+    .qv-marca h1 { font-size:19px; font-weight:700; letter-spacing:.2px; margin:0; }
     .qv-folio { text-align:right; }
     .qv-folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
     .qv-folio .num { font-size:26px; font-weight:800; }
@@ -299,7 +329,7 @@ export function buildQuotationPrintDoc(
       margin: 12mm;
       @bottom-left {
         content: "${pieIzq}";
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
         font-size: 9.5px;
         color: #9ca3af;
         vertical-align: bottom;
@@ -307,7 +337,7 @@ export function buildQuotationPrintDoc(
       }
       @bottom-right {
         content: "${pieDer} · Página " counter(page) " de " counter(pages);
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
         font-size: 9.5px;
         color: #9ca3af;
         vertical-align: bottom;

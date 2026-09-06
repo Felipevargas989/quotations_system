@@ -34,6 +34,7 @@ import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
+import { listaBlancaDeHoja } from './hoja-publica';
 import { CreateQuotation } from './interfaces/quotations.interface';
 import { PortalReceiptsRepository } from './portal-receipts.controller';
 import { QuotationsRepository } from './quotations.repository';
@@ -749,22 +750,9 @@ export class QuotationsService {
       throw new NotFoundException();
     }
     return {
-      quotation: {
-        quotation_number: q.quotation_number,
-        people_count: q.people_count,
-        children_count: q.children_count,
-        event_type: q.event_type,
-        event_date: q.event_date,
-        event_end_date: q.event_end_date,
-        created_at: q.created_at,
-        total_amount: q.total_amount,
-        subtotal_amount: q.subtotal_amount,
-        tip_percentage: q.tip_percentage,
-        observations: q.observations,
-        contact_name: q.contact_name,
-        items: q.items,
-        clients: { name: q.clients?.name || cliente.name || '' },
-      },
+      // La lista blanca compartida con la hoja de impresión (doc 13):
+      // los costos internos jamás salen por aquí.
+      quotation: listaBlancaDeHoja(q, cliente.name),
       empresa: {
         name: cliente.companies.name,
         logo_url: cliente.companies.logo_url || null,

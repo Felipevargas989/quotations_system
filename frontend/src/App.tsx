@@ -94,6 +94,10 @@ const CustomerSatisfactionSurveyPublicPage = lazy(
 );
 // Portal del cliente (Fase 2a): página pública por enlace secreto.
 const PortalPage = lazy(() => import("./pages/portal/PortalPage.tsx"));
+// La hoja que imprime el navegador invisible del motor (doc 13).
+const ImprimirCotizacion = lazy(
+  () => import("./pages/quotations/ImprimirCotizacion.tsx"),
+);
 const CustomerSatisfactionSurveysPage = lazy(
   () => import("./pages/customerSatisfactionSurveys/index.tsx"),
 );
@@ -176,6 +180,12 @@ function App() {
 
             {/* Portal del cliente (enlace secreto, sin clave) */}
             <Route path="/portal/:token" element={<PortalPage />} />
+
+            {/* La hoja del PDF (token firmado de corta vida, doc 13) */}
+            <Route
+              path="/imprimir/:token"
+              element={<ImprimirCotizacion />}
+            />
 
             <Route path="/" element={<Layout />}>
               {/* Dashboard - Admin only */}

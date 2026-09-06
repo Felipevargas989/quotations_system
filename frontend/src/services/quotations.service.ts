@@ -148,3 +148,24 @@ export const checkConflictsWithExistingQuotations = async (
     error: response.error,
   };
 };
+
+// ---- Enviar cotización por correo (doc 13) ----
+
+/** El botón de la ficha: correo tipo + PDF del motor adjunto. */
+export const enviarCotizacionPorCorreo = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/enviar-correo`,
+    "POST",
+    {},
+  )) as { enviado_a: string };
+
+/** La hoja pública que imprime el navegador invisible del motor. */
+export const getHojaParaImprimir = async (token: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/imprimir/${token}`,
+    "GET",
+  )) as {
+    quotation: import("../utils/quotationPrintDoc").PrintQuotation;
+    empresa: import("../utils/quotationPrintDoc").PrintCompany;
+    menu?: import("../utils/quotationPrintDoc").PrintMenu | null;
+  };

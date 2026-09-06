@@ -7,9 +7,11 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, FileText, Mail, Phone } from "lucide-react";
+import { ChevronDown, FileText, Mail, Phone, Send } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
+import ConfirmInline from "../../components/ConfirmInline";
+import { humanizeApiError } from "../../utils/apiErrors";
 import QuotationViewer from "../../components/QuotationViewer";
 import {
   Quotation,
@@ -18,6 +20,7 @@ import {
   QuotationWithClient,
 } from "../../types/quotations.types";
 import {
+  enviarCotizacionPorCorreo,
   getQuotationById,
   getQuotations,
   updateQuotation,
@@ -141,6 +144,27 @@ export default function NegocioPage() {
   const contacto = fila ? contactoDe(fila) : { name: "", phone: "", email: "" };
   const [verPdf, setVerPdf] = useState(false);
 
+  // Enviar cotización (doc 13): correo tipo + PDF del motor. El
+  // portero del envío vive en el motor; aquí solo se confirma y se
+  // muestra su veredicto.
+  const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  const enviarPorCorreo = async () => {
+    if (!fila) return;
+    setEnviandoCorreo(true);
+    try {
+      const r = await enviarCotizacionPorCorreo(fila.id);
+      toast.success(`Cotización enviada a ${r.enviado_a}.`);
+      // La bitácora ganó una anotación con el envío.
+      void queryClient.invalidateQueries({ queryKey: ["followups", id] });
+    } catch (e) {
+      toast.error(humanizeApiError(e));
+    } finally {
+      setEnviandoCorreo(false);
+      setConfirmandoEnvio(false);
+    }
+  };
+
   // Compartir: WhatsApp abre la conversación con el mandante con el
   // mensaje listo; correo abre el borrador en su aplicación.
   const telefonoWsp = contacto.phone.replace(/\D/g, "");
@@ -149,23 +173,9 @@ export default function NegocioPage() {
         `Hola ${contacto.name.split(" ")[0] || ""}, te escribo de ${company?.name || "Eventia"} por la cotización N°${fila?.quotation_number ?? ""}. ¿Conversamos?`,
       )}`
     : null;
-  // Outlook web y no `mailto:` (decisión de Felipe, 07-08). El mailto
-  // delega en la app de correo por omisión del sistema, y esa
-  // preferencia en macOS solo se cambia dentro de Mail.app —que exige
-  // configurarle una cuenta para dejarte llegar—. Media hora peleando
-  // con Apple para que el botón abriera Outlook; más barato apuntarle
-  // derecho.
-  //
-  // OJO si algún día hay clientes de verdad: esto le impone Outlook web
-  // a todos. Ahí habría que volverlo una opción por empresa
-  // (Configuración → "Abrir correos con: sistema / Outlook / Gmail").
-  const correoHref = contacto.email
-    ? `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(
-        contacto.email,
-      )}&subject=${encodeURIComponent(
-        `Cotización N°${fila?.quotation_number ?? ""} — ${company?.name || ""}`,
-      )}`
-    : null;
+  // El botón de Outlook vivió aquí hasta el 05-09-2026: con "Enviar
+  // cotización" (doc 13) Felipe lo dio de baja — el correo artesanal
+  // sigue posible copiando el correo del mandante de más abajo.
 
   // Copiar teléfono/correo del mandante, igual que en la ficha del
   // cliente: el dato en azul, un clic lo copia y confirma con un ✓.
@@ -437,19 +447,28 @@ export default function NegocioPage() {
                 <IconoWhatsApp /> WhatsApp
               </a>
             )}
-            {correoHref && (
-              <a
-                href={correoHref}
-                // Pestaña nueva: con `mailto:` daba igual porque no
-                // navegaba, pero Outlook web SÍ es una dirección y sin
-                // esto se llevaba la ficha (07-08).
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
-                title="Escribir correo al mandante en Outlook"
+            {confirmandoEnvio ? (
+              <ConfirmInline
+                question={
+                  contacto.email
+                    ? `Se enviará el correo con el PDF adjunto a ${contacto.email}.`
+                    : "¿Enviar la cotización por correo?"
+                }
+                yesLabel="Sí, enviar"
+                tono="normal"
+                busy={enviandoCorreo}
+                onYes={() => void enviarPorCorreo()}
+                onNo={() => setConfirmandoEnvio(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoEnvio(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+                title="Enviar la cotización por correo, con el PDF adjunto"
               >
-                <Mail size={15} /> Correo
-              </a>
+                <Send size={15} /> Enviar cotización
+              </button>
             )}
             <button
               type="button"
