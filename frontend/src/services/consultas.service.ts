@@ -18,6 +18,9 @@ export interface Consulta {
   observations: string | null;
   estado: "respondida" | "convertida" | "descartada";
   correo_enviado: boolean;
+  /** La hora citada del brochure (entrada + 10 min, doc 12): el reloj
+   *  del motor lo despacha. NULL = ya salió o no corresponde. */
+  correo_programado_para: string | null;
   client_id: string | null;
   created_at: string;
 }

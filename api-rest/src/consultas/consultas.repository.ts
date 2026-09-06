@@ -31,6 +31,9 @@ export interface Consulta {
   observations: string | null;
   estado: 'respondida' | 'convertida' | 'descartada';
   correo_enviado: boolean;
+  /** La hora citada del correo automático (entrada + 10 min, doc 12).
+   *  NULL = nada pendiente: ya salió, o era repetida. */
+  correo_programado_para: string | null;
   client_id: string | null;
   created_at: string;
 }
@@ -127,6 +130,42 @@ export class ConsultasRepository {
       .single();
     if (error) throw error;
     return data as unknown as Consulta;
+  }
+
+  /** Las consultas cuya hora citada llegó (para el reloj; global, el
+   *  reloj es del sistema). Solo las de las últimas 24 horas: algo
+   *  más viejo que siga pendiente ya falló a la vista en el log y no
+   *  se insiste. */
+  async pendientesDeEnvio(ahoraIso: string) {
+    const hace24h = new Date(
+      new Date(ahoraIso).getTime() - 86_400_000,
+    ).toISOString();
+    const { data, error } = await this.supabase.client
+      .from('consultas')
+      .select('*')
+      .eq('correo_enviado', false)
+      .not('correo_programado_para', 'is', null)
+      .lte('correo_programado_para', ahoraIso)
+      .gte('created_at', hace24h)
+      .limit(20);
+    if (error) throw error;
+    return (data ?? []) as unknown as Consulta[];
+  }
+
+  /** Candado atómico del reloj (patrón de las campañas): limpia la
+   *  cita y devuelve si ESTE reloj se la llevó. Si el envío después
+   *  falla, queda visible como no-enviada — jamás reintentos
+   *  infinitos silenciosos. */
+  async tomarEnvio(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('consultas')
+      .update({ correo_programado_para: null })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .not('correo_programado_para', 'is', null)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length > 0;
   }
 
   /** ¿Este correo ya consultó este tipo hace poco? (regla de una vez) */

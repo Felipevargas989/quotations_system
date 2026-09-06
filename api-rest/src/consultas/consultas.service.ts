@@ -23,9 +23,10 @@ import { EventTypesService } from './event-types.service';
 /**
  * EL EMBUDO DE CONSULTAS (05-09, doc 12). Las consultas masivas
  * (matrimonio, paseo de curso, graduación) dejan de crear
- * cotizaciones: quedan acá, reciben el brochure por correo al tiro, y
- * solo las que CONTESTAN se convierten en cotización — con un clic
- * humano, nunca leyendo el buzón.
+ * cotizaciones: quedan acá, reciben el brochure por correo 10 minutos
+ * después (el reloj de consultas-cron; una respuesta instantánea
+ * delata al robot), y solo las que CONTESTAN se convierten en
+ * cotización — con un clic humano, nunca leyendo el buzón.
  *
  * El embudo se activa por configuración: un tipo de evento filtra
  * cuando tiene brochure(s) configurado(s). Sin brochure, el formulario
@@ -34,6 +35,10 @@ import { EventTypesService } from './event-types.service';
 
 /** Días sin repetir el brochure al mismo correo (regla de una vez). */
 const DIAS_SIN_REPETIR = 14;
+
+/** El delay de la respuesta automática (Felipe, 05-09): 10 minutos
+ *  entre que la consulta entra y el brochure sale. */
+export const RETRASO_DEL_CORREO_MS = 10 * 60_000;
 
 /** El texto de la casa: cálido, del día, invita a responder. Se usa
  *  cuando el tipo no tiene texto propio configurado. */
@@ -102,17 +107,15 @@ export class ConsultasService {
   }
 
   /**
-   * Registra la consulta y manda el brochure al tiro. Si el mismo
-   * correo ya consultó este tipo hace menos de 14 días, la consulta
-   * queda registrada igual (el rastro sirve) pero sin re-enviar — y
-   * si el correo falla, la consulta sobrevive con correo_enviado en
-   * false, visible en la lista para reintentar a mano.
+   * Registra la consulta y CITA el brochure para dentro de 10 minutos
+   * (el reloj de consultas-cron lo despacha; la config del tipo se
+   * relee recién al enviar). Si el mismo correo ya consultó este tipo
+   * hace menos de 14 días, la consulta queda registrada igual (el
+   * rastro sirve) pero sin cita — y si el envío del reloj falla, la
+   * consulta sobrevive con correo_enviado en false, visible en la
+   * lista.
    */
-  async registrar(
-    companyId: number,
-    datos: DatosDeConsulta,
-    config: ConfigDeConsulta | null,
-  ) {
+  async registrar(companyId: number, datos: DatosDeConsulta) {
     const desde = new Date(
       Date.now() - DIAS_SIN_REPETIR * 86_400_000,
     ).toISOString();
@@ -122,6 +125,9 @@ export class ConsultasService {
       datos.event_type,
       desde,
     );
+    // El delay del embudo (Felipe, 05-09: "un delay de 10 min para las
+    // respuestas automáticas"): la consulta queda CITADA y el reloj del
+    // motor la despacha — una respuesta instantánea delata al robot.
     const consulta = await this.repo.crear({
       company_id: companyId,
       name: datos.name,
@@ -136,28 +142,49 @@ export class ConsultasService {
       observations: datos.observations ?? null,
       estado: 'respondida',
       correo_enviado: false,
+      correo_programado_para: repetida
+        ? null
+        : new Date(Date.now() + RETRASO_DEL_CORREO_MS).toISOString(),
       client_id: null,
     });
-    if (!repetida) {
-      try {
-        await this.enviarBrochure(consulta, config, companyId);
-        await this.repo.actualizar(consulta.id, companyId, {
-          correo_enviado: true,
-        });
-        consulta.correo_enviado = true;
-      } catch (e) {
-        this.logger.error(
-          `consulta ${consulta.id}: el brochure no salió: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
-        );
-      }
-    } else {
+    if (repetida) {
       this.logger.info(
         `consulta ${consulta.id}: ${datos.email} ya recibió este brochure hace poco — sin reenvío`,
       );
     }
     return consulta;
+  }
+
+  /**
+   * El tick del reloj (consultas-cron): despacha las consultas cuya
+   * hora citada llegó. La config del tipo se relee AL ENVIAR — si en
+   * esos 10 minutos subieron un brochure nuevo, sale el bueno. El
+   * candado atómico garantiza un solo despacho; si el envío falla,
+   * queda visible como no-enviada con el error en el log (el patrón
+   * del reloj de campañas: jamás reintentos infinitos silenciosos).
+   */
+  async despacharPendientes() {
+    const pendientes = await this.repo.pendientesDeEnvio(
+      new Date().toISOString(),
+    );
+    for (const c of pendientes) {
+      const tomada = await this.repo.tomarEnvio(c.id, c.company_id);
+      if (!tomada) continue; // otro reloj se la llevó
+      try {
+        const config = await this.repo.config(c.company_id, c.event_type);
+        await this.enviarBrochure(c, config, c.company_id);
+        await this.repo.actualizar(c.id, c.company_id, {
+          correo_enviado: true,
+        });
+        this.logger.info(`consulta ${c.id}: brochure despachado por el reloj`);
+      } catch (e) {
+        this.logger.error(
+          `consulta ${c.id}: el brochure no salió: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
   }
 
   private async enviarBrochure(

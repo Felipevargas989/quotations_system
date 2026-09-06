@@ -57,6 +57,8 @@ const chipEstado = (c: Consulta) => {
     return "bg-blue-50 text-blue-700 border-blue-200";
   if (c.estado === "descartada")
     return "bg-gray-100 text-gray-500 border-gray-200";
+  if (!c.correo_enviado && c.correo_programado_para)
+    return "bg-blue-50 text-blue-700 border-blue-200";
   if (!c.correo_enviado) return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-emerald-50 text-emerald-700 border-emerald-200";
 };
@@ -64,6 +66,14 @@ const chipEstado = (c: Consulta) => {
 const textoEstado = (c: Consulta) => {
   if (c.estado === "convertida") return "Convertida";
   if (c.estado === "descartada") return "Descartada";
+  // El delay del embudo (doc 12): citado para dentro de 10 minutos.
+  if (!c.correo_enviado && c.correo_programado_para) {
+    const hora = new Date(c.correo_programado_para).toLocaleTimeString(
+      "es-CL",
+      { hour: "2-digit", minute: "2-digit", hour12: false },
+    );
+    return `Sale a las ${hora}`;
+  }
   if (!c.correo_enviado) return "Sin brochure";
   return "Respondida";
 };
@@ -266,7 +276,9 @@ export default function ConsultasPage() {
                         className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${chipEstado(c)}`}
                         title={
                           !c.correo_enviado && c.estado === "respondida"
-                            ? "El brochure no salió (o ya lo recibió hace poco)"
+                            ? c.correo_programado_para
+                              ? "El brochure está citado: el reloj lo despacha 10 minutos después de la consulta"
+                              : "El brochure no salió (o ya lo recibió hace poco)"
                             : undefined
                         }
                       >

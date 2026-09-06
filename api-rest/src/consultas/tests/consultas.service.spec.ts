@@ -42,6 +42,8 @@ const armar = (sobre: {
       ),
     consultaReciente: jest.fn().mockResolvedValue(false),
     descargarBrochure: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+    pendientesDeEnvio: jest.fn().mockResolvedValue([]),
+    tomarEnvio: jest.fn().mockResolvedValue(true),
     una: jest.fn(),
     ...sobre.repo,
   };
@@ -96,33 +98,73 @@ describe('el embudo de consultas', () => {
     });
   });
 
-  it('sin config el correo sale igual: texto de la casa, sin adjunto', async () => {
+  it('el delay del embudo: registrar CITA el correo a +10 min, no lo envía', async () => {
+    const antes = Date.now();
     const { service, repo } = armar({});
-    const c = await service.registrar(1, DATOS, null);
-    expect(c.correo_enviado).toBe(true);
+    const c = await service.registrar(1, DATOS);
+    expect(c.correo_enviado).toBe(false);
     expect(repo.descargarBrochure).not.toHaveBeenCalled();
+    const citado = new Date(c.correo_programado_para as string).getTime();
+    expect(citado).toBeGreaterThanOrEqual(antes + 9.9 * 60_000);
+    expect(citado).toBeLessThanOrEqual(Date.now() + 10.1 * 60_000);
   });
 
-  it('la regla de una vez: consulta repetida queda registrada SIN reenvío', async () => {
+  it('la regla de una vez: consulta repetida queda registrada SIN cita', async () => {
     const { service, repo } = armar({
       repo: { consultaReciente: jest.fn().mockResolvedValue(true) },
     });
-    const c = await service.registrar(1, DATOS, CONFIG);
+    const c = await service.registrar(1, DATOS);
     expect(c.correo_enviado).toBe(false);
+    expect(c.correo_programado_para).toBeNull();
     expect(repo.descargarBrochure).not.toHaveBeenCalled();
   });
 
-  it('si el correo falla, la consulta sobrevive con correo_enviado false', async () => {
+  const PENDIENTE = {
+    id: 7,
+    company_id: 1,
+    name: 'María Pérez',
+    email: 'maria@x.cl',
+    event_type: 'Matrimonios',
+    correo_enviado: false,
+    correo_programado_para: 'hace-rato',
+  };
+
+  it('el reloj despacha la cita: relee la config, envía y marca', async () => {
+    const { service, repo } = armar({
+      repo: { pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]) },
+    });
+    await service.despacharPendientes();
+    expect(repo.tomarEnvio).toHaveBeenCalledWith(7, 1);
+    expect(repo.config).toHaveBeenCalledWith(1, 'Matrimonios');
+    expect(repo.descargarBrochure).toHaveBeenCalled();
+    expect(repo.actualizar).toHaveBeenCalledWith(7, 1, {
+      correo_enviado: true,
+    });
+  });
+
+  it('si otro reloj se la llevó, no se envía dos veces', async () => {
     const { service, repo } = armar({
       repo: {
+        pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]),
+        tomarEnvio: jest.fn().mockResolvedValue(false),
+      },
+    });
+    await service.despacharPendientes();
+    expect(repo.descargarBrochure).not.toHaveBeenCalled();
+    expect(repo.actualizar).not.toHaveBeenCalled();
+  });
+
+  it('si el envío del reloj falla, queda visible como no-enviada', async () => {
+    const { service, repo } = armar({
+      repo: {
+        pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]),
         descargarBrochure: jest
           .fn()
           .mockRejectedValue(new Error('storage caído')),
       },
     });
-    const c = await service.registrar(1, DATOS, CONFIG);
-    expect(c.correo_enviado).toBe(false);
-    expect(repo.crear).toHaveBeenCalled();
+    await service.despacharPendientes();
+    expect(repo.actualizar).not.toHaveBeenCalled();
   });
 
   it('convertir matchea al cliente existente y es idempotente', async () => {
