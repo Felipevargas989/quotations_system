@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getQuotationById } from "../services/quotations.service";
 import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { NumberInput } from "./inputs";
@@ -36,7 +38,18 @@ export default function PaymentPlanEditor({
   onSave,
   onCancel,
 }: PaymentPlanEditorProps) {
-  const total = quotation.total_amount || 0;
+  // El total FRESCO desde el motor (caso 501, 06-09): la pantalla que
+  // abre este editor trae el total de su lista, que puede llevar hasta
+  // 30 segundos de atraso — si alguien corrigió la cotización recién,
+  // la cuota nacería cuadrada contra un número viejo. El portero del
+  // motor igual lo rechazaría; esto evita la molestia.
+  const frescoQuery = useQuery({
+    queryKey: ["quotation", "fresca", quotation.id],
+    queryFn: () => getQuotationById(quotation.id),
+    staleTime: 0,
+  });
+  const total =
+    frescoQuery.data?.data?.total_amount ?? (quotation.total_amount || 0);
   const today = format(new Date(), "yyyy-MM-dd");
   // 13-08: leía la fecha del evento en hora chilena y la mostraba un
   // día antes. Va en UTC, como se guarda.
@@ -47,6 +60,23 @@ export default function PaymentPlanEditor({
   const [rows, setRows] = useState<PlanRow[]>([
     { label: "Cuota 1", due_date: today, amount: total },
   ]);
+
+  // Si el total fresco llega distinto al del primer render y la fila
+  // inicial sigue intacta, se resincroniza sola; si el usuario ya
+  // armó cuotas, no se toca nada (el candado diff === 0 lo cuadra
+  // contra el total fresco igual).
+  const totalAplicado = useRef(total);
+  useEffect(() => {
+    const fresco = frescoQuery.data?.data?.total_amount;
+    if (fresco == null || fresco === totalAplicado.current) return;
+    const anterior = totalAplicado.current;
+    setRows((prev) =>
+      prev.length === 1 && prev[0].amount === anterior
+        ? [{ ...prev[0], amount: fresco }]
+        : prev,
+    );
+    totalAplicado.current = fresco;
+  }, [frescoQuery.data]);
 
   const suma = rows.reduce((s, r) => s + (r.amount || 0), 0);
   const diff = total - suma; // >0 falta asignar · <0 sobra

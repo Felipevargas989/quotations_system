@@ -20,6 +20,57 @@ describe('PaymentsService', () => {
     expect(service).toBeDefined();
   });
 
+  // El portero del plan (caso 501, 06-09): la suma de las cuotas debe
+  // calzar con el total ACTUAL de la cotización — la pantalla puede
+  // traer un total viejo de su caché.
+  describe('createPaymentPlan: el portero de cuadratura', () => {
+    const armar = (totalActual: number) => {
+      const repo = {
+        deletePaymentsByQuotationId: jest.fn(),
+        createPaymentPlan: jest.fn(),
+      };
+      const quotations = {
+        findOne: jest.fn().mockResolvedValue({
+          data: {
+            id: 'q-1',
+            company_id: 1,
+            total_amount: totalActual,
+            quotation_status: 'aceptada',
+          },
+        }),
+      };
+      const service = new PaymentsService(
+        repo as unknown as PaymentsRepository,
+        {} as QuotationsRepository,
+        quotations as unknown as QuotationsService,
+        {} as EmailService,
+        mockPinoLogger() as unknown as PinoLogger,
+      );
+      return { service, repo };
+    };
+
+    const PLAN = {
+      quotation_id: 'q-1',
+      payments: [{ amount: 1_000_000 }, { amount: 984_100 }] as never,
+    } as never;
+
+    it('rechaza un plan que no calza con el total actual, sin borrar nada', async () => {
+      const { service, repo } = armar(2_984_100);
+      await expect(service.createPaymentPlan(PLAN, 1)).rejects.toThrow(
+        'recarga la página',
+      );
+      expect(repo.deletePaymentsByQuotationId).not.toHaveBeenCalled();
+      expect(repo.createPaymentPlan).not.toHaveBeenCalled();
+    });
+
+    it('la cotización de otra empresa es un 404 sin pistas', async () => {
+      const { service } = armar(1_984_100);
+      await expect(service.createPaymentPlan(PLAN, 9)).rejects.toThrow(
+        'no encontrada',
+      );
+    });
+  });
+
   // Calendario de pagos Nivel A: solo fecha/nota, solo cuotas sin plata.
   describe('updatePaymentSchedule', () => {
     const buildService = (repo: Partial<PaymentsRepository>) =>
