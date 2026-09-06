@@ -26,8 +26,10 @@ Decisiones de alcance ya tomadas con Felipe:
   sigue las reglas de la skill de correos de Valle del Sol (ver abajo).
   Los correos finos (cliente que repite, alzas de precio) siguen
   siendo artesanales con la skill.
-- El botón de Outlook **se queda** — es la puerta para el correo
-  artesanal.
+- El botón de Outlook **se eliminó** (Felipe, validando en el lab el
+  05-09: "me gusta el botón pero eliminaria el botón correo"). El
+  correo artesanal sigue posible copiando el correo del mandante desde
+  la misma ficha. Antes de esa validación el plan era conservarlo.
 - Costo aceptado: Chromium engorda la imagen del motor en Railway y
   cada envío consume memoria mientras imprime. **Monitorear memoria
   tras el pase a producción.**
@@ -142,6 +144,7 @@ NADA de validación por LLM.
 ## Lo que NO es este módulo
 
 - No lee respuestas del buzón (eso sigue siendo humano).
-- No reemplaza los correos artesanales ni al botón de Outlook.
+- No reemplaza los correos artesanales (siguen con la skill, partiendo
+  por copiar el correo del mandante desde la ficha).
 - No genera un segundo diseño de PDF.
 - No envía masivo: un clic, un correo, una cotización.
