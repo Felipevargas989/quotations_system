@@ -188,7 +188,7 @@ export class QuotationsService {
     // observaciones (05-09): una sola fuente, visible en
     // requerimientos y consultas sin tocar la estructura.
     const presupuesto = createQuotationPublicDto.budget_estimate;
-    if (presupuesto) {
+    if (presupuesto != null) {
       const linea = `Presupuesto estimado: $${presupuesto.toLocaleString('es-CL')}`;
       createQuotationPublicDto.observations =
         createQuotationPublicDto.observations
@@ -200,11 +200,11 @@ export class QuotationsService {
     // tiene brochures configurados, la solicitud NO crea cliente ni
     // cotización — queda como consulta y recibe el brochure al tiro.
     // Sin brochures configurados, todo sigue como siempre.
-    const embudo = await this.consultasService.embudoPara(
+    const esConsulta = await this.consultasService.embudoPara(
       company_id,
       createQuotationPublicDto.event_type,
     );
-    if (embudo !== false) {
+    if (esConsulta) {
       const consulta = await this.consultasService.registrar(
         company_id,
         createQuotationPublicDto,

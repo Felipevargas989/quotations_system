@@ -20,6 +20,11 @@ import { firmarTokenImpresion, validarTokenImpresion } from './firma-impresion';
 import { listaBlancaDeHoja } from './hoja-publica';
 import { QuotationsRepository } from './quotations.repository';
 
+/** La marca con que la bitácora reconoce un envío de cotización. Se
+ *  usa al ESCRIBIR la nota y al CONTAR versiones — cambiarla rompe el
+ *  conteo de las notas históricas: no tocar sin migrar los textos. */
+const MARCA_DE_ENVIO = 'Cotización enviada por correo';
+
 type CotizacionConCliente = Quotation & {
   clients?: { name?: string | null; email?: string | null } | null;
 };
@@ -153,8 +158,27 @@ export class EnvioCotizacionService {
     }
   }
 
+  /** Cotizaciones con un envío EN CURSO (revisión 06-09): el PDF
+   *  tarda varios segundos y un reintento del navegador (timeout del
+   *  proxy, doble clic) duplicaría el correo al cliente. */
+  private readonly enviosEnCurso = new Set<string>();
+
   /** El circuito completo del botón "Enviar cotización". */
   async enviar(quotationId: string, user: User) {
+    if (this.enviosEnCurso.has(quotationId)) {
+      throw new BadRequestException(
+        'Ya hay un envío de esta cotización en curso: espera unos segundos.',
+      );
+    }
+    this.enviosEnCurso.add(quotationId);
+    try {
+      return await this.enviarDeVerdad(quotationId, user);
+    } finally {
+      this.enviosEnCurso.delete(quotationId);
+    }
+  }
+
+  private async enviarDeVerdad(quotationId: string, user: User) {
     const { data: q } = await this.quotationsRepository.findOne(quotationId);
     if (!q || q.company_id !== user.company_id) {
       throw new NotFoundException('Cotización no encontrada');
@@ -174,9 +198,11 @@ export class EnvioCotizacionService {
 
     // ¿Qué versión es esta? La bitácora es la memoria: los envíos
     // previos + 1. Del 2 en adelante el correo abre con "hemos
-    // actualizado tu cotización" y el asunto lleva "(vN)" — único por
-    // versión, o Gmail enhebra los reenvíos y los pliega con "...".
-    // Best effort: si la bitácora no responde, sale como primera vez.
+    // actualizado tu cotización". OJO: el ASUNTO es idéntico en todas
+    // las versiones (hilo único, decisión de Felipe 05-09) — lo que
+    // distingue las versiones es el sello con fecha y hora al pie, y
+    // los "..." con que Gmail pliega bloques repetidos son cosmético
+    // asumido. Best effort: sin bitácora, sale como primera vez.
     let numeroDeVersion = 1;
     try {
       const previos = await this.followups.findByQuotation(
@@ -185,8 +211,7 @@ export class EnvioCotizacionService {
       );
       numeroDeVersion += (previos || []).filter(
         (f: { tipo?: string | null; note?: string | null }) =>
-          f.tipo === 'correo' &&
-          (f.note || '').startsWith('Cotización enviada por correo'),
+          f.tipo === 'correo' && (f.note || '').startsWith(MARCA_DE_ENVIO),
       ).length;
     } catch (e) {
       this.logger.error(`no se pudo leer la bitácora: ${String(e)}`);
@@ -227,7 +252,7 @@ export class EnvioCotizacionService {
     try {
       await this.followups.create(user, {
         quotation_id: quotationId,
-        note: `Cotización enviada por correo a ${destino.correo as string}${
+        note: `${MARCA_DE_ENVIO} a ${destino.correo as string}${
           numeroDeVersion > 1 ? ` (versión ${String(numeroDeVersion)})` : ''
         }, con el PDF adjunto.`,
         tipo: 'correo',

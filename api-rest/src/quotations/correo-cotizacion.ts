@@ -1,3 +1,5 @@
+import { escaparHtml } from 'src/email/templates/utils';
+import { esClaro, textoSobre } from 'src/marketing/plantilla';
 import type { Quotation } from './entities/quotation.entity';
 
 /**
@@ -20,11 +22,9 @@ import type { Quotation } from './entities/quotation.entity';
  * fecha, sin guion largo en el texto, saludo y cierre cálidos.
  */
 
-const esc = (s: string): string =>
-  String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+// El escape canónico de la casa (con comillas y apóstrofes), no una
+// copia (revisión 06-09: la copia local no escapaba comillas).
+const esc = escaparHtml;
 
 const clp = (n: number): string =>
   '$' + Math.round(n || 0).toLocaleString('es-CL');
@@ -35,29 +35,6 @@ export interface MarcaDelCorreo {
   colorPrimario: string;
   colorSecundario: string;
 }
-
-/** Gemela de textoSobre (marketing/plantilla.ts) y de onBrandP en la
- *  hoja: blanco o casi negro según la luminosidad del fondo. */
-const textoSobreFondo = (fondo: string): string => {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(fondo || '').trim());
-  if (!m) return '#ffffff';
-  const n = parseInt(m[1], 16);
-  const lum =
-    (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) /
-    255;
-  return lum > 0.6 ? '#111827' : '#ffffff';
-};
-
-const esClaro = (hex: string): boolean => {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  return (
-    (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) /
-      1000 >
-    200
-  );
-};
 
 /** Los grupos variables reales llevan más campos que el tipo viejo
  *  de la entidad (day/audience/people, como los lee la hoja). */
@@ -248,8 +225,13 @@ export const correoDeCotizacion = (
   const evento = String(q.event_type || 'evento');
   const cliente = String(q.clients?.name || '').trim();
   const t = totalesDeCotizacion(q);
-  const primario = marca.colorPrimario || '#134686';
-  const sobrePrimario = textoSobreFondo(primario);
+  // Solo un #rrggbb limpio entra al HTML (revisión 06-09): un valor
+  // malformado en companies.colors rompería el atributo style del
+  // correo al cliente.
+  const primario = /^#[0-9a-f]{6}$/i.test(marca.colorPrimario || '')
+    ? marca.colorPrimario
+    : '#134686';
+  const sobrePrimario = textoSobre(primario);
   // La franja de subtotales usa el secundario solo si es claro, como
   // la hoja y el pie del correo (un acento saturado va sobre neutro).
   const franja =

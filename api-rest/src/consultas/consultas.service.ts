@@ -94,16 +94,13 @@ export class ConsultasService {
 
   /** ¿Este tipo de evento entra como CONSULTA? La decide su categoría
    *  en el catálogo (segunda vuelta de Felipe, 05-09) — ya no la
-   *  existencia de brochure. Devuelve la config del correo (puede ser
-   *  null: sale el texto de la casa, sin adjunto) o false si el tipo
-   *  entra como cotización. */
-  async embudoPara(
-    companyId: number,
-    eventType: string,
-  ): Promise<{ config: ConfigDeConsulta | null } | false> {
+   *  existencia de brochure. Devuelve solo el veredicto: la config del
+   *  correo la relee el reloj al despachar (revisión 06-09 — antes se
+   *  traía de la base para que nadie la usara).
+   */
+  async embudoPara(companyId: number, eventType: string): Promise<boolean> {
     const entrada = await this.tipos.entradaDe(companyId, eventType);
-    if (entrada !== 'consulta') return false;
-    return { config: await this.repo.config(companyId, eventType) };
+    return entrada === 'consulta';
   }
 
   /**

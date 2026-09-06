@@ -65,7 +65,7 @@ export const newPublicQuotationAdminTemplate = (
         params.eventDate ? fila('Fecha', fechaLegible(params.eventDate)) : '',
         params.phone ? fila('Teléfono', limpio(params.phone)) : '',
         params.email ? fila('Correo', limpio(params.email)) : '',
-        params.presupuesto
+        params.presupuesto != null
           ? fila(
               'Presupuesto estimado',
               `$${params.presupuesto.toLocaleString('es-CL')}`,

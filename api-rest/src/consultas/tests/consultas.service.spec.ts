@@ -86,17 +86,14 @@ const DATOS = {
 };
 
 describe('el embudo de consultas', () => {
-  it('la categoría decide: tipo cotización no filtra; tipo consulta sí, aun sin config', async () => {
+  it('la categoría decide: tipo cotización no filtra; tipo consulta sí', async () => {
     const directo = armar({ entrada: 'cotizacion' });
     expect(await directo.service.embudoPara(1, 'Matrimonios')).toBe(false);
 
-    const sinConfig = armar({
-      entrada: 'consulta',
-      repo: { config: jest.fn().mockResolvedValue(null) },
-    });
-    expect(await sinConfig.service.embudoPara(1, 'Matrimonios')).toEqual({
-      config: null,
-    });
+    const consulta = armar({ entrada: 'consulta' });
+    expect(await consulta.service.embudoPara(1, 'Matrimonios')).toBe(true);
+    // El veredicto no toca la config: esa la relee el reloj al enviar.
+    expect(consulta.repo.config).not.toHaveBeenCalled();
   });
 
   it('el delay del embudo: registrar CITA el correo a +10 min, no lo envía', async () => {
