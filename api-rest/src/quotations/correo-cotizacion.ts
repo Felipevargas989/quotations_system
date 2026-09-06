@@ -1,18 +1,23 @@
 import type { Quotation } from './entities/quotation.entity';
 
 /**
- * EL CORREO TIPO de "Enviar cotización" (doc 13): el cuerpo con el
- * detalle de servicios, la tabla de totales con neto + IVA + total
- * (nunca el neto solo) y las reglas de la skill de correos hechas
- * código — fecha con día de semana CALCULADO, condiciones neutras que
- * no prometen bloqueo de fecha, sin guion largo en el texto, saludo y
- * cierre cálidos. Funciones puras: datos entran, HTML sale.
+ * EL CORREO TIPO de "Enviar cotización" (doc 13): el cuerpo replica la
+ * ESTRUCTURA DE VALORES de la hoja (pedido de Felipe, validación
+ * 05-09: "ocupa esta estructura con el formato que ya tienes") —
+ * Valores · servicios de alimentación con el valor por persona,
+ * Servicios fijos del evento, subtotales en la franja del color
+ * secundario y el TOTAL en la barra del color primario. Nunca el neto
+ * solo: el bloque Neto + IVA + TOTAL siempre completo.
  *
- * Los cálculos replican los de la hoja
- * (frontend/src/utils/quotationPrintDoc.ts): la propina se recalcula
- * del porcentaje sobre los servicios por persona, el monto con IVA es
- * el total menos la propina, y el neto es ese monto / 1,19. Si la
- * hoja cambia su matemática, este archivo cambia con ella.
+ * La matemática y las filas calcan las de la hoja
+ * (frontend/src/utils/quotationPrintDoc.ts): valor por persona =
+ * suma de los grupos completos por público; los grupos parciales van
+ * en su propia fila; la propina se recalcula del porcentaje sobre la
+ * alimentación. Si la hoja cambia, este archivo cambia con ella.
+ *
+ * Reglas de la skill de correos hechas código: fecha con día de
+ * semana CALCULADO, condiciones neutras que no prometen bloqueo de
+ * fecha, sin guion largo en el texto, saludo y cierre cálidos.
  */
 
 const esc = (s: string): string =>
@@ -24,6 +29,36 @@ const esc = (s: string): string =>
 const clp = (n: number): string =>
   '$' + Math.round(n || 0).toLocaleString('es-CL');
 
+/** Lo que el correo necesita de la marca (misma MarcaEmpresa). */
+export interface MarcaDelCorreo {
+  nombre: string;
+  colorPrimario: string;
+  colorSecundario: string;
+}
+
+/** Gemela de textoSobre (marketing/plantilla.ts) y de onBrandP en la
+ *  hoja: blanco o casi negro según la luminosidad del fondo. */
+const textoSobreFondo = (fondo: string): string => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(fondo || '').trim());
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lum =
+    (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) /
+    255;
+  return lum > 0.6 ? '#111827' : '#ffffff';
+};
+
+const esClaro = (hex: string): boolean => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (
+    (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) /
+      1000 >
+    200
+  );
+};
+
 /** Los grupos variables reales llevan más campos que el tipo viejo
  *  de la entidad (day/audience/people, como los lee la hoja). */
 type GrupoVariable = {
@@ -33,7 +68,12 @@ type GrupoVariable = {
   items?: { nombre?: string; precio?: number; quantity?: number }[];
 };
 
-type ServicioFijo = { nombre?: string; precio?: number; quantity?: number };
+type ServicioFijo = {
+  nombre?: string;
+  precio?: number;
+  quantity?: number;
+  day?: number;
+};
 
 const grupos = (q: Quotation): GrupoVariable[] =>
   (q.items?.variable_services || []) as GrupoVariable[];
@@ -42,13 +82,23 @@ const fijos = (q: Quotation): ServicioFijo[] =>
 
 // ---------- La matemática de la hoja, calcada ----------
 
+const ninosDe = (q: Quotation): number => Number(q.children_count || 0);
+const adultosDe = (q: Quotation): number =>
+  Math.max(0, Number(q.people_count || 0) - ninosDe(q));
+
+const audienciaDe = (g: GrupoVariable): 'ninos' | 'adultos' =>
+  g.audience === 'ninos' ? 'ninos' : 'adultos';
+
+const publicoDelGrupo = (g: GrupoVariable, q: Quotation): number =>
+  audienciaDe(g) === 'ninos' ? ninosDe(q) : adultosDe(q);
+
 const personasDelGrupo = (g: GrupoVariable, q: Quotation): number => {
-  const ninos = Number(q.children_count || 0);
-  const adultos = Math.max(0, Number(q.people_count || 0) - ninos);
   if (typeof g.people === 'number') return g.people;
-  const delPublico = g.audience === 'ninos' ? ninos : adultos;
-  return delPublico || Number(q.people_count || 0);
+  return publicoDelGrupo(g, q) || Number(q.people_count || 0);
 };
+
+const esCompleto = (g: GrupoVariable, q: Quotation): boolean =>
+  personasDelGrupo(g, q) === publicoDelGrupo(g, q);
 
 const porPersona = (g: GrupoVariable): number =>
   (g.items || []).reduce(
@@ -61,6 +111,17 @@ export const totalesDeCotizacion = (q: Quotation) => {
     (s, g) => s + porPersona(g) * personasDelGrupo(g, q),
     0,
   );
+  const perAdulto = grupos(q)
+    .filter((g) => audienciaDe(g) === 'adultos' && esCompleto(g, q))
+    .reduce((s, g) => s + porPersona(g), 0);
+  const perNino = grupos(q)
+    .filter((g) => audienciaDe(g) === 'ninos' && esCompleto(g, q))
+    .reduce((s, g) => s + porPersona(g), 0);
+  const parciales = grupos(q).filter((g) => !esCompleto(g, q));
+  const fixedTotal = fijos(q).reduce(
+    (s, f) => s + (f.precio || 0) * (f.quantity || 1),
+    0,
+  );
   const tipPct = q.tip_percentage;
   const propina =
     tipPct != null && tipPct > 0
@@ -71,7 +132,20 @@ export const totalesDeCotizacion = (q: Quotation) => {
   const iva = totalConIva - neto;
   const subtotal = Math.round(Number(q.subtotal_amount || 0));
   const descuento = Math.max(0, subtotal - totalConIva);
-  return { neto, iva, totalConIva, propina, descuento, tipPct };
+  return {
+    neto,
+    iva,
+    totalConIva,
+    propina,
+    descuento,
+    subtotal,
+    tipPct,
+    variableTotal,
+    fixedTotal,
+    perAdulto,
+    perNino,
+    parciales,
+  };
 };
 
 // ---------- El portero del envío (doc 13) ----------
@@ -133,92 +207,129 @@ const primerNombre = (nombre: string | null | undefined): string => {
   return primera.charAt(0).toUpperCase() + primera.slice(1);
 };
 
-const filaTabla = (
-  nombre: string,
-  detalle: string,
-  total: number,
-): string => `<tr>
-  <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">${esc(nombre)}${
-    detalle
-      ? `<br /><span style="font-size:12px;color:#6b7280;">${esc(detalle)}</span>`
-      : ''
-  }</td>
-  <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;text-align:right;white-space:nowrap;">${clp(total)}</td>
-</tr>`;
-
-const filaTotal = (
-  rotulo: string,
-  monto: number,
-  opciones?: { fuerte?: boolean },
-): string => `<tr>
-  <td style="padding:5px 12px;font-size:${opciones?.fuerte ? '15px' : '13px'};color:${
-    opciones?.fuerte ? '#111827' : '#6b7280'
-  };${opciones?.fuerte ? 'font-weight:700;' : ''}text-align:right;">${esc(rotulo)}</td>
-  <td style="padding:5px 12px;font-size:${opciones?.fuerte ? '15px' : '13px'};color:${
-    opciones?.fuerte ? '#111827' : '#374151'
-  };${opciones?.fuerte ? 'font-weight:700;' : ''}text-align:right;white-space:nowrap;width:130px;">${clp(monto)}</td>
-</tr>`;
-
 /**
- * Arma asunto, título y cuerpo del correo tipo. El PDF adjunto lleva
- * el detalle completo; el cuerpo resume servicios y totales.
+ * Arma asunto, título y cuerpo del correo tipo. El cuerpo es el
+ * espejo de la sección de valores de la hoja; el PDF adjunto lleva
+ * el documento completo.
  */
 export const correoDeCotizacion = (
   q: Quotation & { clients?: { name?: string | null } | null },
-  nombreEmpresa: string,
+  marca: MarcaDelCorreo,
   nombreContacto: string | null,
 ): { asunto: string; titulo: string; cuerpoHtml: string } => {
   const fecha = fechaLargaDelEvento(q.event_date);
   const evento = String(q.event_type || 'evento');
   const cliente = String(q.clients?.name || '').trim();
   const t = totalesDeCotizacion(q);
+  const primario = marca.colorPrimario || '#134686';
+  const sobrePrimario = textoSobreFondo(primario);
+  // La franja de subtotales usa el secundario solo si es claro, como
+  // la hoja y el pie del correo (un acento saturado va sobre neutro).
+  const franja =
+    marca.colorSecundario && esClaro(marca.colorSecundario)
+      ? marca.colorSecundario
+      : '#f9fafb';
 
   const asunto = `Cotización ${evento}${cliente ? ` ${cliente}` : ''} — ${fecha}`;
   const titulo = `Cotización N.º ${q.quotation_number}`;
 
-  const filas: string[] = [];
-  for (const g of grupos(q)) {
-    const personas = personasDelGrupo(g, q);
-    const unitario = porPersona(g);
-    const publico = g.audience === 'ninos' ? 'niños' : 'personas';
-    filas.push(
-      filaTabla(
-        g.category || 'Servicios por persona',
-        `${clp(unitario)} por persona, ${personas} ${publico}`,
-        unitario * personas,
-      ),
+  // -- celdas con el formato de la hoja --
+  const celda = (html: string, extra = ''): string =>
+    `<td style="font-size:13px;padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#1f2937;${extra}">${html}</td>`;
+  const celdaDer = (html: string): string =>
+    celda(
+      html,
+      'text-align:right;white-space:nowrap;font-weight:600;color:#111827;',
+    );
+  const celdaGris = (html: string): string =>
+    celda(html, 'text-align:right;white-space:nowrap;color:#6b7280;');
+  const tag = (texto: string, color: string): string =>
+    `<span style="color:${color};font-weight:800;font-size:10px;letter-spacing:.5px;">${texto}</span>`;
+  const filaSub = (rotulo: string, monto: number, colspan: number): string =>
+    `<tr><td colspan="${String(colspan)}" style="font-size:13px;padding:7px 10px;font-weight:800;color:#111827;background-color:${franja};">${esc(rotulo)}</td><td style="font-size:13px;padding:7px 10px;font-weight:800;color:#111827;background-color:${franja};text-align:right;white-space:nowrap;">${clp(monto)}</td></tr>`;
+  const encabezado = (texto: string): string =>
+    `<p style="font-size:11px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:${primario};margin:22px 0 8px;">${esc(texto)}</p>`;
+
+  const adultos = adultosDe(q);
+  const ninos = ninosDe(q);
+
+  // -- Valores · servicios de alimentación (el calco de la hoja) --
+  const filasAlimentacion: string[] = [];
+  if (adultos > 0 && t.perAdulto > 0) {
+    filasAlimentacion.push(
+      `<tr>${celda(`${tag('ADULTOS', primario)} &nbsp;Valor por persona`)}${celdaGris(
+        `${adultos.toLocaleString('es-CL')} personas`,
+      )}${celdaGris(clp(t.perAdulto))}${celdaDer(clp(t.perAdulto * adultos))}</tr>`,
     );
   }
-  for (const f of fijos(q)) {
-    const cantidad = f.quantity || 1;
-    const detalle =
-      cantidad > 1
-        ? `${clp(f.precio || 0)} cada uno, ${cantidad} unidades`
-        : '';
-    filas.push(
-      filaTabla(f.nombre || 'Servicio', detalle, (f.precio || 0) * cantidad),
+  if (ninos > 0 && t.perNino > 0) {
+    filasAlimentacion.push(
+      `<tr>${celda(`${tag('NIÑOS', '#b45309')} &nbsp;Valor por persona`)}${celdaGris(
+        `${ninos.toLocaleString('es-CL')} personas`,
+      )}${celdaGris(clp(t.perNino))}${celdaDer(clp(t.perNino * ninos))}</tr>`,
+    );
+  }
+  for (const g of t.parciales) {
+    const personas = personasDelGrupo(g, q);
+    filasAlimentacion.push(
+      `<tr>${celda(esc(g.category || 'Servicio'))}${celdaGris(
+        `${personas.toLocaleString('es-CL')} personas`,
+      )}${celdaGris(clp(porPersona(g)))}${celdaDer(clp(porPersona(g) * personas))}</tr>`,
     );
   }
 
-  const totales: string[] = [];
+  const bloqueAlimentacion = filasAlimentacion.length
+    ? `${encabezado('Valores · Servicios de alimentación')}
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+         ${filasAlimentacion.join('\n')}
+         ${filaSub('Subtotal alimentación', t.variableTotal, 3)}
+       </table>`
+    : '';
+
+  // -- Servicios fijos del evento --
+  const filasFijos = fijos(q).map((f) => {
+    const qty = f.quantity || 1;
+    const extra =
+      qty > 1
+        ? ` <span style="color:#6b7280;font-weight:400;">×${String(qty)}</span>`
+        : '';
+    return `<tr>${celda(`${esc(f.nombre || 'Servicio')}${extra}`)}${celdaDer(clp((f.precio || 0) * qty))}</tr>`;
+  });
+  const bloqueFijos = filasFijos.length
+    ? `${encabezado('Servicios fijos del evento')}
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+         ${filasFijos.join('\n')}
+         ${filaSub('Subtotal servicios fijos', t.fixedTotal, 1)}
+       </table>`
+    : '';
+
+  // -- El resumen: Neto + IVA + TOTAL, jamás el neto solo --
+  const lineaResumen = (rotulo: string, monto: string): string =>
+    `<tr><td style="font-size:13px;color:#4b5563;padding:4px 12px;">${esc(rotulo)}</td><td style="font-size:13px;color:#111827;font-weight:700;padding:4px 12px;text-align:right;white-space:nowrap;">${monto}</td></tr>`;
+  const filasResumen: string[] = [];
   if (t.descuento > 0) {
-    totales.push(filaTotal('Descuento incluido', -t.descuento));
+    filasResumen.push(lineaResumen('Subtotal', clp(t.subtotal)));
+    filasResumen.push(lineaResumen('Descuento', `−${clp(t.descuento)}`));
   }
-  totales.push(filaTotal('Neto', t.neto));
-  totales.push(filaTotal('IVA (19%)', t.iva));
-  totales.push(
-    filaTotal('Total con IVA', t.totalConIva, { fuerte: !t.propina }),
-  );
+  filasResumen.push(lineaResumen('Neto', clp(t.neto)));
+  filasResumen.push(lineaResumen('IVA (19%)', clp(t.iva)));
+  const barraTotal = (rotulo: string, monto: number): string =>
+    `<tr><td style="background-color:${primario};color:${sobrePrimario};font-size:14px;font-weight:800;padding:9px 12px;border-radius:6px 0 0 6px;">${esc(rotulo)}</td><td style="background-color:${primario};color:${sobrePrimario};font-size:14px;font-weight:800;padding:9px 12px;text-align:right;white-space:nowrap;border-radius:0 6px 6px 0;">${clp(monto)}</td></tr>`;
   if (t.propina > 0) {
-    totales.push(
-      filaTotal(`Propina sugerida (${String(t.tipPct)}%)`, t.propina),
+    filasResumen.push(
+      `<tr><td style="background-color:#fef3c7;font-size:13px;font-weight:800;color:#111827;padding:7px 12px;border-radius:6px 0 0 6px;">Total con IVA</td><td style="background-color:#fef3c7;font-size:13px;font-weight:800;color:#111827;padding:7px 12px;text-align:right;white-space:nowrap;border-radius:0 6px 6px 0;">${clp(t.totalConIva)}</td></tr>`,
     );
-    totales.push(
-      filaTotal('Total con propina', t.totalConIva + t.propina, {
-        fuerte: true,
-      }),
+    filasResumen.push(
+      lineaResumen(
+        `Propina sugerida (${String(t.tipPct)}% alimentación)`,
+        clp(t.propina),
+      ),
     );
+    filasResumen.push(barraTotal('TOTAL', t.totalConIva + t.propina));
+  } else {
+    filasResumen.push(barraTotal('TOTAL', t.totalConIva));
   }
+  const bloqueResumen = `<table role="presentation" cellpadding="0" cellspacing="0" align="right" style="width:320px;max-width:100%;border-collapse:separate;border-spacing:0 2px;margin:14px 0 4px;">${filasResumen.join('\n')}</table><div style="clear:both;"></div>`;
 
   const parrafo = (html: string): string =>
     `<p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 14px;">${html}</p>`;
@@ -233,26 +344,21 @@ export const correoDeCotizacion = (
         evento.toLowerCase(),
       )} del ${esc(fecha)}${
         personas ? `, para ${String(personas)} personas` : ''
-      }. Adjuntamos el documento completo en PDF con todo el detalle.`,
+      }. Adjuntamos el documento completo en PDF con el programa y todo el detalle.`,
     ),
-    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;margin:0 0 6px;">
-      <tr>
-        <td style="padding:9px 12px;background-color:#f9fafb;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Servicio</td>
-        <td style="padding:9px 12px;background-color:#f9fafb;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Valor</td>
-      </tr>
-      ${filas.join('\n')}
-    </table>`,
-    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 18px;">${totales.join(
-      '\n',
-    )}</table>`,
+    bloqueAlimentacion,
+    bloqueFijos,
+    bloqueResumen,
     parrafo(
       'Los valores incluyen IVA. Para confirmar la fecha, el siguiente paso es coordinar el abono de reserva; cualquier ajuste al programa lo conversamos.',
     ),
     parrafo(
       'Si quieres modificar algo o tienes preguntas, responde este mismo correo y te ayudamos con gusto.',
     ),
-    parrafo(`Saludos cordiales,<br />Equipo ${esc(nombreEmpresa)}`),
-  ].join('\n');
+    parrafo(`Saludos cordiales,<br />Equipo ${esc(marca.nombre)}`),
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return { asunto, titulo, cuerpoHtml };
 };

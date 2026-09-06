@@ -172,7 +172,7 @@ export class EnvioCotizacionService {
 
     const { asunto, titulo, cuerpoHtml } = correoDeCotizacion(
       q,
-      marca.nombre,
+      marca,
       destino.nombre,
     );
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));

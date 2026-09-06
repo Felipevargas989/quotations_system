@@ -82,9 +82,14 @@ describe('la matemática de la hoja, calcada', () => {
 });
 
 describe('el correo tipo', () => {
+  const MARCA = {
+    nombre: 'Valle del Sol',
+    colorPrimario: '#1e3a2f',
+    colorSecundario: '#ede8dc',
+  };
   const { asunto, cuerpoHtml } = correoDeCotizacion(
     base(),
-    'Valle del Sol',
+    MARCA,
     'maría josé pérez',
   );
 
@@ -98,13 +103,35 @@ describe('el correo tipo', () => {
     expect(cuerpoHtml).toContain('Hola María:');
   });
 
-  it('la tabla lleva servicios y el bloque neto + IVA + total', () => {
-    expect(cuerpoHtml).toContain('Menú adulto');
+  it('la estructura de la hoja: valor por persona, subtotales y TOTAL', () => {
+    // 100 adultos × $20.000: la fila resumida, no el grupo suelto.
+    expect(cuerpoHtml).toContain('Valor por persona');
+    expect(cuerpoHtml).toContain('ADULTOS');
+    expect(cuerpoHtml).toContain('100 personas');
+    expect(cuerpoHtml).toContain('$20.000');
+    expect(cuerpoHtml).toContain('Subtotal alimentación');
+    expect(cuerpoHtml).toContain('$2.000.000');
     expect(cuerpoHtml).toContain('Arriendo del salón');
+    expect(cuerpoHtml).toContain('Subtotal servicios fijos');
+    expect(cuerpoHtml).toContain('$500.000');
     expect(cuerpoHtml).toContain('Neto');
     expect(cuerpoHtml).toContain('IVA (19%)');
-    expect(cuerpoHtml).toContain('Total con IVA');
+    expect(cuerpoHtml).toContain('TOTAL');
     expect(cuerpoHtml).toContain('$2.500.000');
+    // La franja del secundario y la barra del primario, como la hoja.
+    expect(cuerpoHtml).toContain('#ede8dc');
+    expect(cuerpoHtml).toContain('#1e3a2f');
+  });
+
+  it('con propina: Total con IVA + propina + TOTAL, como la hoja', () => {
+    const conPropina = correoDeCotizacion(
+      base({ tip_percentage: 10, total_amount: 2_700_000 }),
+      MARCA,
+      'Ana',
+    ).cuerpoHtml;
+    expect(conPropina).toContain('Total con IVA');
+    expect(conPropina).toContain('Propina sugerida (10% alimentación)');
+    expect(conPropina).toContain('$2.700.000');
   });
 
   it('sin guion largo ni promesas de bloqueo en el cuerpo', () => {
