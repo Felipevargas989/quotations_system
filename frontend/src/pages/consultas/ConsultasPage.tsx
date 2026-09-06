@@ -649,7 +649,12 @@ function FilaDeTipo({
       {abierto && esConsulta && (
         <tr className="border-b border-gray-100 bg-gray-50/60">
           <td colSpan={5} className="px-4 py-3">
-            <PanelDeCorreo tipo={tipo} config={config} onCambio={onCambio} />
+            <PanelDeCorreo
+              tipo={tipo}
+              config={config}
+              onCambio={onCambio}
+              onCerrar={onAbrir}
+            />
           </td>
         </tr>
       )}
@@ -663,6 +668,7 @@ function PanelDeCorreo({
   tipo,
   config,
   onCambio,
+  onCerrar,
 }: {
   readonly tipo: TipoDeEvento;
   readonly config: {
@@ -670,6 +676,7 @@ function PanelDeCorreo({
     brochures: Brochure[];
   } | null;
   readonly onCambio: () => void;
+  readonly onCerrar: () => void;
 }) {
   const [texto, setTexto] = useState(config?.texto ?? "");
   const [subiendo, setSubiendo] = useState(false);
@@ -679,9 +686,14 @@ function PanelDeCorreo({
   const guardar = useMutation({
     mutationFn: (cambios: { texto?: string | null; brochures?: Brochure[] }) =>
       guardarConfigDeConsulta(tipo.name, cambios),
-    onSuccess: () => {
+    onSuccess: (_r, cambios) => {
       toast.success(`${tipo.name}: configuración guardada`);
       onCambio();
+      // Guardado el TEXTO, la configuración quedó lista y el panel se
+      // recoge (Felipe, 06-09: "que se cierre para que el campo no
+      // quede siempre abierto"). Subir un brochure NO cierra: uno
+      // suele seguir con el segundo PDF o con el texto.
+      if ('texto' in cambios) onCerrar();
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
