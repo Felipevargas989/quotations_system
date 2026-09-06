@@ -134,6 +134,23 @@ describe('el correo tipo', () => {
     expect(conPropina).toContain('$2.700.000');
   });
 
+  it('el reenvío cambia el asunto y cada correo lleva su sello de versión', () => {
+    // Contra el "..." de Gmail (05-09): asunto propio para el reenvío
+    // y un sello con fecha y hora que hace único cada correo.
+    const enviadoEl = new Date('2026-09-06T17:32:00Z'); // 14:32 en Chile
+    const r = correoDeCotizacion(base(), MARCA, 'Ana', true, enviadoEl);
+    expect(r.asunto).toBe(
+      'Cotización actualizada Matrimonio Colegio San Pedro — sábado 14 de marzo de 2026',
+    );
+    expect(r.cuerpoHtml).toContain('Hemos actualizado tu cotización');
+    expect(r.cuerpoHtml).toContain(
+      'Versión enviada el domingo 6 de septiembre de 2026 a las 14:32 h',
+    );
+    // La primera vez también lleva el sello (el tercer envío contra el
+    // segundo serían idénticos sin él).
+    expect(cuerpoHtml).toContain('Versión enviada el');
+  });
+
   it('sin guion largo ni promesas de bloqueo en el cuerpo', () => {
     expect(cuerpoHtml).not.toContain('—');
     expect(cuerpoHtml.toLowerCase()).not.toContain('bloquea');

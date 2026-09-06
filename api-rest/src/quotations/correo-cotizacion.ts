@@ -212,13 +212,38 @@ const primerNombre = (nombre: string | null | undefined): string => {
  * espejo de la sección de valores de la hoja; el PDF adjunto lleva
  * el documento completo.
  */
+/** "sábado 6 de septiembre de 2026 a las 14:32", hora de Chile. */
+const selloDeVersion = (d: Date): string => {
+  const f = d
+    .toLocaleDateString('es-CL', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'America/Santiago',
+    })
+    .replace(', ', ' ');
+  const h = d.toLocaleTimeString('es-CL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Santiago',
+  });
+  return `Versión enviada el ${f} a las ${h} h`;
+};
+
 export const correoDeCotizacion = (
   q: Quotation & { clients?: { name?: string | null } | null },
   marca: MarcaDelCorreo,
   nombreContacto: string | null,
   /** Segunda vez en adelante (Felipe, 05-09): mismo correo, pero las
-   *  primeras líneas dicen que la cotización se ACTUALIZÓ. */
+   *  primeras líneas dicen que la cotización se ACTUALIZÓ y el asunto
+   *  cambia — así Gmail no lo enhebra con el anterior ni le colapsa
+   *  la tabla como "contenido citado" (el "..." del 05-09). */
   esReenvio = false,
+  /** El instante del envío: sella cada versión al pie. Sin dos correos
+   *  idénticos, Gmail no tiene qué recortar. */
+  enviadoEl: Date = new Date(),
 ): { asunto: string; titulo: string; cuerpoHtml: string } => {
   const fecha = fechaLargaDelEvento(q.event_date);
   const evento = String(q.event_type || 'evento');
@@ -233,7 +258,7 @@ export const correoDeCotizacion = (
       ? marca.colorSecundario
       : '#f9fafb';
 
-  const asunto = `Cotización ${evento}${cliente ? ` ${cliente}` : ''} — ${fecha}`;
+  const asunto = `${esReenvio ? 'Cotización actualizada' : 'Cotización'} ${evento}${cliente ? ` ${cliente}` : ''} — ${fecha}`;
   const titulo = `Cotización N.º ${q.quotation_number}`;
 
   // -- celdas con el formato de la hoja --
@@ -365,6 +390,7 @@ export const correoDeCotizacion = (
       'Si quieres modificar algo o tienes preguntas, responde este mismo correo y te ayudamos con gusto.',
     ),
     parrafo(`Saludos cordiales,<br />Equipo ${esc(marca.nombre)}`),
+    `<p style="font-size:11.5px;color:#9ca3af;margin:6px 0 0;">${esc(selloDeVersion(enviadoEl))} · Cotización N.º ${String(q.quotation_number)}</p>`,
   ]
     .filter(Boolean)
     .join('\n');
