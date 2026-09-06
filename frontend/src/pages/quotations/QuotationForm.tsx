@@ -61,6 +61,7 @@ import {
   QuotationStatus,
 } from "../../types/quotations.types";
 import { NumberInput } from "../../components/inputs";
+import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import ConfirmInline from "../../components/ConfirmInline";
 import { getCategorySections } from "../../services/sections.service";
 import {
@@ -1774,6 +1775,10 @@ export default function QuotationForm() {
 
   return (
     <div className="space-y-6">
+      <AvisoPlanDePagos
+        quotationId={isEditingExisting ? id : undefined}
+        estado={quotation?.quotation_status}
+      />
       {/* Client Creation Modal */}
       {showClientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

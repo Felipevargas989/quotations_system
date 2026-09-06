@@ -83,6 +83,31 @@ export class PaymentsService {
     this.logger.info(
       `createPaymentPlan with createPaymentPlanDto ${JSON.stringify(createPaymentPlanDto)}`,
     );
+    // 0. EL PORTERO DEL PLAN (caso 501, 06-09): la suma de las cuotas
+    // debe calzar AL PESO con el total ACTUAL de la cotización. La
+    // pantalla cuadra contra el total que VE — y ese puede ser viejo
+    // (la cuota de la 501 nació doblada porque la lista aún mostraba
+    // el total de antes de corregir un tipeo). La cuenta la hace la
+    // casa: acá, contra la base, no contra la memoria del navegador.
+    const { data: quotation } = await this.quotationsService.findOne(
+      createPaymentPlanDto.quotation_id,
+    );
+    if (!quotation || quotation.company_id !== companyId) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    const sumaCuotas = createPaymentPlanDto.payments.reduce(
+      (s, p) => s + Math.round(p.amount || 0),
+      0,
+    );
+    const totalActual = Math.round(Number(quotation.total_amount || 0));
+    if (sumaCuotas !== totalActual) {
+      throw new BadRequestException(
+        `Las cuotas suman $${sumaCuotas.toLocaleString('es-CL')} pero la cotización vale $${totalActual.toLocaleString(
+          'es-CL',
+        )}. El total pudo cambiar hace poco: recarga la página y arma el plan de nuevo.`,
+      );
+    }
+
     // 1. Delete existing payments
     await this.paymentsRepository.deletePaymentsByQuotationId(
       createPaymentPlanDto.quotation_id,
@@ -92,11 +117,6 @@ export class PaymentsService {
     // 2. Create new payments
     await this.paymentsRepository.createPaymentPlan(
       createPaymentPlanDto.payments,
-    );
-
-    // 3. Get quotation details
-    const { data: quotation } = await this.quotationsService.findOne(
-      createPaymentPlanDto.quotation_id,
     );
 
     // 4. Send email to client with payment plan details
