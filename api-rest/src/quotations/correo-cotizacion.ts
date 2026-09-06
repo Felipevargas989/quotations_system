@@ -236,11 +236,10 @@ export const correoDeCotizacion = (
   q: Quotation & { clients?: { name?: string | null } | null },
   marca: MarcaDelCorreo,
   nombreContacto: string | null,
-  /** Segunda vez en adelante (Felipe, 05-09): mismo correo, pero las
-   *  primeras líneas dicen que la cotización se ACTUALIZÓ y el asunto
-   *  cambia — así Gmail no lo enhebra con el anterior ni le colapsa
-   *  la tabla como "contenido citado" (el "..." del 05-09). */
-  esReenvio = false,
+  /** 1 = primer envío; 2 en adelante = reenvío: las primeras líneas
+   *  dicen que la cotización se ACTUALIZÓ (el asunto no cambia — el
+   *  hilo único es decisión de Felipe, 05-09). */
+  numeroDeVersion = 1,
   /** El instante del envío: sella cada versión al pie. Sin dos correos
    *  idénticos, Gmail no tiene qué recortar. */
   enviadoEl: Date = new Date(),
@@ -258,7 +257,14 @@ export const correoDeCotizacion = (
       ? marca.colorSecundario
       : '#f9fafb';
 
-  const asunto = `${esReenvio ? 'Cotización actualizada' : 'Cotización'} ${evento}${cliente ? ` ${cliente}` : ''} — ${fecha}`;
+  const esReenvio = numeroDeVersion > 1;
+  // Asunto IDÉNTICO en todas las versiones (decisión de Felipe,
+  // 05-09: "puede estar bien que esté en el mismo hilo toda la
+  // conversación"): el cliente ve la historia junta en un solo hilo.
+  // Gmail pliega con "..." los bloques repetidos entre versiones —
+  // cosmético y expandible; el contenido nuevo siempre se ve porque
+  // cada correo termina distinto (el sello de versión al pie).
+  const asunto = `Cotización ${evento}${cliente ? ` ${cliente}` : ''} — ${fecha}`;
   const titulo = `Cotización N.º ${q.quotation_number}`;
 
   // -- celdas con el formato de la hoja --

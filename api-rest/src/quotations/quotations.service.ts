@@ -208,7 +208,6 @@ export class QuotationsService {
       const consulta = await this.consultasService.registrar(
         company_id,
         createQuotationPublicDto,
-        embudo.config,
       );
       return { tipo: 'consulta' as const, id: consulta.id };
     }

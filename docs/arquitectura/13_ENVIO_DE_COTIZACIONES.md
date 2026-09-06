@@ -1,7 +1,15 @@
 # 13 — Envío de cotizaciones por correo (con PDF del motor)
 
-**Estado: aprobado por Felipe el 05-09-2026 ("ok vamos no más!"). En
-construcción.**
+**Estado: EN PRODUCCIÓN desde el 05-09-2026 (PR #92), validado por
+Felipe en el laboratorio con envíos reales.** De la validación salieron
+además: el correo espejo de la hoja de valores, el reenvío con
+"Hemos actualizado tu cotización" (asunto propio y sello de versión
+contra el recorte de Gmail), la tipografía Inter incrustada en la hoja
+y la fecha de emisión en hora de Chile. El motor necesita las
+librerías del navegador declaradas en Railway
+(`RAILPACK_DEPLOY_APT_PACKAGES`: nss, nspr, expat, gbm, xkbcommon,
+drm, fontconfig y fuentes Liberation/DejaVu) — ya declaradas en lab y
+producción; sin ellas Chromium no arranca o imprime sin letras.
 
 Este documento manda sobre la memoria de cualquier sesión. Si una
 conversación cambia una decisión, se actualiza aquí en el mismo

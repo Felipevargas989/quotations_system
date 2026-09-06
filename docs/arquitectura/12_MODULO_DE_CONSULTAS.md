@@ -31,13 +31,25 @@ como cotización, saturando la lista.
    tipo en embudo, NO se crea cliente ni cotización — se crea una
    CONSULTA (registro liviano: nombre, correo, teléfono, tipo, fecha
    tentativa, personas, observaciones).
-3. **Respuesta automática al tiro** por Resend con la marca de la
-   empresa (brandEmailTemplate, la misma de los correos al cliente),
-   replyTo a la casilla de la empresa, y los brochures adjuntos (1 o 2
-   PDF por tipo, subidos por Felipe; viven en el bucket privado).
-   Texto por tipo editable, con {nombre}; hay uno por defecto escrito
-   con las reglas de la casa (cálido, habla del día y del complejo,
-   invita a responder — skill de correos de Valle del Sol).
+3. **Respuesta automática con 10 minutos de espera** (Felipe,
+   05-09-2026: "un delay de 10 min para las respuestas automáticas" —
+   una respuesta instantánea delata al robot). La consulta queda
+   CITADA (`correo_programado_para` = entrada + 10 min, migración 106)
+   y el reloj del motor (`consultas-cron`, cada minuto, solo en
+   producción como todos los crones) la despacha por Resend con la
+   marca de la empresa, replyTo a la casilla de la empresa, y los
+   brochures adjuntos (1 o 2 PDF por tipo, subidos por Felipe; viven
+   en el bucket privado). La config del tipo se relee AL ENVIAR: si en
+   esos 10 minutos cambió el brochure, sale el nuevo. Resend no
+   programa correos con adjuntos — por eso el reloj es del motor, como
+   el de las campañas, con el mismo candado atómico y la misma regla:
+   si el envío falla queda visible como no-enviada con el error en el
+   log, jamás reintentos infinitos (el reloj solo mira consultas de
+   las últimas 24 horas). Texto por tipo editable, con {nombre}; hay
+   uno por defecto escrito con las reglas de la casa (cálido, habla
+   del día y del complejo, invita a responder — skill de correos de
+   Valle del Sol). La bandeja muestra la cita: chip azul "Sale a las
+   HH:MM".
 4. **Regla de una vez**: el mismo correo consultando el mismo tipo
    dentro de 14 días queda registrado pero NO recibe el brochure de
    nuevo (correo_enviado = false, visible en la lista).
