@@ -181,7 +181,11 @@ export class ConsultasRepository {
       .eq('company_id', companyId)
       .eq('event_type', eventType)
       .eq('correo_enviado', true)
-      .ilike('email', email)
+      // ILIKE se usa solo por el case-insensitive; los comodines del
+      // patrón se escapan (revisión 06-09): sin esto, un correo real
+      // con guion bajo ("ana_soto@…") matcheaba correos AJENOS que
+      // difieren en un carácter y dejaba a un lead nuevo sin brochure.
+      .ilike('email', email.replace(/[\\%_]/g, '\\$&'))
       .gte('created_at', desdeIso)
       .limit(1);
     if (error) throw error;

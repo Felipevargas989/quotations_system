@@ -65,6 +65,9 @@ export default function CreateQuotationPublic() {
   // Presupuesto estimado (Felipe, 05-09): opcional, orienta la
   // propuesta; viaja dentro de las observaciones.
   const [presupuesto, setPresupuesto] = useState<number | undefined>();
+  const [errorOrganizacion, setErrorOrganizacion] = useState<string | null>(
+    null,
+  );
   const sinTildes = (t: string) =>
     t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const pideOrganizacion =
@@ -151,9 +154,11 @@ export default function CreateQuotationPublic() {
     const phoneError = validatePhone(formData.phone);
 
     if (pideOrganizacion && !companyName.trim()) {
+      // Con mensaje a la vista (revisión 06-09): antes solo saltaba el
+      // foco y el visitante podía creer que el botón estaba roto.
       setSubmitError(false);
       setTouchedFields({ name: true, email: true, phone: true });
-      setClientErrors((prev) => ({ ...prev }));
+      setErrorOrganizacion("Cuéntanos por quién cotizas");
       document.getElementById("company_name")?.focus();
       return;
     }
@@ -189,7 +194,7 @@ export default function CreateQuotationPublic() {
           : {}),
         // Número puro: el motor lo anexa a las observaciones y el
         // aviso interno lo muestra como fila propia (05-09).
-        ...(presupuesto ? { budget_estimate: presupuesto } : {}),
+        ...(presupuesto != null ? { budget_estimate: presupuesto } : {}),
       } as QuotationPublicFormData;
 
       const { error } = await createQuotationPublic(company_id, quotationData);
@@ -527,12 +532,22 @@ export default function CreateQuotationPublic() {
                     id="company_name"
                     type="text"
                     value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
+                    onChange={(e) => {
+                      setCompanyName(e.target.value);
+                      if (e.target.value.trim()) setErrorOrganizacion(null);
+                    }}
                     maxLength={160}
                     required
                     placeholder="Por quién cotizas"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errorOrganizacion ? "border-red-400" : "border-gray-300"
+                    }`}
                   />
+                  {errorOrganizacion && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errorOrganizacion}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-gray-500">
                     Tus datos de arriba quedan como persona de contacto.
                   </p>
@@ -655,7 +670,7 @@ export default function CreateQuotationPublic() {
                     name="presupuesto"
                     value={presupuesto}
                     onChange={(value) =>
-                      setPresupuesto(value ? Number(value) : undefined)
+                      setPresupuesto(value)
                     }
                     min={0}
                     placeholder="0"

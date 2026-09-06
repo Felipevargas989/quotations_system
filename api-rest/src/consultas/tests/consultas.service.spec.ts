@@ -41,6 +41,7 @@ const armar = (sobre: {
         Promise.resolve({ id: 7, ...cambios }),
       ),
     consultaReciente: jest.fn().mockResolvedValue(false),
+    guardarConfig: jest.fn().mockResolvedValue(CONFIG),
     descargarBrochure: jest.fn().mockResolvedValue(Buffer.from('pdf')),
     pendientesDeEnvio: jest.fn().mockResolvedValue([]),
     tomarEnvio: jest.fn().mockResolvedValue(true),
@@ -85,17 +86,14 @@ const DATOS = {
 };
 
 describe('el embudo de consultas', () => {
-  it('la categoría decide: tipo cotización no filtra; tipo consulta sí, aun sin config', async () => {
+  it('la categoría decide: tipo cotización no filtra; tipo consulta sí', async () => {
     const directo = armar({ entrada: 'cotizacion' });
     expect(await directo.service.embudoPara(1, 'Matrimonios')).toBe(false);
 
-    const sinConfig = armar({
-      entrada: 'consulta',
-      repo: { config: jest.fn().mockResolvedValue(null) },
-    });
-    expect(await sinConfig.service.embudoPara(1, 'Matrimonios')).toEqual({
-      config: null,
-    });
+    const consulta = armar({ entrada: 'consulta' });
+    expect(await consulta.service.embudoPara(1, 'Matrimonios')).toBe(true);
+    // El veredicto no toca la config: esa la relee el reloj al enviar.
+    expect(consulta.repo.config).not.toHaveBeenCalled();
   });
 
   it('el delay del embudo: registrar CITA el correo a +10 min, no lo envía', async () => {
@@ -225,6 +223,39 @@ describe('el embudo de consultas', () => {
     ]);
     await yaConContacto.service.convertir(7, 1);
     expect(yaConContacto.contactos.create).not.toHaveBeenCalled();
+  });
+
+  it('el candado de dueño: un brochure con ruta ajena no se guarda', async () => {
+    const { service } = armar({});
+    await expect(
+      service.guardarConfig(1, 'Matrimonios', {
+        brochures: [{ nombre: 'ajeno.pdf', path: 'c9/otro.pdf', bytes: 1 }],
+      }),
+    ).rejects.toThrow('no pertenece');
+    // La ruta propia pasa.
+    await expect(
+      service.guardarConfig(1, 'Matrimonios', {
+        brochures: [{ nombre: 'ok.pdf', path: 'c1/x.pdf', bytes: 1 }],
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('el reloj tampoco adjunta rutas ajenas aunque estén en la config', async () => {
+    const { service, repo } = armar({
+      repo: {
+        pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]),
+        config: jest.fn().mockResolvedValue({
+          ...CONFIG,
+          brochures: [
+            { nombre: 'ajeno.pdf', path: 'c9/otro.pdf', bytes: 1 },
+            { nombre: 'propio.pdf', path: 'c1/x.pdf', bytes: 1 },
+          ],
+        }),
+      },
+    });
+    await service.despacharPendientes();
+    expect(repo.descargarBrochure).toHaveBeenCalledTimes(1);
+    expect(repo.descargarBrochure).toHaveBeenCalledWith('c1/x.pdf');
   });
 
   it('una consulta convertida no se descarta', async () => {

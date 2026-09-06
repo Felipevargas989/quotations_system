@@ -688,10 +688,12 @@ export default function QuotationForm() {
       ...(desdeConsulta.event_date
         ? { event_date: desdeConsulta.event_date.slice(0, 10) as any }
         : {}),
-      ...(desdeConsulta.people_count
+      // != null y no truthiness (revisión 06-09): un 0 legítimo
+      // registrado en la consulta también debe viajar al formulario.
+      ...(desdeConsulta.people_count != null
         ? { people_count: desdeConsulta.people_count }
         : {}),
-      ...(desdeConsulta.children_count
+      ...(desdeConsulta.children_count != null
         ? { children_count: desdeConsulta.children_count }
         : {}),
       ...(desdeConsulta.contact_name
