@@ -62,6 +62,7 @@ const armar = (sobre?: {
   quotation?: Record<string, unknown> | null;
   contactos?: Record<string, unknown>[];
   followup?: jest.Mock;
+  previos?: Record<string, unknown>[];
 }) => {
   const repo = {
     findOne: jest
@@ -82,7 +83,10 @@ const armar = (sobre?: {
       error: null,
     }),
   };
-  const followups = { create: sobre?.followup ?? jest.fn() };
+  const followups = {
+    create: sobre?.followup ?? jest.fn(),
+    findByQuotation: jest.fn().mockResolvedValue(sobre?.previos ?? []),
+  };
   const config = {
     get: jest.fn().mockImplementation((k: string) => {
       if (k === 'RESEND_API_KEY') return 'clave';
@@ -159,6 +163,28 @@ describe('enviar cotización por correo', () => {
     await expect(service.enviar('q-1', USUARIO)).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('con un envío previo en la bitácora, el correo abre con la actualización', async () => {
+    const { service } = armar({
+      previos: [
+        { tipo: 'correo', note: 'Cotización enviada por correo a ana@x.cl' },
+      ],
+    });
+    await service.enviar('q-1', USUARIO);
+    const llamada = (enviarResend.mock.calls as unknown[][])[0][0] as {
+      html: string;
+    };
+    expect(llamada.html).toContain('Hemos actualizado tu cotización');
+
+    const primeraVez = armar({
+      previos: [{ tipo: 'llamada', note: 'Lo llamé y quedó de responder' }],
+    });
+    await primeraVez.service.enviar('q-1', USUARIO);
+    const segunda = (enviarResend.mock.calls as unknown[][])[1][0] as {
+      html: string;
+    };
+    expect(segunda.html).toContain('Gracias por cotizar');
   });
 
   it('si la bitácora falla, el envío NO se rompe (el correo ya salió)', async () => {

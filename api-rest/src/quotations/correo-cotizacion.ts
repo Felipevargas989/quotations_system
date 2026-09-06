@@ -216,6 +216,9 @@ export const correoDeCotizacion = (
   q: Quotation & { clients?: { name?: string | null } | null },
   marca: MarcaDelCorreo,
   nombreContacto: string | null,
+  /** Segunda vez en adelante (Felipe, 05-09): mismo correo, pero las
+   *  primeras líneas dicen que la cotización se ACTUALIZÓ. */
+  esReenvio = false,
 ): { asunto: string; titulo: string; cuerpoHtml: string } => {
   const fecha = fechaLargaDelEvento(q.event_date);
   const evento = String(q.event_type || 'evento');
@@ -340,11 +343,17 @@ export const correoDeCotizacion = (
   const cuerpoHtml = [
     parrafo(`Hola${saludo ? ` ${esc(saludo)}` : ''}:`),
     parrafo(
-      `¡Gracias por cotizar con nosotros! Te compartimos la cotización para tu ${esc(
-        evento.toLowerCase(),
-      )} del ${esc(fecha)}${
-        personas ? `, para ${String(personas)} personas` : ''
-      }. Adjuntamos el documento completo en PDF con el programa y todo el detalle.`,
+      esReenvio
+        ? `Hemos actualizado tu cotización para tu ${esc(
+            evento.toLowerCase(),
+          )} del ${esc(fecha)}${
+            personas ? `, para ${String(personas)} personas` : ''
+          }. Te compartimos la versión al día; el PDF adjunto reemplaza al anterior.`
+        : `¡Gracias por cotizar con nosotros! Te compartimos la cotización para tu ${esc(
+            evento.toLowerCase(),
+          )} del ${esc(fecha)}${
+            personas ? `, para ${String(personas)} personas` : ''
+          }. Adjuntamos el documento completo en PDF con el programa y todo el detalle.`,
     ),
     bloqueAlimentacion,
     bloqueFijos,

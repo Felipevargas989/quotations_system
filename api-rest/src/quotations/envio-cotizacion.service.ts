@@ -166,6 +166,24 @@ export class EnvioCotizacionService {
     if (errMarca && errMarca.code !== 'PGRST116') throw errMarca;
     const marca = marcaDesdeFila(filaEmpresa || {});
 
+    // ¿Segunda vez? La bitácora es la memoria: si ya hay una anotación
+    // de envío, el correo abre con "hemos actualizado tu cotización".
+    // Best effort: si la bitácora no responde, sale como primera vez.
+    let esReenvio = false;
+    try {
+      const previos = await this.followups.findByQuotation(
+        user.company_id,
+        quotationId,
+      );
+      esReenvio = (previos || []).some(
+        (f: { tipo?: string | null; note?: string | null }) =>
+          f.tipo === 'correo' &&
+          (f.note || '').startsWith('Cotización enviada por correo'),
+      );
+    } catch (e) {
+      this.logger.error(`no se pudo leer la bitácora: ${String(e)}`);
+    }
+
     this.logger.info(`enviar cotizacion ${quotationId} a ${destino.correo}`);
     const pdf = await this.generarPdf(quotationId);
     const archivo = `Cotizacion_N${String(q.quotation_number)}_${marca.nombre.replace(/[^\p{L}\p{N}]+/gu, '')}.pdf`;
@@ -174,6 +192,7 @@ export class EnvioCotizacionService {
       q,
       marca,
       destino.nombre,
+      esReenvio,
     );
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
