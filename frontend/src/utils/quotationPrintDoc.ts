@@ -240,7 +240,10 @@ export function buildQuotationPrintDoc(
     .qv-marca { display:flex; gap:14px; align-items:center; }
     .qv-logo { width:88px; height:88px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:32px; overflow:hidden; }
     .qv-logo img { width:100%; height:100%; object-fit:cover; }
-    .qv-marca h1 { font-size:19px; letter-spacing:.2px; margin:0; }
+    /* Peso EXPLÍCITO (Felipe, 05-09): sin él, el nombre dependía del
+       entorno — negrita del navegador en el visor, plano dentro de la
+       SPA (el reset de Tailwind) y por lo tanto en el PDF del motor. */
+    .qv-marca h1 { font-size:19px; font-weight:700; letter-spacing:.2px; margin:0; }
     .qv-folio { text-align:right; }
     .qv-folio .tipo { font-size:11px; font-weight:800; letter-spacing:2px; color:${brandP}; text-transform:uppercase; }
     .qv-folio .num { font-size:26px; font-weight:800; }
