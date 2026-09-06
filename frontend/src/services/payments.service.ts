@@ -31,7 +31,15 @@ export const getPaymentsByQuotationId = async (quotationId: string) => {
       quotationId,
     },
   );
-  return { data: response };
+  // El motor responde { data, error }: acá se devuelve LA LISTA, ya
+  // desenvuelta (caza del 06-09: la doble envoltura dejaba a TODOS los
+  // consumidores preguntándole el largo a la caja y no a la lista —
+  // "el plan ya existía" nunca se detectó, y el freno del guardado
+  // automático de Servicios no se activaba).
+  const lista = Array.isArray(response)
+    ? response
+    : ((response as { data?: unknown[] } | null)?.data ?? []);
+  return { data: lista };
 };
 
 export const createPaymentPlan = async (
