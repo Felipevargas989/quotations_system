@@ -132,6 +132,10 @@ export class EnvioCotizacionService {
       await page.goto(url, { waitUntil: 'networkidle0', timeout: 45_000 });
       // La hoja pinta .qv-hoja cuando los datos llegaron.
       await page.waitForSelector('.qv-hoja', { timeout: 15_000 });
+      // Y la letra de la casa (Inter, en la pieza compartida) debe
+      // estar descargada antes de imprimir — sin esto el PDF puede
+      // salir con la fuente de respaldo del servidor.
+      await page.evaluate(() => document.fonts.ready);
       const pdf = await page.pdf({
         format: 'a4',
         printBackground: true,

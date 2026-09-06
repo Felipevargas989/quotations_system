@@ -16,6 +16,7 @@ jest.mock('puppeteer-core', () => ({
         Promise.resolve({
           goto: jest.fn().mockResolvedValue(undefined),
           waitForSelector: jest.fn().mockResolvedValue(undefined),
+          evaluate: jest.fn().mockResolvedValue(undefined),
           pdf: pdfDeMentira,
         }),
       close: cerrarNavegador,
