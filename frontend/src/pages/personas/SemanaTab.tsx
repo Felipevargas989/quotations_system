@@ -1491,7 +1491,7 @@ function CasillaAbierta({
       />
       {esEvento && disponibles.length === 0 && (
         <p className="text-xs text-amber-700">
-          Todos están ocupados ese día: en el restaurante, en otro evento o
+          Todos están ocupados ese día: en el staff, en otro evento o
           ya en esta casilla. Solo se ofrece gente disponible.
         </p>
       )}

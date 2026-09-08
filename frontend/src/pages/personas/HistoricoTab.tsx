@@ -30,18 +30,23 @@ const etiquetaMes = (mes: string) =>
 import type { Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
-import { estadoDelPago } from "./estadoDelPago";
-import { porPersonaDe } from "./porPersona";
+import { eventosQueryOptions } from "./FichasTab";
+import {
+  estadoDelConcepto,
+  porConceptoDe,
+  type PorConcepto,
+} from "./porConcepto";
 import type { Nomina } from "../../types/people.types";
 import { clp } from "../postventa/PostVentaPage";
 
 /**
  * EL HISTÓRICO DE PAGOS — lo que YA SE PAGÓ (Felipe, 08-09-2026; los
  * tres estados del doc 10: Liquidación valida, Nómina deja listo para
- * pagar, Histórico cuenta la historia). Nóminas con su gente pagada,
- * sello "Pagado el…", cero botones: un pago es un hito y no se reabre.
+ * pagar, Histórico cuenta la historia). Nóminas abiertas por lo que
+ * pagaron — eventos y días de staff con su sello "Pagado el…" —, cero
+ * botones: un pago es un hito y no se reabre.
  * Lo liquidado que espera nómina y lo en-nómina-sin-pagar NO se ven
- * acá: viven en Nómina. La única excepción son los días de restaurante
+ * acá: viven en Nómina. La única excepción son los días de staff
  * marcados SIN PROPINA: pasan de Liquidación derecho al histórico
  * (no hay pago que hacer) y se pueden devolver a Liquidación para
  * corregir un marcado por error — no toca dinero.
@@ -251,7 +256,7 @@ export default function HistoricoTab() {
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Días sin propina</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Días de restaurante resueltos sin propina: no hubo pago, por
+            Días de staff resueltos sin propina: no hubo pago, por
             eso no pasan por nómina. Devolverlos a Liquidación no toca
             dinero.
           </p>
@@ -311,7 +316,10 @@ export default function HistoricoTab() {
 }
 
 /** Una nómina del histórico: cabecera plegada; al abrirla se lee su
- *  detalle y se listan SOLO las personas ya pagadas, con su sello. */
+ *  detalle y se lista QUÉ PAGÓ — eventos y días de staff, cada uno con
+ *  su gente, sus montos y su sello. Las personas no van acá: viven en
+ *  Nómina de pago (Felipe, 08-09: "el detalle de cada nómina vive
+ *  correctamente en la pestaña nómina"). */
 function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
   const [abierta, setAbierta] = useState(false);
   const { data: detalle, isLoading } = useQuery({
@@ -320,19 +328,31 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
     enabled: abierta,
     staleTime: 60_000,
   });
-  const pagadas = useMemo(
-    () =>
-      detalle
-        ? porPersonaDe(detalle).filter((p) => estadoDelPago(p) === "pagada")
-        : [],
+  const { data: eventos = [] } = useQuery(eventosQueryOptions);
+  const nombre = useMemo(() => {
+    // El mismo nombre que la lista por pagar de Nómina: número, cliente
+    // y fecha, para que dos eventos del mismo día se distingan.
+    const m = new Map(
+      eventos.map((q) => [
+        q.id,
+        `N° ${String(q.numero)} · ${q.cliente} · ${formatISOUTCDateToString(q.inicio)}`,
+      ]),
+    );
+    return (c: PorConcepto) =>
+      c.quotation_id
+        ? (m.get(c.quotation_id) ?? "Evento")
+        : `Staff · ${formatISOUTCDateToString(c.day ?? "")}`;
+  }, [eventos]);
+  const conceptos = useMemo(
+    () => (detalle ? porConceptoDe(detalle) : []),
     [detalle],
   );
-  const fechaDePago = (p: (typeof pagadas)[number]) => {
-    const fechas = p.pagos
-      .map((g) => g.paid_at)
-      .filter((f): f is string => !!f)
-      .sort();
-    return fechas.length ? formatISOUTCDateToString(fechas[fechas.length - 1].slice(0, 10)) : null;
+  const sello = (c: PorConcepto) => {
+    const estado = estadoDelConcepto(c);
+    if (estado === "parcial") return { texto: "Parcial", clase: "bg-amber-50 text-amber-700 border-amber-200" };
+    if (estado === "pendiente") return { texto: "Sin pagar", clase: "bg-gray-50 text-gray-500 border-gray-200" };
+    const fecha = c.pagadoEl ? ` el ${formatISOUTCDateToString(c.pagadoEl.slice(0, 10))}` : "";
+    return { texto: `Pagado${fecha}`, clase: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   };
   const Flecha = abierta ? ChevronDown : ChevronRight;
   return (
@@ -368,33 +388,37 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
         <div className="px-4 pb-3">
           {isLoading ? (
             <p className="text-xs text-gray-500 py-2">Cargando…</p>
-          ) : pagadas.length === 0 ? (
-            <p className="text-xs text-gray-500 py-2">Nadie pagado todavía.</p>
+          ) : conceptos.length === 0 ? (
+            <p className="text-xs text-gray-500 py-2">
+              Esta nómina no tiene eventos ni días de staff.
+            </p>
           ) : (
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-gray-100">
-                {pagadas.map((p) => (
-                  <tr key={p.personIds.join("-")}>
-                    <td className="py-1.5 pl-7 text-gray-900">
-                      {p.persona?.name ?? "—"}
-                    </td>
-                    <td className="py-1.5 text-right text-gray-500 tabular-nums">
-                      {p.totalJornada > 0 && `Jornadas ${clp(p.totalJornada)}`}
-                      {p.totalJornada > 0 && p.totalPropina > 0 && " · "}
-                      {p.totalPropina > 0 && `Propinas ${clp(p.totalPropina)}`}
-                    </td>
-                    <td className="py-1.5 text-right font-semibold text-gray-900 tabular-nums">
-                      {clp(p.totalJornada + p.totalPropina)}
-                    </td>
-                    <td className="py-1.5 pl-3 text-right whitespace-nowrap">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        Pagado{fechaDePago(p) ? ` el ${fechaDePago(p) as string}` : ""}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="divide-y divide-gray-100 text-sm">
+              {conceptos.map((c) => {
+                const s = sello(c);
+                return (
+                  <li key={c.llave} className="flex items-center gap-3 py-1.5 pl-7">
+                    <span className="flex-1 min-w-0 truncate text-gray-900">
+                      {nombre(c)}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500 tabular-nums">
+                      {c.personas} {c.personas === 1 ? "persona" : "personas"}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500 tabular-nums">
+                      {c.totalJornada > 0 && `Jornadas ${clp(c.totalJornada)}`}
+                      {c.totalJornada > 0 && c.totalPropina > 0 && " · "}
+                      {c.totalPropina > 0 && `Propinas ${clp(c.totalPropina)}`}
+                    </span>
+                    <span className="shrink-0 font-semibold text-gray-900 tabular-nums">
+                      {clp(c.totalJornada + c.totalPropina)}
+                    </span>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${s.clase}`}>
+                      {s.texto}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       )}

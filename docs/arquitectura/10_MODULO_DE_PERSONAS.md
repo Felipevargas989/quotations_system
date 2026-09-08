@@ -433,6 +433,21 @@ las notas anteriores donde se contradigan.
   No toca dinero, y la pantalla lo dice.
 - La palabra "Reabrir" desaparece del módulo: siempre "Devolver a
   Liquidación", nunca visible donde haya un pago hecho.
+- **Una nómina abierta en el Histórico lista QUÉ PAGÓ, no a quién**
+  (Felipe, 08-09: *"más que el detalle de las personas, deberían ser
+  qué eventos y días están pagados ahí… el detalle de cada nómina
+  vive correctamente en la pestaña Nómina"*): una fila por evento
+  ("N° · cliente · fecha") o por día de staff ("Staff · fecha"), con
+  cuánta gente, jornadas, propinas, total y sello Pagado el… /
+  Parcial / Sin pagar. Como el pago se marca por persona, lo pagado
+  de un concepto es la suma de lo que sus personas ya cobraron
+  (`porConcepto.ts`).
+- **"Día de staff", no "día de restaurante" (Felipe, 08-09-2026)**:
+  en TODAS las pantallas (Liquidación, Nómina, Histórico, calendario
+  chico, planificación) el día sin evento se llama día de staff — el
+  mismo nombre que ya tenían la pestaña Staff del directorio y la
+  revisión de la nómina. Este documento y el código siguen diciendo
+  "restaurante" en muchas partes: es la misma cosa, no se reescribió.
 
 ---
 

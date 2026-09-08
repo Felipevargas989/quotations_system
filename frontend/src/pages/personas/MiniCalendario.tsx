@@ -303,7 +303,7 @@ export default function MiniCalendario({
                   title={
                     soloLectura
                       ? viene
-                        ? "Viene al restaurante ese día"
+                        ? "Día de staff"
                         : undefined
                       : staffCerrado
                         ? "Staff confirmado: se saca desde la casilla de Planificación"
@@ -382,7 +382,7 @@ export default function MiniCalendario({
                           ? "Staff confirmado: se cambia desde la casilla de Planificación, no acá"
                           : porConfirmar
                             ? "Por confirmar"
-                            : "Viene al restaurante ese día"
+                            : "Día de staff"
                       }
                     >
                       <span className="block font-medium">
@@ -466,7 +466,7 @@ export default function MiniCalendario({
       <p className="text-[11px] text-gray-500 px-4 py-2 bg-gray-50 border-t border-gray-200">
         {soloLectura ? (
           <>
-            Lila: restaurante. Verde: evento confirmado. Ámbar: por confirmar.
+            Lila: staff. Verde: evento confirmado. Ámbar: por confirmar.
             En gris, sus días libres. Se mira desde acá; se cambia en su
             ficha o en la planificación del evento.
           </>
@@ -474,7 +474,7 @@ export default function MiniCalendario({
           <>
             Pincha un <strong>día vacío</strong> para agregarlo y la{" "}
             <strong>cajita</strong> para cambiar solo ese día. Lila:
-            restaurante. Verde: evento confirmado. Ámbar: por confirmar, o
+            staff. Verde: evento confirmado. Ámbar: por confirmar, o
             con horario distinto al que le toca. En gris, sus días libres.
             Los días de evento se cambian en la planificación del evento.
           </>

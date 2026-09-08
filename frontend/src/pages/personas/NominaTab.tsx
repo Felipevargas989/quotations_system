@@ -180,7 +180,7 @@ function LiquidacionesPorPagar({
     );
     return (l: LiquidacionPendiente) =>
       l.tipo === "dia"
-        ? `Restaurante · ${formatISOUTCDateToString(l.day ?? "")}`
+        ? `Staff · ${formatISOUTCDateToString(l.day ?? "")}`
         : (m.get(l.quotation_id ?? "") ?? "Evento");
   }, [eventos]);
 

@@ -293,7 +293,7 @@ export default function FichasTab() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <div>
             <h2 className="font-semibold text-gray-900">
-              Días de restaurante
+              Días de staff
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Día por día: quiénes trabajaron, cuánta propina hubo y cómo
@@ -316,7 +316,7 @@ export default function FichasTab() {
         </div>
         {diasPendientes.length === 0 ? (
           <p className="text-sm text-gray-500 px-4 py-4">
-            Al día: no hay días de restaurante pendientes.
+            Al día: no hay días de staff pendientes.
           </p>
         ) : (
           <div className="px-4 py-3 flex items-center gap-1.5 flex-wrap">
