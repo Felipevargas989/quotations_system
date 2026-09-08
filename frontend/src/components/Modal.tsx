@@ -29,6 +29,7 @@ export default function Modal({
   pie,
   bloquearEscape = false,
   sinTope = false,
+  altoFijo = false,
   onCerrar,
   children,
 }: {
@@ -48,6 +49,11 @@ export default function Modal({
    *  su lista se abre SIEMPRE hacia abajo y el tope se la comía: con
    *  la casilla vacía se veía el 4% de los nombres (medido el 15-08). */
   readonly sinTope?: boolean;
+  /** Alto FIJO (el mismo 88vh del tope) en vez de "hasta el tope": para
+   *  ventanas que pasan de un registro a otro (el asistente de pagos,
+   *  Felipe 08-09) — con contenido corto quedaba chica y con largo
+   *  crecía, y la ventana saltaba de alto con cada persona. */
+  readonly altoFijo?: boolean;
   readonly onCerrar: () => void;
   readonly children: ReactNode;
 }) {
@@ -69,7 +75,7 @@ export default function Modal({
     >
       <div
         className={`bg-white rounded-xl shadow-xl w-full ${ancho} my-4 flex flex-col ${
-          sinTope ? "" : "max-h-[88vh]"
+          sinTope ? "" : altoFijo ? "h-[88vh]" : "max-h-[88vh]"
         }`}
       >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
@@ -96,7 +102,11 @@ export default function Modal({
           </div>
         </div>
 
-        <div className={`px-5 py-4 ${sinTope ? "" : "overflow-y-auto"}`}>
+        <div
+          className={`px-5 py-4 ${sinTope ? "" : "overflow-y-auto"} ${
+            altoFijo ? "flex-1 min-h-0" : ""
+          }`}
+        >
           {children}
         </div>
 
