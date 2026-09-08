@@ -887,6 +887,9 @@ function PagoUnoAUno({
   // cada persona (3 líneas vs 9), y "Saltar" solo iba hacia adelante —
   // ahora el nombre va centrado entre ‹ › para moverse libre entre las
   // pendientes (volver a una que se saltó, pagar en cualquier orden).
+  // Las flechas van QUIETAS en los extremos y el nombre en el medio con
+  // "…" si no cabe (Felipe, 08-09): pegadas al nombre bailaban con cada
+  // largo distinto. Y "Saltar por ahora" se fue: con las flechas sobra.
   const anterior = idx > 0;
   const siguiente = idx < pendientes.length - 1;
   const flecha = (
@@ -910,10 +913,19 @@ function PagoUnoAUno({
     <Modal
       altoFijo
       titulo={
-        <span className="flex items-center justify-center gap-2">
-          {flecha(anterior, () => setIdx(idx - 1), ChevronLeft, "Anterior")}
-          <span className="truncate">{persona?.name ?? "Pago"}</span>
-          {flecha(siguiente, () => setIdx(idx + 1), ChevronRight, "Siguiente")}
+        <span className="flex items-center gap-2 w-full">
+          <span className="shrink-0">
+            {flecha(anterior, () => setIdx(idx - 1), ChevronLeft, "Anterior")}
+          </span>
+          <span
+            className="flex-1 min-w-0 truncate text-center"
+            title={persona?.name ?? undefined}
+          >
+            {persona?.name ?? "Pago"}
+          </span>
+          <span className="shrink-0">
+            {flecha(siguiente, () => setIdx(idx + 1), ChevronRight, "Siguiente")}
+          </span>
         </span>
       }
       subtitulo={
@@ -931,15 +943,6 @@ function PagoUnoAUno({
       onCerrar={onCerrar}
       pie={
         <>
-          <button
-            type="button"
-            onClick={() =>
-              idx >= pendientes.length - 1 ? onCerrar() : setIdx(idx + 1)
-            }
-            className="mr-auto px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            Saltar por ahora
-          </button>
           <button
             type="button"
             onClick={() => marcar.mutate()}
