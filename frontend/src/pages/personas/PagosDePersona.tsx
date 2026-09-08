@@ -172,7 +172,9 @@ export default function PagosDePersona({
               direccion="abajo"
               lado="derecha"
               ancho="amplio"
-              titulo={pendientes.map(textoDeLinea).join("\n")}
+              // Sin rótulo nativo: con él salían LOS DOS letreros a la vez
+              // (la pieza ya lo advertía; Felipe lo vio de nuevo el 08-09).
+              titulo=""
               contenido={
                 <ul className="space-y-0.5">
                   {pendientes.map((l) => (
