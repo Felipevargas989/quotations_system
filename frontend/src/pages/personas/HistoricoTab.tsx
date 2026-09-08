@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -80,6 +80,19 @@ export default function HistoricoTab() {
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [nominas],
   );
+
+  // PRECARGA (Felipe, 08-09: "se demora en cargar cuando pincho"): los
+  // detalles de las nóminas con pagos se piden todos al abrir la
+  // pestaña — son pocos y chicos — y al desplegar una ya está en caché.
+  useEffect(() => {
+    for (const n of nominasConPagos) {
+      void qc.prefetchQuery({
+        queryKey: ["people", "payroll", n.id],
+        queryFn: () => getPayroll(n.id),
+        staleTime: 60_000,
+      });
+    }
+  }, [nominasConPagos, qc]);
 
   const totalDe = (p: Pozo) =>
     Number(p.first_amount) + Number(p.second_amount);
@@ -305,6 +318,7 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
     queryKey: ["people", "payroll", nomina.id],
     queryFn: () => getPayroll(nomina.id),
     enabled: abierta,
+    staleTime: 60_000,
   });
   const pagadas = useMemo(
     () =>
