@@ -234,8 +234,8 @@ export default function HistoricoTab() {
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Pagos</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Nómina por nómina, quién ya cobró. Lo que espera pago vive en
-            la pestaña Nómina.
+            Nómina por nómina, qué eventos y días de staff se pagaron. Lo que
+            espera pago vive en la pestaña Nómina.
           </p>
         </div>
         {nominasConPagos.length === 0 ? (
@@ -347,12 +347,14 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
     () => (detalle ? porConceptoDe(detalle) : []),
     [detalle],
   );
+  // SOLO NOMBRE Y TOTAL (Felipe, 08-09: "el resto de los datos solo
+  // ensucia"). La cabecera ya dice Pagada/Parcial; por fila se marca
+  // únicamente la excepción — lo que todavía no se pagó del todo.
   const sello = (c: PorConcepto) => {
     const estado = estadoDelConcepto(c);
     if (estado === "parcial") return { texto: "Parcial", clase: "bg-amber-50 text-amber-700 border-amber-200" };
     if (estado === "pendiente") return { texto: "Sin pagar", clase: "bg-gray-50 text-gray-500 border-gray-200" };
-    const fecha = c.pagadoEl ? ` el ${formatISOUTCDateToString(c.pagadoEl.slice(0, 10))}` : "";
-    return { texto: `Pagado${fecha}`, clase: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    return null;
   };
   const Flecha = abierta ? ChevronDown : ChevronRight;
   return (
@@ -401,19 +403,13 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
                     <span className="flex-1 min-w-0 truncate text-gray-900">
                       {nombre(c)}
                     </span>
-                    <span className="shrink-0 text-xs text-gray-500 tabular-nums">
-                      {c.personas} {c.personas === 1 ? "persona" : "personas"}
-                    </span>
-                    <span className="shrink-0 text-xs text-gray-500 tabular-nums">
-                      {c.totalJornada > 0 && `Jornadas ${clp(c.totalJornada)}`}
-                      {c.totalJornada > 0 && c.totalPropina > 0 && " · "}
-                      {c.totalPropina > 0 && `Propinas ${clp(c.totalPropina)}`}
-                    </span>
+                    {s && (
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${s.clase}`}>
+                        {s.texto}
+                      </span>
+                    )}
                     <span className="shrink-0 font-semibold text-gray-900 tabular-nums">
                       {clp(c.totalJornada + c.totalPropina)}
-                    </span>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${s.clase}`}>
-                      {s.texto}
                     </span>
                   </li>
                 );
