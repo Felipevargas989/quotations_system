@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Tooltip from "../../components/Tooltip";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -79,6 +80,12 @@ const lineasDe = (a: Asignacion): Linea[] => {
   return salida;
 };
 
+const textoDeLinea = (l: Linea) =>
+  `${l.concepto} · ${new Date(`${l.dia}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "numeric", month: "short", timeZone: "UTC" },
+  )}${l.donde ? ` · ${l.donde}` : ""} · ${clp(l.monto)}`;
+
 export default function PagosDePersona({
   persona,
 }: {
@@ -155,35 +162,33 @@ export default function PagosDePersona({
           }`}
         >
           <p className="text-xs text-gray-500">Se le debe</p>
-          <p
-            className={`text-lg font-bold ${
-              seLeDebe > 0 ? "text-amber-800" : "text-gray-400"
-            }`}
-          >
-            {seLeDebe > 0 ? clp(seLeDebe) : "nada pendiente"}
-          </p>
-          {/* El desglose (Felipe, 08-09: "no sé bien qué se le debe"):
-              qué jornadas o propinas componen el número, para que nunca
-              haya que preguntárselo a la base. Hasta 4 líneas; si hay
-              más, se cuentan. */}
-          {seLeDebe > 0 && (
-            <ul className="mt-1.5 space-y-0.5">
-              {pendientes.slice(0, 4).map((l) => (
-                <li key={l.id} className="text-xs text-amber-800/80">
-                  {l.concepto} ·{" "}
-                  {new Date(`${l.dia}T12:00:00Z`).toLocaleDateString(
-                    "es-CL",
-                    { day: "numeric", month: "short", timeZone: "UTC" },
-                  )}
-                  {l.donde ? ` · ${l.donde}` : ""} · {clp(l.monto)}
-                </li>
-              ))}
-              {pendientes.length > 4 && (
-                <li className="text-xs text-amber-800/60">
-                  y {pendientes.length - 4} más
-                </li>
-              )}
-            </ul>
+          {/* El desglose vive en el hover (Felipe, 08-09: dentro del
+              recuadro "se ve raro"): la pieza Tooltip de la casa, con
+              todas las líneas pendientes. Hacia abajo y hacia la
+              derecha: la cajita está pegada al techo y al borde
+              izquierdo. */}
+          {seLeDebe > 0 ? (
+            <Tooltip
+              direccion="abajo"
+              lado="derecha"
+              ancho="amplio"
+              titulo={pendientes.map(textoDeLinea).join("\n")}
+              contenido={
+                <ul className="space-y-0.5">
+                  {pendientes.map((l) => (
+                    <li key={l.id} className="whitespace-nowrap">
+                      {textoDeLinea(l)}
+                    </li>
+                  ))}
+                </ul>
+              }
+            >
+              <p className="text-lg font-bold text-amber-800 cursor-help">
+                {clp(seLeDebe)}
+              </p>
+            </Tooltip>
+          ) : (
+            <p className="text-lg font-bold text-gray-400">nada pendiente</p>
           )}
         </div>
         <div className="border border-gray-200 rounded-lg px-3 py-2">
