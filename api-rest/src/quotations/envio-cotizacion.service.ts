@@ -227,10 +227,22 @@ export class EnvioCotizacionService {
       destino.nombre,
       numeroDeVersion,
     );
+    // Copia OCULTA al buzón que atiende las respuestas (Felipe, 08-09):
+    // así ese buzón guarda la conversación completa —lo que salió y lo
+    // que el cliente contesta— sin aparecer en el correo. Oculta a
+    // propósito: en copia visible, un "responder a todos" la pondría
+    // dos veces (en Para por el Responder-a, y en CC). Si el destino
+    // ES ese buzón, no se duplica.
+    const copiaOculta =
+      marca.replyTo &&
+      marca.replyTo.toLowerCase() !== (destino.correo as string).toLowerCase()
+        ? [marca.replyTo]
+        : [];
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
       from: `${marca.nombre} <hola@eventi-app.com>`,
       to: [destino.correo as string],
+      ...(copiaOculta.length ? { bcc: copiaOculta } : {}),
       subject: asunto,
       html: plantillaCampana({
         marca,
