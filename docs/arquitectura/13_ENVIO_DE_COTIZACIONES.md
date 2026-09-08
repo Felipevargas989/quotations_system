@@ -82,8 +82,15 @@ anotación más de la bitácora.
 4. `page.pdf()` produce el adjunto. El navegador se cierra siempre
    (finally), un envío a la vez.
 5. Sale el correo por Resend: cuerpo tipo + PDF adjunto,
-   `from` = `{empresa} <hola@eventi-app.com>`, `replyTo` = el correo
-   del usuario que envió (las respuestas le llegan al vendedor).
+   `from` = `{empresa} <hola@eventi-app.com>`, `replyTo` = el
+   "Responder a" de Configuración → Notificaciones si existe (en
+   producción, contacto@), si no el correo del usuario que envió.
+   **Copia OCULTA a ese mismo "Responder a"** (Felipe, 08-09-2026): así
+   ese buzón guarda la conversación completa —lo que salió con su PDF y
+   lo que el cliente contesta— sin aparecer en el correo. Oculta a
+   propósito: en copia visible, un "responder a todos" pondría el buzón
+   dos veces (Para por el Responder-a, y CC). Si el destino ES ese
+   buzón, no se duplica. Aplica igual a envíos y reenvíos.
 6. Queda la anotación en la bitácora de Seguimiento: "Cotización
    enviada por correo a {destinatario}".
 

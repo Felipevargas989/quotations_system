@@ -63,6 +63,8 @@ const armar = (sobre?: {
   contactos?: Record<string, unknown>[];
   followup?: jest.Mock;
   previos?: Record<string, unknown>[];
+  /** Campos extra de la ficha de la empresa (ej: notifications). */
+  empresa?: Record<string, unknown>;
 }) => {
   const repo = {
     findOne: jest
@@ -79,7 +81,11 @@ const armar = (sobre?: {
   };
   const companies = {
     findOne: jest.fn().mockResolvedValue({
-      data: { name: 'Valle del Sol', colors: { primary: '#134686' } },
+      data: {
+        name: 'Valle del Sol',
+        colors: { primary: '#134686' },
+        ...(sobre?.empresa ?? {}),
+      },
       error: null,
     }),
   };
@@ -124,14 +130,16 @@ describe('enviar cotización por correo', () => {
       subject: string;
       attachments: { filename: string }[];
       replyTo?: string;
+      bcc?: string[];
     };
     expect(llamada.to).toEqual(['ana@x.cl']);
     expect(llamada.subject).toContain('sábado 14 de marzo de 2026');
     expect(llamada.attachments[0].filename).toBe(
       'Cotizacion_N42_ValledelSol.pdf',
     );
-    // Sin replyTo de la empresa, responde el vendedor.
+    // Sin replyTo de la empresa, responde el vendedor — y no hay copia.
     expect(llamada.replyTo).toBe('vende@x.cl');
+    expect(llamada.bcc).toBeUndefined();
     expect(followups.create).toHaveBeenCalledWith(
       USUARIO,
       expect.objectContaining({ tipo: 'correo' }),
@@ -142,6 +150,38 @@ describe('enviar cotización por correo', () => {
     const { service } = armar({ contactos: [] });
     const r = await service.enviar('q-1', USUARIO);
     expect(r.enviado_a).toBe('cliente@x.cl');
+  });
+
+  it('con Responder-a de la empresa, va copia OCULTA a ese mismo buzón', async () => {
+    const { service } = armar({
+      empresa: { notifications: { replyTo: 'contacto@x.cl' } },
+    });
+    await service.enviar('q-1', USUARIO);
+    const llamada = (enviarResend.mock.calls as unknown[][])[0][0] as {
+      to: string[];
+      cc?: string[];
+      bcc?: string[];
+      replyTo?: string;
+    };
+    expect(llamada.to).toEqual(['ana@x.cl']);
+    expect(llamada.replyTo).toBe('contacto@x.cl');
+    expect(llamada.bcc).toEqual(['contacto@x.cl']);
+    // Oculta, nunca visible: en CC un "responder a todos" la duplicaría.
+    expect(llamada.cc).toBeUndefined();
+  });
+
+  it('si el destino ES el buzón de respuestas, no se manda copia duplicada', async () => {
+    const { service } = armar({
+      empresa: { notifications: { replyTo: 'Contacto@x.cl' } },
+      contactos: [{ id: 7, name: 'Ana Soto', email: 'contacto@x.cl' }],
+    });
+    await service.enviar('q-1', USUARIO);
+    const llamada = (enviarResend.mock.calls as unknown[][])[0][0] as {
+      to: string[];
+      bcc?: string[];
+    };
+    expect(llamada.to).toEqual(['contacto@x.cl']);
+    expect(llamada.bcc).toBeUndefined();
   });
 
   it('el portero frena ANTES de imprimir: sin correo ninguno', async () => {
