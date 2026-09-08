@@ -406,6 +406,36 @@ la X cierra.
 
 ---
 
+#### Los tres estados: Liquidación · Nómina · Histórico (08-09-2026)
+
+Definidos por Felipe revisando el Histórico de pagos (*"un hito es
+pagado, es un sello que no debería tener reapertura"*). Mandan sobre
+las notas anteriores donde se contradigan.
+
+- **Liquidación** es el estado donde se toma un evento o un día de
+  restaurante y se valida que la información esté correcta. Muestra
+  solo lo pendiente — tenga o no pago (un día de restaurante sin
+  nada también se resuelve acá).
+- **Nómina** es el estado de los eventos y días validados y
+  disponibles para pago: se toman varias liquidaciones y se crea una
+  nómina. Ahí viven lo liquidado esperando nómina ("Liquidaciones por
+  pagar", con **Devolver a Liquidación** mientras nada se haya pagado)
+  y las nóminas en el banco con gente aún sin pagar.
+- **Histórico de pagos** es la historia de lo que YA SE PAGÓ: nóminas
+  con las personas pagadas y su sello **"Pagado el …"**. Una nómina
+  parcialmente pagada aparece solo con las personas pagadas. Nada de
+  lo que espera pago se ve acá, y **nada se reabre**: un pago es un
+  hito; lo que haya que corregir se ajusta en la nómina siguiente.
+- **La excepción: los días de restaurante sin propina.** No hay pago
+  que hacer, así que pasan de Liquidación derecho al Histórico, en su
+  propia sección, con sello "sin propina" y un **Devolver a
+  Liquidación** (con confirmación) para corregir un marcado por error.
+  No toca dinero, y la pantalla lo dice.
+- La palabra "Reabrir" desaparece del módulo: siempre "Devolver a
+  Liquidación", nunca visible donde haya un pago hecho.
+
+---
+
 ## 3. EL CICLO DE UNA FICHA
 
 ⚠ **Simplificado el 15-08.** Este ciclo de cuatro pasos se diseñó
