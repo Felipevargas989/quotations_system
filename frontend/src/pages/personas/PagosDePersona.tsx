@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Tooltip from "../../components/Tooltip";
+import TooltipDeLaCasa from "../../components/Tooltip";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -168,7 +168,7 @@ export default function PagosDePersona({
               derecha: la cajita está pegada al techo y al borde
               izquierdo. */}
           {seLeDebe > 0 ? (
-            <Tooltip
+            <TooltipDeLaCasa
               direccion="abajo"
               lado="derecha"
               ancho="amplio"
@@ -186,7 +186,7 @@ export default function PagosDePersona({
               <p className="text-lg font-bold text-amber-800 cursor-help">
                 {clp(seLeDebe)}
               </p>
-            </Tooltip>
+            </TooltipDeLaCasa>
           ) : (
             <p className="text-lg font-bold text-gray-400">nada pendiente</p>
           )}
