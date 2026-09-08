@@ -242,7 +242,7 @@ export class PeopleService {
     if (dto.person_id == null) {
       if (!dto.quotation_id) {
         throw new BadRequestException(
-          'El restaurante no lleva sillas vacías: ahí siempre hay un nombre',
+          'El staff no lleva sillas vacías: ahí siempre hay un nombre',
         );
       }
       if (dto.role_id == null) {

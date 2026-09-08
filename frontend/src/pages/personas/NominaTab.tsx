@@ -26,7 +26,6 @@ import type {
   Asignacion,
   LiquidacionPendiente,
   NominaDetalle,
-  PagoPersona,
 } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { nombreBanco } from "../../utils/bancos";
@@ -51,17 +50,7 @@ import { formatearRut } from "../../utils/rut";
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
 
-interface PorPersona {
-  /** Las fichas que caen en este pago: normalmente una, dos si la
-   *  persona quedó cargada dos veces con el mismo RUT. */
-  personIds: number[];
-  persona: Asignacion["people"];
-  jornadas: Asignacion[];
-  propinas: Asignacion[];
-  totalJornada: number;
-  totalPropina: number;
-  pagos: PagoPersona[];
-}
+import { porPersonaDe, type PorPersona } from "./porPersona";
 
 export default function NominaTab() {
   const [abierta, setAbierta] = useState<number | null>(null);
@@ -191,7 +180,7 @@ function LiquidacionesPorPagar({
     );
     return (l: LiquidacionPendiente) =>
       l.tipo === "dia"
-        ? `Restaurante · ${formatISOUTCDateToString(l.day ?? "")}`
+        ? `Staff · ${formatISOUTCDateToString(l.day ?? "")}`
         : (m.get(l.quotation_id ?? "") ?? "Evento");
   }, [eventos]);
 
@@ -560,51 +549,11 @@ function NominaAbierta({
       qid === null ? "Staff" : (m.get(qid) ?? "Evento");
   }, [eventos]);
 
-  const porPersona: PorPersona[] = useMemo(() => {
-    if (!nomina) return [];
-    // CONSOLIDADO POR RUT (Felipe, 16-08), igual que en la revisión: una
-    // línea = una transferencia. Si la misma persona quedó cargada dos
-    // veces con el mismo RUT, se paga una sola vez. Sin RUT va por
-    // ficha: juntar a dos desconocidos sería peor.
-    const m = new Map<string, PorPersona>();
-    const de = (a: Asignacion): PorPersona => {
-      const rut = (a.people?.rut ?? "").trim();
-      const llave = rut ? `rut:${rut}` : `ficha:${a.person_id}`;
-      if (!m.has(llave)) {
-        m.set(llave, {
-          personIds: [],
-          persona: a.people ?? null,
-          jornadas: [],
-          propinas: [],
-          totalJornada: 0,
-          totalPropina: 0,
-          pagos: [],
-        });
-      }
-      const fila = m.get(llave)!;
-      // El backend jamás manda sillas vacías a una nómina; el filtro es
-      // solo para que el tipo lo diga.
-      if (a.person_id != null && !fila.personIds.includes(a.person_id)) {
-        fila.personIds.push(a.person_id);
-        const suyo = nomina.pagos.find((p) => p.person_id === a.person_id);
-        if (suyo) fila.pagos.push(suyo);
-      }
-      return fila;
-    };
-    for (const a of nomina.jornadas) {
-      const p = de(a);
-      p.jornadas.push(a);
-      p.totalJornada += Number(a.amount ?? 0);
-    }
-    for (const a of nomina.propinas) {
-      const p = de(a);
-      p.propinas.push(a);
-      p.totalPropina += Number(a.tip_amount ?? 0);
-    }
-    return [...m.values()].sort((a, b) =>
-      (a.persona?.name ?? "").localeCompare(b.persona?.name ?? ""),
-    );
-  }, [nomina]);
+  // Consolidado por RUT: pieza compartida con el Histórico (08-09).
+  const porPersona: PorPersona[] = useMemo(
+    () => (nomina ? porPersonaDe(nomina) : []),
+    [nomina],
+  );
 
   const refrescar = () => {
     void qc.invalidateQueries({ queryKey: ["people", "payroll", id] });

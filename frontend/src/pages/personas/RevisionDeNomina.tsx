@@ -37,7 +37,7 @@ export default function CuerpoDeRevision({
   const nombreOrigen = useMemo(() => {
     const m = new Map(eventos.map((q) => [q.id, q.cliente]));
     return (qid: string | null) =>
-      qid === null ? "Restaurante" : (m.get(qid) ?? "Evento");
+      qid === null ? "Staff" : (m.get(qid) ?? "Evento");
   }, [eventos]);
 
   /** El desglose de una cifra: de dónde sale y cuántos días. */

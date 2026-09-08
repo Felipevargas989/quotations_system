@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import TooltipDeLaCasa from "../../components/Tooltip";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -79,6 +80,12 @@ const lineasDe = (a: Asignacion): Linea[] => {
   return salida;
 };
 
+const textoDeLinea = (l: Linea) =>
+  `${l.concepto} · ${new Date(`${l.dia}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "numeric", month: "short", timeZone: "UTC" },
+  )}${l.donde ? ` · ${l.donde}` : ""} · ${clp(l.monto)}`;
+
 export default function PagosDePersona({
   persona,
 }: {
@@ -100,9 +107,8 @@ export default function PagosDePersona({
   );
 
   // Los tres números de arriba.
-  const seLeDebe = lineas
-    .filter((l) => !l.pagado)
-    .reduce((t, l) => t + l.monto, 0);
+  const pendientes = lineas.filter((l) => !l.pagado);
+  const seLeDebe = pendientes.reduce((t, l) => t + l.monto, 0);
   const pagadoEsteAno = lineas
     .filter((l) => l.pagado && l.dia.startsWith(String(anoDeHoy)))
     .reduce((t, l) => t + l.monto, 0);
@@ -156,13 +162,36 @@ export default function PagosDePersona({
           }`}
         >
           <p className="text-xs text-gray-500">Se le debe</p>
-          <p
-            className={`text-lg font-bold ${
-              seLeDebe > 0 ? "text-amber-800" : "text-gray-400"
-            }`}
-          >
-            {seLeDebe > 0 ? clp(seLeDebe) : "nada pendiente"}
-          </p>
+          {/* El desglose vive en el hover (Felipe, 08-09: dentro del
+              recuadro "se ve raro"): la pieza Tooltip de la casa, con
+              todas las líneas pendientes. Hacia abajo y hacia la
+              derecha: la cajita está pegada al techo y al borde
+              izquierdo. */}
+          {seLeDebe > 0 ? (
+            <TooltipDeLaCasa
+              direccion="abajo"
+              lado="derecha"
+              ancho="amplio"
+              // Sin rótulo nativo: con él salían LOS DOS letreros a la vez
+              // (la pieza ya lo advertía; Felipe lo vio de nuevo el 08-09).
+              titulo=""
+              contenido={
+                <ul className="space-y-0.5">
+                  {pendientes.map((l) => (
+                    <li key={l.id} className="whitespace-nowrap">
+                      {textoDeLinea(l)}
+                    </li>
+                  ))}
+                </ul>
+              }
+            >
+              <p className="text-lg font-bold text-amber-800 cursor-help">
+                {clp(seLeDebe)}
+              </p>
+            </TooltipDeLaCasa>
+          ) : (
+            <p className="text-lg font-bold text-gray-400">nada pendiente</p>
+          )}
         </div>
         <div className="border border-gray-200 rounded-lg px-3 py-2">
           <p className="text-xs text-gray-500">Pagado el {anoDeHoy}</p>
