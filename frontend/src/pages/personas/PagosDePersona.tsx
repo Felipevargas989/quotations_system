@@ -100,9 +100,8 @@ export default function PagosDePersona({
   );
 
   // Los tres números de arriba.
-  const seLeDebe = lineas
-    .filter((l) => !l.pagado)
-    .reduce((t, l) => t + l.monto, 0);
+  const pendientes = lineas.filter((l) => !l.pagado);
+  const seLeDebe = pendientes.reduce((t, l) => t + l.monto, 0);
   const pagadoEsteAno = lineas
     .filter((l) => l.pagado && l.dia.startsWith(String(anoDeHoy)))
     .reduce((t, l) => t + l.monto, 0);
@@ -163,6 +162,29 @@ export default function PagosDePersona({
           >
             {seLeDebe > 0 ? clp(seLeDebe) : "nada pendiente"}
           </p>
+          {/* El desglose (Felipe, 08-09: "no sé bien qué se le debe"):
+              qué jornadas o propinas componen el número, para que nunca
+              haya que preguntárselo a la base. Hasta 4 líneas; si hay
+              más, se cuentan. */}
+          {seLeDebe > 0 && (
+            <ul className="mt-1.5 space-y-0.5">
+              {pendientes.slice(0, 4).map((l) => (
+                <li key={l.id} className="text-xs text-amber-800/80">
+                  {l.concepto} ·{" "}
+                  {new Date(`${l.dia}T12:00:00Z`).toLocaleDateString(
+                    "es-CL",
+                    { day: "numeric", month: "short", timeZone: "UTC" },
+                  )}
+                  {l.donde ? ` · ${l.donde}` : ""} · {clp(l.monto)}
+                </li>
+              ))}
+              {pendientes.length > 4 && (
+                <li className="text-xs text-amber-800/60">
+                  y {pendientes.length - 4} más
+                </li>
+              )}
+            </ul>
+          )}
         </div>
         <div className="border border-gray-200 rounded-lg px-3 py-2">
           <p className="text-xs text-gray-500">Pagado el {anoDeHoy}</p>
