@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Check,
   ChevronLeft,
+  ChevronRight,
   FileText,
 } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
@@ -882,11 +883,41 @@ function PagoUnoAUno({
   // modal a mano más que la pantalla y se perdía la cabecera. El avance
   // ("3 de 7 por pagar" y la barra) va como subtítulo; el pie conserva
   // "Saltar" a la izquierda y "Ya la pagué" a la derecha.
+  // Alto FIJO y flechas (Felipe, 08-09): la ventana saltaba de alto con
+  // cada persona (3 líneas vs 9), y "Saltar" solo iba hacia adelante —
+  // ahora el nombre va centrado entre ‹ › para moverse libre entre las
+  // pendientes (volver a una que se saltó, pagar en cualquier orden).
+  const anterior = idx > 0;
+  const siguiente = idx < pendientes.length - 1;
+  const flecha = (
+    activa: boolean,
+    alClic: () => void,
+    Icono: typeof ChevronLeft,
+    rotulo: string,
+  ) => (
+    <button
+      type="button"
+      onClick={alClic}
+      disabled={!activa}
+      aria-label={rotulo}
+      title={rotulo}
+      className="p-1 rounded-full text-gray-500 hover:bg-gray-100 disabled:opacity-25 disabled:hover:bg-transparent"
+    >
+      <Icono className="w-5 h-5" />
+    </button>
+  );
   return (
     <Modal
-      titulo={persona?.name ?? "Pago"}
+      altoFijo
+      titulo={
+        <span className="flex items-center justify-center gap-2">
+          {flecha(anterior, () => setIdx(idx - 1), ChevronLeft, "Anterior")}
+          <span className="truncate">{persona?.name ?? "Pago"}</span>
+          {flecha(siguiente, () => setIdx(idx + 1), ChevronRight, "Siguiente")}
+        </span>
+      }
       subtitulo={
-        <span className="block">
+        <span className="block text-center">
           {idx + 1} de {pendientes.length} por pagar
           <span className="block h-1.5 bg-gray-100 rounded-full mt-1.5">
             <span
