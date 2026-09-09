@@ -784,8 +784,10 @@ export default function ClientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contacto
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha Registro
+                {/* Cotizaciones en vez de fecha de registro (Felipe,
+                    09-09: "fecha de registro no dice nada"). */}
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cotizaciones
                 </th>
                 {/* Columna del chevron › (la fila se abre al pinchar) */}
                 <th aria-label="Abrir ficha" />
@@ -876,8 +878,14 @@ export default function ClientsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(client.created_at).toLocaleDateString()}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm tabular-nums">
+                      {(client.quotation_statuses || []).length > 0 ? (
+                        <span className="font-semibold text-gray-900">
+                          {(client.quotation_statuses || []).length}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     {/* (03-08) Editar y eliminar viven ahora SOLO en la
                         ficha 360°: la lista busca, crea y entra. */}
