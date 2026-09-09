@@ -18,6 +18,18 @@ export const createServiceGroup = async (
   return response;
 };
 
+export const renameServiceGroup = async (
+  id: ServiceGroup["id"],
+  name: string,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.SERVICE_GROUPS}/${id}`,
+    "PATCH",
+    { name },
+  );
+  return response;
+};
+
 export const deleteServiceGroup = async (id: ServiceGroup["id"]) => {
   const response = await apiRequest(
     `${API_ROUTES.SERVICE_GROUPS}/${id}`,

@@ -1,6 +1,9 @@
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
+import { toast } from "../../components/toast/Toast";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
+import { humanizeApiError } from "../../utils/apiErrors";
 
 /** Lo que cuesta el menú por persona: la suma de sus ítems. */
 const precioPorPersonaDe = (g: ServiceGroup) =>
@@ -13,9 +16,11 @@ const precioPorPersonaDe = (g: ServiceGroup) =>
  * EL PANEL DE MENÚS GUARDADOS del cotizador (extraído de QuotationForm
  * el 09-09 por el portero de tamaño). Cada fila es NOMBRE · PRECIO POR
  * PERSONA (Felipe, 09-09: "el nombre, un punto y el precio; ese dato
- * vale ahí"). La categoría no se repite: la lista ya es de la categoría
- * de la casilla; solo cuando la casilla no tiene categoría se dice de
- * cuál es cada menú, en gris chico debajo.
+ * vale ahí"), siempre en orden alfabético, con un lápiz para cambiar
+ * el nombre ahí mismo (Enter guarda, Escape cancela) y el basurero.
+ * La categoría no se repite: la lista ya es de la categoría de la
+ * casilla; solo cuando la casilla no tiene categoría se dice de cuál
+ * es cada menú, en gris chico debajo.
  */
 export default function MenusGuardados({
   grupos,
@@ -25,6 +30,7 @@ export default function MenusGuardados({
   onPedirEliminar,
   onConfirmarEliminar,
   onCancelarEliminar,
+  onRenombrar,
 }: {
   readonly grupos: ServiceGroup[];
   readonly conCategoria: boolean;
@@ -33,10 +39,39 @@ export default function MenusGuardados({
   readonly onPedirEliminar: (id: number) => void;
   readonly onConfirmarEliminar: (id: number) => Promise<void> | void;
   readonly onCancelarEliminar: () => void;
+  readonly onRenombrar: (id: number, nombre: string) => Promise<void>;
 }) {
+  const [editando, setEditando] = useState<{
+    id: number;
+    nombre: string;
+  } | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const ordenados = [...grupos].sort((a, b) =>
+    a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+  );
+
+  const guardarNombre = async () => {
+    if (!editando || guardando) return;
+    const nombre = editando.nombre.trim();
+    const original = grupos.find((g) => g.id === editando.id)?.name ?? "";
+    if (!nombre || nombre === original) {
+      setEditando(null);
+      return;
+    }
+    setGuardando(true);
+    try {
+      await onRenombrar(editando.id, nombre);
+      setEditando(null);
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo cambiar el nombre."));
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return (
     <div className="absolute left-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-      {grupos.map((group) =>
+      {ordenados.map((group) =>
         confirmandoId === group.id ? (
           <div key={group.id} className="px-3 py-2">
             <ConfirmInline
@@ -44,6 +79,34 @@ export default function MenusGuardados({
               onYes={() => onConfirmarEliminar(group.id)}
               onNo={onCancelarEliminar}
             />
+          </div>
+        ) : editando?.id === group.id ? (
+          <div key={group.id} className="px-3 py-2">
+            <input
+              autoFocus
+              type="text"
+              value={editando.nombre}
+              maxLength={80}
+              disabled={guardando}
+              onChange={(e) =>
+                setEditando({ id: group.id, nombre: e.target.value })
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void guardarNombre();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditando(null);
+                }
+              }}
+              onBlur={() => void guardarNombre()}
+              className="w-full text-sm border border-blue-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              aria-label="Nuevo nombre del menú"
+            />
+            <p className="mt-1 text-[11px] text-gray-400">
+              Enter guarda · Escape cancela
+            </p>
           </div>
         ) : (
           <div
@@ -67,6 +130,17 @@ export default function MenusGuardados({
                   {group.category}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditando({ id: group.id, nombre: group.name });
+              }}
+              className="ml-2 shrink-0 text-gray-300 hover:text-blue-600"
+              title="Cambiar el nombre"
+            >
+              <Pencil size={14} />
             </button>
             <button
               type="button"

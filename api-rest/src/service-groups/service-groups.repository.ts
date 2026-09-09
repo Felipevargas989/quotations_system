@@ -40,6 +40,22 @@ export class ServiceGroupsRepository {
       .eq('company_id', companyId);
   }
 
+  /** Solo el nombre, y solo si el menú es de la empresa (candado). */
+  renameGroup(
+    id: ServiceGroup['id'],
+    companyId: Company['id'],
+    name: ServiceGroup['name'],
+  ) {
+    this.logger.info(`renameGroup ${id} of company ${companyId}`);
+    return this.supabase.client
+      .from('service_groups')
+      .update({ name })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id, name')
+      .single();
+  }
+
   removeGroup(id: ServiceGroup['id']) {
     this.logger.info(`removeGroup with id ${id}`);
     return this.supabase.client.from('service_groups').delete().eq('id', id);

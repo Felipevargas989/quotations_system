@@ -170,6 +170,7 @@ export default function QuotationForm() {
     groups: serviceGroups,
     saveGroup,
     removeGroup: removeServiceGroup,
+    renameGroup: renameServiceGroup,
   } = useServiceGroups();
   const {
     collections: serviceGroupCollections,
@@ -3216,6 +3217,7 @@ export default function QuotationForm() {
                                               setConfirmGroupDel(null);
                                             }}
                                             onCancelarEliminar={() => setConfirmGroupDel(null)}
+                                            onRenombrar={renameServiceGroup}
                                           />
                                         )}
                                     </>
