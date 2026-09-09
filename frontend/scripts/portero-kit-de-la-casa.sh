@@ -291,7 +291,7 @@ congelar() {
   fi
 }
 
-congelar "src/pages/quotations/QuotationForm.tsx"            3945
+congelar "src/pages/quotations/QuotationForm.tsx"            3936
 congelar "src/pages/postventa/PostVentaPage.tsx"             3180
 congelar "src/pages/dashboard/DashboardPage.tsx"             2798
 congelar "src/pages/postventa/ServiciosTab.tsx"              2285

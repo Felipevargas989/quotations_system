@@ -63,6 +63,7 @@ import {
 import { NumberInput } from "../../components/inputs";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import ConfirmInline from "../../components/ConfirmInline";
+import MenusGuardados from "./MenusGuardados";
 import { getCategorySections } from "../../services/sections.service";
 import {
   ClientContact,
@@ -3201,86 +3202,21 @@ export default function QuotationForm() {
                                       </button>
                                       {openDropdown === `groups-${box.id}` &&
                                         boxGroups.length > 0 && (
-                                          <div className="absolute left-0 z-10 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                            {boxGroups.map((group) =>
-                                              confirmGroupDel === group.id ? (
-                                                <div
-                                                  key={group.id}
-                                                  className="px-3 py-2"
-                                                >
-                                                  <ConfirmInline
-                                                    question={`¿Eliminar "${group.name}"?`}
-                                                    onYes={async () => {
-                                                      await removeServiceGroup(
-                                                        group.id,
-                                                      );
-                                                      setConfirmGroupDel(null);
-                                                    }}
-                                                    onNo={() =>
-                                                      setConfirmGroupDel(null)
-                                                    }
-                                                  />
-                                                </div>
-                                              ) : (
-                                                <div
-                                                  key={group.id}
-                                                  className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-                                                >
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                      loadGroupIntoBox(
-                                                        box.id,
-                                                        group,
-                                                      );
-                                                      setOpenDropdown(null);
-                                                    }}
-                                                    className="flex-1 min-w-0 text-left text-sm"
-                                                  >
-                                                    {/* NOMBRE · PRECIO POR PERSONA (Felipe, 09-09): la
-                                                        categoría sobra —la lista ya es de esta
-                                                        categoría— y el precio es el dato que vale ahí.
-                                                        Solo sin categoría elegida se dice de cuál es. */}
-                                                    <span className="block truncate">
-                                                      <span className="text-gray-900">
-                                                        {group.name}
-                                                      </span>
-                                                      <span className="text-gray-500">
-                                                        {" · $"}
-                                                        {group.items
-                                                          .reduce(
-                                                            (s, it) =>
-                                                              s +
-                                                              Number(it.service?.price ?? 0) *
-                                                                Number(it.quantity ?? 0),
-                                                            0,
-                                                          )
-                                                          .toLocaleString("es-CL")}
-                                                      </span>
-                                                    </span>
-                                                    {!box.selectedCategory && (
-                                                      <span className="block text-xs text-gray-400 truncate">
-                                                        {group.category}
-                                                      </span>
-                                                    )}
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setConfirmGroupDel(
-                                                        group.id,
-                                                      );
-                                                    }}
-                                                    className="ml-2 shrink-0 text-gray-300 hover:text-red-600"
-                                                    title="Eliminar menú guardado"
-                                                  >
-                                                    <Trash2 size={14} />
-                                                  </button>
-                                                </div>
-                                              ),
-                                            )}
-                                          </div>
+                                          <MenusGuardados
+                                            grupos={boxGroups}
+                                            conCategoria={Boolean(box.selectedCategory)}
+                                            confirmandoId={confirmGroupDel}
+                                            onElegir={(group) => {
+                                              loadGroupIntoBox(box.id, group);
+                                              setOpenDropdown(null);
+                                            }}
+                                            onPedirEliminar={setConfirmGroupDel}
+                                            onConfirmarEliminar={async (id) => {
+                                              await removeServiceGroup(id);
+                                              setConfirmGroupDel(null);
+                                            }}
+                                            onCancelarEliminar={() => setConfirmGroupDel(null)}
+                                          />
                                         )}
                                     </>
                                   );
