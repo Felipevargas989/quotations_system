@@ -345,7 +345,12 @@ export const correoDeCotizacion = (
   } else {
     filasResumen.push(barraTotal('TOTAL', t.totalConIva));
   }
-  const bloqueResumen = `<table role="presentation" cellpadding="0" cellspacing="0" align="right" style="width:320px;max-width:100%;border-collapse:separate;border-spacing:0 2px;margin:14px 0 4px;">${filasResumen.join('\n')}</table><div style="clear:both;"></div>`;
+  // A LA DERECHA DE VERDAD (Felipe, 09-09): el align="right" de la tabla
+  // es un flotante y varios correos lo ignoran — el bloque salía pegado
+  // a la izquierda. Una tabla exterior de ancho completo con su celda
+  // alineada a la derecha lo respeta en todos; y la celda deja aire
+  // debajo antes del texto que sigue.
+  const bloqueResumen = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;"><tr><td align="right" style="padding:14px 0 26px;"><table role="presentation" cellpadding="0" cellspacing="0" align="right" style="width:320px;max-width:100%;border-collapse:separate;border-spacing:0 2px;margin-left:auto;">${filasResumen.join('\n')}</table></td></tr></table>`;
 
   const parrafo = (html: string): string =>
     `<p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 14px;">${html}</p>`;
