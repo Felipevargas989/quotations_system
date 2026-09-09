@@ -70,7 +70,7 @@ export default function MenusGuardados({
   };
 
   return (
-    <div className="absolute left-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+    <div className="absolute left-0 z-10 w-[26rem] max-w-[calc(100vw-2rem)] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
       {ordenados.map((group) =>
         confirmandoId === group.id ? (
           <div key={group.id} className="px-3 py-2">
@@ -118,11 +118,11 @@ export default function MenusGuardados({
               onClick={() => onElegir(group)}
               className="flex-1 min-w-0 text-left text-sm"
             >
-              <span className="block truncate">
-                <span className="text-gray-900">{group.name}</span>
-                <span className="text-gray-500">
-                  {" · $"}
-                  {precioPorPersonaDe(group).toLocaleString("es-CL")}
+              {/* El precio nunca se corta: si falta espacio, se corta el nombre. */}
+              <span className="flex items-baseline gap-1 min-w-0">
+                <span className="text-gray-900 truncate">{group.name}</span>
+                <span className="text-gray-500 shrink-0 whitespace-nowrap">
+                  · ${precioPorPersonaDe(group).toLocaleString("es-CL")}
                 </span>
               </span>
               {!conCategoria && (
