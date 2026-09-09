@@ -762,7 +762,17 @@ export default function ClientsPage() {
 
         {/* La lista se queda con el alto que sobra de la pantalla. */}
         <div className="overflow-x-auto overflow-y-auto min-h-[16rem] max-h-[calc(100vh-17rem)]">
-          <table className="w-full">
+          {/* COLUMNAS QUIETAS (Felipe, 09-09: "hoy bailan según qué
+              busco"): anchos fijos por columna; lo largo se corta con
+              «…» y muestra el texto completo al pasar el mouse. */}
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[42%]" />
+              <col className="w-[18%]" />
+              <col className="w-[27%]" />
+              <col className="w-[10%]" />
+              <col className="w-[3%]" />
+            </colgroup>
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -778,7 +788,7 @@ export default function ClientsPage() {
                   Fecha Registro
                 </th>
                 {/* Columna del chevron › (la fila se abre al pinchar) */}
-                <th className="w-8" aria-label="Abrir ficha" />
+                <th aria-label="Abrir ficha" />
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -811,15 +821,18 @@ export default function ClientsPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Building className="h-8 w-8 text-gray-400 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
+                      <div className="flex items-center min-w-0">
+                        <Building className="h-8 w-8 text-gray-400 mr-3 shrink-0" />
+                        <div className="min-w-0">
+                          <div
+                            className="text-sm font-medium text-gray-900 truncate"
+                            title={client.name}
+                          >
                             {client.name}
                           </div>
                           {(principalDe(client)?.name ||
                             client.contact_person) && (
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 truncate">
                               Contacto:{" "}
                               {principalDe(client)?.name ||
                                 client.contact_person}
@@ -830,7 +843,8 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-block whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+                        className={`inline-block max-w-full truncate align-middle whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${getClientTypeColor(client.client_type)}`}
+                        title={client.client_type}
                       >
                         {client.client_type}
                       </span>
@@ -846,15 +860,15 @@ export default function ClientsPage() {
                                 client.email ||
                                 undefined
                               }
-                              className="truncate max-w-[200px]"
+                              className="truncate"
                             >
                               {principalDe(client)?.email || client.email}
                             </span>
                           </div>
                         )}
                         {(principalDe(client)?.phone || client.phone) && (
-                          <div className="flex items-center text-sm text-gray-900">
-                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                          <div className="flex items-center text-sm text-gray-900 truncate">
+                            <Phone className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
                             {formatPhone(
                               principalDe(client)?.phone || client.phone || "",
                             )}
