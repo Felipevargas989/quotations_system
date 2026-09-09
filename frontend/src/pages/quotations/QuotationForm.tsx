@@ -3106,18 +3106,7 @@ export default function QuotationForm() {
                                           <span className="truncate">
                                             {service.nombre}
                                           </span>
-                                          {locked && (
-                                            <FijoDeCategoria
-                                              categoria={nomCat(box)}
-                                              disabled={isRestrictedEditing}
-                                              onQuitar={() =>
-                                                quitarFijo(
-                                                  box.id,
-                                                  service.codigo,
-                                                )
-                                              }
-                                            />
-                                          )}
+                                          {locked && <FijoDeCategoria />}
                                         </span>
                                         <span className="flex items-center gap-3 shrink-0">
                                           <span className="text-gray-500">
@@ -3143,7 +3132,29 @@ export default function QuotationForm() {
                                             {(
                                               service.quantity * boxPeople(box)
                                             ).toLocaleString("es-CL")}
+                                            {locked && !isRestrictedEditing && (
+                                              <QuitarFijo
+                                                categoria={nomCat(box)}
+                                                onQuitar={() =>
+                                                  quitarFijo(
+                                                    box.id,
+                                                    service.codigo,
+                                                  )
+                                                }
+                                              />
+                                            )}
                                           </span>
+                                          {locked && !isRestrictedEditing && (
+                                            <QuitarFijo
+                                              categoria={nomCat(box)}
+                                              onQuitar={() =>
+                                                quitarFijo(
+                                                  box.id,
+                                                  service.codigo,
+                                                )
+                                              }
+                                            />
+                                          )}
                                         </span>
                                       </div>
                                     );

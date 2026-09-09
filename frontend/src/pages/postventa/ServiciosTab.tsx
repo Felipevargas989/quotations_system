@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, X, Trash2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
-import FijoDeCategoria from "../../components/FijoDeCategoria";
+import FijoDeCategoria, { QuitarFijo } from "../../components/FijoDeCategoria";
 import { updateQuotation } from "../../services/quotations.service";
 import { getPaymentsByQuotationId } from "../../services/payments.service";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
@@ -1128,12 +1128,7 @@ export default function ServiciosTab({
       >
         <span className="text-gray-800 flex items-center gap-2 min-w-0">
           <span className="truncate">{it.nombre}</span>
-          {locked && (
-            <FijoDeCategoria
-              categoria={nomCat(g)}
-              onQuitar={() => removeVar(gi, ii)}
-            />
-          )}
+          {locked && <FijoDeCategoria />}
         </span>
         <span className="flex items-center gap-3 shrink-0">
           <span className="text-gray-500">{clp(it.precio || 0)}</span>
@@ -1146,7 +1141,10 @@ export default function ServiciosTab({
             {clp(ppp(it) * gPeople(g))}
           </span>
           {locked ? (
-            <span className="w-4" />
+            <QuitarFijo
+              categoria={nomCat(g)}
+              onQuitar={() => removeVar(gi, ii)}
+            />
           ) : (
             <button
               type="button"
