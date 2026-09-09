@@ -10,7 +10,6 @@ import {
   X,
   CheckCircle,
   Layers,
-  Lock,
   Package,
   ChevronDown,
   ChevronRight,
@@ -63,6 +62,7 @@ import {
 import { NumberInput } from "../../components/inputs";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import ConfirmInline from "../../components/ConfirmInline";
+import FijoDeCategoria from "../../components/FijoDeCategoria";
 import MenusGuardados from "./MenusGuardados";
 import { canonicalServiceName } from "../../utils/searchMatch";
 import { getCategorySections } from "../../services/sections.service";
@@ -332,9 +332,9 @@ export default function QuotationForm() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   // Fijos del paquete (28-08): codigo -> cantidad. Vive acá; la UI en
   // PkgFijosPicker y la traducción en paqueteFijos.ts (higuera).
-  const [pkgFijos, setPkgFijos] = useState<
-    { codigo: string; cant: number }[]
-  >([]);
+  const [pkgFijos, setPkgFijos] = useState<{ codigo: string; cant: number }[]>(
+    [],
+  );
   // Servicios sueltos del paquete (13-08): id → cantidad. Es lo que
   // permite meter el alojamiento (× N noches) y la fiesta sin
   // disfrazarlos de menú.
@@ -1512,6 +1512,20 @@ export default function QuotationForm() {
     );
   };
 
+  // La excepción al candado (Felipe, 09-09): quitar un ítem de la
+  // sección fija SOLO en esta cotización, con confirmación en la fila.
+  const quitarFijo = (boxId: string, codigo: string) =>
+    setServiceBoxes((prev) =>
+      prev.map((box) =>
+        box.id === boxId
+          ? {
+              ...box,
+              services: box.services.filter((s) => s.codigo !== codigo),
+            }
+          : box,
+      ),
+    );
+
   const removeFixedService = (index: number) => {
     setSelectedFixedServices((prev) => prev.filter((_, i) => i !== index));
   };
@@ -2097,42 +2111,42 @@ export default function QuotationForm() {
             </>
           }
         >
-            <p className="text-sm text-gray-600 mb-4">
-              Un paquete agrupa menús, servicios sueltos y servicios fijos.
-              Al elegirlo, el formulario se llena con todo.
-            </p>
+          <p className="text-sm text-gray-600 mb-4">
+            Un paquete agrupa menús, servicios sueltos y servicios fijos. Al
+            elegirlo, el formulario se llena con todo.
+          </p>
 
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre del paquete
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nombre del paquete
+          </label>
+          <input
+            type="text"
+            autoFocus
+            value={collectionName}
+            onChange={(e) => setCollectionName(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+            placeholder="Ej: Paquete Matrimonio Full"
+          />
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Menús incluidos
             </label>
-            <input
-              type="text"
-              autoFocus
-              value={collectionName}
-              onChange={(e) => setCollectionName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-              placeholder="Ej: Paquete Matrimonio Full"
+            <PkgMenusPicker
+              menus={serviceGroups}
+              elegidos={selectedGroupIds}
+              onCambio={setSelectedGroupIds}
             />
+          </div>
 
-            <div className="bg-gray-50 rounded-lg p-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Menús incluidos
-              </label>
-              <PkgMenusPicker
-                menus={serviceGroups}
-                elegidos={selectedGroupIds}
-                onCambio={setSelectedGroupIds}
-              />
-            </div>
-
-            {/* Servicios sueltos (13-08): lo que no es un menú pero va
+          {/* Servicios sueltos (13-08): lo que no es un menú pero va
                 en el programa — el alojamiento por N noches, la fiesta.
                 Antes había que disfrazarlos de menú.
                 Desplegable con buscador pegajoso, calcado del selector
                 de servicios fijos: la lista vive DENTRO y no empuja el
                 resto de la ventana (la primera versión crecía y movía
                 los botones — pillada de Felipe). */}
-            <div className="bg-gray-50 rounded-lg p-3 mt-3">
+          <div className="bg-gray-50 rounded-lg p-3 mt-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Servicios sueltos{" "}
               <span className="font-normal text-gray-500">
@@ -2183,14 +2197,13 @@ export default function QuotationForm() {
               searchPlaceholder="Buscar servicio por nombre…"
               noResultsText="No se encontraron servicios"
             />
-            </div>
+          </div>
 
-            <PkgFijosPicker
-              catalogo={fixedServices}
-              elegidos={pkgFijos}
-              onCambio={setPkgFijos}
-            />
-
+          <PkgFijosPicker
+            catalogo={fixedServices}
+            elegidos={pkgFijos}
+            onCambio={setPkgFijos}
+          />
         </Modal>
       )}
 
@@ -2534,10 +2547,13 @@ export default function QuotationForm() {
                   Tipo de Evento *
                 </label>
                 <SelectWithSearch
-                  options={tiposDeEvento.filter((t) => t.activo).map((t) => t.name).map((type) => ({
-                    value: type,
-                    label: type,
-                  }))}
+                  options={tiposDeEvento
+                    .filter((t) => t.activo)
+                    .map((t) => t.name)
+                    .map((type) => ({
+                      value: type,
+                      label: type,
+                    }))}
                   value={formData.event_type}
                   onChange={(v) =>
                     setFormData((prev) => ({
@@ -3091,12 +3107,16 @@ export default function QuotationForm() {
                                             {service.nombre}
                                           </span>
                                           {locked && (
-                                            <span
-                                              title="Va siempre con esta categoría (sección fija)"
-                                              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
-                                            >
-                                              <Lock size={10} /> fijo
-                                            </span>
+                                            <FijoDeCategoria
+                                              categoria={nomCat(box)}
+                                              disabled={isRestrictedEditing}
+                                              onQuitar={() =>
+                                                quitarFijo(
+                                                  box.id,
+                                                  service.codigo,
+                                                )
+                                              }
+                                            />
                                           )}
                                         </span>
                                         <span className="flex items-center gap-3 shrink-0">
@@ -3213,7 +3233,9 @@ export default function QuotationForm() {
                                         boxGroups.length > 0 && (
                                           <MenusGuardados
                                             grupos={boxGroups}
-                                            conCategoria={Boolean(box.selectedCategory)}
+                                            conCategoria={Boolean(
+                                              box.selectedCategory,
+                                            )}
                                             confirmandoId={confirmGroupDel}
                                             onElegir={(group) => {
                                               loadGroupIntoBox(box.id, group);
@@ -3224,7 +3246,9 @@ export default function QuotationForm() {
                                               await removeServiceGroup(id);
                                               setConfirmGroupDel(null);
                                             }}
-                                            onCancelarEliminar={() => setConfirmGroupDel(null)}
+                                            onCancelarEliminar={() =>
+                                              setConfirmGroupDel(null)
+                                            }
                                             onRenombrar={renameServiceGroup}
                                           />
                                         )}
