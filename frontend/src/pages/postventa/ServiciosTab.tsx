@@ -7,9 +7,10 @@ import { getStaff } from "../../services/people.service";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { computeMoney, resolveFixedServicePrice } from "@dinero";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, X, Trash2, Lock } from "lucide-react";
+import { ChevronDown, ChevronUp, X, Trash2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
+import FijoDeCategoria, { QuitarFijo } from "../../components/FijoDeCategoria";
 import { updateQuotation } from "../../services/quotations.service";
 import { getPaymentsByQuotationId } from "../../services/payments.service";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
@@ -79,8 +80,8 @@ export default function ServiciosTab({
   });
   const planVivo =
     aceptadaTab &&
-    (((pagosQuery.data as { data?: unknown[] } | undefined)?.data ?? [])
-      .length > 0);
+    ((pagosQuery.data as { data?: unknown[] } | undefined)?.data ?? []).length >
+      0;
 
   // Contadores de la cotización: total = adultos + niños (Cotizador 2.0).
   const initKids = Number(quote.children_count || 0);
@@ -1127,14 +1128,7 @@ export default function ServiciosTab({
       >
         <span className="text-gray-800 flex items-center gap-2 min-w-0">
           <span className="truncate">{it.nombre}</span>
-          {locked && (
-            <span
-              title="Va siempre con esta categoría (sección fija)"
-              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0"
-            >
-              <Lock size={10} /> fijo
-            </span>
-          )}
+          {locked && <FijoDeCategoria />}
         </span>
         <span className="flex items-center gap-3 shrink-0">
           <span className="text-gray-500">{clp(it.precio || 0)}</span>
@@ -1147,7 +1141,10 @@ export default function ServiciosTab({
             {clp(ppp(it) * gPeople(g))}
           </span>
           {locked ? (
-            <span className="w-4" />
+            <QuitarFijo
+              categoria={nomCat(g)}
+              onQuitar={() => removeVar(gi, ii)}
+            />
           ) : (
             <button
               type="button"
@@ -1321,7 +1318,8 @@ export default function ServiciosTab({
                           // elegida de esta caja: si no, un evento viejo
                           // perdería su categoría al abrirlo.
                           .filter(
-                            (c) => !inactiveCategorySet.has(c) || c === g.category,
+                            (c) =>
+                              !inactiveCategorySet.has(c) || c === g.category,
                           )
                           .map((c) => ({ value: c, label: c }))}
                         value={g.category}
@@ -1765,9 +1763,7 @@ export default function ServiciosTab({
                       // La tarifa pp a la vista (Felipe 28-08). Solo
                       // lectura: el subtotal sigue mandando.
                       if (perPerson > 0)
-                        parts.push(
-                          `$${perPerson.toLocaleString("es-CL")} pp`,
-                        );
+                        parts.push(`$${perPerson.toLocaleString("es-CL")} pp`);
                       return (
                         <div key={`rs-${gi}`} className="px-4 py-2 text-sm">
                           <div className="flex justify-between gap-2">
