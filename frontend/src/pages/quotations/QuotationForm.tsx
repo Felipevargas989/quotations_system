@@ -62,7 +62,7 @@ import {
 import { NumberInput } from "../../components/inputs";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import ConfirmInline from "../../components/ConfirmInline";
-import FijoDeCategoria from "../../components/FijoDeCategoria";
+import FijoDeCategoria, { QuitarFijo } from "../../components/FijoDeCategoria";
 import MenusGuardados from "./MenusGuardados";
 import { canonicalServiceName } from "../../utils/searchMatch";
 import { getCategorySections } from "../../services/sections.service";
