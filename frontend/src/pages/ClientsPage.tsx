@@ -22,10 +22,7 @@ import {
   normalizePhone,
   phoneProblem,
 } from "../utils/phone";
-import {
-  clientsQueryOptions,
-  createClient,
-} from "../services/clients.service";
+import { clientsQueryOptions, createClient } from "../services/clients.service";
 import {
   clientTypesQueryOptions,
   createClientType,
@@ -190,7 +187,10 @@ export default function ClientsPage() {
   useEffect(() => {
     if (!user || !typeFilterRestored) return;
     try {
-      localStorage.setItem(TYPE_FILTER_KEY(user.id), JSON.stringify(typeFilter));
+      localStorage.setItem(
+        TYPE_FILTER_KEY(user.id),
+        JSON.stringify(typeFilter),
+      );
     } catch {
       /* sin espacio o deshabilitado: el filtro sigue funcionando en memoria */
     }
@@ -304,10 +304,20 @@ export default function ClientsPage() {
         .filter((n) => n && !catalogNames.includes(n)),
     ),
   ].sort((a, b) => a.localeCompare(b, "es"));
-  const typeFilterOptions: MultiSelectOption[] = [
-    ...catalogNames,
-    ...extraNames,
-  ].map((name) => ({ value: name, label: name }));
+  // LOS CONTEOS SON EL FILTRO (Felipe, 09-09: "ocupan mucho espacio las
+  // cajas y dejan poco para la lista"): las tarjetas de abajo pasaron a
+  // una fila de chips bajo el buscador —tipo · cantidad, con el color
+  // del tipo— y cada chip filtra al pincharlo. Orden: el del catálogo
+  // primero, después los tipos antiguos; sin clientes no hay chip.
+  const conteoPorTipo = new Map<string, number>();
+  clients.forEach((c) => {
+    const t = (c.client_type || "").trim();
+    conteoPorTipo.set(t, (conteoPorTipo.get(t) || 0) + 1);
+  });
+  const chipsDeTipo = [...catalogNames, ...extraNames, ""]
+    .filter((name, i, arr) => arr.indexOf(name) === i)
+    .map((name) => ({ name, n: conteoPorTipo.get(name) || 0 }))
+    .filter((c) => c.n > 0);
 
   // ---- Segmento comercial (Felipe, 23-07): cada cliente cae en UNO ----
   // No se filtra por estado crudo (un cliente puede tener rechazadas Y una
@@ -366,10 +376,7 @@ export default function ClientsPage() {
       client.client_type,
       client.email,
       client.contact_person,
-      ...(client.client_contacts || []).flatMap((c) => [
-        c.name,
-        c.email || "",
-      ]),
+      ...(client.client_contacts || []).flatMap((c) => [c.name, c.email || ""]),
     );
     const matchesType =
       typeFilter.length === 0 ||
@@ -387,13 +394,11 @@ export default function ClientsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Nuevo Cliente
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Nuevo Cliente</h1>
           <button
             onClick={() => {
               setShowForm(false);
-                      setFormData({
+              setFormData({
                 name: "",
                 client_type: "Particulares",
                 address: "",
@@ -706,15 +711,6 @@ export default function ClientsPage() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div className="min-w-[220px]">
-              <MultiSelect
-                options={typeFilterOptions}
-                value={typeFilter}
-                onChange={setTypeFilter}
-                placeholder="Filtrar por tipo"
-                className="w-full"
-              />
-            </div>
             {/* Segmento comercial: quién compró, quién quedó en el camino */}
             <div className="min-w-[230px]">
               <MultiSelect
@@ -726,9 +722,46 @@ export default function ClientsPage() {
               />
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {chipsDeTipo.map(({ name, n }) => {
+              const activo = typeFilter.includes(name);
+              return (
+                <button
+                  key={name || "__sin_tipo"}
+                  type="button"
+                  onClick={() =>
+                    setTypeFilter((prev) =>
+                      activo ? prev.filter((t) => t !== name) : [...prev, name],
+                    )
+                  }
+                  title={activo ? "Quitar este filtro" : "Ver solo este tipo"}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition ${getClientTypeColor(name)} ${
+                    activo
+                      ? "border-transparent ring-2 ring-blue-500 ring-offset-1"
+                      : "border-transparent opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  <span>{name || "Sin tipo"}</span>
+                  <span className="tabular-nums font-bold">
+                    {n.toLocaleString("es-CL")}
+                  </span>
+                </button>
+              );
+            })}
+            {typeFilter.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTypeFilter([])}
+                className="text-xs font-medium text-blue-600 hover:underline px-1"
+              >
+                Ver todos
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+        {/* La lista se queda con el alto que sobra de la pantalla. */}
+        <div className="overflow-x-auto overflow-y-auto min-h-[16rem] max-h-[calc(100vh-17rem)]">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -848,41 +881,6 @@ export default function ClientsPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Estadísticas: una tarjeta por CADA tipo de cliente existente,
-          ordenadas por cantidad (decisión Felipe 21-07-2026: sin tope;
-          con tipos ilimitados el resumen puede ocupar varias filas). */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {(() => {
-          const counts = new Map<string, number>();
-          clients.forEach((c) => {
-            const t = (c.client_type || "").trim() || "Sin tipo";
-            counts.set(t, (counts.get(t) || 0) + 1);
-          });
-          const cards = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-          const colors = [
-            "text-blue-600",
-            "text-green-600",
-            "text-purple-600",
-            "text-amber-600",
-            "text-rose-600",
-            "text-teal-600",
-          ];
-          return cards.map(([label, n], i) => (
-            <div key={label} className="bg-white p-4 rounded-lg shadow">
-              <p
-                className="text-xs font-medium text-gray-600 truncate"
-                title={label}
-              >
-                {label}
-              </p>
-              <p className={`text-2xl font-bold ${colors[i % colors.length]}`}>
-                {n.toLocaleString("es-CL")}
-              </p>
-            </div>
-          ));
-        })()}
       </div>
     </div>
   );
