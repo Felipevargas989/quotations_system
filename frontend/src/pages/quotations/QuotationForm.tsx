@@ -64,6 +64,7 @@ import { NumberInput } from "../../components/inputs";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import ConfirmInline from "../../components/ConfirmInline";
 import MenusGuardados from "./MenusGuardados";
+import { canonicalServiceName } from "../../utils/searchMatch";
 import { getCategorySections } from "../../services/sections.service";
 import {
   ClientContact,
@@ -964,9 +965,16 @@ export default function QuotationForm() {
       ctx,
       acc,
     );
+    const sinCostoVar = new Set(base.nameIds?.sinCostoVariable ?? []);
     return {
       costo: r.costoInsumos + r.costoFijos,
-      sinReceta: [...new Set(acc.noRecipe)],
+      // Los marcados "sin costo en Eventia" NO son pendientes: no tienen
+      // receta a propósito (Ticket Diario). Post-Venta ya los filtraba
+      // desde la #470; este cuadro los seguía contando (Felipe, 09-09,
+      // en la #516). Mismo filtro, misma verdad en las dos casas.
+      sinReceta: [...new Set(acc.noRecipe)].filter(
+        (n) => !sinCostoVar.has(canonicalServiceName(n)),
+      ),
     };
     // buildItemsSnapshot se rearma sola cuando cambia cualquiera de estos
     // eslint-disable-next-line react-hooks/exhaustive-deps

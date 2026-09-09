@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useLayoutEffect } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { SelectWithSearchProps } from "./types";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
@@ -68,7 +68,13 @@ export default function SelectWithSearch({
   // Alto del buscador + bordes del panel (se resta del espacio).
   const PANEL_EXTRA = 62;
 
-  useEffect(() => {
+  // ANTES DE PINTAR (Felipe, 09-09: "se mueven las categorías"): con
+  // useEffect la lista se pintaba primero hacia abajo y con su alto
+  // normal, y un instante después se daba vuelta o se achicaba — el
+  // salto se veía en el cotizador y en Servicios, donde las cajas quedan
+  // al fondo. useLayoutEffect mide y corrige antes de que el navegador
+  // muestre el panel: aparece ya en su lado y con su alto definitivo.
+  useLayoutEffect(() => {
     if (!isOpen || !dropdownRef.current) return;
     const rect = dropdownRef.current.getBoundingClientRect();
     // Límites del contenedor con scroll más cercano (o la ventana).
