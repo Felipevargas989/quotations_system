@@ -1,9 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
+import { RenameServiceGroupDto } from './dto/rename-service-group.dto';
 import { ServiceGroup } from './entities/service-group.entity';
 import { ServiceGroupsService } from './service-groups.service';
 
@@ -35,6 +44,17 @@ export class ServiceGroupsController {
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service groups with user ${user.id}`);
     return this.serviceGroupsService.findAll(user.company_id);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Patch(':id')
+  rename(
+    @Param('id') id: ServiceGroup['id'],
+    @Body() dto: RenameServiceGroupDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`rename service group ${id}`);
+    return this.serviceGroupsService.rename(+id, user.company_id, dto.name);
   }
 
   @Roles(...SALES_AND_UP)

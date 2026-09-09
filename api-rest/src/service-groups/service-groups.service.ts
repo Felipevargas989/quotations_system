@@ -78,6 +78,35 @@ export class ServiceGroupsService {
     }
   }
 
+  /** Renombrar (Felipe, 09-09): mismo choque de nombre repetido que
+   *  al crear; sin fila = ajeno o inexistente, 404. */
+  async rename(
+    id: ServiceGroup['id'],
+    companyId: Company['id'],
+    name: ServiceGroup['name'],
+  ) {
+    this.logger.info(`rename service group ${id} of company ${companyId}`);
+    const { data, error } = await this.serviceGroupsRepository.renameGroup(
+      id,
+      companyId,
+      name.trim(),
+    );
+    if (error) {
+      if ((error as { code?: string })?.code === '23505') {
+        throw new HttpException(
+          'Ya existe un menú guardado con ese nombre. Elige otro.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      this.logger.error(error);
+      throw new HttpException(
+        'Menú guardado no encontrado',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return data;
+  }
+
   async remove(id: ServiceGroup['id']) {
     this.logger.info(`remove service group with id ${id}`);
     return await this.serviceGroupsRepository.removeGroup(id);

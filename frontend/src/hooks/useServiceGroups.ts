@@ -3,6 +3,7 @@ import {
   createServiceGroup,
   deleteServiceGroup,
   getServiceGroups,
+  renameServiceGroup,
 } from "../services/serviceGroups.service";
 import { CreateServiceGroup, ServiceGroup } from "../types/serviceGroups.types";
 
@@ -36,11 +37,20 @@ export function useServiceGroups() {
     await reload();
   };
 
+  const renameGroup = async (id: ServiceGroup["id"], name: string) => {
+    await renameServiceGroup(id, name);
+    queryClient.setQueryData<ServiceGroup[]>(["serviceGroups"], (prev) =>
+      (prev ?? []).map((g) => (g.id === id ? { ...g, name } : g)),
+    );
+    await reload();
+  };
+
   return {
     groups,
     loading,
     reload,
     saveGroup,
     removeGroup,
+    renameGroup,
   };
 }
