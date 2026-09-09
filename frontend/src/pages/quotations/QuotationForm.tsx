@@ -3235,14 +3235,34 @@ export default function QuotationForm() {
                                                       );
                                                       setOpenDropdown(null);
                                                     }}
-                                                    className="flex-1 text-left text-sm"
+                                                    className="flex-1 min-w-0 text-left text-sm"
                                                   >
-                                                    <span className="text-gray-900">
-                                                      {group.name}
-                                                    </span>{" "}
-                                                    <span className="text-gray-500">
-                                                      ({group.category})
+                                                    {/* NOMBRE · PRECIO POR PERSONA (Felipe, 09-09): la
+                                                        categoría sobra —la lista ya es de esta
+                                                        categoría— y el precio es el dato que vale ahí.
+                                                        Solo sin categoría elegida se dice de cuál es. */}
+                                                    <span className="block truncate">
+                                                      <span className="text-gray-900">
+                                                        {group.name}
+                                                      </span>
+                                                      <span className="text-gray-500">
+                                                        {" · $"}
+                                                        {group.items
+                                                          .reduce(
+                                                            (s, it) =>
+                                                              s +
+                                                              Number(it.service?.price ?? 0) *
+                                                                Number(it.quantity ?? 0),
+                                                            0,
+                                                          )
+                                                          .toLocaleString("es-CL")}
+                                                      </span>
                                                     </span>
+                                                    {!box.selectedCategory && (
+                                                      <span className="block text-xs text-gray-400 truncate">
+                                                        {group.category}
+                                                      </span>
+                                                    )}
                                                   </button>
                                                   <button
                                                     type="button"
@@ -3252,7 +3272,7 @@ export default function QuotationForm() {
                                                         group.id,
                                                       );
                                                     }}
-                                                    className="ml-2 text-red-600 hover:text-red-800"
+                                                    className="ml-2 shrink-0 text-gray-300 hover:text-red-600"
                                                     title="Eliminar menú guardado"
                                                   >
                                                     <Trash2 size={14} />
