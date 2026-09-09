@@ -3,7 +3,7 @@ import ConfirmInline from "../../components/ConfirmInline";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
 
 /** Lo que cuesta el menú por persona: la suma de sus ítems. */
-export const precioPorPersonaDe = (g: ServiceGroup) =>
+const precioPorPersonaDe = (g: ServiceGroup) =>
   g.items.reduce(
     (s, it) => s + Number(it.service?.price ?? 0) * Number(it.quantity ?? 0),
     0,
