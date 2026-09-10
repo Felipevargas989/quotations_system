@@ -159,6 +159,37 @@ describe('plantillaCampana (el diseño validado por Felipe el 25-08)', () => {
     expect(html).toContain('Valle del Sol');
   });
 
+  // OUTLOOK DE ESCRITORIO (Felipe, 10-09-2026: "las respuestas se están
+  // viendo así"). Outlook dibuja con el motor de Word: ignora max-width
+  // y el fondo de un <div>, así que el blanco no cubría y entre párrafo
+  // y párrafo se asomaba el gris del fondo. Estas tres condiciones son
+  // las que lo evitan; si alguien vuelve a maquetar con <div>, caen.
+  it('la estructura va en TABLAS con bgcolor, no en divs de ancho máximo', () => {
+    const html = plantillaCampana(base);
+    // El contenedor blanco y la franja llevan bgcolor ADEMÁS del estilo:
+    // Outlook pinta el atributo, no siempre la hoja de estilos.
+    expect(html).toContain('bgcolor="#ffffff"');
+    expect(html).toContain('bgcolor="#E9E2D3"');
+    // El ancho de 600 se lo fija a Outlook una ghost table; el resto de
+    // los clientes usa max-width.
+    expect(html).toContain(
+      '<!--[if mso]><table role="presentation" width="600"',
+    );
+    // Ningún div sostiene el ancho de la pieza.
+    expect(html).not.toContain('max-width:600px;margin:0 auto');
+  });
+
+  it('los botones son celdas con mso-padding-alt, no <a> con padding', () => {
+    const html = plantillaCampana({
+      ...base,
+      marca: { ...marca, whatsapp: '987654321' },
+    });
+    // Outlook ignora el padding de un <a>: el relleno viaja en la celda.
+    expect(html).toContain('mso-padding-alt:13px 0');
+    // Y los dos botones quedan lado a lado por su propia ghost table.
+    expect(html).toContain('<!--[if mso]></td><td align="center"><![endif]-->');
+  });
+
   it('el preencabezado va oculto al principio; sin él, ni el envoltorio', () => {
     const con = plantillaCampana({ ...base, preencabezado: 'Ábreme' });
     expect(con).toContain('Ábreme');

@@ -1,3 +1,9 @@
+/** La pila tipográfica del correo, en un solo lugar: Outlook de
+ *  escritorio necesita que vaya en CADA celda de texto, no solo en el
+ *  <body> (no hereda estilos como un navegador). */
+const FUENTE =
+  "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif";
+
 /** La marca de la empresa que viste el correo (Configuración, migraciones 95-96). */
 export interface MarcaEmpresa {
   nombre: string;
@@ -97,15 +103,27 @@ export const plantillaCampana = (p: {
     ? m.colorSecundario
     : '#f9fafb';
   const nombre = esc(m.nombre);
+  // TODO EN TABLAS, POR OUTLOOK DE ESCRITORIO (Felipe, 10-09-2026: "las
+  // respuestas se están viendo así", con franjas grises entre párrafos y
+  // los botones aplastados). Outlook de escritorio no dibuja con un
+  // motor de navegador sino con el de Word, que IGNORA max-width y el
+  // fondo de un <div>: el blanco del contenedor no cubría y en los
+  // márgenes entre párrafos se asomaba el gris del fondo. La estructura
+  // es ahora tabla dentro de tabla, con bgcolor además del estilo, y los
+  // botones son celdas con mso-padding-alt en vez de <a> con padding.
+  // Las "ghost tables" (comentarios condicionales <!--[if mso]-->) solo
+  // las lee Outlook: fijan el ancho de 600 y ponen los botones lado a
+  // lado; el resto de los clientes las ignora y usa max-width.
+  const pilaTipografica = FUENTE;
   // Ancho FIJO e igual para ambos botones (Felipe, 02-09: "¿podrían
   // tener el mismo ancho?"): 250px cada uno — apilados se ven parejos,
   // y lado a lado caben en los 540px útiles del correo.
   const boton = (url: string, color: string, texto: string, glifo?: string) =>
-    `<a href="${esc(url)}" style="display:inline-block;width:250px;text-align:center;background-color:${color};color:#ffffff;text-decoration:none;font-weight:600;padding:13px 0;border-radius:8px;font-size:15px;">${
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;display:inline-block;vertical-align:top;margin:0 8px 12px;"><tr><td align="center" bgcolor="${color}" style="background-color:${color};border-radius:8px;width:250px;mso-padding-alt:13px 0;"><a href="${esc(url)}" style="display:block;width:250px;padding:13px 0;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-family:${pilaTipografica};">${
       glifo
         ? `<img src="${p.iconosBase}/correo/${glifo}" width="18" height="18" alt="" style="display:inline-block;border:0;vertical-align:-4px;margin-right:8px;" />`
         : ''
-    }${texto}</a>`;
+    }${texto}</a></td></tr></table>`;
   // Los íconos clásicos (pedido de Felipe 25-08): imágenes, porque los
   // modos oscuros no las repintan — se ven iguales siempre.
   const icono = (url: string, archivo: string, alt: string) =>
@@ -115,67 +133,80 @@ export const plantillaCampana = (p: {
     m.facebook && icono(m.facebook, 'facebook.png', 'Facebook'),
     m.sitioWeb && icono(m.sitioWeb, 'web.png', 'Sitio web'),
   ].filter(Boolean);
+  // Los botones que existan, lado a lado en Outlook por la ghost table.
+  const botones = [
+    p.cotizarUrl ? boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí') : '',
+    whatsappUrl
+      ? boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')
+      : '',
+  ].filter(Boolean);
+  const bloqueBotones = botones.length
+    ? `<div style="margin:30px 0 4px;text-align:center;">
+          <!--[if mso]><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td align="center"><![endif]-->
+          ${botones.join(
+            '\n          <!--[if mso]></td><td align="center"><![endif]-->\n          ',
+          )}
+          <!--[if mso]></td></tr></table><![endif]-->
+        </div>`
+    : '';
+  const encabezado = m.banner
+    ? `<tr><td bgcolor="#ffffff" style="padding:0;background-color:#ffffff;"><img src="${esc(m.banner)}" alt="${nombre}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" /></td></tr>`
+    : `<tr><td bgcolor="${m.colorPrimario}" style="padding:0;background-color:${m.colorPrimario};">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+            <tr>
+              <td style="padding:24px 30px;vertical-align:middle;font-family:${pilaTipografica};">
+                <p style="font-size:24px;font-weight:700;color:${nombreSobrePrimario};margin:0;letter-spacing:0.5px;mso-line-height-rule:exactly;line-height:30px;">${nombre}</p>
+              </td>
+              ${
+                m.logo
+                  ? `<td align="right" style="padding:16px 30px;vertical-align:middle;"><img src="${esc(m.logo)}" alt="${nombre}" height="76" style="display:block;max-height:76px;border:0;" /></td>`
+                  : ''
+              }
+            </tr>
+          </table>
+        </td></tr>`;
   return `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${esc(p.titulo)}</title></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
+<html lang="es" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${esc(p.titulo)}</title><!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]--></head>
+<body style="margin:0;padding:0;width:100%;background-color:#f3f4f6;font-family:${pilaTipografica};">
   ${
     p.preencabezado
       ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${esc(p.preencabezado)}&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;</div>`
       : ''
   }
-  <div style="background-color:#f3f4f6;padding:20px 0;">
-    <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
-      ${
-        m.banner
-          ? `<img src="${esc(m.banner)}" alt="${nombre}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />`
-          : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${m.colorPrimario};">
-        <tr>
-          <td style="padding:24px 30px;vertical-align:middle;">
-            <p style="font-size:24px;font-weight:700;color:${nombreSobrePrimario};margin:0;letter-spacing:0.5px;">${nombre}</p>
-          </td>
-          ${
-            m.logo
-              ? `<td align="right" style="padding:16px 30px;vertical-align:middle;"><img src="${esc(m.logo)}" alt="${nombre}" height="76" style="display:block;max-height:76px;border:0;" /></td>`
-              : ''
-          }
-        </tr>
-      </table>`
-      }
-      <div style="padding:36px 30px;color:#111827;">
-        <h1 style="font-size:22px;margin:0 0 16px;">${esc(p.titulo)}</h1>
-        <div style="font-size:15px;line-height:1.65;color:#374151;">${p.cuerpoHtml}</div>
-        <!-- Botones como bloques que se ENVUELVEN solos: en pantalla
-             ancha quedan lado a lado con aire, y en el celular el
-             segundo baja a su propia línea. Antes eran dos columnas de
-             tabla y en el teléfono quedaban aplastados uno contra otro
-             (Felipe, 02-09, pantallazo desde su celular). -->
-        <div style="margin:30px 0 4px;text-align:center;">
-          ${[
-            p.cotizarUrl
-              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(p.cotizarUrl, m.colorPrimario, 'Cotiza aquí')}</div>`
-              : '',
-            whatsappUrl
-              ? `<div style="display:inline-block;margin:0 8px 12px;">${boton(whatsappUrl, '#25D366', 'Escríbenos al WhatsApp', 'whatsapp.png')}</div>`
-              : '',
-          ].join('')}
-        </div>
-      </div>
-      <div style="background-color:${fondoFranja};padding:24px 30px;text-align:center;">
-        <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${nombre}</p>
-        ${m.tagline ? `<p style="font-size:12px;color:#4b5563;margin:4px 0 0;">${esc(m.tagline)}</p>` : ''}
-        ${redes.length ? `<p style="margin:14px 0 0;">${redes.join('')}</p>` : ''}
-        ${
-          p.bajaUrl
-            ? `<p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
-          Recibes este correo por tu relación con ${nombre}.
-          <a href="${p.bajaUrl}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
-        </p>`
-            : ''
-        }
-      </div>
-    </div>
-  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f4f6" style="border-collapse:collapse;background-color:#f3f4f6;">
+    <tr>
+      <td align="center" style="padding:20px 10px;">
+        <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;width:100%;max-width:600px;background-color:#ffffff;">
+          ${encabezado}
+          <tr>
+            <td bgcolor="#ffffff" style="padding:36px 30px;background-color:#ffffff;color:#111827;font-family:${pilaTipografica};">
+              <h1 style="font-size:22px;margin:0 0 16px;mso-line-height-rule:exactly;line-height:28px;">${esc(p.titulo)}</h1>
+              <div style="font-size:15px;line-height:1.65;mso-line-height-rule:exactly;color:#374151;">${p.cuerpoHtml}</div>
+              ${bloqueBotones}
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="${fondoFranja}" style="background-color:${fondoFranja};padding:24px 30px;text-align:center;font-family:${pilaTipografica};">
+              <p style="font-size:15px;font-weight:700;color:${m.colorPrimario};margin:0;">${nombre}</p>
+              ${m.tagline ? `<p style="font-size:12px;color:#4b5563;margin:4px 0 0;">${esc(m.tagline)}</p>` : ''}
+              ${redes.length ? `<p style="margin:14px 0 0;">${redes.join('')}</p>` : ''}
+              ${
+                p.bajaUrl
+                  ? `<p style="font-size:11px;color:#6b7280;margin:16px 0 0;">
+                Recibes este correo por tu relación con ${nombre}.
+                <a href="${p.bajaUrl}" style="color:${m.colorPrimario};text-decoration:none;font-weight:500;">Dejar de recibir estos correos</a>
+              </p>`
+                  : ''
+              }
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 };
