@@ -45,7 +45,6 @@ import { normalizeText } from "../../utils/searchMatch";
 import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
 import { SECTION_ROLES } from "../../constants/permissions";
 
-
 // Mandante con su teléfono/correo (misma regla que el tablero).
 const contactoDe = (q: QuotationWithClient) => {
   const c = q.clients as unknown as {
@@ -155,8 +154,14 @@ export default function NegocioPage() {
     try {
       const r = await enviarCotizacionPorCorreo(fila.id);
       toast.success(`Cotización enviada a ${r.enviado_a}.`);
-      // La bitácora ganó una anotación con el envío.
+      // La bitácora ganó una anotación con el envío, y una SOLICITADA
+      // acaba de pasar a ENVIADA en el motor: el chip de estado y la
+      // lista tienen que enterarse sin recargar la página.
       void queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      void queryClient.invalidateQueries({ queryKey: ["quotation", id] });
+      void queryClient.invalidateQueries({
+        queryKey: ["quotations", "ficha-lista"],
+      });
     } catch (e) {
       toast.error(humanizeApiError(e));
     } finally {
