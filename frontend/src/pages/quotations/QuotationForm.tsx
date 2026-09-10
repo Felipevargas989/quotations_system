@@ -3132,6 +3132,14 @@ export default function QuotationForm() {
                                             {(
                                               service.quantity * boxPeople(box)
                                             ).toLocaleString("es-CL")}
+                                          </span>
+                                          {/* El hueco de la ✕ se reserva en TODAS
+                                              las filas: si no, las que llevan
+                                              fijo corrían sus controles y no
+                                              calzaban con el resto (Felipe,
+                                              10-09). Crece solo cuando la ✕
+                                              abre su confirmación. */}
+                                          <span className="shrink-0 flex justify-end min-w-[1rem]">
                                             {locked && !isRestrictedEditing && (
                                               <QuitarFijo
                                                 categoria={nomCat(box)}
@@ -3144,17 +3152,6 @@ export default function QuotationForm() {
                                               />
                                             )}
                                           </span>
-                                          {locked && !isRestrictedEditing && (
-                                            <QuitarFijo
-                                              categoria={nomCat(box)}
-                                              onQuitar={() =>
-                                                quitarFijo(
-                                                  box.id,
-                                                  service.codigo,
-                                                )
-                                              }
-                                            />
-                                          )}
                                         </span>
                                       </div>
                                     );
