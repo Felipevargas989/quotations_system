@@ -45,7 +45,6 @@ import { normalizeText } from "../../utils/searchMatch";
 import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
 import { SECTION_ROLES } from "../../constants/permissions";
 
-
 // Mandante con su teléfono/correo (misma regla que el tablero).
 const contactoDe = (q: QuotationWithClient) => {
   const c = q.clients as unknown as {
@@ -149,14 +148,31 @@ export default function NegocioPage() {
   // muestra su veredicto.
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  // El botón vive SOLO mientras se está cotizando (Felipe, 10-09):
+  // solicitada, enviada y en negociación. Una vez aceptada, rechazada,
+  // cancelada o realizada, la conversación se cerró y el botón
+  // desaparece — esas se gestionan en Post-Venta.
+  const seSigueCotizando = (
+    [
+      QuotationStatus.SOLICITADA,
+      QuotationStatus.ENVIADA,
+      QuotationStatus.EN_NEGOCIACION,
+    ] as string[]
+  ).includes(fila?.quotation_status ?? "");
   const enviarPorCorreo = async () => {
     if (!fila) return;
     setEnviandoCorreo(true);
     try {
       const r = await enviarCotizacionPorCorreo(fila.id);
       toast.success(`Cotización enviada a ${r.enviado_a}.`);
-      // La bitácora ganó una anotación con el envío.
+      // La bitácora ganó una anotación con el envío, y una SOLICITADA
+      // acaba de pasar a ENVIADA en el motor: el chip de estado y la
+      // lista tienen que enterarse sin recargar la página.
       void queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      void queryClient.invalidateQueries({ queryKey: ["quotation", id] });
+      void queryClient.invalidateQueries({
+        queryKey: ["quotations", "ficha-lista"],
+      });
     } catch (e) {
       toast.error(humanizeApiError(e));
     } finally {
@@ -447,7 +463,7 @@ export default function NegocioPage() {
                 <IconoWhatsApp /> WhatsApp
               </a>
             )}
-            {confirmandoEnvio ? (
+            {!seSigueCotizando ? null : confirmandoEnvio ? (
               <ConfirmInline
                 question={
                   contacto.email

@@ -110,6 +110,31 @@ La misma regla de la ficha: el contacto de la cotización
 (`contact_name` buscado en los contactos del cliente) y su correo;
 si no hay, el correo del cliente. **Sin correo → el portero frena.**
 
+## El estado se mueve SOLO en la primera salida (Felipe, 10-09-2026)
+
+Sus palabras: *"cuando alguien aprieta el botón enviar cotización
+debería cambiarse automáticamente el estado a enviada… si ya está
+enviada no hacer nada, si aparece en negociación y es un correo de
+ajuste o actualización mantenerse en el estado que está"*.
+
+| Estado al apretar Enviar | Queda en |
+|---|---|
+| Solicitada | **Enviada** |
+| Enviada | Enviada |
+| En negociación | En negociación |
+
+El estado nunca retrocede ni se pisa: un reenvío es el ajuste de una
+conversación que ya avanzó. El cambio va por el REPOSITORIO y no por
+`quotations.service.update` a propósito — ese camino dispara la cascada
+del plan de pagos, que aquí no tiene nada que hacer. Si el marcado
+fallara, el correo YA salió: se anota en el log y el envío no se rompe.
+
+**Y el botón vive solo mientras se cotiza**: aparece en solicitada,
+enviada y en negociación, y DESAPARECE en aceptada, rechazada,
+cancelada y realizada. Esas se gestionan en Post-Venta, así que el caso
+"reenviar una rechazada" no existe. Al enviar se refrescan la bitácora,
+la ficha y la lista, para que el chip de estado se mueva sin recargar.
+
 ## El portero del envío (frenos deterministas)
 
 Frenos que BLOQUEAN, con mensaje claro de qué reparar:

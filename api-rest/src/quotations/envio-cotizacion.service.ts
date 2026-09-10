@@ -14,6 +14,7 @@ import { marcaDesdeFila } from 'src/marketing/marca';
 import { plantillaCampana } from 'src/marketing/plantilla';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { User } from 'src/users/entities/user.entity';
+import { QuotationStatus } from './constants/constants';
 import { correoDeCotizacion, reparosDelPortero } from './correo-cotizacion';
 import type { Quotation } from './entities/quotation.entity';
 import { firmarTokenImpresion, validarTokenImpresion } from './firma-impresion';
@@ -23,6 +24,10 @@ import { QuotationsRepository } from './quotations.repository';
 /** La marca con que la bitácora reconoce un envío de cotización. Se
  *  usa al ESCRIBIR la nota y al CONTAR versiones — cambiarla rompe el
  *  conteo de las notas históricas: no tocar sin migrar los textos. */
+/** El único estado que el envío mueve, y a dónde (Felipe, 10-09). */
+const ESTADO_ANTES_DE_ENVIAR = QuotationStatus.SOLICITADA;
+const ESTADO_TRAS_ENVIAR = QuotationStatus.ENVIADA;
+
 const MARCA_DE_ENVIO = 'Cotización enviada por correo';
 
 type CotizacionConCliente = Quotation & {
@@ -271,6 +276,25 @@ export class EnvioCotizacionService {
       });
     } catch (e) {
       this.logger.error(`bitácora del envío falló: ${String(e)}`);
+    }
+
+    // EL ESTADO SE MUEVE SOLO EN LA PRIMERA SALIDA (Felipe, 10-09-2026):
+    // una cotización SOLICITADA que se envía pasa a ENVIADA. Cualquier
+    // otro estado se respeta — un reenvío es el ajuste de una
+    // conversación que ya avanzó y no la devuelve al principio. Va por
+    // el repositorio y no por quotations.service.update a propósito: ese
+    // camino dispara la CASCADA del plan de pagos, que aquí no toca.
+    // Si fallara, el correo YA salió: se anota y no se rompe el envío.
+    if (q.quotation_status === ESTADO_ANTES_DE_ENVIAR) {
+      try {
+        await this.quotationsRepository.update(
+          quotationId,
+          { quotation_status: ESTADO_TRAS_ENVIAR },
+          user.company_id,
+        );
+      } catch (e) {
+        this.logger.error(`no se pudo marcar como enviada: ${String(e)}`);
+      }
     }
 
     return { enviado_a: destino.correo };

@@ -65,12 +65,15 @@ const armar = (sobre?: {
   previos?: Record<string, unknown>[];
   /** Campos extra de la ficha de la empresa (ej: notifications). */
   empresa?: Record<string, unknown>;
+  /** Para probar que un fallo al marcar el estado no rompe el envío. */
+  update?: jest.Mock;
 }) => {
   const repo = {
     findOne: jest
       .fn()
       .mockResolvedValue({ data: sobre?.quotation ?? COTIZACION }),
     cartaDelCatalogo: jest.fn().mockResolvedValue(null),
+    update: sobre?.update ?? jest.fn().mockResolvedValue({}),
   };
   const contactos = {
     findByClient: jest
@@ -230,6 +233,41 @@ describe('enviar cotización por correo', () => {
   it('si la bitácora falla, el envío NO se rompe (el correo ya salió)', async () => {
     const { service } = armar({
       followup: jest.fn().mockRejectedValue(new Error('se cayó')),
+    });
+    const r = await service.enviar('q-1', USUARIO);
+    expect(r.enviado_a).toBe('ana@x.cl');
+  });
+
+  // EL ESTADO SE MUEVE SOLO EN LA PRIMERA SALIDA (Felipe, 10-09-2026):
+  // "si ya está enviada no hacer nada, si aparece en negociación y es un
+  // correo de ajuste mantenerse en el estado que está".
+  it('una SOLICITADA que se envía queda ENVIADA', async () => {
+    const { service, repo } = armar({
+      quotation: { ...COTIZACION, quotation_status: 'solicitada' },
+    });
+    await service.enviar('q-1', USUARIO);
+    expect(repo.update).toHaveBeenCalledWith(
+      'q-1',
+      { quotation_status: 'enviada' },
+      1,
+    );
+  });
+
+  it.each(['enviada', 'en_negociacion', 'aceptada', 'rechazada'])(
+    'un reenvío NO mueve el estado %s',
+    async (estado) => {
+      const { service, repo } = armar({
+        quotation: { ...COTIZACION, quotation_status: estado },
+      });
+      await service.enviar('q-1', USUARIO);
+      expect(repo.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('si marcar el estado falla, el envío NO se rompe (el correo ya salió)', async () => {
+    const { service } = armar({
+      quotation: { ...COTIZACION, quotation_status: 'solicitada' },
+      update: jest.fn().mockRejectedValue(new Error('se cayó')),
     });
     const r = await service.enviar('q-1', USUARIO);
     expect(r.enviado_a).toBe('ana@x.cl');
