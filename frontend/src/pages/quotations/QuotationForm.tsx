@@ -3132,17 +3132,6 @@ export default function QuotationForm() {
                                             {(
                                               service.quantity * boxPeople(box)
                                             ).toLocaleString("es-CL")}
-                                            {locked && !isRestrictedEditing && (
-                                              <QuitarFijo
-                                                categoria={nomCat(box)}
-                                                onQuitar={() =>
-                                                  quitarFijo(
-                                                    box.id,
-                                                    service.codigo,
-                                                  )
-                                                }
-                                              />
-                                            )}
                                           </span>
                                           {locked && !isRestrictedEditing && (
                                             <QuitarFijo
