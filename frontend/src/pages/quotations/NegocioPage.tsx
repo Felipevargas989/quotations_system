@@ -148,17 +148,6 @@ export default function NegocioPage() {
   // muestra su veredicto.
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
-  // El botón vive SOLO mientras se está cotizando (Felipe, 10-09):
-  // solicitada, enviada y en negociación. Una vez aceptada, rechazada,
-  // cancelada o realizada, la conversación se cerró y el botón
-  // desaparece — esas se gestionan en Post-Venta.
-  const seSigueCotizando = (
-    [
-      QuotationStatus.SOLICITADA,
-      QuotationStatus.ENVIADA,
-      QuotationStatus.EN_NEGOCIACION,
-    ] as string[]
-  ).includes(fila?.quotation_status ?? "");
   const enviarPorCorreo = async () => {
     if (!fila) return;
     setEnviandoCorreo(true);
@@ -463,7 +452,7 @@ export default function NegocioPage() {
                 <IconoWhatsApp /> WhatsApp
               </a>
             )}
-            {!seSigueCotizando ? null : confirmandoEnvio ? (
+            {confirmandoEnvio ? (
               <ConfirmInline
                 question={
                   contacto.email

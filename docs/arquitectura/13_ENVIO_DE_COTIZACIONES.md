@@ -129,11 +129,11 @@ conversación que ya avanzó. El cambio va por el REPOSITORIO y no por
 del plan de pagos, que aquí no tiene nada que hacer. Si el marcado
 fallara, el correo YA salió: se anota en el log y el envío no se rompe.
 
-**Y el botón vive solo mientras se cotiza**: aparece en solicitada,
-enviada y en negociación, y DESAPARECE en aceptada, rechazada,
-cancelada y realizada. Esas se gestionan en Post-Venta, así que el caso
-"reenviar una rechazada" no existe. Al enviar se refrescan la bitácora,
-la ficha y la lista, para que el chip de estado se mueva sin recargar.
+El BOTÓN no cambia: sigue como estaba (Felipe, 10-09: *"el botón no hay
+que tocarlo… es la única acción que debe tener el apretar el botón"*).
+Lo único que se agregó es el marcado del estado. Al enviar se refrescan
+la bitácora, la ficha y la lista, para que el chip se mueva sin
+recargar.
 
 ## El portero del envío (frenos deterministas)
 
