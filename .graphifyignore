@@ -20,3 +20,9 @@ tsconfig*.json
 **/tsconfig*.json
 nest-cli.json
 **/jest-e2e.json
+
+# Documentos de texto (11-09-2026): el grafo es de código y SQL. Al commitear
+# el atlas (docs/arquitectura/mapa) el gancho metió 925 nodos .md, pasó el
+# tope de 5.000 y 92 grupos perdieron su nombre de negocio.
+*.md
+*.mdx
