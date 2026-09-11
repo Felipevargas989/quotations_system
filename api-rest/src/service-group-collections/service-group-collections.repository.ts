@@ -77,11 +77,32 @@ export class ServiceGroupCollectionsRepository {
       .eq('company_id', companyId);
   }
 
-  removeCollection(id: ServiceGroupCollection['id']) {
-    this.logger.info(`removeCollection with id ${id}`);
+  /** De los id pedidos, los que SÍ son de esta empresa en esa tabla.
+   *  Los id de menús y servicios son correlativos: sin esta consulta se
+   *  puede armar un paquete con piezas de otra empresa (11-09-2026). */
+  idsDeLaEmpresa(
+    tabla: 'service_groups' | 'variable_services' | 'fixed_services',
+    ids: number[],
+    companyId: Company['id'],
+  ) {
+    this.logger.info(
+      `idsDeLaEmpresa ${tabla} ${ids.length} ids of company ${companyId}`,
+    );
+    return this.supabase.client
+      .from(tabla)
+      .select('id')
+      .in('id', ids)
+      .eq('company_id', companyId);
+  }
+
+  /** Solo borra si el paquete es de la empresa (candado, 11-09-2026). */
+  removeCollection(id: ServiceGroupCollection['id'], companyId: Company['id']) {
+    this.logger.info(`removeCollection ${id} of company ${companyId}`);
     return this.supabase.client
       .from('service_group_collections')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
   }
 }

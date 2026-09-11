@@ -527,6 +527,30 @@ export class LogisticsRepository {
     return (data || []) as Record<string, unknown>[];
   }
 
+  /** De los id pedidos, los que SÍ son de esta empresa en esa tabla
+   *  (11-09-2026, candado de catálogo). */
+  async idsDeLaEmpresa(
+    tabla:
+      | 'variable_services'
+      | 'fixed_services'
+      | 'supplies'
+      | 'furniture_items'
+      | 'management_resources',
+    ids: number[],
+    companyId: number,
+  ): Promise<number[]> {
+    this.logger.info(
+      `idsDeLaEmpresa ${tabla} ${ids.length} ids company ${companyId}`,
+    );
+    const { data, error } = await this.supabase.client
+      .from(tabla)
+      .select('id')
+      .in('id', ids)
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return ((data || []) as { id: number }[]).map((fila) => fila.id);
+  }
+
   async addRecipeItem(companyId: number, dto: AddRecipeItemDto) {
     this.logger.info(`addRecipeItem ${dto.service_type}/${dto.service_id}`);
     const { error } = await this.supabase.client
