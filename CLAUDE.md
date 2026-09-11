@@ -137,6 +137,32 @@ documento.** Y si la conversación cambia una decisión, **se actualiza el
 documento en el mismo movimiento** — un acuerdo que solo vive en el chat
 se pierde en la próxima sesión.
 
+## EL MAPA DEL SISTEMA Y EL GRAFO — ANTES DE TOCAR CÓDIGO
+
+**Regla de la casa desde el 11-09-2026.** Felipe: *"ya está tan grande el
+sistema que me asusta pedirte cambios y tocar cosas, y mi memoria ya no sabe
+bien todo cómo está hecho"*. Existe un atlas verificado contra el código y un
+grafo de dependencias. Antes de cambiar algo, en este orden:
+
+1. Leer `docs/arquitectura/mapa/00_MAPA_DEL_SISTEMA.md` y el mapa del módulo
+   que se va a tocar, con su sección **Zonas de riesgo**.
+2. Si el cambio altera un proceso de negocio, leer su recorrido en
+   `docs/arquitectura/mapa/flujos/`.
+3. Revisar en `docs/arquitectura/mapa/21_INCIDENTES_Y_LECCIONES.md` qué se
+   rompió antes en esa zona, y en `20_CONEXIONES_Y_ZONAS_DE_RIESGO.md` qué
+   otros módulos dependen de ella.
+4. Preguntarle al grafo qué se afecta: `graphify affected "NombreDeLaPieza"`
+   (con `export PATH="$HOME/.local/bin:$PATH"`; el grafo vive en
+   `graphify-out/`, no se versiona y se rehace solo después de cada commit).
+
+**El mapa se mantiene en el mismo commit que el código.** Todo cambio que
+altere un flujo, una regla de negocio, un endpoint o una tabla actualiza el
+mapa del módulo (y el flujo, si aplica) y renueva su línea de estado. Un mapa
+desactualizado es peor que no tener mapa. Si la cabecera de un mapa dice
+"BORRADOR SIN VERIFICAR", verificarlo contra el código antes de construir
+encima. Los documentos de arquitectura por módulo (09 a 13) siguen mandando
+sobre el atlas si se contradicen; la contradicción se anota en ambos.
+
 ## The house kit — REUSE BEFORE YOU WRITE UI
 
 **Rule: before writing any piece of interface, check `src/components/` and
