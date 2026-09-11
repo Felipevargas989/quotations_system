@@ -1,0 +1,22 @@
+# Graphify: lo que NO entra al mapa (11-09-2026).
+# Las imágenes son íconos y fotos de la app: no aportan conexiones.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.webp
+*.svg
+
+# Código de terceros copiado a mano en la app: no es de Eventia.
+frontend/public/
+
+# Configuración y dependencias: aparecían como "piezas centrales" y solo meten ruido.
+package-lock.json
+**/package-lock.json
+package.json
+**/package.json
+tsconfig*.json
+**/tsconfig*.json
+nest-cli.json
+**/jest-e2e.json
