@@ -1,0 +1,55 @@
+-- Migración 109 — CANDADO A get_backup_tables() (11-09-2026).
+--
+-- QUÉ PASA HOY (medido el 11-09 en PRODUCCIÓN): la función
+-- public.get_backup_tables() es SECURITY DEFINER (corre con los poderes de
+-- su dueño, `postgres`) y su lista de permisos es:
+--
+--   {=X/postgres, postgres=X/postgres, anon=X/postgres,
+--    authenticated=X/postgres, service_role=X/postgres}
+--
+-- Ese `=X` SIN NOMBRE delante es **PUBLIC**: cualquiera puede llamarla por
+-- `/rest/v1/rpc/get_backup_tables` con la llave publicable que viaja en el
+-- bundle del frontend, y recibir el nombre de TODAS las tablas del esquema
+-- public. No entrega datos, pero sí el plano de la base.
+--
+-- OJO — NO ES UNA FUNCIÓN DECORATIVA: ES LA QUE ARMA EL RESPALDO DIARIO.
+-- `BackupCronService.runBackup` la llama por RPC para saber qué tablas
+-- volcar al balde `backups` (api-rest/src/backup/backup-cron.service.ts).
+-- Medido en los logs de producción: 1 llamada al día, agente `node` (el
+-- motor). Si se le quita el permiso al motor, el respaldo se detiene y lo
+-- único que queda es una línea en el log — nadie se entera.
+--
+-- POR ESO esta migración hace DOS cosas y no una:
+--   1. Revoca de PUBLIC. Sin esto, revocar a anon/authenticated no sirve de
+--      nada: el permiso de PUBLIC los cubre igual.
+--   2. Le CONFIRMA el permiso a service_role (ya lo tiene explícito, medido
+--      el 11-09). Es un cinturón: el motor no puede quedarse sin respaldo.
+--
+-- La función NO está versionada en docs/migrations (se creó fuera del repo,
+-- pregunta abierta del atlas). Esta migración deja registrados al menos sus
+-- permisos.
+--
+-- Reversa: 109_candado_get_backup_tables.reversa.sql
+-- CORRER EN LAB Y EN PRODUCCIÓN.
+
+REVOKE EXECUTE ON FUNCTION public.get_backup_tables() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_backup_tables() FROM anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.get_backup_tables() TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- CÓMO COMPROBAR QUE QUEDÓ BIEN (correr después de aplicar):
+--
+--   SELECT p.proacl::text AS permisos,
+--          has_function_privilege('service_role', p.oid, 'EXECUTE') AS motor_ok,
+--          has_function_privilege('anon',         p.oid, 'EXECUTE') AS anon_puede
+--   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--   WHERE n.nspname='public' AND p.proname='get_backup_tables';
+--
+-- Debe quedar: motor_ok = true · anon_puede = false · y en `permisos` ya no
+-- puede aparecer el `=X` suelto (PUBLIC) ni `anon=` ni `authenticated=`.
+--
+-- Y la prueba de fuego del respaldo (debe devolver nombres de tablas):
+--   SET ROLE service_role;
+--   SELECT * FROM public.get_backup_tables() LIMIT 3;
+--   RESET ROLE;
+-- ---------------------------------------------------------------------------
