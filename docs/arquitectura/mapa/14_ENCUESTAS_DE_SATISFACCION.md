@@ -37,7 +37,7 @@ Controller `CustomerSatisfactionSurveyController` (`@Controller('customer-satisf
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `POST /customer-satisfaction-survey/template?companyId=` | `createTemplate` | `CustomerSatisfactionSurveyService.createTemplate` → `CustomerSatisfactionSurveyRepository.createTemplate` | **Nadie** (cerrado el 28-07 porque no tenía llamador) | `@Roles(...ADMIN_ONLY)` |
+| `POST /customer-satisfaction-survey/template` (hasta el 11-09-2026 tomaba la empresa del query, `?companyId=`; desde el sprint 2, en la rama `pruebas` y todavía no en producción, la toma de la sesión) | `createTemplate` | `CustomerSatisfactionSurveyService.createTemplate` → `CustomerSatisfactionSurveyRepository.createTemplate` | **Nadie** (cerrado el 28-07 porque no tenía llamador) | `@Roles(...ADMIN_ONLY)` |
 | `GET /customer-satisfaction-survey/template?companyId=` | `getTemplate` | `getTemplate` → `repository.getTemplate` (`.single()`) | `getTemplate` de `services/customerSatisfactionSurveys.service.ts`, usado por `PublicSurvey`, `TemplateView` y `AnswersView` | `@Public()` |
 | `GET /customer-satisfaction-survey/answered?quotationId=` | `answered` | `hasAnswer` → `repository.hasAnswer` | `isSurveyAnswered` en `PublicSurvey` | `@Public()` |
 | `POST /customer-satisfaction-survey/answer` | `createAnswer` (body `CreateAnswerDto`) | `createAnswer` | `createAnswer` en `PublicSurvey.handleSubmit` | `@Public()` + `@Throttle` de 10 por minuto |
