@@ -20,13 +20,19 @@ export class CustomerSatisfactionSurveyController {
   // Cerrado el 28-07 (Fase 3, cabos sueltos): esta puerta era @Public
   // y NADIE del frontend la llama (medido con grep) — era una escritura
   // abierta a internet sin uso. Ahora exige sesión de administrador.
+  // Aislamiento entre empresas (11-09-2026): la empresa sale de la
+  // SESIÓN, no del query. Antes, un administrador de cualquier empresa
+  // podía sobrescribir el cuestionario de otra con solo cambiar el
+  // ?companyId= de la dirección.
   @Roles(...ADMIN_ONLY)
   @Post('template')
-  createTemplate(@Query('companyId') companyId: number) {
+  createTemplate(@CurrentUser() user: User) {
     this.logger.info(
-      `POST /customer-satisfaction-survey/template with companyId ${companyId}`,
+      `POST /customer-satisfaction-survey/template with companyId ${user.company_id}`,
     );
-    return this.customerSatisfactionSurveyService.createTemplate(companyId);
+    return this.customerSatisfactionSurveyService.createTemplate(
+      user.company_id,
+    );
   }
 
   @Public()

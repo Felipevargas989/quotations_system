@@ -63,20 +63,23 @@ en producción**: espera la validación de Felipe y su "a producción".
 | `POST /service-groups` y `POST /service-group-collections` | Armar un menú o paquete propio apuntando al catálogo ajeno | Se exige que cada id referenciado sea de la empresa |
 | `POST /logistics/recipes` y `/logistics/fixed-cost-items` | Colgar recetas y costos propios de piezas ajenas | Misma verificación para servicio, insumo, mobiliario y recurso |
 
-### Sprint 2 · Los filtros que no filtran · PENDIENTE
+### Sprint 2 · Los filtros que no filtran · HECHO EN EL LABORATORIO
 
-- `GET /customer-satisfaction-survey/answers`: cualquier sesión lee las
-  respuestas de encuesta de todas las empresas. Falta `quotations!inner`.
-- `GET /refunds`: lo mismo con los reembolsos.
-- `GET /payments` y `POST /payments/transactions/overflow`: con el UUID de una
-  cotización ajena se leen sus cuotas y se registran abonos reales.
-- `DELETE /payments/:id`: borra una cuota con sus abonos sin mirar empresa.
-  Ninguna pantalla usa esa ruta.
-- `DELETE` y `PATCH /payments/transactions/:id`: el borrado se ejecuta antes de
-  cualquier comprobación.
-- `POST /customer-satisfaction-survey/template`: toma la empresa del query
-  string, así que un administrador de otra empresa sobrescribe el cuestionario
-  ajeno. Debe salir de la sesión.
+Rama `pruebas`, 11-09-2026, con 8 pruebas nuevas. **Todavía no está en
+producción**: espera la validación de Felipe y su "a producción".
+
+| Puerta | Qué permitía | Qué se hizo |
+| --- | --- | --- |
+| `GET /customer-satisfaction-survey/answers` | Cualquier sesión leía las respuestas de encuesta de todas las empresas | `quotations!inner` en `findAllAnswersFromCompany` |
+| `GET /refunds` | Lo mismo con los reembolsos, con cliente y número de cotización | `quotations!inner` en `RefundsRepository.findAll` |
+| `GET /payments` y `POST /payments/transactions/overflow` | Con el UUID de una cotización ajena se leían sus cuotas y se registraban abonos reales sobre ellas | `quotations!inner` en `findAllPaymentsFromQuotation`, que es la consulta de la que cuelgan las dos rutas |
+| `DELETE /payments/:id` | Borraba una cuota con todos sus abonos sin mirar la empresa | El controller recibe al usuario y el service exige `findPaymentById(id, companyId)` antes de borrar; 404 si no es de la empresa |
+| `DELETE /payments/transactions/:id` | El borrado del abono se ejecutaba antes de cualquier comprobación | Primero se resuelve la cuota del abono y se verifica la empresa; recién ahí se borra |
+| `POST /customer-satisfaction-survey/template` | Un administrador de cualquier empresa sobrescribía el cuestionario de otra cambiando el `?companyId=` | La empresa sale de la sesión con `@CurrentUser()` |
+
+`PATCH /payments/transactions/:id` no necesitó cambio: su validación ya pasa
+por `findPaymentById`, que usa `!inner`, así que una edición ajena nunca
+llegaba a escribir.
 
 ### Sprint 3 · La cotización ajena · PENDIENTE
 
