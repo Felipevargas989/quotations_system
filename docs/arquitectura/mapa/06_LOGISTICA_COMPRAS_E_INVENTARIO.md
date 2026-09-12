@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -96,6 +96,13 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 | DELETE `/logistics/fixed-cost-items/:id` | `deleteCostItem` | `deleteCostItem` | `deleteFixedServiceCostItem` (FixedCostSection) | admin |
 
 Total: **53 endpoints**. El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
+
+**Aislamiento entre empresas en recetas y costos (sprint 1, SOLO EN LA RAMA `pruebas`, commit 8266ba1 — no está en producción).** `POST /logistics/recipes` y `POST /logistics/fixed-cost-items` ahora exigen que las piezas referenciadas sean del catálogo de la empresa de la sesión, antes de insertar:
+- `addRecipeItem` valida que el `service_id` (según `service_type`, contra `variable_services` o `fixed_services`) y el `supply_id` o `furniture_id` (según `item_kind`) sean de la empresa.
+- `addCostItem` valida que el `fixed_service_id` y el `resource_id` sean de la empresa.
+- Ambos pasan por un método privado nuevo, `LogisticsService.exigirDeLaEmpresa`, que llama a `LogisticsRepository.idsDeLaEmpresa(tabla, ids, companyId)` — un `SELECT id` con `.in('id', ids).eq('company_id', companyId)` sobre `variable_services`, `fixed_services`, `supplies`, `furniture_items` o `management_resources`. Si algún id pedido no vuelve en la respuesta, lanza 404 (`NotFoundException`, "Hay piezas que no son de tu empresa") y **no llega a insertar**.
+
+Evidencia: `LogisticsRepository.idsDeLaEmpresa`, `LogisticsService.exigirDeLaEmpresa/addRecipeItem/addCostItem`; prueba nueva `api-rest/src/logistics/tests/aislamiento-catalogo-logistica.spec.ts` (4 casos). Los demás INSERT del repositorio (`addEventResources`, `upsertSupplyProvisions`, `setServiceTime`, `addKitchenNote`, `markDaysPrinted`) siguen sin esta validación — ver §10 y §12.
 
 ## 4. Tablas de la base de datos
 
@@ -366,6 +373,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 |---|---|
 | `api-rest/src/logistics/tests/candado-logistica.spec.ts` | Candado del evento realizado en `LogisticsRepository`. Rechaza agregar, cambiar o borrar recursos, cambiar horarios, agregar o borrar notas, borrar la foto de costos y borrar provisiones. Permite tomar la foto (`markProvisioned`). En un evento vivo acepta recursos, notas y borrar la foto. Sin filas no consulta la base |
 | `api-rest/src/logistics/tests/logistics.service.spec.ts` | `LogisticsService.deleteSupplier`: se elimina sin referencias; 409 con insumos o con recursos |
+| `api-rest/src/logistics/tests/aislamiento-catalogo-logistica.spec.ts` (sprint 1, **solo en la rama `pruebas`**) | `addRecipeItem`: deja pasar con servicio e insumo propios; rechaza (404) el insumo ajeno sin insertar; rechaza (404) el servicio ajeno sin insertar. `addCostItem`: deja pasar con fijo y recurso propios; rechaza (404) el recurso ajeno sin insertar |
 | `frontend/src/utils/costoDeRecursos.test.ts` (vitest) | 8 casos: solo fijo, solo variable, mixto con el fijo una vez, "la cuenta vieja cobraba la instalación dos veces", personal línea por línea, recursos distintos no se mezclan, números que llegan como texto, sin líneas |
 
 **Lo importante que NO está cubierto:**
@@ -415,7 +423,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
   - los fijos no llevan insumos.
 - `createFurniture` no guarda `unit_cost` al crear (arma la fila solo con nombre, categoría, stock, foto y `preassembled`). El costo unitario solo se puede poner editando.
 - `markProvisioned` hace un UPDATE por evento, en serie.
-- Los INSERT del repositorio (`addEventResources`, `upsertSupplyProvisions`, `addRecipeItem`, `addCostItem`, `setServiceTime`, `addKitchenNote`, `markDaysPrinted`) no verifican que los ids a los que apuntan sean de la empresa de la sesión. La fila queda con el `company_id` propio, pero puede apuntar a una cotización, recurso o servicio ajeno. `api-rest/src/people/people.service.ts` sí lo verifica para el cargo, con `people.repository.esRecursoDeLaEmpresa`.
+- Los INSERT del repositorio `addEventResources`, `upsertSupplyProvisions`, `setServiceTime`, `addKitchenNote` y `markDaysPrinted` siguen sin verificar que los ids a los que apuntan sean de la empresa de la sesión. La fila queda con el `company_id` propio, pero puede apuntar a una cotización, recurso o servicio ajeno. `addRecipeItem` y `addCostItem` **SÍ lo verifican desde el sprint 1 de aislamiento entre empresas (11-09-2026)**, con el método nuevo `LogisticsRepository.idsDeLaEmpresa` (ver §3) — pero **solo en la rama `pruebas` (commit 8266ba1): no está en producción**. `api-rest/src/people/people.service.ts` ya lo verificaba para el cargo, con `people.repository.esRecursoDeLaEmpresa`.
 
 **Rarezas de Compras**
 - En el CSV, el **subtotal** por proveedor se calcula con `totalBase × price` (neto, sin merma), pero cada fila muestra `costTotal` (bruto). Con merma mayor que 0, el subtotal no cuadra con la suma de las filas.
@@ -464,7 +472,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 - **Borrar un servicio y sus recetas.** El comentario de `ServicesService.removeVariableService` (13-08) dice que borrar un servicio "le arrancaba en cascada su receta". Pero la migración 11 no pone llave foránea en `service_recipe_items.service_id`, y no se encontró ningún trigger. Al borrar un servicio libre, ¿quedan líneas de receta huérfanas? ¿Hay algo en la base que no está en `docs/migrations`?
 - **Tomar la foto en eventos realizados.** ¿Es intencional que `markProvisioned` y `upsertSupplyProvisions` acepten eventos `realizada` y puedan **reescribir** su costo congelado? El candado dice que "tomar la foto" queda abierto, pero no distingue la primera foto de una posterior.
 - **Re-estampar con el gasto real.** ¿Debe Compras volver a estampar `provisioned_cost` cuando se re-provisiona un evento completo con un gasto real distinto (§10, §11.5)?
-- **Ids de otra empresa.** ¿Se quiere validar la pertenencia a la empresa de los ids referenciados en los INSERT del repositorio (§10)?
+- **Ids de otra empresa.** El sprint 1 de aislamiento entre empresas (11-09, rama `pruebas`, commit 8266ba1) ya valida esto en `addRecipeItem` y `addCostItem` (§3). ¿Se quiere extender la misma validación a `addEventResources`, `upsertSupplyProvisions`, `setServiceTime`, `addKitchenNote` y `markDaysPrinted` (§10)? ¿Y llevar el sprint 1 completo a producción?
 - **El caché de los fijos.** ¿Cambiar el precio de lista de un recurso debería resincronizar el caché de costos de los fijos (§8.9, §11.4)?
 - **El ajuste de insumos antes de comprar.** El doc 10 §9 lo deja abierto. ¿El modal "Confirmar la compra" del 24-08 lo da por resuelto? Si es así, el documento debería decirlo.
 - **Roles de Post-Venta.** Los roles exactos que ven Gestión y Cocina dependen de Post-Venta y no se verificaron aquí (mapa 04).
@@ -482,6 +490,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 - `api-rest/src/logistics/dto/event-operations.dto.ts`
 - `api-rest/src/logistics/tests/candado-logistica.spec.ts`
 - `api-rest/src/logistics/tests/logistics.service.spec.ts`
+- `api-rest/src/logistics/tests/aislamiento-catalogo-logistica.spec.ts` (sprint 1, solo en la rama `pruebas`)
 - `api-rest/src/auth/roles.decorator.ts` (`OPERATIONS_AND_UP`, `SALES_AND_UP`, `ADMIN_ONLY`)
 - `api-rest/src/quotations/constants/constants.ts` (`EVENTO_REALIZADO_CONGELADO`)
 - `api-rest/src/people/people.repository.ts` (cargos sobre `management_resources`)

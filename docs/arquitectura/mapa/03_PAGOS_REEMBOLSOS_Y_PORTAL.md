@@ -1,6 +1,6 @@
 # Mapa: Pagos, reembolsos y portal del cliente
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -217,13 +217,13 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
   - `normalizePaymentAfterTransactions` usa `new Date(due_date) < new Date()`;
   - el recordatorio del "día del vencimiento" busca a las 11 AM cuotas que sigan `pendiente` con `due_date = hoy`.
   Si el reloj de la 1 AM ya las pasó a `vencido`, ese toque podría no salir nunca. No confirmado: depende de la zona horaria del servidor y de cómo Postgres compara fecha contra texto. Evidencia: esas funciones; `payments/constants/index.ts`.
-- **Si tocas** los repositorios de pagos y reembolsos, **se afecta** el aislamiento entre empresas, **porque** varias puertas no acotan por `company_id` como pide `CLAUDE.md`:
-  - `removePaymentTransaction` busca y borra el registro por id sin validar la empresa (solo el re-cuadre posterior, vía `findPaymentById`, filtra), y `removePayment` no recibe empresa;
-  - `findAllTransactionsByPaymentId`, `updatePayment`, `findPendingByQuotation`, `updateAmount` y `remove` no filtran;
-  - `deletePaymentsByQuotationId` recibe `companyId` y no lo usa;
-  - `findAllPaymentsFromQuotation` y `RefundsRepository.findAll` filtran `quotations.company_id` sobre un embebido **sin** `!inner`; en PostgREST eso filtra el hijo, no la fila, a diferencia de `findPaymentById` y `findByQuotation`, que sí usan `!inner`;
-  - `QuotationsService.update` corre la cascada tras `QuotationsRepository.findOne(id)`, que no filtra empresa;
-  - `CreatePaymentPlanDto.payments` usa `@IsArray` sin `@ValidateNested`, así que el `quotation_id` de cada cuota no se compara con el del DTO.
+- **Si tocas** los repositorios de pagos y reembolsos, **se afecta** el aislamiento entre empresas, **porque** varias puertas no acotan por `company_id` como pide `CLAUDE.md`. El inventario completo de estas puertas y el plan para cerrarlas, por sprint, viven en `22_AISLAMIENTO_ENTRE_EMPRESAS.md`:
+  - `removePaymentTransaction` busca y borra el registro por id sin validar la empresa (solo el re-cuadre posterior, vía `findPaymentById`, filtra), y `removePayment` no recibe empresa — son `DELETE /payments/transactions/:id` y `DELETE /payments/:id` del **Sprint 2** del capítulo 22 ("Los filtros que no filtran"), pendiente;
+  - `updatePayment` no filtra y `deletePaymentsByQuotationId` recibe `companyId` y no lo usa — es la "defensa en profundidad" que el **Sprint 3** del capítulo 22 ("La cotización ajena") deja pendiente, junto con `RefundsRepository.findPendingByQuotation`, `updateAmount` y `remove`, que la cascada de `QuotationsService.update` llama sin volver a mirar la empresa;
+  - `findAllTransactionsByPaymentId` tampoco filtra, pero el capítulo 22 no la nombra puerta por puerta: queda dentro del inventario general de las 31 puertas, sin sprint asignado;
+  - `findAllPaymentsFromQuotation` y `RefundsRepository.findAll` filtran `quotations.company_id` sobre un embebido **sin** `!inner`; en PostgREST eso filtra el hijo, no la fila, a diferencia de `findPaymentById` y `findByQuotation`, que sí usan `!inner` — son `GET /payments` y `GET /refunds` del **Sprint 2** del capítulo 22, pendiente;
+  - `QuotationsService.update` corre la cascada tras `QuotationsRepository.findOne(id)`, que no filtra empresa — es `PATCH /quotations/:id` del **Sprint 3** del capítulo 22, pendiente;
+  - `CreatePaymentPlanDto.payments` usa `@IsArray` sin `@ValidateNested`, así que el `quotation_id` de cada cuota no se compara con el del DTO — tampoco está en un sprint puntual del capítulo 22.
   No encontré un abuso real: es una puerta a revisar. Evidencia: `payments.repository.ts`, `refunds.repository.ts`, `quotations.service.ts`, `create-payment-plan.dto.ts`.
 - **Si tocas** los mensajes de error de pagos, **se afecta** lo que ve el usuario, **porque**:
   - `createOverflowPaymentTransaction` y `createOrUpdatePaymentTransaction` relanzan todo como `new Error(error)` y no encontré filtro global de excepciones, así que el motor respondería 500 genérico;

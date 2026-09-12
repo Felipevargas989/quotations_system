@@ -1,6 +1,6 @@
 # Conexiones entre módulos y zonas de riesgo
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Comprobado contra el código en ese commit. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## Cómo leer este documento
 
@@ -1198,12 +1198,16 @@ Medido en "Cotizador-dev" (producción) leyendo solo `information_schema`, despu
 | `service_group_collections` | `bigint` identity | Sí |
 | `fixed_services` | `bigint` identity | Sí |
 
+**Cierre de tablas abiertas, ese mismo día.** Después de esta medición, el 11-09-2026 se aplicaron en producción las migraciones 107, 108 y 109: cerraron 12 tablas (cinco de ellas de Marketing, ver `10_MARKETING.md`) que tenían la seguridad de fila apagada y permisos completos para `anon`/`authenticated`, y le revocaron a esos roles el `EXECUTE` de `get_backup_tables()`. Es una puerta DISTINTA de las que siguen en esta sección: aquella era la API REST de Supabase saltándose el motor entero con la llave pública; esta sección es el motor MISMO —con `service_role`, inmune a RLS— sin filtro de `company_id` entre sesiones de empresas distintas. Cerrar 107-109 no cierra ninguna de las puertas de abajo. Evidencia: `docs/migrations/107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql`, `109_candado_get_backup_tables.sql`.
+
+**Capítulo dedicado.** `22_AISLAMIENTO_ENTRE_EMPRESAS.md` (11-09) junta las puertas ENTRE EMPRESAS de este documento —x5-02, x5-01, x5-20, x4-17 y la de catálogo de más abajo— en un inventario de 31 puertas confirmadas, con plan en 5 sprints.
+
 Consecuencias para las conexiones de este documento:
 
 - **x5-02 y la cascada de `QuotationsService.update`**: una sesión de otra empresa necesita el UUID de la cotización. Si lo tiene, la cascada ve las cuotas ajenas, porque `findAllPaymentsFromQuotation` filtra la empresa sobre un embebido sin `!inner`. También borra el plan ajeno por `deletePaymentsByQuotationId`, que recibe `companyId` y no lo usa. Además crea o consume reembolsos ajenos y puede mandar el correo "cotización enviada" al cliente ajeno. La escritura final de la cotización sí filtra por empresa, así que la cotización misma no cambia.
 - **x5-01**: `QuotationsRepository.findOne` selecciona `*`, y en producción existen `provisioned_cost`, `provisioned_people` y `provisioned_services`. El mandante que tiene el portal puede leer esos costos de sus propias cotizaciones.
 - **`DELETE /payments/:id`**: no recibe usuario y borra registros y cuota solo por id, pero el id es UUID. Ninguna pantalla lo llama; el frontend solo borra registros por `DELETE /payments/transactions/:id`, que sí recibe la empresa.
-- **Catálogo, la puerta más fácil de recorrer**: `DELETE /service-groups/:id`, `DELETE /service-group-collections/:id` y `PATCH /services/fixed/:id` filtran solo por id y sus ids son correlativos. Ver [flujos/16_CAMBIAR_EL_CATALOGO.md](flujos/16_CAMBIAR_EL_CATALOGO.md), pasos 8, 23 y 24, y su zona de riesgo 13.
+- **Catálogo, la puerta más fácil de recorrer**: `DELETE /service-groups/:id`, `DELETE /service-group-collections/:id` y `PATCH /services/fixed/:id` filtraban solo por id y sus ids son correlativos. **Cerrado el 11-09-2026 SOLO EN EL LABORATORIO** (rama `pruebas`, commit `8266ba1`, sprint 1 de `22_AISLAMIENTO_ENTRE_EMPRESAS.md`): las tres ahora reciben al usuario, filtran por `company_id` y responden 404 sin fila tocada. **Todavía no está en producción**, espera la validación de Felipe y su "a producción". Ver [flujos/16_CAMBIAR_EL_CATALOGO.md](flujos/16_CAMBIAR_EL_CATALOGO.md), pasos 8, 23 y 24, y su zona de riesgo 13.
 - **Mecanismo de `!inner`**: confirmado en la documentación de Supabase, guía *Querying Joins and Nested tables*. Sin `!inner`, las filas padre vuelven aunque la tabla relacionada no calce.
 
-Nada de esto está arreglado. Cada arreglo necesita plan y OK de Felipe.
+Nada de esto está arreglado EN PRODUCCIÓN. El sprint 1 (la puerta de catálogo, arriba) está hecho en el laboratorio y espera el "a producción" de Felipe; el resto —x5-01, x5-02, x5-20, x4-17 y los sprints 2 a 5 de `22_AISLAMIENTO_ENTRE_EMPRESAS.md`— sigue sin plan aplicado. Cada arreglo necesita plan y OK de Felipe.

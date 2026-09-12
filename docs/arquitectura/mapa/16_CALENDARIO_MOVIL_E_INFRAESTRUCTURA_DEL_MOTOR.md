@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -170,6 +170,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
    5. `cleanupOld` borra los archivos con fecha de más de 30 días.
 4. **Si falla** una tabla, se registra `logger.error` y sigue con la siguiente: el respaldo termina "OK" con esa tabla incompleta. Si falla todo, queda `BACKUP FALLÓ` en el log, sin correo ni aviso.
 5. **Restaurar** es a mano: bajar el `.json.gz` desde Storage y reinsertar las filas (cabecera del archivo).
+6. **El RPC del paso 3.1 tiene candado desde el 11-09-2026.** `get_backup_tables()` es `SECURITY DEFINER`; hasta esa fecha cualquiera con la llave pública podía llamarla por `/rest/v1/rpc/get_backup_tables` y ver el nombre de todas las tablas de `public` (sin leer datos). La migración `109_candado_get_backup_tables.sql` (`docs/migrations`) revocó el `EXECUTE` de `PUBLIC` y de `anon`/`authenticated`, y confirmó el de `service_role` — el mismo rol que usa este cron para llamarla. Aplicada en lab y producción. La función en sí (su cuerpo, dónde se creó) sigue sin estar versionada en `docs/migrations` — sigue abierta la pregunta 5 de la sección 12.
 
 ### 5.5 El recorrido de una petición por la cañería común
 
@@ -271,6 +272,8 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | 11:00 UTC diario (`'0 11 * * *'`) | 07:00 / 08:00 | `api-rest/src/quotations/quotations-cron.service.ts`, `QuotationsCronService.sendQuotationFollowUps` | Seguimiento de cotizaciones enviadas: dos toques al mandante, a los 7 y a los 14 días desde `sent_at` | 02 y 12 |
 | Lunes 11:00 UTC (`'0 11 * * 1'`) | lunes 07:00 / 08:00 | mismo archivo, `QuotationsCronService.sendWeeklyDigest` | Resumen semanal a los administradores: eventos aceptados de la semana y embudo vigente. Solo sale si hay algo que contar | 02 y 12 |
 
+**Candado del 11-09-2026 sobre el RPC del respaldo.** `get_backup_tables()`, la función que le entrega a `dailyBackup` la lista de tablas, tenía `EXECUTE` abierto a `PUBLIC` (cualquiera con la llave pública veía el nombre de todas las tablas de `public`, sin datos). La migración `109_candado_get_backup_tables.sql` lo revocó de `PUBLIC` y de `anon`/`authenticated`, y confirmó el de `service_role` — el rol con el que este mismo reloj la llama. Aplicada en lab y producción; detalle en el punto 5.4 y en la pregunta abierta 5 de este mapa.
+
 Tareas automáticas que **no** son `@Cron`:
 - **`BackupCronService.onModuleInit`.** 20 segundos después de arrancar, respalda si falta el respaldo del día. Solo en producción.
 - **`QuotationsCronService.onApplicationBootstrap`.** Con `RUN_FOLLOWUPS_ON_BOOT=1`, corre el seguimiento al encender el servidor, en **cualquier** ambiente. Es una palanca del 31-07 para "rescates puntuales, como el de Marcia".
@@ -297,7 +300,7 @@ Tareas automáticas que **no** son `@Cron`:
 13. **Si tocas** `marcarCocina`, **ojo con** el aislamiento entre empresas, **porque** no verifica que la cotización sea de la empresa de la sesión. El upsert es por (`quotation_id`, `clave`), única en toda la tabla: con un `quotation_id` ajeno se reescribe la marca de otra empresa. La lectura sí filtra por `company_id`. Evidencia: `MovilService.marcarCocina`; `44_cocina_checklist.sql`.
 14. **Si una empresa supera** el tope de filas por consulta de Supabase, **se afectan** el calendario y los avisos del móvil, **porque** `QuotationsRepository.findAll` no pagina y el calendario no manda `event_date_from`. Con el orden por defecto (`quotation_number` ascendente, en `QuotationsService.findAll`), quedarían fuera las cotizaciones **más nuevas**, sin aviso. El propio `BackupCronService.runBackup` pagina porque "supabase-js entrega máximo 1000 filas por consulta".
 15. **Si la base crece**, **se afecta** la memoria del motor durante el respaldo, **porque** `runBackup` junta todas las filas de todas las tablas en memoria antes de comprimir. `docs/arquitectura/13_ENVIO_DE_COTIZACIONES.md` ya pide vigilar la memoria del motor en Railway por Chromium. Además, una tabla que falla queda incompleta y el log igual dice `BACKUP OK`.
-16. **Si borras o renombras** la función `get_backup_tables()` o el balde `backups`, **se detiene** el respaldo sin más aviso que una línea en el log, **porque** ninguno de los dos está en `docs/migrations` y nadie revisa el resultado.
+16. **Si borras o renombras** la función `get_backup_tables()` o el balde `backups`, **se detiene** el respaldo sin más aviso que una línea en el log, **porque** nadie revisa el resultado. Sus permisos sí quedaron versionados desde el 11-09-2026 (migración `109_candado_get_backup_tables.sql`: `EXECUTE` solo para `service_role`), pero la función en sí —su cuerpo, dónde se creó— sigue sin estar en `docs/migrations`. **Ojo con tocar esos permisos de nuevo:** si alguien le revoca el `EXECUTE` a `service_role` (el mismo candado que ahora se lo niega a `anon`/`authenticated`), el respaldo se detiene igual de silencioso. Además queda abierta una segunda entrada de permisos por defecto a nombre de `supabase_admin` (rol de plataforma) que la 109 no tocó: las **funciones nuevas** siguen naciendo con `EXECUTE` para `anon`; la 109 solo cerró esta función puntual.
 17. **Si pones** `RUN_FOLLOWUPS_ON_BOOT=1` en el laboratorio, **salen** correos de seguimiento reales, **porque** `onApplicationBootstrap` no mira `NODE_ENV`. Además, "cada reinicio con ella puesta re-evalúa el día". Evidencia: `QuotationsCronService`.
 18. **Si cambias** la zona horaria del servidor o agregas `timeZone` a un `@Cron`, **se corren** todos los horarios de la sección 7, **porque** están escritos pensando en UTC.
 19. **Si cambias** los nombres técnicos de estado (`aceptada`, `realizada`, `cancelada`, `enviada`, `solicitada`), **se rompen** en silencio el destino del clic y el conteo de personal del calendario, y las cuatro reglas del push, **porque** son listas escritas a mano en `handleNavigateToQuotation`, en `TarjetaEvento` y en `avisosDeEmpresa`. Evidencia: `Calendar.tsx`; `movil.service.ts`; `flujos/08_MARCAR_EVENTO_REALIZADO.md`.
@@ -396,7 +399,7 @@ Tareas automáticas que **no** son `@Cron`:
 2. ¿El POST del checklist de cocina responde 400 por `marcado`? Conviene probarlo en el laboratorio, desde la app, antes de confiar en el checklist.
 3. ¿El motor corre en UTC en Railway? No hay `TZ` ni `timeZone` en el repo, y todos los horarios lo suponen.
 4. ¿Cuál es el tope de filas por consulta ("Max rows") del proyecto Supabase de producción? De ese número depende cuándo el calendario y los avisos empiezan a perder cotizaciones.
-5. ¿Dónde se crearon `get_backup_tables()` y los baldes `backups` y `company-logos`? No están en `docs/migrations`, y tampoco se puede confirmar que `backups` sea privado.
+5. ¿Dónde se crearon `get_backup_tables()` y los baldes `backups` y `company-logos`? La función sigue sin estar en `docs/migrations` (sus permisos sí, desde la migración 109 del 11-09-2026), y tampoco se puede confirmar que `backups` sea privado.
 6. ¿Alguien revisa que el respaldo diario salió bien? ¿Se probó alguna vez restaurar uno?
 7. ¿El laboratorio corre con `NODE_ENV = 'production'`? De eso depende si allá corren los relojes y el respaldo (la misma pregunta está en los mapas 10 y 11).
 8. ¿El motor de producción corre en una sola instancia? Si son varias, la memoria de sesión y del panel no se comparte entre ellas.
