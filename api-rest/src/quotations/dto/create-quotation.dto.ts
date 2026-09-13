@@ -134,4 +134,17 @@ export class CreateQuotationDto {
   @IsObject()
   @IsOptional()
   items?: QuotationItem;
+
+  /** ORIGEN DEL LEAD (12-09): de dónde llegó quien llenó el formulario.
+   *  `origen_detalle` es lo CRUDO que traía la dirección (gclid, fbclid,
+   *  utm_*, referente) y viene del navegador; `origen` es la etiqueta
+   *  legible y la decide el SERVIDOR en createPublic — lo que mande el
+   *  navegador acá se pisa. Ver quotations/origen-del-lead.ts. */
+  @IsObject()
+  @IsOptional()
+  origen_detalle?: Record<string, string>;
+
+  @IsString()
+  @IsOptional()
+  origen?: string;
 }
