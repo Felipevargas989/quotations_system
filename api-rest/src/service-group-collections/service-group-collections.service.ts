@@ -24,6 +24,24 @@ export class ServiceGroupCollectionsService {
     try {
       const { items, services, fixed_services, ...collection } = createDto;
 
+      // Aislamiento entre empresas (11-09-2026): menús, servicios sueltos
+      // y fijos del paquete tienen que ser propios. Sus id son correlativos.
+      await this.exigirDeLaEmpresa(
+        'service_groups',
+        items.map((item) => item.service_group_id),
+        companyId,
+      );
+      await this.exigirDeLaEmpresa(
+        'variable_services',
+        (services ?? []).map((s) => s.variable_service_id),
+        companyId,
+      );
+      await this.exigirDeLaEmpresa(
+        'fixed_services',
+        (fixed_services ?? []).map((f) => f.fixed_service_id),
+        companyId,
+      );
+
       // create the collection first to obtain its generated id
       const { data: createdCollection, error: collectionError } =
         await this.repository.createCollection({
@@ -75,10 +93,36 @@ export class ServiceGroupCollectionsService {
 
       return createdCollection;
     } catch (error) {
+      // Un 404 nuestro se respeta tal cual; lo de abajo es para los
+      // errores crudos de la base.
+      if (error instanceof HttpException) throw error;
       this.logger.error(error);
       throw new HttpException(
         (error as Error).message || 'Error al crear el paquete',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** Candado de catálogo (11-09-2026): todas las piezas pedidas tienen que
+   *  existir en esta empresa. */
+  private async exigirDeLaEmpresa(
+    tabla: 'service_groups' | 'variable_services' | 'fixed_services',
+    ids: number[],
+    companyId: Company['id'],
+  ) {
+    const pedidos = [...new Set(ids)];
+    if (pedidos.length === 0) return;
+    const { data, error } = await this.repository.idsDeLaEmpresa(
+      tabla,
+      pedidos,
+      companyId,
+    );
+    if (error) throw error;
+    if ((data ?? []).length !== pedidos.length) {
+      throw new HttpException(
+        'Hay piezas del paquete que no son de tu empresa',
+        HttpStatus.NOT_FOUND,
       );
     }
   }
@@ -97,8 +141,24 @@ export class ServiceGroupCollectionsService {
     }
   }
 
-  async remove(id: ServiceGroupCollection['id']) {
-    this.logger.info(`remove service group collection with id ${id}`);
-    return await this.repository.removeCollection(id);
+  /** Borrar (11-09-2026): el paquete tiene que ser de la empresa. Sin fila
+   *  borrada, era ajeno o no existía: 404. */
+  async remove(id: ServiceGroupCollection['id'], companyId: Company['id']) {
+    this.logger.info(`remove service group collection ${id} of ${companyId}`);
+    const { data, error } = await this.repository.removeCollection(
+      id,
+      companyId,
+    );
+    if (error) {
+      this.logger.error(error);
+      throw new HttpException(
+        'No se pudo eliminar el paquete',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (!data || data.length === 0) {
+      throw new HttpException('Paquete no encontrado', HttpStatus.NOT_FOUND);
+    }
+    return { removed: true };
   }
 }

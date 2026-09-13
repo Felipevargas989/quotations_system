@@ -124,9 +124,9 @@ export class PaymentsController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Delete(':id')
-  removePayment(@Param('id') id: Payment['id']) {
+  removePayment(@Param('id') id: Payment['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/${id}`);
-    return this.paymentsService.removePayment(id);
+    return this.paymentsService.removePayment(id, user.company_id);
   }
 
   @Roles(...OPERATIONS_AND_UP)

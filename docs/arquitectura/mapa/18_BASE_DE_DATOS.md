@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -12,20 +12,20 @@ Una sola base Postgres en Supabase guarda todo el sistema y a todas las empresas
 
 **Cómo se cambia la base.** No hay ejecutor automático. Cada cambio es un archivo SQL en `docs/migrations/` que alguien pega a mano en el editor SQL de Supabase, **primero en el laboratorio y después en producción**. Lo dicen la cabecera de `68_personas.sql` ("NO LA CORRE EL SISTEMA. Hay que aplicarla a mano en Supabase, primero en el laboratorio y después en producción") y la de `104_modulo_consultas.sql` ("CORRER EN LAB Y EN PRODUCCIÓN"). El repo no registra qué migración está aplicada en cuál base: algunas cabeceras lo anotan a mano y quedaron desactualizadas (sección 9).
 
-Qué hay en `docs/migrations/` (138 archivos):
+Qué hay en `docs/migrations/` (144 archivos, contadas el 11-09-2026 tras sumar la 107, la 108 y la 109):
 
 | Tipo | Cantidad | Nota |
 |---|---|---|
-| Migraciones hacia adelante | 106: numeradas del 1 al 106 (**no existe la 43**) más `68b_produccion_nombres_repetidos_antes_de_la_69.sql` | `68b` "Se corre SOLO en producción, entre la 68 y la 69" |
+| Migraciones hacia adelante | 109: numeradas del 1 al 109 (**no existe la 43**) más `68b_produccion_nombres_repetidos_antes_de_la_69.sql` | `68b` "Se corre SOLO en producción, entre la 68 y la 69"; las tres últimas son `107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql` y `109_candado_get_backup_tables.sql` (sección 5, "Permisos, RLS y políticas") |
 | Foto del esquema | 1: `0_initial_models.sql`, 12 tablas anteriores a la migración 1 | Su cabecera dice "for context only and is not meant to be run" |
-| Reversas | 29, para las migraciones 38 a 66, la 68 y la 102 | Tres formas de nombre: `_reversa.sql`, `.reversa.sql` y `.revertir.sql`. De la 69 en adelante solo la 102 tiene reversa |
+| Reversas | 32, para las migraciones 38 a 66, la 68, la 102, la 107, la 108 y la 109 | Tres formas de nombre: `_reversa.sql`, `.reversa.sql` y `.revertir.sql`. De la 69 en adelante tienen reversa solo la 102, la 107, la 108 y la 109 |
 | Rellenos en archivo aparte | 2: `67_...backfill.sql` y `68_personas.backfill.sql` | Los demás rellenos van dentro de su migración: 35, 37, 47, 48, 50, 51, 52, 56, 81, 84, 85 y 86 |
 
 Fuera de esa carpeta también hay SQL vivo en la base: `db_functions_analytics_23_07.sql`, en la raíz del repo, con las 9 funciones del Dashboard. `CLAUDE.md` nombra además `frontend/databaseSchema/database_schema.sql` como foto del esquema, pero esa carpeta se borró el 15-07-2026 (commit `d12d17e`, "remove unused db files in frontend").
 
 **Receta para la próxima migración** (sale de las lecciones escritas en las propias migraciones):
 
-1. Número siguiente: `107_<nombre>.sql`. Conviene escribir también su reversa.
+1. Número siguiente: `110_<nombre>.sql`. Conviene escribir también su reversa.
 2. Tabla nueva: `company_id bigint NOT NULL REFERENCES public.companies(id)`, y los permisos en el mismo archivo: `GRANT ALL ... TO service_role`, `GRANT USAGE, SELECT` sobre la secuencia y `ENABLE ROW LEVEL SECURITY` sin políticas. Sin eso el motor recibe `42501 permission denied` y la pantalla queda cargando para siempre (comentarios de las migraciones 49, 53, 59, 68, 71, 77, 78, 91, 104 y 105).
 3. Si la tabla apunta a `quotations`: `ON DELETE CASCADE`, o sumarla a la guardia `QuotationsRepository.assertDeletable` (migración 79 y el comentario de esa función).
 4. Orden frente al despliegue: si el código nuevo escribe la columna, primero el SQL y después el código (37, 38). Si el SQL quita algo que el código viejo usa, primero el código (39).
@@ -222,10 +222,12 @@ companies ──< clients ──< client_contacts            (CASCADE al borrar 
 | `reorder_fixed_services(p_company_id, p_section_id, p_ids[])` | Mueve y ordena fijos en un viaje | `rpc` en `services/services.repository.ts` | 55 |
 | `reorder_services_in_category(p_company_id, p_category_id, p_ids[])` | Ordena los vínculos dentro de una categoría | `rpc` en `services/services.repository.ts` | 55 |
 | 9 funciones de análisis: `get_quotation_status_stats`, `get_event_type_conversion_stats`, `get_event_type_revenue_stats`, `get_revenue_by_client_type`, `get_top_clients_by_revenue`, `get_variable_services_usage`, `get_fixed_services_usage`, `get_top_clients_by_quotations`, `get_recurring_clients` | Cuadros del Dashboard; "venta" = `aceptada` o `realizada` | `AnalyticsService.getCompleteStats` (mapa 13) | **No están en `docs/migrations`**: solo en `db_functions_analytics_23_07.sql`, en la raíz |
-| `get_backup_tables()` | Lista las tablas públicas para el respaldo diario (el comentario dice que sale de `pg_tables`) | `BackupCronService.runBackup` | **En ninguna parte del repo** |
+| `get_backup_tables()` | Lista las tablas públicas para el respaldo diario (el comentario dice que sale de `pg_tables`) | `BackupCronService.runBackup` | La función, **en ninguna parte del repo**; sus permisos, desde el 11-09-2026 en la migración 109 (lab y prod) |
 | `people_touch_updated_at()` y `event_staff_touch_updated_at()` | Funciones de trigger que ponen `updated_at = now()` | triggers de abajo | 68 y 71 |
 
 Todas las funciones de negocio filtran la empresa **por dentro** (`company_id = p_company_id`) y se llaman con la llave de servicio.
+
+**Ojo con las funciones nuevas.** La migración 108 (11-09-2026) solo revocó los privilegios por defecto sobre TABLAS y SECUENCIAS de `anon`/`authenticated`; no tocó funciones. Medido el 11-09 en `get_backup_tables()`: una función `SECURITY DEFINER` nace con `EXECUTE` para PUBLIC (que incluye a `anon`) a menos que su propia migración lo revoque a mano, como hace ahora la 109. Toda función nueva que se escriba debe repetir ese candado en su propio archivo.
 
 ### Triggers
 
@@ -236,9 +238,25 @@ Todas las funciones de negocio filtran la empresa **por dentro** (`company_id = 
 
 - **El modelo**: la llave de servicio del motor pasa por encima de RLS. Las migraciones 40 y 41 cerraron la entrada directa desde el navegador: la 40 borró las políticas `app_authenticated` de todas las tablas públicas y revocó todo a `authenticated`; la 41 revocó `anon` en `companies` y `company_quotation_counters` y borró toda política de `anon`.
 - **La "Fase 0" de RLS** creó esas políticas y la `public_insert_leads`, que la 39 borra. No tiene archivo en `docs/migrations`: la mencionan la 39, la reversa de la 40, la 49 y la 53.
-- **Tablas con `ENABLE ROW LEVEL SECURITY` en su migración**: `company_quotation_counters` (38), `kitchen_checklist_marks` (44), `push_devices` y `notifications` (45), `service_group_collection_services` (67), `people` (68), `event_staff` (71), `staff_sheets`, `tip_pools`, `person_reviews`, `payrolls` y `payroll_people` (77), `day_notes` (78). Para las demás, el estado de RLS no consta en el repo.
-- **Permisos antiguos a `anon` y `authenticated`**: 8 (`event_documents`), 10 (`suppliers`, `supplies`, `management_resources`), 11 (`furniture_items`, `service_recipe_items`), 13 (`fixed_service_cost_items`) y 34 (`client_contacts` y su secuencia). La 40 los quitó para `authenticated`; para `anon`, ninguna migración los revoca.
-- **`GRANT` a `service_role` en su propia migración**: sí en 44, 45, 49, 53, 54, 55, 59, 68, 71, 77, 78, 91, 93, 97 a 101, 104 y 105. **No** en la 67 (`service_group_collection_services`), que solo enciende RLS.
+
+**11-09-2026 — las 12 tablas que nacieron abiertas (migración 107, lab y prod).** Medido ese día en producción (proyecto `yxezscjznhlnxxdmuvoq`): `portal_receipts`, `fixed_service_sections`, `quotation_followups`, `marketing_contacts`, `marketing_suppressions`, `marketing_campaigns`, `marketing_sends`, `marketing_audiences`, `service_group_collection_fixed_services`, `consultas`, `consulta_config` y `event_types` tenían la seguridad de fila **APAGADA** y los roles `anon`/`authenticated` con permisos **completos** (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER). La llave `anon` viaja dentro del bundle de `www.eventi-app.com`, así que cualquiera que la sacara de la web podía leer, modificar, borrar o vaciar estas tablas por la API REST, saltándose el motor entero. Comprobado desde afuera con la llave real del sitio, solo contando filas: 2.150 `marketing_contacts`, 3.501 `marketing_sends`, 203 `quotation_followups` y 224 `marketing_suppressions`. La 107 revoca todo a `anon`/`authenticated` en las 12 y les enciende `ENABLE ROW LEVEL SECURITY` sin políticas — mismo patrón que la 68 con `people`. Se corrió en el laboratorio y en producción (en el lab el `REVOKE` no tenía nada que quitar; sirvió como ensayo de que encender RLS no rompe el motor). Verificado tras aplicar: las 12 responden 401 a la llave pública, el motor no se reinició, los relojes siguieron en 200 y el asesor de seguridad de Supabase bajó de 12 a 0 errores `rls_disabled_in_public`.
+
+**Causa raíz — el grifo de `pg_default_acl` (migración 108, solo prod).** Las 12 nacieron abiertas porque el esquema `public` guarda una entrada de "permisos por defecto": toda tabla NUEVA creada por el rol `postgres` heredaba automáticamente permisos completos para `anon` y `authenticated` (`ALTER DEFAULT PRIVILEGES`, no algo que un `GRANT` puntual corrija). Las migraciones 40 y 41 (28-07) solo limpiaron las tablas que existían **ese día**; nunca tocaron el grifo, así que cada tabla creada después volvía a nacer abierta. El laboratorio (`uonjtbyoxawxvhuikbgx`) nunca tuvo esta entrada — por eso allá las mismas 12 tablas existen sin ningún permiso para `anon`/`authenticated`, y el lab lleva meses funcionando así. La 108 corre `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES/SEQUENCES FROM anon, authenticated`: de ahora en adelante una tabla nueva nace sin permisos públicos. No toca ninguna tabla existente ni las secuencias o funciones.
+
+**Candado a `get_backup_tables()` (migración 109, lab y prod).** La función es `SECURITY DEFINER` (corre con los poderes de su dueño, `postgres`) y su lista de permisos tenía `EXECUTE` para PUBLIC (el `=X` sin nombre delante): cualquiera podía llamarla por `/rest/v1/rpc/get_backup_tables` con la llave `anon` y recibir el nombre de todas las tablas de `public` — no entrega datos, pero sí el plano de la base. La función **no es decorativa**: `BackupCronService.runBackup` la llama por RPC una vez al día para armar el respaldo (`api-rest/src/backup/backup-cron.service.ts`). La 109 revoca `EXECUTE` de PUBLIC y de `anon`/`authenticated`, y además **confirma** el `GRANT` a `service_role` — un cinturón para que el motor no se quede sin respaldo por el mismo movimiento que cierra la función.
+
+**Qué queda abierto tras la 107-109**:
+- **El grifo de `supabase_admin`.** `pg_default_acl` tiene una SEGUNDA entrada de permisos por defecto, a nombre de ese rol de plataforma, que la 108 no puede tocar desde acá. En la práctica está cerrado porque todas las tablas de la casa las crea `postgres`, pero una tabla creada como `supabase_admin` nacería abierta otra vez.
+- **Las funciones nuevas.** La 108 solo cerró el grifo de TABLAS y SECUENCIAS; una función nueva sigue naciendo con `EXECUTE` para `anon` a menos que su propia migración lo revoque a mano (ver "Funciones" más arriba).
+- **Los permisos viejos de `anon`** en las tablas de las migraciones 8, 10, 11, 13 y 34 (ver más abajo y la contradicción 7 de la sección 9): la 108 cierra el grifo hacia ADELANTE, no repara retroactivamente ninguna tabla de antes del 11-09-2026 que no sea una de las 12 de la 107.
+
+**Ojo — `rutina_gym_state`.** Es la app personal de Felipe (rutina de gimnasio), entra con la llave `anon` desde su iPhone, tiene RLS con una política propia y quedó **intacta** por las tres migraciones: ninguna la nombra, y las tres listan sus tablas explícitas en vez de `ALL TABLES IN SCHEMA public`. Cualquier cierre futuro de tablas abiertas tiene que seguir excluyéndola a mano y evitar `ALL TABLES IN SCHEMA`.
+
+**Ojo — `get_backup_tables()` sostiene el respaldo diario.** `BackupCronService.runBackup` la llama por RPC para el respaldo de las 7 AM (medido: 1 llamada al día, agente `node`, el motor). Si alguna vez alguien le revoca el permiso a `service_role` pensando que "ya se cerró", el respaldo se detiene y solo queda una línea en el log — nadie se entera. La función sigue sin estar versionada en `docs/migrations` (se creó fuera del repo); la 109 deja registrados al menos sus permisos.
+
+- **Tablas con `ENABLE ROW LEVEL SECURITY` en su migración**: `company_quotation_counters` (38), `kitchen_checklist_marks` (44), `push_devices` y `notifications` (45), `service_group_collection_services` (67), `people` (68), `event_staff` (71), `staff_sheets`, `tip_pools`, `person_reviews`, `payrolls` y `payroll_people` (77), `day_notes` (78), y desde el 11-09-2026 las 12 de la 107: `portal_receipts`, `fixed_service_sections`, `quotation_followups`, `marketing_contacts`, `marketing_suppressions`, `marketing_campaigns`, `marketing_sends`, `marketing_audiences`, `service_group_collection_fixed_services`, `consultas`, `consulta_config` y `event_types`. Para las demás, el estado de RLS no consta en el repo.
+- **Permisos antiguos a `anon` y `authenticated`**: 8 (`event_documents`), 10 (`suppliers`, `supplies`, `management_resources`), 11 (`furniture_items`, `service_recipe_items`), 13 (`fixed_service_cost_items`) y 34 (`client_contacts` y su secuencia). La 40 los quitó para `authenticated`; para `anon`, ninguna migración los revoca, ni siquiera la 107/108 (que solo tocan las 12 tablas medidas el 11-09 y el grifo hacia adelante).
+- **`GRANT` a `service_role` en su propia migración (tablas nuevas)**: sí en 44, 45, 49, 53, 54, 55, 59, 68, 71, 77, 78, 91, 93, 97 a 101, 104 y 105. **No** en la 67 (`service_group_collection_services`), que solo enciende RLS. La 109 hace lo mismo para una función, no una tabla: confirma el `EXECUTE` de `service_role` sobre `get_backup_tables()`.
 
 ### Storage (archivos)
 
@@ -326,6 +344,8 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 12. **Si agregas** una tabla con datos sensibles, **se afecta** el respaldo, **porque** `get_backup_tables()` la mete sola al JSON diario del balde `backups`, que ya lleva RUT y cuentas bancarias de `people`. Si esa función faltara, el respaldo falla y solo queda en el log. Evidencia: comentario y código de `BackupCronService`.
 13. **Si corres** una migración de datos en otro ambiente o para otra empresa, **se afectan** datos que no eran el objetivo, o no pasa nada, **porque** varias tienen valores fijos: la 67 (`company_id = 1`), el relleno de la 68 (`'Valle del Sol Quillón'`), la reversión de la 102 (ids capturados en producción) y la 86 (corte `'2026-08-19'`). Evidencia: esos archivos.
 14. **Si guardas** una persona sin normalizar el RUT o la cuenta, **se afecta** la ficha, **porque** la base rechaza las formas inválidas con CHECK (`people_rut_chk`, `people_account_number_chk`, `people_bloqueada_con_motivo`). Evidencia: 68.
+15. **Si le revocas a `service_role` el permiso sobre `get_backup_tables()`** pensando que ya quedó todo cerrado con la 109, **se afecta** el respaldo diario, **porque** `BackupCronService.runBackup` la necesita para saber qué volcar al balde `backups`, y si falla no hay alarma: solo una línea en el log. Evidencia: migración 109; `backup-cron.service.ts`.
+16. **Si asumes que el catálogo ya filtra por empresa en el repositorio** (servicios fijos y variables, grupos de servicios, paquetes, logística), revisa antes el estado del Sprint 1 de aislamiento entre empresas: agregó el filtro `company_id` a `ServicesRepository`, `ServiceGroupsRepository`, `ServiceGroupCollectionsRepository` y `LogisticsRepository`, pero al 11-09-2026 está **solo en el laboratorio** (rama `pruebas`, commit `8266ba1`) — en producción esas puertas seguían abiertas. Evidencia y detalle completo: mapa `22_AISLAMIENTO_ENTRE_EMPRESAS.md`.
 
 ## 8. Rarezas y tablas abandonadas
 
@@ -380,6 +400,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
    - Foto: `clients.client_type` tiene un CHECK con 6 nombres fijos, sin migración que lo quite (mapa 09).
 7. **La 41 afirma "CERO privilegios y CERO políticas para anon/authenticated en el esquema public".**
    - Migraciones: 8, 10, 11, 13 y 34 dieron `GRANT ALL` a `anon`, y la 41 solo revoca `anon` en `companies` y `company_quotation_counters`.
+   - Medido el 11-09-2026 (migraciones 107 y 108): la causa de fondo de este tipo de agujero ya se identificó (el grifo de `pg_default_acl` para tablas nuevas), pero esas 7 tablas, de julio de 2026, no son de las 12 que cerró la 107, y la 108 solo cierra el grifo hacia ADELANTE. Esta contradicción sigue abierta para `event_documents`, `suppliers`, `supplies`, `management_resources`, `furniture_items`, `service_recipe_items`, `fixed_service_cost_items` y `client_contacts` (pregunta 5 de la sección 10).
 8. **La 79 afirma que sus cuatro tablas "son las únicas del sistema que se lo saltan [el CASCADE]".**
    - Foto: `payments`, `payment_transactions`, `refunds` y `customer_satisfaction_survey_responses` apuntan a `quotations` sin CASCADE, y el comentario de `assertDeletable` lo confirma ("apuntan a quotations con NO ACTION").
    - Migración 44: `kitchen_checklist_marks` ni siquiera tiene llave.
@@ -390,14 +411,18 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 10. **Documento 11, sección "Tablas (migración 91)".**
     - Documento: describe `marketing_campaigns` con "estado borrador/enviada".
     - Migración 103: el CHECK acepta también `programada`. El mismo documento lo cuenta más abajo, en "Programar envío".
+11. **La migración 108 mide un privilegio por defecto que ya incluía a `service_role`, contra la zona de riesgo 1 de este mismo documento.**
+    - Migración 108 (comentario, medido el 11-09 en producción): el privilegio por defecto de una tabla nueva creada por `postgres` en `public` es `{postgres=arwdDxtm, anon=arwdDxtm, authenticated=arwdDxtm, service_role=arwdDxtm}` — `service_role` ya viene con permisos completos.
+    - Zona de riesgo 1 (este documento) y los comentarios de las migraciones 49, 53, 59, 68, 71, 77, 78, 91 y 104: una tabla nueva SIN `GRANT ALL ... TO service_role` explícito le da `42501 permission denied` al motor, y pasó de verdad al menos cuatro veces.
+    - No se pudo verificar desde el repo por qué, si el privilegio por defecto ya alcanzaba a `service_role`, el motor igual necesitó el `GRANT` a mano en cada una de esas migraciones.
 
 ## 10. Preguntas abiertas
 
 1. ¿Cuál es el DDL real de `client_types` y de `furniture_items.preassembled` (llave única, llave a `companies`, `GRANT`, RLS)? No es verificable desde el repo.
 2. ¿Siguen vivos en la base los CHECK de `quotations.event_type` y `clients.client_type` que muestra la foto? ¿Cómo está definida de verdad `quotations.quotation_number`?
-3. ¿Qué migraciones están aplicadas en el laboratorio y cuáles en producción, sobre todo del 68 al 106? El repo no tiene un registro de control.
-4. ¿Dónde está el SQL de la "Fase 0" de RLS y de `get_backup_tables()`? ¿Cambió la Fase 0 los privilegios por defecto? Así se entendería que "las tablas nuevas no heredan permisos" (49, 53). ¿Existió una migración 43?
-5. ¿Tiene `anon` todavía privilegios sobre `event_documents`, `suppliers`, `supplies`, `management_resources`, `furniture_items`, `service_recipe_items`, `fixed_service_cost_items` y `client_contacts`? ¿Tienen RLS encendido?
+3. ¿Qué migraciones están aplicadas en el laboratorio y cuáles en producción, sobre todo del 68 al 106? El repo no tiene un registro de control. (Las 107 y 109 sí están confirmadas en lab y prod; la 108, solo en prod, porque en el lab el grifo de `pg_default_acl` nunca existió.)
+4. ¿Dónde está el SQL de la "Fase 0" de RLS? ¿Existió una migración 43? Ninguna se encontró en el repo. Lo de `get_backup_tables()` se aclaró parcialmente el 11-09-2026: la función sigue sin estar versionada, pero sus permisos sí, desde la migración 109.
+5. ¿Tiene `anon` todavía privilegios sobre `event_documents`, `suppliers`, `supplies`, `management_resources`, `furniture_items`, `service_recipe_items`, `fixed_service_cost_items` y `client_contacts`? ¿Tienen RLS encendido? La migración 108 (11-09-2026) no lo repara: solo cierra el grifo para tablas creadas DESPUÉS de esa fecha; estas 7 son de julio.
 6. ¿Tiene `service_role` permisos sobre `service_group_collection_services` en las dos bases? La 67 no trae `GRANT`.
 7. ¿Quién actualiza `quotations.updated_at` (y el de `clients`, `payments` y `user_profiles`)? No hay trigger en las migraciones ni escritura en el código, pero `HoyController` y la migración 51 dependen de ese dato.
 8. ¿Están activadas `pg_cron` o `pg_net` en el proyecto de Supabase? El repo no las usa: todos los relojes están en el motor.
@@ -405,3 +430,6 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 10. ¿Alguien escribe `marketing_contacts.datos`? El documento 11 dice que guarda "datos jsonb para la satisfacción del Forms", pero no se encontró escritura en `api-rest/src/marketing`.
 11. ¿Las empresas creadas después del 05-09 tienen tipos de evento? La 105 solo sembró a las que existían ese día.
 12. ¿Se quiere sacar `compra` del CHECK de `management_resources.type`, y dar llave foránea a `kitchen_checklist_marks.quotation_id` para que los checks no queden huérfanos?
+13. La migración 108 midió que el privilegio por defecto de `service_role` ya alcanzaba a las tablas nuevas antes de aplicarla (contradicción 11 de la sección 9): ¿por qué entonces el motor igual necesitó `GRANT` explícito en 44, 45, 49, 53, 54, 55, 59, 68, 71, 77, 78, 91, 93, 97 a 101 y 104? No se pudo verificar desde el repo.
+14. ¿Cómo se cierra el grifo de `supabase_admin` en `pg_default_acl`, que la migración 108 no puede tocar? Mientras nadie cree una tabla como ese rol el riesgo es teórico, pero nadie lo revisó.
+15. ¿Cuándo pasa a producción el Sprint 1 de aislamiento entre empresas (rama `pruebas`, commit `8266ba1`)? Al 11-09-2026 espera la validación de Felipe (mapa `22_AISLAMIENTO_ENTRE_EMPRESAS.md`).

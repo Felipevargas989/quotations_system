@@ -42,3 +42,93 @@ describe('ServiceGroupsService.rename', () => {
     expect((e as HttpException).getStatus()).toBe(404);
   });
 });
+
+/**
+ * BORRAR Y CREAR UN MENÚ (11-09-2026, sprint 1). Antes, `DELETE
+ * /service-groups/:id` borraba por id correlativo sin mirar la empresa, y
+ * al crear un menú se podían referenciar servicios del catálogo ajeno.
+ */
+const registro = () => ({
+  setContext: jest.fn(),
+  info: jest.fn(),
+  error: jest.fn(),
+});
+
+describe('ServiceGroupsService.remove', () => {
+  const armarBorrado = (respuesta: { data: unknown; error: unknown }) => {
+    const repo = { removeGroup: jest.fn().mockResolvedValue(respuesta) };
+    const service = new ServiceGroupsService(
+      repo as never,
+      registro() as never,
+    );
+    return { service, repo };
+  };
+
+  it('borra pasando la empresa al repositorio', async () => {
+    const { service, repo } = armarBorrado({ data: [{ id: 4 }], error: null });
+    await service.remove(4, 1);
+    expect(repo.removeGroup).toHaveBeenCalledWith(4, 1);
+  });
+
+  it('menú de otra empresa o inexistente → 404', async () => {
+    const { service } = armarBorrado({ data: [], error: null });
+    const e = await service.remove(4, 52).catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(HttpException);
+    expect((e as HttpException).getStatus()).toBe(404);
+  });
+});
+
+describe('ServiceGroupsService.create', () => {
+  const armarCreacion = (idsPropios: number[]) => {
+    const repo = {
+      variableServicesDeLaEmpresa: jest
+        .fn()
+        .mockImplementation((ids: number[]) =>
+          Promise.resolve({
+            data: ids
+              .filter((id) => idsPropios.includes(id))
+              .map((id) => ({ id })),
+            error: null,
+          }),
+        ),
+      createGroup: jest
+        .fn()
+        .mockResolvedValue({ data: { id: 9 }, error: null }),
+      createGroupItems: jest.fn().mockResolvedValue({ error: null }),
+    };
+    const service = new ServiceGroupsService(
+      repo as never,
+      registro() as never,
+    );
+    return { service, repo };
+  };
+
+  it('crea el menú cuando los servicios son del catálogo propio', async () => {
+    const { service, repo } = armarCreacion([5]);
+    await service.create(
+      {
+        name: 'Coffee',
+        items: [{ variable_service_id: 5, quantity: 2 }],
+      } as never,
+      1,
+    );
+    expect(repo.variableServicesDeLaEmpresa).toHaveBeenCalledWith([5], 1);
+    expect(repo.createGroup).toHaveBeenCalled();
+  });
+
+  it('rechaza un servicio de otra empresa y no crea el menú', async () => {
+    const { service, repo } = armarCreacion([5]);
+    const e = await service
+      .create(
+        {
+          name: 'Coffee',
+          items: [{ variable_service_id: 99, quantity: 1 }],
+        } as never,
+        1,
+      )
+      .catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(HttpException);
+    expect((e as HttpException).getStatus()).toBe(404);
+    expect(repo.createGroup).not.toHaveBeenCalled();
+  });
+});

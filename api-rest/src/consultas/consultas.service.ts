@@ -76,6 +76,11 @@ export interface DatosDeConsulta {
   people_count?: number | null;
   children_count?: number | null;
   observations?: string | null;
+  /** ORIGEN DEL LEAD (12-09): lo calcula quotations.service.createPublic
+   *  ANTES de decidir si esto es consulta o cotización, para que quede
+   *  anotado en los dos caminos. */
+  origen?: string | null;
+  origen_detalle?: Record<string, string> | null;
 }
 
 @Injectable()
@@ -138,6 +143,10 @@ export class ConsultasService {
       children_count: datos.children_count ?? null,
       observations: datos.observations ?? null,
       estado: 'respondida',
+      // ORIGEN DEL LEAD (migración 110). En el literal del insert, o se
+      // bota en silencio.
+      origen: datos.origen ?? null,
+      origen_detalle: datos.origen_detalle ?? null,
       correo_enviado: false,
       correo_programado_para: repetida
         ? null

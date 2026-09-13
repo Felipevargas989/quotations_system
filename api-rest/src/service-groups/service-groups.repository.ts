@@ -56,8 +56,29 @@ export class ServiceGroupsRepository {
       .single();
   }
 
-  removeGroup(id: ServiceGroup['id']) {
-    this.logger.info(`removeGroup with id ${id}`);
-    return this.supabase.client.from('service_groups').delete().eq('id', id);
+  /** De los id pedidos, los que SÍ son del catálogo de la empresa.
+   *  Los id de `variable_services` son correlativos: sin esta consulta se
+   *  puede armar un menú con servicios de otra empresa (11-09-2026). */
+  variableServicesDeLaEmpresa(ids: number[], companyId: Company['id']) {
+    this.logger.info(
+      `variableServicesDeLaEmpresa ${ids.length} ids of company ${companyId}`,
+    );
+    return this.supabase.client
+      .from('variable_services')
+      .select('id')
+      .in('id', ids)
+      .eq('company_id', companyId);
+  }
+
+  /** Solo borra si el menú es de la empresa (candado, 11-09-2026). El
+   *  `select` devuelve la fila borrada: sin filas, era ajeno o no existía. */
+  removeGroup(id: ServiceGroup['id'], companyId: Company['id']) {
+    this.logger.info(`removeGroup ${id} of company ${companyId}`);
+    return this.supabase.client
+      .from('service_groups')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
   }
 }

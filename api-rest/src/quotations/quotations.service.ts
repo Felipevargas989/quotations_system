@@ -36,6 +36,7 @@ import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationItem } from './entities/quotation.entity';
 import { listaBlancaDeHoja } from './hoja-publica';
 import { CreateQuotation } from './interfaces/quotations.interface';
+import { etiquetaDeOrigen, limpiarOrigen } from './origen-del-lead';
 import { PortalReceiptsRepository } from './portal-receipts.controller';
 import { QuotationsRepository } from './quotations.repository';
 import {
@@ -173,6 +174,11 @@ export class QuotationsService {
       discount_amount: createQuotationDto.discount_amount || 0,
       subtotal_amount: createQuotationDto.subtotal_amount || 0,
       items: createQuotationDto.items || defaultItems,
+      // ORIGEN DEL LEAD (migración 110). Va AQUÍ además del DTO por la
+      // misma razón que children_count: si falta en el insert, se bota
+      // en silencio.
+      origen: createQuotationDto.origen ?? null,
+      origen_detalle: createQuotationDto.origen_detalle ?? null,
     };
     return this.quotationsRepository.create(newQuotation);
   }
@@ -196,6 +202,16 @@ export class QuotationsService {
           : linea;
     }
 
+    // ORIGEN DEL LEAD (12-09): se calcula ANTES de la bifurcación porque
+    // el formulario público termina en uno de DOS lugares —consulta o
+    // cotización— y si se anota en uno solo se pierde la mitad. La
+    // etiqueta la decide el servidor: lo que venga en `origen` desde el
+    // navegador se ignora.
+    const origenDetalle = limpiarOrigen(
+      createQuotationPublicDto.origen_detalle,
+    );
+    const origen = etiquetaDeOrigen(origenDetalle);
+
     // EL EMBUDO DE CONSULTAS (05-09, doc 12): si el tipo de evento
     // tiene brochures configurados, la solicitud NO crea cliente ni
     // cotización — queda como consulta y recibe el brochure al tiro.
@@ -205,10 +221,11 @@ export class QuotationsService {
       createQuotationPublicDto.event_type,
     );
     if (esConsulta) {
-      const consulta = await this.consultasService.registrar(
-        company_id,
-        createQuotationPublicDto,
-      );
+      const consulta = await this.consultasService.registrar(company_id, {
+        ...createQuotationPublicDto,
+        origen,
+        origen_detalle: origenDetalle,
+      });
       return { tipo: 'consulta' as const, id: consulta.id };
     }
     // Anti-duplicados (22-07, afinado 05-09): match SOLO por correo —
@@ -258,6 +275,8 @@ export class QuotationsService {
       event_date: createQuotationPublicDto.event_date,
       quotation_status: QuotationStatus.SOLICITADA,
       request_type: RequestType.REQUERIMIENTO,
+      origen,
+      origen_detalle: origenDetalle ?? undefined,
     };
 
     // create new quotation

@@ -1,6 +1,6 @@
 # Mapa: Marketing por correo
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -80,6 +80,8 @@ Sin endpoint: el reloj `MarketingCronService.despacharProgramadas` (`api-rest/sr
 | Almacenamiento: balde `company-logos` | Banner propio de campaña, `<empresa>_campaign_banner_<marca de tiempo>.<ext>`, público | Escribe desde la app: `uploadCampaignBanner` → `StorageService` con `kind: 'campaign-banner'` | sin migración |
 
 Las migraciones que crean tablas nuevas (91, 93) traen su `GRANT ... TO service_role` (lección de la 91: sin ellos el módulo respondía 42501); varias de las que solo alteran columnas lo reafirman por las dudas (97, 98, 99, 101), pero no todas — 92, 94, 95, 96 y 103 no llevan GRANT. Se corren a mano en Supabase.
+
+**Seguridad de fila, hasta el 11-09-2026.** `marketing_contacts`, `marketing_campaigns`, `marketing_sends`, `marketing_audiences` y `marketing_suppressions` tenían la seguridad de fila APAGADA y los roles públicos `anon`/`authenticated` con permisos COMPLETOS (SELECT, INSERT, UPDATE, DELETE, TRUNCATE): la llave `anon`, que viaja dentro del bundle del frontend, alcanzaba para leer, escribir o vaciar estas cinco tablas por la API REST de Supabase, sin pasar por el motor ni por el `@Roles(...ADMIN_ONLY)` del controller. Medido el 11-09-2026 con la llave real del sitio (solo conteos, sin leer filas): `marketing_contacts` 2.150 · `marketing_sends` 3.501 · `marketing_suppressions` 224. Causa: los permisos por defecto del esquema `public` (`pg_default_acl`) le regalaban acceso completo a cada tabla nueva; las migraciones 40 y 41 (28-07) solo habían limpiado las tablas que existían ese día, y estas cinco nacieron después. Cerrado el 11-09-2026 EN PRODUCCIÓN: migración 107 (`REVOKE ALL` a `anon`/`authenticated` + `ENABLE ROW LEVEL SECURITY` sin políticas, en las cinco) y migración 108 (`ALTER DEFAULT PRIVILEGES`, para que una tabla nueva no vuelva a nacer abierta). El motor entra con `service_role` — tiene su propio GRANT y es inmune a RLS — así que no notó el cambio. Evidencia: `docs/migrations/107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql`.
 
 ## 5. Flujos principales
 
@@ -182,6 +184,7 @@ Importada:
 - El webhook exige firma en producción (fail-closed, revisión 26-08), rechaza avisos de más de 5 minutos y tiene un freno holgado de 1200 por minuto, porque un 429 botaría rebotes reales ("la barredora lo pilló"). Evidencia: `BajasService.verificarFirmaSvix`; `@Throttle` de `webhook`.
 - Toda lectura sin tope conocido se pagina de a 1000, con orden estable (revisión 26-08: con más de 1000 bajas truncadas, se les volvería a escribir a quienes se dieron de baja). Evidencia: `MarketingRepository.todas` y `suprimidos`.
 - El link de baja apunta al ambiente que lo genera (lección del 26-08: el del laboratorio llevaba a producción). Evidencia: `BajasService.baseApi` (`PUBLIC_API_URL`, luego `RAILWAY_PUBLIC_DOMAIN`).
+- Antes del 11-09-2026, la seguridad de fila NO alcanzaba a este módulo (ver sección 4): la llave pública `anon` podía leer, escribir o vaciar sus cinco tablas por la API REST de Supabase sin pasar por `@Roles(...ADMIN_ONLY)`. Las migraciones 107 y 108 lo cerraron. Evidencia: `docs/migrations/107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql`.
 
 ## 7. Conexiones con otros módulos
 
@@ -234,6 +237,7 @@ Importada:
 16. **Si tocas** `client_contacts` o `clients` (`09_CLIENTES.md`), **cambia** a quién le llega cada campaña de la base, **porque** el segmento abre cada cliente a sus contactos con correo y usa `contact_person` y el `email` de la ficha como respaldo. Evidencia: `contactosDeClientes`, `clientesSegmentables`, `resolverSegmento`.
 17. **Si tocas** `FRONTEND_URL`, la carpeta `frontend/public/correo` o la ruta `/public-quotation/:company_id`, **se afecta** cada correo de marca, incluso los ya enviados, **porque** los íconos se sirven en vivo desde el frontend y "Cotiza aquí" apunta a esa ruta. Evidencia: `MarketingService.baseFrontend` y `urlDeCotizar`; `iconosBase` en `plantillaCampana`.
 18. **Si tocas** `personalizar` o `esc`, **se afectan** la seguridad y el aspecto del correo, **porque** el asunto va crudo y los sumideros HTML escapan una sola vez: escapar doble muestra `&amp;`, y no escapar permite meter HTML con el nombre de un contacto. Evidencia: comentarios en `plantilla.ts`; pruebas "los datos con comillas o < no rompen el HTML del correo" y "escapa el HTML ANTES de formatear".
+19. **Si creas una tabla nueva para Marketing (o cualquier tabla de `public`) y le das GRANT explícito a `anon` o `authenticated`**, **vuelve a nacer abierta a la llave pública**, **porque** la migración 108 solo cierra el permiso POR DEFECTO de lo que crea `postgres`; un GRANT a mano lo salta igual, y hay que encender `ENABLE ROW LEVEL SECURITY` aparte. Ya pasó exactamente así con las cinco tablas de este módulo: nacieron abiertas porque las migraciones 40 y 41 (28-07) solo alcanzaron a las tablas que existían ese día. Evidencia: `docs/migrations/107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql`.
 
 ## 9. Pruebas que lo protegen
 

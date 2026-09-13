@@ -59,8 +59,8 @@ export class ServiceGroupsController {
 
   @Roles(...SALES_AND_UP)
   @Delete(':id')
-  remove(@Param('id') id: ServiceGroup['id']) {
+  remove(@Param('id') id: ServiceGroup['id'], @CurrentUser() user: User) {
     this.logger.info(`remove service group with id ${id}`);
-    return this.serviceGroupsService.remove(+id);
+    return this.serviceGroupsService.remove(+id, user.company_id);
   }
 }

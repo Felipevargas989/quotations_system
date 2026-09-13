@@ -1,6 +1,6 @@
 # Mapa: Cotizador
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en los menús guardados (`service-groups`; rama `pruebas`, commit 8266ba1; **no está en producción**). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -49,6 +49,13 @@ Entradas al cotizador desde otras pantallas: `QuotationsPage` (botón nueva, `na
 | `GET /event-types` y `GET /event-types/public/:companyId` | `event-types.controller.ts` (`listar`, `listarPublico`) | consultas | `eventTypesQueryOptions` (cotizador) y `getEventTypesPublic` (formulario público) | Autenticado / `@Public` + throttle 30 por minuto (ver 11) |
 | `GET/POST /client-contacts`, `POST /clients`, `GET /clients` | controllers de clientes | clients | `getClientContacts`, `createClientContact`, `createClient`, `clientsQueryOptions` | ver 09 |
 | `GET /payments?quotationId=` | payments | payments | `getPaymentsByQuotationId` dentro de `AvisoPlanDePagos` | ver 03 |
+
+**Aislamiento entre empresas en menús guardados (sprint 1, SOLO EN LA RAMA `pruebas`, commit 8266ba1 — no está en producción).** Antes, `DELETE /service-groups/:id` borraba por id correlativo sin mirar la empresa de la sesión: probando ids se podía borrar el menú de otra empresa. Ahora:
+- `ServiceGroupsRepository.removeGroup` hace el DELETE con `.eq('id', id).eq('company_id', companyId).select('id')`; `ServiceGroupsService.remove` responde 404 ("Menú guardado no encontrado") si no volvió ninguna fila borrada.
+- `POST /service-groups` (crear un menú) exige que cada `variable_service_id` de sus ítems sea del catálogo de la propia empresa (`ServiceGroupsRepository.variableServicesDeLaEmpresa`, método privado `ServiceGroupsService.exigirServiciosDeLaEmpresa`); si alguno es ajeno, 404 ("Hay servicios que no son del catálogo de tu empresa") y no llega a crear el menú.
+- `rename` (`PATCH /service-groups/:id`) ya filtraba por `company_id` desde antes de este sprint.
+
+Evidencia: `ServiceGroupsController.create/remove`, `ServiceGroupsRepository`, `ServiceGroupsService`; prueba nueva `api-rest/src/service-groups/tests/service-groups.service.spec.ts` (4 casos: borra pasando la empresa, menú ajeno o inexistente → 404, crea con servicios propios, rechaza un servicio ajeno sin crear).
 
 ## 4. Tablas de la base de datos
 
@@ -116,7 +123,7 @@ Es la regla que mantiene cuadradas las cuotas cuando se cambia el total de una c
 ### 5.4 Menús guardados y paquetes dentro del cotizador
 
 1. **Guardar como menú**: `openSaveGroupModal` → `confirmSaveGroup` traduce cada `codigo` a `variable_service_id` → `saveGroup` (`POST /service-groups`) con el nombre **vigente** de la categoría (`nomCat`).
-2. **Usar un menú**: `MenusGuardados` muestra los menús de la categoría de la caja en orden alfabético, como "nombre · precio por persona" (`precioPorPersonaDe`). Elegir → `loadGroupIntoBox`: reemplaza los servicios de la caja, conserva día, audiencia y personas, y repone los fijos de sección que falten (`buildBoxFromGroup`). Renombrar → `PATCH /service-groups/:id`; eliminar → `DELETE` con `ConfirmInline`.
+2. **Usar un menú**: `MenusGuardados` muestra los menús de la categoría de la caja en orden alfabético, como "nombre · precio por persona" (`precioPorPersonaDe`). Elegir → `loadGroupIntoBox`: reemplaza los servicios de la caja, conserva día, audiencia y personas, y repone los fijos de sección que falten (`buildBoxFromGroup`). Renombrar → `PATCH /service-groups/:id`; eliminar → `DELETE` con `ConfirmInline` (desde el sprint 1 de aislamiento entre empresas —rama `pruebas`, no en producción— ese `DELETE` filtra por `company_id` y responde 404 si el menú no es de la empresa de la sesión: ver §3).
 3. **Crear paquete**: modal `Modal` con `PkgMenusPicker` (menús), servicios sueltos (`SelectWithSearch`) y `PkgFijosPicker` → `confirmCreateCollection` → `saveCollection` (`POST /service-group-collections` con `items`, `services` y `fixed_services`). El botón exige al menos un menú, igual que el motor (`@ArrayNotEmpty()` en `items` de `CreateServiceGroupCollectionDto`).
 4. **Aplicar paquete**: `SelectorDePaquetes` pide confirmación si ya hay servicios → `loadCollectionAsBoxes` **agrega** sin borrar:
    - una caja por menú, con precios vivos;

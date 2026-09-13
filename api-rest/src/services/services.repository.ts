@@ -79,9 +79,12 @@ export class ServicesRepository {
       .eq('company_id', companyId);
   }
 
+  /** Candado de empresa (11-09-2026): los id del catálogo son correlativos.
+   *  El `select` devuelve la fila tocada; sin filas, era ajena o no existe. */
   updateVariableService(
     id: VariableService['id'],
     updateVariableServiceDto: UpdateVariableServiceDto,
+    companyId: Company['id'],
   ) {
     this.logger.info(
       `updateVariableService with id ${id} and updateVariableServiceDto ${JSON.stringify(updateVariableServiceDto)}`,
@@ -89,12 +92,16 @@ export class ServicesRepository {
     return this.supabase.client
       .from('variable_services')
       .update(updateVariableServiceDto)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
   }
 
+  /** Candado de empresa (11-09-2026), igual que en el variable. */
   updateFixedService(
     id: FixedService['id'],
     updateFixedServiceDto: UpdateFixedServiceDto,
+    companyId: Company['id'],
   ) {
     this.logger.info(
       `updateFixedService with id ${id} and updateFixedServiceDto ${JSON.stringify(updateFixedServiceDto)}`,
@@ -102,7 +109,9 @@ export class ServicesRepository {
     return this.supabase.client
       .from('fixed_services')
       .update(updateFixedServiceDto)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
   }
 
   // ¿En cuántas cotizaciones y menús vive este servicio? Las
@@ -235,11 +244,15 @@ export class ServicesRepository {
       .eq('company_id', companyId);
   }
 
-  getLinksForService(serviceId: VariableService['id']) {
+  getLinksForService(
+    serviceId: VariableService['id'],
+    companyId: Company['id'],
+  ) {
     return this.supabase.client
       .from('variable_service_categories')
       .select('*')
-      .eq('variable_service_id', serviceId);
+      .eq('variable_service_id', serviceId)
+      .eq('company_id', companyId);
   }
 
   async getMaxServiceSortOrder(companyId: Company['id'], categoryId: number) {
@@ -270,12 +283,14 @@ export class ServicesRepository {
   deleteServiceCategoryLink(
     serviceId: VariableService['id'],
     categoryId: number,
+    companyId: Company['id'],
   ) {
     return this.supabase.client
       .from('variable_service_categories')
       .delete()
       .eq('variable_service_id', serviceId)
-      .eq('category_id', categoryId);
+      .eq('category_id', categoryId)
+      .eq('company_id', companyId);
   }
 
   updateLinkSortOrder(

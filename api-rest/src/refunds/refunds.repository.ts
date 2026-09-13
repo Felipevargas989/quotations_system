@@ -117,9 +117,12 @@ export class RefundsRepository {
     return this.supabase.client
       .from('refunds')
       .select(
+        // `!inner`: sin él, el filtro de empresa no acota las filas
+        // (11-09-2026). `findByQuotation` y `paidMapByCompany`, más
+        // abajo, ya lo hacían bien.
         `
         *,
-        quotations (
+        quotations!inner (
           id,
           quotation_number,
           clients (

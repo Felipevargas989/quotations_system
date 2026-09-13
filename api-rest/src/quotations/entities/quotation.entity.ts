@@ -72,4 +72,8 @@ export interface Quotation {
   company_id: number;
   // Motivo al rechazar o anular (migración 61).
   loss_reason?: string | null;
+  // ORIGEN DEL LEAD (migración 110): etiqueta legible ("Google Ads",
+  // "Meta", "WhatsApp", "Directo") y el crudo de la dirección.
+  origen?: string | null;
+  origen_detalle?: Record<string, string> | null;
 }

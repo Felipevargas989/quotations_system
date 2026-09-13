@@ -16,6 +16,11 @@ import { Company } from "../../types/companies.types";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { normalizePhone } from "../../utils/phone";
+import {
+  cargarMedicionValleDelSol,
+  avisarCotizacionEnviada,
+} from "../../lib/medicionValleDelSol";
+import { capturarOrigen, origenDelLead } from "../../lib/origenDelLead";
 
 // Formulario público de solicitud (rediseño 22-07, aprobado por Felipe):
 // - Lenguaje visual de los documentos de la empresa (logo redondo, folio
@@ -118,6 +123,13 @@ export default function CreateQuotationPublic() {
     return "";
   };
 
+  // ORIGEN DEL LEAD (12-09): de dónde llegó esta persona. Se captura al
+  // entrar, sin esperar a nada — la huella vive en la dirección con la
+  // que aterrizó y se pierde apenas navega.
+  useEffect(() => {
+    capturarOrigen();
+  }, []);
+
   useEffect(() => {
     const fetchCompany = async () => {
       if (!company_id) return;
@@ -143,6 +155,7 @@ export default function CreateQuotationPublic() {
         .then((types) => setEventTypesList(types.map((t) => t.name)))
         .catch(() => setEventTypesList(Object.values(EventType)));
     }
+    cargarMedicionValleDelSol(company_id);
   }, [company_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,6 +196,7 @@ export default function CreateQuotationPublic() {
       // así que aquí se suma antes de enviar.
       const adults = Number(formData.people_count || 1);
       const kids = Number(formData.children_count || 0);
+      const origen = origenDelLead();
       const quotationData: QuotationPublicFormData = {
         ...formData,
         phone: normalizePhone(formData.phone || ""),
@@ -195,11 +209,20 @@ export default function CreateQuotationPublic() {
         // Número puro: el motor lo anexa a las observaciones y el
         // aviso interno lo muestra como fila propia (05-09).
         ...(presupuesto != null ? { budget_estimate: presupuesto } : {}),
+        // De dónde llegó (migración 110). El motor decide qué guarda de
+        // esto y con qué etiqueta; acá solo se entrega lo capturado.
+        ...(origen ? { origen_detalle: origen } : {}),
       } as QuotationPublicFormData;
 
       const { error } = await createQuotationPublic(company_id, quotationData);
       if (error) throw error;
       setSubmitted(true);
+      avisarCotizacionEnviada(
+        company_id,
+        formData.event_type,
+        adults + kids,
+        Boolean(formData.event_date),
+      );
     } catch (error) {
       // HONESTIDAD ANTE TODO (bug histórico corregido el 22-07): si el
       // envío falla, se informa y se deja reintentar. Jamás fingir éxito.

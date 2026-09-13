@@ -6,15 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Eventia</title>
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJZHR3XLTG"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+    <!--
+      LA MEDICIÓN NO VA ACÁ (12-09-2026, OK de Felipe)
 
-      gtag('config', 'G-YJZHR3XLTG');
-    </script>
+      Se carga desde src/lib/analytics.ts, que usa la propiedad de Eventia y
+      solo reporta en el sitio real. En este lugar vivía una etiqueta de una
+      cuenta AJENA: cada visita a eventi-app.com le llegaba a un desconocido.
+      Retirada.
+    -->
 
   </head>
   <body>

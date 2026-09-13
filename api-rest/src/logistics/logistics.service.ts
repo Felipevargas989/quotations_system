@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import {
   CreateFurnitureItemDto,
@@ -148,7 +152,43 @@ export class LogisticsService {
   findAllRecipeItems(companyId: number) {
     return this.logisticsRepository.findAllRecipeItems(companyId);
   }
-  addRecipeItem(companyId: number, dto: AddRecipeItemDto) {
+  /** Candado de catálogo (11-09-2026): los id del catálogo y de la bodega
+   *  son correlativos, así que una receta podía colgar insumos o mobiliario
+   *  propios de un servicio ajeno, o al revés. */
+  private async exigirDeLaEmpresa(
+    companyId: number,
+    tabla:
+      | 'variable_services'
+      | 'fixed_services'
+      | 'supplies'
+      | 'furniture_items'
+      | 'management_resources',
+    ids: (number | null | undefined)[],
+  ) {
+    const pedidos = [
+      ...new Set(ids.filter((x): x is number => Number.isInteger(x))),
+    ];
+    if (pedidos.length === 0) return;
+    const encontrados = await this.logisticsRepository.idsDeLaEmpresa(
+      tabla,
+      pedidos,
+      companyId,
+    );
+    if (encontrados.length !== pedidos.length) {
+      throw new NotFoundException('Hay piezas que no son de tu empresa');
+    }
+  }
+
+  async addRecipeItem(companyId: number, dto: AddRecipeItemDto) {
+    await this.exigirDeLaEmpresa(
+      companyId,
+      dto.service_type === 'fixed' ? 'fixed_services' : 'variable_services',
+      [dto.service_id],
+    );
+    await this.exigirDeLaEmpresa(companyId, 'supplies', [dto.supply_id]);
+    await this.exigirDeLaEmpresa(companyId, 'furniture_items', [
+      dto.furniture_id,
+    ]);
     return this.logisticsRepository.addRecipeItem(companyId, dto);
   }
   updateRecipeItem(companyId: number, id: number, dto: UpdateRecipeItemDto) {
@@ -176,7 +216,13 @@ export class LogisticsService {
       fixedServiceId,
     );
   }
-  addCostItem(companyId: number, dto: AddCostItemDto) {
+  async addCostItem(companyId: number, dto: AddCostItemDto) {
+    await this.exigirDeLaEmpresa(companyId, 'fixed_services', [
+      dto.fixed_service_id,
+    ]);
+    await this.exigirDeLaEmpresa(companyId, 'management_resources', [
+      dto.resource_id,
+    ]);
     return this.logisticsRepository.addCostItem(companyId, dto);
   }
   updateCostItem(companyId: number, id: number, dto: UpdateCostItemDto) {

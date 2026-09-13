@@ -35,9 +35,12 @@ export class PaymentsRepository {
     );
     // crate query object
     const query = this.supabase.client.from('payments').select(
+      // `!inner` (11-09-2026): sin él, `.eq('quotations.company_id')` no
+      // acota las cuotas, solo deja el embebido en nulo, y con el id de
+      // una cotización ajena se leían y abonaban sus cuotas.
       `
         *,
-        quotations (
+        quotations!inner (
           company_id,
           quotation_number,
           clients (

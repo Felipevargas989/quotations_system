@@ -111,9 +111,13 @@ export class CustomerSatisfactionSurveyRepository {
     return await this.supabase.client
       .from('customer_satisfaction_survey_responses')
       .select(
+        // `!inner` o el filtro de empresa no filtra NADA (11-09-2026):
+        // sobre un embebido normal, PostgREST hace left join y devuelve
+        // igual las filas de otras empresas, solo que con `quotations`
+        // en nulo. Mismo patrón que ya usa `findPaymentById`.
         `
         *,
-        quotations (
+        quotations!inner (
           id,
           quotation_number,
           event_date,
