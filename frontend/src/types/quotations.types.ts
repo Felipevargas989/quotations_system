@@ -159,6 +159,10 @@ export type QuotationPublicFormData = Pick<
     // string yyyy-mm-dd, igual que en el formulario interno.
     event_date: string;
     children_count?: number;
+    /** ORIGEN DEL LEAD (migración 110): lo crudo que traía la dirección
+     *  al aterrizar (gclid, fbclid, utm_*, referente). El motor decide
+     *  qué guarda de esto y con qué etiqueta legible. */
+    origen_detalle?: Record<string, string>;
   };
 
 // Lo que viaja al backend al CREAR una cotización autenticada: un

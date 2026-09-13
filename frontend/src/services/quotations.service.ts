@@ -99,11 +99,20 @@ export const createQuotationPublic = async (
   companyId: string,
   quotation: QuotationPublicFormData,
 ) => {
-  const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}/public/${companyId}`,
-    "POST",
-    quotation,
-  );
+  const ruta = `${API_ROUTES.QUOTATIONS}/public/${companyId}`;
+  const response = await apiRequest(ruta, "POST", quotation);
+  // RED DE SEGURIDAD (migración 110): el motor rechaza de plano los
+  // campos que no conoce (forbidNonWhitelisted). Si esta vitrina llegara
+  // a producción antes que el motor que entiende `origen_detalle`, se
+  // caerían TODAS las cotizaciones del formulario público. Perder el
+  // dato de origen cuesta infinitamente menos que perder la cotización:
+  // si el primer intento falla, se reintenta sin esa marca.
+  if (response.error && quotation.origen_detalle) {
+    const sinOrigen = { ...quotation };
+    delete sinOrigen.origen_detalle;
+    const reintento = await apiRequest(ruta, "POST", sinOrigen);
+    return { data: reintento as Quotation, error: reintento.error };
+  }
   return { data: response as Quotation, error: response.error };
 };
 
