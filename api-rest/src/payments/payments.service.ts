@@ -716,6 +716,18 @@ export class PaymentsService {
     this.logger.info(`removePaymentTransaction with id ${id}`);
     const { data: tx } =
       await this.paymentsRepository.findPaymentTransactionById(id);
+    // Aislamiento entre empresas (11-09-2026): el registro se borra SOLO
+    // si su cuota es de la empresa. Antes se borraba primero y recién
+    // después se miraba la cuota, así que un id ajeno se llevaba el
+    // abono de otra empresa.
+    if (!tx) {
+      throw new NotFoundException('Registro de pago no encontrado');
+    }
+    const { data: cuotaDeLaEmpresa } =
+      await this.paymentsRepository.findPaymentById(tx.payment_id, companyId);
+    if (!cuotaDeLaEmpresa) {
+      throw new NotFoundException('Registro de pago no encontrado');
+    }
     const result = await this.paymentsRepository.removePaymentTransaction(id);
     // La cuota vuelve a pendiente/vencido (o se re-cuadra) segun lo que
     // quede abonado. La cuota nunca se elimina junto con el registro.
@@ -803,8 +815,17 @@ export class PaymentsService {
     } as CreatePayment);
   }
 
-  async removePayment(id: Payment['id']) {
-    this.logger.info(`removePayment with id ${id}`);
+  async removePayment(id: Payment['id'], companyId: Company['id']) {
+    this.logger.info(`removePayment with id ${id} of company ${companyId}`);
+
+    // Aislamiento entre empresas (11-09-2026): la cuota tiene que ser de
+    // la empresa. `findPaymentById` verifica la pertenencia por su
+    // cotización, con `!inner`.
+    const { data: cuotaDeLaEmpresa } =
+      await this.paymentsRepository.findPaymentById(id, companyId);
+    if (!cuotaDeLaEmpresa) {
+      throw new NotFoundException('Cuota no encontrada');
+    }
 
     // 1. remove all payment_transactions related to the payment
     const { error } =

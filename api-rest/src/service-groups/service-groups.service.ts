@@ -24,6 +24,13 @@ export class ServiceGroupsService {
     try {
       const { items, ...group } = createServiceGroupDto;
 
+      // Aislamiento entre empresas (11-09-2026): los servicios del menú
+      // tienen que ser del catálogo propio. Sus id son correlativos.
+      await this.exigirServiciosDeLaEmpresa(
+        items.map((item) => item.variable_service_id),
+        companyId,
+      );
+
       // create the group first to obtain its generated id
       const { data: createdGroup, error: groupError } =
         await this.serviceGroupsRepository.createGroup({
@@ -47,6 +54,9 @@ export class ServiceGroupsService {
 
       return createdGroup;
     } catch (error) {
+      // Un 404 o un 409 nuestro se respeta tal cual; lo de abajo es para
+      // los errores crudos de la base.
+      if (error instanceof HttpException) throw error;
       this.logger.error(error);
       // Nombre repetido (23505): NO es una falla del servidor sino un
       // choque esperable — el frontend necesita poder decírselo al
@@ -61,6 +71,28 @@ export class ServiceGroupsService {
       throw new HttpException(
         (error as Error).message || 'Error al crear el grupo de servicios',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** Candado de catálogo (11-09-2026): todos los servicios pedidos tienen
+   *  que existir en el catálogo de esta empresa. */
+  private async exigirServiciosDeLaEmpresa(
+    ids: number[],
+    companyId: Company['id'],
+  ) {
+    const pedidos = [...new Set(ids)];
+    if (pedidos.length === 0) return;
+    const { data, error } =
+      await this.serviceGroupsRepository.variableServicesDeLaEmpresa(
+        pedidos,
+        companyId,
+      );
+    if (error) throw error;
+    if ((data ?? []).length !== pedidos.length) {
+      throw new HttpException(
+        'Hay servicios que no son del catálogo de tu empresa',
+        HttpStatus.NOT_FOUND,
       );
     }
   }
@@ -107,8 +139,27 @@ export class ServiceGroupsService {
     return data;
   }
 
-  async remove(id: ServiceGroup['id']) {
-    this.logger.info(`remove service group with id ${id}`);
-    return await this.serviceGroupsRepository.removeGroup(id);
+  /** Borrar (11-09-2026): el menú tiene que ser de la empresa. Sin fila
+   *  borrada, era ajeno o no existía: 404, igual que renombrar. */
+  async remove(id: ServiceGroup['id'], companyId: Company['id']) {
+    this.logger.info(`remove service group ${id} of company ${companyId}`);
+    const { data, error } = await this.serviceGroupsRepository.removeGroup(
+      id,
+      companyId,
+    );
+    if (error) {
+      this.logger.error(error);
+      throw new HttpException(
+        'No se pudo eliminar el menú guardado',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (!data || data.length === 0) {
+      throw new HttpException(
+        'Menú guardado no encontrado',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return { removed: true };
   }
 }

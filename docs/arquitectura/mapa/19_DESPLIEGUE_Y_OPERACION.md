@@ -1,5 +1,5 @@
 # Mapa: Despliegue y operación
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Visión general
 
@@ -15,6 +15,8 @@
 **Ojo con los nombres.** El "-dev" de `eventia-dev`, en Railway y en Netlify, **no** significa desarrollo: es producción. `docs/pendiente-despliegue.md` dice "proyecto **eventia-dev**, entorno **production**" y "el sitio de siempre (*eventia-dev*, el que responde en www.eventi-app.com)".
 
 **Lo que NO está en el repositorio.** No hay `railway.json`, `Dockerfile`, `Procfile` ni configuración de Nixpacks o Railpack. El comando de construcción, el de arranque, la versión de Node y las variables del motor viven en el panel de Railway. Lo único de hosting que está versionado es `frontend/netlify.toml`, `frontend/public/_redirects` y `frontend/public/_headers`.
+
+**El atlas llegó a producción por la PR #109.** El 11-09-2026 se fusionó a `main` (commit `bd6a0e1`): los 39 documentos de `docs/arquitectura/mapa`, la sección nueva de `CLAUDE.md` ("EL MAPA DEL SISTEMA Y EL GRAFO — ANTES DE TOCAR CÓDIGO"), `.gitignore`, `.gitattributes`, `.graphifyignore` y las tres migraciones de seguridad `107_cerrar_tablas_abiertas.sql`, `108_cerrar_el_grifo.sql` y `109_candado_get_backup_tables.sql` (detalle en mapa 18; el candado de la 109 se explica también en §7 de este mapa). Ni una línea de código de la app. Y como ninguno de esos archivos vive bajo `api-rest/`, aplica la misma regla de más abajo ("solo construye si cambia algo bajo `api-rest/`"): el laboratorio siguió 24 horas sin reiniciarse después de tres subidas de documentos seguidas ese mismo día.
 
 ```mermaid
 flowchart LR
@@ -37,7 +39,7 @@ flowchart LR
 - `15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md`: super-admin y recuperación de clave.
 - `16_CALENDARIO_MOVIL_E_INFRAESTRUCTURA_DEL_MOTOR.md`: límite de frecuencia, logs, caché, Swagger y push.
 - `17_KIT_DE_LA_CASA_Y_BASE_DE_LA_APP.md`: las piezas que vigila el portero y la red contra pantalla blanca.
-- `18_BASE_DE_DATOS.md`: migraciones y `get_backup_tables()`.
+- `18_BASE_DE_DATOS.md`: migraciones y `get_backup_tables()` (candado de permisos desde la migración 109, 11-09-2026).
 
 ## 2. Ramas y ambientes
 
@@ -125,6 +127,7 @@ En el commit verificado, `main`, `pruebas`, `origin/main` y `origin/pruebas` apu
 ### Despliegue en Railway
 - **Solo desde GitHub.** Commit `f374372` (17-08): "Un commit vacío Railway lo salta (SKIPPED): solo construye si cambia algo bajo api-rest/".
 - **Un commit solo de frontend no relanza el motor.** Commit `6ea9586` (20-08): "Railway saltó el build de pruebas por un commit solo-frontend y dejó el despliegue anterior sin conmutar. Cambio real bajo api-rest/ para relanzarlo".
+- **Un commit que solo toca documentación tampoco relanza el motor**, por la misma regla. Las tres subidas del atlas el 11-09-2026 (39 documentos de `docs/arquitectura/mapa`, la sección nueva de `CLAUDE.md`, `.gitignore`/`.gitattributes`/`.graphifyignore` y las migraciones 107-109 en `docs/migrations`) no tocan `api-rest/`: el laboratorio siguió 24 horas sin reiniciarse.
 - **Si el constructor de Railway falla**, se reintenta con un cambio real bajo `api-rest/` (commits `ee9f41f` y `f374372`, 17-08).
 - **Si el build falla, lo anterior sigue vivo.** "el despliegue anterior sigue vivo, así que la web no se cae" (`docs/pendiente-despliegue.md`).
 
@@ -295,6 +298,7 @@ Los valores del motor se definen en "Railway → servicio api-rest → Variables
 
 ### El respaldo diario (`BackupCronService`, `api-rest/src/backup/backup-cron.service.ts`)
 - **Qué respalda:** todas las tablas públicas. La lista la entrega la función `get_backup_tables()` (RPC), así que "las tablas nuevas entran solas". Lee de a 1000 filas, arma un JSON con `{ generated_at, reason, tables }`, lo comprime con gzip y lo sube al bucket **privado `backups` del mismo proyecto Supabase** como `eventia_YYYY-MM-DD.json.gz` (con `upsert`).
+- **Candado de esa función, desde el 11-09-2026.** `get_backup_tables()` es `SECURITY DEFINER`; hasta esa fecha cualquiera con la llave pública podía llamarla por `/rest/v1/rpc/get_backup_tables` y ver el nombre de todas las tablas de `public` (sin leer datos). La migración `109_candado_get_backup_tables.sql` revocó el `EXECUTE` de `PUBLIC` y de `anon`/`authenticated`, y confirmó el de `service_role` — el mismo rol que usa este cron para llamarla. Aplicada en lab y producción. La función en sí (su cuerpo, dónde se creó) sigue sin estar versionada en `docs/migrations`.
 - **Cuándo:** a las 07:00 del reloj del servidor. Además, en producción, `onModuleInit` espera 20 s tras cada arranque y genera el respaldo del día si falta (`backupIfMissingToday`), así que cada despliegue deja uno fresco.
 - **Retención:** 30 días (`cleanupOld`).
 - **Fallos:** solo quedan en el log ("BACKUP FALLÓ"). Si **una tabla** falla, se anota "Backup: tabla X falló", el ciclo sigue con esa tabla parcial y al final igual se registra "BACKUP OK".

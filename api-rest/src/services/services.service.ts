@@ -109,7 +109,14 @@ export class ServicesService {
       const result = await this.servicesRepository.updateVariableService(
         id,
         rest,
+        companyId,
       );
+      if (result.error) throw result.error;
+      // Aislamiento (11-09-2026): sin fila tocada, el servicio es de otra
+      // empresa o no existe. 404 ANTES de tocar sus categorías.
+      if (!result.data || result.data.length === 0) {
+        throw new HttpException('Servicio no encontrado', HttpStatus.NOT_FOUND);
+      }
 
       // If categories were provided, sync the links (enforces >= 1).
       if (category_ids !== undefined) {
@@ -132,6 +139,7 @@ export class ServicesService {
   async updateFixedService(
     id: FixedService['id'],
     updateFixedServiceDto: UpdateFixedServiceDto,
+    companyId: Company['id'],
   ) {
     this.logger.info(
       `updateFixedService with id ${id} and updateFixedServiceDto ${JSON.stringify(updateFixedServiceDto)}`,
@@ -140,11 +148,23 @@ export class ServicesService {
       // validate fixed service before updating it
       validateFixedServices([updateFixedServiceDto as CreateFixedServiceDto]);
 
-      return await this.servicesRepository.updateFixedService(
+      const result = await this.servicesRepository.updateFixedService(
         id,
         updateFixedServiceDto,
+        companyId,
       );
+      if (result.error) throw result.error;
+      // Aislamiento (11-09-2026): sin fila tocada, el fijo es de otra
+      // empresa o no existe.
+      if (!result.data || result.data.length === 0) {
+        throw new HttpException(
+          'Servicio fijo no encontrado',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return result;
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       this.logger.error(error);
       throw new Error(error);
     }
@@ -241,7 +261,7 @@ export class ServicesService {
     categoryIds: number[],
   ) {
     const { data: currentLinks } =
-      await this.servicesRepository.getLinksForService(serviceId);
+      await this.servicesRepository.getLinksForService(serviceId, companyId);
     const current = new Set((currentLinks ?? []).map((l) => l.category_id));
     const target = new Set(categoryIds);
 
@@ -251,6 +271,7 @@ export class ServicesService {
         await this.servicesRepository.deleteServiceCategoryLink(
           serviceId,
           catId,
+          companyId,
         );
       }
     }

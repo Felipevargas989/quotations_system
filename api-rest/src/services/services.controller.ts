@@ -243,11 +243,16 @@ export class ServicesController {
   updateFixedService(
     @Param('id') id: FixedService['id'],
     @Body() updateFixedServiceDto: UpdateFixedServiceDto,
+    @CurrentUser() user: User,
   ) {
     this.logger.info(
       `updateFixedService with id ${id} and updateFixedServiceDto ${JSON.stringify(updateFixedServiceDto)}`,
     );
-    return this.servicesService.updateFixedService(id, updateFixedServiceDto);
+    return this.servicesService.updateFixedService(
+      id,
+      updateFixedServiceDto,
+      user.company_id,
+    );
   }
 
   @Roles(...ADMIN_ONLY)

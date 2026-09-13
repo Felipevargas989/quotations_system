@@ -36,6 +36,10 @@ export interface Consulta {
   correo_programado_para: string | null;
   client_id: string | null;
   created_at: string;
+  /** ORIGEN DEL LEAD (migración 110): etiqueta legible + crudo de la
+   *  dirección. Vacíos en todo lo anterior al 12-09-2026. */
+  origen: string | null;
+  origen_detalle: Record<string, string> | null;
 }
 
 @Injectable()
