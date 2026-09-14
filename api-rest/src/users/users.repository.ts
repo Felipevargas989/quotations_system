@@ -85,7 +85,11 @@ export class UsersRepository {
       .single();
   }
 
-  async update(id: User['id'], updateUserDto: UpdateUserDto) {
+  async update(
+    id: User['id'],
+    updateUserDto: UpdateUserDto,
+    companyId: Company['id'],
+  ) {
     this.logger.info(
       `update user with id ${id} and updateUserDto ${logSafe(updateUserDto)}`,
     );
@@ -93,6 +97,7 @@ export class UsersRepository {
       .from('user_profiles')
       .update(updateUserDto)
       .eq('id', id)
+      .eq('company_id', companyId)
       .select()
       .single();
   }

@@ -1,4 +1,9 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { olvidarPerfil } from 'src/cache/memoria';
 import { Company } from 'src/companies/entities/company.entity';
@@ -62,11 +67,33 @@ export class UsersService {
     return this.usersRepository.findOne(id);
   }
 
-  update(id: User['id'], updateUserDto: UpdateUserDto) {
+  /** Ver un perfil solo si es de la empresa de la sesión (14-09-2026). */
+  async findOneDeLaEmpresa(id: User['id'], companyId: Company['id']) {
+    const { data, error } = await this.usersRepository.findOne(id);
+    if (error || !data || data.company_id !== companyId) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return { data, error: null };
+  }
+
+  /** Editar un perfil solo si es de la empresa de la sesión (14-09-2026). */
+  async update(
+    id: User['id'],
+    updateUserDto: UpdateUserDto,
+    companyId: Company['id'],
+  ) {
     this.logger.info(
       `update user with id ${id} and updateUserDto ${logSafe(updateUserDto)}`,
     );
-    return this.usersRepository.update(id, updateUserDto);
+    const { data, error } = await this.usersRepository.update(
+      id,
+      updateUserDto,
+      companyId,
+    );
+    if (error || !data) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return { data, error: null };
   }
 
   async remove(id: User['id'], companyId: Company['id']) {
