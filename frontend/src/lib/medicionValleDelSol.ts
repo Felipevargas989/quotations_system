@@ -50,18 +50,23 @@ export const cargarMedicionValleDelSol = (companyId?: string) => {
 
 // Se avisa SOLO cuando la solicitud se envió de verdad, nunca al
 // elegir en la lista: elegir no es pedir.
+//
+// Desde el 14-09 viaja también el TIPO DE CLIENTE (Felipe: "el tipo de
+// cliente sí existe en el formulario, debe estar medido"). Así la
+// conversión puede leerse como "una iglesia cotizó estadía", que es la
+// conversión de las campañas de grupos.
 export const avisarCotizacionEnviada = (
   companyId: string | undefined,
-  tipoEvento: string,
+  datos: { event_type: string; client_type?: string; event_date?: string },
   personas: number,
-  conFecha: boolean,
 ) => {
   if (!corresponde(companyId)) return;
 
   capa().push({
     event: "cotizacion_enviada",
-    tipo_evento: tipoEvento,
+    tipo_evento: datos.event_type,
+    tipo_cliente: datos.client_type ?? "",
     personas,
-    con_fecha: conFecha,
+    con_fecha: Boolean(datos.event_date),
   });
 };

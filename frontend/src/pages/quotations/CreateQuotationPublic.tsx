@@ -21,6 +21,7 @@ import {
   avisarCotizacionEnviada,
 } from "../../lib/medicionValleDelSol";
 import { capturarOrigen, origenDelLead } from "../../lib/origenDelLead";
+import { usePreseleccionDesdeEnlace } from "../../lib/preseleccionDesdeEnlace";
 
 // Formulario público de solicitud (rediseño 22-07, aprobado por Felipe):
 // - Lenguaje visual de los documentos de la empresa (logo redondo, folio
@@ -74,7 +75,10 @@ export default function CreateQuotationPublic() {
     null,
   );
   const sinTildes = (t: string) =>
-    t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    t
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
   const pideOrganizacion =
     !!formData.client_type &&
     !sinTildes(formData.client_type).includes("particular");
@@ -158,6 +162,10 @@ export default function CreateQuotationPublic() {
     cargarMedicionValleDelSol(company_id);
   }, [company_id]);
 
+  // PRESELECCIÓN DESDE EL ENLACE (14-09): un anuncio puede abrir el
+  // cotizador con ?cliente=iglesias&evento=estadia ya elegidos.
+  usePreseleccionDesdeEnlace(clientTypesList, eventTypesList, setFormData);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company_id) return;
@@ -217,12 +225,7 @@ export default function CreateQuotationPublic() {
       const { error } = await createQuotationPublic(company_id, quotationData);
       if (error) throw error;
       setSubmitted(true);
-      avisarCotizacionEnviada(
-        company_id,
-        formData.event_type,
-        adults + kids,
-        Boolean(formData.event_date),
-      );
+      avisarCotizacionEnviada(company_id, formData, adults + kids);
     } catch (error) {
       // HONESTIDAD ANTE TODO (bug histórico corregido el 22-07): si el
       // envío falla, se informa y se deja reintentar. Jamás fingir éxito.
@@ -357,37 +360,37 @@ export default function CreateQuotationPublic() {
               style={{ borderBottom: `3px solid ${brandP}` }}
             />
           ) : (
-          <div
-            className="px-6 sm:px-10 pt-8 pb-5"
-            style={{ borderBottom: `3px solid ${brandP}` }}
-          >
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3.5">
-                <div
-                  className="w-[100px] h-[100px] rounded-full flex items-center justify-center font-extrabold text-3xl overflow-hidden shrink-0"
-                  style={{ backgroundColor: brandP, color: onBrandP }}
-                >
-                  {company?.logo_url ? (
-                    <img
-                      src={company.logo_url}
-                      alt={company.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">
-                    {company?.name || "Empresa"}
-                  </h1>
-                  <p className="text-xs text-gray-500">
-                    Cuéntanos de tu evento y te preparamos una cotización
-                  </p>
+            <div
+              className="px-6 sm:px-10 pt-8 pb-5"
+              style={{ borderBottom: `3px solid ${brandP}` }}
+            >
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className="w-[100px] h-[100px] rounded-full flex items-center justify-center font-extrabold text-3xl overflow-hidden shrink-0"
+                    style={{ backgroundColor: brandP, color: onBrandP }}
+                  >
+                    {company?.logo_url ? (
+                      <img
+                        src={company.logo_url}
+                        alt={company.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-gray-900">
+                      {company?.name || "Empresa"}
+                    </h1>
+                    <p className="text-xs text-gray-500">
+                      Cuéntanos de tu evento y te preparamos una cotización
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           )}
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-6">
@@ -692,9 +695,7 @@ export default function CreateQuotationPublic() {
                     id="presupuesto"
                     name="presupuesto"
                     value={presupuesto}
-                    onChange={(value) =>
-                      setPresupuesto(value)
-                    }
+                    onChange={(value) => setPresupuesto(value)}
                     min={0}
                     placeholder="0"
                     className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -740,8 +741,8 @@ export default function CreateQuotationPublic() {
                     Tu solicitud no se pudo enviar todavía.
                   </p>
                   <p className="mt-0.5">
-                    Revisa tu conexión e inténtalo de nuevo con el botón —
-                    tus datos siguen aquí, no se perdieron.
+                    Revisa tu conexión e inténtalo de nuevo con el botón — tus
+                    datos siguen aquí, no se perdieron.
                   </p>
                 </div>
               </div>
@@ -777,7 +778,9 @@ export default function CreateQuotationPublic() {
           <PieDeMarcaPublico
             company={company}
             colorPrimario={brandP}
-            colorSecundario={(company?.colors as { secondary?: string } | undefined)?.secondary}
+            colorSecundario={
+              (company?.colors as { secondary?: string } | undefined)?.secondary
+            }
           />
         </div>
 
