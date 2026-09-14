@@ -66,6 +66,7 @@ export class CustomerSatisfactionSurveyController {
     return this.customerSatisfactionSurveyService.createAnswer(createAnswerDto);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Get('answers')
   findAllAnswersFromCompany(@CurrentUser() user: User) {
     this.logger.info(`GET /customer-satisfaction-survey with user ${user.id}`);
@@ -74,16 +75,19 @@ export class CustomerSatisfactionSurveyController {
     );
   }
 
+  // @Roles(...ADMIN_ONLY)
   // @Get(':id')
   // findOne(@Param('id') id: string) {
   //   return this.customerSatisfactionSurveyService.findOne(+id);
   // }
 
+  // @Roles(...ADMIN_ONLY)
   // @Patch(':id')
   // update(@Param('id') id: string) {
   //   return this.customerSatisfactionSurveyService.update(+id);
   // }
 
+  // @Roles(...ADMIN_ONLY)
   // @Delete(':id')
   // remove(@Param('id') id: string) {
   //   return this.customerSatisfactionSurveyService.remove(+id);

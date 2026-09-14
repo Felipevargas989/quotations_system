@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CalendarService } from './calendar.service';
 
@@ -13,6 +14,7 @@ export class CalendarController {
     this.logger.setContext(CalendarController.name);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get('events')
   findAllEvents(@CurrentUser() user: User) {
     this.logger.info(`GET /calendar/events with user ${user.id}`);

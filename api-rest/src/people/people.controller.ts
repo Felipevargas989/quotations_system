@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreatePersonDto } from './dto/create-person.dto';
@@ -38,6 +39,9 @@ import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PeopleService } from './people.service';
 
+// Cargo de clase (14-09-2026): todo el módulo es de ADMIN_ONLY; las rutas
+// que otras pantallas usan lo bajan una a una con su propio @Roles.
+@Roles(...ADMIN_ONLY)
 @Controller('people')
 export class PeopleController {
   constructor(
@@ -83,6 +87,7 @@ export class PeopleController {
   // ---- Quién trabaja cada día ----
   // Antes de las rutas con :id, para que "staff" no se lea como un id.
 
+  @Roles(...OPERATIONS_AND_UP)
   @Get('staff')
   findStaff(
     @Query('evento') evento: string | undefined,
@@ -102,6 +107,7 @@ export class PeopleController {
     throw new BadRequestException('Falta el evento o el rango de fechas');
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Post('staff')
   addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff ${logSafe(dto)}`);
@@ -116,6 +122,7 @@ export class PeopleController {
     return this.peopleService.proyectarTodaLaPlanta(user.company_id);
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Patch('staff/:id')
   updateStaff(
     @Param('id') id: string,
@@ -126,6 +133,7 @@ export class PeopleController {
     return this.peopleService.updateStaff(+id, dto, user.company_id);
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Delete('staff/:id')
   removeStaff(
     @Param('id') id: string,
@@ -166,6 +174,7 @@ export class PeopleController {
 
   // ---- El ciclo de la ficha ----
 
+  @Roles(...OPERATIONS_AND_UP)
   @Get('sheets')
   findSheets(@CurrentUser() user: User) {
     return this.peopleService.findSheets(user.company_id);

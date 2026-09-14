@@ -1258,7 +1258,7 @@ export class QuotationsService {
     }
   }
 
-  async remove(id: string, companyId: number) {
+  async remove(id: string, companyId: number, role?: string) {
     // El candado también tapa el borrado (13-08). La guardia que ya
     // existía (assertDeletable) solo cuenta pagos, reembolsos y
     // encuestas respondidas: un evento realizado pagado al contado y
@@ -1272,6 +1272,17 @@ export class QuotationsService {
     // otro fallo de lectura sí frena: si no puedo saber si el evento
     // está realizado, no lo borro.
     if (error && error.code !== 'PGRST116') throw error;
+    // Espejo del candado de crear y editar (14-09-2026): recepción
+    // registra y borra requerimientos, no cotizaciones formales.
+    if (
+      role === UserRole.RECEPCION &&
+      quotation &&
+      quotation.request_type !== RequestType.REQUERIMIENTO
+    ) {
+      throw new ForbiddenException(
+        'Recepción puede borrar requerimientos, no cotizaciones.',
+      );
+    }
     if (
       quotation &&
       quotation.company_id === companyId &&

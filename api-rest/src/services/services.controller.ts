@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
@@ -54,6 +54,7 @@ export class ServicesController {
     );
   }
 
+  @Roles(...SALES_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll services with user ${user.id}`);
@@ -67,6 +68,7 @@ export class ServicesController {
 
   // Códigos de servicio EN USO en cotizaciones (migración 54): la
   // pantalla apaga el basurero para ellos.
+  @Roles(...ADMIN_ONLY)
   @Get('used-codes')
   usedServiceCodes(@CurrentUser() user: User) {
     return this.servicesService.usedServiceCodes(user.company_id);
@@ -74,6 +76,7 @@ export class ServicesController {
 
   // ---- Secciones de servicios FIJOS (migración 53) ----
 
+  @Roles(...SALES_AND_UP)
   @Get('fixed-sections')
   listFixedSections(@CurrentUser() user: User) {
     return this.servicesService.listFixedSections(user.company_id);

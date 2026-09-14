@@ -12,7 +12,13 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
-import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import {
+  ADMIN_ONLY,
+  OPERATIONS_AND_UP,
+  RECEPTION_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user.entity';
@@ -37,6 +43,7 @@ export class QuotationsController {
     this.logger.setContext(QuotationsController.name);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Post()
   create(
     @Body() createQuotationDto: CreateQuotationDto,
@@ -80,6 +87,7 @@ export class QuotationsController {
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(
     @CurrentUser() user: User,
@@ -100,6 +108,7 @@ export class QuotationsController {
     });
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get('check-conflicts')
   checkConflictsWithExistingQuotations(
     @Query()
@@ -136,6 +145,7 @@ export class QuotationsController {
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
+  @Roles(...SALES_AND_UP)
   @Post(':id/enviar-correo')
   enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
@@ -163,6 +173,7 @@ export class QuotationsController {
 
   // La palabra final sobre una fila de la cosecha del mes. Cualquiera
   // que venda puede corregirla: es su oficio, no una decisión de sistema.
+  @Roles(...SALES_AND_UP)
   @Post(':id/cosecha')
   setHarvestStatus(
     @Param('id') id: string,
@@ -178,6 +189,7 @@ export class QuotationsController {
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -199,8 +211,15 @@ export class QuotationsController {
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.quotationsService.remove(id, user.company_id);
+    // Recepción solo borra requerimientos (14-09-2026): el service revisa
+    // el tipo de la cotización guardada, igual que al editar.
+    return this.quotationsService.remove(
+      id,
+      user.company_id,
+      (user as User & { role?: string }).role,
+    );
   }
 }

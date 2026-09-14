@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { MovilService } from './movil.service';
 
@@ -32,6 +33,9 @@ class RegistrarDispositivoDto {
 }
 
 // Puertas de Eventia Móvil (aditivas). Todas exigen sesión.
+// Cargo de clase (14-09-2026): todo el módulo es de OPERATIONS_AND_UP; las rutas
+// que otras pantallas usan lo bajan una a una con su propio @Roles.
+@Roles(...OPERATIONS_AND_UP)
 @Controller('movil')
 export class MovilController {
   constructor(

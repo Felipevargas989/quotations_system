@@ -10,7 +10,11 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import {
+  OPERATIONS_AND_UP,
+  RECEPTION_AND_UP,
+  Roles,
+} from 'src/auth/roles.decorator';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
@@ -41,6 +45,7 @@ export class PaymentsController {
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAllPaymensFromQuotation(
     @Query('quotationId') quotationId: Quotation['id'],
@@ -52,6 +57,7 @@ export class PaymentsController {
     );
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Get('transactions')
   findAllPaymentsWithTransactions(@CurrentUser() user: User) {
     this.logger.info(`GET /payments/transactions with user ${user.id}`);

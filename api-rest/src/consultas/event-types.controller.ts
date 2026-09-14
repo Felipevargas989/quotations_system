@@ -10,6 +10,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ActualizarTipoDto, CrearTipoDeEventoDto } from './dto/consultas.dto';
 import { EventTypesService } from './event-types.service';
@@ -26,6 +27,7 @@ export class EventTypesController {
     this.logger.setContext(EventTypesController.name);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   listar(@CurrentUser() user: User) {
     return this.tipos.listar(user.company_id);
@@ -38,12 +40,14 @@ export class EventTypesController {
     return this.tipos.listarPublico(+companyId);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Post()
   crear(@Body() dto: CrearTipoDeEventoDto, @CurrentUser() user: User) {
     this.logger.info(`POST /event-types "${dto.name}"`);
     return this.tipos.crear(user.company_id, dto.name);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Patch(':id')
   actualizar(
     @Param('id') id: string,
@@ -54,6 +58,7 @@ export class EventTypesController {
     return this.tipos.actualizar(+id, user.company_id, dto);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Delete(':id')
   eliminar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /event-types/${id}`);

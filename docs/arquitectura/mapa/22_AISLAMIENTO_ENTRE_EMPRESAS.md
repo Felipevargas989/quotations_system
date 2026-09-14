@@ -96,7 +96,13 @@ llegaba a escribir.
 - Móvil: el upsert del checklist de cocina usa la llave `(quotation_id, clave)`
   sin la empresa y pisa `company_id` y `marcado_por`. Necesita migración.
 
-### Sprint 4 · Fichas de empresa y de usuarios · PENDIENTE
+### Sprint 4 · Fichas de empresa y de usuarios · HECHO EN EL LABORATORIO
+
+Rama `pruebas`, 14-09-2026, dentro del paso 2 del roadmap de venta (commit
+"cerrar la casa"): `GET /companies/:id` responde 404 fuera de la propia
+empresa; `GET` y `PATCH /users/:id` solo ven y editan perfiles de la propia
+empresa, con el filtro en el repositorio; `POST /plans/confirmation` apagada
+con 410. Lo de abajo queda como registro de lo que se pidió.
 
 - `GET /companies/:id` devuelve la ficha completa de cualquier empresa, con sus
   datos de cobro, y los id de empresa son correlativos. El arreglo va en esa

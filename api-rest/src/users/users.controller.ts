@@ -38,6 +38,7 @@ export class UsersController {
     return this.usersService.create(createUserDto, user.company_id);
   }
 
+  @Roles(...ADMIN_ONLY)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /users with user ${user.id}`);

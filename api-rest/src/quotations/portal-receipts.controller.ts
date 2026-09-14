@@ -151,6 +151,7 @@ export class PortalReceiptsController {
     this.logger.setContext(PortalReceiptsController.name);
   }
 
+  @Roles(...OPERATIONS_AND_UP)
   @Get()
   async list(@CurrentUser() user: User) {
     const { data, error } = await this.repo.listPending(user.company_id);
