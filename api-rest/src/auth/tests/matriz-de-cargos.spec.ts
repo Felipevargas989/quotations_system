@@ -100,7 +100,6 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'PATCH types/reorder': S,
       'POST ': R,
       'GET ': R,
-      'GET :id': R,
       'GET :id/summary': R,
       'PATCH :id': S,
       'DELETE :id': S,
@@ -120,7 +119,7 @@ const esperado: [Clase, Record<string, string[]>][] = [
   [PortalReceiptsController, { 'GET ': O }],
   [
     ServicesController,
-    { 'GET ': S, 'GET :id': S, 'GET used-codes': A, 'GET fixed-sections': S },
+    { 'GET ': S, 'GET used-codes': A, 'GET fixed-sections': S },
   ],
   [ServiceGroupsController, { 'GET ': S }],
   [ServiceGroupCollectionsController, { 'GET ': S }],
