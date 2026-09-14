@@ -232,7 +232,7 @@ const LANDING_HTML = `<style>
         <div class="bar"><i></i><i></i><i></i><em>app.eventi-app.com — Panel</em></div>
         <img src="/images/landing/dashboard-nuevo.png" alt="Dashboard real de Eventia">
       </div>
-      <div class="badge"><div class="l">Margen del período</div><div class="v">94,3% de la venta ✓</div></div>
+      <div class="badge"><div class="l">Margen del período</div><div class="v">64,3% de la venta ✓</div></div>
     </div>
   </div>
 </header>
@@ -378,12 +378,12 @@ const LANDING_HTML = `<style>
       <div class="plan reveal">
         <div class="pname">Cotiza</div>
         <div class="who">Para dejar el Excel y vender profesional.</div>
-        <div class="amt">$20<span> USD/mes</span></div>
-        <div class="limits">Hasta 20 cotizaciones/mes · 1 usuario</div>
+        <div class="amt">$19.900<span> + IVA / mes</span></div>
+        <div class="limits">Hasta 20 cotizaciones/mes · 1 usuario · eventos de un día</div>
         <ul>
           <li><span class="ck">✓</span> Cotizador con tu marca y PDF</li>
           <li><span class="ck">✓</span> Catálogo de servicios y precios</li>
-          <li><span class="ck">✓</span> Enlace público de cotización</li>
+          <li><span class="ck">✓</span> Formulario público de solicitud y hoja de cotización en línea</li>
           <li><span class="ck">✓</span> Panel comercial</li>
         </ul>
         <a class="btn btn-ghost" href="/register">Empezar gratis</a>
@@ -392,11 +392,13 @@ const LANDING_HTML = `<style>
         <div class="tag">Más popular</div>
         <div class="pname">Gestiona y Cobra</div>
         <div class="who">Para el que ya vende y necesita cobrar sin perder cuentas.</div>
-        <div class="amt">$50<span> USD/mes</span></div>
+        <div class="amt">$49.900<span> + IVA / mes</span></div>
         <div class="limits">Cotizaciones ilimitadas · 3 usuarios</div>
         <ul>
           <li><span class="ck">✓</span> Todo lo de Cotiza</li>
+          <li><span class="ck">✓</span> Eventos de varios días</li>
           <li><span class="ck">✓</span> Pagos, saldos y semáforo de cobranza</li>
+          <li><span class="ck">✓</span> Portal del cliente: saldo y comprobantes</li>
           <li><span class="ck">✓</span> Calendario de eventos</li>
           <li><span class="ck">✓</span> Clientes 360° y múltiples contactos</li>
           <li><span class="ck">✓</span> Panel comercial + de caja</li>
@@ -406,19 +408,21 @@ const LANDING_HTML = `<style>
       <div class="plan teal reveal">
         <div class="pname">Opera y Crece</div>
         <div class="who">Para la operación que quiere márgenes y controlarlo todo.</div>
-        <div class="amt">$120<span> USD/mes</span></div>
+        <div class="amt">$119.900<span> + IVA / mes</span></div>
         <div class="limits">Todo ilimitado · equipo completo</div>
         <ul>
           <li><span class="ck">✓</span> Todo lo de Gestiona y Cobra</li>
           <li><span class="ck">✓</span> Logística: compras, insumos, mobiliario</li>
           <li><span class="ck">✓</span> Recetas, costos y ficha de cocina</li>
           <li><span class="ck">✓</span> Márgenes por evento y por mes</li>
+          <li><span class="ck">✓</span> Consultas con brochure automático</li>
           <li><span class="ck">✓</span> Correos automáticos y encuestas</li>
+          <li><span class="ck">✓</span> App móvil de terreno</li>
         </ul>
         <a class="btn btn-teal" href="/register">Empezar gratis</a>
       </div>
     </div>
-    <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">¿Prefieres facturar en CLP? <a href="WA_URL_PLACEHOLDER" target="_blank" rel="noopener" style="color:var(--azure)">Escríbenos por WhatsApp</a>.</p>
+    <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">Precios en pesos chilenos, netos, más IVA. Se paga mes a mes con Mercado Pago. ¿Dudas? <a href="WA_URL_PLACEHOLDER" target="_blank" rel="noopener" style="color:var(--azure)">Escríbenos por WhatsApp</a>.</p>
   </div>
 </section>
 
@@ -432,7 +436,7 @@ const LANDING_HTML = `<style>
     <div class="faq-grid">
       <div class="faq reveal"><h4>¿Necesito instalar algo?</h4><p>No. Eventia funciona en el navegador, también desde el celular. Entras con tu correo y listo.</p></div>
       <div class="faq reveal"><h4>¿Mis datos están seguros?</h4><p>Sí. Respaldo automático diario en la nube. Tus cotizaciones, clientes y pagos nunca dependen de un computador.</p></div>
-      <div class="faq reveal"><h4>¿Me ayudan a partir?</h4><p>Te acompañamos a cargar tu carta, servicios y precios. En el plan profesional el onboarding va incluido.</p></div>
+      <div class="faq reveal"><h4>¿Me ayudan a partir?</h4><p>Te acompañamos a cargar tu carta, servicios y precios. En Opera y Crece el onboarding va incluido.</p></div>
       <div class="faq reveal"><h4>¿Puedo cancelar cuando quiera?</h4><p>Sí. Sin contrato de permanencia. Y puedes exportar tus datos antes de irte.</p></div>
       <div class="faq reveal"><h4>¿Sirve si trabajo solo?</h4><p>Sí. El plan Cotiza está pensado para una persona: cotizas profesional desde el día uno y creces cuando lo necesites.</p></div>
       <div class="faq reveal"><h4>¿Qué pasa al terminar los 7 días?</h4><p>Eliges un plan o tu cuenta queda pausada. No te cobramos nada automáticamente: nunca pedimos tarjeta para probar.</p></div>
