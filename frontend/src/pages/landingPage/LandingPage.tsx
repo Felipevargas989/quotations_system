@@ -232,7 +232,7 @@ const LANDING_HTML = `<style>
         <div class="bar"><i></i><i></i><i></i><em>app.eventi-app.com — Panel</em></div>
         <img src="/images/landing/dashboard-nuevo.png" alt="Dashboard real de Eventia">
       </div>
-      <div class="badge"><div class="l">Margen del período</div><div class="v">94,3% de la venta ✓</div></div>
+      <div class="badge"><div class="l">Margen del período</div><div class="v">64,3% de la venta ✓</div></div>
     </div>
   </div>
 </header>
