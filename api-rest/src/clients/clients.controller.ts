@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -51,6 +52,7 @@ export class ClientsController {
     return this.clientsService.findTypes(+companyId);
   }
 
+  @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
   @Post('types')
   createType(
@@ -66,6 +68,7 @@ export class ClientsController {
     );
   }
 
+  @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
   @Delete('types/:id')
   removeType(@Param('id') id: string, @CurrentUser() user: User) {
@@ -75,6 +78,7 @@ export class ClientsController {
 
   // Reordenar tipos (flechas ↑↓): recibe los ids en el orden final.
   // Declarado antes de PATCH :id para que "types" no sea capturado.
+  @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
   @Patch('types/reorder')
   reorderTypes(

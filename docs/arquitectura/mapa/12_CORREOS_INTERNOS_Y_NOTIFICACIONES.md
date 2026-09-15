@@ -1,6 +1,6 @@
 # Mapa: Correos internos, avisos y notificaciones
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y ampliado el 14-09-2026 con el filtro por derecho de los correos automáticos (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -183,6 +183,24 @@ Todos corren solo con `NODE_ENV === 'production'` (`ScheduleModule.forRoot({ cro
    - las manda una por una a esa casilla con el mismo `replyTo`;
    - con `solo: 'seguimiento'` manda solo los dos toques; con `portal_token` el botón lleva al portal real.
 3. El probador **no** pasa por el silenciador ni por los interruptores (comentario de `sendEmail`: "sus muestras van al propio Felipe").
+
+### 5.7 El plan de la empresa filtra los correos automáticos (14-09-2026)
+
+Desde el paso 3.2 del roadmap de venta, un correo automático no sale solo porque su interruptor esté encendido: la empresa además tiene que **tener el derecho** en su plan (mapa 15, §5.8). Los interruptores de Configuración siguen igual y mandan sobre lo suyo; lo que se agregó es una pregunta antes: "¿esta empresa pagó por esto?".
+
+El filtro no vive en `EmailService.sendEmail` sino en cada reloj, y por una razón: en un reloj no hay sesión, así que la empresa se resuelve por el `company_id` de la fila con `DerechosService.deEmpresa`, que lleva memoria de 5 minutos para no preguntar lo mismo 200 veces en un mismo despacho.
+
+| Correo automático | Reloj | Derecho que exige |
+|---|---|---|
+| `QUOTATION_FOLLOW_UP`, los toques de 7 y 14 días | `QuotationsCronService.sendQuotationFollowUps` | `correos_automaticos` (Opera y Crece) |
+| `WEEKLY_DIGEST`, el resumen del lunes | `QuotationsCronService.sendWeeklyDigest` | solo `base`: **va en todos los planes**, salvo empresa bloqueada. Decisión de Felipe: es barato y engancha |
+| Brochure del embudo | `ConsultasCronService.despachar` | `consultas` (Opera y Crece) |
+| `PAYMENT_REMINDER`, `PAYMENT_OVERDUE` y sus dos gemelos a los administradores | `PaymentsCronService`, las dos vueltas | `post_venta` (Gestiona y Cobra) |
+| Campañas programadas | `MarketingCronService.despacharProgramadas` | `marketing`, que no lo da ningún plan |
+
+En los dos relojes que "toman" la fila antes de trabajarla (embudo y campañas) el filtro va **antes** de tomarla: al revés, la consulta o la campaña quedaría marcada como despachada sin que hubiera salido un solo correo.
+
+Dos correos de este catálogo cambian por la misma razón, aunque no salgan de un reloj: la **encuesta de satisfacción** (`CUSTOMER_SATISFACTION_SURVEY`) solo sale si la empresa tiene `encuestas` —marcar el evento como realizado lo puede hacer cualquier plan; lo que no sale es el correo—, y una empresa sin `consultas` que reciba una solicitud por el formulario público la recibe igual, pero como requerimiento normal y con los avisos de siempre (`NEW_PUBLIC_QUOTATION_CLIENT` y `NEW_PUBLIC_QUOTATION_ADMIN`), sin brochure automático.
 
 ## 6. Reglas de negocio acordadas
 

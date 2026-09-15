@@ -2,12 +2,18 @@ import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { CustomerSatisfactionSurveyService } from './service';
 
+// Las encuestas de satisfacción entran con Opera y Crece (paso 3.2,
+// 14-09-2026). Las tres puertas @Public de más abajo las abre el
+// cliente desde su correo: esas no pasan por el guardián y se revisan
+// en el servicio, resolviendo la empresa desde la cotización.
+@Derecho('encuestas')
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
   constructor(

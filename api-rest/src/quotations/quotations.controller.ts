@@ -12,6 +12,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { DerechosService } from 'src/auth/derechos.service';
 import {
   ADMIN_ONLY,
   OPERATIONS_AND_UP,
@@ -39,6 +40,9 @@ export class QuotationsController {
     private readonly quotationsService: QuotationsService,
     private readonly envioCotizacion: EnvioCotizacionService,
     private readonly logger: PinoLogger,
+    // Para las puertas públicas, que no tienen sesión de dónde sacar los
+    // derechos de la empresa (paso 3.2, 14-09-2026).
+    private readonly derechosService: DerechosService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -67,6 +71,14 @@ export class QuotationsController {
       createQuotationDto,
       user.company_id,
       user.id,
+      // Los derechos del plan viajan en la sesión (paso 3.2, 14-09-2026):
+      // el tope de cotizaciones del mes y los eventos de varios días se
+      // revisan dentro del servicio, antes de tocar la base.
+      {
+        derechos: user.derechos,
+        cotizaciones_mes: user.cotizaciones_mes,
+        plan: user.plan,
+      },
     );
   }
 
@@ -74,16 +86,22 @@ export class QuotationsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('public/:company_id')
-  createPublic(
+  async createPublic(
     @Body() createQuotationPublicDto: CreateQuotationPublicDto,
     @Param('company_id') company_id: Company['id'],
   ) {
     this.logger.info(
       `POST /quotations with createQuotationDto ${logSafe(createQuotationPublicDto)}`,
     );
+    // Acá no hay sesión: la empresa es la de la dirección, y sus derechos
+    // se preguntan aparte (paso 3.2, 14-09-2026). Con ellos el servicio
+    // decide si la solicitud entra al embudo de Consultas o como
+    // requerimiento normal; el formulario funciona igual en todo plan.
+    const derechos = await this.derechosService.deEmpresa(company_id);
     return this.quotationsService.createPublic(
       createQuotationPublicDto,
       company_id,
+      derechos,
     );
   }
 
@@ -158,7 +176,9 @@ export class QuotationsController {
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
-    return this.quotationsService.markEventDone(id, user.company_id);
+    return this.quotationsService.markEventDone(id, user.company_id, {
+      derechos: user.derechos,
+    });
   }
 
   // La puerta de VUELTA (05-08, pedido de Felipe): des-marca un evento
@@ -208,6 +228,7 @@ export class QuotationsController {
       updateQuotationDto,
       user.company_id,
       (user as User & { role?: string }).role,
+      { derechos: user.derechos, plan: user.plan },
     );
   }
 

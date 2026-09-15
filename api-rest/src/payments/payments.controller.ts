@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import {
   OPERATIONS_AND_UP,
   RECEPTION_AND_UP,
@@ -25,6 +26,11 @@ import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dt
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import { PaymentsService } from './payments.service';
 
+// El plan de pagos, los abonos y los reembolsos entran con Gestiona y
+// Cobra (paso 3.2, 14-09-2026). La lectura de cuotas de una cotización
+// queda abierta más abajo: la pide el cotizador para avisar que hay un
+// plan vivo, y en una empresa de Cotiza simplemente viene vacía.
+@Derecho('post_venta')
 @Controller('payments')
 export class PaymentsController {
   constructor(
@@ -46,6 +52,7 @@ export class PaymentsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Derecho(null)
   @Get()
   findAllPaymensFromQuotation(
     @Query('quotationId') quotationId: Quotation['id'],

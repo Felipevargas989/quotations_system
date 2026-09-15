@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
+import { tieneDerecho } from 'src/auth/derechos';
+import { DerechosService } from 'src/auth/derechos.service';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { marcaDesdeFila } from './marca';
 import { MarketingRepository } from './marketing.repository';
@@ -29,6 +31,7 @@ export class MarketingCronService {
     private readonly repo: MarketingRepository,
     private readonly companies: CompaniesRepository,
     private readonly logger: PinoLogger,
+    private readonly derechosService: DerechosService,
   ) {
     this.logger.setContext(MarketingCronService.name);
   }
@@ -37,6 +40,12 @@ export class MarketingCronService {
   async despacharProgramadas() {
     const vencidas = await this.repo.programadasVencidas();
     for (const c of vencidas) {
+      // Marketing es de Valle del Sol y no se vende (migración 111, ahora
+      // un derecho más: paso 3.2). El filtro va ANTES de tomarProgramada:
+      // tomarla y descartarla después dejaría la campaña en borrador sin
+      // que nadie sepa por qué.
+      const derechos = await this.derechosService.deEmpresa(c.company_id);
+      if (!tieneDerecho(derechos.derechos, 'marketing')) continue;
       const tomada = await this.repo.tomarProgramada(c.id, c.company_id);
       if (!tomada) continue; // otro reloj se la llevó
       try {

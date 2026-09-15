@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
+import { tieneDerecho } from 'src/auth/derechos';
+import { DerechosService } from 'src/auth/derechos.service';
 import { EmailService } from 'src/email/email.service';
 import { PaymentReminderParams } from 'src/email/templates/paymentReminder/types';
 import { EmailStructure } from 'src/email/types';
@@ -21,6 +23,7 @@ export class PaymentsCronService {
     private readonly emailService: EmailService,
     private readonly usersService: UsersService,
     private readonly logger: PinoLogger,
+    private readonly derechosService: DerechosService,
   ) {}
 
   async checkUpcomingOrOverduePayments(
@@ -57,6 +60,16 @@ export class PaymentsCronService {
       }
 
       for (const payment of payments) {
+        // EL CICLO DE COBRO es de Gestiona y Cobra (paso 3.2, 14-09-2026):
+        // una empresa del plan Cotiza no tiene plan de pagos, así que
+        // tampoco le salen los correos de cobranza ni el aviso al
+        // administrador. El reloj recorre pagos de todas las empresas, y
+        // por eso el filtro va acá, pago por pago.
+        const derechos = await this.derechosService.deEmpresa(
+          payment.quotations.company_id,
+        );
+        if (!tieneDerecho(derechos.derechos, 'post_venta')) continue;
+
         // Correos a personas y punto (30-07): la cobranza le escribe
         // SOLO al mandante; sin persona con correo, no sale nada al
         // cliente (el aviso admin de abajo va igual).

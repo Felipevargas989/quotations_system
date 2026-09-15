@@ -6,6 +6,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { Resend } from 'resend';
+import { tieneDerecho } from 'src/auth/derechos';
+import { DerechosService } from 'src/auth/derechos.service';
 import { ClientContactsRepository } from 'src/clients/client-contacts.controller';
 import { ClientsService } from 'src/clients/clients.service';
 import { CompaniesRepository } from 'src/companies/companies.repository';
@@ -93,6 +95,9 @@ export class ConsultasService {
     private readonly companies: CompaniesRepository,
     private readonly config: ConfigService,
     private readonly logger: PinoLogger,
+    // AL FINAL a propósito, como consultasService en QuotationsService:
+    // las pruebas arman este servicio por posición.
+    private readonly derechosService: DerechosService,
   ) {
     this.logger.setContext(ConsultasService.name);
   }
@@ -174,6 +179,12 @@ export class ConsultasService {
       new Date().toISOString(),
     );
     for (const c of pendientes) {
+      // El embudo con brochure automático es de Opera y Crece (paso 3.2,
+      // 14-09-2026). El filtro va ANTES de tomarEnvio: si se toma y
+      // después se descarta, la consulta queda marcada como despachada
+      // sin que haya salido ningún correo.
+      const derechos = await this.derechosService.deEmpresa(c.company_id);
+      if (!tieneDerecho(derechos.derechos, 'consultas')) continue;
       const tomada = await this.repo.tomarEnvio(c.id, c.company_id);
       if (!tomada) continue; // otro reloj se la llevó
       try {

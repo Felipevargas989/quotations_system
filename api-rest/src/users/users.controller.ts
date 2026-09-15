@@ -10,6 +10,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { SinPlan } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { logSafe } from '../logging/log-safe';
@@ -35,7 +36,12 @@ export class UsersController {
     this.logger.info(
       `POST /users with createUserDto ${logSafe(createUserDto)}`,
     );
-    return this.usersService.create(createUserDto, user.company_id);
+    // El tope de usuarios del plan viaja en la sesión (paso 3.2,
+    // 14-09-2026); el servicio cuenta antes de crear nada.
+    return this.usersService.create(createUserDto, user.company_id, {
+      usuarios_max: user.usuarios_max,
+      plan: user.plan,
+    });
   }
 
   @Roles(...ADMIN_ONLY)
@@ -57,6 +63,9 @@ export class UsersController {
   // Aislamiento entre empresas (14-09-2026): ver y editar solo perfiles de
   // la propia empresa. `AuthGuard` sigue usando `findOne` sin empresa para
   // poblar la sesión; estas dos puertas usan las variantes con empresa.
+  // Una empresa bloqueada igual necesita su perfil: es por donde la
+  // app sabe qué plan tiene y qué pantalla mostrarle (paso 3.2).
+  @SinPlan()
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /users/${id}`);

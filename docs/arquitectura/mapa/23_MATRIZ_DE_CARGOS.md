@@ -87,3 +87,25 @@ reales de 16 controladores y falla si una ruta acordada cambia de cargo o si
 aparece una ruta nueva sin cargo. Agregar una ruta a uno de esos
 controladores obliga a declararle cargo, o a anotarla como "solo sesión a
 propósito" en la prueba.
+
+## El cargo ya no basta: también tiene que estar el derecho
+
+El mismo 14-09-2026, en el paso 3.2, se sumó el **candado por plan**. Desde
+entonces el acceso a una ruta se decide con dos preguntas, y las dos tienen
+que decir que sí:
+
+1. **¿El cargo lo permite?** La responde `RolesGuard` con esta matriz.
+2. **¿La empresa tiene el derecho?** La responde `DerechosGuard`, el cuarto
+   guardián, con la lista de derechos que el plan de la empresa rellena.
+
+Son independientes a propósito: un administrador de una empresa en el plan
+Cotiza no entra al Calendario, y una recepcionista de una empresa en Opera y
+Crece tampoco entra a Personas. Nada de lo acordado acá cambia; se le sumó
+una segunda pregunta. El detalle vive en `15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md`,
+§5.8.
+
+Esta matriz tiene desde ese día una **hermana**:
+`api-rest/src/auth/tests/matriz-de-derechos.spec.ts`, que hace lo mismo con
+los derechos. Aquella cuida que ninguna ruta quede sin cargo; esta cuida que
+ninguna función de un plan superior quede sin candado de plan. Las dos leen
+los decoradores reales, no una copia.

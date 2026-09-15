@@ -61,3 +61,14 @@ export const olvidarPerfil = (userId: string): void =>
 // se borra TODO el panel de esa empresa y se recalcula a la próxima.
 export const invalidarPanelEmpresa = (companyId: number): void =>
   cachePanel.borrarPorPrefijo(`${companyId}:`);
+
+// companyId → derechos del plan de esa empresa (paso 3.2, 14-09-2026).
+// Lo usan las puertas públicas (portal, encuesta, formulario) y los
+// relojes, que no tienen sesión de dónde sacarlos. Vence en 5 minutos:
+// un cambio de plan desde la Torre de Control lo borra al instante, y
+// estos 5 minutos son solo el techo por si algo se escapa.
+export const cacheDerechos = new CacheMemoria<unknown>(500);
+export const CINCO_MINUTOS_MS = 5 * 60 * 1000;
+
+export const olvidarDerechos = (companyId: number): void =>
+  cacheDerechos.delete(String(companyId));

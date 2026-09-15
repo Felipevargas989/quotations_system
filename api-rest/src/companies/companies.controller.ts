@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { SinPlan } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CompaniesService } from './companies.service';
@@ -87,6 +88,9 @@ export class CompaniesController {
   // La ficha completa exige sesión (la usa Configuración de Empresa) y,
   // desde el 14-09-2026, solo la de la PROPIA empresa: los id de
   // empresa son correlativos y esta ficha trae los datos de cobro.
+  // Configuración sigue abierta con el plan bloqueado: es donde el
+  // cliente ve sus datos mientras decide (paso 3.2, 14-09-2026).
+  @SinPlan()
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /companies/${id} by company ${user.company_id}`);
@@ -96,6 +100,7 @@ export class CompaniesController {
     return this.companiesService.findOne(+id);
   }
 
+  @SinPlan()
   @Roles(...ADMIN_ONLY)
   @Patch()
   update(

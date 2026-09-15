@@ -43,7 +43,10 @@ export class UsersRepository {
           instagram,
           facebook,
           sitio_web,
-          modulos_propios
+          modulos_propios,
+          plan,
+          estado_plan,
+          prueba_vence
         )
         `,
       )
@@ -63,6 +66,20 @@ export class UsersRepository {
     const { data, error } = await query;
     if (error) throw error;
     return data as User[];
+  }
+
+  /**
+   * Cuántos usuarios tiene una empresa. Lo usa el tope de usuarios por
+   * plan (paso 3.2, 14-09-2026): cuenta sin traer ni una fila, porque
+   * solo importa el número.
+   */
+  async contarDeEmpresa(companyId: Company['id']): Promise<number> {
+    const { count, error } = await this.supabase.client
+      .from('user_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return count ?? 0;
   }
 
   async createAuthUser(createUserDto: CreateUserDto): Promise<AuthResponse> {

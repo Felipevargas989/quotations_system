@@ -43,4 +43,12 @@ export class Company {
   };
   currency: string;
   is_active: boolean;
+  // Migración 112 (14-09-2026): el plan contratado y en qué estado está.
+  // El código NO los consulta directo — los traduce `auth/derechos.ts` a
+  // una lista de derechos, y todo el sistema pregunta por el derecho.
+  plan?: 'cotiza' | 'gestiona' | 'crece';
+  estado_plan?: 'prueba' | 'activo' | 'moroso' | 'bloqueado';
+  /** Cuándo termina la prueba gratis. Null si ya no está en prueba. */
+  prueba_vence?: string | null;
+  plan_cambiado_en?: string;
 }

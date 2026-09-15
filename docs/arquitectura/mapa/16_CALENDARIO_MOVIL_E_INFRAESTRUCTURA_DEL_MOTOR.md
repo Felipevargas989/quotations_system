@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -270,7 +270,20 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | 11:00 UTC diario (`CronExpression.EVERY_DAY_AT_11AM`) | 07:00 / 08:00 | `api-rest/src/payments/payments-cron.service.ts`, `PaymentsCronService.checkUpcomingOverduePayments` | Recordatorio de cuotas pendientes que vencen en 3 días o hoy, al mandante y a los administradores | 03 y 12 |
 | 11:00 UTC diario (`CronExpression.EVERY_DAY_AT_11AM`) | 07:00 / 08:00 | mismo archivo, `PaymentsCronService.checkOverduePayments` | Aviso de cuotas con 7 días de vencidas, al mandante y a los administradores | 03 y 12 |
 | 11:00 UTC diario (`'0 11 * * *'`) | 07:00 / 08:00 | `api-rest/src/quotations/quotations-cron.service.ts`, `QuotationsCronService.sendQuotationFollowUps` | Seguimiento de cotizaciones enviadas: dos toques al mandante, a los 7 y a los 14 días desde `sent_at` | 02 y 12 |
+| 11:00 UTC diario (`'0 11 * * *'`), desde el 14-09-2026 | 07:00 / 08:00 | `api-rest/src/plans/plan-cron.service.ts`, `PlanCronService.bloquearPruebasVencidas` | Pasa a `bloqueado` toda empresa en `prueba` con `prueba_vence` cumplido, y olvida su memoria de derechos para que rija al instante. No manda correos todavía: ese aviso llega con el cobro (paso 5), cuando pueda llevar el enlace para pagar | 15 |
 | Lunes 11:00 UTC (`'0 11 * * 1'`) | lunes 07:00 / 08:00 | mismo archivo, `QuotationsCronService.sendWeeklyDigest` | Resumen semanal a los administradores: eventos aceptados de la semana y embudo vigente. Solo sale si hay algo que contar | 02 y 12 |
+
+**Los relojes ahora miran el plan de cada empresa (14-09-2026, paso 3.2).** Cuatro de ellos recorren filas de **todas** las empresas, así que antes de trabajar preguntan si la empresa dueña de la fila tiene el derecho. No hay sesión en un reloj: la respuesta la da `DerechosService.deEmpresa(company_id)`, con memoria de 5 minutos para que un reloj que manda 200 correos no pregunte 200 veces por la misma empresa.
+
+| Reloj | Exige | Nota |
+|---|---|---|
+| `QuotationsCronService.sendQuotationFollowUps` | `correos_automaticos` | Es de Opera y Crece |
+| `QuotationsCronService.sendWeeklyDigest` | solo `base`, o sea **todos los planes** salvo empresa bloqueada | Decisión de Felipe: es barato y engancha |
+| `ConsultasCronService.despachar` → `ConsultasService.despacharPendientes` | `consultas` | El filtro va **antes** de `tomarEnvio` |
+| `PaymentsCronService` (las dos vueltas de cobranza) | `post_venta` | — |
+| `MarketingCronService.despacharProgramadas` | `marketing` | El filtro va **antes** de `tomarProgramada` |
+
+En los dos relojes que "toman" una fila con un candado (embudo y campañas) el filtro va **antes** de tomarla. Al revés —tomar primero y descartar después— la fila quedaría marcada como despachada sin que hubiera salido nada, y nadie sabría por qué. El detalle de qué trae cada plan está en el mapa 15, §5.8; el de los correos, en el 12.
 
 **Candado del 11-09-2026 sobre el RPC del respaldo.** `get_backup_tables()`, la función que le entrega a `dailyBackup` la lista de tablas, tenía `EXECUTE` abierto a `PUBLIC` (cualquiera con la llave pública veía el nombre de todas las tablas de `public`, sin datos). La migración `109_candado_get_backup_tables.sql` lo revocó de `PUBLIC` y de `anon`/`authenticated`, y confirmó el de `service_role` — el rol con el que este mismo reloj la llama. Aplicada en lab y producción; detalle en el punto 5.4 y en la pregunta abierta 5 de este mapa.
 
@@ -280,7 +293,7 @@ Tareas automáticas que **no** son `@Cron`:
 
 ## 8. Zonas de riesgo: si tocas esto, cuidado con aquello
 
-1. **Si tocas** `NODE_ENV` o la condición `cronJobs` de `ScheduleModule`, **se afectan** los nueve relojes de la sección 7 (brochures, campañas, cobranza, seguimiento, resumen, vencidos, push y respaldo), **porque** todos cuelgan de esa bandera. El respaldo, además, revisa `NODE_ENV` por su cuenta. En el laboratorio nada de esto se ve funcionando. Evidencia: `app.module.ts`; `BackupCronService.enabled`.
+1. **Si tocas** `NODE_ENV` o la condición `cronJobs` de `ScheduleModule`, **se afectan** los diez relojes de la sección 7 (brochures, campañas, cobranza, seguimiento, resumen, vencidos, pruebas vencidas, push y respaldo), **porque** todos cuelgan de esa bandera. El respaldo, además, revisa `NODE_ENV` por su cuenta. En el laboratorio nada de esto se ve funcionando. Evidencia: `app.module.ts`; `BackupCronService.enabled`.
 2. **Si cambias** el cargo de un usuario desde Gestión de usuarios (`PATCH /users/:id`), **se afecta** lo que esa persona puede hacer durante hasta 1 hora, **porque** el motor sigue usando el perfil guardado en `cachePerfiles`. `UsersService.update` no llama a `olvidarPerfil`; solo lo hace `UsersService.remove`, aunque los comentarios de `cache/memoria.ts` y de `AuthGuard` digan que editar un usuario lo olvida al instante. Un cambio de rol hecho directo en la base ya obligó a reiniciar el laboratorio el 12-08 (`api-rest/REINICIOS.md`).
 3. **Si el motor corre en más de una instancia**, **se afecta** la memoria de pases, perfiles y panel, **porque** "La memoria vive en el proceso": una escritura borra el panel solo en la instancia que la atendió. Evidencia: `cache/memoria.ts`.
 4. **Si agregas** una escritura en una ruta `@Public` o en un reloj, **se afecta** el Dashboard, que puede mostrar cifras de hasta 1 hora antes, **porque** `PanelInvalidationInterceptor` solo borra la memoria cuando existe `request.user.company_id`. En las rutas públicas `AuthGuard` no deja usuario, y los relojes no pasan por HTTP. Ya ocurre con `POST /quotations/public/:company_id`, `POST /portal/:token/comprobante` y `PaymentsService.updateOverduePayments`.

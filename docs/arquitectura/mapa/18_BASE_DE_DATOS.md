@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -39,7 +39,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95 y 96 |
+| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111 y 112 (secciones 12 y 13) |
 | `user_profiles` | Perfil del usuario: `user_id` → `auth.users`, `email`, `full_name`, `role` (CHECK con los 4 cargos), `company_id` | 15 | `0_initial_models.sql` |
 | `leads` | Prospectos de Eventia desde la landing: nombre, teléfono, correo, empresa, tamaño, ventas. **No tiene `company_id`** | 15 (super-admin) | `0_initial_models.sql`; la 39 cierra la inserción anónima |
 
@@ -441,3 +441,30 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 producción va **antes** del deploy del motor que la lee (ver 15, §5.7).
 Reversa: `111_modulos_propios.reversa.sql`, que exige revertir también el
 guardián, porque sin columna la lista queda vacía y los módulos se cierran.
+
+## 13. Migración 112: derechos por plan (14-09-2026)
+
+Cuatro columnas nuevas en `companies`: `plan text not null default 'cotiza'`
+(CHECK `cotiza | gestiona | crece`), `estado_plan text not null default
+'prueba'` (CHECK `prueba | activo | moroso | bloqueado`), `prueba_vence
+timestamptz` y `plan_cambiado_en timestamptz not null default now()`. Los
+dos CHECK se agregan con `not valid` + `validate` para no bloquear la tabla.
+
+El plan **no se consulta en el código**: rellena una lista de derechos que
+el motor calcula en `api-rest/src/auth/derechos.ts`, y el código pregunta
+siempre por el derecho. `modulos_propios` (migración 111) se suma a esa
+lista: Personal y Marketing son dos derechos más (ver 15, §5.8).
+
+En la misma migración, las tres empresas vivas —1 Valle del Sol, 51 MDS
+Hoteles y 52 la demo Vivo Corriendo— quedan en `crece` + `activo` + sin
+vencimiento, **antes** de que exista ningún candado: el día que se encienda,
+a ninguna le cambia nada. Regla textual de Felipe: "no quiero tocar nada en
+la empresa Valle del Sol".
+
+Aplicada en el laboratorio el 14-09-2026; en producción va **antes** del
+deploy del motor que la lee, igual que la 111, porque el perfil se recuerda
+una hora. Reversa: `112_derechos_por_plan.reversa.sql`, que borra las cuatro
+columnas y no toca `modulos_propios`. A diferencia de la reversa de la 111,
+esta se puede correr sola: sin las columnas toda empresa vuelve a verse como
+en prueba, es decir, con todo abierto, que es el comportamiento anterior al
+candado.

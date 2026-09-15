@@ -298,7 +298,9 @@ export class SuperAdminRepository {
     const { data: companies, error: companiesError } =
       await this.supabase.client
         .from('companies')
-        .select('id, name, created_at');
+        .select(
+          'id, name, created_at, plan, estado_plan, prueba_vence, modulos_propios',
+        );
     if (companiesError) {
       this.logger.error(
         `getTorreBase companies error: ${companiesError.message}`,

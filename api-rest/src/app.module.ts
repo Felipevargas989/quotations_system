@@ -7,7 +7,8 @@ import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
-import { ModulosPropiosGuard } from './auth/modulos-propios.guard';
+import { DerechosGuard } from './auth/derechos.guard';
+import { DerechosModule } from './auth/derechos.module';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    DerechosModule,
     ConfigModule.forRoot({
       isGlobal: true, // makes ConfigService available everywhere without importing
     }),
@@ -117,7 +119,7 @@ import { UsersModule } from './users/users.module';
     // empresas que los tienen encendidos. Después del cargo.
     {
       provide: APP_GUARD,
-      useClass: ModulosPropiosGuard,
+      useClass: DerechosGuard,
     },
   ],
 })

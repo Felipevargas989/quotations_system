@@ -13,6 +13,7 @@ import {
 import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { assertDerecho } from 'src/auth/derechos';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -125,9 +126,20 @@ export class ClientContactsController {
     return this.repo.findByClient(user.company_id, clientId);
   }
 
+  // El contacto principal lo necesita cualquier plan: sin una persona a
+  // quien mandarle la cotización no se puede vender. Tener VARIOS
+  // contactos por cliente es Clientes 360 (Gestiona y Cobra), así que el
+  // candado mira cuántos hay antes de dejar agregar otro (paso 3.2).
   @Roles(...RECEPTION_AND_UP)
   @Post()
-  create(@Body() dto: CreateClientContactDto, @CurrentUser() user: User) {
+  async create(@Body() dto: CreateClientContactDto, @CurrentUser() user: User) {
+    const existentes = await this.repo.findByClient(
+      user.company_id,
+      dto.client_id,
+    );
+    if (existentes.length > 0) {
+      assertDerecho(user.derechos, 'clientes_360');
+    }
     return this.repo.create(user.company_id, dto);
   }
 

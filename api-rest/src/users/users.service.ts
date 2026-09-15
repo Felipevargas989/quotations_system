@@ -5,6 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { assertCupo, derechosDe, type EmpresaConPlan } from 'src/auth/derechos';
 import { olvidarPerfil } from 'src/cache/memoria';
 import { Company } from 'src/companies/entities/company.entity';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
@@ -31,7 +32,16 @@ export class UsersService {
   async create(
     createUserDto: CreateUserDto,
     companyId: Company['id'],
+    cupo?: { usuarios_max?: number | null; plan?: string | null },
   ): Promise<any> {
+    // El tope de usuarios del plan (paso 3.2, 14-09-2026). Se cuenta
+    // ANTES de crear nada en auth: si no, quedaría una cuenta huérfana
+    // en Supabase sin perfil. Bajar de plan no bloquea a nadie que ya
+    // exista — solo impide agregar uno más (decisión de Felipe).
+    if (cupo && cupo.usuarios_max !== null && cupo.usuarios_max !== undefined) {
+      const usados = await this.usersRepository.contarDeEmpresa(companyId);
+      assertCupo('usuarios_max', usados, cupo.usuarios_max, cupo.plan);
+    }
     try {
       // 1. Create user in auth.users table
       const { data, error } =
@@ -73,7 +83,19 @@ export class UsersService {
     if (error || !data || data.company_id !== companyId) {
       throw new NotFoundException('Usuario no encontrado');
     }
-    return { data, error: null };
+    // El perfil es por donde la app se entera de sus derechos (paso 3.2,
+    // 14-09-2026). La cuenta la hace el motor y viaja hecha: la app no
+    // tiene ninguna copia de la tabla de planes, así que cambiar lo que
+    // trae un plan no obliga a publicar la web de nuevo.
+    const empresa = data.companies as EmpresaConPlan | null;
+    const derechos = derechosDe(empresa);
+    return {
+      data: {
+        ...data,
+        companies: empresa ? { ...empresa, ...derechos } : empresa,
+      },
+      error: null,
+    };
   }
 
   /** Editar un perfil solo si es de la empresa de la sesión (14-09-2026). */
