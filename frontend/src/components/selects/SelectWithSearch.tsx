@@ -30,6 +30,7 @@ export default function SelectWithSearch({
   keepOpenOnSelect = false,
   tamano = "base",
   mostrarConteo = true,
+  sinLimpiar = false,
 }: SelectWithSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -232,7 +233,7 @@ export default function SelectWithSearch({
           inválido que React reclama en consola, que los navegadores
           reparan cada uno a su manera y que dejaba al botón principal
           con dos nombres accesibles. (13-08-2026) */}
-      {value && !disabled && (
+      {value && !disabled && !sinLimpiar && (
         <button
           type="button"
           onClick={handleClear}

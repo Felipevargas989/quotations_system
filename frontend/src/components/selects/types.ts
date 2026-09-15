@@ -33,6 +33,12 @@ export interface SelectWithSearchProps {
   // columna apretada usan el chico para calzar con lo de al lado.
   readonly tamano?: "sm" | "base";
 
+  // Esconde la X de limpiar (15-09-2026). Para los campos donde vaciar
+  // NO es una opción válida: una empresa siempre tiene un plan y un
+  // estado, así que ahí la X solo ofrecía algo imposible. Apagada por
+  // omisión: las 47 pantallas que ya la usan siguen igual.
+  readonly sinLimpiar?: boolean;
+
   // Pie con "N resultados". Encendido por omisión —las 15 pantallas que
   // ya usan la pieza lo tienen— pero ninguna de las copias escritas a
   // mano lo lleva, y en listas largas roba alto útil.

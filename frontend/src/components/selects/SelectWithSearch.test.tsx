@@ -347,3 +347,32 @@ describe("SelectWithSearch — deshabilitado", () => {
     expect(screen.queryByPlaceholderText("Buscar...")).toBeNull();
   });
 });
+
+// LA X DE LIMPIAR NO SIEMPRE TIENE SENTIDO (15-09-2026). Hay campos donde
+// vaciar no es una opción válida —una empresa siempre tiene un plan y un
+// estado—, y ahí la X ofrecía algo imposible. `sinLimpiar` la esconde.
+describe("sinLimpiar", () => {
+  const OPCIONES = [
+    { value: "a", label: "Uno" },
+    { value: "b", label: "Dos" },
+  ];
+
+  it("por omisión la X sigue estando, como en las 47 pantallas de antes", () => {
+    render(
+      <SelectWithSearch options={OPCIONES} value="a" onChange={() => {}} />,
+    );
+    expect(screen.getByLabelText("Limpiar selección")).toBeInTheDocument();
+  });
+
+  it("con sinLimpiar no aparece", () => {
+    render(
+      <SelectWithSearch
+        options={OPCIONES}
+        value="a"
+        onChange={() => {}}
+        sinLimpiar
+      />,
+    );
+    expect(screen.queryByLabelText("Limpiar selección")).toBeNull();
+  });
+});

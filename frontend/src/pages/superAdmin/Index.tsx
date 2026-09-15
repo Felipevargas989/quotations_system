@@ -209,6 +209,7 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                     disabled={guardando === e.id}
                     tamano="sm"
                     mostrarConteo={false}
+                    sinLimpiar
                     onChange={(valor) =>
                       cambiar(e, {
                         plan: valor as ValorPlan,
@@ -232,6 +233,7 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                         disabled={guardando === e.id}
                         tamano="sm"
                         mostrarConteo={false}
+                        sinLimpiar
                         onChange={(valor) =>
                           cambiar(e, {
                             estado_plan: valor as ValorEstado,
