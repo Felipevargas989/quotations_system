@@ -13,6 +13,7 @@ import {
 } from "../../../../services/services.service";
 import { NumberInput } from "../../../../components/inputs";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { tieneDerecho } from "../../../../constants/permissions";
 import RecipeTab from "../RecipeTab";
 
 interface VariableServiceFormProps {
@@ -42,6 +43,11 @@ export default function VariableServiceForm({
   allCategoryLinks,
 }: VariableServiceFormProps) {
   const { company } = useAuth();
+  // La receta es del plan Opera y Crece (14-09-2026): sin el derecho no se
+  // nombra la pestaña, porque no se ofrece lo que no se puede abrir. Por el
+  // atajo "receta" de la lista igual se llega, y ahí sale el aviso de mejora
+  // que trae adentro RecipeTab — que es la palanca de venta.
+  const conLogistica = tieneDerecho(company, "logistica");
   const [tab, setTab] = useState<"datos" | "receta">(initialTab);
 
   // Reposicionar la pestaña cada vez que se abre el modal.
@@ -318,23 +324,25 @@ export default function VariableServiceForm({
           >
             Datos generales
           </button>
-          <button
-            type="button"
-            onClick={() => isEditing && setTab("receta")}
-            disabled={!isEditing}
-            title={
-              isEditing
-                ? undefined
-                : "Guarda el servicio primero para definir su receta"
-            }
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
-              tab === "receta"
-                ? "text-blue-600 border-blue-600"
-                : "text-gray-500 border-transparent hover:text-gray-700"
-            } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
-          >
-            <ChefHat size={15} /> Receta
-          </button>
+          {conLogistica && (
+            <button
+              type="button"
+              onClick={() => isEditing && setTab("receta")}
+              disabled={!isEditing}
+              title={
+                isEditing
+                  ? undefined
+                  : "Guarda el servicio primero para definir su receta"
+              }
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
+                tab === "receta"
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
+              } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
+            >
+              <ChefHat size={15} /> Receta
+            </button>
+          )}
         </div>
 
         {tab === "receta" && isEditing && service && company?.id ? (

@@ -299,6 +299,45 @@ congelar "../api-rest/src/people/people.service.ts"          2040
 congelar "src/pages/logistica/components/ComprasTab.tsx"     1794
 congelar "src/pages/personas/FichasTab.tsx"                  1599
 
+# ══ EL GUARDIÁN DE LOS NOMBRES DEL GRAFO ═════════════════════════════
+#
+# Los nombres de negocio de los grupos del grafo los repone un guardián
+# que vive dentro de .git/hooks/post-commit. `graphify hook install`
+# reescribe ese gancho y se lleva el bloque (pasó el 14-09-2026), y sin
+# aviso el grafo se degrada de a poco hasta volver a nombres de archivo.
+# Aquí solo se avisa; reponerlo es un comando:
+#   bash ../atlas_pendiente/reponer_guardian_en_el_gancho.sh
+
+_gancho="$(git rev-parse --show-toplevel 2>/dev/null)/.git/hooks/post-commit"
+if [ -f "$_gancho" ]; then
+  if grep -q "mantener_nombres_del_grafo" "$_gancho"; then
+    printf '  %-42s %s\n' "guardián de nombres en el gancho" "   ok"
+  else
+    printf '  %-42s %s\n' "guardián de nombres en el gancho" "   FALTA"
+    printf '\n     El gancho perdió el guardián de los nombres del grafo.\n'
+    printf '     Reponlo con:\n'
+    printf '       bash ../atlas_pendiente/reponer_guardian_en_el_gancho.sh\n\n'
+    fallas=$((fallas + 1))
+  fi
+fi
+
+# ══ EL MAPA AL DÍA (14-09-2026, pedido de Felipe) ════════════════════
+#
+# El atlas de docs/arquitectura/mapa vale mientras diga la verdad. La
+# regla "el mapa se actualiza en el mismo commit que el código" vivía
+# solo en CLAUDE.md, y un cartel no frena a nadie. Este portero compara
+# las rutas vivas del motor con las que el atlas documenta.
+#
+# La lógica vive en scripts/portero-del-mapa.py, con su propio techo.
+
+if command -v python3 >/dev/null 2>&1 && [ -f ../scripts/portero-del-mapa.py ]; then
+  if ! python3 ../scripts/portero-del-mapa.py; then
+    fallas=$((fallas + 1))
+  fi
+else
+  printf '  %-42s %s\n' "rutas del motor fuera del atlas" "sin python3: no revisado"
+fi
+
 # ══ VEREDICTO ════════════════════════════════════════════════════════
 
 echo ""

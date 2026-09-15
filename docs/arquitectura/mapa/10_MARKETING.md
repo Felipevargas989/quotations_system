@@ -1,6 +1,6 @@
 # Mapa: Marketing por correo
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -33,34 +33,34 @@ Todos viven en `MarketingController` (`api-rest/src/marketing/marketing.controll
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /marketing/audiencias` | `audiencias` | `AudienciasService.listarAudiencias`, `audienciasImportadas`, `tiposDeCliente`, `tiposDeEvento` | `getAudienciasMarketing` desde `MarketingPage` (solo con la pestaña Audiencias abierta o creando campaña) y `EditorDeBorrador` | administrador |
-| `GET /marketing/audiencias/importada?nombre=` | `contactosDeImportada` | `AudienciasService.contactosDeImportada` | `contactosDeAudienciaImportada` desde `VerAudiencia` | administrador |
-| `POST /marketing/audiencias` | `crearAudiencia` | `AudienciasService.crearAudiencia` | `crearAudienciaMarketing` desde `Audiencias` | administrador |
-| `PATCH /marketing/audiencias/importada` | `renombrarImportada` | `AudienciasService.renombrarImportada` | `renombrarAudienciaImportada` (lápiz) | administrador |
-| `PATCH /marketing/audiencias/:id` | `renombrarAudiencia` | `AudienciasService.renombrarAudiencia` | `renombrarAudienciaGuardada` (lápiz) | administrador |
-| `DELETE /marketing/audiencias/importada/contacto?nombre=&email=` | `borrarContactoImportado` | `AudienciasService.borrarContactoImportado` | `eliminarContactoImportado` desde `VerAudiencia` | administrador |
-| `DELETE /marketing/audiencias/importada?nombre=` | `borrarImportada` | `AudienciasService.borrarImportada` (no toca bajas) | `eliminarAudienciaImportada` | administrador |
-| `DELETE /marketing/audiencias/:id` | `borrarAudiencia` | `AudienciasService.borrarAudiencia` | `eliminarAudienciaMarketing` | administrador |
-| `POST /marketing/segmento/previa` | `previaSegmento` | `AudienciasService.previaSegmento` → `resolverSegmentoDe` (muestra de hasta 500) | `previaSegmento` desde `SegmentoBuilder` y desde `VerAudiencia` (guardadas) | administrador |
-| `POST /marketing/contactos/importar` | `importar` | `AudienciasService.importarContactos` | `importarContactosMarketing` | administrador |
+| `GET /marketing/audiencias` | `audiencias` | `AudienciasService.listarAudiencias`, `audienciasImportadas`, `tiposDeCliente`, `tiposDeEvento` | `getAudienciasMarketing` ← `MarketingPage` (pestaña Audiencias o al crear campaña), `CampanaFichaPage` (dentro de `EditorDeBorrador`) | administrador |
+| `GET /marketing/audiencias/importada?nombre=` | `contactosDeImportada` | `AudienciasService.contactosDeImportada` | `contactosDeAudienciaImportada` ← `MarketingPage` (el "Ver" de una audiencia importada, componente `VerAudiencia`) | administrador |
+| `POST /marketing/audiencias` | `crearAudiencia` | `AudienciasService.crearAudiencia` | `crearAudienciaMarketing` ← `MarketingPage` (pestaña Audiencias) | administrador |
+| `PATCH /marketing/audiencias/importada` | `renombrarImportada` | `AudienciasService.renombrarImportada` | `renombrarAudienciaImportada` ← `MarketingPage` (el lápiz de la pestaña Audiencias) | administrador |
+| `PATCH /marketing/audiencias/:id` | `renombrarAudiencia` | `AudienciasService.renombrarAudiencia` | `renombrarAudienciaGuardada` ← `MarketingPage` (el lápiz de la pestaña Audiencias) | administrador |
+| `DELETE /marketing/audiencias/importada/contacto?nombre=&email=` | `borrarContactoImportado` | `AudienciasService.borrarContactoImportado` | `eliminarContactoImportado` ← `MarketingPage` (componente `VerAudiencia`) | administrador |
+| `DELETE /marketing/audiencias/importada?nombre=` | `borrarImportada` | `AudienciasService.borrarImportada` (no toca bajas) | `eliminarAudienciaImportada` ← `MarketingPage` | administrador |
+| `DELETE /marketing/audiencias/:id` | `borrarAudiencia` | `AudienciasService.borrarAudiencia` | `eliminarAudienciaMarketing` ← `MarketingPage` | administrador |
+| `POST /marketing/segmento/previa` | `previaSegmento` | `AudienciasService.previaSegmento` → `resolverSegmentoDe` (muestra de hasta 500) | `previaSegmento` ← `MarketingPage` (arma el segmento en `SegmentoBuilder` y lo revisa en `VerAudiencia`) | administrador |
+| `POST /marketing/contactos/importar` | `importar` | `AudienciasService.importarContactos` | `importarContactosMarketing` ← `MarketingPage` (pestaña Audiencias) | administrador |
 | `GET /marketing/campanas` | `campanas` | `MarketingService.campanas` | `getCampanasMarketing` desde `MarketingPage` | administrador |
-| `POST /marketing/campanas` | `crear` | `MarketingService.crearCampana` | `crearCampanaMarketing` desde `NuevaCampana` | administrador |
-| `PATCH /marketing/campanas/:id` | `editar` | `MarketingService.editarCampana` (solo borrador; invalida la prueba) | `editarCampanaMarketing` desde `EditorDeBorrador` | administrador |
+| `POST /marketing/campanas` | `crear` | `MarketingService.crearCampana` | `crearCampanaMarketing` ← `MarketingPage` (formulario `NuevaCampana`) | administrador |
+| `PATCH /marketing/campanas/:id` | `editar` | `MarketingService.editarCampana` (solo borrador; invalida la prueba) | `editarCampanaMarketing` ← `CampanaFichaPage` (dentro de `EditorDeBorrador`) | administrador |
 | `DELETE /marketing/campanas/:id` | `borrarCampana` | `MarketingService.borrarCampana` (solo borrador) | `eliminarCampanaMarketing` desde `CampanaFichaPage` | administrador |
-| `GET /marketing/campanas/:id/destinatarios` | `destinatarios` | `MarketingService.destinatariosDe` | `destinatariosDeCampana` (la pregunta "¿Enviar a N?") | administrador |
-| `POST /marketing/campanas/:id/prueba` | `prueba` | `MarketingService.enviarPrueba` (marca vía `empresaDe`) | `enviarPruebaCampana` | administrador |
-| `POST /marketing/campanas/:id/programar` | `programar` | `MarketingService.programarCampana` | `programarCampana` desde `BotonProgramar` | administrador |
-| `DELETE /marketing/campanas/:id/programar` | `cancelarProgramacion` | `MarketingService.cancelarProgramacion` | `cancelarProgramacion` desde `CajaProgramada` | administrador |
-| `GET /marketing/campanas/:id/recomendacion-horario` | `recomendacionHorario` | `MarketingService.recomendacionesDe` | `recomendacionHorario` desde `BotonProgramar` | administrador |
+| `GET /marketing/campanas/:id/destinatarios` | `destinatarios` | `MarketingService.destinatariosDe` | `destinatariosDeCampana` ← `CampanaFichaPage` (la pregunta "¿Enviar a N?") | administrador |
+| `POST /marketing/campanas/:id/prueba` | `prueba` | `MarketingService.enviarPrueba` (marca vía `empresaDe`) | `enviarPruebaCampana` ← `CampanaFichaPage` | administrador |
+| `POST /marketing/campanas/:id/programar` | `programar` | `MarketingService.programarCampana` | `programarCampana` ← `CampanaFichaPage` (botón `BotonProgramar` de `ProgramarEnvio.tsx`) | administrador |
+| `DELETE /marketing/campanas/:id/programar` | `cancelarProgramacion` | `MarketingService.cancelarProgramacion` | `cancelarProgramacion` ← `CampanaFichaPage` (caja `CajaProgramada` de `ProgramarEnvio.tsx`) | administrador |
+| `GET /marketing/campanas/:id/recomendacion-horario` | `recomendacionHorario` | `MarketingService.recomendacionesDe` | `recomendacionHorario` ← `CampanaFichaPage` (botón `BotonProgramar` de `ProgramarEnvio.tsx`) | administrador |
 | `POST /marketing/campanas/:id/enviar` | `enviar` | `MarketingService.enviarCampana` (copia a `user.email`) | `enviarCampana` desde `CampanaFichaPage` (borrador, o "Enviar ahora" de una programada) | administrador |
-| `GET /marketing/campanas/:id/detalle` | `detalle` | `MarketingService.detalleDe` | `detalleDeCampana` | administrador |
-| `GET /marketing/campanas/:id/html` | `html` | `MarketingService.htmlDe` | `htmlDeCampana` (el `iframe`) | administrador |
-| `GET /marketing/campanas/:id/resultados` | `resultados` | `MarketingService.resultadosDe` | **Nadie.** `resultadosDeCampana` existe en el servicio de la app, pero ninguna pantalla la llama | administrador |
-| `GET /marketing/campanas/:id/sin-abrir` | `sinAbrir` | `MarketingService.sinAbrirDe` | `sinAbrirDeCampana` (abre el modal de reenvío) | administrador |
-| `POST /marketing/campanas/:id/reenviar` | `reenviar` | `MarketingService.reenviarANoAbiertos` | `reenviarCampana` | administrador |
-| `POST /marketing/webhook` | `webhook` | `BajasService.verificarFirmaSvix` + `procesarEventoResend` | Resend (externo), no la app | `@Public()`, `@Throttle` 1200 por minuto |
-| `GET /marketing/baja?c=&e=&t=&ca=` | `bajaConfirmar` | `BajasService.bajaValida` (no suprime) | el link del pie del correo, en el navegador del destinatario | `@Public()`, `@Throttle` 10 por minuto |
-| `POST /marketing/baja?c=&e=&t=&ca=` | `bajaEjecutar` | `BajasService.procesarBaja` → `MarketingRepository.suprimir` | el botón de la página de confirmación, y el "Darse de baja" de Gmail u Outlook (cabecera `List-Unsubscribe-Post`) | `@Public()`, `@Throttle` 10 por minuto |
+| `GET /marketing/campanas/:id/detalle` | `detalle` | `MarketingService.detalleDe` | `detalleDeCampana` ← `CampanaFichaPage` | administrador |
+| `GET /marketing/campanas/:id/html` | `html` | `MarketingService.htmlDe` | `htmlDeCampana` ← `CampanaFichaPage` (el `iframe`) | administrador |
+| `GET /marketing/campanas/:id/resultados` | `resultados` | `MarketingService.resultadosDe` | **Nadie** desde la app: `resultadosDeCampana` existe en `marketing.service.ts`, pero ninguna pantalla la importa | administrador |
+| `GET /marketing/campanas/:id/sin-abrir` | `sinAbrir` | `MarketingService.sinAbrirDe` | `sinAbrirDeCampana` ← `CampanaFichaPage` (abre el modal de reenvío) | administrador |
+| `POST /marketing/campanas/:id/reenviar` | `reenviar` | `MarketingService.reenviarANoAbiertos` | `reenviarCampana` ← `CampanaFichaPage` (modal de reenvío) | administrador |
+| `POST /marketing/webhook` | `webhook` | `BajasService.verificarFirmaSvix` + `procesarEventoResend` | **Nadie** desde la app: la llama Resend (externo) | `@Public()`, `@Throttle` 1200 por minuto |
+| `GET /marketing/baja?c=&e=&t=&ca=` | `bajaConfirmar` | `BajasService.bajaValida` (no suprime) | **Nadie** desde la app: la abre el link del pie del correo, en el navegador del destinatario | `@Public()`, `@Throttle` 10 por minuto |
+| `POST /marketing/baja?c=&e=&t=&ca=` | `bajaEjecutar` | `BajasService.procesarBaja` → `MarketingRepository.suprimir` | **Nadie** desde la app: el botón de la página de confirmación que sirve el motor, y el "Darse de baja" de Gmail u Outlook (cabecera `List-Unsubscribe-Post`) | `@Public()`, `@Throttle` 10 por minuto |
 
 Sin endpoint: el reloj `MarketingCronService.despacharProgramadas` (`api-rest/src/marketing/marketing-cron.service.ts`).
 
@@ -355,3 +355,15 @@ Importada:
 - `frontend/src/services/storage.service.ts` (`uploadCampaignBanner`).
 - `frontend/public/correo/`: íconos que usan los correos (whatsapp, instagram, facebook, web).
 - `frontend/src/components/PieDeMarcaPublico.tsx`: gemelo del pie del correo en páginas públicas.
+
+## Módulos propios (14-09-2026, rama `pruebas`, paso 3 del roadmap de venta)
+
+Este módulo **no se vende**: es de Valle del Sol. Cada empresa guarda en
+`companies.modulos_propios` (migración 111) qué módulos propios tiene; la
+empresa 1 nace con `personal` y `marketing`. La app esconde el ítem del menú
+y la ruta (`Sidebar.canAccess`, `PermissionGuard` con `modulo`), y el motor
+niega todas sus rutas con `ModulosPropiosGuard` (`@ModuloPropio` en el
+controller), salvo las que otras pantallas usan y se abren con
+`@ModuloPropio(null)`. Detalle en 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.
+
+Las rutas `@Public` del webhook y de la baja no pasan por el guardián. El embudo de Consultas sigue usando `plantillaCampana` por código: el candado cierra pantallas y rutas, no la plantilla.

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
+import { tieneDerecho } from 'src/auth/derechos';
+import { DerechosService } from 'src/auth/derechos.service';
 import { EmailService } from 'src/email/email.service';
 import { WeeklyDigestParams } from 'src/email/templates/weeklyDigest/types';
 import { EmailStructure } from 'src/email/types';
@@ -38,6 +40,8 @@ export class QuotationsCronService {
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly logger: PinoLogger,
+    // Para preguntar el plan de cada empresa: acá no hay sesión.
+    private readonly derechosService: DerechosService,
   ) {
     this.logger.setContext(QuotationsCronService.name);
   }
@@ -67,6 +71,13 @@ export class QuotationsCronService {
           hoyUtc.toISOString(),
         );
         for (const q of filas) {
+          // LOS CORREOS AUTOMÁTICOS son de Opera y Crece (paso 3.2,
+          // 14-09-2026). El reloj recorre cotizaciones de todas las
+          // empresas, así que el filtro va acá, cotización por cotización.
+          const derechos = await this.derechosService.deEmpresa(q.company_id);
+          if (!tieneDerecho(derechos.derechos, 'correos_automaticos')) {
+            continue;
+          }
           const mandante = await this.quotationsRepository.findContactById(
             q.client_contact_id,
           );
@@ -181,6 +192,14 @@ export class QuotationsCronService {
           r.pipeline.enviadas +
           r.pipeline.enNegociacion;
         if (r.eventos.length === 0 && totalPipeline === 0) continue;
+
+        // El resumen del lunes va en TODOS los planes (decisión de Felipe,
+        // 14-09-2026: es barato y engancha). Lo único que lo detiene es que
+        // la empresa esté bloqueada, que se queda sin ningún derecho.
+        const derechos = await this.derechosService.deEmpresa(
+          Number.parseInt(companyId),
+        );
+        if (!tieneDerecho(derechos.derechos, 'base')) continue;
 
         const admins = await this.usersService.findAll(
           Number.parseInt(companyId),

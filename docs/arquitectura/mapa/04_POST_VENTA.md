@@ -1,6 +1,6 @@
 # Mapa: Post-Venta
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -28,8 +28,8 @@ Mientras el evento está aceptado, editar sus servicios mueve el plan de pagos s
 | pestaña Pagos | `RegistrarPagoPanel`, `EditRegistroModal`, `ReembolsosManager`, `DocViewerPanel` | `PostVentaPage.tsx` | Calendario de cuotas; registrar, rectificar y eliminar abonos; editar fecha y nota de una cuota sin plata; reembolsos (ver mapa 03) | idem |
 | pestaña Documentos | `DocumentosTab` + `DocViewerPanel` | `PostVentaPage.tsx` | Sube un documento: categoría, archivo (imagen o PDF, máximo 5 MB) y un comentario de hasta 80 caracteres que sirve de etiqueta. Lo ve embebido, lo descarga o lo elimina | idem |
 | pestaña Servicios | `ServiciosTab` | `frontend/src/pages/postventa/ServiciosTab.tsx` | Edita adultos y niños, cajas de servicios por categoría y día, fijos, descuento (% o $), propina y comentarios. Ve el resumen y el margen. Guarda solo o con "Guardar cambios" | idem; margen solo `operaciones` y `administrador`; tope de descuento por rol |
-| pestaña Gestión | `GestionTab` → `GrillaPersonal`, `EventResourcesSection` | `GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx` | Rentabilidad (venta sin propina, costo y margen), personal preliminar (sillas), arriendos, insumos (modal y CSV) y mobiliario contra stock (ver mapas 06 y 07) | idem |
-| pestaña Cocina | `CocinaTab` → `FichaCocinaSection` | `CocinaTab.tsx`, `FichaCocinaSection.tsx` | Horarios por servicio, notas, platos e impresión (ver mapa 06) | idem |
+| pestaña Gestión | `GestionTab` → `GrillaPersonal`, `EventResourcesSection` | `GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx` | Rentabilidad (venta sin propina, costo y margen), personal preliminar (sillas), arriendos, insumos (modal y CSV) y mobiliario contra stock (ver mapas 06 y 07) | idem, **y solo con el derecho `gestion_y_cocina`** (plan Opera y Crece, 14-09-2026): sin él la pestaña ni se nombra |
+| pestaña Cocina | `CocinaTab` → `FichaCocinaSection` | `CocinaTab.tsx`, `FichaCocinaSection.tsx` | Horarios por servicio, notas, platos e impresión (ver mapa 06) | idem, mismo derecho `gestion_y_cocina` |
 | `/negocio/:id`, pestaña "cotizacion" | `ServiciosTab` (la misma pieza, con `paidAmount={0}`) | `frontend/src/pages/quotations/NegocioPage.tsx` | Editar la cotización en pre-venta (ver mapa 02) | `SECTION_ROLES.quotations_edit` |
 
 Formas de llegar a Post-Venta:
@@ -44,35 +44,35 @@ Formas de llegar a Post-Venta:
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /event-documents?quotationId=` | `EventDocumentsController.findByQuotation` | sin service: `EventDocumentsRepository.findByQuotation` (mismo archivo) | `documents.service.getDocumentsByQuotation` ← `DocumentosTab` (`docsQueryOpts`), aviso de factura de `EventModal`, `AdjuntosComerciales` | `OPERATIONS_AND_UP` (en la clase) |
-| `POST /event-documents` | `EventDocumentsController.add` | `EventDocumentsRepository.add` | `addDocument` ← `DocumentosTab.onUpload`, `AdjuntosComerciales.subir` | `OPERATIONS_AND_UP` |
-| `DELETE /event-documents/:id` | `EventDocumentsController.delete` | `EventDocumentsRepository.delete` | `deleteDocument` ← `DocumentosTab.onDelete`, `AdjuntosComerciales.borrar` | `OPERATIONS_AND_UP` |
-| `POST /storage/upload` (`kind=event-document`) | `StorageController.upload` | `StorageService.upload` | `storage.service.uploadEventDocument` | sin `@Roles` (basta la sesión) |
-| `GET /storage/signed-url?src=` | `StorageController.signedUrl` | `StorageService.signedUrl` | `resolveStorageUrl` ← `DocViewerPanel`, `AdjuntosComerciales.abrirVisor` | sin `@Roles` |
-| `POST /storage/delete` | `StorageController.remove` | `StorageService.remove` | `deleteStorageFileByUrl` ← `DocumentosTab.onDelete` | sin `@Roles` |
-| `POST /quotations/:id/realizado` | `QuotationsController.markEventDone` | `QuotationsService.markEventDone` | `quotations.service.markEventDone` ← `EventModal.doMarkDone` | `OPERATIONS_AND_UP` |
-| `POST /quotations/:id/volver-a-pendiente` | `QuotationsController.unmarkEventDone` | `QuotationsService.unmarkEventDone` | `unmarkEventDone` ← `EventModal.doUnmarkDone` | `ADMIN_ONLY` |
-| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` ← `ServiciosTab.save`, `EventModal.doCancelEvent`, `EventoCajitas.guardar` | sin `@Roles`; el service frena a `recepcion` si no es requerimiento |
-| `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` | `getQuotationById` ← `EventModal` (clave `["quotation", id]`) | `@Public` |
-| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | `QuotationsService.checkConflictsWithExistingQuotations` | `EventoCajitas.revisarChoques` | sin `@Roles` |
+| `GET /event-documents?quotationId=` | `EventDocumentsController.findByQuotation` | sin service: `EventDocumentsRepository.findByQuotation` (mismo archivo) | `getDocumentsByQuotation` ← `PostVentaPage` (ficha: `DocumentosTab` con `docsQueryOpts` y el aviso de factura de `EventModal`), `NegocioPage`; a las dos las alcanza también `AdjuntosComerciales` (`SeguimientoPanel.tsx`) | `OPERATIONS_AND_UP` (en la clase) |
+| `POST /event-documents` | `EventDocumentsController.add` | `EventDocumentsRepository.add` | `addDocument` ← `PostVentaPage` (ficha, `DocumentosTab.onUpload`), y `PostVentaPage` y `NegocioPage` vía `AdjuntosComerciales.subir` | `OPERATIONS_AND_UP` |
+| `DELETE /event-documents/:id` | `EventDocumentsController.delete` | `EventDocumentsRepository.delete` | `deleteDocument` ← `PostVentaPage` (ficha, `DocumentosTab.onDelete`), y `PostVentaPage` y `NegocioPage` vía `AdjuntosComerciales.borrar` | `OPERATIONS_AND_UP` |
+| `POST /storage/upload` (`kind=event-document`) | `StorageController.upload` | `StorageService.upload` | `uploadEventDocument` ← `PostVentaPage` (ficha, `DocumentosTab`), y `PostVentaPage` y `NegocioPage` vía `AdjuntosComerciales` | sin `@Roles` (basta la sesión) |
+| `GET /storage/signed-url?src=` | `StorageController.signedUrl` | `StorageService.signedUrl` | `resolveStorageUrl` ← `PostVentaPage` (ficha: `DocViewerPanel` y la pieza `FileViewLink`), y `PostVentaPage` y `NegocioPage` vía `AdjuntosComerciales.abrirVisor` | sin `@Roles` |
+| `POST /storage/delete` | `StorageController.remove` | `StorageService.remove` | `deleteStorageFileByUrl` ← `PostVentaPage` (ficha, `DocumentosTab.onDelete`); es la única pantalla que lo llama | sin `@Roles` |
+| `POST /quotations/:id/realizado` | `QuotationsController.markEventDone` | `QuotationsService.markEventDone` | `markEventDone` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.doMarkDone`); es la única pantalla | `OPERATIONS_AND_UP` |
+| `POST /quotations/:id/volver-a-pendiente` | `QuotationsController.unmarkEventDone` | `QuotationsService.unmarkEventDone` | `unmarkEventDone` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.doUnmarkDone`); es la única pantalla | `ADMIN_ONLY` |
+| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` ← `PostVentaPage` (ficha: `EventModal.doCancelEvent`, `ServiciosTab.save`, `EventoCajitas.guardar`), `NegocioPage` (directo en `cambiarEstado`, más `ServiciosTab` y `EventoCajitas`), y fuera de Post-Venta `QuotationsPage`, `QuotationForm` y `RequestsPage` (pieza `RequestForm`) | sin `@Roles`; el service frena a `recepcion` si no es requerimiento |
+| `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` | `getQuotationById` ← `PostVentaPage` (ficha, `EventModal`, clave `["quotation", id]`), y además `NegocioPage`, `QuotationForm`, `QuotationsPage`, `Calendar`, `ClientDetailPage`, `ResumenDelDia` (Personas), `PublicSurvey` y `PaymentPlanEditor` (desde `QuotationsPage` y `NegocioPage`) | `@Public` |
+| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | `QuotationsService.checkConflictsWithExistingQuotations` | `checkConflictsWithExistingQuotations` ← `PostVentaPage` (ficha) y `NegocioPage`, las dos por `EventoCajitas.revisarChoques`; fuera de Post-Venta, `QuotationForm` y `RequestsPage` (`RequestForm`) por el hook `useDateAvailability` | sin `@Roles` |
 
 **Conexiones** (se documentan a fondo en el mapa indicado)
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
 | `GET /payments/transactions` | `PaymentsController.findAllPaymentsWithTransactions` | `PaymentsService.findAllPaymentsWithTransactions` | `getPaymentsWithTransactions` ← `PostVentaPage.fetchEvents` (mapa 03) | sin `@Roles` |
-| `GET /payments?quotationId=` | `PaymentsController.findAllPaymensFromQuotation` | `PaymentsService.findAllPaymentsFromQuotation` | `getPaymentsByQuotationId` ← `ServiciosTab` (`planVivo`), `AvisoPlanDePagos` (mapa 03) | sin `@Roles` |
-| `PATCH /payments/:id` | `PaymentsController.updatePaymentSchedule` | ver mapa 03 | `updatePaymentSchedule` ← `EventModal.onSaveCuota` | `OPERATIONS_AND_UP` |
-| `POST /payments/transactions/overflow`, `PATCH` y `DELETE /payments/transactions/:id` | `createOverflowPaymentTransaction`, `updatePaymentTransaction`, `removePaymentTransaction` | ver mapa 03 | `RegistrarPagoPanel`, `EditRegistroModal`, `EventModal.onDeleteTx` | `OPERATIONS_AND_UP` |
-| `GET /refunds/paid-map`, `GET /refunds/by-quotation`, `PATCH /refunds/:id/register` | `RefundsController.paidMap`, `findByQuotation`, `register` | ver mapa 03 | `fetchEvents`, `ReembolsosManager` (`getRefundsByQuotation`), `RefundRow` (`registerRefund`) | `OPERATIONS_AND_UP` (en la clase) |
-| `GET /portal-receipts`, `POST /portal-receipts/:id/confirmar` y `/rechazar` | `list`, `confirm`, `reject` en `api-rest/src/quotations/portal-receipts.controller.ts` | ver mapa 03 | `receiptsQuery` y `actuarComprobante` de `PostVentaPage` | GET sin `@Roles`; POST `OPERATIONS_AND_UP` |
-| `GET /quotation-followups/map` | `QuotationFollowupsController.map` | ver mapa 02 | `getFollowupsMap` ← lista y `EventModal` | `RECEPTION_AND_UP` |
-| `GET /clients` | `ClientsController.findAll` | `ClientsService.findAll` | `getClients` ← `fetchEvents` (mapa 09) | sin `@Roles` |
-| `GET /logistics/purchasing/accepted-events`, `GET /logistics/purchasing/provisioning/:quotationId` | `LogisticsController.acceptedEvents`, `quotationProvisioning` | `LogisticsService.findAcceptedEvents` y `quotationProvisioning` (mapa 06) | `gestionQueryOpts`; `ServiciosTab` solo pide el aprovisionamiento (`getQuotationProvisioning`) | `OPERATIONS_AND_UP` (en la clase) |
-| `GET`/`POST /logistics/event-resources`, `PATCH`/`DELETE /logistics/event-resources/:id` | `eventResources`, `addEventResources`, `updateEventResource`, `deleteEventResource` | ver mapa 06 | `recursosQueryOpts`, `EventResourcesSection` | `OPERATIONS_AND_UP` |
-| `/logistics/kitchen/times`, `/logistics/kitchen/notes`, `/logistics/kitchen/day-prints` | `serviceTimes`, `setServiceTime`, `kitchenNotes`, `addKitchenNote`, `deleteKitchenNote`, `dayPrints`, `markDaysPrinted` | ver mapa 06 | `FichaCocinaSection` | `OPERATIONS_AND_UP` |
-| `GET /people/staff?evento=`, `POST /people/staff`, `PATCH`/`DELETE /people/staff/:id`, `GET /people/sheets` | `PeopleController.findStaff`, `addStaff`, `updateStaff`, `removeStaff`, `findSheets` | `PeopleService` (mapa 07) | `GrillaPersonal`, `ServiciosTab` (`sillasEvento`) | sin `@Roles` |
-| `GET /services/fixed-sections`, `GET /sections`, `GET /sections/menu-order` y lo que traen `useServices`, `useServiceGroups` y `useBaseLogistica` | ver mapas 05 y 06 | ver mapas 05 y 06 | `ServiciosTab`, `GestionTab`, `CocinaTab`, `FichaCocinaSection` | ver mapas 05 y 06 |
+| `GET /payments?quotationId=` | `PaymentsController.findAllPaymensFromQuotation` | `PaymentsService.findAllPaymentsFromQuotation` | `getPaymentsByQuotationId` ← `PostVentaPage` (ficha) y `NegocioPage` vía `ServiciosTab` (`planVivo`); `QuotationForm` vía `AvisoPlanDePagos`; directo en `QuotationsPage` y `NegocioPage` (mapa 03) | sin `@Roles` |
+| `PATCH /payments/:id` | `PaymentsController.updatePaymentSchedule` | ver mapa 03 | `updatePaymentSchedule` ← `PostVentaPage` (ficha, `EventModal.onSaveCuota`) | `OPERATIONS_AND_UP` |
+| `POST /payments/transactions/overflow`, `PATCH` y `DELETE /payments/transactions/:id` | `createOverflowPaymentTransaction`, `updatePaymentTransaction`, `removePaymentTransaction` | ver mapa 03 | `createOverflowPayment`, `updatePaymentTransaction`, `deletePaymentTransaction` ← `PostVentaPage` (ficha: `RegistrarPagoPanel`, `EditRegistroModal`, `EventModal.onDeleteTx`) | `OPERATIONS_AND_UP` |
+| `GET /refunds/paid-map`, `GET /refunds/by-quotation`, `PATCH /refunds/:id/register` | `RefundsController.paidMap`, `findByQuotation`, `register` | ver mapa 03 | `getPaidRefundsByQuotation`, `getRefundsByQuotation`, `registerRefund` ← `PostVentaPage` (lista, `fetchEvents`; ficha, `ReembolsosManager` y `RefundRow`) | `OPERATIONS_AND_UP` (en la clase) |
+| `GET /portal-receipts`, `POST /portal-receipts/:id/confirmar` y `/rechazar` | `list`, `confirm`, `reject` en `api-rest/src/quotations/portal-receipts.controller.ts` | ver mapa 03 | `listPortalReceipts`, `confirmPortalReceipt`, `rejectPortalReceipt` ← `PostVentaPage` (`receiptsQuery`, `actuarComprobante`); el GET además desde `DashboardPage` | GET sin `@Roles`; POST `OPERATIONS_AND_UP` |
+| `GET /quotation-followups/map` | `QuotationFollowupsController.map` | ver mapa 02 | `getFollowupsMap` ← `PostVentaPage` (lista y `EventModal`) y `QuotationsPage` | `RECEPTION_AND_UP` |
+| `GET /clients` | `ClientsController.findAll` | `ClientsService.findAll` | `getClients` ← `PostVentaPage.fetchEvents`; fuera de Post-Venta, `DashboardPage` (pieza `NewAccount`) (mapa 09) | sin `@Roles` |
+| `GET /logistics/purchasing/accepted-events`, `GET /logistics/purchasing/provisioning/:quotationId` | `LogisticsController.acceptedEvents`, `quotationProvisioning` | `LogisticsService.findAcceptedEvents` y `quotationProvisioning` (mapa 06) | `getAcceptedEvents` y `getQuotationProvisioning` ← `PostVentaPage` (pestaña Gestión, `gestionQueryOpts`); `getQuotationProvisioning` además desde `PostVentaPage` y `NegocioPage` vía `ServiciosTab`; `getAcceptedEvents` también en `InventarioPage` (pieza `MobiliarioTab`) | `OPERATIONS_AND_UP` (en la clase) |
+| `GET`/`POST /logistics/event-resources`, `PATCH`/`DELETE /logistics/event-resources/:id` | `eventResources`, `addEventResources`, `updateEventResource`, `deleteEventResource` | ver mapa 06 | `getEventResources`, `addEventResources`, `updateEventResource`, `deleteEventResource` ← `PostVentaPage` (pestaña Gestión, `EventResourcesSection`); la lectura (`recursosQueryOpts`) además desde `PostVentaPage` (precalentado y `GrillaPersonal`), `NegocioPage` vía `ServiciosTab`, y `Calendar` | `OPERATIONS_AND_UP` |
+| `/logistics/kitchen/times`, `/logistics/kitchen/notes`, `/logistics/kitchen/day-prints` | `serviceTimes`, `setServiceTime`, `kitchenNotes`, `addKitchenNote`, `deleteKitchenNote`, `dayPrints`, `markDaysPrinted` | ver mapa 06 | `getEventServiceTimes`, `setEventServiceTime`, `getEventKitchenNotes`, `addEventKitchenNote`, `deleteEventKitchenNote`, `getEventDayPrints`, `markEventDaysPrinted` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`); los dos de horarios además desde `PersonasPage` (pieza `ResumenDelDia`) | `OPERATIONS_AND_UP` |
+| `GET /people/staff?evento=`, `POST /people/staff`, `PATCH`/`DELETE /people/staff/:id`, `GET /people/sheets` | `PeopleController.findStaff`, `addStaff`, `updateStaff`, `removeStaff`, `findSheets` | `PeopleService` (mapa 07) | `getStaff`, `addStaff`, `updateStaff`, `removeStaff`, `getSheets` ← `PostVentaPage` (pestaña Gestión, `GrillaPersonal`); `getStaff` además en `PostVentaPage` y `NegocioPage` vía `ServiciosTab` (`sillasEvento`) y en `EventResourcesSection`; fuera de Post-Venta los usan `PersonasPage` (`SemanaTab`, `FichasTab`) y `PersonaFichaPage` | sin `@Roles` |
+| `GET /services/fixed-sections`, `GET /sections`, `GET /sections/menu-order` y lo que traen `useServices`, `useServiceGroups` y `useBaseLogistica` | ver mapas 05 y 06 | ver mapas 05 y 06 | `PostVentaPage` (pestañas Servicios, Gestión y Cocina: `ServiciosTab`, `GestionTab`, `CocinaTab`, `FichaCocinaSection`) y `NegocioPage` (`ServiciosTab`) | ver mapas 05 y 06 |
 
 ## 4. Tablas de la base de datos
 
@@ -104,7 +104,7 @@ Formas de llegar a Post-Venta:
 3. Contacto que se muestra: el mandante (`contact_name`), buscado por nombre normalizado en `client_contacts`. Si no hay mandante, el contacto de la ficha del cliente, que se busca **por nombre** en `clientByName`.
 4. Filtros por usuario en `localStorage`: `eventia_postventa_event_filter_<id>` y `eventia_postventa_money_filter_<id>`. La clave vieja `eventia_postventa_status_filter_` se migra una vez y se borra. La búsqueda queda en `eventia_pv_search`, y `?plata=` pisa lo guardado.
 5. Clic en una fila → `openEvent` → pestaña `seguimiento` y `navigate('/post-venta/:id')`. La ficha se arma con la misma fila de la lista (`selected`). Si el id no está en la lista, muestra "No se encontró ese evento en Post-Venta".
-6. `EventModal` carga `GET /quotations/:id` y **precalienta** en paralelo `gestionQueryOpts`, `recursosQueryOpts` y `docsQueryOpts`.
+6. `EventModal` carga `GET /quotations/:id` y **precalienta** en paralelo `gestionQueryOpts`, `recursosQueryOpts` y `docsQueryOpts`. Desde el 14-09-2026 los dos primeros exigen el derecho `logistica`: son consultas de logística que el motor niega con 403 a los planes menores, y dispararlas al abrir **cualquier** evento llenaría el registro de errores que nadie mira. `docsQueryOpts` sigue saliendo siempre: los documentos son del mismo plan que abre la pantalla.
 7. `PostVentaPage` mantiene además `GET /portal-receipts` (`["postventa","comprobantes"]`, fresco 2 min, sondeo cada 5) y `GET /quotation-followups/map` (`["seguimientos","map"]`). `EventModal` reusa esa misma clave para el aviso ámbar o rojo de la pestaña Seguimiento.
 
 ### 5.2 Subir, ver y borrar un documento del evento
@@ -233,6 +233,8 @@ Formas de llegar a Post-Venta:
 ### Gestión
 - **Gestión → Personal tiene dos candados**: evento realizado o ficha liquidada. Felipe, 18-08: *"se debería bloquear solo cuando se marca como realizado o bien se liquidan los pagos"* (`GrillaPersonal`, doc 10).
 - **El modal de insumos es solo informativo**: cantidades y precios se trabajan en Compras (15-08, `GestionTab`, doc 10).
+- **Gestión y Cocina son del plan Opera y Crece** (14-09-2026, derecho `gestion_y_cocina`, mapa 15 §5.8). Sin ese derecho las dos pestañas **no se nombran**: no se ofrece lo que no se puede abrir. Pero se puede llegar igual —la pestaña venía guardada en el estado, o la dirección escrita a mano—, y entonces el contenido va envuelto en `SoloConDerecho` y sale la invitación a mejorar de plan en vez de una pantalla en blanco. Las otras cuatro pestañas (Seguimiento, Pagos, Documentos, Servicios) son del mismo plan que abre Post-Venta (`post_venta`, Gestiona y Cobra).
+- **El enlace "ver en Personas" de `GrillaPersonal` sigue pidiendo el derecho `personal`**, que no lo trae ningún plan: es de Valle del Sol (mapa 15 §5.7). Lo único que cambió el 14-09 es el nombre de la función que lo pregunta: `tieneModulo` pasó a `tieneDerecho`.
 
 ## 7. Conexiones con otros módulos
 
@@ -393,5 +395,6 @@ Formas de llegar a Post-Venta:
 - `frontend/src/services/documents.service.ts`, `storage.service.ts`, `quotations.service.ts`, `payments.service.ts`
 - `frontend/src/components/AvisoPlanDePagos.tsx`, `EventoCajitas.tsx`, `MotivoPerdida.tsx`, `CelebracionRealizada.tsx`
 - `frontend/src/pages/quotations/SeguimientoPanel.tsx`: `HiloSeguimiento`, `AdjuntosComerciales`
-- `frontend/src/constants/permissions.ts`, `frontend/src/constants/api.routes.ts`
+- `frontend/src/constants/permissions.ts` (`SECTION_ROLES.payments`, y desde el 14-09-2026 `tieneDerecho` con `gestion_y_cocina`, `logistica` y `personal`), `frontend/src/constants/api.routes.ts`
+- `frontend/src/components/SoloConDerecho.tsx`: el portero de las pestañas Gestión y Cocina (ver 15 §5.8)
 - `frontend/scripts/portero-kit-de-la-casa.sh`: techos de los gigantes

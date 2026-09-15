@@ -2,6 +2,7 @@ import { DollarSign } from "lucide-react";
 import { MONTHS } from "../../constants/dates";
 import { formatCurrency } from "../../utils/currencies";
 import Tooltip from "../../components/Tooltip";
+import MejoraTuPlan from "../../components/MejoraTuPlan";
 
 /**
  * INGRESOS Y CAJA POR MES — partido en dos mitades (Felipe, 29-08-2026).
@@ -86,6 +87,8 @@ interface Fila {
   /** Las líneas que componen la cifra del mes: el globo al pasar el
    *  mouse. Sin líneas no hay globo, queda el title de siempre. */
   desglose?: (r: MesDeCaja) => LineaDeDesglose[];
+  /** Fila de costo o margen: solo con el plan Opera y Crece (14-09-2026). */
+  nivel3?: boolean;
 }
 
 interface Props {
@@ -94,6 +97,11 @@ interface Props {
   costoPorMes: Map<string, CostoDelMes>;
   pagadoPorMes: Map<string, PagadoDelMes>;
   desglosePorMes: Map<string, DesgloseDeMes>;
+  /** ¿Mostrar el costo y el margen? Son del plan Opera y Crece
+   *  (14-09-2026). Sin ese plan el Dashboard ni siquiera pide las
+   *  consultas de logística, así que estas filas saldrían en cero y el
+   *  margen daría igual a la venta: una cifra falsa. */
+  conMargenes: boolean;
   currency: string;
 }
 
@@ -119,6 +127,7 @@ export default function IngresosYCaja({
   costoPorMes,
   pagadoPorMes,
   desglosePorMes,
+  conMargenes,
   currency,
 }: Props) {
   const plata = (n: number) => formatCurrency(n, currency);
@@ -186,15 +195,18 @@ export default function IngresosYCaja({
         hija: true,
       }),
       desglose: lineasDe("proveedores"),
+      nivel3: true,
     },
     {
       ...filaDePlata("Costo personal", (r) => costo(r).personal, {
         hija: true,
       }),
       desglose: lineasDe("personal"),
+      nivel3: true,
     },
     {
       label: "Margen",
+      nivel3: true,
       cell: (r) => {
         if (!r.ventas) return { text: "—" };
         const v = r.ventas - costoTotalDe(r);
@@ -222,6 +234,7 @@ export default function IngresosYCaja({
     },
     {
       label: "Margen %",
+      nivel3: true,
       cell: (r) => {
         if (!r.ventas) return { text: "—" };
         const v = r.ventas - costoTotalDe(r);
@@ -272,6 +285,7 @@ export default function IngresosYCaja({
         hija: true,
       }),
       desglose: lineasDe("pagadoProv"),
+      nivel3: true,
     },
     {
       ...filaDePlata("Pagado personal", (r) => pagado(r).personal, {
@@ -325,6 +339,11 @@ export default function IngresosYCaja({
     },
   ];
 
+  // Sin el plan que trae los costos, esas filas no se pintan. El Flujo de
+  // caja no cambia: lo pagado a proveedores ya venía en cero.
+  const visibles = (filas: Fila[]) =>
+    conMargenes ? filas : filas.filter((f) => !f.nivel3);
+
   // El globo de cada bloque abre hacia donde tiene aire: el de arriba
   // hacia abajo (hacia arriba lo cortaba el techo del panel, Felipe
   // 31-08) y el de abajo hacia arriba.
@@ -337,13 +356,13 @@ export default function IngresosYCaja({
     {
       titulo: "Resultado",
       subtitulo: "por fecha del evento",
-      filas: filasResultado,
+      filas: visibles(filasResultado),
       globoHacia: "abajo",
     },
     {
       titulo: "Caja",
       subtitulo: "por fecha del movimiento",
-      filas: filasCaja,
+      filas: visibles(filasCaja),
       globoHacia: "arriba",
     },
   ];
@@ -509,6 +528,14 @@ export default function IngresosYCaja({
           <b>·f</b> = mes futuro (venta agendada) · pasa el mouse por una
           cifra para ver de qué clientes se compone
         </p>
+        {/* La ÚNICA invitación de nivel 3 del Dashboard, puesta donde se
+            nota lo que falta: la tabla muestra las ventas del mes y se
+            corta justo antes de decir cuánto quedó. */}
+        {!conMargenes && (
+          <div className="mt-4">
+            <MejoraTuPlan derecho="dashboard_3" variante="recuadro" />
+          </div>
+        )}
       </div>
     </div>
   );

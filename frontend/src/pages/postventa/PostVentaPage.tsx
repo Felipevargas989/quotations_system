@@ -28,6 +28,8 @@ import {
 import { format } from "date-fns";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { useAuth } from "../../contexts/AuthContext";
+import { tieneDerecho } from "../../constants/permissions";
+import SoloConDerecho from "../../components/SoloConDerecho";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
 import FileViewLink from "../../components/FileViewLink";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -1080,13 +1082,19 @@ function EventModal({
   // pestañas, así el precalentado no puede desalinearse.
   const { company: empresaPre } = useAuth();
   const clientePre = useQueryClient();
+  // Gestión y Recursos precalientan rutas de logística, y sin ese derecho
+  // el motor responde 403: mejor no pedirlas que llenar el registro de
+  // errores que nadie ve. Documentos sí: es del plan que abre la pantalla.
+  const conLogistica = tieneDerecho(empresaPre, "logistica");
   useEffect(() => {
     const cid = empresaPre?.id ? Number(empresaPre.id) : null;
     if (!cid || !quote) return;
-    void clientePre.prefetchQuery(gestionQueryOpts(cid, quote.id));
-    void clientePre.prefetchQuery(recursosQueryOpts(cid, String(quote.id)));
+    if (conLogistica) {
+      void clientePre.prefetchQuery(gestionQueryOpts(cid, quote.id));
+      void clientePre.prefetchQuery(recursosQueryOpts(cid, String(quote.id)));
+    }
     void clientePre.prefetchQuery(docsQueryOpts(event.quotationId));
-  }, [empresaPre?.id, quote, event.quotationId, clientePre]);
+  }, [empresaPre?.id, quote, event.quotationId, clientePre, conLogistica]);
 
   // ¿Este evento tiene un compromiso que ya venció o es hoy? Se lee del
   // mismo mapa del tablero (React Query lo comparte, no hay consulta
@@ -1106,6 +1114,9 @@ function EventModal({
     return { dia, vencido: dia < hoyISO };
   })();
 
+  // Gestión y Cocina las trae el plan Opera y Crece, con el derecho
+  // `gestion_y_cocina`; las otras cuatro son del plan que abre la pantalla.
+  const conGestionYCocina = tieneDerecho(empresaPre, "gestion_y_cocina");
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     // Seguimiento va PRIMERO (07-08, pedido de Felipe): es la historia
     // del evento — "si algo se olvida uno va a seguimiento y está todo".
@@ -1608,6 +1619,9 @@ function EventModal({
             estas se quedan arriba. El chip de saldo acompaña siempre. */}
         <div className="shrink-0 flex gap-1 px-6 border-b border-gray-200 items-center sticky top-0 bg-white z-30 rounded-t-2xl">
           {tabs.map((t) => {
+            // Sin el derecho ni se nombran: no se ofrece lo que no se abre.
+            const delPlanCrece = t.key === "gestion" || t.key === "cocina";
+            if (delPlanCrece && !conGestionYCocina) return null;
             // La pestaña Seguimiento avisa sola cuando hay algo
             // pendiente (07-08, pedido de Felipe): se pinta de ámbar
             // —rojo si venció— y tiembla tres veces al abrir el evento.
@@ -1936,31 +1950,25 @@ function EventModal({
             <DocumentosTab quotationId={event.quotationId} />
           )}
 
-          {tab === "gestion" &&
-            (qLoading ? (
-              <div className="py-10 flex justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-              </div>
-            ) : quote ? (
-              <GestionTab quote={quote} />
-            ) : (
-              <p className="text-sm text-gray-500 py-6 text-center">
-                No se pudo cargar la cotización del evento.
-              </p>
-            ))}
-
-          {tab === "cocina" &&
-            (qLoading ? (
-              <div className="py-10 flex justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-              </div>
-            ) : quote ? (
-              <CocinaTab quote={quote} />
-            ) : (
-              <p className="text-sm text-gray-500 py-6 text-center">
-                No se pudo cargar la cotización del evento.
-              </p>
-            ))}
+          {/* Se puede llegar igual sin el derecho: el estado venía
+              guardado, o la dirección escrita. Entonces, la invitación. */}
+          {(tab === "gestion" || tab === "cocina") && (
+            <SoloConDerecho derecho="gestion_y_cocina">
+              {qLoading ? (
+                <div className="py-10 flex justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                </div>
+              ) : !quote ? (
+                <p className="text-sm text-gray-500 py-6 text-center">
+                  No se pudo cargar la cotización del evento.
+                </p>
+              ) : tab === "gestion" ? (
+                <GestionTab quote={quote} />
+              ) : (
+                <CocinaTab quote={quote} />
+              )}
+            </SoloConDerecho>
+          )}
 
           {tab === "servicios" &&
             (qLoading ? (

@@ -1,21 +1,27 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Shield, Lock } from "lucide-react";
-import { UserRole } from "../constants/permissions";
+import { Derecho, UserRole, tieneDerecho } from "../constants/permissions";
+import MejoraTuPlan from "./MejoraTuPlan";
 import PageSkeleton from "./PageSkeleton";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
   allowedRoles: UserRole[];
+  // Derecho del plan (14-09-2026, paso 3.2): la pantalla existe solo si
+  // la empresa lo tiene; si no, la pantalla de "mejora tu plan" en vez de
+  // la página. Es ayuda visual: el motor niega igual con el mismo derecho.
+  derecho?: Derecho;
   fallback?: React.ReactNode;
 }
 
 export default function PermissionGuard({
   children,
   allowedRoles,
+  derecho,
   fallback,
 }: PermissionGuardProps) {
-  const { user, userRole, loading, roleLoading } = useAuth();
+  const { user, userRole, loading, roleLoading, company } = useAuth();
 
   // Show loading while checking permissions. OJO: incluye la ventana en
   // que la sesión ya está pero el rol aún viene en camino — antes esa
@@ -83,6 +89,11 @@ export default function PermissionGuard({
         </div>
       </div>
     );
+  }
+
+  // El plan de la empresa no incluye esta función (paso 3.2, 14-09-2026).
+  if (!tieneDerecho(company, derecho)) {
+    return <MejoraTuPlan derecho={derecho!} />;
   }
 
   // User has permission, render children

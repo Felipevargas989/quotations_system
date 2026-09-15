@@ -1,6 +1,6 @@
 # Mapa: Correos internos, avisos y notificaciones
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y ampliado el 14-09-2026 con el filtro por derecho de los correos automáticos (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -29,28 +29,28 @@ Los botones de los correos llevan a pantallas de otros mapas: `/requests` (mapa 
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `POST /email-previews` | `EmailPreviewsController.sendPreviews` | `EmailService.sendPreviewBatch` | Nadie en la app (la búsqueda de `email-previews` solo encuentra el módulo). Es herramienta de laboratorio y se llama a mano | `@Public`. En producción responde 404 (`NODE_ENV === 'production'`) |
+| `POST /email-previews` | `EmailPreviewsController.sendPreviews` | `EmailService.sendPreviewBatch` | **Nadie** desde la app (la búsqueda de `email-previews` en `frontend/src` no encuentra ninguna llamada). Es herramienta de laboratorio y se llama a mano | `@Public`. En producción responde 404 (`NODE_ENV === 'production'`) |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` | `companies.service.getCompany` ← `ConfigurationPage` (`companyQuery`, clave `["company", id]`) | Con sesión, sin `@Roles` |
 | `PATCH /companies` | `CompaniesController.update` | `CompaniesService.update` → `CompaniesRepository.update` | `companies.service.updateCompany(name, logo_url, colors, { emails, replyTo })` ← `ConfigurationPage.handleSaveNotifications` | `@Roles(...ADMIN_ONLY)` |
-| `GET /movil/push/clave-publica` | `MovilController.clavePublica` | `MovilService.clavePublica` | App Eventia Móvil (`eventia-movil/src/lib/push.ts`) | Con sesión |
-| `POST /movil/push/dispositivos` | `MovilController.registrar` | `MovilService.registrarDispositivo` | idem | Con sesión |
-| `POST /movil/push/probar` | `MovilController.probar` | `MovilService.probar` | idem | Con sesión |
+| `GET /movil/push/clave-publica` | `MovilController.clavePublica` | `MovilService.clavePublica` | **Nadie** desde la app web (no hay ninguna llamada a `movil` ni a `push` en `frontend/src`): la llama Eventia Móvil, que es otro repositorio | Con sesión |
+| `POST /movil/push/dispositivos` | `MovilController.registrar` | `MovilService.registrarDispositivo` | **Nadie** desde la app web: idem, Eventia Móvil | Con sesión |
+| `POST /movil/push/probar` | `MovilController.probar` | `MovilService.probar` | **Nadie** desde la app web: idem, Eventia Móvil | Con sesión |
 
 **Disparadores** (los endpoints son de otros mapas; aquí solo importa qué correo sueltan)
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
 | `POST /quotations/public/:company_id` | `QuotationsController.createPublic` | `QuotationsService.createPublic` → `NEW_PUBLIC_QUOTATION_CLIENT` y `NEW_PUBLIC_QUOTATION_ADMIN` | `createQuotationPublic` ← `CreateQuotationPublic.tsx` (mapa 11) | `@Public` con `@Throttle` 10 por minuto |
-| `PATCH /quotations/:id` (paso a `enviada`) | `QuotationsController.update` | `QuotationsService.update` → `QUOTATION_IS_SENT` | `updateQuotation` ← chip de estado de `NegocioPage.cambiarEstado` y tablero (mapa 02) | Sin `@Roles` |
+| `PATCH /quotations/:id` (paso a `enviada`) | `QuotationsController.update` | `QuotationsService.update` → `QUOTATION_IS_SENT` | `updateQuotation` ← `NegocioPage` (chip de estado, `cambiarEstado`) y `QuotationsPage` (el tablero) (mapa 02) | Sin `@Roles` |
 | `POST /quotations/:id/realizado` | `QuotationsController.markEventDone` | `QuotationsService.markEventDone` → `CUSTOMER_SATISFACTION_SURVEY` | `markEventDone` ← `PostVentaPage` (`doMarkDone`, mapa 04) | `OPERATIONS_AND_UP` |
-| `POST /portal/:token/comprobante` | `PortalController.submitReceipt` (`api-rest/src/quotations/portal.controller.ts`) | `QuotationsService.submitPortalReceipt` → `PORTAL_RECEIPT_ADMIN` | `PortalPage.enviarComprobante` (mapa 03) | `@Public` con `@Throttle` |
+| `POST /portal/:token/comprobante` | `PortalController.submitReceipt` (`api-rest/src/quotations/portal.controller.ts`) | `QuotationsService.submitPortalReceipt` → `PORTAL_RECEIPT_ADMIN` | `enviarComprobante` ← `PortalPage` (mapa 03) | `@Public` con `@Throttle` |
 | `POST /payments/plan` | `PaymentsController.createPaymentPlan` | `PaymentsService.createPaymentPlan` → `PAYMENT_PLAN_CREATED` | `createPaymentPlan` ← `QuotationsPage`, `NegocioPage` (mapa 03) | `OPERATIONS_AND_UP` |
 | `POST /payments/transactions/overflow` | `PaymentsController.createOverflowPaymentTransaction` | `PaymentsService.createOverflowPaymentTransaction` → un solo `PAYMENT_RECEIVED` | `createOverflowPayment` ← `PostVentaPage` (mapa 03) | `OPERATIONS_AND_UP` |
-| `POST /payments/transactions` | `PaymentsController.createPaymentTransaction` | `PaymentsService.createPaymentTransaction` → `createOrUpdatePaymentTransaction` (solo al crear) → `PAYMENT_RECEIVED` | Ninguna pantalla llama a este endpoint (el único `POST` de `paymentTransactions.service.ts` es `createOverflowPayment`, que apunta a `/payments/transactions/overflow`, no a este). La usa por dentro `PortalReceiptsController.confirm` (`POST /portal-receipts/:id/confirmar`, bandeja de `PostVentaPage`) | `OPERATIONS_AND_UP` |
+| `POST /payments/transactions` | `PaymentsController.createPaymentTransaction` | `PaymentsService.createPaymentTransaction` → `createOrUpdatePaymentTransaction` (solo al crear) → `PAYMENT_RECEIVED` | **Nadie** desde la app (el único `POST` de `paymentTransactions.service.ts` es `createOverflowPayment`, que apunta a `/payments/transactions/overflow`, no a este). La usa por dentro el motor: `PortalReceiptsController.confirm` (`POST /portal-receipts/:id/confirmar`, bandeja de `PostVentaPage`) | `OPERATIONS_AND_UP` |
 | `POST /customer-satisfaction-survey/answer` | `CustomerSatisfactionSurveyController.createAnswer` (`customer_satisfaction_survey/controller.ts`) | `CustomerSatisfactionSurveyService.createAnswer` → `NEW_ANSWER_CUSTOMER_SATISFACTION_SURVEY` | `createAnswer` ← `PublicSurvey.tsx` (mapa 14) | `@Public` con `@Throttle` |
 | `POST /super-admin/lead` | `SuperAdminController.registerLead` | `SuperAdminService.registerLead` → `alertNuevoLead` → `SUPER_ADMIN_NEW_LEAD` | `registerLead` ← `NewUserRegisterForm` (dentro de `RegisterPage`) | `@Public` |
-| `POST /super-admin/companies` | `SuperAdminController.createCompany` | `SuperAdminService.createCompanyOnly` → `alertNuevaEmpresa` → `SUPER_ADMIN_NEW_COMPANY` | `createCompany` ← `frontend/src/pages/superAdmin/Index.tsx` | Con sesión + `assertSuperAdmin` (`SUPER_ADMIN_EMAILS`) |
-| `POST /super-admin/suscription` y `POST /users/signup` | `SuperAdminController.createSuscription`; `UsersController.signup` → `UsersService.signup` | `SuperAdminService.createSuscription` → `NEW_ACCOUNT` y `SUPER_ADMIN_NEW_COMPANY` | Ninguna: la llamada a `signup` está comentada en `NewUserRegisterForm` | `@Public` (la de `suscription` con `@Throttle`) |
+| `POST /super-admin/companies` | `SuperAdminController.createCompany` | `SuperAdminService.createCompanyOnly` → `alertNuevaEmpresa` → `SUPER_ADMIN_NEW_COMPANY` | `createCompany` ← `SuperAdminPage` (`frontend/src/pages/superAdmin/Index.tsx`) | Con sesión + `assertSuperAdmin` (`SUPER_ADMIN_EMAILS`) |
+| `POST /super-admin/suscription` y `POST /users/signup` | `SuperAdminController.createSuscription`; `UsersController.signup` → `UsersService.signup` | `SuperAdminService.createSuscription` → `NEW_ACCOUNT` y `SUPER_ADMIN_NEW_COMPANY` | **Nadie** desde la app: la llamada a `signup` está comentada en `NewUserRegisterForm` (dentro de `RegisterPage`) | `@Public` (la de `suscription` con `@Throttle`) |
 
 Los relojes (sin endpoint) se describen en la sección 5.3.
 
@@ -183,6 +183,24 @@ Todos corren solo con `NODE_ENV === 'production'` (`ScheduleModule.forRoot({ cro
    - las manda una por una a esa casilla con el mismo `replyTo`;
    - con `solo: 'seguimiento'` manda solo los dos toques; con `portal_token` el botón lleva al portal real.
 3. El probador **no** pasa por el silenciador ni por los interruptores (comentario de `sendEmail`: "sus muestras van al propio Felipe").
+
+### 5.7 El plan de la empresa filtra los correos automáticos (14-09-2026)
+
+Desde el paso 3.2 del roadmap de venta, un correo automático no sale solo porque su interruptor esté encendido: la empresa además tiene que **tener el derecho** en su plan (mapa 15, §5.8). Los interruptores de Configuración siguen igual y mandan sobre lo suyo; lo que se agregó es una pregunta antes: "¿esta empresa pagó por esto?".
+
+El filtro no vive en `EmailService.sendEmail` sino en cada reloj, y por una razón: en un reloj no hay sesión, así que la empresa se resuelve por el `company_id` de la fila con `DerechosService.deEmpresa`, que lleva memoria de 5 minutos para no preguntar lo mismo 200 veces en un mismo despacho.
+
+| Correo automático | Reloj | Derecho que exige |
+|---|---|---|
+| `QUOTATION_FOLLOW_UP`, los toques de 7 y 14 días | `QuotationsCronService.sendQuotationFollowUps` | `correos_automaticos` (Opera y Crece) |
+| `WEEKLY_DIGEST`, el resumen del lunes | `QuotationsCronService.sendWeeklyDigest` | solo `base`: **va en todos los planes**, salvo empresa bloqueada. Decisión de Felipe: es barato y engancha |
+| Brochure del embudo | `ConsultasCronService.despachar` | `consultas` (Opera y Crece) |
+| `PAYMENT_REMINDER`, `PAYMENT_OVERDUE` y sus dos gemelos a los administradores | `PaymentsCronService`, las dos vueltas | `post_venta` (Gestiona y Cobra) |
+| Campañas programadas | `MarketingCronService.despacharProgramadas` | `marketing`, que no lo da ningún plan |
+
+En los dos relojes que "toman" la fila antes de trabajarla (embudo y campañas) el filtro va **antes** de tomarla: al revés, la consulta o la campaña quedaría marcada como despachada sin que hubiera salido un solo correo.
+
+Dos correos de este catálogo cambian por la misma razón, aunque no salgan de un reloj: la **encuesta de satisfacción** (`CUSTOMER_SATISFACTION_SURVEY`) solo sale si la empresa tiene `encuestas` —marcar el evento como realizado lo puede hacer cualquier plan; lo que no sale es el correo—, y una empresa sin `consultas` que reciba una solicitud por el formulario público la recibe igual, pero como requerimiento normal y con los avisos de siempre (`NEW_PUBLIC_QUOTATION_CLIENT` y `NEW_PUBLIC_QUOTATION_ADMIN`), sin brochure automático.
 
 ## 6. Reglas de negocio acordadas
 

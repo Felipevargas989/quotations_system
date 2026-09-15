@@ -40,6 +40,7 @@ export class ServiceGroupsController {
     );
   }
 
+  @Roles(...SALES_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service groups with user ${user.id}`);

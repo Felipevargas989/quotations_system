@@ -96,7 +96,13 @@ llegaba a escribir.
 - Móvil: el upsert del checklist de cocina usa la llave `(quotation_id, clave)`
   sin la empresa y pisa `company_id` y `marcado_por`. Necesita migración.
 
-### Sprint 4 · Fichas de empresa y de usuarios · PENDIENTE
+### Sprint 4 · Fichas de empresa y de usuarios · HECHO EN EL LABORATORIO
+
+Rama `pruebas`, 14-09-2026, dentro del paso 2 del roadmap de venta (commit
+"cerrar la casa"): `GET /companies/:id` responde 404 fuera de la propia
+empresa; `GET` y `PATCH /users/:id` solo ven y editan perfiles de la propia
+empresa, con el filtro en el repositorio; `POST /plans/confirmation` apagada
+con 410. Lo de abajo queda como registro de lo que se pidió.
 
 - `GET /companies/:id` devuelve la ficha completa de cualquier empresa, con sus
   datos de cobro, y los id de empresa son correlativos. El arreglo va en esa
@@ -135,3 +141,7 @@ empresa por API directa: el candado de rol solo vive en la pantalla.
 Ver también 20_CONEXIONES_Y_ZONAS_DE_RIESGO.md, sección "Medición en producción
 del 11-09-2026", y 05_CATALOGO_DE_SERVICIOS.md, 03_PAGOS_REEMBOLSOS_Y_PORTAL.md
 y 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.
+
+## Paso 3 del roadmap de venta, primera parte: módulos propios (14-09-2026)
+
+Personal y Marketing quedan solo para Valle del Sol, con el interruptor por empresa descrito en 15, §5.7. Es el mismo mecanismo que usará el candado por plan.

@@ -17,6 +17,8 @@ import {
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import { useAuth } from "../../../contexts/AuthContext";
+import { tieneDerecho } from "../../../constants/permissions";
+import SoloConLogistica from "./SoloConLogistica";
 import RecipeTab from "./RecipeTab";
 import FixedCostSection from "./FixedCostSection";
 
@@ -38,6 +40,11 @@ export default function FixedServiceForm({
   initialTab = "datos",
 }: FixedServiceFormProps) {
   const { company } = useAuth();
+  // Los costos y la receta son del plan Opera y Crece (14-09-2026): sin el
+  // derecho no se nombra la pestaña, porque no se ofrece lo que no se puede
+  // abrir. Se sigue llegando por el atajo "editar receta" de la lista, y ahí
+  // aparece el aviso de mejora — que es la palanca de venta.
+  const conLogistica = tieneDerecho(company, "logistica");
   const [tab, setTab] = useState<"datos" | "receta">(initialTab);
 
   useEffect(() => {
@@ -180,36 +187,45 @@ export default function FixedServiceForm({
           >
             Datos generales
           </button>
-          <button
-            type="button"
-            onClick={() => isEditing && setTab("receta")}
-            disabled={!isEditing}
-            title={
-              isEditing ? undefined : "Guarda el servicio primero para definir su costo"
-            }
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
-              tab === "receta"
-                ? "text-blue-600 border-blue-600"
-                : "text-gray-500 border-transparent hover:text-gray-700"
-            } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
-          >
-            <Calculator size={15} /> Costo
-          </button>
+          {conLogistica && (
+            <button
+              type="button"
+              onClick={() => isEditing && setTab("receta")}
+              disabled={!isEditing}
+              title={
+                isEditing
+                  ? undefined
+                  : "Guarda el servicio primero para definir su costo"
+              }
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 ${
+                tab === "receta"
+                  ? "text-blue-600 border-blue-600"
+                  : "text-gray-500 border-transparent hover:text-gray-700"
+              } ${!isEditing ? "opacity-40 cursor-not-allowed" : ""}`}
+            >
+              <Calculator size={15} /> Costo
+            </button>
+          )}
         </div>
 
         {tab === "receta" && isEditing && service && company?.id ? (
           <div className="p-6 space-y-6">
-            <FixedCostSection
-              service={service}
-              companyId={Number(company.id)}
-            />
-            <div className="border-t border-gray-200 pt-5">
-              <RecipeTab
+            {/* Acá abajo viven DOS piezas de logística —costos y receta— y
+                cada una trae su propio portero. Se envuelven juntas para que
+                sin el derecho salga UN aviso y no el mismo cartel dos veces. */}
+            <SoloConLogistica>
+              <FixedCostSection
+                service={service}
                 companyId={Number(company.id)}
-                serviceType="fixed"
-                serviceId={service.id}
               />
-            </div>
+              <div className="border-t border-gray-200 pt-5">
+                <RecipeTab
+                  companyId={Number(company.id)}
+                  serviceType="fixed"
+                  serviceId={service.id}
+                />
+              </div>
+            </SoloConLogistica>
           </div>
         ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">

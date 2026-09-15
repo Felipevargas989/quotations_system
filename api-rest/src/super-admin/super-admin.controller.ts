@@ -12,6 +12,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { RegisterLeadDto } from './dto/register-lead.dto';
 import { SuperAdminService } from './super-admin.service';
@@ -57,10 +58,13 @@ export class SuperAdminController {
     return this.superAdminService.createCompanyOnly(body.name);
   }
 
+  // Desde el paso 3.2 (14-09-2026) esta puerta también cambia el plan y
+  // el estado de la empresa: es por donde Felipe activa a un cliente que
+  // le pagó, mientras el cobro automático no exista.
   @Patch('companies/:id')
   updateCompany(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { name?: string; is_active?: boolean },
+    @Body() body: ActualizarEmpresaDto,
     @CurrentUser() user: UserConCorreo,
   ) {
     this.superAdminService.assertSuperAdmin(user.email);

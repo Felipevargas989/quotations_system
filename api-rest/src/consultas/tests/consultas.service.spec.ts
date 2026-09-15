@@ -65,6 +65,13 @@ const armar = (sobre: {
   };
   const config = { get: jest.fn().mockReturnValue('clave') };
   const logger = { setContext: jest.fn(), info: jest.fn(), error: jest.fn() };
+  const derechos = {
+    deEmpresa: jest.fn().mockResolvedValue({
+      derechos: ['base', 'consultas'],
+      usuarios_max: null,
+      cotizaciones_mes: null,
+    }),
+  };
   const service = new ConsultasService(
     repo as unknown as ConsultasRepository,
     tipos as unknown as EventTypesService,
@@ -73,6 +80,10 @@ const armar = (sobre: {
     companies as unknown as CompaniesRepository,
     config as never,
     logger as never,
+    // El reloj pregunta si la empresa tiene el derecho de Consultas
+    // (paso 3.2, 14-09-2026). En las pruebas se responde que sí, que es
+    // como estaban las empresas antes de que existieran los planes.
+    derechos as never,
   );
   return { service, repo, clients, contactos };
 };

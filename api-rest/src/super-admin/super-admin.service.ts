@@ -6,6 +6,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
+import { derechosDe } from 'src/auth/derechos';
+import { DerechosService } from 'src/auth/derechos.service';
+import { olvidarPerfil } from 'src/cache/memoria';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { Company } from 'src/companies/entities/company.entity';
 import { CustomerSatisfactionSurveyService } from 'src/customer_satisfaction_survey/service';
@@ -15,10 +18,11 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
+import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto';
 import { CreateSuscriptionDto } from './dto/create-suscription.dto';
 import { QuotationStatsResponse } from './dto/quotation-stats.dto';
 import { RegisterLeadDto } from './dto/register-lead.dto';
-import { TorreResponse, TorreUsuario } from './dto/torre.dto';
+import { TorreEmpresa, TorreResponse, TorreUsuario } from './dto/torre.dto';
 import { SuperAdminRepository } from './super-admin.repository';
 
 @Injectable()
@@ -33,6 +37,7 @@ export class SuperAdminService {
     @Inject(forwardRef(() => CustomerSatisfactionSurveyService))
     private readonly customerSatisfactionSurveyService: CustomerSatisfactionSurveyService,
     private readonly emailService: EmailService,
+    private readonly derechosService: DerechosService,
   ) {}
 
   async createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
@@ -56,6 +61,16 @@ export class SuperAdminService {
         },
         currency: createSuscriptionDto.currency,
         is_active: true,
+        // LA PRUEBA DE 7 DÍAS (paso 3.2, 14-09-2026). Nace en el plan más
+        // chico pero en estado `prueba`, que durante esos días le da los
+        // derechos de Opera y Crece: la landing promete probar todo, y el
+        // que prueba todo compra más arriba. Al vencer, el reloj de las
+        // 11:00 la deja bloqueada sin borrarle ni un dato.
+        plan: 'cotiza',
+        estado_plan: 'prueba',
+        prueba_vence: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       };
       const { data: companyData, error: companyError } =
         await this.companiesRepository.create(newCompany);
@@ -329,6 +344,37 @@ export class SuperAdminService {
     const delMes = (iso: string | null) =>
       !!iso && new Date(iso).getTime() >= inicioMes.getTime();
 
+    // LA TABLA DE EMPRESAS CON SU PLAN (paso 3.2, 14-09-2026). Es por
+    // donde Felipe vende a mano: ve en qué plan está cada cliente, cuánto
+    // le queda de prueba y qué tan cerca está de sus topes. Los derechos
+    // se calculan con la misma tabla que usa el motor, así que la Torre
+    // nunca puede mostrar un plan distinto del que rige de verdad.
+    const usuariosPorEmpresa = new Map<number, number>();
+    for (const perfil of base.profiles) {
+      if (perfil.company_id === null) continue;
+      usuariosPorEmpresa.set(
+        perfil.company_id,
+        (usuariosPorEmpresa.get(perfil.company_id) ?? 0) + 1,
+      );
+    }
+    const empresas: TorreEmpresa[] = base.companies
+      .map((c) => {
+        const derechos = derechosDe(c);
+        return {
+          id: c.id,
+          nombre: c.name,
+          creada: c.created_at,
+          plan: c.plan ?? null,
+          estado_plan: c.estado_plan ?? null,
+          prueba_vence: c.prueba_vence ?? null,
+          modulos_propios: c.modulos_propios ?? [],
+          usuarios: usuariosPorEmpresa.get(c.id) ?? 0,
+          usuarios_max: derechos.usuarios_max,
+          cotizaciones_mes: derechos.cotizaciones_mes,
+        };
+      })
+      .sort((a, b) => a.id - b.id);
+
     return {
       usuarios,
       tarjetas: {
@@ -339,11 +385,41 @@ export class SuperAdminService {
         leads_total: leadsTotal,
         leads_mes: leadsMes,
       },
+      empresas,
     };
   }
 
-  updateCompanyById(id: number, fields: Record<string, unknown>) {
-    return this.superAdminRepository.updateCompanyById(id, fields);
+  async updateCompanyById(
+    id: number,
+    fields: Record<string, unknown> | ActualizarEmpresaDto,
+  ) {
+    const campos = { ...fields } as Record<string, unknown>;
+    const cambiaElPlan =
+      campos.plan !== undefined || campos.estado_plan !== undefined;
+    if (cambiaElPlan) {
+      campos.plan_cambiado_en = new Date().toISOString();
+    }
+    const empresa = await this.superAdminRepository.updateCompanyById(
+      id,
+      campos,
+    );
+
+    // QUE RIJA AL INSTANTE (paso 3.2, 14-09-2026). El motor recuerda cada
+    // perfil una hora y los derechos de cada empresa cinco minutos: sin
+    // esto, un cliente que acaba de pagar seguiría viendo su plan viejo
+    // hasta que venciera la memoria. Se olvidan los perfiles de TODOS sus
+    // usuarios, porque la memoria de perfiles se indexa por persona.
+    if (cambiaElPlan) {
+      this.derechosService.olvidar(id);
+      const usuarios = await this.usersService.findAll(id);
+      for (const usuario of usuarios) {
+        olvidarPerfil(usuario.user_id);
+      }
+      this.logger.info(
+        `empresa ${id}: plan/estado cambiado, ${usuarios.length} perfil(es) olvidado(s)`,
+      );
+    }
+    return empresa;
   }
 
   // Mudanza #1 de "una sola puerta" (28-07): guardar el lead Y avisar

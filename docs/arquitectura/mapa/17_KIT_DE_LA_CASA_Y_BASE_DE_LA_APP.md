@@ -1,6 +1,6 @@
 # Mapa: Kit de la casa y base compartida de la app
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -14,9 +14,9 @@ Cómo leer los conteos de este mapa: "archivos que la usan" es la cantidad de ar
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| toda ruta hija de `/` | `Layout` | `frontend/src/layout/Layout.tsx` | Barra superior con menú de usuario (Gestión de Usuarios, Configuración, Configuración de la Compañía, Cerrar Sesión). Letrero ámbar **LABORATORIO** cuando `VITE_SUPABASE_URL` apunta a la base de pruebas (`ES_LABORATORIO`). Banda de "período de prueba gratuito" si `company.is_premium === false`. Sin sesión, manda a `/login` | cualquiera con sesión |
-| (dentro de `Layout`) | `Sidebar` | `frontend/src/layout/Sidebar.tsx` | Menú lateral de 13 entradas filtradas por `ROLE_PERMISSIONS`. Al pasar el mouse empieza a descargar la pantalla | según `ROLE_PERMISSIONS` |
-| rutas con guardia | `PermissionGuard` | `frontend/src/components/PermissionGuard.tsx` | Esqueleto mientras llega el rol; "Acceso Denegado" (sin sesión, botón Ir al Login) o "Permisos Insuficientes" | — |
+| toda ruta hija de `/` | `Layout` | `frontend/src/layout/Layout.tsx` | Barra superior con menú de usuario (Gestión de Usuarios, Configuración, Configuración de la Compañía, Cerrar Sesión). Letrero ámbar **LABORATORIO** cuando `VITE_SUPABASE_URL` apunta a la base de pruebas (`ES_LABORATORIO`). Banda de "período de prueba gratuito" si `company.estado_plan === "prueba"`, con los días que quedan (14-09-2026: antes miraba `is_premium`, que nadie vencía nunca, así que una empresa quedaba en prueba para siempre). Sin sesión, manda a `/login` | cualquiera con sesión |
+| (dentro de `Layout`) | `Sidebar` | `frontend/src/layout/Sidebar.tsx` | Menú lateral de 13 entradas filtradas por `ROLE_PERMISSIONS`. Al pasar el mouse empieza a descargar la pantalla. Desde el 14-09-2026, lo que el plan no incluye se muestra **con candado** (`SECTION_DERECHO` + `tieneDerecho`), no escondido, y no se precalienta | según `ROLE_PERMISSIONS`, con candado según el plan |
+| rutas con guardia | `PermissionGuard` | `frontend/src/components/PermissionGuard.tsx` | Esqueleto mientras llega el rol; "Acceso Denegado" (sin sesión, botón Ir al Login), "Permisos Insuficientes" (cargo) o `MejoraTuPlan` (plan, prop `derecho`) | — |
 | toda espera | `PageSkeleton` (vía `PageLoader`) | `frontend/src/components/PageSkeleton.tsx` | La única textura de "cargando" | — |
 | toda caída al pintar | `RedDeSeguridad` | `frontend/src/components/RedDeSeguridad.tsx` | "Algo se desconectó" con botón Recargar la página | — |
 | toda la app, públicas incluidas | `ToastHost` | `frontend/src/components/toast/Toast.tsx` | Tarjetas de aviso abajo a la derecha | — |
@@ -57,15 +57,15 @@ El kit no tiene endpoints propios. Esta tabla lista solo lo que la base llama po
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /users/:id` | `UsersController.findOne` (`api-rest/src/users/users.controller.ts`) | `UsersService.findOne` → `UsersRepository.findOne` | `getUser` (`services/users.service.ts`) desde `AuthContext` (`profileQuery` y `signIn`): trae rol, nombre y empresa, que alimentan `PermissionGuard`, `Layout` y `Sidebar` | Autenticado, sin `@Roles` en el método (ver 15) |
-| Supabase Auth (no es el motor): `getSession`, `refreshSession`, `onAuthStateChange`, `signInWithPassword`, `signOut` | — | — | `services/api.ts` (token y reintento en 401) y `contexts/AuthContext.tsx` | clave anónima (`VITE_SUPABASE_ANON_KEY`) |
-| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | quotations | `useDateAvailability` (en `RequestForm` y `QuotationForm`) | ver 01 |
-| `GET /services` | `ServicesController.findAll` | services | `useServices` (`findAllServices`) | ver 05 |
-| `/service-groups` y `/service-group-collections` | ver 05 | ver 05 | `useServiceGroups`, `useServiceGroupCollections` | ver 05 |
-| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | logistics | `useBaseLogistica` (`getBaseCatalogo`, ruta escrita a mano fuera de `API_ROUTES`) | ver 06 |
-| `GET /payments?quotationId=` | ver 03 | payments | `AvisoPlanDePagos` (`getPaymentsByQuotationId`) | ver 03 |
-| `GET /storage/signed-url`, `POST /storage/upload` | ver 03 y 16 | storage | `FileViewLink` (`resolveStorageUrl`) y `storage.service.subir` | ver 03 y 16 |
-| `GET /sections/menu-order` | ver 05 | sections | `QuotationViewer` y `FichaCocinaSection` (`getMenuOrder`) | ver 02, 04 y 05 |
+| `GET /users/:id` | `UsersController.findOne` (`api-rest/src/users/users.controller.ts`) | `UsersService.findOne` → `UsersRepository.findOne` | `getUser` (`services/users.service.ts`) ← `AuthContext` (`profileQuery` y `signIn`), es decir **todas** las pantallas tras el login: trae rol, nombre y empresa, que alimentan `PermissionGuard`, `Layout` y `Sidebar`. Además `QuotationForm` (`fetchCreatorUser`) | Autenticado, sin `@Roles` en el método (ver 15) |
+| Supabase Auth (no es el motor): `getSession`, `refreshSession`, `onAuthStateChange`, `signInWithPassword`, `signOut` | — | — | `services/api.ts` (token y reintento en 401) y `contexts/AuthContext.tsx`: no es de una pantalla, lo usa **toda la app**; el `signInWithPassword` entra por `LoginPage` y el `signOut` por el `Layout` | clave anónima (`VITE_SUPABASE_ANON_KEY`) |
+| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | quotations | `useDateAvailability` ← `RequestsPage` (en `RequestForm`) y `QuotationForm` | ver 01 |
+| `GET /services` | `ServicesController.findAll` | services | `useServices` (`findAllServices`) ← `QuotationForm`, `ServicesPage`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`) | ver 05 |
+| `/service-groups` y `/service-group-collections` | ver 05 | ver 05 | `useServiceGroups` ← `QuotationForm`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`); `useServiceGroupCollections` ← solo `QuotationForm` | ver 05 |
+| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | logistics | `useBaseLogistica` (`getBaseCatalogo`, ruta escrita a mano fuera de `API_ROUTES`) ← `PostVentaPage` (en `GestionTab`, `ServiciosTab` y `CocinaTab`), `NegocioPage` (en `ServiciosTab`) e `InventarioPage` (en `MobiliarioTab`) | ver 06 |
+| `GET /payments?quotationId=` | ver 03 | payments | `AvisoPlanDePagos` (`getPaymentsByQuotationId`) ← `QuotationForm`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`) | ver 03 |
+| `GET /storage/signed-url`, `POST /storage/upload` | ver 03 y 16 | storage | `resolveStorageUrl` ← `PostVentaPage` (directo y en `FileViewLink`) y `NegocioPage` (en `SeguimientoPanel`); `storage.service.subir` ← `PostVentaPage`, `NegocioPage`, `CompanyConfiguration`, `MarketingPage` y `CampanaFichaPage`, `InventarioPage` y `ConsultasPage` (detalle en el 16) | ver 03 y 16 |
+| `GET /sections/menu-order` | ver 05 | sections | `getMenuOrder` ← `QuotationsPage`, `NegocioPage`, `ClientDetailPage` y `PostVentaPage` (en `QuotationViewer`), y `PostVentaPage` otra vez (en `FichaCocinaSection`, dentro de `CocinaTab`) | ver 02, 04 y 05 |
 
 ## 4. Tablas de la base de datos
 
@@ -193,9 +193,18 @@ La app no toca tablas: `lib/supabase.ts` solo lo importan `services/api.ts` y `c
 | `ChipDeEstado` (`components/ChipDeEstado.tsx`, 111) | Píldora que despliega los otros estados, cada uno con su color; cierra con clic afuera y Escape | 1 | `PersonaFichaPage` |
 | `IconoWhatsApp` (`components/IconoWhatsApp.tsx`, 24) | El logo real, `aria-hidden` | 1 | `PersonaFichaPage` |
 | `PageSkeleton` (`components/PageSkeleton.tsx`, 22) | Esqueleto único, sin parámetros | 5 | `App` (`PageLoader`), `PermissionGuard`, `Layout`, `PersonaFichaPage`, `PersonasPage` |
-| `PermissionGuard` (`components/PermissionGuard.tsx`, 90) | Guardia por rol; espera `loading` y `roleLoading`; `fallback` opcional, que nadie usa | 1 archivo, **24 rutas** | `App.tsx` |
+| `PermissionGuard` (`components/PermissionGuard.tsx`, 101) | Guardia por rol **y** por plan; espera `loading` y `roleLoading`; `fallback` opcional, que nadie usa. Desde el 14-09-2026 la prop `modulo` se llama `derecho` y el "Módulo no disponible" pasó a ser `MejoraTuPlan` | 1 archivo, **24 rutas** (9 con `derecho`, de 5 secciones) | `App.tsx` |
+| `MejoraTuPlan` (`components/MejoraTuPlan.tsx`, 85) | El aviso de "esto está en otro plan": nombra la función y el plan mínimo (`NOMBRE_DEL_DERECHO`, `PLAN_MINIMO`), promete que los datos no se pierden y lleva a `/plans`. Dos variantes: `pantalla` (sección entera) y `recuadro` (pestaña o bloque). Para Personal y Marketing **no ofrece mejorar**: no se venden. Concuerda el verbo en singular y plural | 4 | `PermissionGuard`, `SoloConDerecho`, `DashboardPage`, `IngresosYCaja` |
+| `SoloConDerecho` (`components/SoloConDerecho.tsx`, 33) | Envuelve una pieza de pantalla y la cambia por `MejoraTuPlan` en variante recuadro si falta el derecho. Se envuelve **por fuera** para que las consultas de la pieza ni siquiera salgan (el motor las niega con 403) y porque un `if` adentro obligaría a devolver antes de los hooks, que el lint prohíbe | 2 | `PostVentaPage`, `SoloConLogistica` |
 | `RedDeSeguridad` (`components/RedDeSeguridad.tsx`, 91) | Límite de errores para toda la app | 1 | `main.tsx` |
 | `TablaDeJornadas` (`components/personas/TablaDeJornadas.tsx`, 268) | Tabla de liquidación, pieza del módulo de Personas (18-08) | 1 | `FichasTab` (ver 08) |
+
+**Dos piezas hermanas que NO viven en `components/`** (14-09-2026, el candado por plan en la pantalla; el mapa completo está en 15 §5.8). Por vivir en `pages/`, el portero no las revisa:
+
+| Pieza (archivo, líneas) | Para qué sirve | Quién la usa |
+|---|---|---|
+| `SoloConLogistica` (`pages/services/components/SoloConLogistica.tsx`, 18) | El mismo portero de `SoloConDerecho`, con el nombre de negocio del catálogo: recetas y costos son logística y se venden con Opera y Crece. Acá no hay mecánica, solo el nombre que se entiende leyendo la pantalla | `FixedServiceForm`, `FixedCostSection`, `RecipeTab` |
+| `CampoUltimoDia` (`pages/quotations/CampoUltimoDia.tsx`, 52) | El campo "Último día" del cotizador, con su regla: sin `varios_dias` no se muestra, pero si la cotización **ya trae** fecha de término se muestra igual, porque bajar de plan no esconde lo ya vendido. Salió a su propio archivo porque `QuotationForm` está congelado en su tamaño por el portero: quedó en 3.919 líneas, bajo el techo de 3.936 | `QuotationForm` |
 
 ### 7.2 Base no visual: servicios, constantes, ganchos, utilidades y tipos
 
@@ -203,7 +212,7 @@ La app no toca tablas: `lib/supabase.ts` solo lo importan `services/api.ts` y `c
 |---|---|---|---|
 | `services/api.ts` | Instancia Axios, token por petición, un reintento en 401 y `apiRequest` | 31 archivos: 30 servicios + `PortalPage` | todos |
 | `constants/api.routes.ts` (118) | Rutas del motor por nombre | 28 servicios + `PortalPage`; **7 rutas escritas a mano** en `auth.service.ts` (2), `logistics.service.ts` (`/logistics/base-catalogo`, `/logistics/estado-compras`) y `storage.service.ts` (3) | todos |
-| `constants/permissions.ts` (129) | `UserRole`, `Section`, `ROLE_PERMISSIONS` (menú), `SECTION_ROLES` (rutas), `ROLE_GROUPS`, `canAccessSection` | `App`, `Layout`, `Sidebar`, `PermissionGuard` y chequeos a mano en 11 archivos (`QuotationsPage`, `RequestsPage`, `NegocioPage`, `ClientDetailPage`, `Calendar`, `ConfigurationPage`, `QuotationForm`, `ServiciosTab`, `PostVentaPage`, `DashboardPage`, `LoginPage`) | 15 |
+| `constants/permissions.ts` (228) | Dos preguntas distintas en un archivo. El cargo: `UserRole`, `Section`, `ROLE_PERMISSIONS` (menú), `SECTION_ROLES` (rutas), `ROLE_GROUPS`, `canAccessSection`. El plan (14-09-2026): `Derecho` (los 16), `SECTION_DERECHO`, `tieneDerecho`, `estaBloqueada`, `PLAN_MINIMO`, `NOMBRE_DEL_PLAN` y `NOMBRE_DEL_DERECHO`. **No hay copia de la tabla de planes**: el motor manda la lista hecha en el perfil (`company.derechos`) | `App`, `Layout`, `Sidebar`, `PermissionGuard` y chequeos a mano en 11 archivos por cargo (`QuotationsPage`, `RequestsPage`, `NegocioPage`, `ClientDetailPage`, `Calendar`, `ConfigurationPage`, `QuotationForm`, `ServiciosTab`, `PostVentaPage`, `DashboardPage`, `LoginPage`) y en 11 por derecho (`Sidebar`, `PermissionGuard`, `SoloConDerecho`, `CampoUltimoDia`, `ClientsPage`, `DashboardPage`, `PostVentaPage`, `GrillaPersonal`, `ServicesPage`, `FixedServiceForm`, `VariableServiceForm`) | 15 |
 | `constants/users.ts`, `payments.ts`, `services.ts`, `clientTypes.ts`, `dates.ts`, `companies.ts` | `enum UserRole` (segunda definición), `PaymentStatus`, `CalculationType` (con `VARIABLE_CON_LIMITES` retirado y solo para historia), 6 tipos de cliente (`DEFAULT_CLIENT_TYPE` "Particulares"), `MONTHS`, `CURRENCIES` | varios | 03, 05, 09 |
 | `lib/queryClient.ts` (23) | Política global de React Query | `main.tsx`, y `FichasTab` lo importa directo | todos |
 | `lib/supabase.ts` (10) | Cliente con clave anónima; **lanza error al importarse** si faltan `VITE_SUPABASE_URL` o `VITE_SUPABASE_ANON_KEY` | `api.ts`, `AuthContext.tsx` | 15 |
@@ -279,8 +288,12 @@ Se corren con `npm run test` (vitest) en el trabajo `frontend` del CI. No hay bl
 | `utils/phone.test.ts` · `validation.test.ts` | 14 · 6 | Normalizar, formatear, `telHref`, `phoneProblem`, `emailProblem`; validación de cliente |
 | `utils/rut.test.ts` · `bancos.test.ts` · `estadoCotizacion.test.ts` | 16 · 13 · 13 | Dígito y reservados; orden y bancos extintos; "Anulada", ciclo de vida, `estadoAlGuardar` |
 | `utils/quotationMoney.test.ts` · `costoDeRecursos.test.ts` | 6 · 8 | Propina guardada manda; fijo una vez |
+| `components/MejoraTuPlan.test.tsx` (14-09-2026) | 7 | Nombra la función y el plan mínimo; promete que los datos no se pierden; la variante recuadro dice lo mismo; **Personal y Marketing nunca muestran el botón de mejorar**, porque no se venden; concordancia del verbo |
+| `constants/derechos.test.ts` (14-09-2026, renombrada desde `modulosPropios.test.ts`) | 9 | `tieneDerecho` (sin derecho pedido pasa; sin lista no pasa), `estaBloqueada`, las seis secciones con candado, que **ninguna sección del plan más barato** lleve candado y que todo derecho del menú tenga su plan en `PLAN_MINIMO` |
 
-**Lo importante que NO está cubierto:** `services/api.ts` (token, reintento en 401, multipart); `PermissionGuard`, `permissions.ts` y la diferencia entre menú y rutas; `AuthContext` (caché del perfil, `roleLoading`); `RedDeSeguridad` y el candado de recarga; `lib/queryClient.ts`; `NumberInput` (la regla única de números no tiene ni una prueba, pese a estar en 53 campos); `Modal` (Escape, clic en el fondo, `bloquearEscape`); `Toast`; `ConfirmInline`; `MultiSelect`; `QuantitySelector`; `GrillaDeDias`; `Estrellas`; `ChipDeEstado`; `Tooltip`; `SectionChipSelect`; `SelectorDePaquetes`; `utils/searchMatch.ts` (21 usuarios, sin archivo de prueba); `apiErrors`, `verEnLista`, `currencies` (causó una pantalla blanca el 23-07), `categoriaCaja`, `eventConsolidation`, `quotationPrintDoc`; las rutas de `App.tsx`; y el propio script del portero.
+Con estas dos, la app queda en **269 pruebas en 23 archivos** (antes 262), medido el 14-09-2026.
+
+**Lo importante que NO está cubierto:** `services/api.ts` (token, reintento en 401, multipart, y el aviso de los tres códigos de plan); `PermissionGuard`, el reparto de secciones por cargo de `permissions.ts` y la diferencia entre menú y rutas (los derechos por plan sí tienen prueba desde el 14-09); `AuthContext` (caché del perfil, `roleLoading`); `RedDeSeguridad` y el candado de recarga; `lib/queryClient.ts`; `NumberInput` (la regla única de números no tiene ni una prueba, pese a estar en 53 campos); `Modal` (Escape, clic en el fondo, `bloquearEscape`); `Toast`; `ConfirmInline`; `MultiSelect`; `QuantitySelector`; `GrillaDeDias`; `Estrellas`; `ChipDeEstado`; `Tooltip`; `SectionChipSelect`; `SelectorDePaquetes`; `utils/searchMatch.ts` (21 usuarios, sin archivo de prueba); `apiErrors`, `verEnLista`, `currencies` (causó una pantalla blanca el 23-07), `categoriaCaja`, `eventConsolidation`, `quotationPrintDoc`; las rutas de `App.tsx`; y el propio script del portero.
 
 ## 10. Deuda y rarezas conocidas
 
@@ -291,7 +304,7 @@ Se corren con `npm run test` (vitest) en el trabajo `frontend` del CI. No hay bl
 | lista plegable con buscador a mano · `<select>` · `alert()` · `confirm()` · `type="number"` · RUT a mano · bancos a mano · estado de persona a mano · `type="time"` | 0 / 0 cada una |
 | panel flotante a mano | **13 / 13** |
 | archivos con más de 800 líneas (frontend + api-rest) | **27 / 27** |
-| `QuotationForm` 3928/3936 · `PostVentaPage` 3168/3180 · `DashboardPage` 2748/2798 · `ServiciosTab` 2265/2285 · `people.service` 2008/2040 · `ComprasTab` 1744/1794 · `FichasTab` 1549/1599 | congelados |
+| `QuotationForm` 3919/3936 (14-09: el campo "Último día" salió a `CampoUltimoDia.tsx`) · `PostVentaPage` 3176/3180 · `DashboardPage` 2793/2798 · `ServiciosTab` 2265/2285 · `people.service` 2008/2040 · `ComprasTab` 1744/1794 · `FichasTab` 1549/1599 | congelados |
 
 - **Los 13 paneles flotantes a mano**: `RequestsPage`, `ClientDetailPage`, `Calendar` (el filtro de estados, una multi-selección escrita junto a `MultiSelect`), `MenusGuardados`, `NegocioPage` (el chip de estado, que repite lo que hace `ChipDeEstado`), `QuotationsPage` ×2, `ComprasTab`, `ServicesPage`, `FixedServicesBySection` ×2 y `VariableServicesByCategory` ×2. Aparte, el menú de usuario de `Layout` no entra en la cuenta por el orden de sus clases y **no se cierra al pinchar fuera**.
 - **Copias de piezas:** el SVG de `IconoWhatsApp` está pegado en `NegocioPage` y `SeguimientoPanel`, aunque su comentario dice que salió "para que no haya dos". `Layout` y `Sidebar` repiten `canAccess` palabra por palabra. Cerrar al pinchar fuera está resuelto de tres maneras distintas dentro del mismo kit: `useListaBuscable` (`mousedown`), `ChipDeEstado` (`mousedown` + Escape) y `SectionChipSelect` y `Calendar` (velo `fixed inset-0`). `MultiSelect` tampoco usa el motor compartido.
@@ -364,6 +377,7 @@ Se corren con `npm run test` (vitest) en el trabajo `frontend` del CI. No hay bl
 - `frontend/src/hooks/useListaBuscable.ts`, `frontend/src/utils/verEnLista.ts`, `frontend/src/utils/searchMatch.ts`
 - `frontend/src/components/MultiSelect.tsx`, `QuantitySelector.tsx`, `Modal.tsx`, `Tooltip.tsx`, `ConfirmInline.tsx`, `Estrellas.tsx`, `ChipDeEstado.tsx`, `FijoDeCategoria.tsx`, `IconoWhatsApp.tsx`
 - `frontend/src/components/toast/Toast.tsx`, `frontend/src/components/grilla/GrillaDeDias.tsx`
+- El candado por plan (14-09-2026, ver 15 §5.8): `frontend/src/components/MejoraTuPlan.tsx` y `MejoraTuPlan.test.tsx`, `frontend/src/components/SoloConDerecho.tsx`, `frontend/src/constants/derechos.test.ts`, y sus dos hermanas fuera de `components/`: `frontend/src/pages/services/components/SoloConLogistica.tsx` y `frontend/src/pages/quotations/CampoUltimoDia.tsx`
 - `frontend/src/components/inputs/NumberInput.tsx`, `HoraInput.tsx`, `RutInput.tsx`, `SelectorColacion.tsx`, `index.ts`, `types.ts`
 
 **App: ganchos y utilidades**

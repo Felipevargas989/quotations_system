@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -41,59 +41,59 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles |
 |---|---|---|---|---|
-| GET `/logistics/base-catalogo` | `baseCatalogo` | junta 6 lecturas en paralelo: `findAllRecipeItems`, `findAllSupplies`, `findAllFurniture`, `findAllSuppliers`, `catalogServiceNames`, `fixedServiceCosts` | `getBaseCatalogo`, usado por `useBaseLogistica` (GestionTab, CocinaTab, MobiliarioTab, ServiciosTab) y con la misma clave en ComprasTab, DashboardPage y QuotationForm | vend+ |
-| GET `/logistics/estado-compras` | `estadoCompras` | `findAcceptedEvents` + `findSupplyProvisions` | `getEstadoCompras` (ComprasTab) | vend+ |
-| GET `/logistics/suppliers` | `findAllSuppliers` | `findAllSuppliers` | `getSuppliers`: ProveedoresTab, InsumosTab, RecursosTab, GestionTab, EventResourcesSection, FixedCostSection | vend+ |
-| GET `/logistics/suppliers/usage` | `suppliersUsage` | `suppliersUsage` | `getSuppliersUsage` (ProveedoresTab) | ops+ |
-| POST `/logistics/suppliers` | `createSupplier` | `createSupplier` | `createSupplier` (ProveedoresTab) | ops+ |
-| PATCH `/logistics/suppliers/:id` | `updateSupplier` | `updateSupplier` | `updateSupplier` (ProveedoresTab) | ops+ |
-| DELETE `/logistics/suppliers/:id` | `deleteSupplier` | `deleteSupplier` (409 si tiene insumos o recursos) | `deleteSupplier` (ProveedoresTab) | ops+ |
-| GET `/logistics/supplies` | `findAllSupplies` | `findAllSupplies` | `getSupplies`: InsumosTab, RecipeTab, ServicesPage | vend+ |
-| GET `/logistics/supplies/usage?ids=` | `suppliesUsage` | `suppliesUsage` | `getSupplyUsage` (InsumosTab) | ops+ |
-| POST `/logistics/supplies` | `createSupply` | `createSupply` | `createSupply`: InsumosTab, RecipeTab | ops+ |
-| PATCH `/logistics/supplies/:id` | `updateSupply` | `updateSupply` (candado de familia) | `updateSupply`: InsumosTab y ComprasTab (el precio que se aprende de la compra) | ops+ |
-| DELETE `/logistics/supplies/:id` | `deleteSupply` | `deleteSupply` (409 si tiene recetas o compras) | `deleteSupply` (InsumosTab) | ops+ |
-| GET `/logistics/furniture` | `findAllFurniture` | `findAllFurniture` | `getFurnitureItems`: MobiliarioTab, RecipeTab | vend+ |
-| GET `/logistics/furniture/usage` | `furnitureUsage` | `furnitureUsage` | `getFurnitureUsage` (MobiliarioTab) | ops+ |
-| POST `/logistics/furniture` | `createFurniture` | `createFurniture` | `createFurnitureItem`: MobiliarioTab, RecipeTab ("Crear y usar") | ops+ |
-| PATCH `/logistics/furniture/:id` | `updateFurniture` | `updateFurniture` | `updateFurnitureItem` (MobiliarioTab) | ops+ |
-| DELETE `/logistics/furniture/:id` | `deleteFurniture` | `deleteFurniture` (409 si aparece en recetas) | `deleteFurnitureItem` (MobiliarioTab) | ops+ |
-| GET `/logistics/resources` | `findAllResources` | `findAllResources` | `getManagementResources`: RecursosTab, FixedCostSection, EventResourcesSection, DashboardPage, SemanaTab, ServicesPage | ops+ |
-| GET `/logistics/resources/usage` | `resourcesUsage` | `resourcesUsage` | `getResourcesUsage` (RecursosTab) | ops+ |
-| POST `/logistics/resources` | `createResource` | `createResource` | `createManagementResource`: RecursosTab, FixedCostSection | ops+ |
-| PATCH `/logistics/resources/:id` | `updateResource` | `updateResource` | `updateManagementResource`: RecursosTab y EventResourcesSection (`last_price`) | ops+ |
-| DELETE `/logistics/resources/:id` | `deleteResource` | `deleteResource` (409 si tiene líneas de costo o eventos) | `deleteManagementResource` (RecursosTab) | ops+ |
-| GET `/logistics/purchasing/accepted-events` | `acceptedEvents` | `findAcceptedEvents` | `getAcceptedEvents`: GestionTab (`gestionQueryOpts`), MobiliarioTab (radar) | ops+ |
-| GET `/logistics/purchasing/won-events?from=` | `wonEvents` | `findWonEventsSince` | `getWonEventsSince` (DashboardPage) | ops+ |
-| POST `/logistics/purchasing/mark-provisioned` | `markProvisioned` | `markProvisioned` | `markQuotationsProvisioned` (ComprasTab `stampCompleted`) | ops+ |
-| POST `/logistics/purchasing/clear-provisioned` | `clearProvisioned` | `clearProvisioned` | `clearQuotationsProvisioned` (ComprasTab `unprovision`) | ops+ |
-| GET `/logistics/purchasing/provisioning/:quotationId` | `quotationProvisioning` | `quotationProvisioning` | `getQuotationProvisioning`: GestionTab, ServiciosTab | ops+ |
-| GET `/logistics/purchasing/supply-provisions` | `supplyProvisions` | `findSupplyProvisions` | `getEventSupplyProvisions` (DashboardPage `provQuery`) | ops+ |
-| POST `/logistics/purchasing/supply-provisions` | `upsertSupplyProvisions` | `upsertSupplyProvisions` | `upsertEventSupplyProvisions` (ComprasTab `confirmarCompra`) | ops+ |
-| POST `/logistics/purchasing/supply-provisions/delete` | `deleteSupplyProvisions` | `deleteSupplyProvisions` | `deleteEventSupplyProvisions` (ComprasTab `unprovision`) | ops+ |
-| GET `/logistics/event-resources[?quotationId]` | `eventResources` | `findEventResources` / `findAllEventResources` | `getEventResources` (EventResourcesSection `recursosQueryOpts`, reusada por ServiciosTab); `getAllEventResources` (DashboardPage) | ops+ |
-| POST `/logistics/event-resources` | `addEventResources` | `addEventResources` | `addEventResource(s)` (EventResourcesSection) | ops+ |
-| PATCH `/logistics/event-resources/:id` | `updateEventResource` | `updateEventResource` | `updateEventResource` (EventResourcesSection) | ops+ |
-| DELETE `/logistics/event-resources/:id` | `deleteEventResource` | `deleteEventResource` | `deleteEventResource` (EventResourcesSection) | ops+ |
-| GET `/logistics/kitchen/times?quotationId=` | `serviceTimes` | `findServiceTimes` | `getEventServiceTimes`: FichaCocinaSection, ResumenDelDia | ops+ |
-| POST `/logistics/kitchen/times` | `setServiceTime` | `setServiceTime` | `setEventServiceTime`: FichaCocinaSection, ResumenDelDia | ops+ |
-| GET `/logistics/kitchen/notes?quotationId=` | `kitchenNotes` | `findKitchenNotes` | `getEventKitchenNotes` (FichaCocinaSection) | ops+ |
-| POST `/logistics/kitchen/notes` | `addKitchenNote` | `addKitchenNote` | `addEventKitchenNote` (FichaCocinaSection) | ops+ |
-| DELETE `/logistics/kitchen/notes/:id` | `deleteKitchenNote` | `deleteKitchenNote` | `deleteEventKitchenNote` (FichaCocinaSection) | ops+ |
-| GET `/logistics/kitchen/day-prints?quotationId=` | `dayPrints` | `findDayPrints` | `getEventDayPrints` (FichaCocinaSection) | ops+ |
-| POST `/logistics/kitchen/day-prints` | `markDaysPrinted` | `markDaysPrinted` | `markEventDaysPrinted` (FichaCocinaSection) | ops+ |
-| GET `/logistics/catalog/service-names` | `catalogServiceNames` | `catalogServiceNames` | `getCatalogServiceNameIds` — **ninguna pantalla la llama** (ver §10) | vend+ |
-| GET `/logistics/catalog/fixed-costs` | `fixedServiceCosts` | `fixedServiceCosts` | `getFixedServiceCostsById` — **ninguna pantalla la llama** | vend+ |
-| GET `/logistics/recipes/all` | `allRecipeItems` | `findAllRecipeItems` | `getAllRecipeItems`, solo a través de `getAllIngredientRecipeItems` (ServicesPage) | vend+ |
-| GET `/logistics/recipes?serviceType&serviceId` | `recipeItems` | `findRecipeItems` | `getRecipeItems` (RecipeTab) | admin |
-| POST `/logistics/recipes` | `addRecipeItem` | `addRecipeItem` | `addRecipeItem` (RecipeTab) | admin |
-| PATCH `/logistics/recipes/:id` | `updateRecipeItem` | `updateRecipeItem` | `updateRecipeItem` (RecipeTab) | admin |
-| DELETE `/logistics/recipes/:id` | `deleteRecipeItem` | `deleteRecipeItem` | `deleteRecipeItem` (RecipeTab) | admin |
-| GET `/logistics/fixed-cost-items[?fixedServiceId]` | `fixedServiceCostItems` | `findFixedServiceCostItems` | `getFixedServiceCostItems` (FixedCostSection); `getAllFixedServiceCostItems` (EventResourcesSection, ServicesPage) | ops+ |
-| PATCH `/logistics/fixed-costs/:id` | `updateFixedServiceCosts` | `updateFixedServiceCosts` | `updateFixedServiceCosts` (FixedCostSection `syncTotals`) | admin |
-| POST `/logistics/fixed-cost-items` | `addCostItem` | `addCostItem` | `addFixedServiceCostItem` (FixedCostSection) | admin |
-| PATCH `/logistics/fixed-cost-items/:id` | `updateCostItem` | `updateCostItem` | `updateFixedServiceCostItem` (FixedCostSection) | admin |
-| DELETE `/logistics/fixed-cost-items/:id` | `deleteCostItem` | `deleteCostItem` | `deleteFixedServiceCostItem` (FixedCostSection) | admin |
+| GET `/logistics/base-catalogo` | `baseCatalogo` | junta 6 lecturas en paralelo: `findAllRecipeItems`, `findAllSupplies`, `findAllFurniture`, `findAllSuppliers`, `catalogServiceNames`, `fixedServiceCosts` | `getBaseCatalogo` ← `PostVentaPage` (pestañas Gestión, Cocina y Servicios), `NegocioPage` (pestaña Servicios) e `InventarioPage` (`MobiliarioTab`), por `useBaseLogistica`; con la misma clave escrita a mano, `LogisticaPage` (pestaña Compras), `DashboardPage` y `QuotationForm` (cotizador) | vend+ |
+| GET `/logistics/estado-compras` | `estadoCompras` | `findAcceptedEvents` + `findSupplyProvisions` | `getEstadoCompras` ← `LogisticaPage` (pestaña Compras) | vend+ |
+| GET `/logistics/suppliers` | `findAllSuppliers` | `findAllSuppliers` | `getSuppliers` ← `LogisticaPage` (pestañas Proveedores, Insumos y Servicios externos), `PostVentaPage` (pestaña Gestión, también `EventResourcesSection`) y `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | vend+ |
+| GET `/logistics/suppliers/usage` | `suppliersUsage` | `suppliersUsage` | `getSuppliersUsage` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
+| POST `/logistics/suppliers` | `createSupplier` | `createSupplier` | `createSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
+| PATCH `/logistics/suppliers/:id` | `updateSupplier` | `updateSupplier` | `updateSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
+| DELETE `/logistics/suppliers/:id` | `deleteSupplier` | `deleteSupplier` (409 si tiene insumos o recursos) | `deleteSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
+| GET `/logistics/supplies` | `findAllSupplies` | `findAllSupplies` | `getSupplies` ← `LogisticaPage` (pestaña Insumos) y `ServicesPage` (Catálogo: la página y `RecipeTab`) | vend+ |
+| GET `/logistics/supplies/usage?ids=` | `suppliesUsage` | `suppliesUsage` | `getSupplyUsage` ← `LogisticaPage` (pestaña Insumos) | ops+ |
+| POST `/logistics/supplies` | `createSupply` | `createSupply` | `createSupply` ← `LogisticaPage` (pestaña Insumos) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | ops+ |
+| PATCH `/logistics/supplies/:id` | `updateSupply` | `updateSupply` (candado de familia) | `updateSupply` ← `LogisticaPage` (pestaña Insumos, y pestaña Compras: el precio que se aprende de la compra) | ops+ |
+| DELETE `/logistics/supplies/:id` | `deleteSupply` | `deleteSupply` (409 si tiene recetas o compras) | `deleteSupply` ← `LogisticaPage` (pestaña Insumos) | ops+ |
+| GET `/logistics/furniture` | `findAllFurniture` | `findAllFurniture` | `getFurnitureItems` ← `InventarioPage` (`MobiliarioTab`) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | vend+ |
+| GET `/logistics/furniture/usage` | `furnitureUsage` | `furnitureUsage` | `getFurnitureUsage` ← `InventarioPage` (`MobiliarioTab`) | ops+ |
+| POST `/logistics/furniture` | `createFurniture` | `createFurniture` | `createFurnitureItem` ← `InventarioPage` (`MobiliarioTab`) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`, "Crear y usar") | ops+ |
+| PATCH `/logistics/furniture/:id` | `updateFurniture` | `updateFurniture` | `updateFurnitureItem` ← `InventarioPage` (`MobiliarioTab`) | ops+ |
+| DELETE `/logistics/furniture/:id` | `deleteFurniture` | `deleteFurniture` (409 si aparece en recetas) | `deleteFurnitureItem` ← `InventarioPage` (`MobiliarioTab`) | ops+ |
+| GET `/logistics/resources` | `findAllResources` | `findAllResources` | `getManagementResources` ← `LogisticaPage` (pestaña Servicios externos), `ServicesPage` (Catálogo: la página y `FixedCostSection`), `PostVentaPage` (pestaña Gestión, `EventResourcesSection`), `DashboardPage` y `PersonasPage` (pestaña Semana) | ops+ |
+| GET `/logistics/resources/usage` | `resourcesUsage` | `resourcesUsage` | `getResourcesUsage` ← `LogisticaPage` (pestaña Servicios externos) | ops+ |
+| POST `/logistics/resources` | `createResource` | `createResource` | `createManagementResource` ← `LogisticaPage` (pestaña Servicios externos) y `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | ops+ |
+| PATCH `/logistics/resources/:id` | `updateResource` | `updateResource` | `updateManagementResource` ← `LogisticaPage` (pestaña Servicios externos) y `PostVentaPage` (pestaña Gestión, `EventResourcesSection`, `last_price`) | ops+ |
+| DELETE `/logistics/resources/:id` | `deleteResource` | `deleteResource` (409 si tiene líneas de costo o eventos) | `deleteManagementResource` ← `LogisticaPage` (pestaña Servicios externos) | ops+ |
+| GET `/logistics/purchasing/accepted-events` | `acceptedEvents` | `findAcceptedEvents` | `getAcceptedEvents` ← `PostVentaPage` (pestaña Gestión, `gestionQueryOpts`) e `InventarioPage` (`MobiliarioTab`, radar) | ops+ |
+| GET `/logistics/purchasing/won-events?from=` | `wonEvents` | `findWonEventsSince` | `getWonEventsSince` ← `DashboardPage` | ops+ |
+| POST `/logistics/purchasing/mark-provisioned` | `markProvisioned` | `markProvisioned` | `markQuotationsProvisioned` ← `LogisticaPage` (pestaña Compras, `stampCompleted`) | ops+ |
+| POST `/logistics/purchasing/clear-provisioned` | `clearProvisioned` | `clearProvisioned` | `clearQuotationsProvisioned` ← `LogisticaPage` (pestaña Compras, `unprovision`) | ops+ |
+| GET `/logistics/purchasing/provisioning/:quotationId` | `quotationProvisioning` | `quotationProvisioning` | `getQuotationProvisioning` ← `PostVentaPage` (pestañas Gestión y Servicios) y `NegocioPage` (pestaña Servicios) | ops+ |
+| GET `/logistics/purchasing/supply-provisions` | `supplyProvisions` | `findSupplyProvisions` | `getEventSupplyProvisions` ← `DashboardPage` (`provQuery`) | ops+ |
+| POST `/logistics/purchasing/supply-provisions` | `upsertSupplyProvisions` | `upsertSupplyProvisions` | `upsertEventSupplyProvisions` ← `LogisticaPage` (pestaña Compras, `confirmarCompra`) | ops+ |
+| POST `/logistics/purchasing/supply-provisions/delete` | `deleteSupplyProvisions` | `deleteSupplyProvisions` | `deleteEventSupplyProvisions` ← `LogisticaPage` (pestaña Compras, `unprovision`) | ops+ |
+| GET `/logistics/event-resources[?quotationId]` | `eventResources` | `findEventResources` / `findAllEventResources` | `getEventResources` ← `PostVentaPage` (pestaña Gestión, `EventResourcesSection`, `recursosQueryOpts`, reusada por la pestaña Servicios de `PostVentaPage`/`NegocioPage`); `getAllEventResources` ← `DashboardPage` | ops+ |
+| POST `/logistics/event-resources` | `addEventResources` | `addEventResources` | `addEventResource(s)` ← `PostVentaPage` (pestaña Gestión, `EventResourcesSection`) | ops+ |
+| PATCH `/logistics/event-resources/:id` | `updateEventResource` | `updateEventResource` | `updateEventResource` ← `PostVentaPage` (pestaña Gestión, `EventResourcesSection`) | ops+ |
+| DELETE `/logistics/event-resources/:id` | `deleteEventResource` | `deleteEventResource` | `deleteEventResource` ← `PostVentaPage` (pestaña Gestión, `EventResourcesSection`) | ops+ |
+| GET `/logistics/kitchen/times?quotationId=` | `serviceTimes` | `findServiceTimes` | `getEventServiceTimes` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) y `PersonasPage` (pestaña Semana, `ResumenDelDia`) | ops+ |
+| POST `/logistics/kitchen/times` | `setServiceTime` | `setServiceTime` | `setEventServiceTime` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) y `PersonasPage` (pestaña Semana, `ResumenDelDia`) | ops+ |
+| GET `/logistics/kitchen/notes?quotationId=` | `kitchenNotes` | `findKitchenNotes` | `getEventKitchenNotes` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
+| POST `/logistics/kitchen/notes` | `addKitchenNote` | `addKitchenNote` | `addEventKitchenNote` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
+| DELETE `/logistics/kitchen/notes/:id` | `deleteKitchenNote` | `deleteKitchenNote` | `deleteEventKitchenNote` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
+| GET `/logistics/kitchen/day-prints?quotationId=` | `dayPrints` | `findDayPrints` | `getEventDayPrints` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
+| POST `/logistics/kitchen/day-prints` | `markDaysPrinted` | `markDaysPrinted` | `markEventDaysPrinted` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
+| GET `/logistics/catalog/service-names` | `catalogServiceNames` | `catalogServiceNames` | **Nadie** desde la app: `getCatalogServiceNameIds` no tiene quien la llame (ver §10). El motor sí usa el método `catalogServiceNames` por dentro, en `baseCatalogo`, pero nadie pega en esta ruta. La app móvil no vive en este repo, así que no se pudo revisar | vend+ |
+| GET `/logistics/catalog/fixed-costs` | `fixedServiceCosts` | `fixedServiceCosts` | **Nadie** desde la app: `getFixedServiceCostsById` no tiene quien la llame. Igual que la anterior, el motor usa `fixedServiceCosts` por dentro, en `baseCatalogo`, y la app móvil no vive en este repo | vend+ |
+| GET `/logistics/recipes/all` | `allRecipeItems` | `findAllRecipeItems` | `getAllRecipeItems` ← `ServicesPage` (Catálogo), solo a través de `getAllIngredientRecipeItems` | vend+ |
+| GET `/logistics/recipes?serviceType&serviceId` | `recipeItems` | `findRecipeItems` | `getRecipeItems` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
+| POST `/logistics/recipes` | `addRecipeItem` | `addRecipeItem` | `addRecipeItem` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
+| PATCH `/logistics/recipes/:id` | `updateRecipeItem` | `updateRecipeItem` | `updateRecipeItem` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
+| DELETE `/logistics/recipes/:id` | `deleteRecipeItem` | `deleteRecipeItem` | `deleteRecipeItem` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
+| GET `/logistics/fixed-cost-items[?fixedServiceId]` | `fixedServiceCostItems` | `findFixedServiceCostItems` | `getFixedServiceCostItems` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`); `getAllFixedServiceCostItems` ← `ServicesPage` (Catálogo) y `PostVentaPage` (pestaña Gestión, `EventResourcesSection`) | ops+ |
+| PATCH `/logistics/fixed-costs/:id` | `updateFixedServiceCosts` | `updateFixedServiceCosts` | `updateFixedServiceCosts` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`, `syncTotals`) | admin |
+| POST `/logistics/fixed-cost-items` | `addCostItem` | `addCostItem` | `addFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
+| PATCH `/logistics/fixed-cost-items/:id` | `updateCostItem` | `updateCostItem` | `updateFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
+| DELETE `/logistics/fixed-cost-items/:id` | `deleteCostItem` | `deleteCostItem` | `deleteFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
 
 Total: **53 endpoints**. El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
 

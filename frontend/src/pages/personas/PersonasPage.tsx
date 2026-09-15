@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ChevronRight, Plus, Search, Tags, X } from "lucide-react";
@@ -53,16 +53,24 @@ export default function PersonasPage() {
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [viendoCargos, setViendoCargos] = useState(false);
   // La sábana primero (Felipe, 15-08): al entrar se ve la planificación.
+  // EL DÍA QUE VIENE DE UN EVENTO (15-09-2026). El "Poner nombres" de
+  // Post-Venta manda acá con la fecha a cuestas: entonces se abre la
+  // planificación en ESE mes, sin importar qué pestaña quedó guardada la
+  // última vez. Sin fecha, todo sigue como siempre.
+  const [parametros] = useSearchParams();
+  const diaPedido = parametros.get("dia") || undefined;
+
   const [pestana, setPestana] = useState<
     "directorio" | "armar" | "fichas" | "nomina" | "historico"
-  >(
-    () =>
-      (localStorage.getItem("eventia_personal_pestana") as
-        | "directorio"
-        | "armar"
-        | "fichas"
-        | "nomina"
-        | null) ?? "armar",
+  >(() =>
+    diaPedido
+      ? "armar"
+      : ((localStorage.getItem("eventia_personal_pestana") as
+          | "directorio"
+          | "armar"
+          | "fichas"
+          | "nomina"
+          | null) ?? "armar"),
   );
   const { company } = useAuth();
   const navegar = useNavigate();
@@ -196,7 +204,10 @@ export default function PersonasPage() {
       </div>
 
       {pestana === "armar" ? (
-        <SemanaTab companyId={Number(company?.id ?? 0)} />
+        <SemanaTab
+          companyId={Number(company?.id ?? 0)}
+          diaInicial={diaPedido}
+        />
       ) : pestana === "fichas" ? (
         <FichasTab />
       ) : pestana === "nomina" ? (

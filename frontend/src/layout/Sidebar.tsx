@@ -14,8 +14,15 @@ import {
   Armchair,
   Megaphone,
   Inbox,
+  Lock,
 } from "lucide-react";
-import { canAccessSection } from "../constants/permissions";
+import {
+  canAccessSection,
+  Derecho,
+  SECTION_DERECHO,
+  tieneDerecho,
+  Section,
+} from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
 
 interface SidebarProps {
@@ -24,7 +31,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { userRole } = useAuth();
+  const { userRole, company } = useAuth();
 
   const canAccess = (section: string): boolean => {
     // Mientras el rol viene en camino NO se muestra nada (12-08). El
@@ -69,6 +76,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/consultas",
       icon: Inbox,
       section: "quotations",
+      // Comparte sección con Cotizaciones (el cargo es el mismo) pero NO
+      // el plan: el embudo con brochure automático entra con Opera y
+      // Crece. Por eso el derecho va acá y no en SECTION_DERECHO, que
+      // solo sabe de secciones (15-09-2026).
+      derecho: "consultas" as Derecho,
       precargar: () => import("../pages/consultas/ConsultasPage.tsx"),
     },
     {
@@ -210,21 +222,40 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               if (!canAccess(item.section)) return null;
 
               const Icon = item.icon;
+              // FUERA DEL PLAN (paso 3.2, 14-09-2026): el ítem se muestra
+              // CON CANDADO en vez de esconderse. Ver lo que uno se está
+              // perdiendo es lo que hace subir de plan; esconderlo solo
+              // deja al cliente sin saber que existe. Al pinchar, la
+              // pantalla dice en qué plan está y lleva a /plans.
+              const derecho =
+                ("derecho" in item ? item.derecho : undefined) ??
+                SECTION_DERECHO[item.section as Section];
+              const conCandado = !tieneDerecho(company, derecho);
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={onClose}
                   onMouseEnter={() => {
-                    item.precargar().catch(() => {});
+                    if (!conCandado) item.precargar().catch(() => {});
                   }}
                   onFocus={() => {
-                    item.precargar().catch(() => {});
+                    if (!conCandado) item.precargar().catch(() => {});
                   }}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
+                  title={
+                    conCandado
+                      ? "No está incluido en tu plan"
+                      : undefined
+                  }
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                    conCandado
+                      ? "text-gray-400 hover:bg-gray-50"
+                      : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
                 >
                   <Icon size={20} />
-                  <span>{item.name}</span>
+                  <span className="flex-1">{item.name}</span>
+                  {conCandado && <Lock size={14} className="text-gray-400" />}
                 </Link>
               );
             })}

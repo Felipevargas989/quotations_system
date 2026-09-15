@@ -1,6 +1,7 @@
 // Create Axios instance calling the API REST
 import axios from "axios";
 import { supabase } from "../lib/supabase";
+import { toast } from "../components/toast/Toast";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_EVENTIA_API_REST,
@@ -77,6 +78,26 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {}
     }
+
+    // EL PLAN NO INCLUYE ESTO (paso 3.2, 14-09-2026). El motor responde
+    // 403 con un cuerpo fijo que trae el mensaje ya escrito en español y
+    // el plan al que hay que subirse. Se muestra ese mensaje en vez del
+    // error rojo genérico, que no le dice nada a nadie.
+    //
+    // Es solo el aviso: quien decide es el motor. La app esconde lo que
+    // no corresponde para no ofrecerlo, pero si algo se escapa, acá el
+    // cliente se entera de por qué y de cómo arreglarlo.
+    const cuerpo = error.response?.data as
+      | { codigo?: string; mensaje?: string }
+      | undefined;
+    if (
+      error.response?.status === 403 &&
+      cuerpo?.codigo &&
+      ["SIN_DERECHO", "SIN_CUPO", "PLAN_BLOQUEADO"].includes(cuerpo.codigo)
+    ) {
+      toast.warn(cuerpo.mensaje || "Esto no está incluido en tu plan.");
+    }
+
     return Promise.reject(error);
   },
 );

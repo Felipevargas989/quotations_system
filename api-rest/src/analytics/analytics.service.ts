@@ -30,9 +30,34 @@ export class AnalyticsService {
     private readonly logger: PinoLogger,
   ) {}
 
+  /**
+   * Ingresos y Caja son del nivel 2 del Dashboard (Gestiona y Cobra, paso
+   * 3.2). En un plan que no los incluye, los dos bloques de pagos salen
+   * vacíos: la pantalla no los pinta y el motor no entrega plata que el
+   * cliente no contrató ver ordenada por mes.
+   *
+   * Se guarda en memoria la respuesta COMPLETA y el recorte se hace al
+   * entregar: así el mismo cálculo sirve si la empresa sube de plan.
+   */
+  private sinCaja(
+    respuesta: DashboardStatsResponse,
+    conCaja: boolean,
+  ): DashboardStatsResponse {
+    if (conCaja) return respuesta;
+    return {
+      ...respuesta,
+      totalPaymentsByMonth: {},
+      totalPaymentsDetailByMonth: {},
+    };
+  }
+
   async getDashboardStats(
     companyId: Company['id'],
     dateRange: { start_date?: Date; end_date?: Date },
+    // Ingresos y Caja son del nivel 2 del Dashboard (paso 3.2,
+    // 14-09-2026). Por defecto va en true: los llamados internos y las
+    // pruebas que no saben de planes siguen recibiendo todo.
+    conCaja: boolean = true,
   ): Promise<DashboardStatsResponse> {
     this.logger.info(
       `getDashboardStats with companyId ${companyId} and dateRange ${JSON.stringify(dateRange)}`,
@@ -53,7 +78,9 @@ export class AnalyticsService {
       // (invalidarPanelEmpresa), así que nunca muestra números viejos.
       const clavePanel = `${companyId}:dash:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}`;
       const enMemoria = cachePanel.get(clavePanel);
-      if (enMemoria) return enMemoria as DashboardStatsResponse;
+      if (enMemoria) {
+        return this.sinCaja(enMemoria as DashboardStatsResponse, conCaja);
+      }
 
       // 1. FASE 1 (23-07): el período gobierna TODO el tablero.
       // Dos lecturas con roles distintos:
@@ -318,7 +345,7 @@ export class AnalyticsService {
         totalPaymentsDetailByMonth,
       };
       cachePanel.set(clavePanel, respuesta, HORA_MS);
-      return respuesta;
+      return this.sinCaja(respuesta, conCaja);
     } catch (error) {
       this.logger.error(`Error getting dashboard stats: ${error}`);
       if (error instanceof Error) {

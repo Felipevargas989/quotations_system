@@ -21,21 +21,33 @@ import {
 } from "../../../types/logistics.types";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
+import SoloConLogistica from "./SoloConLogistica";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
+
+type FixedCostSectionProps = {
+  readonly service: FixedService;
+  readonly companyId: number;
+};
+
+// Los costos los trae el plan Opera y Crece; el porqué está en SoloConLogistica.
+export default function FixedCostSection(props: FixedCostSectionProps) {
+  return (
+    <SoloConLogistica>
+      <FixedCostSectionContenido {...props} />
+    </SoloConLogistica>
+  );
+}
 
 // Costo de un servicio fijo como REFERENCIAS al catálogo de recursos:
 // cada línea apunta a un recurso con precio de lista (ej: la lista anual de
 // FL Services). Al actualizar el precio en el catálogo, todos los servicios
 // que lo referencian se actualizan solos. Totales cacheados en cost_fixed /
 // cost_per_person para otras vistas.
-export default function FixedCostSection({
+function FixedCostSectionContenido({
   service,
   companyId,
-}: {
-  readonly service: FixedService;
-  readonly companyId: number;
-}) {
+}: FixedCostSectionProps) {
   const [items, setItems] = useState<FixedServiceCostItem[]>([]);
   const [resources, setResources] = useState<ManagementResource[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);

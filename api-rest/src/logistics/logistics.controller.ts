@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import {
   ADMIN_ONLY,
   OPERATIONS_AND_UP,
@@ -51,6 +52,13 @@ import { LogisticsService } from './logistics.service';
 // La regla que antes era de pantalla acá es de servidor: logística es
 // de operaciones y administración (confirmado por Felipe), y cada
 // empresa toca SOLO lo suyo (company_id sale de la sesión).
+// Proveedores, inventario, recetas, costos, compras y la ficha de
+// cocina entran con Opera y Crece (paso 3.2, 14-09-2026). Es el
+// controller que alimenta los márgenes, así que cerrarlo cierra
+// también el nivel 3 del Dashboard y el margen del cotizador.
+// Las pantallas de planes menores que piden algo de aquí reciben una
+// lista vacía: sus funciones ya traen su propio catch.
+@Derecho('logistica')
 @Roles(...OPERATIONS_AND_UP)
 @Controller('logistics')
 export class LogisticsController {

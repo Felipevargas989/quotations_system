@@ -1,6 +1,6 @@
 # Mapa: Pagos, reembolsos y portal del cliente
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -26,18 +26,18 @@ Cada persona que encarga un evento (el **mandante**) tiene un **portal** propio 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
 | `POST /payments/plan` | `PaymentsController.createPaymentPlan` | `PaymentsService.createPaymentPlan` | `createPaymentPlan` (`services/payments.service.ts`) ← `QuotationsPage.handlePaymentPlanSave`, `NegocioPage.guardarPlan` | `OPERATIONS_AND_UP` |
-| `GET /payments?quotationId=` | `PaymentsController.findAllPaymensFromQuotation` | `PaymentsService.findAllPaymentsFromQuotation` | `getPaymentsByQuotationId` ← `QuotationsPage.applyStatusChange`, `NegocioPage.cambiarEstado`, `AvisoPlanDePagos`, `ServiciosTab` | solo sesión (sin `@Roles`) |
+| `GET /payments?quotationId=` | `PaymentsController.findAllPaymensFromQuotation` | `PaymentsService.findAllPaymentsFromQuotation` | `getPaymentsByQuotationId` ← `QuotationsPage` (`applyStatusChange`), `NegocioPage` (`cambiarEstado`), y por sus piezas: `PostVentaPage` (ficha) y `NegocioPage` vía `ServiciosTab`, `QuotationForm` vía `AvisoPlanDePagos` | solo sesión (sin `@Roles`) |
 | `GET /payments/transactions` | `PaymentsController.findAllPaymentsWithTransactions` | `PaymentsService.findAllPaymentsWithTransactions` | `getPaymentsWithTransactions` (`services/paymentTransactions.service.ts`) ← `PostVentaPage.fetchEvents` | solo sesión |
-| `POST /payments/transactions` | `PaymentsController.createPaymentTransaction` | `PaymentsService.createPaymentTransaction` → `createOrUpdatePaymentTransaction` | ninguna pantalla la llama; `PortalReceiptsController.confirm` no pasa por esta ruta, pero usa por dentro el mismo `PaymentsService.createPaymentTransaction` | `OPERATIONS_AND_UP` |
-| `POST /payments/transactions/overflow` | `PaymentsController.createOverflowPaymentTransaction` | `PaymentsService.createOverflowPaymentTransaction` | `createOverflowPayment` ← `RegistrarPagoPanel` | `OPERATIONS_AND_UP` |
-| `PATCH /payments/transactions/:id` | `PaymentsController.updatePaymentTransaction` | `PaymentsService.updatePaymentTransaction` → `createOrUpdatePaymentTransaction` (modo edición) | `updatePaymentTransaction` ← `EditRegistroModal` | `OPERATIONS_AND_UP` |
-| `DELETE /payments/transactions/:id` | `PaymentsController.removePaymentTransaction` | `PaymentsService.removePaymentTransaction` | `deletePaymentTransaction` ← `EventModal.onDeleteTx` | `OPERATIONS_AND_UP` |
-| `PATCH /payments/:id` | `PaymentsController.updatePaymentSchedule` | `PaymentsService.updatePaymentSchedule` | `updatePaymentSchedule` ← `EventModal.onSaveCuota` | `OPERATIONS_AND_UP` |
-| `DELETE /payments/:id` | `PaymentsController.removePayment` | `PaymentsService.removePayment` | ninguna pantalla | `OPERATIONS_AND_UP` |
-| `GET /refunds` | `RefundsController.findAll` | `RefundsService.findAll` | `getRefunds` existe en `services/refunds.service.ts` pero ninguna pantalla lo usa | `OPERATIONS_AND_UP` (del controller) |
-| `GET /refunds/by-quotation?quotationId=` | `RefundsController.findByQuotation` | `RefundsService.findByQuotation` | `getRefundsByQuotation` ← `ReembolsosManager` | `OPERATIONS_AND_UP` |
+| `POST /payments/transactions` | `PaymentsController.createPaymentTransaction` | `PaymentsService.createPaymentTransaction` → `createOrUpdatePaymentTransaction` | **Nadie** desde la app: no hay función en `services/` que pegue a esta ruta. Adentro del motor sí la usa `PortalReceiptsController.confirm`, que llama `PaymentsService.createPaymentTransaction` sin pasar por HTTP | `OPERATIONS_AND_UP` |
+| `POST /payments/transactions/overflow` | `PaymentsController.createOverflowPaymentTransaction` | `PaymentsService.createOverflowPaymentTransaction` | `createOverflowPayment` ← `PostVentaPage` (ficha `/post-venta/:id`, pieza `RegistrarPagoPanel`) | `OPERATIONS_AND_UP` |
+| `PATCH /payments/transactions/:id` | `PaymentsController.updatePaymentTransaction` | `PaymentsService.updatePaymentTransaction` → `createOrUpdatePaymentTransaction` (modo edición) | `updatePaymentTransaction` ← `PostVentaPage` (ficha `/post-venta/:id`, pieza `EditRegistroModal`) | `OPERATIONS_AND_UP` |
+| `DELETE /payments/transactions/:id` | `PaymentsController.removePaymentTransaction` | `PaymentsService.removePaymentTransaction` | `deletePaymentTransaction` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.onDeleteTx`) | `OPERATIONS_AND_UP` |
+| `PATCH /payments/:id` | `PaymentsController.updatePaymentSchedule` | `PaymentsService.updatePaymentSchedule` | `updatePaymentSchedule` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.onSaveCuota`) | `OPERATIONS_AND_UP` |
+| `DELETE /payments/:id` | `PaymentsController.removePayment` | `PaymentsService.removePayment` | **Nadie** desde la app: no hay función en `services/` que pegue a esta ruta. Tampoco la llama otro service del motor ni un reloj (el único que usa `removePayment` es su propio controller) | `OPERATIONS_AND_UP` |
+| `GET /refunds` | `RefundsController.findAll` | `RefundsService.findAll` | **Nadie** desde la app: `getRefunds` existe en `services/refunds.service.ts`, pero ninguna pantalla lo importa | `OPERATIONS_AND_UP` (del controller) |
+| `GET /refunds/by-quotation?quotationId=` | `RefundsController.findByQuotation` | `RefundsService.findByQuotation` | `getRefundsByQuotation` ← `PostVentaPage` (ficha `/post-venta/:id`, pieza `ReembolsosManager`) | `OPERATIONS_AND_UP` |
 | `GET /refunds/paid-map` | `RefundsController.paidMap` | `RefundsService.paidMapByCompany` | `getPaidRefundsByQuotation` ← `PostVentaPage.fetchEvents` | `OPERATIONS_AND_UP` |
-| `PATCH /refunds/:id/register` | `RefundsController.register` | `RefundsService.registerPaid` | `registerRefund` ← `RefundRow` | `OPERATIONS_AND_UP` |
+| `PATCH /refunds/:id/register` | `RefundsController.register` | `RefundsService.registerPaid` | `registerRefund` ← `PostVentaPage` (ficha `/post-venta/:id`, pieza `RefundRow`) | `OPERATIONS_AND_UP` |
 | `GET /portal/:token` | `PortalController.getPortal` | `QuotationsService.getPortalData` | `PortalPage.cargar` (llama `apiRequest` directo) | `@Public` |
 | `GET /portal/:token/cotizacion/:quotationId` | `PortalController.getPortalQuotation` | `QuotationsService.getPortalQuotation` | `PortalPage.verCotizacion` | `@Public` |
 | `POST /portal/:token/comprobante` (multipart: `file`, `payment_id`, `declared_amount`) | `PortalController.submitReceipt` | `QuotationsService.submitPortalReceipt` | `PortalPage.enviarComprobante` (llama `api.request` directo) | `@Public` + `@Throttle` 10 por minuto |

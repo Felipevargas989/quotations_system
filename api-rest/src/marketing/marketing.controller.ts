@@ -14,6 +14,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
@@ -40,6 +41,9 @@ import type { MarcaEmpresa } from './plantilla';
 // campañas por API. Las rutas @Public (webhook, baja) no pasan por
 // acá: RolesGuard las deja ir primero.
 @Roles(...ADMIN_ONLY)
+// Módulo propio (14-09-2026): Marketing es de Valle del Sol. Las rutas
+// @Public (webhook y baja) no pasan por el guardián.
+@Derecho('marketing')
 @Controller('marketing')
 export class MarketingController {
   constructor(

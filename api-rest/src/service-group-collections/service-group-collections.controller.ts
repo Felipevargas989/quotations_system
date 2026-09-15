@@ -28,6 +28,7 @@ export class ServiceGroupCollectionsController {
     return this.service.create(createDto, user.company_id);
   }
 
+  @Roles(...SALES_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service group collections with user ${user.id}`);

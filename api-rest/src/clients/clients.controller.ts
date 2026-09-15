@@ -9,6 +9,12 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
+import {
+  RECEPTION_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { ClientsService } from './clients.service';
@@ -30,6 +36,7 @@ export class ClientsController {
   // IMPORTANTE: estas rutas van ANTES de las rutas con :id para que
   // "types" no sea capturado como un id de cliente.
 
+  @Roles(...RECEPTION_AND_UP)
   @Get('types')
   findTypes(@CurrentUser() user: User) {
     this.logger.info(`GET /clients/types with user ${user.id}`);
@@ -45,6 +52,8 @@ export class ClientsController {
     return this.clientsService.findTypes(+companyId);
   }
 
+  @Derecho('clientes_360')
+  @Roles(...SALES_AND_UP)
   @Post('types')
   createType(
     @Body() createClientTypeDto: CreateClientTypeDto,
@@ -59,6 +68,8 @@ export class ClientsController {
     );
   }
 
+  @Derecho('clientes_360')
+  @Roles(...SALES_AND_UP)
   @Delete('types/:id')
   removeType(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/types/${id}`);
@@ -67,6 +78,8 @@ export class ClientsController {
 
   // Reordenar tipos (flechas ↑↓): recibe los ids en el orden final.
   // Declarado antes de PATCH :id para que "types" no sea capturado.
+  @Derecho('clientes_360')
+  @Roles(...SALES_AND_UP)
   @Patch('types/reorder')
   reorderTypes(
     @Body() reorderDto: ReorderClientTypesDto,
@@ -78,6 +91,7 @@ export class ClientsController {
     return this.clientsService.reorderTypes(user.company_id, reorderDto.ids);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Post()
   create(@Body() createClientDto: CreateClientDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -86,6 +100,7 @@ export class ClientsController {
     return this.clientsService.create(createClientDto, user.company_id);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /clients with user ${user.id}`);
@@ -98,12 +113,14 @@ export class ClientsController {
   // }
 
   // Ficha 360° del cliente: resumen comercial completo en una llamada.
+  @Roles(...RECEPTION_AND_UP)
   @Get(':id/summary')
   findSummary(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /clients/${id}/summary`);
     return this.clientsService.findSummary(id, user.company_id);
   }
 
+  @Roles(...SALES_AND_UP)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -116,6 +133,7 @@ export class ClientsController {
     return this.clientsService.update(id, updateClientDto, user.company_id);
   }
 
+  @Roles(...SALES_AND_UP)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/${id}`);

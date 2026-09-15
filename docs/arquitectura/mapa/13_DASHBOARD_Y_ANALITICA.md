@@ -1,6 +1,6 @@
 # Mapa: Dashboard y analítica
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -19,7 +19,7 @@ La antigua pantalla Analytics se fusionó al Dashboard el 23-07 y `/analytics` r
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| `/dashboard` | `DashboardPage` | `frontend/src/pages/dashboard/DashboardPage.tsx` | Mira la fila HOY y pincha para ir a Post-Venta, Calendario, Requerimientos o Cotizaciones. Elige período (chips o fechas libres), lee KPIs, tendencias, pipeline y análisis; recarga con ↻ | administrador (`SECTION_ROLES.dashboard = ADMIN_ONLY`, `PermissionGuard` en `App.tsx`; ítem "Dashboard" en `Sidebar.tsx` con `precargar`) |
+| `/dashboard` | `DashboardPage` | `frontend/src/pages/dashboard/DashboardPage.tsx` | Mira la fila HOY y pincha para ir a Post-Venta, Calendario, Requerimientos o Cotizaciones. Elige período (chips o fechas libres), lee KPIs, tendencias, pipeline y análisis; recarga con ↻. Desde el 14-09-2026 la pantalla se parte en tres niveles según el plan (flujo G) | administrador (`SECTION_ROLES.dashboard = ADMIN_ONLY`, `PermissionGuard` en `App.tsx`; ítem "Dashboard" en `Sidebar.tsx` con `precargar`). La ruta **no** lleva derecho: el nivel 1 va en todos los planes |
 | `/dashboard`, al pinchar una barra de Cotizaciones o Eventos por Mes | bloque "cosecha" dentro de `DashboardPage` + `tendencias.ts` | `frontend/src/pages/dashboard/tendencias.ts` | Ve quién cotizó (o qué eventos hubo) ese mes y el mismo mes del año anterior. Filtra por tipo de evento, tipo de cliente y estado; ordena por cliente o monto; corrige el estado "¿Volvió a pedirlo?" con `SectionChipSelect`; abre `/negocio/:id` en otra pestaña | administrador |
 | `/dashboard`, panel "Ingresos y Caja por Mes" | `IngresosYCaja` | `frontend/src/pages/dashboard/IngresosYCaja.tsx` | Tabla de 12 columnas (meses) con Resultado y Caja; al pasar el mouse por una cifra, `Tooltip` muestra de qué clientes o personas se compone | administrador |
 | `/dashboard`, sección "Análisis" | 9 tablas de `pages/analytics/components/*` + "Por qué perdimos" + análisis de proveedores (inline) | `frontend/src/pages/analytics/components/*.tsx` | Lee tablas de estados, conversión, ingresos, top clientes, recurrentes, servicios más usados y proveedores | administrador |
@@ -39,14 +39,14 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
 
 | Método y ruta | Controller → service | Llamada de la app (queryKey) | Mapa |
 |---|---|---|---|
-| `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada` ← `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]` | 01 / 02 |
-| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `estadoMut` (mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
-| `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `receiptsQuery` `["postventa","comprobantes"]` | 03 |
-| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `marginBaseQuery` `["logistica","compras","base", companyId]` (caché compartida con Compras y el cotizador) | 06 |
-| `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `wonEventsQuery` | 06 |
-| `GET /logistics/purchasing/supply-provisions`, `GET /logistics/resources`, `GET /logistics/event-resources` | `supplyProvisions`, `findAllResources`, `eventResources` | `getEventSupplyProvisions`, `getManagementResources`, `getAllEventResources` ← `provQuery` | 06 |
-| `GET /people/costo-personal` | `PeopleController.costoPersonal` → `PeopleRepository.costoPersonalPorEvento` | `getCostoPersonal` ← `costoPersonalQuery` | 07 / 08 |
-| `GET /people/pagado-por-mes` | `PeopleController.pagadoPorMes` → `PeopleRepository.pagadoDePersonalPorMes` → `utils/pagado-por-mes.ts` | `getPagadoPersonalPorMes` ← `pagadoPersonalQuery` | 08 |
+| `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `DashboardPage` (`tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada`, `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]`) y su tarjeta `NewAccount` | 01 / 02 |
+| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
+| `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `DashboardPage` (`receiptsQuery` `["postventa","comprobantes"]`); la misma caché la usa `PostVentaPage` | 03 |
+| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `DashboardPage` (`marginBaseQuery` `["logistica","compras","base", companyId]`; caché compartida con `LogisticaPage` y `QuotationForm`) | 06 |
+| `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `DashboardPage` (`wonEventsQuery`) | 06 |
+| `GET /logistics/purchasing/supply-provisions`, `GET /logistics/resources`, `GET /logistics/event-resources` | `supplyProvisions`, `findAllResources`, `eventResources` | `getEventSupplyProvisions`, `getManagementResources`, `getAllEventResources` ← `DashboardPage` (`provQuery`) | 06 |
+| `GET /people/costo-personal` | `PeopleController.costoPersonal` → `PeopleRepository.costoPersonalPorEvento` | `getCostoPersonal` ← `DashboardPage` (`costoPersonalQuery`) | 07 / 08 |
+| `GET /people/pagado-por-mes` | `PeopleController.pagadoPorMes` → `PeopleRepository.pagadoDePersonalPorMes` → `utils/pagado-por-mes.ts` | `getPagadoPersonalPorMes` ← `DashboardPage` (`pagadoPersonalQuery`) | 08 |
 
 **Relojes**: ninguno. `AnalyticsCronService` (`analyitics-cront.service.ts`, viernes 12:00 UTC) se borró en el commit 51948d6 del 31-07 (ver §6 y §8). En la app, solo `hoyQuery` se refresca solo cada 5 minutos (`refetchInterval`).
 
@@ -170,6 +170,54 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
    - las de servicios y top clientes cortan en 10 (`LIMIT 10`).
 3. Los componentes de `pages/analytics/components/` solo formatean: `formatCurrency`, porcentajes con 2 decimales y `etiquetaEstado`.
 
+### G. El Dashboard en tres niveles, según el plan (14-09-2026, rama `pruebas`)
+
+Desde el 14-09-2026 Eventia se vende en tres planes, y el Dashboard es la
+pantalla que más se parte entre ellos: la misma ruta muestra tres cosas
+distintas según lo que la empresa pagó. El mecanismo completo —los
+derechos, quién los calcula y por qué la app no tiene copia de la tabla de
+planes— está en el mapa 15 §5.8. Acá, lo que se ve.
+
+| Nivel | Qué muestra | Qué derecho pide | Por qué |
+|---|---|---|---|
+| 1 | La fila "Para actuar hoy", los KPIs del período, las tendencias y la cosecha del mes | ninguno: va en **todos** los planes, hasta en Cotiza | Es el enganche. El dueño que recién llega tiene que ver su negocio el primer día, o no vuelve |
+| 2 | El panel Ingresos y Caja, el Pipeline y toda la sección Análisis | `dashboard_2` (Gestiona y Cobra) | Es la plata del negocio mes a mes: lo que se vende con el plan del medio |
+| 3 | La tarjeta **Margen del período** de los KPIs, las filas de costo y margen de Ingresos y Caja, y el Análisis de proveedores | `dashboard_3` **y** `logistica` (Opera y Crece) | El costo sale de las consultas de logística. Sin ese derecho no hay con qué calcular un margen, así que se exigen los dos juntos |
+
+En el código son dos banderas al principio de `DashboardPage`:
+`verCajaYPipeline = tieneDerecho(company, "dashboard_2")` y
+`verMargenes = tieneDerecho(company, "dashboard_3") && tieneDerecho(company, "logistica")`.
+
+**Siete consultas quedaron condicionadas con `enabled`**, y esto no es un
+detalle de rendimiento: el motor niega esas puertas con 403, así que
+pedirlas igual solo llenaría el registro de errores que nadie mira.
+`statsQuery` (`GET /analytics/complete`), `perdidasQuery` y
+`pagadoPersonalQuery` esperan el nivel 2; `marginBaseQuery`,
+`wonEventsQuery`, `costoPersonalQuery` y `provQuery`, el nivel 3.
+`dashboardQuery` y `hoyQuery` **no** llevan candado: son el nivel 1, y
+`GET /analytics/dashboard` tampoco lo lleva en el motor —la misma
+respuesta sirve a los dos niveles, y el servicio devuelve los bloques de
+caja vacíos si la empresa no tiene `dashboard_2`—.
+
+**El hallazgo del margen falso, que es el que hay que recordar.** Al
+apagar las consultas de costo, `IngresosYCaja` seguía pintando sus filas
+con costo cero: la tabla mostraba **Margen = Ventas y 100 %**. Una cifra
+inventada es peor que una cifra que falta, y esa en particular es la que
+el dueño mira primero. El arreglo: cada fila de costo o de margen lleva la
+marca `nivel3` y se filtra con `visibles()` cuando falta el derecho, y
+queda **una sola** invitación a mejorar, al pie de la tabla, justo donde
+se corta: se ven las ventas del mes y se corta antes de decir cuánto
+quedó. Por la misma razón la tarjeta Margen del período desaparece entera
+de los KPIs —la fila pasa de cinco columnas a cuatro— en vez de mostrar
+ahí el aviso: un cartel de venta entre cinco cifras se lee como un dato
+roto. Y el Análisis de proveedores, que muestra costos, sale de la lista
+de secciones en vez de quedarse en "Cargando análisis…" para siempre.
+
+Sin el nivel 2 no se pinta ni Ingresos y Caja ni el Pipeline ni ninguna
+sección de Análisis, y en su lugar va **una sola** invitación para toda
+esa zona: tres recuadros seguidos diciendo lo mismo se leen como una
+pantalla rota, no como una oferta.
+
 ## 6. Reglas de negocio acordadas
 
 1. **La propina no es venta ni margen** (24-07, Felipe). Ventas, KPI, pipeline, Resultado y margen usan `saleWithoutTip`. Evidencia: cabecera de `api-rest/src/quotations/utils/tip.ts` (*"Criterio ÚNICO para todo el sistema"*), comentarios "24-07: SIN propina" en `AnalyticsService.getDashboardStats`, leyenda "del período, sin propina" en `DashboardPage`; doc 10: *"es plata que entra y sale, somos intermediarios"*. **En la caja sí sale**: `pagado-por-mes.ts` la incluye "a propósito".
@@ -196,6 +244,8 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
 22. **Sección de administrador** en ambas apps (Fase 3). Evidencia: `@Roles(...ADMIN_ONLY)` en `AnalyticsController` y `HoyController`; `SECTION_ROLES.dashboard`.
 23. **Análisis de proveedores con cuatro columnas "que deciden"** (poda del 25-08): "Comprado real comparaba peras con manzanas". Evidencia: comentario en la tabla maestra de `DashboardPage`.
 24. **El KPI "Clientes" se quitó** por ser *"un total de vanidad"* (Fase 5). Evidencia: comentario sobre los KPIs.
+25. **Una cifra falsa es peor que una cifra que falta** (14-09-2026, al partir el Dashboard por planes). Cuando se apagaron las consultas de costo para los planes sin logística, la tabla de Ingresos y Caja siguió calculando con costo cero y mostró Margen = Ventas y 100 %. Regla: si falta el dato que sostiene una cifra, la cifra **no se pinta** —se saca la fila, la tarjeta o la sección entera— y la invitación a mejorar de plan va donde la tabla se corta, nunca en el lugar donde iba el número. Evidencia: `nivel3` y `visibles()` en `IngresosYCaja.tsx`; el `verMargenes &&` de la tarjeta Margen del período y el `.filter()` que saca el análisis de proveedores en `DashboardPage.tsx` (flujo G).
+26. **El nivel 1 del Dashboard va en todos los planes** (14-09-2026, decisión de Felipe, mismo espíritu que el resumen del lunes): el dueño que recién llega tiene que ver su negocio el primer día. Lo que se vende es la plata mes a mes (nivel 2) y el margen (nivel 3). Evidencia: flujo G y mapa 15 §5.8.
 
 ## 7. Conexiones con otros módulos
 
@@ -349,7 +399,7 @@ CI (`.github/workflows/ci.yml`) corre `npx jest`, `npm run test` (vitest), `npm 
 - `frontend/src/pages/dashboard/DashboardPage.tsx`, `IngresosYCaja.tsx`, `tendencias.ts`, `tendencias.test.ts`, `components/NewAccount.tsx`
 - `frontend/src/pages/analytics/components/*.tsx` (9 tablas) y `frontend/src/pages/analytics/index.tsx` (muerto)
 - `frontend/src/services/analytics.service.ts`, `hoy.service.ts`, `types/analytics.types.ts`, `constants/api.routes.ts` (`ANALYTICS_*`)
-- `frontend/src/constants/permissions.ts`, `App.tsx`, `layout/Sidebar.tsx`, `pages/LoginPage.tsx`, `lib/queryClient.ts`
+- `frontend/src/constants/permissions.ts` (`tieneDerecho`, `dashboard_2`, `dashboard_3`), `frontend/src/components/MejoraTuPlan.tsx` (la invitación de los niveles 2 y 3), `App.tsx`, `layout/Sidebar.tsx`, `pages/LoginPage.tsx`, `lib/queryClient.ts`
 - `frontend/src/utils/quotationMoney.ts`, `utils/costoDeRecursos.ts`, `utils/eventConsolidation.ts`, `utils/estadoCotizacion.ts`, `components/MotivoPerdida.tsx`
 - `frontend/src/services/people.service.ts` (`getCostoPersonal`, `getPagadoPersonalPorMes`), `logistics.service.ts`, `quotations.service.ts` (`getQuotations`, `guardarEstadoCosecha`), `portalReceipts.service.ts`
 - `frontend/scripts/portero-kit-de-la-casa.sh` (techo de `DashboardPage`)

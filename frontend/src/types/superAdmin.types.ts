@@ -59,7 +59,26 @@ export interface TorreTarjetas {
   leads_mes: number;
 }
 
+// Una empresa vista desde la Torre (paso 3.2, 14-09-2026): es donde se
+// activa el plan de un cliente que pagó, mientras el cobro automático no
+// exista. Los topes vienen calculados por el motor, con la misma tabla
+// que aplica los candados: la Torre nunca muestra un plan distinto del
+// que rige de verdad.
+export interface TorreEmpresa {
+  id: number;
+  nombre: string;
+  creada: string | null;
+  plan: string | null;
+  estado_plan: string | null;
+  prueba_vence: string | null;
+  modulos_propios: string[];
+  usuarios: number;
+  usuarios_max: number | null;
+  cotizaciones_mes: number | null;
+}
+
 export interface TorreResponse {
   usuarios: TorreUsuario[];
   tarjetas: TorreTarjetas;
+  empresas: TorreEmpresa[];
 }

@@ -172,6 +172,22 @@ export class QuotationsRepository {
   // cotizaciones simultáneas quedaran con el mismo número. Y aunque este
   // código cambie, la restricción UNIQUE (company_id, quotation_number)
   // impide el repetido desde la base.
+  /**
+   * Cuántas COTIZACIONES (no requerimientos) creó una empresa desde una
+   * fecha. Lo usa el tope mensual del plan Cotiza (paso 3.2, 14-09-2026):
+   * cuenta sin traer ni una fila, porque solo importa el número.
+   */
+  async contarDesde(companyId: number, desde: Date): Promise<number> {
+    const { count, error } = await this.supabase.client
+      .from('quotations')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('request_type', RequestType.COTIZACION)
+      .gte('created_at', desde.toISOString());
+    if (error) throw error;
+    return count ?? 0;
+  }
+
   async nextQuotationNumber(companyId: Company['id']): Promise<number> {
     const { data, error } = await this.supabase.client.rpc(
       'next_quotation_number',
@@ -214,10 +230,19 @@ export class QuotationsRepository {
       clients: {
         name: string;
         company_id: number;
-        companies: Pick<
-          Company,
-          'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
-        > | null;
+        companies:
+          | (Pick<
+              Company,
+              'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
+            > & {
+              // Para el candado del portal, que es de Gestiona y Cobra
+              // (paso 3.2, 14-09-2026). Acá no hay sesión: el plan se
+              // resuelve desde el token del mandante.
+              plan?: string | null;
+              estado_plan?: string | null;
+              modulos_propios?: string[] | null;
+            })
+          | null;
       } | null;
     } | null;
     error: PostgrestError | null;
@@ -229,7 +254,10 @@ export class QuotationsRepository {
         `id, name, client_id,
         clients!inner (
           name, company_id,
-          companies!inner ( name, tagline, logo_url, colors, bank_details )
+          companies!inner (
+            name, tagline, logo_url, colors, bank_details,
+            plan, estado_plan, modulos_propios
+          )
         )`,
       )
       .eq('portal_token', token)

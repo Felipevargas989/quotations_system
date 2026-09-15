@@ -7,6 +7,13 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import {
+  assertCupo,
+  assertDerecho,
+  derechosDe,
+  tieneDerecho,
+  type Derechos,
+} from 'src/auth/derechos';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
 import { ConsultasService } from 'src/consultas/consultas.service';
@@ -22,7 +29,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
-import { getEventDateUtc } from '../utils/dates';
+import { getEventDateUtc, inicioDelMesEnChile } from '../utils/dates';
 import {
   EVENTO_REALIZADO_CONGELADO,
   PaymentPlanType,
@@ -45,6 +52,13 @@ import {
   hasMoneyToVerify,
   verifyMoney,
 } from './utils/money';
+
+/** Lo que la sesión trae del plan: los derechos y los topes. */
+export type DerechosDeLaSesion = {
+  derechos?: Derechos['derechos'];
+  cotizaciones_mes?: number | null;
+  plan?: string | null;
+};
 
 @Injectable()
 export class QuotationsService {
@@ -89,6 +103,10 @@ export class QuotationsService {
     createQuotationDto: CreateQuotationDto,
     companyId: number,
     userId: string | undefined,
+    // Los derechos de la sesión (paso 3.2, 14-09-2026). Opcional porque
+    // el formulario público entra por acá sin sesión: en ese caso el
+    // llamador ya resolvió los derechos de la empresa, o no hay tope.
+    derechos?: DerechosDeLaSesion,
   ) {
     this.logger.info(
       `create quotation with createQuotationDto ${logSafe(createQuotationDto)}`,
@@ -115,6 +133,19 @@ export class QuotationsService {
         tip_percentage: createQuotationDto.tip_percentage ?? null,
       },
     );
+
+    // LOS DERECHOS DEL PLAN (paso 3.2, 14-09-2026). Van acá y no más
+    // abajo a propósito: el número de cotización se pide con un contador
+    // atómico que NO se devuelve, así que rechazar después de pedirlo
+    // quemaría un número para siempre.
+    if (derechos) {
+      if (createQuotationDto.request_type === RequestType.COTIZACION) {
+        await this.assertCupoDelMes(companyId, derechos);
+      }
+      if (createQuotationDto.event_end_date) {
+        assertDerecho(derechos.derechos, 'varios_dias');
+      }
+    }
 
     // El número lo asigna LA BASE de forma atómica (migración 38): dos
     // creaciones simultáneas reciben números distintos sí o sí, y la
@@ -183,9 +214,40 @@ export class QuotationsService {
     return this.quotationsRepository.create(newQuotation);
   }
 
+  /**
+   * El tope de cotizaciones del mes (plan Cotiza, paso 3.2). Se cuenta por
+   * mes CHILENO, que es el que el cliente tiene en la cabeza: una
+   * cotización del 31 a las 22:00 pertenece a ese mes, aunque en UTC ya
+   * sea el 1 del siguiente.
+   */
+  private async assertCupoDelMes(
+    companyId: number,
+    derechos: DerechosDeLaSesion,
+  ): Promise<void> {
+    if (
+      derechos.cotizaciones_mes === null ||
+      derechos.cotizaciones_mes === undefined
+    ) {
+      return; // sin tope: ni siquiera se cuenta
+    }
+    const usadas = await this.quotationsRepository.contarDesde(
+      companyId,
+      inicioDelMesEnChile(),
+    );
+    assertCupo(
+      'cotizaciones_mes',
+      usadas,
+      derechos.cotizaciones_mes,
+      derechos.plan,
+    );
+  }
+
   async createPublic(
     createQuotationPublicDto: CreateQuotationPublicDto,
     company_id: Company['id'],
+    // Los derechos de la empresa dueña del formulario, que el controller
+    // resuelve por el id de la dirección: acá no hay sesión (paso 3.2).
+    derechosDeLaEmpresa?: Derechos,
   ) {
     this.logger.info(
       `createPublic quotation with createQuotationPublicDto ${logSafe(createQuotationPublicDto)}`,
@@ -216,10 +278,16 @@ export class QuotationsService {
     // tiene brochures configurados, la solicitud NO crea cliente ni
     // cotización — queda como consulta y recibe el brochure al tiro.
     // Sin brochures configurados, todo sigue como siempre.
-    const esConsulta = await this.consultasService.embudoPara(
-      company_id,
-      createQuotationPublicDto.event_type,
-    );
+    // El embudo es de Opera y Crece (paso 3.2, 14-09-2026): una empresa
+    // sin ese derecho recibe la misma solicitud, pero como requerimiento
+    // normal y sin brochure automático. El formulario público sigue
+    // funcionando igual en todos los planes.
+    const esConsulta =
+      tieneDerecho(derechosDeLaEmpresa?.derechos, 'consultas') &&
+      (await this.consultasService.embudoPara(
+        company_id,
+        createQuotationPublicDto.event_type,
+      ));
     if (esConsulta) {
       const consulta = await this.consultasService.registrar(company_id, {
         ...createQuotationPublicDto,
@@ -507,7 +575,12 @@ export class QuotationsService {
     return { ok: true };
   }
 
-  async markEventDone(id: string, companyId: number) {
+  async markEventDone(
+    id: string,
+    companyId: number,
+    // Los derechos del plan: deciden si sale la encuesta (paso 3.2).
+    derechos?: DerechosDeLaSesion,
+  ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
     if (error) throw error;
@@ -530,8 +603,12 @@ export class QuotationsService {
       (quotation as { survey_sent_at?: string | null }).survey_sent_at,
     );
     const recipient = await this.resolveRecipient(quotation);
+    // La encuesta de satisfacción es de Opera y Crece (paso 3.2,
+    // 14-09-2026). Marcar el evento como realizado lo puede hacer
+    // cualquier plan: lo que no sale es el correo al cliente.
+    const conEncuestas = tieneDerecho(derechos?.derechos, 'encuestas');
     let surveySent = false;
-    if (!alreadySurveyed && recipient) {
+    if (!alreadySurveyed && recipient && conEncuestas) {
       try {
         await this.emailService.sendEmail(
           recipient.email,
@@ -586,6 +663,13 @@ export class QuotationsService {
     }
     const companyId = cliente.company_id;
     const empresa = cliente.companies;
+
+    // EL PORTAL DEL MANDANTE es de Gestiona y Cobra (paso 3.2,
+    // 14-09-2026). Acá no hay sesión de dónde sacar el plan: la empresa
+    // llega por el token del cliente, y con ella se preguntan sus
+    // derechos. Si la empresa bajó de plan, el enlace deja de abrir —
+    // pero no se borra nada, y vuelve solo si sube de nuevo.
+    assertDerecho(derechosDe(empresa).derechos, 'portal');
 
     const { data: quotations } =
       await this.quotationsRepository.findAllByContact(contacto.id);
@@ -757,6 +841,8 @@ export class QuotationsService {
     if (!contacto || !cliente || !cliente.companies) {
       throw new NotFoundException();
     }
+    // Misma puerta pública, mismo candado (paso 3.2, 14-09-2026).
+    assertDerecho(derechosDe(cliente.companies).derechos, 'portal');
     const { data: propias } = await this.quotationsRepository.findAllByContact(
       contacto.id,
     );
@@ -803,6 +889,8 @@ export class QuotationsService {
     if (!contacto || !cliente) {
       throw new NotFoundException();
     }
+    // El "ya transferí" también es del portal (paso 3.2, 14-09-2026).
+    assertDerecho(derechosDe(cliente.companies).derechos, 'portal');
     const companyId = cliente.company_id;
 
     const monto = Math.round(Number(dto.declared_amount));
@@ -894,6 +982,9 @@ export class QuotationsService {
     // del propio backend (cron de seguimiento, portal de pagos) no
     // tienen rol y no deben quedar bloqueados.
     role?: string,
+    // Los derechos del plan, por la misma razón: los llamados internos
+    // van sin ellos y no se revisa nada (paso 3.2, 14-09-2026).
+    derechos?: DerechosDeLaSesion,
   ) {
     try {
       // 0. Get quotation
@@ -931,6 +1022,24 @@ export class QuotationsService {
         throw new ForbiddenException(
           'Recepción puede editar requerimientos, no cotizaciones.',
         );
+      }
+
+      // LOS EVENTOS DE VARIOS DÍAS son de Gestiona y Cobra (paso 3.2,
+      // 14-09-2026). Se revisa solo si el parche CAMBIA la fecha de
+      // término: una empresa que bajó de plan sigue pudiendo editar
+      // (y ver) los eventos de varios días que ya tenía, pero no puede
+      // convertir uno de un día en uno de varios.
+      // OJO con la comparación: update no normaliza fechas (create sí),
+      // así que lo guardado viene en ISO y el parche en 'YYYY-MM-DD'.
+      if (derechos && updateQuotationDto.event_end_date !== undefined) {
+        const nueva = (updateQuotationDto.event_end_date ?? '').slice(0, 10);
+        const vieja = String(
+          (quotation as { event_end_date?: string | null }).event_end_date ??
+            '',
+        ).slice(0, 10);
+        if (nueva && nueva !== vieja) {
+          assertDerecho(derechos.derechos, 'varios_dias');
+        }
       }
 
       // FASE 1: si el parche toca la plata, la cuenta se rehace ANTES de
@@ -1258,7 +1367,7 @@ export class QuotationsService {
     }
   }
 
-  async remove(id: string, companyId: number) {
+  async remove(id: string, companyId: number, role?: string) {
     // El candado también tapa el borrado (13-08). La guardia que ya
     // existía (assertDeletable) solo cuenta pagos, reembolsos y
     // encuestas respondidas: un evento realizado pagado al contado y
@@ -1272,6 +1381,17 @@ export class QuotationsService {
     // otro fallo de lectura sí frena: si no puedo saber si el evento
     // está realizado, no lo borro.
     if (error && error.code !== 'PGRST116') throw error;
+    // Espejo del candado de crear y editar (14-09-2026): recepción
+    // registra y borra requerimientos, no cotizaciones formales.
+    if (
+      role === UserRole.RECEPCION &&
+      quotation &&
+      quotation.request_type !== RequestType.REQUERIMIENTO
+    ) {
+      throw new ForbiddenException(
+        'Recepción puede borrar requerimientos, no cotizaciones.',
+      );
+    }
     if (
       quotation &&
       quotation.company_id === companyId &&

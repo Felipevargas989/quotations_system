@@ -13,6 +13,12 @@ import {
 import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { assertDerecho } from 'src/auth/derechos';
+import {
+  RECEPTION_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -114,16 +120,30 @@ export class ClientContactsController {
     this.logger.setContext(ClientContactsController.name);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findByClient(@Query('clientId') clientId: string, @CurrentUser() user: User) {
     return this.repo.findByClient(user.company_id, clientId);
   }
 
+  // El contacto principal lo necesita cualquier plan: sin una persona a
+  // quien mandarle la cotización no se puede vender. Tener VARIOS
+  // contactos por cliente es Clientes 360 (Gestiona y Cobra), así que el
+  // candado mira cuántos hay antes de dejar agregar otro (paso 3.2).
+  @Roles(...RECEPTION_AND_UP)
   @Post()
-  create(@Body() dto: CreateClientContactDto, @CurrentUser() user: User) {
+  async create(@Body() dto: CreateClientContactDto, @CurrentUser() user: User) {
+    const existentes = await this.repo.findByClient(
+      user.company_id,
+      dto.client_id,
+    );
+    if (existentes.length > 0) {
+      assertDerecho(user.derechos, 'clientes_360');
+    }
     return this.repo.create(user.company_id, dto);
   }
 
+  @Roles(...SALES_AND_UP)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -133,11 +153,13 @@ export class ClientContactsController {
     return this.repo.update(user.company_id, id, dto);
   }
 
+  @Roles(...SALES_AND_UP)
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.repo.delete(user.company_id, id);
   }
 
+  @Roles(...SALES_AND_UP)
   @Post(':id/primary')
   setPrimary(
     @Param('id', ParseIntPipe) id: number,

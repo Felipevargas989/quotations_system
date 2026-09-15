@@ -12,7 +12,14 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
-import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { DerechosService } from 'src/auth/derechos.service';
+import {
+  ADMIN_ONLY,
+  OPERATIONS_AND_UP,
+  RECEPTION_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user.entity';
@@ -33,10 +40,14 @@ export class QuotationsController {
     private readonly quotationsService: QuotationsService,
     private readonly envioCotizacion: EnvioCotizacionService,
     private readonly logger: PinoLogger,
+    // Para las puertas públicas, que no tienen sesión de dónde sacar los
+    // derechos de la empresa (paso 3.2, 14-09-2026).
+    private readonly derechosService: DerechosService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Post()
   create(
     @Body() createQuotationDto: CreateQuotationDto,
@@ -60,6 +71,14 @@ export class QuotationsController {
       createQuotationDto,
       user.company_id,
       user.id,
+      // Los derechos del plan viajan en la sesión (paso 3.2, 14-09-2026):
+      // el tope de cotizaciones del mes y los eventos de varios días se
+      // revisan dentro del servicio, antes de tocar la base.
+      {
+        derechos: user.derechos,
+        cotizaciones_mes: user.cotizaciones_mes,
+        plan: user.plan,
+      },
     );
   }
 
@@ -67,19 +86,26 @@ export class QuotationsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('public/:company_id')
-  createPublic(
+  async createPublic(
     @Body() createQuotationPublicDto: CreateQuotationPublicDto,
     @Param('company_id') company_id: Company['id'],
   ) {
     this.logger.info(
       `POST /quotations with createQuotationDto ${logSafe(createQuotationPublicDto)}`,
     );
+    // Acá no hay sesión: la empresa es la de la dirección, y sus derechos
+    // se preguntan aparte (paso 3.2, 14-09-2026). Con ellos el servicio
+    // decide si la solicitud entra al embudo de Consultas o como
+    // requerimiento normal; el formulario funciona igual en todo plan.
+    const derechos = await this.derechosService.deEmpresa(company_id);
     return this.quotationsService.createPublic(
       createQuotationPublicDto,
       company_id,
+      derechos,
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(
     @CurrentUser() user: User,
@@ -100,6 +126,7 @@ export class QuotationsController {
     });
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Get('check-conflicts')
   checkConflictsWithExistingQuotations(
     @Query()
@@ -136,6 +163,7 @@ export class QuotationsController {
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
+  @Roles(...SALES_AND_UP)
   @Post(':id/enviar-correo')
   enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
@@ -148,7 +176,9 @@ export class QuotationsController {
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
-    return this.quotationsService.markEventDone(id, user.company_id);
+    return this.quotationsService.markEventDone(id, user.company_id, {
+      derechos: user.derechos,
+    });
   }
 
   // La puerta de VUELTA (05-08, pedido de Felipe): des-marca un evento
@@ -163,6 +193,7 @@ export class QuotationsController {
 
   // La palabra final sobre una fila de la cosecha del mes. Cualquiera
   // que venda puede corregirla: es su oficio, no una decisión de sistema.
+  @Roles(...SALES_AND_UP)
   @Post(':id/cosecha')
   setHarvestStatus(
     @Param('id') id: string,
@@ -178,6 +209,7 @@ export class QuotationsController {
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -196,11 +228,19 @@ export class QuotationsController {
       updateQuotationDto,
       user.company_id,
       (user as User & { role?: string }).role,
+      { derechos: user.derechos, plan: user.plan },
     );
   }
 
+  @Roles(...RECEPTION_AND_UP)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.quotationsService.remove(id, user.company_id);
+    // Recepción solo borra requerimientos (14-09-2026): el service revisa
+    // el tipo de la cotización guardada, igual que al editar.
+    return this.quotationsService.remove(
+      id,
+      user.company_id,
+      (user as User & { role?: string }).role,
+    );
   }
 }

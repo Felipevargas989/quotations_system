@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { RegisterRefundDto } from './dto/register-refund.dto';
@@ -8,6 +9,9 @@ import { RefundsService } from './refunds.service';
 
 // Mudanza #7 (28-07): Post-Venta deja el acceso directo. Reembolsos son
 // terreno de operaciones y administración.
+// Los reembolsos son parte del ciclo de cobro: Gestiona y Cobra
+// (paso 3.2, 14-09-2026).
+@Derecho('post_venta')
 @Roles(...OPERATIONS_AND_UP)
 @Controller('refunds')
 export class RefundsController {

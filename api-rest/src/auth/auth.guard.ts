@@ -10,6 +10,7 @@ import { HORA_MS, cachePerfiles } from 'src/cache/memoria';
 import { UserAuth } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { AuthService } from './auth.service';
+import { derechosDe, type Derecho, type EmpresaConPlan } from './derechos';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
@@ -54,6 +55,13 @@ export class AuthGuard implements CanActivate {
         if (fullUser) cachePerfiles.set(user.id, fullUser, HORA_MS);
       }
 
+      // Los derechos de la empresa (14-09-2026, paso 3.2): se calculan
+      // UNA vez acá, con la empresa que viene embebida en el perfil, y
+      // viajan en la sesión para DerechosGuard y para las revisiones de
+      // los servicios. Nadie más consulta el plan.
+      const empresa = fullUser!.companies as EmpresaConPlan | null;
+      const derechos = derechosDe(empresa);
+
       // Attach the full user with company_id AND role to request object.
       // El cargo viaja para que RolesGuard (Fase 3, 28-07) pueda
       // aplicarlo: antes el backend solo comprobaba que hubiera sesión.
@@ -63,6 +71,11 @@ export class AuthGuard implements CanActivate {
             company_id: number;
             role?: string;
             email?: string;
+            derechos?: Derecho[];
+            usuarios_max?: number | null;
+            cotizaciones_mes?: number | null;
+            plan?: string | null;
+            estado_plan?: string | null;
           };
         }
       ).user = {
@@ -72,6 +85,17 @@ export class AuthGuard implements CanActivate {
         // El correo viaja para el guardián de super-admin (allowlist
         // SUPER_ADMIN_EMAILS) — mudanza #7, 28-07.
         email: fullUser!.email,
+        // La lista de derechos incluye los módulos propios de la
+        // migración 111: Personal y Marketing son dos derechos más.
+        // Sin las columnas (migración 112 sin aplicar) la empresa se
+        // trata como Cotiza en prueba, que da los derechos de Crece y
+        // no le quita nada a nadie. En producción la migración va
+        // ANTES del deploy, justamente para no depender de eso.
+        derechos: derechos.derechos,
+        usuarios_max: derechos.usuarios_max,
+        cotizaciones_mes: derechos.cotizaciones_mes,
+        plan: empresa?.plan ?? null,
+        estado_plan: empresa?.estado_plan ?? null,
       };
 
       return true;

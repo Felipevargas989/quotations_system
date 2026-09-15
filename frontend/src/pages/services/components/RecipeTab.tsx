@@ -28,6 +28,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NumberInput } from "../../../components/inputs";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import PhotoPopup from "../../../components/PhotoPopup";
+import SoloConLogistica from "./SoloConLogistica";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
@@ -38,9 +39,18 @@ interface RecipeTabProps {
   readonly servicePrice?: number;
 }
 
+// La receta la trae el plan Opera y Crece; el porqué está en SoloConLogistica.
+export default function RecipeTab(props: RecipeTabProps) {
+  return (
+    <SoloConLogistica>
+      <RecipeTabContenido {...props} />
+    </SoloConLogistica>
+  );
+}
+
 // Editor de receta de un servicio. Variables: insumos + mobiliario; fijos:
 // solo mobiliario. Todo por persona; cada línea se guarda al agregar/editar.
-export default function RecipeTab({
+function RecipeTabContenido({
   companyId,
   serviceType,
   serviceId,
