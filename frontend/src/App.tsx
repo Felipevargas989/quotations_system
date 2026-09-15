@@ -223,7 +223,10 @@ function App() {
               <Route
                 path="consultas"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.quotations}
+                    derecho="consultas"
+                  >
                     <ConsultasPage />
                   </PermissionGuard>
                 }

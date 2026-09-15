@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   canAccessSection,
+  Derecho,
   SECTION_DERECHO,
   tieneDerecho,
   Section,
@@ -75,6 +76,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/consultas",
       icon: Inbox,
       section: "quotations",
+      // Comparte sección con Cotizaciones (el cargo es el mismo) pero NO
+      // el plan: el embudo con brochure automático entra con Opera y
+      // Crece. Por eso el derecho va acá y no en SECTION_DERECHO, que
+      // solo sabe de secciones (15-09-2026).
+      derecho: "consultas" as Derecho,
       precargar: () => import("../pages/consultas/ConsultasPage.tsx"),
     },
     {
@@ -221,7 +227,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               // perdiendo es lo que hace subir de plan; esconderlo solo
               // deja al cliente sin saber que existe. Al pinchar, la
               // pantalla dice en qué plan está y lleva a /plans.
-              const derecho = SECTION_DERECHO[item.section as Section];
+              const derecho =
+                ("derecho" in item ? item.derecho : undefined) ??
+                SECTION_DERECHO[item.section as Section];
               const conCandado = !tieneDerecho(company, derecho);
               return (
                 <Link
