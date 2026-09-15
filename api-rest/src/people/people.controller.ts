@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { ModuloPropio } from 'src/auth/modulo-propio.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -42,6 +43,9 @@ import { PeopleService } from './people.service';
 // Cargo de clase (14-09-2026): todo el módulo es de ADMIN_ONLY; las rutas
 // que otras pantallas usan lo bajan una a una con su propio @Roles.
 @Roles(...ADMIN_ONLY)
+// Módulo propio (14-09-2026): Personal es de Valle del Sol. Las rutas que
+// usan Post-Venta y el Dashboard se abren una a una con @ModuloPropio(null).
+@ModuloPropio('personal')
 @Controller('people')
 export class PeopleController {
   constructor(
@@ -88,6 +92,7 @@ export class PeopleController {
   // Antes de las rutas con :id, para que "staff" no se lea como un id.
 
   @Roles(...OPERATIONS_AND_UP)
+  @ModuloPropio(null)
   @Get('staff')
   findStaff(
     @Query('evento') evento: string | undefined,
@@ -108,6 +113,7 @@ export class PeopleController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @ModuloPropio(null)
   @Post('staff')
   addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff ${logSafe(dto)}`);
@@ -123,6 +129,7 @@ export class PeopleController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @ModuloPropio(null)
   @Patch('staff/:id')
   updateStaff(
     @Param('id') id: string,
@@ -134,6 +141,7 @@ export class PeopleController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @ModuloPropio(null)
   @Delete('staff/:id')
   removeStaff(
     @Param('id') id: string,
@@ -152,12 +160,14 @@ export class PeopleController {
 
   /** Lo que YA se le pagó al equipo, mes a mes: el flujo de caja del
    *  panel usa la fecha en que se marcó pagado en la nómina. */
+  @ModuloPropio(null)
   @Get('pagado-por-mes')
   pagadoPorMes(@CurrentUser() user: User) {
     return this.peopleService.pagadoDePersonalPorMes(user.company_id);
   }
 
   /** El costo de personal por evento y cargo, desde las sillas. */
+  @ModuloPropio(null)
   @Get('costo-personal')
   costoPersonal(@CurrentUser() user: User) {
     return this.peopleService.costoPersonal(user.company_id);
@@ -175,6 +185,7 @@ export class PeopleController {
   // ---- El ciclo de la ficha ----
 
   @Roles(...OPERATIONS_AND_UP)
+  @ModuloPropio(null)
   @Get('sheets')
   findSheets(@CurrentUser() user: User) {
     return this.peopleService.findSheets(user.company_id);

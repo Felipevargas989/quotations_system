@@ -7,6 +7,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
+import { ModulosPropiosGuard } from './auth/modulos-propios.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
@@ -111,6 +112,12 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    // Módulos propios (14-09-2026): Personal y Marketing solo para las
+    // empresas que los tienen encendidos. Después del cargo.
+    {
+      provide: APP_GUARD,
+      useClass: ModulosPropiosGuard,
     },
   ],
 })

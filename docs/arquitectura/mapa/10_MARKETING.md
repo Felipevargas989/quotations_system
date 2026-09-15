@@ -355,3 +355,15 @@ Importada:
 - `frontend/src/services/storage.service.ts` (`uploadCampaignBanner`).
 - `frontend/public/correo/`: íconos que usan los correos (whatsapp, instagram, facebook, web).
 - `frontend/src/components/PieDeMarcaPublico.tsx`: gemelo del pie del correo en páginas públicas.
+
+## Módulos propios (14-09-2026, rama `pruebas`, paso 3 del roadmap de venta)
+
+Este módulo **no se vende**: es de Valle del Sol. Cada empresa guarda en
+`companies.modulos_propios` (migración 111) qué módulos propios tiene; la
+empresa 1 nace con `personal` y `marketing`. La app esconde el ítem del menú
+y la ruta (`Sidebar.canAccess`, `PermissionGuard` con `modulo`), y el motor
+niega todas sus rutas con `ModulosPropiosGuard` (`@ModuloPropio` en el
+controller), salvo las que otras pantallas usan y se abren con
+`@ModuloPropio(null)`. Detalle en 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.
+
+Las rutas `@Public` del webhook y de la baja no pasan por el guardián. El embudo de Consultas sigue usando `plantillaCampana` por código: el candado cierra pantallas y rutas, no la plantilla.

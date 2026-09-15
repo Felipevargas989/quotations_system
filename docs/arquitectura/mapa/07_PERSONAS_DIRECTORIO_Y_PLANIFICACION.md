@@ -461,3 +461,15 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
   - `frontend/src/layout/Sidebar.tsx`
 - Pantallas de otros módulos que escriben o leen las filas: `frontend/src/pages/postventa/GrillaPersonal.tsx`, `EventResourcesSection.tsx` y `ServiciosTab.tsx`; `frontend/src/pages/dashboard/DashboardPage.tsx`.
 - `frontend/scripts/portero-kit-de-la-casa.sh`: los techos de RUT, bancos, estado de persona, hora y tamaño de archivos.
+
+## Módulos propios (14-09-2026, rama `pruebas`, paso 3 del roadmap de venta)
+
+Este módulo **no se vende**: es de Valle del Sol. Cada empresa guarda en
+`companies.modulos_propios` (migración 111) qué módulos propios tiene; la
+empresa 1 nace con `personal` y `marketing`. La app esconde el ítem del menú
+y la ruta (`Sidebar.canAccess`, `PermissionGuard` con `modulo`), y el motor
+niega todas sus rutas con `ModulosPropiosGuard` (`@ModuloPropio` en el
+controller), salvo las que otras pantallas usan y se abren con
+`@ModuloPropio(null)`. Detalle en 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.
+
+En Personal quedan **abiertas sin el módulo** siete rutas: leer, crear, editar y borrar sillas (`/people/staff`), leer fichas (`GET /people/sheets`), y las dos del Dashboard (`costo-personal`, `pagado-por-mes`). Así Post‑Venta valoriza el personal por cargo y monto, y el margen queda completo, sin nombres. El enlace "Poner nombres →" de `GrillaPersonal` solo aparece con el módulo.

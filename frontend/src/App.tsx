@@ -347,7 +347,7 @@ function App() {
               <Route
                 path="personas"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people} modulo="personal">
                     <PersonasPage />
                   </PermissionGuard>
                 }
@@ -357,7 +357,7 @@ function App() {
               <Route
                 path="marketing"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} modulo="marketing">
                     <MarketingPage />
                   </PermissionGuard>
                 }
@@ -367,7 +367,7 @@ function App() {
               <Route
                 path="marketing/campana/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} modulo="marketing">
                     <CampanaFichaPage />
                   </PermissionGuard>
                 }
@@ -378,7 +378,7 @@ function App() {
               <Route
                 path="personas/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people} modulo="personal">
                     <PersonaFichaPage />
                   </PermissionGuard>
                 }

@@ -106,6 +106,20 @@ export const ROLE_GROUPS = {
 };
 
 // Section-specific role arrays
+// MÓDULOS PROPIOS (14-09-2026): Personal y Marketing no se venden. Una
+// sección con módulo propio se ve solo si la empresa lo tiene encendido
+// (`companies.modulos_propios`, migración 111). El motor aplica lo mismo
+// con ModulosPropiosGuard: la pantalla esconde, el motor niega.
+export type ModuloPropio = "personal" | "marketing";
+export const SECTION_MODULO: Partial<Record<Section, ModuloPropio>> = {
+  people: "personal",
+  marketing: "marketing",
+};
+export const tieneModulo = (
+  company: { modulos_propios?: string[] | null } | null | undefined,
+  modulo?: ModuloPropio | null,
+): boolean => !modulo || Boolean(company?.modulos_propios?.includes(modulo));
+
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
   dashboard: ROLE_GROUPS.ADMIN_ONLY,
   requests: ROLE_GROUPS.ALL_ROLES,

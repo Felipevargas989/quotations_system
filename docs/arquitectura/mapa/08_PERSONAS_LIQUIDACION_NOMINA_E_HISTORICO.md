@@ -306,3 +306,13 @@ El orden de las rutas importa: los comentarios del controller piden poner `roles
 - `frontend/src/App.tsx` y `frontend/src/constants/permissions.ts` (`SECTION_ROLES.people`)
 - `frontend/src/pages/dashboard/DashboardPage.tsx` y `frontend/src/pages/postventa/GrillaPersonal.tsx` (consumidores)
 - `frontend/scripts/portero-kit-de-la-casa.sh`
+
+## Módulos propios (14-09-2026, rama `pruebas`, paso 3 del roadmap de venta)
+
+Este módulo **no se vende**: es de Valle del Sol. Cada empresa guarda en
+`companies.modulos_propios` (migración 111) qué módulos propios tiene; la
+empresa 1 nace con `personal` y `marketing`. La app esconde el ítem del menú
+y la ruta (`Sidebar.canAccess`, `PermissionGuard` con `modulo`), y el motor
+niega todas sus rutas con `ModulosPropiosGuard` (`@ModuloPropio` en el
+controller), salvo las que otras pantallas usan y se abren con
+`@ModuloPropio(null)`. Detalle en 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.

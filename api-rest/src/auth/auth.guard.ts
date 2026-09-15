@@ -63,6 +63,7 @@ export class AuthGuard implements CanActivate {
             company_id: number;
             role?: string;
             email?: string;
+            modulos_propios?: string[];
           };
         }
       ).user = {
@@ -72,6 +73,13 @@ export class AuthGuard implements CanActivate {
         // El correo viaja para el guardián de super-admin (allowlist
         // SUPER_ADMIN_EMAILS) — mudanza #7, 28-07.
         email: fullUser!.email,
+        // Los módulos propios de la empresa (14-09-2026) viajan para
+        // ModulosPropiosGuard. Sin la columna (migración 111 sin
+        // aplicar) la lista queda vacía y Personal y Marketing se
+        // cierran: en producción, la migración va ANTES del deploy.
+        modulos_propios:
+          (fullUser!.companies as { modulos_propios?: string[] } | null)
+            ?.modulos_propios ?? [],
       };
 
       return true;

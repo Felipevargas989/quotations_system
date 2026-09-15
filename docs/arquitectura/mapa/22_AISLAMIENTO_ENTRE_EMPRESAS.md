@@ -141,3 +141,7 @@ empresa por API directa: el candado de rol solo vive en la pantalla.
 Ver también 20_CONEXIONES_Y_ZONAS_DE_RIESGO.md, sección "Medición en producción
 del 11-09-2026", y 05_CATALOGO_DE_SERVICIOS.md, 03_PAGOS_REEMBOLSOS_Y_PORTAL.md
 y 15_ACCESO_EMPRESA_USUARIOS_Y_PLANES.md.
+
+## Paso 3 del roadmap de venta, primera parte: módulos propios (14-09-2026)
+
+Personal y Marketing quedan solo para Valle del Sol, con el interruptor por empresa descrito en 15, §5.7. Es el mismo mecanismo que usará el candado por plan.

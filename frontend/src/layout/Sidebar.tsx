@@ -15,7 +15,12 @@ import {
   Megaphone,
   Inbox,
 } from "lucide-react";
-import { canAccessSection } from "../constants/permissions";
+import {
+  canAccessSection,
+  SECTION_MODULO,
+  tieneModulo,
+  Section,
+} from "../constants/permissions";
 import { useAuth } from "../contexts/AuthContext";
 
 interface SidebarProps {
@@ -24,7 +29,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { userRole } = useAuth();
+  const { userRole, company } = useAuth();
 
   const canAccess = (section: string): boolean => {
     // Mientras el rol viene en camino NO se muestra nada (12-08). El
@@ -33,6 +38,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     // clic en esa ventana la dejaba en "Permisos Insuficientes". Y si la
     // consulta del rol falla, el menú se queda vacío en vez de mentir.
     if (!userRole) return false;
+    // Personal y Marketing solo si la empresa los tiene (14-09-2026).
+    if (!tieneModulo(company, SECTION_MODULO[section as Section])) return false;
     return canAccessSection(userRole, section as any);
   };
 

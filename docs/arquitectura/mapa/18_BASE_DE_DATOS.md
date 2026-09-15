@@ -433,3 +433,11 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 13. La migración 108 midió que el privilegio por defecto de `service_role` ya alcanzaba a las tablas nuevas antes de aplicarla (contradicción 11 de la sección 9): ¿por qué entonces el motor igual necesitó `GRANT` explícito en 44, 45, 49, 53, 54, 55, 59, 68, 71, 77, 78, 91, 93, 97 a 101 y 104? No se pudo verificar desde el repo.
 14. ¿Cómo se cierra el grifo de `supabase_admin` en `pg_default_acl`, que la migración 108 no puede tocar? Mientras nadie cree una tabla como ese rol el riesgo es teórico, pero nadie lo revisó.
 15. ¿Cuándo pasa a producción el Sprint 1 de aislamiento entre empresas (rama `pruebas`, commit `8266ba1`)? Al 11-09-2026 espera la validación de Felipe (mapa `22_AISLAMIENTO_ENTRE_EMPRESAS.md`).
+
+## 12. Migración 111: módulos propios (14-09-2026)
+
+`companies.modulos_propios text[] not null default '{}'`, con la empresa 1 en
+`{personal, marketing}`. Aplicada en el laboratorio el 14-09-2026; en
+producción va **antes** del deploy del motor que la lee (ver 15, §5.7).
+Reversa: `111_modulos_propios.reversa.sql`, que exige revertir también el
+guardián, porque sin columna la lista queda vacía y los módulos se cierran.

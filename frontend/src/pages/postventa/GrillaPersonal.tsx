@@ -10,6 +10,8 @@ import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
+import { tieneModulo } from "../../constants/permissions";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   addStaff,
   getSheets,
@@ -78,6 +80,9 @@ export default function GrillaPersonal({
   eventEndDate,
   congelado = false,
 }: Props) {
+  // Sin el módulo Personal (empresas que no son Valle del Sol) las sillas
+  // se valorizan igual, pero no hay dónde "poner nombres" (14-09-2026).
+  const { company } = useAuth();
   const qc = useQueryClient();
   // El catálogo de cargos (nombres y valores sugeridos) sigue viniendo
   // de recursos; las SILLAS viven en event_staff.
@@ -445,12 +450,14 @@ export default function GrillaPersonal({
             ? "equipo confirmado — el detalle vive en Planificación"
             : "cuántos necesito cada día, y a qué valor"}
         </span>
-        <Link
-          to="/personas"
-          className="ml-auto text-sm font-semibold text-blue-600 hover:text-blue-800"
-        >
-          Poner nombres →
-        </Link>
+        {tieneModulo(company, "personal") && (
+          <Link
+            to="/personas"
+            className="ml-auto text-sm font-semibold text-blue-600 hover:text-blue-800"
+          >
+            Poner nombres →
+          </Link>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

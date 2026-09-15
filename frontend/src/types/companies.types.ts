@@ -34,6 +34,9 @@ export interface Company {
   facebook?: string | null;
   sitio_web?: string | null;
   is_premium: boolean;
+  // Migración 111 (14-09-2026): módulos que no se venden y que esta
+  // empresa tiene encendidos ("personal", "marketing"). Solo Valle del Sol.
+  modulos_propios?: string[] | null;
   notifications?: {
     emails?: {
       [key in EmailStructure]?: boolean;

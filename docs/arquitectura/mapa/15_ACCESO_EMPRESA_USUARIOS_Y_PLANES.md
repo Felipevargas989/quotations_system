@@ -357,3 +357,18 @@ Usos dentro del motor, sin pasar por HTTP:
 - `frontend/src/services/auth.service.ts`, `users.service.ts`, `companies.service.ts`, `plans.service.ts`, `superAdmin.service.tsx`, `registerLeads.service.ts`, `storage.service.ts` (`uploadCompanyLogo`, `uploadCompanyBanner`)
 - `frontend/src/types/users.types.ts`, `frontend/src/types/companies.types.ts`
 - `frontend/src/constants/api.routes.ts` — `USERS*`, `COMPANIES`, `PLAN_CONFIRMATION`, `SUPER_ADMIN*`
+
+### 5.7 Módulos propios (14-09-2026, rama `pruebas`)
+
+Personal y Marketing son de Valle del Sol y no entran en los planes. La
+columna `companies.modulos_propios` (`text[]`, migración 111, `'{}'` por
+defecto; la empresa 1 con `personal` y `marketing`) viaja embebida en el
+perfil (`UsersRepository.findOne` → `GET /users/:id` → `useAuth().company`)
+y en `request.user.modulos_propios` (`AuthGuard`). Cuatro piezas:
+
+1. `auth/modulo-propio.decorator.ts`: `@ModuloPropio('personal' | 'marketing' | null)`.
+2. `auth/modulos-propios.guard.ts`: cuarto guardián global, después de `RolesGuard`; 403 "Este módulo no está disponible para tu empresa" si la empresa no lo tiene; `null` en una ruta la abre aunque el controller esté cerrado; `@Public` no pasa por acá.
+3. `constants/permissions.ts`: `SECTION_MODULO` y `tieneModulo`; `Sidebar.canAccess` y `PermissionGuard` (prop `modulo`) esconden menú y pantalla.
+4. Migración 111 **antes** del deploy en producción: el motor recuerda perfiles una hora y sin la columna cerraría Personal y Marketing a Valle del Sol.
+
+Pruebas: `auth/tests/modulos-propios.spec.ts` (el guardián, las 7 rutas abiertas de Personal, todo Marketing cerrado) y `constants/modulosPropios.test.ts` en la app. Es el mismo mecanismo que usará el candado por plan.

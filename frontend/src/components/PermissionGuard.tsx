@@ -1,21 +1,25 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Shield, Lock } from "lucide-react";
-import { UserRole } from "../constants/permissions";
+import { ModuloPropio, UserRole, tieneModulo } from "../constants/permissions";
 import PageSkeleton from "./PageSkeleton";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
   allowedRoles: UserRole[];
+  // Módulo propio (14-09-2026): la pantalla existe solo si la empresa
+  // tiene el módulo encendido; si no, un aviso en vez de la página.
+  modulo?: ModuloPropio;
   fallback?: React.ReactNode;
 }
 
 export default function PermissionGuard({
   children,
   allowedRoles,
+  modulo,
   fallback,
 }: PermissionGuardProps) {
-  const { user, userRole, loading, roleLoading } = useAuth();
+  const { user, userRole, loading, roleLoading, company } = useAuth();
 
   // Show loading while checking permissions. OJO: incluye la ventana en
   // que la sesión ya está pero el rol aún viene en camino — antes esa
@@ -78,6 +82,29 @@ export default function PermissionGuard({
             </h1>
             <p className="text-gray-600 mb-4">
               No tienes permisos para acceder a esta página.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Módulo propio apagado para esta empresa (14-09-2026).
+  if (!tieneModulo(company, modulo)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <div className="flex justify-center mb-6">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
+                <Lock className="h-8 w-8 text-gray-500" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              Módulo no disponible
+            </h1>
+            <p className="text-gray-600 mb-4">
+              Este módulo no está incluido para tu empresa.
             </p>
           </div>
         </div>

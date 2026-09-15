@@ -42,7 +42,8 @@ export class UsersRepository {
           whatsapp,
           instagram,
           facebook,
-          sitio_web
+          sitio_web,
+          modulos_propios
         )
         `,
       )

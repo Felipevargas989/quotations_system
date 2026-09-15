@@ -21,6 +21,9 @@ export class Company {
   instagram?: string | null;
   facebook?: string | null;
   sitio_web?: string | null;
+  // Migración 111 (14-09-2026): módulos que no se venden y que esta
+  // empresa tiene encendidos ('personal', 'marketing'). Solo Valle del Sol.
+  modulos_propios?: string[];
   // Datos de cobro: los leen los correos de cobranza y el portal del
   // cliente (Fase 2). Migración 46.
   bank_details?: {
