@@ -1,22 +1,24 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Shield, Lock } from "lucide-react";
-import { ModuloPropio, UserRole, tieneModulo } from "../constants/permissions";
+import { Derecho, UserRole, tieneDerecho } from "../constants/permissions";
+import MejoraTuPlan from "./MejoraTuPlan";
 import PageSkeleton from "./PageSkeleton";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
   allowedRoles: UserRole[];
-  // Módulo propio (14-09-2026): la pantalla existe solo si la empresa
-  // tiene el módulo encendido; si no, un aviso en vez de la página.
-  modulo?: ModuloPropio;
+  // Derecho del plan (14-09-2026, paso 3.2): la pantalla existe solo si
+  // la empresa lo tiene; si no, la pantalla de "mejora tu plan" en vez de
+  // la página. Es ayuda visual: el motor niega igual con el mismo derecho.
+  derecho?: Derecho;
   fallback?: React.ReactNode;
 }
 
 export default function PermissionGuard({
   children,
   allowedRoles,
-  modulo,
+  derecho,
   fallback,
 }: PermissionGuardProps) {
   const { user, userRole, loading, roleLoading, company } = useAuth();
@@ -89,27 +91,9 @@ export default function PermissionGuard({
     );
   }
 
-  // Módulo propio apagado para esta empresa (14-09-2026).
-  if (!tieneModulo(company, modulo)) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="flex justify-center mb-6">
-              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
-                <Lock className="h-8 w-8 text-gray-500" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Módulo no disponible
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Este módulo no está incluido para tu empresa.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  // El plan de la empresa no incluye esta función (paso 3.2, 14-09-2026).
+  if (!tieneDerecho(company, derecho)) {
+    return <MejoraTuPlan derecho={derecho!} />;
   }
 
   // User has permission, render children

@@ -83,6 +83,8 @@ import { etiquetaMotivo } from "../../components/MotivoPerdida";
 import { getClientTypeColor } from "../../utils/clientTypeColor";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { toast } from "../../components/toast/Toast";
+import MejoraTuPlan from "../../components/MejoraTuPlan";
+import { tieneDerecho } from "../../constants/permissions";
 import QuotationStatusStatsComponent from "../analytics/components/QuotationStatusStats";
 import EventTypeConversionStatsComponent from "../analytics/components/EventTypeConversionStats";
 import EventTypeRevenueStatsComponent from "../analytics/components/EventTypeRevenueStats";
@@ -145,6 +147,17 @@ type TimeRangeOption = {
 export default function DashboardPage() {
   const { user, company, userRole } = useAuth();
   const navigate = useNavigate();
+
+  // EL DASHBOARD EN TRES NIVELES (14-09-2026, paso 3.2 del roadmap).
+  // Nivel 1 —la fila HOY y los KPIs del período— va en todos los planes.
+  // Nivel 2 —Ingresos y Caja, el Pipeline y las tablas de Análisis— entra
+  // con Gestiona y Cobra. Nivel 3 —el margen y los costos por evento y por
+  // mes— con Opera y Crece, y ahí se exige TAMBIÉN `logistica`: el costo de
+  // proveedores sale de esas consultas y sin ellas el margen saldría igual
+  // a la venta entera, una cifra falsa que es peor que no mostrar nada.
+  const verCajaYPipeline = tieneDerecho(company, "dashboard_2");
+  const verMargenes =
+    tieneDerecho(company, "dashboard_3") && tieneDerecho(company, "logistica");
 
   // Time range options
   const timeRangeOptions: TimeRangeOption[] = [
@@ -402,7 +415,8 @@ export default function DashboardPage() {
       customRange?.start,
       customRange?.end,
     ],
-    enabled: !!user && !!company?.id,
+    // El motor niega /analytics/complete con 403 sin el derecho: ni se pide.
+    enabled: !!user && !!company?.id && verCajaYPipeline,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<CompleteStatsResponse | null> => {
       const dateRange = resolveRange();
@@ -419,7 +433,7 @@ export default function DashboardPage() {
   const marginBaseQuery = useQuery({
     queryKey: ["logistica", "compras", "base", company?.id],
     staleTime: 5 * 60 * 1000,
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verMargenes,
     queryFn: getBaseCatalogo,
   });
   const wonEventsQuery = useQuery({
@@ -430,7 +444,7 @@ export default function DashboardPage() {
       customRange?.start,
       customRange?.end,
     ],
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verMargenes,
     placeholderData: keepPreviousData,
     queryFn: async () =>
       getWonEventsSince(company!.id, resolveRange().start_date),
@@ -702,7 +716,7 @@ export default function DashboardPage() {
   // derrota en información.
   const perdidasQuery = useQuery({
     queryKey: ["dashboard-motivos", company?.id, selectedTimeRange],
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verCajaYPipeline,
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await getQuotations(QuotationRequestType.COTIZACION, [
@@ -740,7 +754,7 @@ export default function DashboardPage() {
   // El costo de personal por evento, desde las sillas (migración 84).
   const costoPersonalQuery = useQuery({
     queryKey: ["dashboard-costo-personal", company?.id],
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verMargenes,
     queryFn: getCostoPersonal,
   });
 
@@ -749,13 +763,13 @@ export default function DashboardPage() {
   // evento. Trae jornada y propina; en caja van las dos.
   const pagadoPersonalQuery = useQuery({
     queryKey: ["dashboard-pagado-personal", company?.id],
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verCajaYPipeline,
     queryFn: getPagadoPersonalPorMes,
   });
 
   const provQuery = useQuery({
     queryKey: ["dashboard-proveedores", company?.id],
-    enabled: !!user && !!company?.id,
+    enabled: !!user && !!company?.id && verMargenes,
     queryFn: async () => {
       const cid = company!.id;
       const [provisions, resourceDefs, eventResources] = await Promise.all([
@@ -1375,7 +1389,11 @@ export default function DashboardPage() {
           data.totalRequests > 0 ? (won * 100) / data.totalRequests : 0;
         const ticket = won > 0 ? data.totalSales / won : 0;
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${
+              verMargenes ? "lg:grid-cols-5" : "lg:grid-cols-4"
+            }`}
+          >
             <div className="bg-white p-6 rounded-lg shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -1453,35 +1471,40 @@ export default function DashboardPage() {
             cerrado: evento sin provisionar o sin recursos cargados.
             24-07: las ventas vienen SIN propina desde el backend
             (analytics.service.ts usa saleWithoutTip), así que este
-            margen ya es sin propina y aquí no hay nada que restar. */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    Margen del período
-                  </p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      margenTotales.ventas - margenTotales.costo >= 0
-                        ? "text-emerald-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {margenTotales.estimado ? "~" : ""}
-                    {formatCurrency(
-                      margenTotales.ventas - margenTotales.costo,
-                      company?.currency || "CLP",
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {margenTotales.ventas > 0
-                      ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta (sin propina)`
-                      : "Sin ventas en el período"}
-                  </p>
+            margen ya es sin propina y aquí no hay nada que restar.
+            14-09: es nivel 3. Sin el derecho se esconde y no se pone la
+            invitación acá — un aviso de venta entre los KPIs se lee como
+            un dato roto; la invitación vive en Ingresos y Caja. */}
+            {verMargenes && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Margen del período
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        margenTotales.ventas - margenTotales.costo >= 0
+                          ? "text-emerald-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {margenTotales.estimado ? "~" : ""}
+                      {formatCurrency(
+                        margenTotales.ventas - margenTotales.costo,
+                        company?.currency || "CLP",
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {margenTotales.ventas > 0
+                        ? `${(((margenTotales.ventas - margenTotales.costo) * 100) / margenTotales.ventas).toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% de la venta (sin propina)`
+                        : "Sin ventas en el período"}
+                    </p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-emerald-600" />
                 </div>
-                <TrendingUp className="h-8 w-8 text-emerald-600" />
               </div>
-            </div>
+            )}
           </div>
         );
       })()}
@@ -2167,11 +2190,21 @@ export default function DashboardPage() {
         );
       })()}
 
+      {/* UNA sola invitación para toda la zona de nivel 2 (Ingresos y
+          Caja, Pipeline y Análisis): tres recuadros seguidos diciendo lo
+          mismo se leen como una pantalla rota, no como una oferta. */}
+      {!verCajaYPipeline && (
+        <MejoraTuPlan derecho="dashboard_2" variante="recuadro" />
+      )}
+
       {/* Ingresos y Caja por Mes — el panel vive en IngresosYCaja.tsx
           desde el 29-08 (higuera: aquí ya no cabía). Ahí se partió en
           RESULTADO y CAJA, con el costo y el pago separados en
-          proveedores y personal, a pedido de Felipe. */}
+          proveedores y personal, a pedido de Felipe.
+          14-09: es nivel 2. Sin el derecho el motor ya manda los dos
+          bloques de pagos vacíos, así que la tabla sería puras rayas. */}
       {(() => {
+        if (!verCajaYPipeline) return null;
         const meses = data.moneyByMonth.slice(-12);
         return (
           <IngresosYCaja
@@ -2180,6 +2213,7 @@ export default function DashboardPage() {
             costoPorMes={marginByMonth}
             pagadoPorMes={pagadoPorMes}
             desglosePorMes={marginData.desglose}
+            conMargenes={verMargenes}
             currency={company?.currency || "CLP"}
           />
         );
@@ -2188,8 +2222,10 @@ export default function DashboardPage() {
       {/* Pipeline de Negocio — EMBUDO transpuesto (23-07, con Felipe):
           estados como columnas en orden de viaje, agrupados en zonas
           vivas | ganadas | perdidas con sus subtotales (reemplazan al
-          TOTAL mezclado). Cifras en miles; venta viva destacada. */}
+          TOTAL mezclado). Cifras en miles; venta viva destacada.
+          14-09: es nivel 2, entra con Gestiona y Cobra. */}
       {(() => {
+        if (!verCajaYPipeline) return null;
         const ORDER = [
           { key: "solicitada", label: "Solicitada", zone: "viva" },
           { key: "enviada", label: "Enviada", zone: "viva" },
@@ -2708,41 +2744,50 @@ export default function DashboardPage() {
             </div>
           ),
         },
-      ].map((sec) => (
-        <div key={sec.key} className="bg-white rounded-lg shadow">
-          <button
-            type="button"
-            onClick={() => toggleSection(sec.key)}
-            className="w-full flex items-center justify-between px-6 py-4 text-left"
-          >
-            <span className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              <span>
-                <span className="block text-lg font-semibold text-gray-900">
-                  {sec.titulo}
+      ]
+        // Nivel 2: las tablas entran con Gestiona y Cobra (sin el derecho el
+        // motor niega /analytics/complete). Y el análisis de proveedores
+        // muestra COSTOS —nivel 3, con los datos de logística apagados
+        // arriba—: sale de la lista en vez de quedarse "Cargando análisis…".
+        .filter(
+          (sec) =>
+            verCajaYPipeline && (verMargenes || sec.key !== "proveedores"),
+        )
+        .map((sec) => (
+          <div key={sec.key} className="bg-white rounded-lg shadow">
+            <button
+              type="button"
+              onClick={() => toggleSection(sec.key)}
+              className="w-full flex items-center justify-between px-6 py-4 text-left"
+            >
+              <span className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+                <span>
+                  <span className="block text-lg font-semibold text-gray-900">
+                    {sec.titulo}
+                  </span>
+                  <span className="block text-xs text-gray-500">{sec.sub}</span>
                 </span>
-                <span className="block text-xs text-gray-500">{sec.sub}</span>
               </span>
-            </span>
-            {openSections.has(sec.key) ? (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            )}
-          </button>
-          {openSections.has(sec.key) && (
-            <div className="px-6 pb-6">
-              {sec.contenido || (
-                <p className="text-sm text-gray-400">
-                  {statsQuery.isError
-                    ? "No se pudieron cargar estas tablas — reintenta con Actualizar."
-                    : "Cargando análisis…"}
-                </p>
+              {openSections.has(sec.key) ? (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-400" />
               )}
-            </div>
-          )}
-        </div>
-      ))}
+            </button>
+            {openSections.has(sec.key) && (
+              <div className="px-6 pb-6">
+                {sec.contenido || (
+                  <p className="text-sm text-gray-400">
+                    {statsQuery.isError
+                      ? "No se pudieron cargar estas tablas — reintenta con Actualizar."
+                      : "Cargando análisis…"}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 }

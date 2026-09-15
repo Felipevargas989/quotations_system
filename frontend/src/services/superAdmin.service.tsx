@@ -79,6 +79,25 @@ export const updateCompany = async (
   }
 };
 
+// CAMBIARLE EL PLAN A UNA EMPRESA (paso 3.2, 14-09-2026). Es por donde
+// se vende a mano: el cliente paga por transferencia y acá se le deja el
+// plan y el estado. El motor olvida su memoria al instante, así que el
+// cambio rige en el siguiente clic del cliente.
+export const cambiarPlanDeEmpresa = async (
+  companyId: number,
+  cambios: {
+    plan?: "cotiza" | "gestiona" | "crece";
+    estado_plan?: "prueba" | "activo" | "moroso" | "bloqueado";
+    prueba_vence?: string | null;
+  },
+): Promise<void> => {
+  await apiRequest(
+    `${API_ROUTES.SUPER_ADMIN_COMPANIES}/${companyId}`,
+    "PATCH",
+    cambios,
+  );
+};
+
 // Torre de Control (tanda 1, 05-08): tarjetas + "quién ha entrado".
 // Lanza el error tal cual: useQuery lo transforma en estados honestos.
 export const getTorre = async (): Promise<TorreResponse> => {

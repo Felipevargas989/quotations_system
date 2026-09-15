@@ -1124,7 +1124,18 @@ export const getBaseCatalogo = async (): Promise<{
     { cost_fixed: number | null; cost_per_person: number | null }
   >;
 }> => {
-  const data = await apiRequest("/logistics/base-catalogo", "GET");
+  // ERA LA ÚNICA DE LOGÍSTICA SIN RED (14-09-2026, paso 3.2). Desde que
+  // Logística entra solo con el plan Opera y Crece, esta puerta responde
+  // 403 a los planes menores. Todas sus hermanas ya devolvían lista vacía
+  // al fallar; esta dejaba la consulta en error y el margen del cotizador
+  // sin pintar, sin decir por qué. Ahora se comporta como el resto: sin
+  // datos de costos, la pantalla simplemente no muestra márgenes.
+  let data: any = null;
+  try {
+    data = await apiRequest("/logistics/base-catalogo", "GET");
+  } catch {
+    data = null;
+  }
   return {
     recipes: (data?.recipes || []) as RecipeItem[],
     supplies: (data?.supplies || []) as Supply[],

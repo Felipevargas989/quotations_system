@@ -9,15 +9,21 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAllCompanies,
   createCompany,
   getStatsLastMonth,
   getTorre,
+  cambiarPlanDeEmpresa,
 } from "../../services/superAdmin.service";
 import { Company } from "../../types/companies.types";
-import { QuotationStatsResponse } from "../../types/superAdmin.types";
+import {
+  QuotationStatsResponse,
+  TorreEmpresa,
+} from "../../types/superAdmin.types";
+import { toast } from "../../components/toast/Toast";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { formatPhone } from "../../utils/phone";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -94,6 +100,161 @@ const fechaExacta = (iso: string | null) =>
         minute: "2-digit",
       })
     : "";
+
+type ValorPlan = "cotiza" | "gestiona" | "crece";
+type ValorEstado = "prueba" | "activo" | "moroso" | "bloqueado";
+
+const PLANES = [
+  { value: "cotiza", label: "Cotiza" },
+  { value: "gestiona", label: "Gestiona y Cobra" },
+  { value: "crece", label: "Opera y Crece" },
+];
+
+const ESTADOS = [
+  { value: "prueba", label: "En prueba" },
+  { value: "activo", label: "Activo" },
+  { value: "moroso", label: "Moroso" },
+  { value: "bloqueado", label: "Bloqueado" },
+];
+
+// El punto de color al lado del estado: en una tabla de varias empresas,
+// una bloqueada se tiene que ver de una pasada de ojos.
+const COLOR_ESTADO: Record<string, string> = {
+  prueba: "bg-blue-500",
+  activo: "bg-green-500",
+  moroso: "bg-amber-500",
+  bloqueado: "bg-red-500",
+};
+
+function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
+  const queryClient = useQueryClient();
+  const [guardando, setGuardando] = useState<number | null>(null);
+
+  const cambiar = async (
+    empresa: TorreEmpresa,
+    cambios: Parameters<typeof cambiarPlanDeEmpresa>[1],
+  ) => {
+    setGuardando(empresa.id);
+    try {
+      await cambiarPlanDeEmpresa(empresa.id, cambios);
+      await queryClient.invalidateQueries({
+        queryKey: ["superAdmin", "torre"],
+      });
+      toast.success(`${empresa.nombre}: plan actualizado`);
+    } catch {
+      toast.error("No se pudo cambiar el plan");
+    } finally {
+      setGuardando(null);
+    }
+  };
+
+  return (
+    <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
+      <div className="px-6 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-900">
+          Planes de cada empresa
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              {[
+                "Empresa",
+                "Plan",
+                "Estado",
+                "Prueba vence",
+                "Usuarios",
+                "Cotizaciones/mes",
+                "Módulos propios",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {empresas.map((e) => (
+              <tr key={e.id} className={guardando === e.id ? "opacity-50" : ""}>
+                <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                  {e.nombre}
+                </td>
+                {/* Las listas son las del kit de la casa: la nativa no
+                    busca y se ve distinta en cada navegador. */}
+                <td className="px-4 py-2 min-w-[170px]">
+                  <SelectWithSearch
+                    options={PLANES}
+                    value={e.plan ?? "cotiza"}
+                    disabled={guardando === e.id}
+                    tamano="sm"
+                    mostrarConteo={false}
+                    onChange={(valor) =>
+                      cambiar(e, {
+                        plan: valor as ValorPlan,
+                      })
+                    }
+                  />
+                </td>
+                <td className="px-4 py-2 min-w-[150px]">
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full mr-2 align-middle ${
+                      COLOR_ESTADO[e.estado_plan ?? "prueba"] ?? "bg-gray-400"
+                    }`}
+                  />
+                  <SelectWithSearch
+                    options={ESTADOS}
+                    value={e.estado_plan ?? "prueba"}
+                    disabled={guardando === e.id}
+                    tamano="sm"
+                    mostrarConteo={false}
+                    onChange={(valor) =>
+                      cambiar(e, {
+                        estado_plan: valor as ValorEstado,
+                        // Al activar se le saca el vencimiento: ya contrató.
+                        ...(valor === "activo" ? { prueba_vence: null } : {}),
+                      })
+                    }
+                  />
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-500">
+                  {e.prueba_vence
+                    ? new Date(e.prueba_vence).toLocaleDateString("es-CL")
+                    : "—"}
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-700">
+                  {e.usuarios}
+                  {e.usuarios_max === null ? " / ∞" : ` / ${e.usuarios_max}`}
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-700">
+                  {e.cotizaciones_mes === null ? "Sin tope" : e.cotizaciones_mes}
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-500">
+                  {e.modulos_propios.length
+                    ? e.modulos_propios.join(", ")
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+            {empresas.length === 0 && (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="px-4 py-6 text-center text-sm text-gray-500"
+                >
+                  Todavía no hay empresas.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function TorreDeControl() {
   const torreQuery = useQuery({
@@ -174,6 +335,13 @@ function TorreDeControl() {
               </div>
             ))}
           </div>
+
+          {/* LOS PLANES DE CADA EMPRESA (paso 3.2, 14-09-2026). Mientras
+              el cobro automático no exista, esta tabla ES la caja: el
+              cliente paga por transferencia y acá se le deja su plan
+              activo. El cambio rige en su siguiente clic, porque el
+              motor olvida su memoria al guardar. */}
+          <TablaDePlanes empresas={torreQuery.data.empresas ?? []} />
 
           {/* Quién ha entrado: como llega del backend (último inicio
               de sesión descendente, nulls al final). */}

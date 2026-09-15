@@ -81,7 +81,7 @@ Evidencia: `ServiceGroupsController.create/remove`, `ServiceGroupsRepository`, `
 
 ### 5.1 Crear una cotización nueva en el cotizador
 
-1. **Pantalla** `QuotationForm` en `/quotation-form`. Carga el catálogo: `useServices` (`GET /services`, arma `products` con una fila por par servicio-categoría), `getFixedSections`, `getCategorySections`, `useServiceGroups`, `useServiceGroupCollections`, `eventTypesQueryOptions`, clientes y tipos de cliente. `useDateAvailability` consulta `GET /quotations/check-conflicts` al cambiar fechas.
+1. **Pantalla** `QuotationForm` en `/quotation-form`. Carga el catálogo: `useServices` (`GET /services`, arma `products` con una fila por par servicio-categoría), `getFixedSections`, `getCategorySections`, `useServiceGroups`, `useServiceGroupCollections`, `eventTypesQueryOptions`, clientes y tipos de cliente. `useDateAvailability` consulta `GET /quotations/check-conflicts` al cambiar fechas. El campo "Último día (opcional)" lo dibuja `CampoUltimoDia` (`frontend/src/pages/quotations/CampoUltimoDia.tsx`, 14-09-2026) y solo aparece con el derecho `varios_dias` o si la cotización ya trae fecha de término (regla 30).
 2. **Casillas variables**: al elegir categoría, `updateServiceBox` siembra los servicios de la sección fija (`defaultServicesFor`) y amarra la caja al id de la categoría (`selectedCategoryId`). Los ítems se agregan con `AgregadorDeItems` (`opcionesDe` los agrupa por sección y deja fuera los bloqueados). Audiencia (solo si hay niños), personas (manual o automático) y día (solo si el evento dura más de un día).
 3. **Fijos**: `AgregadorDeItems` en la fila vacía que siempre queda al final. `handleFixedServiceSelect` resuelve el precio una sola vez con `calculatePrice` → `resolveFixedServicePrice` (`@dinero`).
 4. **Totales en vivo**: `computeTotals` → `computeMoney(buildItemsSnapshot(), …)`; `calculateTotals` los pinta en `formData`.
@@ -180,7 +180,7 @@ Es la regla que mantiene cuadradas las cuotas cuando se cambia el total de una c
 22. **Choque de fechas por rango**: cuentan las solicitadas, enviadas, en negociación y aceptadas, sin contar la que se está editando (Felipe, 18-08: "el requerimiento se cuenta a él solo"). Evidencia: `QuotationsService.checkConflictsWithExistingQuotations` y el comentario de `exclude_id` en `check-conflicts-with-existing-quotations.dto.ts`.
 23. **Un paquete es una plantilla que suma, no reemplaza** (Felipe, 14-08): "un grupo de quince días puede armarse con dos paquetes de siete y uno de tres". Lleva servicios sueltos (13-08, migración 67) y fijos con el precio de hoy (28-08, migración 100); lo elegido conserva el orden de selección (28-08). Evidencia: `loadCollectionAsBoxes`, `paqueteFijos.ts`.
 24. **Menús guardados**: "el nombre, un punto y el precio" (Felipe, 09-09), orden alfabético, renombrar con lápiz. Evidencia: `MenusGuardados.tsx`.
-25. **El margen solo lo ven operaciones y administrador** (Felipe, 24-07). Es un costo estimado de catálogo, sin propina. Los servicios "sin costo en Eventia" no cuentan como sin receta (Felipe, 09-09, #516). Evidencia: `puedeVerMargen`, `margenCotizador`.
+25. **El margen solo lo ven operaciones y administrador** (Felipe, 24-07). Es un costo estimado de catálogo, sin propina. Los servicios "sin costo en Eventia" no cuentan como sin receta (Felipe, 09-09, #516). Desde el 14-09-2026 hay además un candado de plan: el costo sale de Logística, y en un plan que no la incluye `GET /logistics/base-catalogo` responde 403. `getBaseCatalogo` era la única función de logística sin `try/catch` —la consulta quedaba en error y el margen no se pintaba sin decir por qué—; ahora devuelve vacío al fallar, como sus hermanas, y la pantalla simplemente no muestra márgenes. Evidencia: `puedeVerMargen`, `margenCotizador`, `frontend/src/services/logistics.service.ts`.
 26. **Formulario público**:
    - correo y teléfono obligatorios también en la API (30-07, `CreateQuotationPublicDto`);
    - calce anti-duplicados **solo por correo** (22-07, afinado 05-09: "la gente cambia de empresa o colegio y conserva su número");
@@ -190,6 +190,7 @@ Es la regla que mantiene cuadradas las cuotas cuando se cambia el total de una c
 27. **Una cotización con plata no se borra** (26-07). Los mensajes van por orden de gravedad: transacciones, reembolsos, plan de pagos, encuesta respondida. Evidencia: `QuotationsRepository.assertDeletable`.
 28. **Duplicar copia todo menos la fecha** y nace como cotización `solicitada`. Evidencia: rama `duplicateFrom` del efecto de carga.
 29. **Las fechas de evento se guardan a medianoche UTC** (`getEventDateUtc`) y se leen en UTC. Leerlas en hora chilena las corre un día (bug #423). Evidencia: `frontend/src/utils/dates.ts`.
+30. **Los eventos de varios días se venden con el plan Gestiona y Cobra** (14-09-2026, derecho `varios_dias`; el mecanismo completo en el mapa 15 §5.8). Es el **único** cambio del cotizador por los planes: el campo "Último día (opcional)". Sin el derecho no se muestra, y el evento es de un día. **La excepción, que es la regla de fondo**: si la cotización **ya trae** fecha de término, el campo se muestra igual aunque la empresa haya bajado de plan, porque bajar de plan no borra ni esconde lo que ya se vendió — solo impide crear uno nuevo. Calza al peso con el motor, que en `QuotationsService.update` solo revisa el derecho cuando el parche **cambia** la fecha de término. El campo vive en `frontend/src/pages/quotations/CampoUltimoDia.tsx`, fuera de `QuotationForm` porque esa hoja está congelada en su tamaño por el portero del kit (quedó en 3.919 líneas, techo 3.936). Evidencia: `CampoUltimoDia.tsx` (`puedeVariosDias`, `if (!puedeVariosDias && !valor) return null`).
 
 ## 7. Conexiones con otros módulos
 
@@ -355,6 +356,7 @@ El cotizador no tiene relojes propios.
 ### App
 
 - `frontend/src/pages/quotations/QuotationForm.tsx` — la hoja: `buildItemsSnapshot`, `computeTotals`, `calculateTotals`, `handleSubmit`, `loadExistingItemsFromJSON`, `updateServiceBox`, `defaultServicesFor`, `isLockedService`, `quitarFijo`, `handleFixedServiceSelect`, `loadGroupIntoBox`, `confirmSaveGroup`, `loadCollectionAsBoxes`, `confirmCreateCollection`, `margenCotizador`, `getMaxDiscountForRole`, `isRestrictedEditing`
+- `frontend/src/pages/quotations/CampoUltimoDia.tsx` — el campo "Último día" y el derecho `varios_dias` (regla 30; mapa 15 §5.8)
 - `frontend/src/pages/quotations/MenusGuardados.tsx`, `PkgFijosPicker.tsx`, `PkgMenusPicker.tsx`, `paqueteFijos.ts`, `paqueteFijos.test.ts`
 - `frontend/src/pages/quotations/CreateQuotationPublic.tsx`
 - `frontend/src/components/FijoDeCategoria.tsx`, `frontend/src/components/AvisoPlanDePagos.tsx`, `frontend/src/components/selects/SelectorDePaquetes.tsx`

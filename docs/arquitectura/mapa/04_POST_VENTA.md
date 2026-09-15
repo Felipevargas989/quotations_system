@@ -28,8 +28,8 @@ Mientras el evento está aceptado, editar sus servicios mueve el plan de pagos s
 | pestaña Pagos | `RegistrarPagoPanel`, `EditRegistroModal`, `ReembolsosManager`, `DocViewerPanel` | `PostVentaPage.tsx` | Calendario de cuotas; registrar, rectificar y eliminar abonos; editar fecha y nota de una cuota sin plata; reembolsos (ver mapa 03) | idem |
 | pestaña Documentos | `DocumentosTab` + `DocViewerPanel` | `PostVentaPage.tsx` | Sube un documento: categoría, archivo (imagen o PDF, máximo 5 MB) y un comentario de hasta 80 caracteres que sirve de etiqueta. Lo ve embebido, lo descarga o lo elimina | idem |
 | pestaña Servicios | `ServiciosTab` | `frontend/src/pages/postventa/ServiciosTab.tsx` | Edita adultos y niños, cajas de servicios por categoría y día, fijos, descuento (% o $), propina y comentarios. Ve el resumen y el margen. Guarda solo o con "Guardar cambios" | idem; margen solo `operaciones` y `administrador`; tope de descuento por rol |
-| pestaña Gestión | `GestionTab` → `GrillaPersonal`, `EventResourcesSection` | `GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx` | Rentabilidad (venta sin propina, costo y margen), personal preliminar (sillas), arriendos, insumos (modal y CSV) y mobiliario contra stock (ver mapas 06 y 07) | idem |
-| pestaña Cocina | `CocinaTab` → `FichaCocinaSection` | `CocinaTab.tsx`, `FichaCocinaSection.tsx` | Horarios por servicio, notas, platos e impresión (ver mapa 06) | idem |
+| pestaña Gestión | `GestionTab` → `GrillaPersonal`, `EventResourcesSection` | `GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx` | Rentabilidad (venta sin propina, costo y margen), personal preliminar (sillas), arriendos, insumos (modal y CSV) y mobiliario contra stock (ver mapas 06 y 07) | idem, **y solo con el derecho `gestion_y_cocina`** (plan Opera y Crece, 14-09-2026): sin él la pestaña ni se nombra |
+| pestaña Cocina | `CocinaTab` → `FichaCocinaSection` | `CocinaTab.tsx`, `FichaCocinaSection.tsx` | Horarios por servicio, notas, platos e impresión (ver mapa 06) | idem, mismo derecho `gestion_y_cocina` |
 | `/negocio/:id`, pestaña "cotizacion" | `ServiciosTab` (la misma pieza, con `paidAmount={0}`) | `frontend/src/pages/quotations/NegocioPage.tsx` | Editar la cotización en pre-venta (ver mapa 02) | `SECTION_ROLES.quotations_edit` |
 
 Formas de llegar a Post-Venta:
@@ -104,7 +104,7 @@ Formas de llegar a Post-Venta:
 3. Contacto que se muestra: el mandante (`contact_name`), buscado por nombre normalizado en `client_contacts`. Si no hay mandante, el contacto de la ficha del cliente, que se busca **por nombre** en `clientByName`.
 4. Filtros por usuario en `localStorage`: `eventia_postventa_event_filter_<id>` y `eventia_postventa_money_filter_<id>`. La clave vieja `eventia_postventa_status_filter_` se migra una vez y se borra. La búsqueda queda en `eventia_pv_search`, y `?plata=` pisa lo guardado.
 5. Clic en una fila → `openEvent` → pestaña `seguimiento` y `navigate('/post-venta/:id')`. La ficha se arma con la misma fila de la lista (`selected`). Si el id no está en la lista, muestra "No se encontró ese evento en Post-Venta".
-6. `EventModal` carga `GET /quotations/:id` y **precalienta** en paralelo `gestionQueryOpts`, `recursosQueryOpts` y `docsQueryOpts`.
+6. `EventModal` carga `GET /quotations/:id` y **precalienta** en paralelo `gestionQueryOpts`, `recursosQueryOpts` y `docsQueryOpts`. Desde el 14-09-2026 los dos primeros exigen el derecho `logistica`: son consultas de logística que el motor niega con 403 a los planes menores, y dispararlas al abrir **cualquier** evento llenaría el registro de errores que nadie mira. `docsQueryOpts` sigue saliendo siempre: los documentos son del mismo plan que abre la pantalla.
 7. `PostVentaPage` mantiene además `GET /portal-receipts` (`["postventa","comprobantes"]`, fresco 2 min, sondeo cada 5) y `GET /quotation-followups/map` (`["seguimientos","map"]`). `EventModal` reusa esa misma clave para el aviso ámbar o rojo de la pestaña Seguimiento.
 
 ### 5.2 Subir, ver y borrar un documento del evento
@@ -233,6 +233,8 @@ Formas de llegar a Post-Venta:
 ### Gestión
 - **Gestión → Personal tiene dos candados**: evento realizado o ficha liquidada. Felipe, 18-08: *"se debería bloquear solo cuando se marca como realizado o bien se liquidan los pagos"* (`GrillaPersonal`, doc 10).
 - **El modal de insumos es solo informativo**: cantidades y precios se trabajan en Compras (15-08, `GestionTab`, doc 10).
+- **Gestión y Cocina son del plan Opera y Crece** (14-09-2026, derecho `gestion_y_cocina`, mapa 15 §5.8). Sin ese derecho las dos pestañas **no se nombran**: no se ofrece lo que no se puede abrir. Pero se puede llegar igual —la pestaña venía guardada en el estado, o la dirección escrita a mano—, y entonces el contenido va envuelto en `SoloConDerecho` y sale la invitación a mejorar de plan en vez de una pantalla en blanco. Las otras cuatro pestañas (Seguimiento, Pagos, Documentos, Servicios) son del mismo plan que abre Post-Venta (`post_venta`, Gestiona y Cobra).
+- **El enlace "ver en Personas" de `GrillaPersonal` sigue pidiendo el derecho `personal`**, que no lo trae ningún plan: es de Valle del Sol (mapa 15 §5.7). Lo único que cambió el 14-09 es el nombre de la función que lo pregunta: `tieneModulo` pasó a `tieneDerecho`.
 
 ## 7. Conexiones con otros módulos
 
@@ -393,5 +395,6 @@ Formas de llegar a Post-Venta:
 - `frontend/src/services/documents.service.ts`, `storage.service.ts`, `quotations.service.ts`, `payments.service.ts`
 - `frontend/src/components/AvisoPlanDePagos.tsx`, `EventoCajitas.tsx`, `MotivoPerdida.tsx`, `CelebracionRealizada.tsx`
 - `frontend/src/pages/quotations/SeguimientoPanel.tsx`: `HiloSeguimiento`, `AdjuntosComerciales`
-- `frontend/src/constants/permissions.ts`, `frontend/src/constants/api.routes.ts`
+- `frontend/src/constants/permissions.ts` (`SECTION_ROLES.payments`, y desde el 14-09-2026 `tieneDerecho` con `gestion_y_cocina`, `logistica` y `personal`), `frontend/src/constants/api.routes.ts`
+- `frontend/src/components/SoloConDerecho.tsx`: el portero de las pestañas Gestión y Cocina (ver 15 §5.8)
 - `frontend/scripts/portero-kit-de-la-casa.sh`: techos de los gigantes

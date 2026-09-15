@@ -78,6 +78,7 @@ import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
+import CampoUltimoDia from "./CampoUltimoDia";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
@@ -2601,25 +2602,15 @@ export default function QuotationForm() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Último día (opcional)
-                </label>
-                <input
-                  type="date"
-                  value={formData.event_end_date || ""}
-                  min={String(formData.event_date || "")}
-                  onChange={(e) => {
-                    setEndDateCleared(false);
-                    setFormData((prev) => ({
-                      ...prev,
-                      event_end_date: e.target.value || undefined,
-                    }));
-                  }}
-                  disabled={isRestrictedEditing || !formData.event_date}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                />
-              </div>
+              <CampoUltimoDia
+                valor={formData.event_end_date}
+                fechaDeInicio={formData.event_date}
+                soloLectura={isRestrictedEditing}
+                onChange={(valor) => {
+                  setEndDateCleared(false);
+                  setFormData((prev) => ({ ...prev, event_end_date: valor }));
+                }}
+              />
             </div>
             <div className="mb-4">
               {endDateCleared && (

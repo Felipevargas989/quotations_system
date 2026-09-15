@@ -4,6 +4,7 @@ import { FileSpreadsheet, Pin, Plus, Search, Tag } from "lucide-react";
 import { matchesSearch } from "../../utils/searchMatch";
 import { FixedService, VariableService } from "../../types/services.types";
 import { useAuth } from "../../contexts/AuthContext";
+import { tieneDerecho } from "../../constants/permissions";
 import {
   getAllFixedServiceCostItems,
   getManagementResources,
@@ -115,6 +116,11 @@ export default function ServicesPage() {
   // para mostrar costo y margen junto al precio en la lista. Vía React
   // Query (Etapa 3): silencioso — la lista funciona igual sin costos.
   const { company } = useAuth();
+  // Recetas y costos son del plan Opera y Crece (14-09-2026, paso 3.2). Sin
+  // ese derecho las dos consultas de abajo no se disparan: el motor las
+  // niega con 403 y la lista funciona igual sin costos. Pedirlas de todas
+  // formas solo llenaría el registro de errores que nadie ve en pantalla.
+  const conLogistica = tieneDerecho(company, "logistica");
   const queryClient = useQueryClient();
 
   // Códigos en uso en cotizaciones (migración 54): basureros apagados.
@@ -126,7 +132,7 @@ export default function ServicesPage() {
 
   const { data: recipeCosts = {} } = useQuery({
     queryKey: ["recipeCosts", company?.id],
-    enabled: !!company?.id,
+    enabled: !!company?.id && conLogistica,
     queryFn: async (): Promise<Record<number, number>> => {
       const companyId = Number(company!.id);
       const [items, supplies] = await Promise.all([
@@ -161,7 +167,7 @@ export default function ServicesPage() {
   // si falla, la lista funciona igual sin costos.
   const { data: fixedCosts = {} } = useQuery({
     queryKey: ["fixedCosts", company?.id],
-    enabled: !!company?.id,
+    enabled: !!company?.id && conLogistica,
     queryFn: async (): Promise<
       Record<number, { fijo: number; pp: number }>
     > => {

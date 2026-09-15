@@ -31,6 +31,7 @@ import {
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
 import SelectWithSearch from "../components/selects/SelectWithSearch";
+import { tieneDerecho } from "../constants/permissions";
 
 // Persistencia por usuario del filtro de tipos (mismo patrón que el
 // filtro de estados de Cotizaciones): la selección sobrevive recargas.
@@ -40,7 +41,7 @@ const SEGMENT_FILTER_KEY = (userId: string | number) =>
   `eventia_clients_segment_filter_${userId}`;
 
 export default function ClientsPage() {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -467,17 +468,23 @@ export default function ClientsPage() {
                   required
                 />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManagingTypes((v) => !v);
-                    setTypeError(null);
-                    setConfirmTypeDelId(null);
-                  }}
-                  className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
-                >
-                  {managingTypes ? "Ocultar tipos" : "Gestionar tipos…"}
-                </button>
+                {/* Administrar los tipos de cliente es parte de Clientes
+                    360 (Gestiona y Cobra, paso 3.2 del 14-09-2026). LEER
+                    la lista sigue abierta en todos los planes: la pide el
+                    cotizador cada vez que se abre. */}
+                {tieneDerecho(company, "clientes_360") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagingTypes((v) => !v);
+                      setTypeError(null);
+                      setConfirmTypeDelId(null);
+                    }}
+                    className="mt-1 text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    {managingTypes ? "Ocultar tipos" : "Gestionar tipos…"}
+                  </button>
+                )}
 
                 {managingTypes && (
                   <div className="mt-1 border border-gray-200 rounded-lg divide-y divide-gray-100">

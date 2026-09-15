@@ -34,7 +34,7 @@ interface UserProfile {
 }
 
 export default function UserManagementPage() {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const queryClient = useQueryClient();
 
   // Usuarios vía React Query (Etapa 3): caché con revalidación en
@@ -47,6 +47,12 @@ export default function UserManagementPage() {
       return data || [];
     },
   });
+
+  // ¿Se le acabó el cupo de usuarios del plan? null = sin tope.
+  const sinCupoDeUsuarios =
+    company?.usuarios_max !== null &&
+    company?.usuarios_max !== undefined &&
+    users.length >= company.usuarios_max;
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -242,13 +248,36 @@ export default function UserManagementPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <UserPlus size={16} />
-          <span>Crear Usuario</span>
-        </button>
+        {/* EL TOPE DE USUARIOS DEL PLAN (paso 3.2, 14-09-2026). Cotiza
+            trae 1 usuario y Gestiona y Cobra 3; Opera y Crece no tiene
+            tope. Al llegar al tope el botón se apaga con su explicación:
+            el motor rechaza igual, pero es mejor decirlo antes de que
+            escriba una cuenta entera. Bajar de plan NO bloquea a nadie
+            que ya exista — solo impide agregar uno más. */}
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            disabled={sinCupoDeUsuarios}
+            title={
+              sinCupoDeUsuarios
+                ? `Tu plan incluye ${company?.usuarios_max} ${company?.usuarios_max === 1 ? "usuario" : "usuarios"}`
+                : undefined
+            }
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            <UserPlus size={16} />
+            <span>Crear Usuario</span>
+          </button>
+          {sinCupoDeUsuarios && (
+            <p className="text-xs text-gray-500">
+              Tu plan incluye {company?.usuarios_max}{" "}
+              {company?.usuarios_max === 1 ? "usuario" : "usuarios"}.{" "}
+              <a href="/plans" className="text-blue-600 hover:underline">
+                Ver los planes
+              </a>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Información de roles */}

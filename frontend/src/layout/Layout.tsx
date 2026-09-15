@@ -26,6 +26,14 @@ const ES_LABORATORIO = String(import.meta.env.VITE_SUPABASE_URL || "").includes(
 
 export default function Layout() {
   const { userName, user, userRole, signOut, loading, company } = useAuth();
+
+  // Cuántos días le quedan de prueba (paso 3.2, 14-09-2026). El día del
+  // vencimiento cuenta como cero: esa mañana el reloj la bloquea.
+  const diasDePrueba = (() => {
+    if (!company?.prueba_vence) return null;
+    const faltan = new Date(company.prueba_vence).getTime() - Date.now();
+    return Math.max(0, Math.ceil(faltan / (24 * 60 * 60 * 1000)));
+  })();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -201,7 +209,38 @@ export default function Layout() {
           </nav>
 
           {/* Free Trial Banner */}
-          {company && company.is_premium === false && (
+          {/* SE LE ACABÓ LA PRUEBA Y NO CONTRATÓ (paso 3.2, 14-09-2026).
+              El motor ya le cierra todo salvo su perfil, Configuración y
+              Planes; acá se le dice por qué, en vez de dejarlo chocando
+              con avisos sueltos en cada pantalla. Lo importante del
+              texto: sus datos siguen ahí. Nadie borra nada al bloquear. */}
+          {company && company.estado_plan === "bloqueado" && (
+            <div className="bg-red-600">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-center">
+                  <AlertCircle className="h-5 w-5 text-white flex-shrink-0" />
+                  <p className="text-white text-sm font-medium">
+                    Tu prueba gratis terminó. Elige un plan para volver a
+                    entrar: tus cotizaciones y tus clientes están guardados.
+                  </p>
+                  <button
+                    onClick={handleUpgradeClick}
+                    className="rounded-lg bg-white px-3 py-1 text-sm font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    Ver los planes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* EL BANNER DE LA PRUEBA (paso 3.2, 14-09-2026). Antes miraba
+              `is_premium`, que nadie vencía nunca: una empresa quedaba
+              "en prueba" para siempre. Ahora mira el estado real del plan
+              y dice cuántos días quedan, porque a los 7 el reloj de las
+              11:00 la deja bloqueada. `is_premium` sigue en la base y se
+              retira cuando ya nadie lo lea. */}
+          {company && company.estado_plan === "prueba" && (
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 border-b border-blue-700">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center justify-center py-3 gap-2">
@@ -209,7 +248,11 @@ export default function Layout() {
                   <div className="flex items-center space-x-2">
                     <AlertCircle className="h-5 w-5 text-white flex-shrink-0" />
                     <p className="text-white text-sm font-medium">
-                      Estás en el período de prueba gratuito de 7 días.
+                      {diasDePrueba === null
+                        ? "Estás en el período de prueba gratuito de 7 días."
+                        : diasDePrueba > 0
+                          ? `Te ${diasDePrueba === 1 ? "queda 1 día" : `quedan ${diasDePrueba} días`} de prueba gratis.`
+                          : "Tu prueba gratis termina hoy."}
                     </p>
                   </div>
 

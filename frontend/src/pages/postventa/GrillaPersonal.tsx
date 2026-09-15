@@ -10,7 +10,7 @@ import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
-import { tieneModulo } from "../../constants/permissions";
+import { tieneDerecho } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   addStaff,
@@ -450,7 +450,7 @@ export default function GrillaPersonal({
             ? "equipo confirmado — el detalle vive en Planificación"
             : "cuántos necesito cada día, y a qué valor"}
         </span>
-        {tieneModulo(company, "personal") && (
+        {tieneDerecho(company, "personal") && (
           <Link
             to="/personas"
             className="ml-auto text-sm font-semibold text-blue-600 hover:text-blue-800"

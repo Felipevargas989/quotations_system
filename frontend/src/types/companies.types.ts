@@ -37,6 +37,17 @@ export interface Company {
   // Migración 111 (14-09-2026): módulos que no se venden y que esta
   // empresa tiene encendidos ("personal", "marketing"). Solo Valle del Sol.
   modulos_propios?: string[] | null;
+  // Migración 112 (14-09-2026): el plan y su estado. La app NO los usa
+  // para decidir nada — para eso está `derechos`, que el motor calcula y
+  // manda hecho. Estos dos viajan solo para mostrarlos (el banner de la
+  // prueba, la pantalla de "mejora tu plan" y la Torre de Control).
+  plan?: string | null;
+  estado_plan?: string | null;
+  prueba_vence?: string | null;
+  /** Lo que esta empresa puede usar. Lo calcula el motor. */
+  derechos?: string[] | null;
+  usuarios_max?: number | null;
+  cotizaciones_mes?: number | null;
   notifications?: {
     emails?: {
       [key in EmailStructure]?: boolean;

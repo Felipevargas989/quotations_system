@@ -286,7 +286,7 @@ function App() {
               <Route
                 path="post-venta"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.payments} derecho="post_venta">
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -295,7 +295,7 @@ function App() {
               <Route
                 path="post-venta/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.payments}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.payments} derecho="post_venta">
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -325,7 +325,7 @@ function App() {
               <Route
                 path="logistica"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics} derecho="logistica">
                     <LogisticaPage />
                   </PermissionGuard>
                 }
@@ -336,7 +336,7 @@ function App() {
               <Route
                 path="inventario"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics} derecho="logistica">
                     <InventarioPage />
                   </PermissionGuard>
                 }
@@ -347,7 +347,7 @@ function App() {
               <Route
                 path="personas"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people} modulo="personal">
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people} derecho="personal">
                     <PersonasPage />
                   </PermissionGuard>
                 }
@@ -357,7 +357,7 @@ function App() {
               <Route
                 path="marketing"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} modulo="marketing">
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} derecho="marketing">
                     <MarketingPage />
                   </PermissionGuard>
                 }
@@ -367,7 +367,7 @@ function App() {
               <Route
                 path="marketing/campana/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} modulo="marketing">
+                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} derecho="marketing">
                     <CampanaFichaPage />
                   </PermissionGuard>
                 }
@@ -378,7 +378,7 @@ function App() {
               <Route
                 path="personas/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people} modulo="personal">
+                  <PermissionGuard allowedRoles={SECTION_ROLES.people} derecho="personal">
                     <PersonaFichaPage />
                   </PermissionGuard>
                 }
@@ -406,7 +406,7 @@ function App() {
               <Route
                 path="calendar"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.calendar}>
+                  <PermissionGuard allowedRoles={SECTION_ROLES.calendar} derecho="calendario">
                     <Calendar />
                   </PermissionGuard>
                 }
@@ -439,18 +439,43 @@ function App() {
                 element={<Navigate to="/dashboard" replace />}
               />
 
-              {/* customer satisfaction survey */}
+              {/* customer satisfaction survey. Las encuestas entran con
+                  Opera y Crece (paso 3.2, 14-09-2026): el menú ya les
+                  ponía el candado, pero sin esto la pantalla se abría
+                  igual y el cliente veía un aviso suelto en vez de la
+                  invitación a mejorar de plan. */}
               <Route
                 path="customer-satisfaction-survey"
-                element={<CustomerSatisfactionSurveysPage />}
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    derecho="encuestas"
+                  >
+                    <CustomerSatisfactionSurveysPage />
+                  </PermissionGuard>
+                }
               />
               <Route
                 path="customer-satisfaction-survey/template"
-                element={<TemplateView />}
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    derecho="encuestas"
+                  >
+                    <TemplateView />
+                  </PermissionGuard>
+                }
               />
               <Route
                 path="customer-satisfaction-survey/answers"
-                element={<AnswersView />}
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    derecho="encuestas"
+                  >
+                    <AnswersView />
+                  </PermissionGuard>
+                }
               />
             </Route>
           </Routes>
