@@ -25,7 +25,15 @@ import { ForbiddenException } from '@nestjs/common';
 
 export type Plan = 'cotiza' | 'gestiona' | 'crece';
 
-export type EstadoPlan = 'prueba' | 'activo' | 'moroso' | 'bloqueado';
+export type EstadoPlan =
+  | 'prueba'
+  | 'activo'
+  // Cortesía (migración 113): usa todo su plan y el cobro no lo persigue.
+  // Es para la propia Valle del Sol, para la demo, y para el cliente al
+  // que Felipe decida regalarle el sistema.
+  | 'gratis'
+  | 'moroso'
+  | 'bloqueado';
 
 export type Derecho =
   // Lo que trae cualquier plan: requerimientos, formulario público,
@@ -186,8 +194,9 @@ const esModuloPropio = (v: string): v is Derecho =>
  *     entrar a Configuración y a Planes, y de eso se encarga el guardián.
  *  2. En prueba → vive los 7 días con los derechos de Opera y Crece.
  *     Decisión de Felipe: el que prueba todo compra más arriba.
- *  3. Activa o morosa → los de su plan. La morosa conserva todo durante la
- *     gracia; solo recibe avisos.
+ *  3. Activa, de cortesía o morosa → los de su plan. La de cortesía nunca
+ *     paga y nadie la va a perseguir; la morosa conserva todo durante la
+ *     gracia y solo recibe avisos.
  *  4. Siempre se suman los módulos propios (Personal y Marketing), que no
  *     los da ningún plan sino la columna `modulos_propios`.
  *

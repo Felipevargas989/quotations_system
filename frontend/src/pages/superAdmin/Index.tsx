@@ -102,7 +102,7 @@ const fechaExacta = (iso: string | null) =>
     : "";
 
 type ValorPlan = "cotiza" | "gestiona" | "crece";
-type ValorEstado = "prueba" | "activo" | "moroso" | "bloqueado";
+type ValorEstado = "prueba" | "activo" | "gratis" | "moroso" | "bloqueado";
 
 const PLANES = [
   { value: "cotiza", label: "Cotiza" },
@@ -112,7 +112,10 @@ const PLANES = [
 
 const ESTADOS = [
   { value: "prueba", label: "En prueba" },
-  { value: "activo", label: "Activo" },
+  { value: "activo", label: "Activo (paga)" },
+  // Cortesía (migración 113): usa todo su plan y el cobro automático no
+  // lo persigue. Es la propia Valle del Sol, la demo, o un regalo.
+  { value: "gratis", label: "Gratis (cortesía)" },
   { value: "moroso", label: "Moroso" },
   { value: "bloqueado", label: "Bloqueado" },
 ];
@@ -122,6 +125,7 @@ const ESTADOS = [
 const COLOR_ESTADO: Record<string, string> = {
   prueba: "bg-blue-500",
   activo: "bg-green-500",
+  gratis: "bg-violet-500",
   moroso: "bg-amber-500",
   bloqueado: "bg-red-500",
 };
@@ -134,6 +138,12 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
     empresa: TorreEmpresa,
     cambios: Parameters<typeof cambiarPlanDeEmpresa>[1],
   ) => {
+    // La X de la lista deja el valor en vacío. Una empresa siempre tiene
+    // plan y estado, así que limpiar no es una opción: se ignora en vez de
+    // mandarle al motor un texto vacío que va a rechazar (15-09-2026).
+    if (cambios.plan === ("" as never) || cambios.estado_plan === ("" as never)) {
+      return;
+    }
     setGuardando(empresa.id);
     try {
       await cambiarPlanDeEmpresa(empresa.id, cambios);
@@ -179,13 +189,16 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {empresas.map((e) => (
-              <tr key={e.id} className={guardando === e.id ? "opacity-50" : ""}>
+              <tr
+                key={e.id}
+                className={`align-middle ${guardando === e.id ? "opacity-50" : ""}`}
+              >
                 <td className="px-4 py-2 text-sm font-medium text-gray-900">
                   {e.nombre}
                 </td>
                 {/* Las listas son las del kit de la casa: la nativa no
                     busca y se ve distinta en cada navegador. */}
-                <td className="px-4 py-2 min-w-[170px]">
+                <td className="px-4 py-2 min-w-[190px] align-middle">
                   <SelectWithSearch
                     options={PLANES}
                     value={e.plan ?? "cotiza"}
@@ -199,26 +212,35 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                     }
                   />
                 </td>
-                <td className="px-4 py-2 min-w-[150px]">
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full mr-2 align-middle ${
-                      COLOR_ESTADO[e.estado_plan ?? "prueba"] ?? "bg-gray-400"
-                    }`}
-                  />
-                  <SelectWithSearch
-                    options={ESTADOS}
-                    value={e.estado_plan ?? "prueba"}
-                    disabled={guardando === e.id}
-                    tamano="sm"
-                    mostrarConteo={false}
-                    onChange={(valor) =>
-                      cambiar(e, {
-                        estado_plan: valor as ValorEstado,
-                        // Al activar se le saca el vencimiento: ya contrató.
-                        ...(valor === "activo" ? { prueba_vence: null } : {}),
-                      })
-                    }
-                  />
+                <td className="px-4 py-2 min-w-[180px]">
+                  {/* El punto AL LADO, no encima: si va encima, la fila
+                      crece y la tabla queda chueca (15-09-2026). */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        COLOR_ESTADO[e.estado_plan ?? "prueba"] ?? "bg-gray-400"
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <SelectWithSearch
+                        options={ESTADOS}
+                        value={e.estado_plan ?? "prueba"}
+                        disabled={guardando === e.id}
+                        tamano="sm"
+                        mostrarConteo={false}
+                        onChange={(valor) =>
+                          cambiar(e, {
+                            estado_plan: valor as ValorEstado,
+                            // Al activar se le saca el vencimiento: ya
+                            // contrató y la prueba dejó de correr.
+                            ...(valor === "activo"
+                              ? { prueba_vence: null }
+                              : {}),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-2 text-sm text-gray-500">
                   {e.prueba_vence

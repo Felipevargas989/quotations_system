@@ -468,3 +468,35 @@ columnas y no toca `modulos_propios`. A diferencia de la reversa de la 111,
 esta se puede correr sola: sin las columnas toda empresa vuelve a verse como
 en prueba, es decir, con todo abierto, que es el comportamiento anterior al
 candado.
+
+## 14. Migración 113: el plan de cortesía (15-09-2026)
+
+`113_plan_gratis.sql` y su reversa. Un quinto valor para
+`companies.estado_plan`: **`gratis`**.
+
+**Por qué.** La 112 dejó cuatro estados y todos suponen que la empresa
+paga o va a pagar. Pero hay empresas que nunca van a pagar y no por eso
+están en falta: la propia Valle del Sol, la demo que se le muestra a los
+interesados, o un cliente al que Felipe decida regalarle el sistema. Hasta
+ahora quedaban como `activo`, mezcladas con las que sí pagan, y el día que
+exista el cobro automático habría que acordarse a mano de no cobrarles.
+
+**Qué hace.** Rehace el CHECK `companies_estado_plan_check` para aceptar
+`gratis`. Nada más: ni columnas nuevas ni datos tocados.
+
+**Qué significa en el código.** `derechosDe` no necesitó un solo cambio —
+`gratis` no es `bloqueado` ni `prueba`, así que cae en la misma rama que
+`activo` y entrega los derechos de su plan. El reloj de las 11:00 tampoco,
+porque solo mira las que están en `prueba`. Lo único que se agregó es el
+valor en el DTO de la Torre de Control, la opción en su lista y una prueba
+que fija que `gratis` y `activo` dan exactamente los mismos derechos.
+
+**Va aparte de la 112 y no dentro de ella** porque la 112 ya estaba
+aplicada en el laboratorio: una migración aplicada no se reescribe.
+
+**Ojo con la reversa**: si alguna empresa quedó en `gratis`, falla. El
+archivo trae arriba la línea para dejarlas en `activo` primero, que les da
+los mismos derechos.
+
+Aplicada en LAB el 15-09-2026. En PRODUCCIÓN: pendiente, junto con la 112
+y **antes** del deploy del motor.

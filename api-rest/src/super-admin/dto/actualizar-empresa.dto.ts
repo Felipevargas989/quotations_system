@@ -24,9 +24,11 @@ export class ActualizarEmpresaDto {
   @IsOptional()
   plan?: 'cotiza' | 'gestiona' | 'crece';
 
-  @IsIn(['prueba', 'activo', 'moroso', 'bloqueado'])
+  // `gratis` (migración 113) es cortesía: usa todo su plan y el cobro
+  // automático no lo persigue. Solo se pone desde acá.
+  @IsIn(['prueba', 'activo', 'gratis', 'moroso', 'bloqueado'])
   @IsOptional()
-  estado_plan?: 'prueba' | 'activo' | 'moroso' | 'bloqueado';
+  estado_plan?: 'prueba' | 'activo' | 'gratis' | 'moroso' | 'bloqueado';
 
   // Null para sacarle el vencimiento a una empresa que ya contrató.
   @IsISO8601()

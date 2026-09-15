@@ -66,6 +66,8 @@ describe("estaBloqueada", () => {
     expect(estaBloqueada({ estado_plan: "activo" })).toBe(false);
     expect(estaBloqueada({ estado_plan: "prueba" })).toBe(false);
     expect(estaBloqueada({ estado_plan: "moroso" })).toBe(false);
+    // Cortesía (migración 113): usa todo, nadie la bloquea.
+    expect(estaBloqueada({ estado_plan: "gratis" })).toBe(false);
     expect(estaBloqueada(null)).toBe(false);
   });
 });

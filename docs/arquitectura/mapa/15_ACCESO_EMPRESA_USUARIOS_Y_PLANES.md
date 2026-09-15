@@ -397,7 +397,7 @@ Pruebas: `auth/tests/modulos-propios.spec.ts` (el guardián, las 7 rutas abierta
 | Columna | Qué guarda | Default y candado |
 |---|---|---|
 | `plan` | `cotiza`, `gestiona` o `crece` | `cotiza`; CHECK `companies_plan_check` |
-| `estado_plan` | `prueba`, `activo`, `moroso` o `bloqueado` | `prueba`; CHECK `companies_estado_plan_check` |
+| `estado_plan` | `prueba`, `activo`, `gratis`, `moroso` o `bloqueado` | `prueba`; CHECK `companies_estado_plan_check` (`gratis` lo agregó la migración 113) |
 | `prueba_vence` | Cuándo termina la prueba gratis (`timestamptz`) | NULL si no está en prueba |
 | `plan_cambiado_en` | Última vez que cambió el plan o el estado, para la Torre | `now()` |
 
@@ -434,6 +434,7 @@ Dos de los 16 están declarados pero **todavía no los pregunta nadie**: `gestio
 |---|---|---|
 | `prueba` | Los de **Opera y Crece** durante 7 días | Decisión de Felipe: el que prueba todo compra más arriba |
 | `activo` | Los de su plan | Pagó |
+| `gratis` | Los de su plan, **exactamente los mismos que `activo`** | Cortesía (migración 113, 15-09-2026). Es la propia Valle del Sol, la demo que se le muestra a los interesados, o el cliente al que Felipe decidió regalarle el sistema. Lo que cambia no son los derechos: es que el cobro automático del paso 5 **no la persigue** — no le pide medio de pago, no la pasa a morosa y no la bloquea nunca. Y el reloj de las 11:00 tampoco la toca, porque solo mira las que están en `prueba` |
 | `moroso` | Conserva **todo**; solo recibe avisos | Es la gracia. Queda definido pero todavía no lo usa nadie: es para el paso 5 (el cobro) |
 | `bloqueado` | **Ninguno**. Solo entra a lo marcado `@SinPlan()` | Terminó la prueba y no pagó. No se le borra ni un dato: cuando active su plan, encuentra todo donde lo dejó |
 

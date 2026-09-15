@@ -88,6 +88,26 @@ describe('derechosDe', () => {
     expect(d.derechos).toEqual([]);
   });
 
+  it('de cortesía usa todo su plan, igual que una que paga', () => {
+    // `gratis` (migración 113): es la propia Valle del Sol, la demo, o un
+    // cliente al que Felipe decidió regalarle el sistema. Lo que cambia
+    // no son los derechos: es que el cobro automático no la persigue.
+    const paga = derechosDe({ plan: 'gestiona', estado_plan: 'activo' });
+    const cortesia = derechosDe({ plan: 'gestiona', estado_plan: 'gratis' });
+    expect(cortesia).toEqual(paga);
+  });
+
+  it('de cortesía con Crece y módulos propios lo tiene todo', () => {
+    const d = derechosDe({
+      plan: 'crece',
+      estado_plan: 'gratis',
+      modulos_propios: ['personal', 'marketing'],
+    });
+    expect(d.derechos).toContain('personal');
+    expect(d.derechos).toContain('logistica');
+    expect(d.usuarios_max).toBeNull();
+  });
+
   it('morosa conserva todo: durante la gracia solo recibe avisos', () => {
     const activa = derechosDe({ plan: 'gestiona', estado_plan: 'activo' });
     const morosa = derechosDe({ plan: 'gestiona', estado_plan: 'moroso' });

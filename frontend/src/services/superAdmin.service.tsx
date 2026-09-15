@@ -87,7 +87,7 @@ export const cambiarPlanDeEmpresa = async (
   companyId: number,
   cambios: {
     plan?: "cotiza" | "gestiona" | "crece";
-    estado_plan?: "prueba" | "activo" | "moroso" | "bloqueado";
+    estado_plan?: "prueba" | "activo" | "gratis" | "moroso" | "bloqueado";
     prueba_vence?: string | null;
   },
 ): Promise<void> => {
