@@ -452,7 +452,11 @@ export default function GrillaPersonal({
         </span>
         {tieneDerecho(company, "personal") && (
           <Link
-            to="/personas"
+            // Con el día del evento a cuestas (15-09-2026, Felipe: "no me
+            // lleva a la fecha del evento para poner los nombres"). La
+            // planificación abre siempre en el mes de hoy, así que para un
+            // evento de noviembre había que ir navegando a mano.
+            to={`/personas?dia=${eventDate}`}
             className="ml-auto text-sm font-semibold text-blue-600 hover:text-blue-800"
           >
             Poner nombres →

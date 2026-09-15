@@ -122,9 +122,22 @@ const diasDe = (e: { inicio: string | null; termino: string | null }) => {
   return salida;
 };
 
-export default function SemanaTab({ companyId }: { readonly companyId: number }) {
+export default function SemanaTab({
+  companyId,
+  diaInicial,
+}: {
+  readonly companyId: number;
+  /**
+   * El día en que abrir la sábana. Lo manda el "Poner nombres" de un
+   * evento (15-09-2026): sin esto la planificación siempre partía en el
+   * mes de hoy, y para un evento de noviembre había que navegar a mano.
+   */
+  readonly diaInicial?: string;
+}) {
   const qc = useQueryClient();
-  const [domingo, setDomingo] = useState(() => domingoDe(hoyEnChile()));
+  const [domingo, setDomingo] = useState(() =>
+    domingoDe(diaInicial || hoyEnChile()),
+  );
   // LA SÁBANA (Felipe, 15-08): se parte viendo dos semanas y se puede
   // achicar a una o abrir al mes. Siempre alineada al domingo.
   // LA SÁBANA ES MENSUAL Y FIJA (Felipe, 15-08: "dejemos la vista
