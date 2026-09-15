@@ -1,5 +1,5 @@
 # Mapa: Catálogo de servicios, menús guardados y paquetes
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -31,43 +31,43 @@ Casi todos toman la empresa de la sesión (`@CurrentUser() user.company_id`). **
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles |
 |---|---|---|---|---|
-| `POST /services/bulk` | `ServicesController.createServicesBulk` | `ServicesService.createServicesBulk` | `createServicesBulk` ← `ExcelUpload` | ADMIN_ONLY |
-| `GET /services` | `ServicesController.findAll` | `ServicesService.findAll` (4 listas: variables, fijos, categorías, vínculos) | `findAllServices` ← `useServices` (Catálogo, cotizador, `ServiciosTab`) y `NewAccount` (dashboard) | Sesión |
+| `POST /services/bulk` | `ServicesController.createServicesBulk` | `ServicesService.createServicesBulk` | `createServicesBulk` ← `ServicesPage` (Catálogo, modal `ExcelUpload`) | ADMIN_ONLY |
+| `GET /services` | `ServicesController.findAll` | `ServicesService.findAll` (4 listas: variables, fijos, categorías, vínculos) | `findAllServices` ← `ServicesPage` (Catálogo), `QuotationForm` (cotizador) y `PostVentaPage`/`NegocioPage` (pestaña Servicios, `ServiciosTab`), los tres por `useServices`; además `DashboardPage` (aviso `NewAccount`) | Sesión |
 | `GET /services/used-codes` | `ServicesController.usedServiceCodes` | `ServicesService.usedServiceCodes` → RPC `used_service_codes` | `getUsedServiceCodes` ← `ServicesPage` | Sesión |
-| `GET /services/fixed-sections` | `ServicesController.listFixedSections` | `ServicesService.listFixedSections` | `getFixedSections` ← `FixedServicesBySection`, `QuotationForm`, `ServiciosTab` | Sesión |
-| `POST /services/fixed-sections/new` | `ServicesController.createFixedSection` | `createFixedSectionForCompany` | `createFixedSection` ← `FixedServicesBySection` | ADMIN_ONLY |
-| `PATCH /services/fixed-sections/reorder` | `ServicesController.reorderFixedSections` | `reorderFixedSections` | `reorderFixedSections` ← `FixedServicesBySection` | ADMIN_ONLY |
-| `PATCH /services/fixed-sections/:id` | `ServicesController.updateFixedSection` | `updateFixedSectionById` | `updateFixedSection` ← `FixedServicesBySection` | ADMIN_ONLY |
-| `DELETE /services/fixed-sections/:id` | `ServicesController.deleteFixedSection` | `deleteFixedSectionById` | `deleteFixedSection` ← `FixedServicesBySection` | ADMIN_ONLY |
-| `PATCH /services/fixed/reorder` | `ServicesController.reorderFixedServices` | `reorderFixedServices` → RPC `reorder_fixed_services` | `reorderFixedServices` ← `FixedServicesBySection` | ADMIN_ONLY |
-| `PATCH /services/categories` | `ServicesController.updateServiceCategory` | `updateServiceCategory` (upsert por nombre) | `updateServiceCategory` existe en `services.service.ts` pero **nadie lo llama** | ADMIN_ONLY |
-| `PATCH /services/reorder-services` | `ServicesController.reorderServicesInCategory` | `reorderServicesInCategory` → RPC `reorder_services_in_category` | `reorderServicesInCategory` ← `VariableServicesByCategory` | ADMIN_ONLY |
+| `GET /services/fixed-sections` | `ServicesController.listFixedSections` | `ServicesService.listFixedSections` | `getFixedSections` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`), `QuotationForm` (cotizador) y `PostVentaPage`/`NegocioPage` (pestaña Servicios, `ServiciosTab`) | Sesión |
+| `POST /services/fixed-sections/new` | `ServicesController.createFixedSection` | `createFixedSectionForCompany` | `createFixedSection` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`) | ADMIN_ONLY |
+| `PATCH /services/fixed-sections/reorder` | `ServicesController.reorderFixedSections` | `reorderFixedSections` | `reorderFixedSections` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`) | ADMIN_ONLY |
+| `PATCH /services/fixed-sections/:id` | `ServicesController.updateFixedSection` | `updateFixedSectionById` | `updateFixedSection` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`) | ADMIN_ONLY |
+| `DELETE /services/fixed-sections/:id` | `ServicesController.deleteFixedSection` | `deleteFixedSectionById` | `deleteFixedSection` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`) | ADMIN_ONLY |
+| `PATCH /services/fixed/reorder` | `ServicesController.reorderFixedServices` | `reorderFixedServices` → RPC `reorder_fixed_services` | `reorderFixedServices` ← `ServicesPage` (Catálogo, caja de fijos `FixedServicesBySection`) | ADMIN_ONLY |
+| `PATCH /services/categories` | `ServicesController.updateServiceCategory` | `updateServiceCategory` (upsert por nombre) | **Nadie** desde la app. Tampoco lo llama otro service del motor ni un reloj: `updateServiceCategory` solo aparece en `services.service.ts` y en su propia ruta. La app móvil no vive en este repo, así que no se pudo revisar | ADMIN_ONLY |
+| `PATCH /services/reorder-services` | `ServicesController.reorderServicesInCategory` | `reorderServicesInCategory` → RPC `reorder_services_in_category` | `reorderServicesInCategory` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
 | `PATCH /services/reorder-categories` | `ServicesController.reorderCategories` | `reorderCategories` (una orden por categoría) | `reorderCategories` ← `ServicesPage.handleReorderCategories` | ADMIN_ONLY |
-| `POST /services/categories/new` | `ServicesController.createCategory` | `createCategoryForCompany` → `findOrCreateCategory` | `createCategory` ← `ServicesPage` y `VariableServiceForm` | ADMIN_ONLY |
+| `POST /services/categories/new` | `ServicesController.createCategory` | `createCategoryForCompany` → `findOrCreateCategory` | `createCategory` ← `ServicesPage` (Catálogo: la página y el modal `VariableServiceForm`) | ADMIN_ONLY |
 | `PATCH /services/categories/:id` | `ServicesController.updateCategoryById` | `renameOrUpdateCategory` | `updateCategoryById` ← `ServicesPage` (renombrar, activar) | ADMIN_ONLY |
 | `DELETE /services/categories/:id` | `ServicesController.deleteCategoryById` | `deleteCategoryForCompany` | `deleteCategoryById` ← `ServicesPage.handleDeleteCategory` | ADMIN_ONLY |
-| `PATCH /services/variable/:id/categories` | `ServicesController.setServiceCategories` | `setServiceCategories` → `linkServiceToCategories` | `setServiceCategories` ← `VariableServiceForm` | ADMIN_ONLY |
-| `PATCH /services/variable/:id` | `ServicesController.updateVariableService` | `updateVariableService` | `updateVariableService` ← `VariableServiceForm`, `ServicesPage.handleToggleActive` | ADMIN_ONLY |
-| `PATCH /services/fixed/:id` | `ServicesController.updateFixedService` | `updateFixedService` (valida con `validateFixedServices`) | `updateFixedService` ← `FixedServiceForm`, `ServicesPage.handleToggleActive` | ADMIN_ONLY |
-| `POST /services/variable` | `ServicesController.createVariableService` | `createVariableService` | `createVariableService` ← `VariableServiceForm` | ADMIN_ONLY |
-| `POST /services/fixed` | `ServicesController.createFixedService` | `createFixedService` | `createFixedService` ← `FixedServiceForm` | ADMIN_ONLY |
+| `PATCH /services/variable/:id/categories` | `ServicesController.setServiceCategories` | `setServiceCategories` → `linkServiceToCategories` | `setServiceCategories` ← `ServicesPage` (Catálogo, modal `VariableServiceForm`) | ADMIN_ONLY |
+| `PATCH /services/variable/:id` | `ServicesController.updateVariableService` | `updateVariableService` | `updateVariableService` ← `ServicesPage` (Catálogo: modal `VariableServiceForm` y `handleToggleActive`) | ADMIN_ONLY |
+| `PATCH /services/fixed/:id` | `ServicesController.updateFixedService` | `updateFixedService` (valida con `validateFixedServices`) | `updateFixedService` ← `ServicesPage` (Catálogo: modal `FixedServiceForm` y `handleToggleActive`) | ADMIN_ONLY |
+| `POST /services/variable` | `ServicesController.createVariableService` | `createVariableService` | `createVariableService` ← `ServicesPage` (Catálogo, modal `VariableServiceForm`) | ADMIN_ONLY |
+| `POST /services/fixed` | `ServicesController.createFixedService` | `createFixedService` | `createFixedService` ← `ServicesPage` (Catálogo, modal `FixedServiceForm`) | ADMIN_ONLY |
 | `DELETE /services/variable/:id` | `ServicesController.removeVariableService` | `removeVariableService` (candado de uso) | `removeVariableService` ← `ServicesPage.handleDeleteService` | ADMIN_ONLY |
 | `DELETE /services/fixed/:id` | `ServicesController.removeFixedService` | `removeFixedService` (candado de uso) | `removeFixedService` ← `ServicesPage.handleDeleteService` | ADMIN_ONLY |
-| `GET /sections` | `SectionsController.findAll` | sin service: `SectionsRepository.findAll` | `getCategorySections` ← `VariableServicesByCategory`, `QuotationForm`, `ServiciosTab` | RECEPTION_AND_UP |
-| `GET /sections/menu-order` | `SectionsController.menuOrder` | `SectionsRepository.menuOrder` | `getMenuOrder` ← `QuotationViewer`, `FichaCocinaSection` | RECEPTION_AND_UP |
-| `POST /sections` | `SectionsController.create` | `SectionsRepository.create` | `createCategorySection` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `PATCH /sections/reorder` | `SectionsController.reorder` | `SectionsRepository.reorder` | `reorderCategorySections` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `PATCH /sections/default` | `SectionsController.setDefault` | `SectionsRepository.setDefault` | `setDefaultSection` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `PATCH /sections/link/:linkId` | `SectionsController.setLinkSection` | `SectionsRepository.setLinkSection` | `setLinkSection` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `PATCH /sections/:id` | `SectionsController.rename` | `SectionsRepository.rename` | `renameCategorySection` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `DELETE /sections/:id` | `SectionsController.delete` | `SectionsRepository.delete` | `deleteCategorySection` ← `VariableServicesByCategory` | ADMIN_ONLY |
-| `POST /service-groups` | `ServiceGroupsController.create` | `ServiceGroupsService.create` | `createServiceGroup` ← `useServiceGroups.saveGroup` ← `QuotationForm.confirmSaveGroup` | SALES_AND_UP |
-| `GET /service-groups` | `ServiceGroupsController.findAll` | `ServiceGroupsService.findAll` | `getServiceGroups` ← `useServiceGroups` (`QuotationForm`, `ServiciosTab`) | Sesión |
-| `PATCH /service-groups/:id` | `ServiceGroupsController.rename` | `ServiceGroupsService.rename` | `renameServiceGroup` ← `useServiceGroups.renameGroup` ← `MenusGuardados` (`onRenombrar`) | SALES_AND_UP |
-| `DELETE /service-groups/:id` | `ServiceGroupsController.remove` | `ServiceGroupsService.remove` | `deleteServiceGroup` ← `useServiceGroups.removeGroup` ← `QuotationForm` | SALES_AND_UP |
-| `POST /service-group-collections` | `ServiceGroupCollectionsController.create` | `ServiceGroupCollectionsService.create` | `createServiceGroupCollection` ← `useServiceGroupCollections.saveCollection` ← `QuotationForm.confirmCreateCollection` | SALES_AND_UP |
-| `GET /service-group-collections` | `ServiceGroupCollectionsController.findAll` | `ServiceGroupCollectionsService.findAll` | `getServiceGroupCollections` ← `useServiceGroupCollections` ← `QuotationForm` | Sesión |
-| `DELETE /service-group-collections/:id` | `ServiceGroupCollectionsController.remove` | `ServiceGroupCollectionsService.remove` | `deleteServiceGroupCollection` ← `SelectorDePaquetes.onEliminar` en `QuotationForm` | SALES_AND_UP |
+| `GET /sections` | `SectionsController.findAll` | sin service: `SectionsRepository.findAll` | `getCategorySections` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`), `QuotationForm` (cotizador) y `PostVentaPage`/`NegocioPage` (pestaña Servicios, `ServiciosTab`) | RECEPTION_AND_UP |
+| `GET /sections/menu-order` | `SectionsController.menuOrder` | `SectionsRepository.menuOrder` | `getMenuOrder` ← `QuotationsPage`, `NegocioPage`, `PostVentaPage` y `ClientDetailPage` (visor `QuotationViewer`), y `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | RECEPTION_AND_UP |
+| `POST /sections` | `SectionsController.create` | `SectionsRepository.create` | `createCategorySection` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `PATCH /sections/reorder` | `SectionsController.reorder` | `SectionsRepository.reorder` | `reorderCategorySections` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `PATCH /sections/default` | `SectionsController.setDefault` | `SectionsRepository.setDefault` | `setDefaultSection` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `PATCH /sections/link/:linkId` | `SectionsController.setLinkSection` | `SectionsRepository.setLinkSection` | `setLinkSection` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `PATCH /sections/:id` | `SectionsController.rename` | `SectionsRepository.rename` | `renameCategorySection` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `DELETE /sections/:id` | `SectionsController.delete` | `SectionsRepository.delete` | `deleteCategorySection` ← `ServicesPage` (Catálogo, cajas de categoría `VariableServicesByCategory`) | ADMIN_ONLY |
+| `POST /service-groups` | `ServiceGroupsController.create` | `ServiceGroupsService.create` | `createServiceGroup` ← `QuotationForm` (cotizador, `confirmSaveGroup`), por `useServiceGroups.saveGroup` | SALES_AND_UP |
+| `GET /service-groups` | `ServiceGroupsController.findAll` | `ServiceGroupsService.findAll` | `getServiceGroups` ← `QuotationForm` (cotizador) y `PostVentaPage`/`NegocioPage` (pestaña Servicios, `ServiciosTab`), por `useServiceGroups` | Sesión |
+| `PATCH /service-groups/:id` | `ServiceGroupsController.rename` | `ServiceGroupsService.rename` | `renameServiceGroup` ← `QuotationForm` (cotizador, lápiz de `MenusGuardados`), por `useServiceGroups.renameGroup` | SALES_AND_UP |
+| `DELETE /service-groups/:id` | `ServiceGroupsController.remove` | `ServiceGroupsService.remove` | `deleteServiceGroup` ← `QuotationForm` (cotizador, basurero de `MenusGuardados`), por `useServiceGroups.removeGroup` | SALES_AND_UP |
+| `POST /service-group-collections` | `ServiceGroupCollectionsController.create` | `ServiceGroupCollectionsService.create` | `createServiceGroupCollection` ← `QuotationForm` (cotizador, `confirmCreateCollection`), por `useServiceGroupCollections.saveCollection` | SALES_AND_UP |
+| `GET /service-group-collections` | `ServiceGroupCollectionsController.findAll` | `ServiceGroupCollectionsService.findAll` | `getServiceGroupCollections` ← `QuotationForm` (cotizador), por `useServiceGroupCollections` | Sesión |
+| `DELETE /service-group-collections/:id` | `ServiceGroupCollectionsController.remove` | `ServiceGroupCollectionsService.remove` | `deleteServiceGroupCollection` ← `QuotationForm` (cotizador, basurero de `SelectorDePaquetes`) | SALES_AND_UP |
 
 Total: 37 endpoints. Otros módulos leen el catálogo por sus propias puertas: `GET /logistics/base-catalogo`, `GET /logistics/catalog/service-names` y `GET /logistics/catalog/fixed-costs` (vendedor+, ver 06_LOGISTICA_COMPRAS_E_INVENTARIO.md), y el portal y la hoja de impresión vía `QuotationsRepository.cartaDelCatalogo` (ver 02 y 03).
 

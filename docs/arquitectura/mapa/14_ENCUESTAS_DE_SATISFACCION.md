@@ -1,6 +1,6 @@
 # Mapa: Encuestas de satisfacción
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -37,7 +37,7 @@ Controller `CustomerSatisfactionSurveyController` (`@Controller('customer-satisf
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `POST /customer-satisfaction-survey/template` (hasta el 11-09-2026 tomaba la empresa del query, `?companyId=`; desde el sprint 2, en la rama `pruebas` y todavía no en producción, la toma de la sesión) | `createTemplate` | `CustomerSatisfactionSurveyService.createTemplate` → `CustomerSatisfactionSurveyRepository.createTemplate` | **Nadie** (cerrado el 28-07 porque no tenía llamador) | `@Roles(...ADMIN_ONLY)` |
+| `POST /customer-satisfaction-survey/template` (hasta el 11-09-2026 tomaba la empresa del query, `?companyId=`; desde el sprint 2, en la rama `pruebas` y todavía no en producción, la toma de la sesión) | `createTemplate` | `CustomerSatisfactionSurveyService.createTemplate` → `CustomerSatisfactionSurveyRepository.createTemplate` | **Nadie** desde la app (cerrado el 28-07 porque no tenía llamador; no existe función para esta ruta en `frontend/src/services`). Dentro del motor sí se usa el service: `SuperAdminService.createSuscription` llama a `CustomerSatisfactionSurveyService.createTemplate` | `@Roles(...ADMIN_ONLY)` |
 | `GET /customer-satisfaction-survey/template?companyId=` | `getTemplate` | `getTemplate` → `repository.getTemplate` (`.single()`) | `getTemplate` de `services/customerSatisfactionSurveys.service.ts`, usado por `PublicSurvey`, `TemplateView` y `AnswersView` | `@Public()` |
 | `GET /customer-satisfaction-survey/answered?quotationId=` | `answered` | `hasAnswer` → `repository.hasAnswer` | `isSurveyAnswered` en `PublicSurvey` | `@Public()` |
 | `POST /customer-satisfaction-survey/answer` | `createAnswer` (body `CreateAnswerDto`) | `createAnswer` | `createAnswer` en `PublicSurvey.handleSubmit` | `@Public()` + `@Throttle` de 10 por minuto |
@@ -50,11 +50,11 @@ Endpoints de otros módulos de los que depende la encuesta:
 | `POST /quotations/:id/realizado` | `QuotationsController.markEventDone` | `QuotationsService.markEventDone` (+ `resolveRecipient`, `EmailService.sendEmail`) | `markEventDone` de `frontend/src/services/quotations.service.ts`, desde `PostVentaPage` | `@Roles(...OPERATIONS_AND_UP)` | 04 |
 | `POST /quotations/:id/volver-a-pendiente` | `QuotationsController.unmarkEventDone` | `QuotationsService.unmarkEventDone` | `unmarkEventDone`, desde `PostVentaPage` | `@Roles(...ADMIN_ONLY)` | 04 |
 | `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` → `QuotationsRepository.findOne` | `getQuotationById` en `PublicSurvey` (además del cotizador) | `@Public()`, con un TODO: "maybe create public endpoint for this" | 01 |
-| `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne` | `getCompanyById` (`services/superAdmin.service.tsx`) → `getCompanyPublic` (`services/companies.service.ts`) | `@Public()` | 15 |
+| `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne` | `getCompanyById` (`services/superAdmin.service.tsx`) → `getCompanyPublic` (`services/companies.service.ts`) ← `PublicSurvey`; `getCompanyPublic` directo ← `CreateQuotationPublic` | `@Public()` | 15 |
 | `GET /portal/:token` | `portal.controller.ts` | `QuotationsService.getPortalData` (usa `QuotationsRepository.answeredSurveys`) | `PortalPage` | `@Public()` | 03 |
 | `GET /clients/:id/summary` | `ClientsController.findSummary` | `ClientsRepository.findSummary` | `ClientDetailPage` | Con sesión | 09 |
-| `POST /users/signup` y `POST /super-admin/suscription` | `UsersController.signup`, `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` → `createTemplate` | **Nadie**: el registro está desactivado en `NewUserRegisterForm` ("TEMP: registration disabled") | `@Public()` (suscripción con `@Throttle` 10/min) | 15 |
-| `POST /email-previews` | `EmailPreviewsController.sendPreviews` | `EmailService.sendPreviewBatch` (trae muestras de los dos correos de encuesta) | Herramienta del laboratorio; en producción responde 404 | `@Public()` | 12 |
+| `POST /users/signup` y `POST /super-admin/suscription` | `UsersController.signup`, `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` → `createTemplate` | **Nadie** desde la app: `signup` (`services/users.service.ts`) tiene su única llamada comentada en `NewUserRegisterForm`, la pantalla `RegisterPage` ("TEMP: registration disabled"), y `/super-admin/suscription` no tiene función en `frontend/src/services` | `@Public()` (suscripción con `@Throttle` 10/min) | 15 |
+| `POST /email-previews` | `EmailPreviewsController.sendPreviews` | `EmailService.sendPreviewBatch` (trae muestras de los dos correos de encuesta) | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Se llama a mano, como herramienta del laboratorio; en producción responde 404 | `@Public()` | 12 |
 
 ## 4. Tablas de la base de datos
 

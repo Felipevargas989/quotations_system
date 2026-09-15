@@ -1,6 +1,6 @@
 # Mapa: Dashboard y analítica
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -39,14 +39,14 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
 
 | Método y ruta | Controller → service | Llamada de la app (queryKey) | Mapa |
 |---|---|---|---|
-| `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada` ← `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]` | 01 / 02 |
-| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `estadoMut` (mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
-| `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `receiptsQuery` `["postventa","comprobantes"]` | 03 |
-| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `marginBaseQuery` `["logistica","compras","base", companyId]` (caché compartida con Compras y el cotizador) | 06 |
-| `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `wonEventsQuery` | 06 |
-| `GET /logistics/purchasing/supply-provisions`, `GET /logistics/resources`, `GET /logistics/event-resources` | `supplyProvisions`, `findAllResources`, `eventResources` | `getEventSupplyProvisions`, `getManagementResources`, `getAllEventResources` ← `provQuery` | 06 |
-| `GET /people/costo-personal` | `PeopleController.costoPersonal` → `PeopleRepository.costoPersonalPorEvento` | `getCostoPersonal` ← `costoPersonalQuery` | 07 / 08 |
-| `GET /people/pagado-por-mes` | `PeopleController.pagadoPorMes` → `PeopleRepository.pagadoDePersonalPorMes` → `utils/pagado-por-mes.ts` | `getPagadoPersonalPorMes` ← `pagadoPersonalQuery` | 08 |
+| `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `DashboardPage` (`tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada`, `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]`) y su tarjeta `NewAccount` | 01 / 02 |
+| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
+| `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `DashboardPage` (`receiptsQuery` `["postventa","comprobantes"]`); la misma caché la usa `PostVentaPage` | 03 |
+| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `DashboardPage` (`marginBaseQuery` `["logistica","compras","base", companyId]`; caché compartida con `LogisticaPage` y `QuotationForm`) | 06 |
+| `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `DashboardPage` (`wonEventsQuery`) | 06 |
+| `GET /logistics/purchasing/supply-provisions`, `GET /logistics/resources`, `GET /logistics/event-resources` | `supplyProvisions`, `findAllResources`, `eventResources` | `getEventSupplyProvisions`, `getManagementResources`, `getAllEventResources` ← `DashboardPage` (`provQuery`) | 06 |
+| `GET /people/costo-personal` | `PeopleController.costoPersonal` → `PeopleRepository.costoPersonalPorEvento` | `getCostoPersonal` ← `DashboardPage` (`costoPersonalQuery`) | 07 / 08 |
+| `GET /people/pagado-por-mes` | `PeopleController.pagadoPorMes` → `PeopleRepository.pagadoDePersonalPorMes` → `utils/pagado-por-mes.ts` | `getPagadoPersonalPorMes` ← `DashboardPage` (`pagadoPersonalQuery`) | 08 |
 
 **Relojes**: ninguno. `AnalyticsCronService` (`analyitics-cront.service.ts`, viernes 12:00 UTC) se borró en el commit 51948d6 del 31-07 (ver §6 y §8). En la app, solo `hoyQuery` se refresca solo cada 5 minutos (`refetchInterval`).
 

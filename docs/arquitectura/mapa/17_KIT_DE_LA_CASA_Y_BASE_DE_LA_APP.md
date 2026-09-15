@@ -1,6 +1,6 @@
 # Mapa: Kit de la casa y base compartida de la app
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -57,15 +57,15 @@ El kit no tiene endpoints propios. Esta tabla lista solo lo que la base llama po
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /users/:id` | `UsersController.findOne` (`api-rest/src/users/users.controller.ts`) | `UsersService.findOne` → `UsersRepository.findOne` | `getUser` (`services/users.service.ts`) desde `AuthContext` (`profileQuery` y `signIn`): trae rol, nombre y empresa, que alimentan `PermissionGuard`, `Layout` y `Sidebar` | Autenticado, sin `@Roles` en el método (ver 15) |
-| Supabase Auth (no es el motor): `getSession`, `refreshSession`, `onAuthStateChange`, `signInWithPassword`, `signOut` | — | — | `services/api.ts` (token y reintento en 401) y `contexts/AuthContext.tsx` | clave anónima (`VITE_SUPABASE_ANON_KEY`) |
-| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | quotations | `useDateAvailability` (en `RequestForm` y `QuotationForm`) | ver 01 |
-| `GET /services` | `ServicesController.findAll` | services | `useServices` (`findAllServices`) | ver 05 |
-| `/service-groups` y `/service-group-collections` | ver 05 | ver 05 | `useServiceGroups`, `useServiceGroupCollections` | ver 05 |
-| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | logistics | `useBaseLogistica` (`getBaseCatalogo`, ruta escrita a mano fuera de `API_ROUTES`) | ver 06 |
-| `GET /payments?quotationId=` | ver 03 | payments | `AvisoPlanDePagos` (`getPaymentsByQuotationId`) | ver 03 |
-| `GET /storage/signed-url`, `POST /storage/upload` | ver 03 y 16 | storage | `FileViewLink` (`resolveStorageUrl`) y `storage.service.subir` | ver 03 y 16 |
-| `GET /sections/menu-order` | ver 05 | sections | `QuotationViewer` y `FichaCocinaSection` (`getMenuOrder`) | ver 02, 04 y 05 |
+| `GET /users/:id` | `UsersController.findOne` (`api-rest/src/users/users.controller.ts`) | `UsersService.findOne` → `UsersRepository.findOne` | `getUser` (`services/users.service.ts`) ← `AuthContext` (`profileQuery` y `signIn`), es decir **todas** las pantallas tras el login: trae rol, nombre y empresa, que alimentan `PermissionGuard`, `Layout` y `Sidebar`. Además `QuotationForm` (`fetchCreatorUser`) | Autenticado, sin `@Roles` en el método (ver 15) |
+| Supabase Auth (no es el motor): `getSession`, `refreshSession`, `onAuthStateChange`, `signInWithPassword`, `signOut` | — | — | `services/api.ts` (token y reintento en 401) y `contexts/AuthContext.tsx`: no es de una pantalla, lo usa **toda la app**; el `signInWithPassword` entra por `LoginPage` y el `signOut` por el `Layout` | clave anónima (`VITE_SUPABASE_ANON_KEY`) |
+| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | quotations | `useDateAvailability` ← `RequestsPage` (en `RequestForm`) y `QuotationForm` | ver 01 |
+| `GET /services` | `ServicesController.findAll` | services | `useServices` (`findAllServices`) ← `QuotationForm`, `ServicesPage`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`) | ver 05 |
+| `/service-groups` y `/service-group-collections` | ver 05 | ver 05 | `useServiceGroups` ← `QuotationForm`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`); `useServiceGroupCollections` ← solo `QuotationForm` | ver 05 |
+| `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | logistics | `useBaseLogistica` (`getBaseCatalogo`, ruta escrita a mano fuera de `API_ROUTES`) ← `PostVentaPage` (en `GestionTab`, `ServiciosTab` y `CocinaTab`), `NegocioPage` (en `ServiciosTab`) e `InventarioPage` (en `MobiliarioTab`) | ver 06 |
+| `GET /payments?quotationId=` | ver 03 | payments | `AvisoPlanDePagos` (`getPaymentsByQuotationId`) ← `QuotationForm`, y `PostVentaPage` y `NegocioPage` (en `ServiciosTab`) | ver 03 |
+| `GET /storage/signed-url`, `POST /storage/upload` | ver 03 y 16 | storage | `resolveStorageUrl` ← `PostVentaPage` (directo y en `FileViewLink`) y `NegocioPage` (en `SeguimientoPanel`); `storage.service.subir` ← `PostVentaPage`, `NegocioPage`, `CompanyConfiguration`, `MarketingPage` y `CampanaFichaPage`, `InventarioPage` y `ConsultasPage` (detalle en el 16) | ver 03 y 16 |
+| `GET /sections/menu-order` | ver 05 | sections | `getMenuOrder` ← `QuotationsPage`, `NegocioPage`, `ClientDetailPage` y `PostVentaPage` (en `QuotationViewer`), y `PostVentaPage` otra vez (en `FichaCocinaSection`, dentro de `CocinaTab`) | ver 02, 04 y 05 |
 
 ## 4. Tablas de la base de datos
 

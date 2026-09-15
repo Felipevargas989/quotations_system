@@ -1,6 +1,6 @@
 # Mapa: Embudo de consultas y formularios públicos
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Documento que manda: `docs/arquitectura/12_MODULO_DE_CONSULTAS.md`. El recorrido completo con sus casos borde está en `docs/arquitectura/mapa/flujos/01_CONSULTA_PUBLICA_A_COTIZACION.md`; este mapa no lo repite entero.
 
@@ -32,23 +32,23 @@ Cómo se llega y adónde se sale:
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
 | `GET /consultas` | `ConsultasController.listar` | `ConsultasService.listar` → `ConsultasRepository.listar` (las 500 más nuevas) | `getConsultas` (`frontend/src/services/consultas.service.ts`) en `ConsultasPage`, query `["consultas"]` | Autenticado, sin `@Roles` |
-| `GET /consultas/config` | `ConsultasController.configs` | `ConsultasService.configs` | `getConfigsDeConsulta`, query `["consultas","config"]` | Autenticado, sin `@Roles` |
-| `PUT /consultas/config/:eventType` | `ConsultasController.guardarConfig` | `ConsultasService.guardarConfig` (máximo 2 brochures, candado de dueño) → `ConsultasRepository.guardarConfig` (upsert) | `guardarConfigDeConsulta` desde `PanelDeCorreo` | Autenticado, sin `@Roles` |
+| `GET /consultas/config` | `ConsultasController.configs` | `ConsultasService.configs` | `getConfigsDeConsulta` ← `ConsultasPage` (pestaña de configuración del embudo), query `["consultas","config"]` | Autenticado, sin `@Roles` |
+| `PUT /consultas/config/:eventType` | `ConsultasController.guardarConfig` | `ConsultasService.guardarConfig` (máximo 2 brochures, candado de dueño) → `ConsultasRepository.guardarConfig` (upsert) | `guardarConfigDeConsulta` ← `ConsultasPage` (dentro de `PanelDeCorreo`) | Autenticado, sin `@Roles` |
 | `POST /consultas/:id/convertir` | `ConsultasController.convertir` | `ConsultasService.convertir` → `ClientsService.findMatch` / `ClientsService.create` / `ClientContactsRepository` | `convertirConsulta` desde `ConsultasPage` | Autenticado, sin `@Roles` |
 | `POST /consultas/:id/descartar` | `ConsultasController.descartar` | `ConsultasService.descartar` | `descartarConsulta` desde `ConsultasPage` | Autenticado, sin `@Roles` |
-| `GET /event-types` | `EventTypesController.listar` | `EventTypesService.listar` | `getEventTypes` en `ConfiguracionDelEmbudo` (query `["eventTypes","admin"]`, sin respaldo) y `eventTypesQueryOptions` (query `["eventTypes"]`, con respaldo del enum) en `QuotationForm` y `RequestForm` | Autenticado |
+| `GET /event-types` | `EventTypesController.listar` | `EventTypesService.listar` | `getEventTypes` ← `ConsultasPage` (dentro de `ConfiguracionDelEmbudo`, query `["eventTypes","admin"]`, sin respaldo); `eventTypesQueryOptions` (query `["eventTypes"]`, con respaldo del enum) ← `QuotationForm` y `RequestsPage` (dentro de `RequestForm`) | Autenticado |
 | `GET /event-types/public/:companyId` | `EventTypesController.listarPublico` | `EventTypesService.listarPublico` → `EventTypesRepository.listarPublico` (solo activos, solo `name`) | `getEventTypesPublic` desde `CreateQuotationPublic` | `@Public()` + `@Throttle` 30 por minuto |
-| `POST /event-types` | `EventTypesController.crear` | `EventTypesService.crear` (nombre repetido → 400) | `createEventType` | Autenticado |
-| `PATCH /event-types/:id` | `EventTypesController.actualizar` | `EventTypesService.actualizar` (`entrada` y/o `activo`) | `actualizarEventType` desde `FilaDeTipo` | Autenticado |
-| `DELETE /event-types/:id` | `EventTypesController.eliminar` | `EventTypesService.eliminar` (`usosDe` cuenta cotizaciones y consultas) | `deleteEventType` desde `FilaDeTipo` | Autenticado |
+| `POST /event-types` | `EventTypesController.crear` | `EventTypesService.crear` (nombre repetido → 400) | `createEventType` ← `ConsultasPage` (dentro de `ConfiguracionDelEmbudo`) | Autenticado |
+| `PATCH /event-types/:id` | `EventTypesController.actualizar` | `EventTypesService.actualizar` (`entrada` y/o `activo`) | `actualizarEventType` ← `ConsultasPage` (fila `FilaDeTipo`) | Autenticado |
+| `DELETE /event-types/:id` | `EventTypesController.eliminar` | `EventTypesService.eliminar` (`usosDe` cuenta cotizaciones y consultas) | `deleteEventType` ← `ConsultasPage` (fila `FilaDeTipo`) | Autenticado |
 
 ### 3.2 Puertas públicas del formulario de cotización
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `POST /quotations/public/:company_id` | `QuotationsController.createPublic` | `QuotationsService.createPublic`: bifurca con `ConsultasService.embudoPara` y `ConsultasService.registrar` | `createQuotationPublic` (`frontend/src/services/quotations.service.ts`) | `@Public()` + `@Throttle` 10 por minuto |
-| `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; devuelve solo la cara visible (nombre, logo, banner, tagline, sitio, redes, colores, moneda) | `getCompanyPublic` | `@Public()`, solo el techo global de 300 por minuto |
-| `GET /clients/types/public/:company_id` | `ClientsController.findTypesPublic` | `ClientsService.findTypes` | `getClientTypesPublic` | `@Public()`, solo el techo global |
+| `POST /quotations/public/:company_id` | `QuotationsController.createPublic` | `QuotationsService.createPublic`: bifurca con `ConsultasService.embudoPara` y `ConsultasService.registrar` | `createQuotationPublic` (`frontend/src/services/quotations.service.ts`) ← `CreateQuotationPublic` | `@Public()` + `@Throttle` 10 por minuto |
+| `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; devuelve solo la cara visible (nombre, logo, banner, tagline, sitio, redes, colores, moneda) | `getCompanyPublic` ← `CreateQuotationPublic` | `@Public()`, solo el techo global de 300 por minuto |
+| `GET /clients/types/public/:company_id` | `ClientsController.findTypesPublic` | `ClientsService.findTypes` | `getClientTypesPublic` ← `CreateQuotationPublic` | `@Public()`, solo el techo global |
 
 El techo global es `ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])` con `ThrottlerGuard` como guardia global (`api-rest/src/app.module.ts`).
 
@@ -56,13 +56,13 @@ El techo global es `ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])` con 
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `POST /storage/upload` con `kind: 'consulta-brochure'` | `StorageController.upload` | `StorageService.upload`: arma la ruta `c{empresa}/consulta-brochures/{tipo}/{marca de tiempo}_{archivo}` en el balde privado `payment-receipts`; acepta imágenes o PDF, máximo 5 MB | `uploadConsultaBrochure` (`frontend/src/services/storage.service.ts`) desde `PanelDeCorreo` | Autenticado, sin `@Roles` (mapa 16) |
+| `POST /storage/upload` con `kind: 'consulta-brochure'` | `StorageController.upload` | `StorageService.upload`: arma la ruta `c{empresa}/consulta-brochures/{tipo}/{marca de tiempo}_{archivo}` en el balde privado `payment-receipts`; acepta imágenes o PDF, máximo 5 MB | `uploadConsultaBrochure` (`frontend/src/services/storage.service.ts`) ← `ConsultasPage` (dentro de `PanelDeCorreo`) | Autenticado, sin `@Roles` (mapa 16) |
 | `GET /quotations` con `request_type` requerimiento y `statuses` solicitada | `QuotationsController.findAll` | `QuotationsService.findAll` | `getQuotations` en `RequestsPage` y `QuotationsPage` (comparten la query `["requirements"]`) | Autenticado (mapa 02) |
-| `POST /quotations` | `QuotationsController.create` | `QuotationsService.create` | `createQuotation` desde `RequestForm`, con `request_type` requerimiento y `quotation_status` solicitada | Autenticado; recepción solo puede crear requerimientos (mapa 01) |
-| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` desde `RequestForm` | Autenticado; recepción solo edita requerimientos (mapa 01) |
+| `POST /quotations` | `QuotationsController.create` | `QuotationsService.create` | `createQuotation` ← `RequestsPage` (dentro de `RequestForm`), con `request_type` requerimiento y `quotation_status` solicitada; el cotizador `QuotationForm` usa la misma función para cotizaciones (mapa 01) | Autenticado; recepción solo puede crear requerimientos (mapa 01) |
+| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` ← `RequestsPage` (dentro de `RequestForm`) | Autenticado; recepción solo edita requerimientos (mapa 01) |
 | `DELETE /quotations/:id` | `QuotationsController.remove` | `QuotationsService.remove` | `deleteQuotation` desde `RequestsPage.handleDelete` | Autenticado, **sin `@Roles`**: el "solo administrador" vive solo en la pantalla (mapa 01) |
-| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | mismo nombre en el service | hook `useDateAvailability` en `RequestForm` | Autenticado (mapa 01) |
-| Clientes, tipos de cliente y personas | controllers de `api-rest/src/clients` | `ClientsService` | `createClient`, `clientsQueryOptions`, `clientTypesQueryOptions` y `getClientContacts` desde `RequestForm` | mapa 09 |
+| `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | mismo nombre en el service | hook `useDateAvailability` ← `RequestsPage` (dentro de `RequestForm`) y `QuotationForm` | Autenticado (mapa 01) |
+| Clientes, tipos de cliente y personas | controllers de `api-rest/src/clients` | `ClientsService` | `createClient`, `clientsQueryOptions`, `clientTypesQueryOptions` y `getClientContacts` ← `RequestsPage` (dentro de `RequestForm`) | mapa 09 |
 
 ### 3.4 Inventario de las demás puertas `@Public` (otros formularios y páginas públicas)
 

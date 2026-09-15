@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -53,8 +53,8 @@ El ícono de calendario de `frontend/src/layout/Layout.tsx` **no** es este módu
 | `POST /movil/push/probar` | `MovilController.probar` | `MovilService.probar` | `eventia-movil/src/lib/push.ts` | Sesión |
 | `GET /movil/cocina/:quotationId/marcas` | `MovilController.marcas` | `MovilService.marcasCocina` | `getMarcas` en `eventia-movil/src/services/datos.ts` | Sesión |
 | `POST /movil/cocina/:quotationId/marcas` | `MovilController.marcar` (`MarcarDto`: `clave`, `marcado`) | `MovilService.marcarCocina` | `marcar` en `eventia-movil/src/services/datos.ts` | Sesión |
-| `POST /storage/upload` (multipart: `file`, `kind` y los ids que pida el tipo) | `StorageController.upload` con `FileInterceptor('file')` | `StorageService.upload` | `subir` en `frontend/src/services/storage.service.ts`, a través de: `uploadPaymentReceipt` y `uploadRefundReceipt` (`PostVentaPage`); `uploadEventDocument` (`PostVentaPage`, `SeguimientoPanel`); `uploadCompanyLogo` y `uploadCompanyBanner` (`CompanyConfiguration`); `uploadCampaignBanner` (`CampanaMarcaPropia`); `uploadFurniturePhoto` (`MobiliarioTab`); `uploadConsultaBrochure` (`PanelDeCorreo`) | Sesión, sin `@Roles` |
-| `GET /storage/signed-url?src=` | `StorageController.signedUrl` (`SignedUrlDto`) | `StorageService.signedUrl` | `resolveStorageUrl`, desde `FileViewLink`, `PostVentaPage` y `SeguimientoPanel` | Sesión |
+| `POST /storage/upload` (multipart: `file`, `kind` y los ids que pida el tipo) | `StorageController.upload` con `FileInterceptor('file')` | `StorageService.upload` | `subir` en `frontend/src/services/storage.service.ts`, a través de: `uploadPaymentReceipt` y `uploadRefundReceipt` ← `PostVentaPage`; `uploadEventDocument` ← `PostVentaPage`, `NegocioPage` (en `AdjuntosComerciales` de `SeguimientoPanel`); `uploadCompanyLogo` y `uploadCompanyBanner` ← `CompanyConfiguration`; `uploadCampaignBanner` ← `MarketingPage` y `CampanaFichaPage` (en `CampanaMarcaPropia`); `uploadFurniturePhoto` ← `InventarioPage` (en `MobiliarioTab`); `uploadConsultaBrochure` ← `ConsultasPage` (en `PanelDeCorreo`) | Sesión, sin `@Roles` |
+| `GET /storage/signed-url?src=` | `StorageController.signedUrl` (`SignedUrlDto`) | `StorageService.signedUrl` | `resolveStorageUrl` ← `PostVentaPage` (directo y a través del componente `FileViewLink`) y `NegocioPage` (en `AdjuntosComerciales` de `SeguimientoPanel`) | Sesión |
 | `POST /storage/delete` | `StorageController.remove` (`SignedUrlDto`) | `StorageService.remove` | `deleteStorageFileByUrl` (y su alias `deletePaymentReceipt`), desde `PostVentaPage` | Sesión |
 | `GET /health` | `HealthController.check` | Sin service. Responde `status`, `version` (7 caracteres de `RAILWAY_GIT_COMMIT_SHA` o "desarrollo"), `uptime_seconds` y `timestamp` | Nadie en el repo. Sirve a personas y al monitoreo (mapa 19) | `@Public()`, solo con el techo global |
 
@@ -64,9 +64,9 @@ Ninguna de estas rutas tiene `@Throttle` propio: todas quedan bajo el techo glob
 
 | Método y ruta | Controller y método | Service | Quién lo llama | Roles |
 |---|---|---|---|---|
-| `GET /quotations?request_type=cotizacion&statuses=<los 7>` | `QuotationsController.findAll` | `QuotationsService.findAll` (orden por defecto: `quotation_number` ascendente) → `QuotationsRepository.findAll` (`COLUMNAS_LISTA` más `mandante` (`client_contacts`), `clients` y `companies`, sin paginar) | `getQuotations` (`frontend/src/services/quotations.service.ts`), en la query `["quotations","calendar"]` | Sesión (mapa 02) |
-| `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` | `getQuotationById`, en el precalentado y en `TarjetaEvento`, con la query `["quotation", id]` | mapa 02 |
-| Recursos del evento | varios de logística y post-venta | — | `recursosQueryOpts` (`frontend/src/pages/postventa/EventResourcesSection.tsx`): `getEventResources`, `getManagementResources`, `getSuppliers`, `getAllFixedServiceCostItems` | mapas 04 y 06 |
+| `GET /quotations?request_type=cotizacion&statuses=<los 7>` | `QuotationsController.findAll` | `QuotationsService.findAll` (orden por defecto: `quotation_number` ascendente) → `QuotationsRepository.findAll` (`COLUMNAS_LISTA` más `mandante` (`client_contacts`), `clients` y `companies`, sin paginar) | `getQuotations` (`frontend/src/services/quotations.service.ts`) ← `Calendar` (pantalla `/calendar`), en la query `["quotations","calendar"]` | Sesión (mapa 02) |
+| `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` | `getQuotationById` ← `Calendar`, en el precalentado y en su componente `TarjetaEvento`, con la query `["quotation", id]` | mapa 02 |
+| Recursos del evento | varios de logística y post-venta | — | `recursosQueryOpts` (`frontend/src/pages/postventa/EventResourcesSection.tsx`): `getEventResources`, `getManagementResources`, `getSuppliers`, `getAllFixedServiceCostItems` ← `Calendar` (en `TarjetaEvento`); las mismas opciones las usan `PostVentaPage` (y sus `GestionTab` y `ServiciosTab`) y `GrillaPersonal` | mapas 04 y 06 |
 
 ### 3.3 Usos del motor que no pasan por HTTP
 

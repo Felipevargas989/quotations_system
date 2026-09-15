@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -53,11 +53,11 @@ Todas usan `user.company_id`. Cada service de la tabla es `PeopleService.<métod
 | PATCH `/people/roles/:id` | `updateRole` | `updateRole` (el repositorio filtra `type='personal'`) | `updateRole`: `CargosModal` (renombrar, prender) | sesión |
 | DELETE `/people/roles/:id` | `deactivateRole` | `deactivateRole` (no borra: deja `is_active=false`) | `deactivateRole`: `CargosModal` | sesión |
 | GET `/people/staff?evento=` | `findStaff` | `findStaff` | `getStaff`: `GrillaPersonal`, `EventResourcesSection`, `ServiciosTab`, `FichasTab` | sesión |
-| GET `/people/staff?desde=&hasta=` | `findStaff` (mismo método, modo rango) | `findStaffRange` (todos los eventos y el staff del rango) | `getStaffSemana`: `SemanaTab`; `PersonaFichaPage` (el mes, y un año hacia adelante para saltar al próximo día) | sesión |
-| POST `/people/staff` | `addStaff` | `addStaff`: crea una silla vacía, sienta en una silla, revive una fila dormida o hace un alta nueva | `addStaff`: `SemanaTab` (`poner`), `CalendarioDePersona` (`marcar`), `GrillaPersonal` | sesión |
+| GET `/people/staff?desde=&hasta=` | `findStaff` (mismo método, modo rango) | `findStaffRange` (todos los eventos y el staff del rango) | `getStaffSemana` ← `SemanaTab`, `PersonaFichaPage` (la caja de días del mes y, en `CalendarioDePersona`, el mes y un año hacia adelante para saltar al próximo día), `FichasTab` (la ventana de días de staff de Liquidación, mapa 08) | sesión |
+| POST `/people/staff` | `addStaff` | `addStaff`: crea una silla vacía, sienta en una silla, revive una fila dormida o hace un alta nueva | `addStaff` ← `SemanaTab` (`poner`), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.marcar`), `GrillaPersonal` (Post-Venta → Gestión) | sesión |
 | POST `/people/staff/proyectar-planta` | `proyectarPlanta` | `proyectarTodaLaPlanta` → `proyectarPlanta` por persona | `proyectarPlanta`: `SemanaTab`, una vez por sesión | sesión |
-| PATCH `/people/staff/:id` | `updateStaff` | `updateStaff` (sin monto no se confirma; pasar a planta borra el monto) | `updateStaff`: `SemanaTab` (`cambiar`), `CalendarioDePersona` (`cambiarHorario`), `GrillaPersonal`, `FichasTab` | sesión |
-| DELETE `/people/staff/:id?liberar=1` | `removeStaff` | `removeStaff` (libera la silla, duerme el día de patrón o borra; deshace el reparto de propina) | `removeStaff`: `SemanaTab` (`sacar`, con `liberar` si es evento), `CalendarioDePersona` (`desmarcar`), `GrillaPersonal`, `FichasTab` | sesión |
+| PATCH `/people/staff/:id` | `updateStaff` | `updateStaff` (sin monto no se confirma; pasar a planta borra el monto) | `updateStaff` ← `SemanaTab` (`cambiar`), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.cambiarHorario`), `GrillaPersonal` (Post-Venta → Gestión), `FichasTab` (Liquidación) | sesión |
+| DELETE `/people/staff/:id?liberar=1` | `removeStaff` | `removeStaff` (libera la silla, duerme el día de patrón o borra; deshace el reparto de propina) | `removeStaff` ← `SemanaTab` (`sacar`, con `liberar` si es evento), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.desmarcar`), `GrillaPersonal` (Post-Venta → Gestión). Liquidación (`FichasTab`) **no** lo llama | sesión |
 | GET `/people/costo-personal` | `costoPersonal` | `costoPersonal` → `costoPersonalPorEvento` del repositorio | `getCostoPersonal`: `DashboardPage` | sesión |
 | POST `/people/sheets/:quotationId/traer-planta` | `traerPlanta` | `traerPlantaAlEvento` | `traerPlantaAlEvento`: `FichasTab` al abrir una ficha no cerrada | sesión |
 | GET `/people/reviews?persona=` | `findReviews` | `findReviews` | `getReviews`: `PersonasPage`, `PersonaFichaPage`, `EvaluacionesDePersona` | sesión |

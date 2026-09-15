@@ -299,6 +299,23 @@ congelar "../api-rest/src/people/people.service.ts"          2040
 congelar "src/pages/logistica/components/ComprasTab.tsx"     1794
 congelar "src/pages/personas/FichasTab.tsx"                  1599
 
+# ══ EL MAPA AL DÍA (14-09-2026, pedido de Felipe) ════════════════════
+#
+# El atlas de docs/arquitectura/mapa vale mientras diga la verdad. La
+# regla "el mapa se actualiza en el mismo commit que el código" vivía
+# solo en CLAUDE.md, y un cartel no frena a nadie. Este portero compara
+# las rutas vivas del motor con las que el atlas documenta.
+#
+# La lógica vive en scripts/portero-del-mapa.py, con su propio techo.
+
+if command -v python3 >/dev/null 2>&1 && [ -f ../scripts/portero-del-mapa.py ]; then
+  if ! python3 ../scripts/portero-del-mapa.py; then
+    fallas=$((fallas + 1))
+  fi
+else
+  printf '  %-42s %s\n' "rutas del motor fuera del atlas" "sin python3: no revisado"
+fi
+
 # ══ VEREDICTO ════════════════════════════════════════════════════════
 
 echo ""

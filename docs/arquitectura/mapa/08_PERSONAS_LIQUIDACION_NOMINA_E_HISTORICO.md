@@ -1,6 +1,6 @@
 # Mapa: Personas: liquidación, propinas, nómina e histórico
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -36,29 +36,29 @@ Todo está en `api-rest/src/people/people.controller.ts` (`@Controller('people')
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
 | `GET /people/sheets` | `findSheets` | `findSheets` → `repo.findSheets` (le agrega `en_nomina`) | `getSheets` en `FichasTab`; también `GrillaPersonal` de Post-Venta | Sesión, sin `@Roles` |
-| `POST /people/sheets` | `upsertSheet` | `upsertSheet` (solo armando, confirmado o trabajado) | Ninguna pantalla: `upsertSheet` existe en `services/people.service.ts` sin uso | Sesión, sin `@Roles` |
-| `POST /people/sheets/cerrar` | `cerrarFicha` | `cerrarFicha` | `cerrarFicha` desde `EvaluacionesModal` | Sesión, sin `@Roles` |
-| `POST /people/sheets/:quotationId/traer-planta` | `traerPlanta` | `traerPlantaAlEvento` | `traerPlantaAlEvento` dentro de la consulta `["people","staff-evento",id]` de `FichaAbierta`, solo si la ficha no está cerrada | Sesión, sin `@Roles` |
-| `GET /people/staff?evento=` o `?desde=&hasta=` | `findStaff` | `findStaff` o `findStaffRange` | `getStaff` en `FichaAbierta`; `getStaffSemana` para la ventana de días de staff en `FichasTab` (también 04 y 07) | Sesión, sin `@Roles` |
-| `PATCH /people/staff/:id` | `updateStaff` | `updateStaff` (sin monto no se confirma) | `updateStaff` desde `TablaDeJornadas`, vía `cambiarStaff` optimista | Sesión, sin `@Roles` |
+| `POST /people/sheets` | `upsertSheet` | `upsertSheet` (solo armando, confirmado o trabajado) | **Nadie** desde la app: `upsertSheet` existe en `services/people.service.ts` sin uso. Dentro del motor, `cerrarFicha` y `reabrirLiquidacion` escriben la ficha con `repo.upsertSheet`, sin pasar por esta ruta | Sesión, sin `@Roles` |
+| `POST /people/sheets/cerrar` | `cerrarFicha` | `cerrarFicha` | `cerrarFicha` ← `FichasTab` (`EvaluacionesModal`, al guardar y cerrar) | Sesión, sin `@Roles` |
+| `POST /people/sheets/:quotationId/traer-planta` | `traerPlanta` | `traerPlantaAlEvento` | `traerPlantaAlEvento` ← `FichasTab` (`FichaAbierta`), dentro de la consulta `["people","staff-evento",id]` y solo si la ficha no está cerrada | Sesión, sin `@Roles` |
+| `GET /people/staff?evento=` o `?desde=&hasta=` | `findStaff` | `findStaff` o `findStaffRange` | `getStaff` ← `FichasTab` (`FichaAbierta`); `getStaffSemana` ← `FichasTab`, para la ventana de días de staff (también 04 y 07) | Sesión, sin `@Roles` |
+| `PATCH /people/staff/:id` | `updateStaff` | `updateStaff` (sin monto no se confirma) | `updateStaff` ← `FichasTab` (`FichaAbierta` y `DiaRestaurante`), vía `cambiarStaff` optimista sobre el componente compartido `TablaDeJornadas` | Sesión, sin `@Roles` |
 | `DELETE /people/staff/:id?liberar=1` | `removeStaff` | `removeStaff` | No lo llama la liquidación (la tabla no tiene papelera); lo llaman `SemanaTab`, `PersonaFichaPage` y `GrillaPersonal` (07 y 04). Importa acá porque deshace repartos | Sesión, sin `@Roles` |
-| `POST /people/staff/del-evento-al-dia` | `soloPropinaDelDia` | `soloPropinaDelDia` | `crearSoloPropina` al tocar el chip o el extra de un invitado con id negativo en `DiaRestaurante` | Sesión, sin `@Roles` |
+| `POST /people/staff/del-evento-al-dia` | `soloPropinaDelDia` | `soloPropinaDelDia` | `crearSoloPropina` ← `FichasTab` (`DiaRestaurante`), al tocar el chip o el extra de un invitado con id negativo | Sesión, sin `@Roles` |
 | `GET /people/dias/mas-viejo` | `diaMasViejo` | `diaMasViejoDeRestaurante` | `getDiaMasViejo` en `FichasTab` | Sesión, sin `@Roles` |
 | `GET /people/pools` | `findPools` | `findPools` | `getPools` en `FichasTab`, `FichaAbierta` y `HistoricoTab` | Sesión, sin `@Roles` |
-| `POST /people/pools` | `createPool` | `createPool` (si ya existe, devuelve ese) | `createPool` en `Reparto.guardarPozo` y en `DiaRestaurante` | Sesión, sin `@Roles` |
-| `PATCH /people/pools/:id` | `updatePool` | `updatePool` (sin candado) | `updatePool` en `Reparto.guardarPozo` y en `sinPropinaHoy` | Sesión, sin `@Roles` |
-| `DELETE /people/pools/:id` | `removePool` | `removePool` → `clearTips` y borrar | Ninguna pantalla (`removePool` existe en el service de la app sin uso) | Sesión, sin `@Roles` |
-| `POST /people/pools/:id/repartir` | `repartir` | `repartir` → `sincronizarInvitados` (días) → `repartirPorPuntos` | `repartirPool` en `Reparto` (evento) y `DiaRestaurante` (día, con `invitados` y `monto`) | Sesión, sin `@Roles` |
-| `POST /people/pools/:id/sin-propina` | `sinPropina` | `marcarSinPropina` | `sinPropina` en `DiaRestaurante` | Sesión, sin `@Roles` |
-| `POST /people/reviews` | `createReview` | `createReview` | `createReview` en `EvaluacionesModal` (el resto de las estrellas, en 07) | Sesión, sin `@Roles` |
-| `GET /people/payrolls/pendientes` | `liquidacionesPendientes` | `liquidacionesPendientes` | `getLiquidacionesPendientes` en `LiquidacionesPorPagar` | Sesión, sin `@Roles` |
-| `POST /people/payrolls/previa` | `previaPayroll` | `previaPayroll` → `reunirLiquidado` → `consolidarPorRut` | `previaPayroll` en `RevisarAntesDeGenerar` | Sesión, sin `@Roles` |
-| `POST /people/payrolls/previa-preliminar` | `previaPreliminar` | `previaPreliminar` → `consolidarPorRut` | `previaPreliminar` en `RevisionAntesDeLiquidar` | Sesión, sin `@Roles` |
-| `POST /people/payrolls` | `createPayroll` | `createPayroll` | `createPayroll` en `LiquidacionesPorPagar.generar` | Sesión, sin `@Roles` |
+| `POST /people/pools` | `createPool` | `createPool` (si ya existe, devuelve ese) | `createPool` ← `FichasTab` (`Reparto.guardarPozo` y `DiaRestaurante`) | Sesión, sin `@Roles` |
+| `PATCH /people/pools/:id` | `updatePool` | `updatePool` (sin candado) | `updatePool` ← `FichasTab` (`Reparto.guardarPozo` y `DiaRestaurante.sinPropinaHoy`) | Sesión, sin `@Roles` |
+| `DELETE /people/pools/:id` | `removePool` | `removePool` → `clearTips` y borrar | **Nadie** desde la app: `removePool` existe en `services/people.service.ts` sin uso, y tampoco lo llama nada dentro del motor | Sesión, sin `@Roles` |
+| `POST /people/pools/:id/repartir` | `repartir` | `repartir` → `sincronizarInvitados` (días) → `repartirPorPuntos` | `repartirPool` ← `FichasTab` (`Reparto`, evento; `DiaRestaurante`, día, con `invitados` y `monto`) | Sesión, sin `@Roles` |
+| `POST /people/pools/:id/sin-propina` | `sinPropina` | `marcarSinPropina` | `sinPropina` ← `FichasTab` (`DiaRestaurante`) | Sesión, sin `@Roles` |
+| `POST /people/reviews` | `createReview` | `createReview` | `createReview` ← `FichasTab` (`EvaluacionesModal`); el resto de las estrellas, en 07 | Sesión, sin `@Roles` |
+| `GET /people/payrolls/pendientes` | `liquidacionesPendientes` | `liquidacionesPendientes` | `getLiquidacionesPendientes` ← `NominaTab` (`LiquidacionesPorPagar`) | Sesión, sin `@Roles` |
+| `POST /people/payrolls/previa` | `previaPayroll` | `previaPayroll` → `reunirLiquidado` → `consolidarPorRut` | `previaPayroll` ← `NominaTab` (`RevisarAntesDeGenerar`) | Sesión, sin `@Roles` |
+| `POST /people/payrolls/previa-preliminar` | `previaPreliminar` | `previaPreliminar` → `consolidarPorRut` | `previaPreliminar` ← `FichasTab`, que monta `RevisionAntesDeLiquidar` (`RevisionDeNomina.tsx`) | Sesión, sin `@Roles` |
+| `POST /people/payrolls` | `createPayroll` | `createPayroll` | `createPayroll` ← `NominaTab` (`LiquidacionesPorPagar.generar`) | Sesión, sin `@Roles` |
 | `GET /people/payrolls` | `findPayrolls` | `findPayrolls` (estado deducido) | `getPayrolls` en `NominaTab` y `HistoricoTab` | Sesión, sin `@Roles` |
-| `GET /people/payrolls/:id` | `getPayroll` | `getPayroll` | `getPayroll` en `NominaAbierta`, `NominaPagada` y la precarga del Histórico | Sesión, sin `@Roles` |
-| `PATCH /people/payrolls/:id/pago` | `marcarPago` | `marcarPago` | `marcarPago` en `PagoUnoAUno`, una llamada por cada ficha de la línea | Sesión, sin `@Roles` |
-| `POST /people/payrolls/reabrir` | `reabrirLiquidacion` | `reabrirLiquidacion` | `reabrirLiquidacion` en `LiquidacionesPorPagar` y `RevisarAntesDeGenerar` ("Reabrir para corregir") y en `HistoricoTab` ("Devolver a Liquidación" de días sin propina) | Sesión, sin `@Roles` |
+| `GET /people/payrolls/:id` | `getPayroll` | `getPayroll` | `getPayroll` ← `NominaTab` (`NominaAbierta`) y `HistoricoTab` (`NominaPagada` y la precarga de cada nómina) | Sesión, sin `@Roles` |
+| `PATCH /people/payrolls/:id/pago` | `marcarPago` | `marcarPago` | `marcarPago` ← `NominaTab` (`PagoUnoAUno`), una llamada por cada ficha de la línea | Sesión, sin `@Roles` |
+| `POST /people/payrolls/reabrir` | `reabrirLiquidacion` | `reabrirLiquidacion` | `reabrirLiquidacion` ← `NominaTab` (la mutación vive en `LiquidacionesPorPagar`; el botón "Reabrir para corregir" de `RevisarAntesDeGenerar` la dispara por prop) y `HistoricoTab` ("Devolver a Liquidación" de días sin propina) | Sesión, sin `@Roles` |
 | `GET /people/historico/graficos` | `graficosHistorico` | `graficosHistorico` → `armarGraficosHistorico` | `getGraficosHistorico` en `HistoricoTab` | Sesión, sin `@Roles` |
 | `GET /people/:id/historial` | `findHistorial` | `findHistorial` → `repo.findHistorialDePersona` | `getHistorial` en `PagosDePersona` | Sesión, sin `@Roles` |
 | `GET /people/pagado-por-mes` | `pagadoPorMes` | `pagadoDePersonalPorMes` → `repo.pagadoDePersonalPorMes` → `utils/pagado-por-mes.ts` | `getPagadoPersonalPorMes` en `DashboardPage` (ver 13) | Sesión, sin `@Roles` |
