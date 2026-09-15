@@ -165,9 +165,13 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
           Planes de cada empresa
         </h3>
       </div>
-      <div className="overflow-x-auto">
+      {/* Espacio para NUEVE empresas (pedido de Felipe, 15-09-2026:
+          "espero sea una lista larga"). Con menos, el recuadro igual
+          mide lo mismo; con más, el cuerpo se desliza y el encabezado
+          queda pegado arriba para no perder de vista las columnas. */}
+      <div className="h-[480px] overflow-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               {[
                 "Empresa",
@@ -180,7 +184,7 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
               ].map((h) => (
                 <th
                   key={h}
-                  className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                 >
                   {h}
                 </th>
