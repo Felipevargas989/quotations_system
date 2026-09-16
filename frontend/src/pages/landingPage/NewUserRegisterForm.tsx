@@ -1,6 +1,5 @@
 import { useState } from "react";
-// TEMP: registration disabled — useNavigate not used while only saving leads.
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
@@ -10,13 +9,14 @@ import {
   DollarSign,
   ArrowRight,
   Coins,
+  Lock,
 } from "lucide-react";
 import { registerLead } from "../../services/registerLeads.service";
 import { LeadData } from "../../types/leads.types";
-// TEMP: registration disabled — keep imports for when it's re-enabled.
-// import { signup } from "../../services/users.service";
-// import { SignupDto } from "../../types/users.types";
-// import { useAuth } from "../../contexts/AuthContext";
+import { signup } from "../../services/users.service";
+import { SignupDto } from "../../types/users.types";
+import { useAuth } from "../../contexts/AuthContext";
+import { humanizeApiError } from "../../utils/apiErrors";
 import { CURRENCIES } from "../../constants/companies";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 
@@ -32,9 +32,8 @@ interface FormData {
 }
 
 export default function NewUserRegisterForm() {
-  // TEMP: registration disabled — navigation/sign-in not used while only saving leads.
-  // const navigate = useNavigate();
-  // const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     nombreContacto: "",
     telefonoContacto: "",
@@ -67,13 +66,18 @@ export default function NewUserRegisterForm() {
       setError("Completa los campos marcados con *");
       return;
     }
+    if (formData.passwordCuenta.length < 8) {
+      setError("La contraseña necesita al menos 8 caracteres");
+      return;
+    }
     setLoading(true);
     setError("");
 
     try {
-      // Log the payload
-
-      // Map form data to LeadData interface
+      // EL LEAD SE GUARDA IGUAL (16-09-2026): así Felipe ve también a
+      // los que empezaron y no terminaron. Va primero y SIN bloquear —
+      // que un tropiezo del registro de interesados jamás le impida a
+      // alguien crear su cuenta.
       const leadData: LeadData = {
         nombre: formData.nombreContacto,
         telefono: formData.telefonoContacto,
@@ -82,64 +86,65 @@ export default function NewUserRegisterForm() {
         personas_empresa: formData.personasEmpresa,
         ventas_anuales: formData.ventasAnuales,
       };
+      try {
+        await registerLead(leadData);
+      } catch {
+        // El lead es la sombra del alta, no su condición.
+      }
 
-      // Register lead in database
-      const result = await registerLead(leadData);
+      // EL ALTA DE VERDAD (paso 4 del roadmap): crea la empresa con su
+      // prueba de 7 días y su administrador. El motor limpia si algo
+      // falla a medias y responde en español.
+      const signupDto: SignupDto = {
+        admin_email: formData.emailContacto,
+        admin_password: formData.passwordCuenta,
+        admin_full_name: formData.nombreContacto,
+        company_name: formData.nombreEmpresa,
+        currency: formData.currency,
+      };
+      const signupResult = await signup(signupDto);
+      if (signupResult.error) {
+        setError(humanizeApiError(signupResult.error));
+        return;
+      }
 
-      // TEMP: Self-service registration is disabled. We only save the lead and
-      // show a "we will contact you" message. The user/company creation and the
-      // auto sign-in below are commented out so they can be re-enabled later.
-      // // create user and company in DB
-      // const signupDto: SignupDto = {
-      //   admin_email: formData.emailContacto,
-      //   admin_password: formData.passwordCuenta,
-      //   admin_full_name: formData.nombreContacto,
-      //   company_name: formData.nombreEmpresa,
-      //   currency: formData.currency,
-      // };
-      // const signupResult = await signup(signupDto);
-
-      if (result.success) {
-        // // Sign in the user
-        // const signInResult = await signIn(
-        //   formData.emailContacto,
-        //   formData.passwordCuenta,
-        // );
-        //
-        // if (signInResult.error) {
-        //   setError(
-        //     "Cuenta creada, pero hubo un error al iniciar sesión. Por favor, inicia sesión manualmente.",
-        //   );
-        // } else {
-        //   // Redirect to dashboard
-        //   navigate("/dashboard");
-        // }
-        setSuccess(true);
+      // Adentro al tiro: la sesión se abre sola y cae en el Dashboard.
+      const signInResult = await signIn(
+        formData.emailContacto,
+        formData.passwordCuenta,
+      );
+      if (signInResult.error) {
+        setSuccess(true); // la cuenta SÍ quedó creada: se le dice y listo
       } else {
-        const errorMessage = result.error || "Error al crear la cuenta";
-        setError(errorMessage);
+        navigate("/dashboard");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
-      setError("Error inesperado al enviar el formulario");
+      setError(humanizeApiError(error, "Error inesperado al crear la cuenta"));
     } finally {
       setLoading(false);
     }
   };
 
-  // TEMP: registration disabled — after saving the lead we show a confirmation
-  // message instead of creating the account.
+  // Solo se ve si la cuenta quedó creada pero la sesión automática no
+  // abrió (16-09-2026): la salida es entrar a mano, no esperar a nadie.
   if (success) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            ¡Gracias por tu interés!
+            ¡Tu cuenta está lista!
           </h2>
-          <p className="text-gray-600">
-            Hemos recibido tus datos. Nuestro equipo se pondrá en contacto
-            contigo muy pronto.
+          <p className="text-gray-600 mb-6">
+            Creamos tu empresa y tus 7 días de prueba ya están corriendo.
+            Entra con tu correo y la contraseña que elegiste.
           </p>
+          <a
+            href="/login"
+            className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Iniciar sesión
+          </a>
         </div>
       </div>
     );
@@ -344,10 +349,9 @@ export default function NewUserRegisterForm() {
             />
           </div>
 
-          {/* TEMP: registration disabled — password is not needed while we only
-              save the lead. Re-enable when self-service registration returns. */}
-          {/* Password Cuenta */}
-          {/* <div>
+          {/* La contraseña de la cuenta (16-09-2026, paso 4): con esto
+              el registro crea la empresa de verdad y entra al tiro. */}
+          <div>
             <label
               htmlFor="passwordCuenta"
               className="block text-sm font-medium text-gray-700 mb-2"
@@ -367,10 +371,12 @@ export default function NewUserRegisterForm() {
                 }))
               }
               required
+              minLength={8}
+              autoComplete="new-password"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="••••••••"
+              placeholder="Mínimo 8 caracteres"
             />
-          </div> */}
+          </div>
         </div>
 
         {/* Error Message */}

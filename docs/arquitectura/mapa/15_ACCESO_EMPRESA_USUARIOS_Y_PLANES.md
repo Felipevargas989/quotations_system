@@ -153,11 +153,46 @@ Usos dentro del motor, sin pasar por HTTP:
 5. Efectos: el próximo correo toma la marca (`EmailService.getBranding`), igual que el formulario público (`GET /companies/public/:id`), marketing y el PDF. No hay reloj ni cascada.
 6. Correos: `/configuration` (administrador) → `getCompany(id)` → `GET /companies/:id` → casillas (sin llave = encendido) y "Responder a" → `updateCompany(company.name, company.logo_url, company.colors, { emails, replyTo })` → `PATCH /companies`, que **reemplaza** `notifications` completo. `EmailService.shouldSendEmail` las lee al enviar (mapa 12).
 
-### 5.5 Alta de una empresa: lead hoy, suscripción dormida
+### 5.5 Alta de una empresa: por cuenta propia desde el 16-09-2026
 
-1. `/register` → `NewUserRegisterForm.handleSubmit` → `registerLead` → `POST /super-admin/lead` (`@Public`, 10 por minuto) → `SuperAdminRepository.registerLead` (tabla `leads`) → `void alertNuevoLead` → `EmailService.sendEmail` a `SUPER_ADMIN_EMAILS` con `SUPER_ADMIN_NEW_LEAD`. La respuesta no espera a Resend.
-2. Alta completa, hoy sin llamador en la app: `POST /users/signup` o `POST /super-admin/suscription` → `SuperAdminService.createSuscription`: `CompaniesRepository.create` (todas las notificaciones en `true`, `currency`, `is_active: true`; `is_premium` queda en su default `false`) → `UsersService.create` con cargo `administrador` → `CustomerSatisfactionSurveyService.createTemplate` → `void sendEmail(admin_email, NEW_ACCOUNT)` → `void alertNuevaEmpresa` (`SUPER_ADMIN_NEW_COMPANY`).
-3. La empresa nueva ve el banner de prueba de 7 días (`Layout`), entra a `/plans`, paga en Mercado Pago (fuera del sistema) y `/plans/confirmation` llama `POST /plans/confirmation` → `PlansRepository.confirmPlan` → `is_premium = true`. Nada vence la prueba.
+El registro estuvo meses cortado (solo guardaba el interesado); con el
+paso 4 del roadmap volvió a crear la empresa de verdad.
+
+1. `/register` → `NewUserRegisterForm.handleSubmit`. Primero guarda el
+   interesado — `registerLead` → `POST /super-admin/lead` (`@Public`, 10
+   por minuto) → tabla `leads` + `void alertNuevoLead` a
+   `SUPER_ADMIN_EMAILS` — **sin bloquear**: si ese registro tropieza, el
+   alta sigue igual. Así Felipe ve también a los que empezaron y no
+   terminaron.
+2. Después, el alta de verdad: `signup` → `POST /users/signup` (**LA
+   puerta pública**, `@Public` + `@Throttle` 10/min, `SignupDto`
+   endurecido: `@IsEmail`, contraseña mínimo 8, topes de largo en todo)
+   → `SuperAdminService.createSuscription`: `CompaniesRepository.create`
+   (todas las notificaciones en `true`, `currency`, `is_active: true`,
+   y `plan: 'cotiza'` + `estado_plan: 'prueba'` + `prueba_vence: now()+7
+   días`, del paso 3.2) → `UsersService.create` con cargo
+   `administrador` → `CustomerSatisfactionSurveyService.createTemplate`
+   → `void sendEmail(admin_email, NEW_ACCOUNT, {companyName,
+   pruebaVence})` → `void alertNuevaEmpresa` (`SUPER_ADMIN_NEW_COMPANY`).
+   Con sesión automática al terminar (`signIn` + `/dashboard`); si la
+   sesión no abre, la pantalla dice que la cuenta quedó lista y lleva a
+   `/login`.
+3. **La compensación** (16-09): si la empresa nace pero su administrador
+   no pudo crearse (lo típico: el correo ya tiene cuenta),
+   `CompaniesRepository.deleteById` borra la empresa recién creada — sin
+   eso, cada intento fallido dejaba una huérfana — y el visitante recibe
+   409 "Ese correo ya tiene una cuenta en Eventia…" o 400 con el mensaje
+   real (nunca "[object Object]"). Prueba:
+   `super-admin/tests/alta-por-cuenta-propia.spec.ts`.
+4. `POST /super-admin/suscription` **dejó de ser pública**: es la
+   herramienta MANUAL de Felipe (mismo motor por dentro, pero
+   `assertSuperAdmin`). Regla de la casa: una sola puerta pública por
+   función.
+5. La empresa nueva ve el banner de la prueba (`Layout`, con los días
+   que quedan) y `/plans` muestra los tres planes reales; contratar
+   abre WhatsApp con el plan y la empresa ya escritos **hasta que exista
+   el cobro automático** (sprint B de `PLAN_VENTA_AUTOMATICA.md`).
+   `/plans/confirmation` sigue apagada con su 410 del paso 2.
 
 ### 5.6 Torre de Control (super-admin)
 
@@ -289,7 +324,7 @@ Usos dentro del motor, sin pasar por HTTP:
 - **Tres reglas de contraseña distintas** (sección 6, regla 17).
 - **`UsersRepository.findAll(companyId | undefined)`**: si llega `undefined` devuelve usuarios de todas las empresas. Hoy todos los llamadores pasan empresa.
 - **`API_ROUTES` del motor** (`api-rest/src/constants/api.routes.ts`) solo tiene `AUTH` y `USERS`; los demás controllers escriben la ruta a mano.
-- **Planes a medio camino** (medido el 11-09-2026): precio ($10.000) y enlace de Mercado Pago escritos a fuego en `Plans.tsx`; `is_premium` solo decide el banner; nada vence la "prueba de 7 días"; `companies.is_active` no lo lee nadie (ni `AuthGuard`). `docs/mapa-programacion-planes.md` (24-07) describe 3 planes, columnas `plan`/`subscription_status`, webhook y candado por plan: nada de eso existe en el código.
+- **Lo que queda a medio camino** (releído el 16-09-2026): `Plans.tsx` ya muestra los tres planes firmados con sus precios reales (la versión de $10.000 con el enlace de Mercado Pago escrito a fuego se retiró), pero **contratar sigue siendo humano**: el botón abre WhatsApp, porque el cobro automático es el sprint B de `PLAN_VENTA_AUTOMATICA.md` (suscripción por empresa con `external_reference`, webhook con firma, `pagado_hasta`). `companies.is_active` sigue sin lectores. `docs/mapa-programacion-planes.md` (24-07) quedó superado por ese plan.
   - **Corregido en parte el 14-09-2026** (§5.8): el candado por plan **sí existe** en el motor, con las columnas `plan` y `estado_plan` de la migración 112 y un reloj que vence las pruebas de 7 días. Lo que sigue pendiente: el cobro (paso 5 del roadmap), el precio y el enlace escritos a fuego en `Plans.tsx`, `is_premium` ya sin nadie que lo lea en la app (el banner pasó a `estado_plan`; la columna sigue en la base y la sigue escribiendo `/plans/confirmation`) y `is_active` sin lector. La columna que la 112 trae se llama `estado_plan`, no `subscription_status`.
   - **Y la pantalla ya sabe de derechos** desde el mismo 14-09-2026, unas horas después (§5.8, "En la app"): menú con candado, `PermissionGuard` con `derecho`, Dashboard en tres niveles, pestañas de Post-Venta y del catálogo, el campo "Último día" y la Torre con la tabla de planes.
 - **Detalles de pantalla**: `UserManagementPage.formatDate` usa `es-ES`; los montos del super-admin usan `es-MX` con 2 decimales; al crear un usuario no hay toast de éxito (al editar sí).

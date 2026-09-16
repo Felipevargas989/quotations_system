@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
-  forwardRef,
   Inject,
   Injectable,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
@@ -91,11 +93,36 @@ export class SuperAdminService {
         password: createSuscriptionDto.admin_password,
       };
 
-      const { data: userData, error: userError } =
-        await this.usersService.create(newUser, companyData.id);
-
-      if (userError) {
-        throw userError;
+      let userData: unknown;
+      try {
+        // usersService.create sigue tipado `any` (deuda vieja): acá se le
+        // pone la forma que de hecho devuelve, para que el lint no mire
+        // para otro lado justo en la puerta pública.
+        const resultado = (await this.usersService.create(
+          newUser,
+          companyData.id,
+        )) as { data: unknown; error: unknown };
+        if (resultado.error) {
+          throw resultado.error instanceof Error
+            ? resultado.error
+            : new Error(String(resultado.error));
+        }
+        userData = resultado.data;
+      } catch (userError) {
+        // LA COMPENSACIÓN (16-09-2026): la empresa ya nació, pero su
+        // administrador no pudo crearse (lo típico: el correo ya tiene
+        // cuenta). Sin esto quedaba una empresa huérfana por CADA
+        // intento fallido del visitante. Se borra la recién creada y se
+        // responde algo que una persona entienda.
+        await this.companiesRepository.deleteById(companyData.id);
+        const mensaje =
+          userError instanceof Error ? userError.message : String(userError);
+        if (/already|registered|exists/i.test(mensaje)) {
+          throw new ConflictException(
+            'Ese correo ya tiene una cuenta en Eventia. Entra con tu contraseña o recupérala desde "¿Olvidaste tu contraseña?".',
+          );
+        }
+        throw new BadRequestException(`No pudimos crear tu cuenta: ${mensaje}`);
       }
 
       // create customer satisfaction survey template
@@ -108,6 +135,13 @@ export class SuperAdminService {
         void this.emailService.sendEmail(
           createSuscriptionDto.admin_email,
           EmailStructure.NEW_ACCOUNT,
+          // La bienvenida útil (16-09-2026): nombre de la empresa y
+          // cuándo vence la prueba. Antes iba genérica, sin siquiera un
+          // enlace para entrar.
+          {
+            companyName: companyData.name,
+            pruebaVence: newCompany.prueba_vence ?? null,
+          },
         );
       } catch (error) {
         // Do not throw error, just log it

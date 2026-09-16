@@ -22,7 +22,8 @@
 -- que la 111. El motor recuerda los perfiles una hora; sin estas columnas
 -- no sabría el plan y trataría a todos como recién llegados.
 --
--- Aplicada en LAB el 14-09-2026. En PRODUCCIÓN: pendiente.
+-- Aplicada en LAB el 14-09-2026 y en PRODUCCIÓN el 15-09-2026, antes
+-- del deploy del motor (PR #112).
 
 alter table public.companies
   add column if not exists plan text not null default 'cotiza',

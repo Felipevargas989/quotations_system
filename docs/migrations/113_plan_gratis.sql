@@ -17,8 +17,8 @@
 -- Va aparte de la 112 y no dentro de ella porque la 112 ya está aplicada
 -- en el laboratorio: una migración aplicada no se reescribe.
 --
--- Aplicada en LAB el 15-09-2026. En PRODUCCIÓN: pendiente, junto con la
--- 112 y ANTES del deploy del motor.
+-- Aplicada en LAB y en PRODUCCIÓN el 15-09-2026, junto con la 112 y
+-- antes del deploy del motor (PR #112).
 
 alter table public.companies
   drop constraint if exists companies_estado_plan_check;

@@ -17,7 +17,8 @@
 -- motor recuerda los perfiles una hora y, si la columna no existe, la
 -- lista queda vacía y Valle del Sol se quedaría sin Personal y Marketing.
 --
--- Aplicada en LAB el 14-09-2026. En PRODUCCIÓN: pendiente.
+-- Aplicada en LAB el 14-09-2026 y en PRODUCCIÓN el 15-09-2026, antes
+-- del deploy del motor (PR #112).
 
 alter table public.companies
   add column if not exists modulos_propios text[] not null default '{}';

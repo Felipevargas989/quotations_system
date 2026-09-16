@@ -28,6 +28,22 @@ export class CompaniesRepository {
       .single();
   }
 
+  /**
+   * Borra UNA empresa por id. Existe para un solo uso (16-09-2026): la
+   * compensación del alta pública. Si la empresa se creó pero su usuario
+   * administrador no pudo crearse (correo repetido, contraseña corta),
+   * la empresa recién nacida se borra para no dejar huérfanas — cada
+   * reintento del visitante crearía otra.
+   */
+  async deleteById(id: Company['id']): Promise<{ error: unknown }> {
+    this.logger.info(`deleteById company ${id}`);
+    const { error } = await this.supabase.client
+      .from('companies')
+      .delete()
+      .eq('id', id);
+    return { error };
+  }
+
   async findOne(id: Company['id']): Promise<{
     data: Company | null;
     error: PostgrestError | null;

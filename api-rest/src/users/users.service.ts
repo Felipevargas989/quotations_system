@@ -63,7 +63,10 @@ export class UsersService {
       return this.usersRepository.createUser(newUser);
     } catch (error) {
       this.logger.error(error);
-      throw new Error(error);
+      // `new Error(objeto)` fabricaba "[object Object]" — el mismo bicho
+      // que mordió al embudo el 14-09. Se conserva el mensaje real, que
+      // ahora viaja hasta el formulario de registro (16-09-2026).
+      throw new Error(error instanceof Error ? error.message : String(error));
     }
   }
 
