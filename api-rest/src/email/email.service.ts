@@ -10,6 +10,11 @@ import { EmailBranding, fmtCLP } from './templates/brandLayout';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { NewAccountParams, newAccountTemplate } from './templates/newAccount';
+import { PagoFallidoParams, pagoFallidoTemplate } from './templates/pagoFallido';
+import {
+  PruebaPorVencerParams,
+  pruebaPorVencerTemplate,
+} from './templates/pruebaPorVencer';
 import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
 import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
 import {
@@ -381,6 +386,20 @@ export class EmailService {
     params?: NewAccountParams,
   ): Promise<void>;
 
+  /** El cobro (sprint B): pago rechazado, con su gracia. */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.PAGO_FALLIDO,
+    params?: PagoFallidoParams,
+  ): Promise<void>;
+
+  /** El cobro (sprint B): la prueba termina en dos días. */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.PRUEBA_POR_VENCER,
+    params?: PruebaPorVencerParams,
+  ): Promise<void>;
+
   /**
    * Sends a new public quotation client email
    */
@@ -627,6 +646,22 @@ export class EmailService {
         sendTo = [to as string];
         html = newAccountTemplate(
           (params as NewAccountParams | undefined) ?? {},
+        );
+        break;
+
+      case EmailStructure.PAGO_FALLIDO:
+        subject = EMAIL_SUBJECTS[EmailStructure.PAGO_FALLIDO];
+        sendTo = [to as string];
+        html = pagoFallidoTemplate(
+          (params as PagoFallidoParams | undefined) ?? {},
+        );
+        break;
+
+      case EmailStructure.PRUEBA_POR_VENCER:
+        subject = EMAIL_SUBJECTS[EmailStructure.PRUEBA_POR_VENCER];
+        sendTo = [to as string];
+        html = pruebaPorVencerTemplate(
+          (params as PruebaPorVencerParams | undefined) ?? {},
         );
         break;
 

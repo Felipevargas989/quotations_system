@@ -23,6 +23,7 @@ import { MarketingModule } from './marketing/marketing.module';
 import { MovilModule } from './movil/movil.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PeopleModule } from './people/people.module';
+import { PagosModule } from './pagos/pagos.module';
 import { PlansModule } from './plans/plans.module';
 import { QuotationFollowupsModule } from './quotation-followups/quotation-followups.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -81,6 +82,7 @@ import { UsersModule } from './users/users.module';
     SuperAdminModule,
     AnalyticsModule,
     CalendarModule,
+    PagosModule,
     PlansModule,
     RefundsModule,
     ServiceGroupsModule,

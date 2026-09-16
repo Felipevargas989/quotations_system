@@ -1,6 +1,13 @@
-import { ArrowRight, Check, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import { toast } from "../../components/toast/Toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
+import {
+  PlanContratable,
+  pedirEnlaceDePago,
+} from "../../services/pagos.service";
+import { humanizeApiError } from "../../utils/apiErrors";
 
 // LA PANTALLA DE PLANES (reescrita el 16-09-2026, paso 4 del roadmap).
 //
@@ -10,12 +17,14 @@ import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
 // y precios que publica la landing (netos, más IVA), y marca cuál tiene
 // contratado la empresa.
 //
-// El botón de contratar, POR AHORA, abre WhatsApp con el plan y la
-// empresa ya escritos: el cobro automático con Mercado Pago es el sprint
-// B de PLAN_VENTA_AUTOMATICA.md, y mientras no exista, lo honesto es que
-// contratar sea una conversación con Felipe y no un enlace que no sabe
-// quién pagó. Cuando llegue el sprint B, este botón pasa a pedir la
-// suscripción propia de la empresa.
+// Desde el sprint B (16-09), contratar es de verdad: el motor pide a
+// Mercado Pago la suscripción PROPIA de esta empresa (con su id
+// adentro — un enlace fijo no sabe quién pagó, plan §2) y el navegador
+// viaja al checkout. Si el cobro aún no está configurado en el motor,
+// el botón cae con honestidad al WhatsApp de siempre.
+//
+// Una cortesía (`gratis`, como Valle del Sol) no ve botones de pago:
+// no se le cobra, jamás.
 
 type PlanId = "cotiza" | "gestiona" | "crece";
 
@@ -80,8 +89,10 @@ export default function Plans() {
   const { company } = useAuth();
   const planActual = (company?.plan ?? null) as PlanId | null;
   const enPrueba = company?.estado_plan === "prueba";
+  const esCortesia = company?.estado_plan === "gratis";
+  const [pidiendo, setPidiendo] = useState<PlanId | null>(null);
 
-  const contratar = (plan: (typeof PLANES)[number]) => {
+  const porWhatsApp = (plan: (typeof PLANES)[number]) => {
     const texto = encodeURIComponent(
       `Hola, quiero contratar el plan ${plan.nombre} de Eventia para ${
         company?.name ?? "mi empresa"
@@ -92,6 +103,31 @@ export default function Plans() {
       "_blank",
       "noopener",
     );
+  };
+
+  const contratar = async (plan: (typeof PLANES)[number]) => {
+    if (pidiendo) return;
+    setPidiendo(plan.id);
+    try {
+      const { enlace } = await pedirEnlaceDePago(plan.id as PlanContratable);
+      // Misma pestaña, a propósito: Mercado Pago devuelve al cliente a
+      // /plans/confirmation por el back_url (plan §3.2, punto 9).
+      window.location.assign(enlace);
+    } catch (error) {
+      const respuesta = (error as { response?: { status?: number } })
+        ?.response;
+      if (respuesta?.status === 503) {
+        // El cobro aún no está encendido en el motor: la venta no se
+        // pierde — se conversa, como siempre.
+        toast.warn(
+          "El pago en línea está por encenderse: te atendemos por WhatsApp",
+        );
+        porWhatsApp(plan);
+      } else {
+        toast.error(humanizeApiError(error));
+      }
+      setPidiendo(null);
+    }
   };
 
   return (
@@ -153,28 +189,40 @@ export default function Plans() {
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => contratar(plan)}
-                  disabled={esElActual}
-                  className={`mt-6 w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center group ${
-                    esElActual
-                      ? "bg-gray-100 text-gray-400 cursor-default"
-                      : plan.destacado
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-900 text-white hover:bg-gray-800"
-                  }`}
-                >
-                  {esElActual ? (
-                    "Este es tu plan"
-                  ) : (
-                    <>
-                      <span className="mr-2">
-                        Contratar {NOMBRE_DEL_PLAN[plan.id]}
-                      </span>
-                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </button>
+                {esCortesia ? (
+                  <p className="mt-6 text-center text-sm text-gray-500 py-3">
+                    Tu cuenta es una cortesía de la casa: no necesita
+                    contratar.
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => void contratar(plan)}
+                    disabled={esElActual || pidiendo !== null}
+                    className={`mt-6 w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center group ${
+                      esElActual
+                        ? "bg-gray-100 text-gray-400 cursor-default"
+                        : plan.destacado
+                          ? "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                          : "bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+                    }`}
+                  >
+                    {esElActual ? (
+                      "Este es tu plan"
+                    ) : pidiendo === plan.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Preparando tu pago…
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2">
+                          Contratar {NOMBRE_DEL_PLAN[plan.id]}
+                        </span>
+                        <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}
