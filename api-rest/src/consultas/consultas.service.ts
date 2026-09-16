@@ -245,10 +245,21 @@ export class ConsultasService {
       this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com'
     ).replace(/\/+$/, '');
     const titulo = `Valores para tu ${nombreNatural(consulta.event_type)}`;
+    // Copia OCULTA al buzón que atiende las respuestas (Felipe, 16-09):
+    // la misma regla que "Enviar cotización" (08-09), que este envío no
+    // tenía. Así contacto@ guarda también el correo que salió con el
+    // brochure, no solo lo que el cliente contesta. Oculta a propósito,
+    // y sin duplicar si quien consulta ES ese buzón.
+    const copiaOculta =
+      marca.replyTo &&
+      marca.replyTo.toLowerCase() !== consulta.email.trim().toLowerCase()
+        ? [marca.replyTo]
+        : [];
     const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
       from: `${marca.nombre} <hola@eventi-app.com>`,
       to: [consulta.email],
+      ...(copiaOculta.length ? { bcc: copiaOculta } : {}),
       subject: `${marca.nombre}: valores para tu ${nombreNatural(consulta.event_type)}`,
       html: plantillaCampana({ marca, titulo, cuerpoHtml, iconosBase }),
       attachments,

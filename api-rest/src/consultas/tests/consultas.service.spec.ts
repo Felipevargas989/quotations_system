@@ -6,6 +6,7 @@ jest.mock('resend', () => ({
   })),
 }));
 
+import { Resend } from 'resend';
 import type { ClientContactsRepository } from 'src/clients/client-contacts.controller';
 import type { ClientsService } from 'src/clients/clients.service';
 import type { CompaniesRepository } from 'src/companies/companies.repository';
@@ -26,6 +27,7 @@ const CONFIG = {
 const armar = (sobre: {
   repo?: Partial<Record<string, unknown>>;
   clients?: Partial<Record<string, unknown>>;
+  marca?: Record<string, unknown>;
   entrada?: 'cotizacion' | 'consulta' | null;
 }) => {
   const repo = {
@@ -54,7 +56,9 @@ const armar = (sobre: {
     ...sobre.clients,
   };
   const companies = {
-    findOne: jest.fn().mockResolvedValue({ data: { name: 'Eventia' } }),
+    findOne: jest
+      .fn()
+      .mockResolvedValue({ data: { name: 'Eventia', ...sobre.marca } }),
   };
   const contactos = {
     findByClient: jest.fn().mockResolvedValue([]),
@@ -278,5 +282,60 @@ describe('el embudo de consultas', () => {
     await expect(service.descartar(7, 1)).rejects.toThrow(
       'convertida no se descarta',
     );
+  });
+});
+
+describe('la copia oculta del brochure (16-09)', () => {
+  const PENDIENTE = {
+    id: 7,
+    company_id: 1,
+    name: 'María Pérez',
+    email: 'maria@x.cl',
+    event_type: 'Matrimonios',
+    correo_enviado: false,
+    correo_programado_para: 'hace-rato',
+  };
+  const ultimoEnvio = () => {
+    const instancias = (Resend as unknown as jest.Mock).mock.results;
+    const send = (
+      instancias[instancias.length - 1].value as {
+        emails: { send: jest.Mock };
+      }
+    ).emails.send;
+    const llamadas = send.mock.calls as Array<[Record<string, unknown>]>;
+    return llamadas[0][0];
+  };
+
+  it('copia oculta al buzón de respuestas, igual que Enviar cotización', async () => {
+    const { service } = armar({
+      repo: { pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]) },
+      marca: { notifications: { replyTo: 'contacto@vds.cl' } },
+    });
+    await service.despacharPendientes();
+    const envio = ultimoEnvio();
+    expect(envio.bcc).toEqual(['contacto@vds.cl']);
+    expect(envio.replyTo).toBe('contacto@vds.cl');
+    expect(envio.cc).toBeUndefined();
+  });
+
+  it('sin buzón de respuestas configurado, no hay copia', async () => {
+    const { service } = armar({
+      repo: { pendientesDeEnvio: jest.fn().mockResolvedValue([PENDIENTE]) },
+    });
+    await service.despacharPendientes();
+    expect(ultimoEnvio().bcc).toBeUndefined();
+  });
+
+  it('si quien consulta ES el buzón de respuestas, no se duplica', async () => {
+    const { service } = armar({
+      repo: {
+        pendientesDeEnvio: jest
+          .fn()
+          .mockResolvedValue([{ ...PENDIENTE, email: 'Contacto@VDS.cl' }]),
+      },
+      marca: { notifications: { replyTo: 'contacto@vds.cl' } },
+    });
+    await service.despacharPendientes();
+    expect(ultimoEnvio().bcc).toBeUndefined();
   });
 });
