@@ -9,7 +9,7 @@ import { EMAIL_FROM, EMAIL_SUBJECTS, EMAILS_SEND_TO_CLIENT } from './constants';
 import { EmailBranding, fmtCLP } from './templates/brandLayout';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
-import { newAccountTemplate } from './templates/newAccount';
+import { NewAccountParams, newAccountTemplate } from './templates/newAccount';
 import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
 import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
 import {
@@ -371,11 +371,14 @@ export class EmailService {
   }
 
   /**
-   * Sends an email without parameters (static templates)
+   * La bienvenida de una cuenta nueva. Los params llegaron el 16-09-2026
+   * (paso 4): antes iba genérica, sin nombre de empresa ni vencimiento
+   * de la prueba, y sin enlace para entrar.
    */
   async sendEmail(
     to: string | undefined | null,
     emailStructure: EmailStructure.NEW_ACCOUNT,
+    params?: NewAccountParams,
   ): Promise<void>;
 
   /**
@@ -622,7 +625,9 @@ export class EmailService {
       case EmailStructure.NEW_ACCOUNT:
         subject = EMAIL_SUBJECTS[EmailStructure.NEW_ACCOUNT];
         sendTo = [to as string];
-        html = newAccountTemplate();
+        html = newAccountTemplate(
+          (params as NewAccountParams | undefined) ?? {},
+        );
         break;
 
       case EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT:

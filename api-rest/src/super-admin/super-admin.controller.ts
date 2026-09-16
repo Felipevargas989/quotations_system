@@ -27,11 +27,16 @@ export class SuperAdminController {
     private readonly logger: PinoLogger,
   ) {}
 
-  // Techo estricto: acceso público de escritura (Fase 3).
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Public()
+  // UNA SOLA PUERTA PÚBLICA DEL ALTA (16-09-2026, paso 4): la pública es
+  // POST /users/signup, con su DTO endurecido. Esta era su gemela — dos
+  // puertas abiertas que creaban empresas — y pasa a ser la herramienta
+  // MANUAL de Felipe: mismo motor por dentro, pero solo super-admin.
   @Post('suscription')
-  createSuscription(@Body() createSuscriptionDto: CreateSuscriptionDto) {
+  createSuscription(
+    @Body() createSuscriptionDto: CreateSuscriptionDto,
+    @CurrentUser() user: UserConCorreo,
+  ) {
+    this.superAdminService.assertSuperAdmin(user.email);
     this.logger.info(
       `POST /super-admin/suscription with createSuscriptionDto ${logSafe(createSuscriptionDto)}`,
     );

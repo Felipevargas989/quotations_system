@@ -146,12 +146,12 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
    - Revisa el cruce: nadie puede estar en staff y en un evento el mismo día.
    - Si la persona es de planta y va a un evento, avisa con un `toast` que ese día se paga aparte.
    - Pinta una fila provisoria (freelance, en eventos) y llama `addStaff` con `amount: null`.
-5. **Motor**: `addStaff` → `sonDeLaEmpresa` → `findSillaVacia`.
+5. **Motor**: `addStaff` pide a la vez `findOne` (persona), `findDormida` (solo sin evento) y `sonDeLaEmpresa` con `Promise.all` (16-09-2026: medido en producción, cada viaje a Supabase podía trabarse 1 a 3 s y eran cuatro en fila), y después `findSillaVacia`.
    - `findSillaVacia` busca primero una silla del mismo cargo y día; si no hay, una sin día.
    - Si la encuentra, **la ocupa**: `updateStaff` sobre esa fila con la persona, `puesto_en`, `kind` (freelance si `esJornadaExtra`), el monto de la silla, `por_confirmar` y el horario.
    - Si no hay silla, inserta una fila nueva: pusiste 4 donde había 3, y ahora son 4.
 6. **App**: la respuesta del servidor reemplaza a la fila provisoria en su lugar, sin volver a pedir la semana (25-08). Después:
-   - el monto se escribe con `cambiar` → `PATCH amount`;
+   - el monto se escribe con `cambiar` → `PATCH amount`. Mientras la fila sigue provisoria (id negativo) la casilla entera queda gris con "Guardando…" y solo se puede cerrar (Felipe, 16-09: "que quede como en gris todo mientras carga"); además `cambiar` frena con "Esa fila se está guardando todavía" y, ante cualquier error, además de restaurar la foto de antes re-pide la semana (16-09-2026: editar durante el alta mandaba el PATCH al id provisorio, el motor respondía 404 y la foto vieja borraba la fila real);
    - se confirma con `PATCH status='confirmado'`, que el motor rechaza si no hay monto.
 7. **Sacar**: basurero → `sacar` → `DELETE /people/staff/:id?liberar=1` → `removeStaff`.
    - La fila vuelve a ser silla vacía (sin persona, sin horario, sin propina) y el cupo queda.
@@ -305,6 +305,8 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 13. **Si agregas** líneas a `people.service.ts`, a `FichasTab.tsx` o a un archivo cerca de las 800 líneas, **se afecta** el CI, **porque** el portero congela `people.service.ts` en 2040 líneas (hoy 2008) y `FichasTab.tsx` en 1599 (hoy 1549). Además, hay exactamente 27 archivos sobre 800 líneas con techo 27: cualquier archivo nuevo que cruce ese umbral hace fallar el CI. Evidencia: `congelar` y `techoGrandes` en `frontend/scripts/portero-kit-de-la-casa.sh`.
 14. **Si cambias** la clave `["people", "staff-semana", domingo, RANGO]`, o `RANGO`, en una sola pantalla, **se desincronizan** `SemanaTab` y `PersonaFichaPage`, **porque** las dos usan esa misma clave de caché para mostrar los cambios al instante. Evidencia: `clave` en `CalendarioDePersona`; `refrescar` en `SemanaTab`.
 
+3. **Si tocas** las filas provisorias de `SemanaTab` (`poner` las crea con id negativo y `onSuccess` las reemplaza por la real), **se afectan** `cambiar` y `sacar`, **porque** los dos frenan por `id < 0` y `cambiar` re-pide la semana ante error para no pisar el reemplazo. El 16-09 el alta tardó 4 s (Supabase lento) y editar en ese rato devolvía "No existe esa asignación" en cada intento. Evidencia: `mutationFn` de `cambiar` y `sacar` en `SemanaTab.tsx`; log de producción del 16-09 (PATCH `/people/staff/-331257633` × 5 → 404).
+
 ## 9. Pruebas que lo protegen
 
 **Motor** (Jest, en `api-rest/src/people/tests/`; corre en CI con `npx jest --silent`):
@@ -332,6 +334,8 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - `esPlanificacion` con `solo_propina` o con `ajuste='descansa'` (los nombres de sus pruebas no los mencionan).
 - Las pantallas `SemanaTab`, `CasillaAbierta`, `MiniCalendario` y `PersonaFichaPage`: el armado de filas y "necesita", la lista de disponibles, el cruce, el freno del monto y las filas provisorias.
 - `costoPersonalPorEvento`, las notas del día, `createReview`, el orden de rutas y la falta de roles del controller.
+
+- `api-rest/src/people/tests/alta-en-paralelo.spec.ts` (16-09-2026): las tres miradas previas del alta salen juntas, un cargo ajeno sigue frenando sin insertar, la fila dormida se revive, y en un evento no se busca dormida.
 
 ## 10. Deuda y rarezas conocidas
 

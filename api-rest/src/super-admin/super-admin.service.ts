@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
-  forwardRef,
   Inject,
   Injectable,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
@@ -39,6 +41,25 @@ export class SuperAdminService {
     private readonly emailService: EmailService,
     private readonly derechosService: DerechosService,
   ) {}
+
+  /**
+   * El mensaje real de un error, venga como venga (16-09-2026). Los
+   * errores de Supabase NO son instancias de Error: son objetos planos
+   * con `message` (PostgrestError, AuthError). `String(objeto)` fabrica
+   * "[object Object]" — el mismo bicho del embudo del 14-09, que volvió
+   * a morder EL MISMO DÍA que el alta salió al laboratorio, por esta
+   * otra rendija. Se mira `message` antes de rendirse.
+   */
+  private mensajeDe(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    const m = (error as { message?: unknown } | null)?.message;
+    if (typeof m === 'string' && m) return m;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
 
   async createSuscription(createSuscriptionDto: CreateSuscriptionDto) {
     this.logger.info(
@@ -91,11 +112,47 @@ export class SuperAdminService {
         password: createSuscriptionDto.admin_password,
       };
 
-      const { data: userData, error: userError } =
-        await this.usersService.create(newUser, companyData.id);
-
-      if (userError) {
-        throw userError;
+      let userData: unknown;
+      try {
+        // usersService.create sigue tipado `any` (deuda vieja): acá se le
+        // pone la forma que de hecho devuelve, para que el lint no mire
+        // para otro lado justo en la puerta pública.
+        const resultado = (await this.usersService.create(
+          newUser,
+          companyData.id,
+        )) as { data: unknown; error: unknown };
+        // El objeto viaja TAL CUAL al catch: ahí se traduce y se mira
+        // su `code`. Envolverlo antes le borraba el código de la base.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        if (resultado.error) throw resultado.error;
+        userData = resultado.data;
+      } catch (userError) {
+        // LA COMPENSACIÓN (16-09-2026): la empresa ya nació, pero su
+        // administrador no pudo crearse (lo típico: el correo ya tiene
+        // cuenta). Sin esto quedaba una empresa huérfana por CADA
+        // intento fallido del visitante. Se borra la recién creada y se
+        // responde algo que una persona entienda.
+        const { error: errorDelBorrado } =
+          await this.companiesRepository.deleteById(companyData.id);
+        if (errorDelBorrado) {
+          // Si el borrado también falla (el 16-09 fue por permisos de la
+          // base), la huérfana queda y ALGUIEN tiene que enterarse: al
+          // registro con su nombre, nunca en silencio.
+          this.logger.error(
+            `la compensación no pudo borrar la empresa ${companyData.id} (${companyData.name}): ${this.mensajeDe(errorDelBorrado)}`,
+          );
+        }
+        const mensaje = this.mensajeDe(userError);
+        const codigo = (userError as { code?: string } | null)?.code;
+        if (
+          codigo === '23505' ||
+          /already|registered|exists|duplicate/i.test(mensaje)
+        ) {
+          throw new ConflictException(
+            'Ese correo ya tiene una cuenta en Eventia. Entra con tu contraseña o recupérala desde "¿Olvidaste tu contraseña?".',
+          );
+        }
+        throw new BadRequestException(`No pudimos crear tu cuenta: ${mensaje}`);
       }
 
       // create customer satisfaction survey template
@@ -108,6 +165,13 @@ export class SuperAdminService {
         void this.emailService.sendEmail(
           createSuscriptionDto.admin_email,
           EmailStructure.NEW_ACCOUNT,
+          // La bienvenida útil (16-09-2026): nombre de la empresa y
+          // cuándo vence la prueba. Antes iba genérica, sin siquiera un
+          // enlace para entrar.
+          {
+            companyName: companyData.name,
+            pruebaVence: newCompany.prueba_vence ?? null,
+          },
         );
       } catch (error) {
         // Do not throw error, just log it

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthResponse, PostgrestError } from '@supabase/supabase-js';
+import { PostgrestError, UserResponse } from '@supabase/supabase-js';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
@@ -82,13 +82,23 @@ export class UsersRepository {
     return count ?? 0;
   }
 
-  async createAuthUser(createUserDto: CreateUserDto): Promise<AuthResponse> {
+  // La cuenta se crea por la puerta ADMINISTRATIVA, nunca con signUp.
+  // signUp es la puerta de una persona: deja la sesión del usuario
+  // recién creado pegada en el cliente compartido del motor, y desde
+  // ese momento TODO el motor consulta la base como ese usuario (rol
+  // authenticated) en vez de como servicio — hasta el próximo
+  // reinicio. En el laboratorio, con authenticated sin permisos, cada
+  // alta dejaba el motor ciego (16-09-2026: así se cazó); en
+  // producción pasaba en silencio. email_confirm deja la cuenta lista
+  // para entrar de inmediato: la bienvenida la manda el motor aparte.
+  async createAuthUser(createUserDto: CreateUserDto): Promise<UserResponse> {
     this.logger.info(
       `createAuthUser with createUserDto ${logSafe(createUserDto)}`,
     );
-    return await this.supabase.client.auth.signUp({
+    return await this.supabase.client.auth.admin.createUser({
       email: createUserDto.email,
       password: createUserDto.password,
+      email_confirm: true,
     });
   }
 

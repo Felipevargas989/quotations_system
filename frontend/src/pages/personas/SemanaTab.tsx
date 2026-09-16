@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Pencil, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Loader2, Pencil, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -437,8 +437,21 @@ export default function SemanaTab({
   }, []);
 
   const cambiar = useMutation({
-    mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
-      updateStaff(p.id, p.cambios),
+    // EL FRENO DE LA FILA PROVISORIA (Felipe, 16-09: "metimos a Matías
+    // como freelance el 19 y arroja error"). Poner a alguien muestra la
+    // fila al instante con un id negativo mientras el servidor la crea,
+    // y ese alta puede tardar segundos (medido: 2 a 4 s con Supabase
+    // lento). Si en ese rato se tocaba el horario o el monto, el PATCH
+    // viajaba con el id provisorio y el motor respondía "No existe esa
+    // asignación". Sacar ya tenía este freno; editar no.
+    mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) => {
+      if (p.id < 0) {
+        throw new Error(
+          "Esa fila se está guardando todavía: espera un segundo y vuelve a intentarlo",
+        );
+      }
+      return updateStaff(p.id, p.cambios);
+    },
     // AL INSTANTE, como poner y sacar. Sin esto, el monto recién
     // escrito viajaba al servidor pero la casilla seguía viendo el
     // dato viejo hasta el refresco — y el freno del monto vibraba con
@@ -456,10 +469,16 @@ export default function SemanaTab({
       return { antes };
     },
     onSuccess: refrescar,
+    // Ante un error se vuelve a la verdad del servidor, no solo a la
+    // foto de antes: si el alta terminó mientras este cambio viajaba,
+    // la foto vieja traía la fila provisoria y borraba la real (16-09).
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
-      toast.error(humanizeApiError(e));
+      refrescar();
+      const msg = e instanceof Error ? e.message : humanizeApiError(e);
+      if (msg.startsWith("Esa fila se está guardando")) toast.warn(msg);
+      else toast.error(msg);
     },
   });
 
@@ -1208,7 +1227,20 @@ function CasillaAbierta({
   // final no va.
   const [vibrando, setVibrando] = useState(false);
   const [avisado, setAvisado] = useState(false);
+  // MIENTRAS SE GUARDA, LA CASILLA QUEDA GRIS (Felipe, 16-09: "quizás
+  // debería quedar como en gris todo mientras carga, que solo funcione
+  // el botón cerrar, y que diga cargando"). Una fila con id negativo es
+  // la provisoria que `poner` pintó al instante; el servidor puede
+  // tardar segundos en confirmarla (medido: 2 a 4 s con Supabase
+  // lento). Hasta que vuelva, nada se toca: ni montos, ni horarios, ni
+  // poner a otro (evita el doble clic que choca con "ya está puesta ese
+  // día"). Solo cerrar, sin el freno del monto: la fila aún no es real.
+  const guardando = asignados.some((a) => a.id < 0);
   const intentarCerrar = () => {
+    if (guardando) {
+      onCerrar();
+      return;
+    }
     const sinMonto = asignados.some(
       (x) => x.kind === "freelance" && !x.amount && x.person_id != null,
     );
@@ -1304,9 +1336,35 @@ function CasillaAbierta({
     >
       <div className="space-y-3">
 
+      {guardando && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-lg bg-gray-100 border border-gray-200 px-3 py-2 text-sm text-gray-600"
+        >
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Guardando… un momento. Puedes cerrar; el guardado sigue solo.
+        </div>
+      )}
+
+      <div
+        aria-busy={guardando}
+        className={guardando ? "space-y-3 opacity-50 pointer-events-none select-none" : "space-y-3"}
+      >
+
       {asignados.length > 0 && (
         <ul className="space-y-1.5">
-          {asignados.map((a) => (
+          {asignados.map((a) =>
+            a.id < 0 ? (
+              <li
+                key={a.id}
+                className="bg-gray-50 border border-dashed border-gray-300 rounded-lg px-3 py-2 flex items-center gap-2 text-sm text-gray-500"
+              >
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>{a.people?.name ?? "—"}</span>
+                <span className="text-xs">guardando…</span>
+              </li>
+            ) : (
             <li key={a.id} className="bg-white border border-gray-200 rounded-lg px-3 py-2 space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-gray-900">{a.people?.name ?? "—"}</span>
@@ -1541,6 +1599,7 @@ function CasillaAbierta({
             />
           );
         })()}
+      </div>
       </div>
     </Modal>
   );

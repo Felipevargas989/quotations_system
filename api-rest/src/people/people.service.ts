@@ -234,8 +234,6 @@ export class PeopleService {
   }
 
   async addStaff(dto: CreateEventStaffDto, companyId: number) {
-    await this.sonDeLaEmpresa(companyId, dto);
-
     // ---- SILLA VACÍA (migración 84): cupo sin nombre todavía ----
     // La pone Gestión al planificar: cargo, día (o "por ubicar") y el
     // valor estimado. Cuenta para el costo; jamás para la nómina.
@@ -248,6 +246,7 @@ export class PeopleService {
       if (dto.role_id == null) {
         throw new BadRequestException('Una silla vacía necesita su cargo');
       }
+      await this.sonDeLaEmpresa(companyId, dto);
       return this.repo.addStaff({
         company_id: companyId,
         quotation_id: dto.quotation_id,
@@ -267,7 +266,20 @@ export class PeopleService {
     if (!dto.day) {
       throw new BadRequestException('Una persona se pone en un día concreto');
     }
-    const persona = await this.repo.findOne(dto.person_id, companyId);
+    // LAS MIRADAS PREVIAS VAN JUNTAS (Felipe, 16-09, "el alta tarda 2 a 4
+    // segundos"): medido en producción, cada viaje a Supabase puede
+    // trabarse 1 a 3 s cuando su región anda lenta, y este alta hacía
+    // cuatro viajes en fila (cargo, persona, fila dormida, insert). Las
+    // tres primeras no dependen entre sí, así que salen a la vez: la
+    // ventana en que la pantalla muestra la fila provisoria se achica a
+    // la mitad. El orden de los errores se conserva: primero la empresa.
+    const [persona, dormida] = await Promise.all([
+      this.repo.findOne(dto.person_id, companyId),
+      dto.quotation_id
+        ? Promise.resolve(null)
+        : this.repo.findDormida(companyId, dto.person_id, dto.day),
+      this.sonDeLaEmpresa(companyId, dto),
+    ]);
 
     // ---- SENTAR EN UNA SILLA (migración 84) ----
     // Si el plan dejó una silla vacía de ese cargo (idealmente del mismo
@@ -319,11 +331,6 @@ export class PeopleService {
     // se exige acá: el freelance nace por confirmar y el candado del
     // 15-08 (sin monto no se confirma) lo espera en updateStaff.
     if (!dto.quotation_id) {
-      const dormida = await this.repo.findDormida(
-        companyId,
-        dto.person_id,
-        dto.day,
-      );
       if (dormida) {
         return this.repo.updateStaff(
           dormida.id,

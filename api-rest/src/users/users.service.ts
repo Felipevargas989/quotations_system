@@ -63,7 +63,19 @@ export class UsersService {
       return this.usersRepository.createUser(newUser);
     } catch (error) {
       this.logger.error(error);
-      throw new Error(error);
+      // `new Error(objeto)` fabricaba "[object Object]" — el mismo bicho
+      // que mordió al embudo el 14-09. Los errores de Supabase son
+      // OBJETOS PLANOS con `message`, no instancias de Error: se mira
+      // eso antes de rendirse (16-09-2026, segunda pasada: la primera
+      // solo cubría instancias de Error y el bicho entró igual).
+      const m = (error as { message?: unknown } | null)?.message;
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : typeof m === 'string' && m
+            ? m
+            : String(error),
+      );
     }
   }
 
