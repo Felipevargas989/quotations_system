@@ -437,8 +437,21 @@ export default function SemanaTab({
   }, []);
 
   const cambiar = useMutation({
-    mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
-      updateStaff(p.id, p.cambios),
+    // EL FRENO DE LA FILA PROVISORIA (Felipe, 16-09: "metimos a Matías
+    // como freelance el 19 y arroja error"). Poner a alguien muestra la
+    // fila al instante con un id negativo mientras el servidor la crea,
+    // y ese alta puede tardar segundos (medido: 2 a 4 s con Supabase
+    // lento). Si en ese rato se tocaba el horario o el monto, el PATCH
+    // viajaba con el id provisorio y el motor respondía "No existe esa
+    // asignación". Sacar ya tenía este freno; editar no.
+    mutationFn: (p: { id: number; cambios: Parameters<typeof updateStaff>[1] }) => {
+      if (p.id < 0) {
+        throw new Error(
+          "Esa fila se está guardando todavía: espera un segundo y vuelve a intentarlo",
+        );
+      }
+      return updateStaff(p.id, p.cambios);
+    },
     // AL INSTANTE, como poner y sacar. Sin esto, el monto recién
     // escrito viajaba al servidor pero la casilla seguía viendo el
     // dato viejo hasta el refresco — y el freno del monto vibraba con
@@ -456,10 +469,14 @@ export default function SemanaTab({
       return { antes };
     },
     onSuccess: refrescar,
+    // Ante un error se vuelve a la verdad del servidor, no solo a la
+    // foto de antes: si el alta terminó mientras este cambio viajaba,
+    // la foto vieja traía la fila provisoria y borraba la real (16-09).
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
-      toast.error(humanizeApiError(e));
+      refrescar();
+      toast.error(e instanceof Error ? e.message : humanizeApiError(e));
     },
   });
 
