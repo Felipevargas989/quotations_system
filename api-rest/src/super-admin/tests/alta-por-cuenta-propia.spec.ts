@@ -99,6 +99,63 @@ describe('El alta por cuenta propia', () => {
     expect(companies.deleteById).toHaveBeenCalledWith(77);
   });
 
+  it('el error PLANO de la base (PostgrestError) también habla claro', async () => {
+    // El caso real del 16-09 en el laboratorio: user_profiles rechazó el
+    // insert y el error llegó como objeto plano, no como Error. La
+    // primera versión hacía String(objeto) → "[object Object]".
+    const userCreate = jest.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message:
+          'duplicate key value violates unique constraint "user_profiles_email_key"',
+        code: '23505',
+      },
+    });
+    const { service, companies } = armar({ userCreate });
+
+    await expect(service.createSuscription(dto)).rejects.toThrow(
+      ConflictException,
+    );
+    expect(companies.deleteById).toHaveBeenCalledWith(77);
+  });
+
+  it('si la compensación no puede borrar, queda gritado en el registro', async () => {
+    const userCreate = jest.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'permission denied for schema public', code: '42501' },
+    });
+    const companies = {
+      create: jest.fn().mockResolvedValue({
+        data: { id: 77, name: dto.company_name },
+        error: null,
+      }),
+      deleteById: jest.fn().mockResolvedValue({
+        error: { message: 'permission denied for schema public' },
+      }),
+    };
+    const logger = mockPinoLogger();
+    const service = new SuperAdminService(
+      logger as unknown as PinoLogger,
+      { get: jest.fn().mockReturnValue('') } as unknown as ConfigService,
+      { create: userCreate } as unknown as UsersService,
+      companies as unknown as CompaniesRepository,
+      {} as never,
+      {} as CustomerSatisfactionSurveyService,
+      { sendEmail: jest.fn() } as unknown as EmailService,
+      { olvidar: jest.fn() } as never,
+    );
+
+    await expect(service.createSuscription(dto)).rejects.toThrow();
+    const llamadasDeError = (
+      logger.error as unknown as jest.Mock<void, [unknown]>
+    ).mock.calls;
+    const gritos = llamadasDeError
+      .map((c) => String(c[0]))
+      .filter((m) => m.includes('no pudo borrar la empresa 77'));
+    expect(gritos).toHaveLength(1);
+    expect(gritos[0]).toContain('permission denied');
+  });
+
   it('otro error del alta: mensaje real, nunca "[object Object]"', async () => {
     const userCreate = jest
       .fn()
