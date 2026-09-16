@@ -326,7 +326,12 @@ export default function ConsultasPage() {
                             >
                               <UserPlus className="w-3.5 h-3.5" /> Convertir
                             </button>
-                            {c.estado === "respondida" && (
+                            {/* El basurero solo va en las respondidas,
+                                pero su lugar se reserva siempre: si no,
+                                "Convertir" se corría a ocuparlo y la
+                                columna quedaba desalineada (Felipe,
+                                16-09). */}
+                            {c.estado === "respondida" ? (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -340,6 +345,8 @@ export default function ConsultasPage() {
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
+                            ) : (
+                              <span aria-hidden="true" className="w-6 h-6" />
                             )}
                           </span>
                         ))}
