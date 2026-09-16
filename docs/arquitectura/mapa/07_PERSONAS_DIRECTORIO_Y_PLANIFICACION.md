@@ -151,7 +151,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
    - Si la encuentra, **la ocupa**: `updateStaff` sobre esa fila con la persona, `puesto_en`, `kind` (freelance si `esJornadaExtra`), el monto de la silla, `por_confirmar` y el horario.
    - Si no hay silla, inserta una fila nueva: pusiste 4 donde había 3, y ahora son 4.
 6. **App**: la respuesta del servidor reemplaza a la fila provisoria en su lugar, sin volver a pedir la semana (25-08). Después:
-   - el monto se escribe con `cambiar` → `PATCH amount`. Mientras la fila sigue provisoria (id negativo) `cambiar` frena con "Esa fila se está guardando todavía" y, ante cualquier error, además de restaurar la foto de antes re-pide la semana (16-09-2026: editar durante el alta mandaba el PATCH al id provisorio, el motor respondía 404 y la foto vieja borraba la fila real);
+   - el monto se escribe con `cambiar` → `PATCH amount`. Mientras la fila sigue provisoria (id negativo) la casilla entera queda gris con "Guardando…" y solo se puede cerrar (Felipe, 16-09: "que quede como en gris todo mientras carga"); además `cambiar` frena con "Esa fila se está guardando todavía" y, ante cualquier error, además de restaurar la foto de antes re-pide la semana (16-09-2026: editar durante el alta mandaba el PATCH al id provisorio, el motor respondía 404 y la foto vieja borraba la fila real);
    - se confirma con `PATCH status='confirmado'`, que el motor rechaza si no hay monto.
 7. **Sacar**: basurero → `sacar` → `DELETE /people/staff/:id?liberar=1` → `removeStaff`.
    - La fila vuelve a ser silla vacía (sin persona, sin horario, sin propina) y el cupo queda.
