@@ -100,7 +100,7 @@ Los relojes (sin endpoint) se describen en la sección 5.3.
 | `WEEKLY_ANALYTICS`: "Análisis semanal de tus eventos" | Nadie | — | `weekly_analytics/weekly_analytics.ts` | — | **Muerto** |
 | 16 muestras `[PRUEBA] …` | `POST /email-previews` → `sendPreviewBatch` | La casilla que se indique | Las mismas plantillas | No pasa por interruptores ni por el silenciador, a propósito | Vivo solo fuera de producción |
 | Cotización con PDF adjunto | `EnvioCotizacionService.enviar` (botón "Enviar cotización") | Contacto (`correoDeDestino`) + copia oculta al "Responder a" | `plantillaCampana` + PDF | Ninguna; el silenciador no aplica | Vivo (mapa 02) |
-| Brochure del embudo: "{empresa}: valores para tu {tipo}" | `ConsultasCronService.despachar` (cada minuto) → `ConsultasService.enviarBrochure` | Quien consultó | `plantillaCampana` + brochures | Configuración del embudo por tipo; el silenciador no aplica | Vivo (mapa 11) |
+| Brochure del embudo: "{empresa}: valores para tu {tipo}" | `ConsultasCronService.despachar` (cada minuto) → `ConsultasService.enviarBrochure` | Quien consultó + copia oculta al "Responder a" (desde 16-09-2026) | `plantillaCampana` + brochures | Configuración del embudo por tipo; el silenciador no aplica | Vivo (mapa 11) |
 | Campañas: prueba, envío, reenvío a no abiertos, programadas | `MarketingService.enviarPrueba`, `enviarCampana`, `reenviarANoAbiertos`; `MarketingCronService.despacharProgramadas` | Audiencias | Mapa 10 | Bajas (mapa 10); el silenciador no aplica | Vivo (mapa 10) |
 | Recuperar contraseña | `AuthService` con `supabase.auth.resetPasswordForEmail` | El usuario | Supabase Auth, fuera del motor | — | Vivo (mapa 15) |
 | Push: pago vencido, evento en 3 días, solicitud nueva, cotización fría; y el push de prueba | `MovilService.cicloAvisos` (`*/30 * * * *`) y `probar` | Todos los teléfonos de la empresa en `push_devices` | `movil.service.ts` (`avisosDeEmpresa`) | Sin `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` el módulo duerme; `dedupe_key` evita repetir | Según el comentario de `movil.service.ts`, dormido en producción (mapa 16) |
@@ -303,7 +303,7 @@ Dos correos de este catálogo cambian por la misma razón, aunque no salgan de u
 | `api-rest/src/super-admin/tests/super-admin.service.spec.ts` | `registerLead` y `createCompanyOnly` mandan `SUPER_ADMIN_NEW_LEAD` y `SUPER_ADMIN_NEW_COMPANY` a la allowlist; si Resend falla, el lead y la empresa quedan igual; sin `SUPER_ADMIN_EMAILS` no se intenta enviar |
 | `api-rest/src/config/validate-env.spec.ts` | Una variable importante ausente (`RESEND_API_KEY`) se advierte sin detener el arranque |
 | `api-rest/src/quotations/tests/unit/envio-cotizacion.service.spec.ts` | Del correo con PDF (mapa 02): copia oculta al "Responder a", sin duplicar si el destino es ese buzón |
-| `api-rest/src/consultas/tests/consultas.service.spec.ts` | Del brochure (mapa 11): la espera de 10 minutos y el candado de dueño |
+| `api-rest/src/consultas/tests/consultas.service.spec.ts` | Del brochure (mapa 11): la espera de 10 minutos, el candado de dueño y la copia oculta al "Responder a" sin duplicar |
 
 `payments.service.spec.ts`, `quotations.service.spec.ts`, `candado-evento-realizado.spec.ts` y `customer_satisfaction_survey.service.spec.ts` inyectan `EmailService` vacío o mockeado, pero no afirman nada sobre correos. En `quotations.service.spec.ts` el `sendEmail: jest.fn()` está comentado.
 
