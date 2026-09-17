@@ -1,21 +1,32 @@
-import { ArrowRight, Check, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import Modal from "../../components/Modal";
+import { toast } from "../../components/toast/Toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
+import {
+  PlanContratable,
+  pedirEnlaceDePago,
+} from "../../services/pagos.service";
+import { humanizeApiError } from "../../utils/apiErrors";
 
 // LA PANTALLA DE PLANES (reescrita el 16-09-2026, paso 4 del roadmap).
 //
 // La versión anterior mostraba UN plan de $10.000 que contradecía a la
 // landing y a la tabla de derechos: quedó de una época con precio único.
 // Ahora muestra los tres planes firmados el 14-09, con los mismos textos
-// y precios que publica la landing (netos, más IVA), y marca cuál tiene
+// y precios que publica la landing (finales, IVA incluido — decisión de
+// Felipe del 17-09: números redondos), y marca cuál tiene
 // contratado la empresa.
 //
-// El botón de contratar, POR AHORA, abre WhatsApp con el plan y la
-// empresa ya escritos: el cobro automático con Mercado Pago es el sprint
-// B de PLAN_VENTA_AUTOMATICA.md, y mientras no exista, lo honesto es que
-// contratar sea una conversación con Felipe y no un enlace que no sabe
-// quién pagó. Cuando llegue el sprint B, este botón pasa a pedir la
-// suscripción propia de la empresa.
+// Desde el sprint B (16-09), contratar es de verdad: el motor pide a
+// Mercado Pago la suscripción PROPIA de esta empresa (con su id
+// adentro — un enlace fijo no sabe quién pagó, plan §2) y el navegador
+// viaja al checkout. Si el cobro aún no está configurado en el motor,
+// el botón cae con honestidad al WhatsApp de siempre.
+//
+// Una cortesía (`gratis`, como Valle del Sol) no ve botones de pago:
+// no se le cobra, jamás.
 
 type PlanId = "cotiza" | "gestiona" | "crece";
 
@@ -32,7 +43,7 @@ const PLANES: Array<{
     id: "cotiza",
     nombre: "Cotiza",
     para: "Para dejar el Excel y vender profesional.",
-    precio: "$19.900",
+    precio: "$25.000",
     limites: "Hasta 20 cotizaciones/mes · 1 usuario · eventos de un día",
     incluye: [
       "Cotizador con tu marca y PDF",
@@ -45,7 +56,7 @@ const PLANES: Array<{
     id: "gestiona",
     nombre: "Gestiona y Cobra",
     para: "Para el que ya vende y necesita cobrar sin perder cuentas.",
-    precio: "$49.900",
+    precio: "$60.000",
     limites: "Cotizaciones ilimitadas · 3 usuarios",
     incluye: [
       "Todo lo de Cotiza",
@@ -62,7 +73,7 @@ const PLANES: Array<{
     id: "crece",
     nombre: "Opera y Crece",
     para: "Para la operación que quiere márgenes y controlarlo todo.",
-    precio: "$119.900",
+    precio: "$140.000",
     limites: "Todo ilimitado · equipo completo",
     incluye: [
       "Todo lo de Gestiona y Cobra",
@@ -77,11 +88,22 @@ const PLANES: Array<{
 ];
 
 export default function Plans() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const planActual = (company?.plan ?? null) as PlanId | null;
   const enPrueba = company?.estado_plan === "prueba";
+  const esCortesia = company?.estado_plan === "gratis";
+  const [pidiendo, setPidiendo] = useState<PlanId | null>(null);
+  // LA PREGUNTA DEL CORREO (17-09). Mercado Pago exige que el correo de
+  // la suscripción sea el de la CUENTA que paga; si difiere, el
+  // checkout muere en "tu e-mail no coincide". Como el correo de
+  // Eventia no siempre es el de Mercado Pago, se pregunta antes de
+  // viajar, prellenado con el de la sesión.
+  const [preguntando, setPreguntando] = useState<
+    (typeof PLANES)[number] | null
+  >(null);
+  const [correoMp, setCorreoMp] = useState("");
 
-  const contratar = (plan: (typeof PLANES)[number]) => {
+  const porWhatsApp = (plan: (typeof PLANES)[number]) => {
     const texto = encodeURIComponent(
       `Hola, quiero contratar el plan ${plan.nombre} de Eventia para ${
         company?.name ?? "mi empresa"
@@ -92,6 +114,45 @@ export default function Plans() {
       "_blank",
       "noopener",
     );
+  };
+
+  const contratar = (plan: (typeof PLANES)[number]) => {
+    if (pidiendo) return;
+    setCorreoMp(user?.email ?? "");
+    setPreguntando(plan);
+  };
+
+  const viajarAPagar = async (plan: (typeof PLANES)[number]) => {
+    if (pidiendo) return;
+    const correo = correoMp.trim();
+    if (!correo || !correo.includes("@")) {
+      toast.warn("Escribe el correo de tu cuenta de Mercado Pago");
+      return;
+    }
+    setPidiendo(plan.id);
+    try {
+      const { enlace } = await pedirEnlaceDePago(
+        plan.id as PlanContratable,
+        correo,
+      );
+      // Misma pestaña, a propósito: Mercado Pago devuelve al cliente a
+      // /plans/confirmation por el back_url (plan §3.2, punto 9).
+      window.location.assign(enlace);
+    } catch (error) {
+      const respuesta = (error as { response?: { status?: number } })
+        ?.response;
+      if (respuesta?.status === 503) {
+        // El cobro aún no está encendido en el motor: la venta no se
+        // pierde — se conversa, como siempre.
+        toast.warn(
+          "El pago en línea está por encenderse: te atendemos por WhatsApp",
+        );
+        porWhatsApp(plan);
+      } else {
+        toast.error(humanizeApiError(error));
+      }
+      setPidiendo(null);
+    }
   };
 
   return (
@@ -140,7 +201,7 @@ export default function Plans() {
                   <span className="text-4xl font-bold text-gray-900">
                     {plan.precio}
                   </span>
-                  <span className="text-gray-500 text-sm"> + IVA / mes</span>
+                  <span className="text-gray-500 text-sm"> / mes · IVA incluido</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{plan.limites}</p>
 
@@ -153,35 +214,102 @@ export default function Plans() {
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => contratar(plan)}
-                  disabled={esElActual}
-                  className={`mt-6 w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center group ${
-                    esElActual
-                      ? "bg-gray-100 text-gray-400 cursor-default"
-                      : plan.destacado
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-900 text-white hover:bg-gray-800"
-                  }`}
-                >
-                  {esElActual ? (
-                    "Este es tu plan"
-                  ) : (
-                    <>
-                      <span className="mr-2">
-                        Contratar {NOMBRE_DEL_PLAN[plan.id]}
-                      </span>
-                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </button>
+                {esCortesia ? (
+                  <p className="mt-6 text-center text-sm text-gray-500 py-3">
+                    Tu cuenta es una cortesía de la casa: no necesita
+                    contratar.
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => void contratar(plan)}
+                    disabled={esElActual || pidiendo !== null}
+                    className={`mt-6 w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center group ${
+                      esElActual
+                        ? "bg-gray-100 text-gray-400 cursor-default"
+                        : plan.destacado
+                          ? "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                          : "bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+                    }`}
+                  >
+                    {esElActual ? (
+                      "Este es tu plan"
+                    ) : pidiendo === plan.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Preparando tu pago…
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2">
+                          Contratar {NOMBRE_DEL_PLAN[plan.id]}
+                        </span>
+                        <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
 
+        {preguntando && (
+          <Modal
+            titulo={`Contratar ${preguntando.nombre}`}
+            subtitulo="Un último dato antes de ir a pagar"
+            ancho="max-w-md"
+            onCerrar={() => {
+              if (!pidiendo) setPreguntando(null);
+            }}
+            pie={
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setPreguntando(null)}
+                  disabled={pidiendo !== null}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void viajarAPagar(preguntando)}
+                  disabled={pidiendo !== null}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {pidiendo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Preparando…
+                    </>
+                  ) : (
+                    "Ir a pagar"
+                  )}
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                ¿Con qué correo entras a Mercado Pago?
+              </label>
+              <input
+                type="email"
+                value={correoMp}
+                onChange={(e) => setCorreoMp(e.target.value)}
+                autoFocus
+                placeholder="tu-correo@ejemplo.cl"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500">
+                Mercado Pago exige que sea el correo de la cuenta con que
+                vas a pagar. El pago mensual de{" "}
+                <strong>{preguntando.precio}</strong> queda amarrado a esa
+                cuenta y puedes cancelarlo cuando quieras.
+              </p>
+            </div>
+          </Modal>
+        )}
+
         <p className="text-center text-sm text-gray-500 mt-8">
-          Precios en pesos chilenos, netos, más IVA. Se paga mes a mes con
+          Precios finales en pesos chilenos, IVA incluido. Se paga mes a mes con
           Mercado Pago. Bajar de plan no borra nada: lo que quede fuera se
           guarda por si vuelves a subir.
         </p>

@@ -17,6 +17,10 @@ import {
   newPublicQuotationAdminTemplate,
 } from './templates/newPublicQuotationCreated/forAdmin';
 import { newPublicQuotationClientTemplate } from './templates/newPublicQuotationCreated/forClient';
+import {
+  PagoFallidoParams,
+  pagoFallidoTemplate,
+} from './templates/pagoFallido';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentOverdueAdminTemplate } from './templates/paymentOverdue/paymentOverdueAdmin';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
@@ -33,6 +37,10 @@ import {
   PortalReceiptAdminParams,
   portalReceiptAdminTemplate,
 } from './templates/portalReceipt/admin';
+import {
+  PruebaPorVencerParams,
+  pruebaPorVencerTemplate,
+} from './templates/pruebaPorVencer';
 import { quotationFollowUpTemplate } from './templates/quotationFollowUp/template';
 import { QuotationFollowUpParams } from './templates/quotationFollowUp/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';
@@ -381,6 +389,20 @@ export class EmailService {
     params?: NewAccountParams,
   ): Promise<void>;
 
+  /** El cobro (sprint B): pago rechazado, con su gracia. */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.PAGO_FALLIDO,
+    params?: PagoFallidoParams,
+  ): Promise<void>;
+
+  /** El cobro (sprint B): la prueba termina en dos días. */
+  async sendEmail(
+    to: string | undefined | null,
+    emailStructure: EmailStructure.PRUEBA_POR_VENCER,
+    params?: PruebaPorVencerParams,
+  ): Promise<void>;
+
   /**
    * Sends a new public quotation client email
    */
@@ -627,6 +649,22 @@ export class EmailService {
         sendTo = [to as string];
         html = newAccountTemplate(
           (params as NewAccountParams | undefined) ?? {},
+        );
+        break;
+
+      case EmailStructure.PAGO_FALLIDO:
+        subject = EMAIL_SUBJECTS[EmailStructure.PAGO_FALLIDO];
+        sendTo = [to as string];
+        html = pagoFallidoTemplate(
+          (params as PagoFallidoParams | undefined) ?? {},
+        );
+        break;
+
+      case EmailStructure.PRUEBA_POR_VENCER:
+        subject = EMAIL_SUBJECTS[EmailStructure.PRUEBA_POR_VENCER];
+        sendTo = [to as string];
+        html = pruebaPorVencerTemplate(
+          (params as PruebaPorVencerParams | undefined) ?? {},
         );
         break;
 

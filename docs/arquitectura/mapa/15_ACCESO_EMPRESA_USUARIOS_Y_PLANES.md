@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), y el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -61,15 +61,18 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `POST /auth/password/reset` | `AuthController.resetPassword` | `AuthService.resetPasswordWithToken` (`auth.getUser(accessToken)` y `auth.admin.updateUserById`) | `resetPasswordWithToken` ← `ResetPasswordPage` | `@Public`. Sin `@Throttle` propio |
 | `GET /users` | `UsersController.findAll` | `UsersService.findAll` → `UsersRepository.findAll(companyId)` | `getUsers` (`services/users.service.ts`) ← `UserManagementPage` | solo sesión |
 | `GET /users/:id` (id de **Auth**) | `UsersController.findOne` | `UsersService.findOne` → `UsersRepository.findOne` (perfil + 15 columnas de `companies`) | `getUser` ← `AuthContext` (`profileQuery` y `signIn`), que alimenta a **todas** las pantallas tras el login; además `QuotationForm` (`fetchCreatorUser`, para mostrar quién creó la cotización) | solo sesión. **No filtra por empresa** |
-| `POST /users` | `UsersController.create` | `UsersService.create` → `UsersRepository.createAuthUser` (`auth.signUp`) + `UsersRepository.createUser` | `createUser` ← `UserManagementPage.createUser` | `ADMIN_ONLY` |
+| `POST /users` | `UsersController.create` | `UsersService.create` → `UsersRepository.createAuthUser` (`auth.admin.createUser` — JAMÁS `signUp`, incidente 70) + `UsersRepository.createUser` | `createUser` ← `UserManagementPage.createUser` | `ADMIN_ONLY` |
 | `PATCH /users/password` | `UsersController.updatePassword` | `UsersService.updatePassword` → `UsersRepository.updatePassword` (`auth.admin.updateUserById`) | `updatePassword` ← `ConfigurationPage.handleSubmit` | solo sesión (cambia la del propio usuario) |
 | `PATCH /users/:id` (id del **perfil**) | `UsersController.update` | `UsersService.update` → `UsersRepository.update` | `updateUser` ← `UserManagementPage.createUser` en modo edición | `ADMIN_ONLY`. No filtra por empresa |
 | `DELETE /users/:id` (id del perfil) | `UsersController.remove` | `UsersService.remove` → `UsersRepository.remove` + `UsersRepository.removeAuthUser` | `deleteUser` ← `UserManagementPage.deleteUser` | `ADMIN_ONLY` |
-| `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | **Nadie** desde la app: `signup` existe en `services/users.service.ts`, pero su única llamada, en `NewUserRegisterForm` (pantalla `RegisterPage`, ruta `/register`), está comentada | `@Public`. Sin `@Throttle` propio |
+| `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5) | `@Public` + `@Throttle` 10/min |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; el controller recorta a 11 campos | `getCompanyPublic` ← `CreateQuotationPublic` (mapa 11); `getCompanyById` (`services/superAdmin.service.tsx`) ← `PublicSurvey` (mapa 14) | `@Public` |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` → `CompaniesRepository.findOne` (`select('*')`) | `getCompany` ← `ConfigurationPage` (queryKey `["company", id]`) | solo sesión. **No compara con la empresa de la sesión** |
 | `PATCH /companies` | `CompaniesController.update` | `CompaniesService.update` → `CompaniesRepository.update` (empresa de la sesión) | `updateCompany` (`services/companies.service.ts`) ← `CompanyConfiguration.handleSubmit`, `ConfigurationPage.handleSaveNotifications` | `ADMIN_ONLY` |
-| `POST /plans/confirmation` | `PlansController.confirmPlan` | `PlansService.confirmPlan` → `PlansRepository.confirmPlan` (`is_premium = true`) | `confirmPlan` (`services/plans.service.ts`) ← `ConfirmationPage` | solo sesión (**cualquier cargo**) |
+| `POST /plans/confirmation` | `PlansController.confirmPlan` | `PlansService.confirmPlan` — responde **410 a propósito** desde el paso 2 (marcaba premium sin verificar pago) | **Nadie** desde el 16-09: `ConfirmationPage` pasó a preguntar `GET /pagos/estado` | solo sesión |
+| `POST /pagos/suscribir` | `PagosController.suscribir` | `PagosService.suscribir` → `MercadoPagoService.crearSuscripcion` (POST `/preapproval` con `external_reference` = id de la empresa) | `pedirEnlaceDePago` (`services/pagos.service.ts`) ← `Plans.contratar` | `ADMIN_ONLY` + `@SinPlan` (una bloqueada TIENE que poder pagar) |
+| `GET /pagos/estado` | `PagosController.estado` | `PagosService.estado` → `PagosRepository.empresa` (directo a la base, sin memoria) | `estadoDelPlan` ← `ConfirmationPage` (pregunta cada 3 s hasta ver `activo`) | sesión + `@SinPlan` |
+| `POST /pagos/webhook` | `PagosController.webhook` | `verificarFirmaMercadoPago` (HMAC del header `x-signature`) → `PagosService.procesarAviso` (consulta la VERDAD en Mercado Pago, jamás confía en el cuerpo; idempotente por `avisos_de_pago`) | **Mercado Pago**, nadie de la app | `@Public` + `@Throttle` 600/min; la puerta es la FIRMA (fail-closed sin secreto en producción) |
 | `POST /super-admin/suscription` | `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Dentro del motor, `UsersService.signup` llama a `SuperAdminService.createSuscription` | `@Public` + `@Throttle` 10 por minuto |
 | `POST /super-admin/lead` | `SuperAdminController.registerLead` | `SuperAdminService.registerLead` → `SuperAdminRepository.registerLead` + `alertNuevoLead` | `registerLead` (`services/registerLeads.service.ts`) ← `NewUserRegisterForm.handleSubmit`, dentro de la pantalla `RegisterPage` (ruta `/register`) | `@Public` + `@Throttle` 10 por minuto |
 | `GET /super-admin/companies` | `SuperAdminController.listCompanies` | `assertSuperAdmin` + `SuperAdminRepository.listCompanies` | `getAllCompanies` ← `SuperAdminPage.fetchCompanies` | sesión + correo en `SUPER_ADMIN_EMAILS` |
@@ -101,7 +104,7 @@ Usos dentro del motor, sin pasar por HTTP:
 | `RECEPTION_AND_UP` | `quotation-followups` completo; `GET /sections`, `GET /sections/menu-order` | 02, 05 |
 | Solo sesión, sin `@Roles` | `people` (**44 rutas**), `clients` (9 de sus 10 rutas — la décima, `GET /clients/types/public/:company_id`, es `@Public` y va en esa fila), `client-contacts` (5), `consultas` (5), `event-types` (4), `calendar` (1), `movil` (5), `storage` (3), `plans` (1); `GET /users`, `GET /users/:id`, `PATCH /users/password`, `GET /companies/:id`; 7 rutas de `quotations` (crear, editar, borrar, listar, conflictos, enviar por correo…); lecturas de `payments` (2: `GET` y `GET transactions`), `portal-receipts` (1), `service-groups` (1), `service-group-collections` (1) y `services` (3: `GET`, `GET used-codes`, `GET fixed-sections`); `GET /customer-satisfaction-survey/answers`; las 5 rutas con allowlist de `super-admin` | varios | **Desde el 14-09-2026 (rama `pruebas`, paso 2 del roadmap de venta) esa lista se cerró: cada una de esas rutas tiene cargo, salvo el propio perfil, la propia clave y la propia empresa; ver [23_MATRIZ_DE_CARGOS.md](23_MATRIZ_DE_CARGOS.md).**
 | Cargo revisado a mano, fuera de `RolesGuard` | `QuotationsController.create` (recepción solo crea requerimientos, 28-07) y `QuotationsService.update` (recepción no edita cotizaciones, 12-08); `SuperAdminService.assertSuperAdmin` (por correo, no por cargo) | 01, 15 |
-| `@Public` | `auth` (2), `POST /users/signup`, `GET /companies/public/:id`, `POST /super-admin/suscription` y `/lead`, `GET /clients/types/public/:company_id`, `GET /event-types/public/:companyId`, `customer-satisfaction-survey` (`GET template`, `GET answered`, `POST answer`), `marketing` (3: webhook y baja), `portal` (3), `POST /quotations/public/:company_id`, `GET /quotations/imprimir/:token`, `GET /quotations/:id` (lo usa la encuesta pública), `GET /health`, `POST /email-previews` (404 en producción) | 01, 03, 10, 11, 14, 16 |
+| `@Public` | `auth` (2), `POST /users/signup`, `GET /companies/public/:id`, `POST /super-admin/suscription` y `/lead`, `GET /clients/types/public/:company_id`, `GET /event-types/public/:companyId`, `customer-satisfaction-survey` (`GET template`, `GET answered`, `POST answer`), `marketing` (3: webhook y baja), `portal` (3), `POST /quotations/public/:company_id`, `GET /quotations/imprimir/:token`, `GET /quotations/:id` (lo usa la encuesta pública), `POST /pagos/webhook` (firma HMAC fail-closed), `GET /health`, `POST /email-previews` (404 en producción) | 01, 03, 10, 11, 14, 16 |
 
 ## 4. Tablas de la base de datos
 
@@ -594,3 +597,43 @@ Las protegen `frontend/src/components/MejoraTuPlan.test.tsx` (7 casos; el que m�
 **Lo que no se hizo, y está decidido así**: no hay aviso preventivo de "usaste tus 20 cotizaciones del mes" **antes** de empezar a cotizar. El perfil no trae cuántas lleva la empresa en el mes y contarlas en cada carga de pantalla sería caro para un aviso. Hoy el aviso llega **al guardar**, con el mensaje que manda el motor (`SIN_CUPO`) por el interceptor de `api.ts`.
 
 **Los gates del 14-09-2026.** App: 269 pruebas en 23 archivos (antes 262), eslint en 87 que es su techo exacto, portero del kit OK con los siete gigantes por debajo de su techo y build que compila. Motor: 534 pruebas, eslint 19, build ok.
+
+### 5.9 El cobro con Mercado Pago (16-09-2026, sprint B, migración 114)
+
+El diseño completo y las 7 decisiones firmadas viven en
+`atlas_pendiente/PLAN_VENTA_AUTOMATICA.md`. Lo esencial:
+
+1. Felipe creó **tres planes** en Mercado Pago (montos CON IVA). El
+   motor conoce sus identificadores (variables `MP_PLAN_*`, con los
+   reales de respaldo en `mercadopago.service.ts`).
+2. `Plans.contratar` → `POST /pagos/suscribir`: el motor pide a
+   Mercado Pago la suscripción PROPIA de la empresa
+   (`external_reference` = su id) y el navegador viaja al checkout.
+   **Un enlace fijo no identifica quién pagó**: por eso jamás se
+   publican los enlaces cortos de los planes.
+3. El cliente paga y vuelve a `/plans/confirmation`, que pregunta
+   `GET /pagos/estado` cada 3 segundos. La verdad NO viene con el
+   navegador: llega por `POST /pagos/webhook` (firma HMAC verificada,
+   fail-closed), que consulta el estado real en Mercado Pago y recién
+   ahí activa: plan + `activo` + `pagado_hasta` + memoria olvidada
+   para que rija al instante.
+4. La idempotencia vive en la base: `avisos_de_pago` con
+   `unique (proveedor, aviso_id)` — el proveedor reenvía cada aviso
+   cada 15 minutos hasta ver un 200.
+5. Pago rechazado → `moroso` con **7 días de gracia** (decisión 2) y
+   correo `PAGO_FALLIDO`. Cancelación → conserva el plan hasta
+   `pagado_hasta` (decisión 5; la marca es `pago_suscripcion_id` en
+   NULL con el proveedor puesto).
+6. El reloj (`plan-cron`, 11:00–11:10) cosecha lo que el webhook no
+   alcanzó: canceladas cumplidas → bloqueadas; pago vencido con
+   suscripción viva → morosas con gracia; gracia vencida → bloqueadas.
+   Además avisa `PRUEBA_POR_VENCER` a los 2 días del vencimiento.
+7. **`gratis` no existe para esta máquina**: ni el webhook ni el reloj
+   la tocan (Valle del Sol y la demo). Las pruebas
+   `pagos/tests/maquina-de-cobros.spec.ts` y
+   `plans/tests/reloj-del-cobro.spec.ts` lo juran.
+
+Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
+secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`
+/ `MP_PLAN_CRECE` (opcionales). Sin el token, `POST /pagos/suscribir`
+responde 503 y la pantalla de planes cae con honestidad al WhatsApp.

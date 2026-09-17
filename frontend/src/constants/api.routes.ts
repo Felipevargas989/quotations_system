@@ -98,6 +98,10 @@ export const API_ROUTES = {
   // plans
   PLAN_CONFIRMATION: "/plans/confirmation",
 
+  // pagos (sprint B del paso 4+5: el cobro con Mercado Pago)
+  PAGOS_SUSCRIBIR: "/pagos/suscribir",
+  PAGOS_ESTADO: "/pagos/estado",
+
   // refunds
   REFUNDS: "/refunds",
 

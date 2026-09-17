@@ -20,6 +20,10 @@ export enum EmailStructure {
   // SUPER_ADMIN_NOTIFICATION se jubiló (cura 05-08) junto con la
   // puerta huérfana POST /super-admin/new-lead: cero llamadores vivos.
   // Torre de Control (tanda 1, 05-08): alertas a los super-admins.
+  // El cobro (16-09-2026, sprint B del paso 4+5): pago rechazado con
+  // su gracia, y prueba a dos días de vencer.
+  PAGO_FALLIDO = 'pagoFallido',
+  PRUEBA_POR_VENCER = 'pruebaPorVencer',
   SUPER_ADMIN_NEW_LEAD = 'superAdminNewLead',
   SUPER_ADMIN_NEW_COMPANY = 'superAdminNewCompany',
 }
