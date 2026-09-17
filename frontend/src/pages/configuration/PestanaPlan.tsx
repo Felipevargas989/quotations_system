@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowRight, ArrowUp, CreditCard, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -105,8 +105,33 @@ export default function PestanaPlan() {
   const [cotizando, setCotizando] = useState<PlanContratable | null>(null);
   const [correoMp, setCorreoMp] = useState("");
   const [cambiando, setCambiando] = useState(false);
+  // Cancelar manda siempre (Felipe, 18-09): cerrar a media preparación
+  // y que el enlace tardío se ignore.
+  const cancelado = useRef(false);
+
+  // Al volver con el botón de atrás desde el pago del proporcional, la
+  // página revive congelada con "Un momento…" puesto (mismo caso que
+  // Plans, 18-09): pageshow con `persisted` la despierta limpia.
+  useEffect(() => {
+    const despertar = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setCambiando(false);
+        setCotizacion(null);
+        setCotizando(null);
+      }
+    };
+    window.addEventListener("pageshow", despertar);
+    return () => window.removeEventListener("pageshow", despertar);
+  }, []);
+
+  const cancelar = () => {
+    cancelado.current = true;
+    setCambiando(false);
+    setCotizacion(null);
+  };
 
   const pedirCotizacion = async (planNuevo: PlanContratable) => {
+    cancelado.current = false;
     setCotizando(planNuevo);
     try {
       const c = await cotizarCambio(planNuevo);
@@ -131,6 +156,7 @@ export default function PestanaPlan() {
     setCambiando(true);
     try {
       const r = await cambiarPlan(cotizacion.plan_nuevo, correo || undefined);
+      if (cancelado.current) return;
       if (r.modo === "subir" && r.enlace) {
         // A pagar el proporcional; vuelve a /plans/confirmation?plan=…
         window.location.assign(r.enlace);
@@ -146,7 +172,7 @@ export default function PestanaPlan() {
       setCotizacion(null);
       await qc.invalidateQueries({ queryKey: ["pagos", "estado"] });
     } catch (error) {
-      toast.error(humanizeApiError(error));
+      if (!cancelado.current) toast.error(humanizeApiError(error));
     } finally {
       setCambiando(false);
     }
@@ -256,14 +282,11 @@ export default function PestanaPlan() {
           titulo={`${cotizacion.modo === "subir" ? "Subir a" : "Bajar a"} ${nombre(cotizacion.plan_nuevo)}`}
           subtitulo="Revisa antes de confirmar"
           ancho="max-w-md"
-          onCerrar={() => {
-            if (!cambiando) setCotizacion(null);
-          }}
+          onCerrar={cancelar}
           pie={
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setCotizacion(null)}
-                disabled={cambiando}
+                onClick={cancelar}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
               >
                 Cancelar
