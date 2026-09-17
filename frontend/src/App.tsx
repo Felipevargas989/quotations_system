@@ -67,19 +67,15 @@ const LogisticaPage = lazy(importLogistica);
 const PersonasPage = lazy(importPersonas);
 const MarketingPage = lazy(importMarketing);
 const InventarioPage = lazy(importInventario);
-const UserManagementPage = lazy(() => import("./pages/UserManagementPage.tsx"));
+// Usuarios y la marca viven dentro de Mi empresa desde el 18-09; la
+// ruta vieja /admin/users redirige a su pestaña.
+const MiEmpresa = lazy(() => import("./pages/configuration/MiEmpresa.tsx"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
   importServices().then((m) => ({ default: m.ServicesPage })),
 );
 const ConfigurationPage = lazy(
   () => import("./pages/configuration/ConfigurationPage"),
-);
-const CompanyConfiguration = lazy(
-  () =>
-    import(
-      "./pages/configuration/companyConfiguration/CompanyConfiguration.tsx"
-    ),
 );
 const Calendar = lazy(importCalendar);
 const Plans = lazy(() => import("./pages/plans/Plans.tsx"));
@@ -304,13 +300,12 @@ function App() {
                 }
               />
 
-              {/* User Management - Admin only */}
+              {/* Usuarios vive en Mi empresa (18-09); la ruta vieja
+                  sigue funcionando para los marcadores. */}
               <Route
                 path="admin/users"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.user_management}>
-                    <UserManagementPage />
-                  </PermissionGuard>
+                  <Navigate to="/company-configuration?tab=usuarios" replace />
                 }
               />
 
@@ -402,7 +397,7 @@ function App() {
                   <PermissionGuard
                     allowedRoles={SECTION_ROLES.company_configuration}
                   >
-                    <CompanyConfiguration />
+                    <MiEmpresa />
                   </PermissionGuard>
                 }
               />
