@@ -29,8 +29,8 @@
 -- QUÉ NO HACE: no modifica ni una fila existente, no toca permisos ni
 -- RLS, no crea índices (decenas de filas). El código viejo las ignora.
 --
--- Aplicada en LAB el 18-09-2026. En PRODUCCIÓN: pendiente, ANTES del
--- deploy del motor de este sprint.
+-- Aplicada en LAB el 18-09-2026 y en PRODUCCIÓN el 18-09-2026 (antes del
+-- deploy del motor de este sprint).
 -- ============================================================
 
 alter table public.companies
