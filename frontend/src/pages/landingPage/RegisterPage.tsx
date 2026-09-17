@@ -1,8 +1,16 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import NewUserRegisterForm from "./NewUserRegisterForm";
+import { capturarOrigen } from "../../lib/origenDelLead";
 
 export default function RegisterPage() {
+  // DE DÓNDE LLEGÓ (18-09-2026): un anuncio puede apuntar directo acá,
+  // sin pasar por la landing. Se captura igual (no pisa lo ya capturado).
+  useEffect(() => {
+    capturarOrigen();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}

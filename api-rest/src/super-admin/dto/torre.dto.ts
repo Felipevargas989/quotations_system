@@ -30,6 +30,8 @@ export interface TorreEmpresa {
   estado_plan: string | null;
   prueba_vence: string | null;
   modulos_propios: string[];
+  /** Por qué canal llegó el registro (migración 116); null = no se sabe. */
+  origen: string | null;
   usuarios: number;
   usuarios_max: number | null;
   cotizaciones_mes: number | null;
@@ -63,5 +65,6 @@ export interface TorreBase {
     estado_plan: string | null;
     prueba_vence: string | null;
     modulos_propios: string[] | null;
+    origen?: string | null;
   }[];
 }

@@ -16,6 +16,10 @@ import { Company } from 'src/companies/entities/company.entity';
 import { CustomerSatisfactionSurveyService } from 'src/customer_satisfaction_survey/service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types/index';
+import {
+  etiquetaDeOrigen,
+  limpiarOrigen,
+} from 'src/quotations/origen-del-lead';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
@@ -67,6 +71,12 @@ export class SuperAdminService {
     );
 
     try {
+      // DE DÓNDE LLEGÓ (migración 116, 18-09-2026): el navegador manda
+      // las huellas crudas del aterrizaje; el motor filtra las llaves y
+      // pone la etiqueta. Sin huellas = "Directo" (se registró sola, sin
+      // campaña). Las empresas creadas a mano desde la Torre no pasan
+      // por acá y quedan en NULL = "no se sabe".
+      const origenDetalle = limpiarOrigen(createSuscriptionDto.origen_detalle);
       // 1. Create company in public.companies table
       const newCompany: Omit<Company, 'id'> = {
         name: createSuscriptionDto.company_name,
@@ -92,6 +102,8 @@ export class SuperAdminService {
         prueba_vence: new Date(
           Date.now() + 7 * 24 * 60 * 60 * 1000,
         ).toISOString(),
+        origen: etiquetaDeOrigen(origenDetalle),
+        origen_detalle: origenDetalle,
       };
       const { data: companyData, error: companyError } =
         await this.companiesRepository.create(newCompany);
@@ -432,6 +444,7 @@ export class SuperAdminService {
           estado_plan: c.estado_plan ?? null,
           prueba_vence: c.prueba_vence ?? null,
           modulos_propios: c.modulos_propios ?? [],
+          origen: c.origen ?? null,
           usuarios: usuariosPorEmpresa.get(c.id) ?? 0,
           usuarios_max: derechos.usuarios_max,
           cotizaciones_mes: derechos.cotizaciones_mes,
@@ -491,7 +504,16 @@ export class SuperAdminService {
   // (05-08) el aviso es la alerta 🔔 con los datos del lead; el que
   // falle no bota el registro (el lead vale más que el correo).
   async registerLead(dto: RegisterLeadDto) {
-    const lead = await this.superAdminRepository.registerLead(dto);
+    // DE DÓNDE LLEGÓ (migración 116): mismo molde que el alta. El
+    // interesado se guarda ANTES del alta, así que el origen queda
+    // también para los que empezaron y no terminaron.
+    const { origen_detalle, ...datos } = dto;
+    const origenDetalle = limpiarOrigen(origen_detalle);
+    const lead = await this.superAdminRepository.registerLead({
+      ...datos,
+      origen: etiquetaDeOrigen(origenDetalle),
+      origen_detalle: origenDetalle,
+    });
     // Disparo SIN espera (cura 05-08): la respuesta de la landing no
     // espera a Resend; el helper traga y anota sus propios errores.
     void this.alertNuevoLead(dto);

@@ -32,4 +32,6 @@ export type SignupDto = {
   admin_full_name: User["full_name"];
   company_name: Company["name"];
   currency: Company["currency"];
+  /** Huellas del aterrizaje (migración 116); el motor decide la etiqueta. */
+  origen_detalle?: Record<string, string>;
 };

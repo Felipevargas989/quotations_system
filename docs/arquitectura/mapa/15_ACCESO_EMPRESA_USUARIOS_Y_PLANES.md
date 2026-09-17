@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), y el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), y el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -17,7 +17,7 @@ No pertenece a un momento del evento: está antes de todos. Tiene además dos pi
 | `/login` | `LoginPage` | `frontend/src/pages/LoginPage.tsx` | Correo y contraseña → `useAuth().signIn`. El administrador cae en `/dashboard` y los demás en `/requests`. Enlace "¿Olvidaste tu contraseña?". El enlace "Regístrate aquí" está comentado ("TEMP: self-service registration disabled") | público |
 | `/forgot-password` | `ForgotPasswordPage` | `frontend/src/pages/auth/ForgotPasswordPage.tsx` | Pide el correo y llama `requestPasswordRecovery`. Siempre dice "Si el correo existe en nuestro sistema, recibirás un enlace…" | público |
 | `/reset-password` | `ResetPasswordPage` | `frontend/src/pages/auth/ResetPasswordPage.tsx` | Lee `access_token` y `type` de la query **o** del hash. Pide la nueva contraseña (mínimo 8) dos veces → `resetPasswordWithToken`. Sin token muestra "Enlace inválido o expirado" | público |
-| `/register` | `RegisterPage` → `NewUserRegisterForm` | `frontend/src/pages/landingPage/RegisterPage.tsx` | Hoy **solo guarda un lead** (`registerLead`). Crear empresa y usuario (`signup`) y el inicio de sesión automático están comentados ("TEMP: Self-service registration is disabled") | público |
+| `/register` | `RegisterPage` → `NewUserRegisterForm` | `frontend/src/pages/landingPage/RegisterPage.tsx` | Guarda el interesado (`registerLead`) y crea la empresa de verdad (`signup`, §5.5) con inicio de sesión automático. Desde el 18-09 manda también las huellas del aterrizaje (`origen_detalle`, migración 116), capturadas por `capturarOrigen` (`lib/origenDelLead.ts`) al montar la landing y esta página | público |
 | `/admin/users` | **Redirige** a `/company-configuration?tab=usuarios` desde el 18-09 (los marcadores viejos siguen funcionando) | `App.tsx` | La gestión de usuarios vive como pestaña de Mi empresa; la página `UserManagementPage.tsx` sigue siendo la pieza que se renderiza allá | — |
 | `/configuration` | `ConfigurationPage` (**"Mi cuenta"** desde el 18-09) | `frontend/src/pages/configuration/ConfigurationPage.tsx` | SOLO lo personal: cambiar su contraseña y ver su correo. Las notificaciones se mudaron a Mi empresa → Correos (Felipe: "hay que separar todo, hoy está revuelto") | todos (`SECTION_ROLES.configuration`) |
 | `/company-configuration` | `MiEmpresa` (**"Mi empresa"** desde el 18-09, pestañas en `?tab=`) | `frontend/src/pages/configuration/MiEmpresa.tsx` | Cuatro pestañas: **Marca** (la antigua `CompanyConfiguration` embebida tal cual: nombre, subtítulo, redes, logo/banner, colores, datos de cobro, umbral), **Correos** (`CorreosDeLaEmpresa.tsx`, las notificaciones mudadas desde la pantalla personal), **Usuarios** (`UserManagementPage` embebida) y **Plan** (`PestanaPlan.tsx`: plan/estado/fechas desde `GET /pagos/estado`, botón a `/plans`; futura casa del subir/bajar con prorrateo) | administrador (`SECTION_ROLES.company_configuration`) |
@@ -65,7 +65,7 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `PATCH /users/password` | `UsersController.updatePassword` | `UsersService.updatePassword` → `UsersRepository.updatePassword` (`auth.admin.updateUserById`) | `updatePassword` ← `ConfigurationPage.handleSubmit` | solo sesión (cambia la del propio usuario) |
 | `PATCH /users/:id` (id del **perfil**) | `UsersController.update` | `UsersService.update` → `UsersRepository.update` | `updateUser` ← `UserManagementPage.createUser` en modo edición | `ADMIN_ONLY`. No filtra por empresa |
 | `DELETE /users/:id` (id del perfil) | `UsersController.remove` | `UsersService.remove` → `UsersRepository.remove` + `UsersRepository.removeAuthUser` | `deleteUser` ← `UserManagementPage.deleteUser` | `ADMIN_ONLY` |
-| `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5) | `@Public` + `@Throttle` 10/min |
+| `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5); acepta `origen_detalle` opcional (migración 116) y, si el motor lo rechazara, la app reintenta sin la marca | `@Public` + `@Throttle` 10/min |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; el controller recorta a 11 campos | `getCompanyPublic` ← `CreateQuotationPublic` (mapa 11); `getCompanyById` (`services/superAdmin.service.tsx`) ← `PublicSurvey` (mapa 14) | `@Public` |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` → `CompaniesRepository.findOne` (`select('*')`) | `getCompany` ← `ConfigurationPage` (queryKey `["company", id]`) | solo sesión. **No compara con la empresa de la sesión** |
 | `PATCH /companies` | `CompaniesController.update` | `CompaniesService.update` → `CompaniesRepository.update` (empresa de la sesión) | `updateCompany` (`services/companies.service.ts`) ← `CompanyConfiguration.handleSubmit`, `ConfigurationPage.handleSaveNotifications` | `ADMIN_ONLY` |
@@ -113,8 +113,8 @@ Usos dentro del motor, sin pasar por HTTP:
 | Tabla | Qué guarda | Lee o escribe | Migración que la crea o modifica |
 |---|---|---|---|
 | `user_profiles` | Perfil de cada usuario: `id` (uuid propio, **no** es el id de Auth), `user_id` (FK a `auth.users`, UNIQUE), `email`, `full_name`, `role` (CHECK con los 4 cargos, default `vendedor`), `company_id` (FK a `companies`, NOT NULL), `created_at`, `updated_at` | escribe `UsersRepository.createUser`, `update` y `remove`; lee `UsersRepository.findOne` (guardián y perfil), `UsersRepository.findAll` (gestión y destinatarios de avisos), `SuperAdminRepository.getTorreBase` | `0_initial_models.sql` (foto del esquema, no una migración real); `40_cerrar_acceso_directo.sql` le quita todo a `authenticated` |
-| `companies` | La empresa: `name`, `logo_url`, `colors` (jsonb `primary` y `secondary`), `is_premium` (default false), `notifications` (jsonb `emails` + `replyTo`), `currency`, `is_active`, `created_at`; `tagline` y `bank_details`; `high_value_threshold`; `whatsapp`, `instagram`, `facebook`, `sitio_web`; `banner_url`; `modulos_propios` (§5.7); `plan`, `estado_plan`, `prueba_vence` y `plan_cambiado_en` (§5.8) | escribe `CompaniesRepository.update` y `create`, `PlansRepository.confirmPlan` (`is_premium`), `SuperAdminRepository.createCompanyOnly` y `updateCompanyById`, `PlanCronService.bloquearPruebasVencidas` (`estado_plan`); lee `CompaniesRepository.findOne` (correos, envío de cotizaciones, consultas, marketing), `UsersRepository.findOne` (embebida en el perfil), `DerechosService.deEmpresa` (`plan`, `estado_plan`, `modulos_propios`), `SuperAdminRepository` (`listCompanies`, `getStatsLastMonth`, `getTorreBase`) | `0_initial_models.sql`; `41_barrida_final_anon.sql` (le quita todo a `anon`); `46_datos_cobro_empresa.sql`; `60_umbral_alto_valor.sql`; `95_contacto_de_marca.sql`; `96_banner_de_correos.sql`; `111_modulos_propios.sql`; `112_derechos_por_plan.sql`. `is_active` no tiene migración numerada: llegó con el commit `c3d0f5d` (04-11-2025) y está en la foto 0 |
-| `leads` | Interesados de la landing: `nombre`, `telefono`, `email`, `nombre_empresa`, `personas_empresa`, `ventas_anuales`, `created_at` | escribe `SuperAdminRepository.registerLead`; lee `SuperAdminRepository.countLeads` | `0_initial_models.sql`; `39_leads_solo_por_backend.sql` (cierra el INSERT anónimo) |
+| `companies` | La empresa: `name`, `logo_url`, `colors` (jsonb `primary` y `secondary`), `is_premium` (default false), `notifications` (jsonb `emails` + `replyTo`), `currency`, `is_active`, `created_at`; `tagline` y `bank_details`; `high_value_threshold`; `whatsapp`, `instagram`, `facebook`, `sitio_web`; `banner_url`; `modulos_propios` (§5.7); `plan`, `estado_plan`, `prueba_vence` y `plan_cambiado_en` (§5.8); `origen` y `origen_detalle` (§5.5 punto 6, migración 116) | escribe `CompaniesRepository.update` y `create`, `PlansRepository.confirmPlan` (`is_premium`), `SuperAdminRepository.createCompanyOnly` y `updateCompanyById`, `PlanCronService.bloquearPruebasVencidas` (`estado_plan`); lee `CompaniesRepository.findOne` (correos, envío de cotizaciones, consultas, marketing), `UsersRepository.findOne` (embebida en el perfil), `DerechosService.deEmpresa` (`plan`, `estado_plan`, `modulos_propios`), `SuperAdminRepository` (`listCompanies`, `getStatsLastMonth`, `getTorreBase`) | `0_initial_models.sql`; `41_barrida_final_anon.sql` (le quita todo a `anon`); `46_datos_cobro_empresa.sql`; `60_umbral_alto_valor.sql`; `95_contacto_de_marca.sql`; `96_banner_de_correos.sql`; `111_modulos_propios.sql`; `112_derechos_por_plan.sql`; `116_origen_del_registro.sql`. `is_active` no tiene migración numerada: llegó con el commit `c3d0f5d` (04-11-2025) y está en la foto 0 |
+| `leads` | Interesados de la landing: `nombre`, `telefono`, `email`, `nombre_empresa`, `personas_empresa`, `ventas_anuales`, `created_at`; `origen` y `origen_detalle` (migración 116) | escribe `SuperAdminRepository.registerLead`; lee `SuperAdminRepository.countLeads` | `0_initial_models.sql`; `39_leads_solo_por_backend.sql` (cierra el INSERT anónimo); `116_origen_del_registro.sql` |
 | `auth.users` (Supabase Auth) | Cuentas, contraseñas, `last_sign_in_at`, `created_at` | escribe `UsersRepository.createAuthUser` (`auth.signUp`), `UsersRepository.updatePassword` y `AuthService.resetPasswordWithToken` (`auth.admin.updateUserById`), `UsersRepository.removeAuthUser` (`auth.admin.deleteUser`); lee `AuthService.validateToken` (`auth.getUser`), `SuperAdminRepository.listarTodosLosUsuarios` (`auth.admin.listUsers`, en páginas de 1000). El correo de recuperación lo manda Supabase (`resetPasswordForEmail`) | la administra Supabase; sin migración en el repo |
 | `quotations` (`created_at`, `company_id`, `total_amount`) | Cotizaciones, para las barras del super-admin | lee `SuperAdminRepository.getStatsLastMonth`, en páginas con `.range()` | mapa 01 |
 | `customer_satisfaction_survey_templates` | Plantilla de encuesta por empresa | la crea `createSuscription` vía `CustomerSatisfactionSurveyService.createTemplate` | mapa 14 |
@@ -194,16 +194,32 @@ paso 4 del roadmap volvió a crear la empresa de verdad.
    `assertSuperAdmin`). Regla de la casa: una sola puerta pública por
    función.
 5. La empresa nueva ve el banner de la prueba (`Layout`, con los días
-   que quedan) y `/plans` muestra los tres planes reales; contratar
-   abre WhatsApp con el plan y la empresa ya escritos **hasta que exista
-   el cobro automático** (sprint B de `PLAN_VENTA_AUTOMATICA.md`).
-   `/plans/confirmation` sigue apagada con su 410 del paso 2.
+   que quedan) y `/plans` muestra los tres planes reales y contrata de
+   verdad con Mercado Pago (§5.9, desde el 17-09); `/plans/confirmation`
+   pregunta el estado cada 3 s hasta que llegue el aviso del pago.
+6. **De dónde llegó cada registro (18-09-2026, migración 116).** Mismo
+   molde que el origen del lead de la migración 110 (mapa 01): la app
+   captura la huella del aterrizaje (`capturarOrigen`, `lib/origenDelLead.ts`,
+   al montar `LandingPage` y `RegisterPage`; el primer toque manda y vive
+   en `sessionStorage`) y `NewUserRegisterForm` la manda como
+   `origen_detalle` con el interesado Y con el alta. El motor decide:
+   `limpiarOrigen` se queda solo con las llaves conocidas y
+   `etiquetaDeOrigen` pone la etiqueta (`quotations/origen-del-lead.ts`,
+   reutilizado desde `SuperAdminService.createSuscription` y
+   `registerLead`) → `companies.origen`/`origen_detalle` y
+   `leads.origen`/`origen_detalle`. **NULL = no se sabe** (anterior a la
+   116 o creada a mano desde la Torre); **"Directo" = se registró sola
+   sin ninguna huella**. Ambos DTOs aceptan `origen_detalle` como objeto
+   opcional; la app reintenta sin la marca si el motor la rechazara
+   (mismo seguro que la 110). Se ve en la Torre (§5.6). Prueba:
+   `super-admin/tests/alta-por-cuenta-propia.spec.ts`.
 
 ### 5.6 Torre de Control (super-admin)
 
 1. `/superAdminqweasdzxc` → `TorreDeControl` → `getTorre` → `GET /super-admin/torre` → `AuthGuard` (sesión) → `SuperAdminController.getTorre` → `assertSuperAdmin(user.email)`: compara en minúsculas contra `SUPER_ADMIN_EMAILS` y responde 403 "Solo super-administradores." si no está.
 2. `SuperAdminService.getTorre` → en paralelo `SuperAdminRepository.getTorreBase` (`listarTodosLosUsuarios` + `user_profiles` + `companies`) y `countLeads()` + `countLeads(inicio de mes UTC)`. Cruza Auth con perfiles **por correo**, ordena por último inicio de sesión (los que nunca entraron al final) y arma las 6 tarjetas.
 3. Al mismo tiempo, `SuperAdminPage` pide `GET /super-admin/companies` y `GET /super-admin/stats/last-month` → `armarStatsMensuales` (6 meses con huecos en 0 y totales de 30 días) + `getUsersLastSignIns`.
+4. La tabla de empresas muestra la columna **Llegó por** (`TorreEmpresa.origen`, migración 116, §5.5 punto 6): "—" = no se sabe (anterior a la 116 o creada a mano), "Directo" = se registró sola sin huella, y si no la etiqueta del canal ("Google Ads", "Meta", "Búsqueda orgánica", "Referido: sitio").
 
 ## 6. Reglas de negocio acordadas
 

@@ -5,6 +5,8 @@ export interface LeadData {
   nombre_empresa: string;
   personas_empresa: string;
   ventas_anuales: string;
+  /** Huellas del aterrizaje (migración 116); el motor decide la etiqueta. */
+  origen_detalle?: Record<string, string>;
 }
 
 export interface RegisterLeadResponse {

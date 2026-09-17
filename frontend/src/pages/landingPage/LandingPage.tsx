@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { capturarOrigen } from "../../lib/origenDelLead";
 
 // Landing pública de Eventia (rediseño 27-07 — screenshots reales, FAQ, WhatsApp).
 // Botones -> flujos reales: "Prueba gratis" -> /register, "Acceder" -> /login.
@@ -469,6 +470,10 @@ export default function LandingPage() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // DE DÓNDE LLEGÓ (18-09-2026): la huella del aterrizaje (gclid, utm_*,
+    // referente) se captura en la puerta de entrada y viaja después con
+    // el registro (migración 116). El primer toque manda.
+    capturarOrigen();
     const root = ref.current;
     if (!root) return;
     const els = root.querySelectorAll(".reveal");

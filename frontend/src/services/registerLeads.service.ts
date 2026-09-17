@@ -17,6 +17,22 @@ export const registerLead = async (
     );
     return { success: true, data };
   } catch (error) {
+    // RED DE SEGURIDAD (migración 116): si el motor aún no entiende
+    // `origen_detalle`, se reintenta sin la marca antes de rendirse.
+    if (leadData.origen_detalle) {
+      const sinOrigen = { ...leadData };
+      delete sinOrigen.origen_detalle;
+      try {
+        const data = await apiRequest(
+          API_ROUTES.SUPER_ADMIN_LEAD,
+          "POST",
+          sinOrigen,
+        );
+        return { success: true, data };
+      } catch {
+        /* se informa el error original, abajo */
+      }
+    }
     return {
       success: false,
       error:
