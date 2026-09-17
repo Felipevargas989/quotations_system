@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), y el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -18,6 +18,7 @@ No pertenece a un momento del evento: está antes de todos. Tiene además dos pi
 | `/forgot-password` | `ForgotPasswordPage` | `frontend/src/pages/auth/ForgotPasswordPage.tsx` | Pide el correo y llama `requestPasswordRecovery`. Siempre dice "Si el correo existe en nuestro sistema, recibirás un enlace…" | público |
 | `/reset-password` | `ResetPasswordPage` | `frontend/src/pages/auth/ResetPasswordPage.tsx` | Lee `access_token` y `type` de la query **o** del hash. Pide la nueva contraseña (mínimo 8) dos veces → `resetPasswordWithToken`. Sin token muestra "Enlace inválido o expirado" | público |
 | `/register` | `RegisterPage` → `NewUserRegisterForm` | `frontend/src/pages/landingPage/RegisterPage.tsx` | Guarda el interesado (`registerLead`) y crea la empresa de verdad (`signup`, §5.5) con inicio de sesión automático. Desde el 18-09 manda también las huellas del aterrizaje (`origen_detalle`, migración 116), capturadas por `capturarOrigen` (`lib/origenDelLead.ts`) al montar la landing y esta página | público |
+| `/terminos` y `/privacidad` | `Terminos` / `Privacidad` (sobre `PaginaLegal`) | `frontend/src/pages/legal/` | Términos y condiciones y política de privacidad (18-09-2026, paso 6 del roadmap): texto aprobado por Felipe (RUT, domicilio en Quillón, hola@eventi-app.com, 90 días de conservación, tribunales de Quillón). Enlazadas desde el registro ("al crear tu cuenta aceptas…"), el pie de la landing y el pie de `/register`. Los números que citan (7 días de prueba y de gracia, precios y topes, proporcional al subir) son los que aplica el sistema: cambian en el mismo commit | público |
 | `/admin/users` | **Redirige** a `/company-configuration?tab=usuarios` desde el 18-09 (los marcadores viejos siguen funcionando) | `App.tsx` | La gestión de usuarios vive como pestaña de Mi empresa; la página `UserManagementPage.tsx` sigue siendo la pieza que se renderiza allá | — |
 | `/configuration` | `ConfigurationPage` (**"Mi cuenta"** desde el 18-09) | `frontend/src/pages/configuration/ConfigurationPage.tsx` | SOLO lo personal: cambiar su contraseña y ver su correo. Las notificaciones se mudaron a Mi empresa → Correos (Felipe: "hay que separar todo, hoy está revuelto") | todos (`SECTION_ROLES.configuration`) |
 | `/company-configuration` | `MiEmpresa` (**"Mi empresa"** desde el 18-09, pestañas en `?tab=`) | `frontend/src/pages/configuration/MiEmpresa.tsx` | Cuatro pestañas: **Marca** (la antigua `CompanyConfiguration` embebida tal cual: nombre, subtítulo, redes, logo/banner, colores, datos de cobro, umbral), **Correos** (`CorreosDeLaEmpresa.tsx`, las notificaciones mudadas desde la pantalla personal), **Usuarios** (`UserManagementPage` embebida) y **Plan** (`PestanaPlan.tsx`: plan/estado/fechas desde `GET /pagos/estado`, botón a `/plans`; futura casa del subir/bajar con prorrateo) | administrador (`SECTION_ROLES.company_configuration`) |
@@ -74,6 +75,7 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `GET /pagos/estado` | `PagosController.estado` | `PagosService.estado` → `PagosRepository.empresa` (directo a la base, sin memoria) | `estadoDelPlan` ← `ConfirmationPage` (pregunta cada 3 s hasta ver `activo`) | sesión + `@SinPlan` |
 | `POST /pagos/cambiar-plan/cotizar` | `PagosController.cotizarCambio` | `PagosService.cotizarCambio` — lee los dos precios del plan real en Mercado Pago y calcula: subir = (nuevo − actual) × días restantes / 30, bajar = 0 y rige al terminar lo pagado | `cotizarCambio` (`services/pagos.service.ts`) ← `PestanaPlan` (Mi empresa → Plan), para MOSTRAR antes de confirmar | `ADMIN_ONLY`; solo empresa activa que paga por Mercado Pago con suscripción viva |
 | `POST /pagos/cambiar-plan` | `PagosController.cambiarPlan` | `PagosService.cambiarPlan`: subir → pago único (Checkout Pro, referencia `cambio:empresa:plan`) cuyo aviso `payment` aplica el plan al instante y ajusta el monto de la suscripción; bajar → `plan_programado` + el monto de la suscripción baja desde ya | `cambiarPlan` ← `PestanaPlan` tras la confirmación | `ADMIN_ONLY` |
+| `POST /pagos/cancelar` | `PagosController.cancelar` | `PagosService.cancelar`: cancela la suscripción en Mercado Pago (`PUT /preapproval` con `status: cancelled`) y deja `pago_suscripcion_id` NULL con el proveedor puesto y `plan_programado` NULL — la misma marca que deja el aviso `cancelled`; la empresa conserva todo hasta `pagado_hasta` y el reloj de las 11:10 (paso 1) la pausa | `cancelarPlan` (`services/pagos.service.ts`) ← `PestanaPlan` (Mi empresa → Plan, botón "Cancelar mi plan" tras `ConfirmInline`) | `ADMIN_ONLY` + `@SinPlan`; gratis → 400; sin suscripción viva → 400 |
 | `POST /pagos/webhook` | `PagosController.webhook` | `verificarFirmaMercadoPago` (HMAC del header `x-signature`) → `PagosService.procesarAviso` (consulta la VERDAD en Mercado Pago, jamás confía en el cuerpo; idempotente por `avisos_de_pago`) | **Mercado Pago**, nadie de la app | `@Public` + `@Throttle` 600/min; la puerta es la FIRMA (fail-closed sin secreto en producción) |
 | `POST /super-admin/suscription` | `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Dentro del motor, `UsersService.signup` llama a `SuperAdminService.createSuscription` | `@Public` + `@Throttle` 10 por minuto |
 | `POST /super-admin/lead` | `SuperAdminController.registerLead` | `SuperAdminService.registerLead` → `SuperAdminRepository.registerLead` + `alertNuevoLead` | `registerLead` (`services/registerLeads.service.ts`) ← `NewUserRegisterForm.handleSubmit`, dentro de la pantalla `RegisterPage` (ruta `/register`) | `@Public` + `@Throttle` 10 por minuto |
@@ -663,6 +665,18 @@ El diseño completo y las 7 decisiones firmadas viven en
    `pagos/tests/cambio-de-plan.spec.ts`. Ojo con el webhook de Mercado
    Pago: el pago único llega por el tema **Pagos**, que hay que tener
    marcado además de "Planes y suscripciones".
+9. **Cancelar mi plan** (18-09, términos §9; ley 21.398: dar de baja
+   por el mismo medio por el que se contrató, recomendación aceptada
+   por Felipe): botón en Mi empresa → Plan con `ConfirmInline`.
+   `POST /pagos/cancelar` cancela la suscripción en Mercado Pago y deja
+   la marca de "canceló" (suscripción NULL, proveedor puesto,
+   `plan_programado` NULL): la empresa conserva todo hasta
+   `pagado_hasta` y el reloj de las 11:10 (paso 1) la pausa; nada se
+   borra. `GET /pagos/estado` devuelve `suscripcion_viva` y `cancelada`
+   para que la pestaña lo diga y esconda los botones de cambio. Una
+   morosa también puede cancelar (el paso 3 la pausa al vencer su
+   gracia); en prueba no hay botón, la prueba simplemente termina. Lo
+   jura `pagos/tests/cancelar-plan.spec.ts`.
 
 Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
 secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`

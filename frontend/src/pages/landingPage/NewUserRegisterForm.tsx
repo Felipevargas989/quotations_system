@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
@@ -143,8 +143,8 @@ export default function NewUserRegisterForm() {
             ¡Tu cuenta está lista!
           </h2>
           <p className="text-gray-600 mb-6">
-            Creamos tu empresa y tus 7 días de prueba ya están corriendo.
-            Entra con tu correo y la contraseña que elegiste.
+            Creamos tu empresa y tus 7 días de prueba ya están corriendo. Entra
+            con tu correo y la contraseña que elegiste.
           </p>
           <a
             href="/login"
@@ -413,7 +413,25 @@ export default function NewUserRegisterForm() {
         </button>
 
         <p className="text-xs text-gray-500 text-center">
-          Al crear tu cuenta, aceptas nuestros términos y condiciones
+          Al crear tu cuenta, aceptas nuestros{" "}
+          <Link
+            to="/terminos"
+            target="_blank"
+            rel="noopener"
+            className="text-blue-600 hover:underline"
+          >
+            términos y condiciones
+          </Link>{" "}
+          y nuestra{" "}
+          <Link
+            to="/privacidad"
+            target="_blank"
+            rel="noopener"
+            className="text-blue-600 hover:underline"
+          >
+            política de privacidad
+          </Link>
+          .
         </p>
       </form>
     </div>

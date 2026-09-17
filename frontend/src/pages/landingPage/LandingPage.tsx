@@ -462,7 +462,7 @@ const LANDING_HTML = `<style>
   <div class="wrap foot-in">
     <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:var(--navy)"><svg width="22" height="22" viewBox="0 0 64 64" fill="none"><path d="M8 11 H41 L32 21 H8 Z" fill="#1597E5"/><path d="M8 25 H35 L26 35 H8 Z" fill="#1597E5"/><path d="M11 41 L22 53 L49 24" stroke="#0B1F33" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg> Eventia</div>
     <div>© 2026 Eventia. Todos los derechos reservados.</div>
-    <div style="display:flex;gap:20px"><a href="#precios">Precios</a><a href="/login">Acceder</a></div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap"><a href="#precios">Precios</a><a href="/login">Acceder</a><a href="/terminos">Términos</a><a href="/privacidad">Privacidad</a></div>
   </div>
 </footer>`;
 
@@ -486,7 +486,7 @@ export default function LandingPage() {
           }
         });
       },
-      { threshold: 0.12 }
+      { threshold: 0.12 },
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();

@@ -82,6 +82,18 @@ export class PagosController {
     );
   }
 
+  // "CANCELAR MI PLAN" (18-09-2026, términos §9): dar de baja por el
+  // mismo medio por el que se contrató. Solo el administrador; con
+  // @SinPlan para que una empresa morosa o pausada con la suscripción
+  // aún viva también pueda cerrarla.
+  @Roles(...ADMIN_ONLY)
+  @SinPlan()
+  @Post('cancelar')
+  cancelar(@CurrentUser() user: User) {
+    this.logger.warn(`POST /pagos/cancelar por la empresa ${user.company_id}`);
+    return this.pagosService.cancelar(user.company_id);
+  }
+
   @Public()
   // Techo holgado: los reenvíos del proveedor no pueden chocar con un
   // 429 — la puerta de verdad es la firma, no la velocidad (calco del

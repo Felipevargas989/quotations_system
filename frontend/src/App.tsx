@@ -46,8 +46,7 @@ const importMarketing = () => import("./pages/marketing/MarketingPage");
 const CampanaFichaPage = lazy(
   () => import("./pages/marketing/CampanaFichaPage"),
 );
-const importPersonaFicha = () =>
-  import("./pages/personas/PersonaFichaPage");
+const importPersonaFicha = () => import("./pages/personas/PersonaFichaPage");
 const PersonaFichaPage = lazy(importPersonaFicha);
 const importInventario = () => import("./pages/inventario/InventarioPage");
 const importServices = () => import("./pages/services");
@@ -70,6 +69,9 @@ const InventarioPage = lazy(importInventario);
 // Usuarios y la marca viven dentro de Mi empresa desde el 18-09; la
 // ruta vieja /admin/users redirige a su pestaña.
 const MiEmpresa = lazy(() => import("./pages/configuration/MiEmpresa.tsx"));
+// Las páginas legales (18-09): públicas y rara vez visitadas → perezosas.
+const Terminos = lazy(() => import("./pages/legal/Terminos"));
+const Privacidad = lazy(() => import("./pages/legal/Privacidad"));
 const SuperAdminPage = lazy(() => import("./pages/superAdmin/Index.tsx"));
 const ServicesPage = lazy(() =>
   importServices().then((m) => ({ default: m.ServicesPage })),
@@ -161,6 +163,8 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/terminos" element={<Terminos />} />
+            <Route path="/privacidad" element={<Privacidad />} />
             {/* TODO: add authentication */}
             <Route path="/superAdminqweasdzxc" element={<SuperAdminPage />} />
             <Route
@@ -178,10 +182,7 @@ function App() {
             <Route path="/portal/:token" element={<PortalPage />} />
 
             {/* La hoja del PDF (token firmado de corta vida, doc 13) */}
-            <Route
-              path="/imprimir/:token"
-              element={<ImprimirCotizacion />}
-            />
+            <Route path="/imprimir/:token" element={<ImprimirCotizacion />} />
 
             <Route path="/" element={<Layout />}>
               {/* Dashboard - Admin only */}
@@ -285,7 +286,10 @@ function App() {
               <Route
                 path="post-venta"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.payments} derecho="post_venta">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.payments}
+                    derecho="post_venta"
+                  >
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -294,7 +298,10 @@ function App() {
               <Route
                 path="post-venta/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.payments} derecho="post_venta">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.payments}
+                    derecho="post_venta"
+                  >
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -323,7 +330,10 @@ function App() {
               <Route
                 path="logistica"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics} derecho="logistica">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.logistics}
+                    derecho="logistica"
+                  >
                     <LogisticaPage />
                   </PermissionGuard>
                 }
@@ -334,7 +344,10 @@ function App() {
               <Route
                 path="inventario"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.logistics} derecho="logistica">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.logistics}
+                    derecho="logistica"
+                  >
                     <InventarioPage />
                   </PermissionGuard>
                 }
@@ -345,7 +358,10 @@ function App() {
               <Route
                 path="personas"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people} derecho="personal">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.people}
+                    derecho="personal"
+                  >
                     <PersonasPage />
                   </PermissionGuard>
                 }
@@ -355,7 +371,10 @@ function App() {
               <Route
                 path="marketing"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} derecho="marketing">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.marketing}
+                    derecho="marketing"
+                  >
                     <MarketingPage />
                   </PermissionGuard>
                 }
@@ -365,7 +384,10 @@ function App() {
               <Route
                 path="marketing/campana/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.marketing} derecho="marketing">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.marketing}
+                    derecho="marketing"
+                  >
                     <CampanaFichaPage />
                   </PermissionGuard>
                 }
@@ -376,7 +398,10 @@ function App() {
               <Route
                 path="personas/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.people} derecho="personal">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.people}
+                    derecho="personal"
+                  >
                     <PersonaFichaPage />
                   </PermissionGuard>
                 }
@@ -404,7 +429,10 @@ function App() {
               <Route
                 path="calendar"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.calendar} derecho="calendario">
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.calendar}
+                    derecho="calendario"
+                  >
                     <Calendar />
                   </PermissionGuard>
                 }

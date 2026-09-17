@@ -190,6 +190,19 @@ export class MercadoPagoService {
   }
 
   /**
+   * Cancela la suscripción viva (18-09-2026, botón "Cancelar mi plan",
+   * términos §9): Mercado Pago no vuelve a cobrar. Lo ya pagado no se
+   * toca — la empresa conserva su plan hasta `pagado_hasta`.
+   */
+  async cancelarSuscripcion(preapprovalId: string): Promise<void> {
+    await this.llamar(
+      'PUT',
+      `/preapproval/${encodeURIComponent(preapprovalId)}`,
+      { status: 'cancelled' },
+    );
+  }
+
+  /**
    * Un pago ÚNICO (no recurrente): el proporcional de una subida de
    * plan (18-09-2026). Va por Checkout Pro con la referencia
    * `cambio:empresa:plan`, y su aviso llega por el mismo webhook como

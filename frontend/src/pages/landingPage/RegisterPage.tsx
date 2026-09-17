@@ -64,7 +64,14 @@ export default function RegisterPage() {
       <footer className="bg-white border-t border-gray-200 py-8 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-gray-500">
-            &copy; 2025 Eventia. Todos los derechos reservados.
+            &copy; 2026 Eventia. Todos los derechos reservados. ·{" "}
+            <Link to="/terminos" className="hover:text-gray-700 underline">
+              Términos
+            </Link>{" "}
+            ·{" "}
+            <Link to="/privacidad" className="hover:text-gray-700 underline">
+              Privacidad
+            </Link>
           </p>
         </div>
       </footer>

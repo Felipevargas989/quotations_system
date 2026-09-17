@@ -23,6 +23,8 @@ export const estadoDelPlan = async (): Promise<{
   pagado_hasta: string | null;
   pago_proveedor: string | null;
   plan_programado: string | null;
+  suscripcion_viva: boolean;
+  cancelada: boolean;
 }> => {
   return (await apiRequest(API_ROUTES.PAGOS_ESTADO, "GET")) as {
     plan: string | null;
@@ -30,8 +32,19 @@ export const estadoDelPlan = async (): Promise<{
     pagado_hasta: string | null;
     pago_proveedor: string | null;
     plan_programado: string | null;
+    suscripcion_viva: boolean;
+    cancelada: boolean;
   };
 };
+
+// "CANCELAR MI PLAN" (18-09-2026, términos §9): por el mismo medio por
+// el que se contrató. Sigue hasta lo pagado; no se cobra el mes siguiente.
+export const cancelarPlan = async (): Promise<{
+  sigue_hasta: string | null;
+}> =>
+  (await apiRequest(API_ROUTES.PAGOS_CANCELAR, "POST", {})) as {
+    sigue_hasta: string | null;
+  };
 
 // EL CAMBIO DE PLAN (18-09-2026): primero se cotiza (qué costaría y
 // desde cuándo rige) y recién con la confirmación se cambia.
