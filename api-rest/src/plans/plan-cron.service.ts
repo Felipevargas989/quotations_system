@@ -5,6 +5,7 @@ import { DerechosService } from 'src/auth/derechos.service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 
 // EL RELOJ DE LOS PLANES (14-09-2026 el de las pruebas; 16-09-2026
@@ -112,9 +113,7 @@ export class PlanCronService {
   @Cron('10 11 * * *')
   async cosecharCobrosVencidos() {
     const ahora = new Date().toISOString();
-    const gracia = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+    const gracia = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // 1. Canceladas con el mes pagado ya cumplido → bloqueadas.
     const { data: canceladas } = await this.supabase.client
@@ -189,7 +188,7 @@ export class PlanCronService {
     try {
       const usuarios = await this.usersService.findAll(companyId);
       const correos = usuarios
-        .filter((u) => u.role === 'administrador')
+        .filter((u) => u.role === UserRole.ADMINISTRADOR)
         .map((u) => u.email)
         .filter(Boolean);
       for (const correo of correos) {

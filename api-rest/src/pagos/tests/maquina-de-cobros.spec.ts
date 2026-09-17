@@ -36,17 +36,15 @@ const armar = (opciones?: {
       id: 'susc-1',
       init_point: 'https://mp.example/susc-1',
     }),
-    consultarSuscripcion: jest
-      .fn()
-      .mockResolvedValue(
-        opciones?.suscripcion ?? {
-          id: 'susc-1',
-          status: 'authorized',
-          preapproval_plan_id: 'plan-gestiona',
-          external_reference: '42',
-          next_payment_date: '2026-10-16T12:00:00.000Z',
-        },
-      ),
+    consultarSuscripcion: jest.fn().mockResolvedValue(
+      opciones?.suscripcion ?? {
+        id: 'susc-1',
+        status: 'authorized',
+        preapproval_plan_id: 'plan-gestiona',
+        external_reference: '42',
+        next_payment_date: '2026-10-16T12:00:00.000Z',
+      },
+    ),
     consultarPago: jest.fn().mockImplementation(() => {
       if (opciones && 'pago' in opciones && opciones.pago === null) {
         return Promise.reject(new Error('no existe'));
@@ -77,7 +75,9 @@ const armar = (opciones?: {
           },
     ),
     actualizarEmpresa: jest.fn().mockResolvedValue(undefined),
-    avisoYaProcesado: jest.fn().mockResolvedValue(opciones?.yaProcesado ?? false),
+    avisoYaProcesado: jest
+      .fn()
+      .mockResolvedValue(opciones?.yaProcesado ?? false),
     anotarAviso: jest.fn().mockResolvedValue(undefined),
   };
   const usersService = {
@@ -262,10 +262,10 @@ describe('procesarAviso: el pago mensual', () => {
     const antes = Date.now();
     const accion = await servicio.procesarAviso('payment', '777', {});
     expect(accion).toContain('morosa');
-    const campos = repo.actualizarEmpresa.mock.calls[0][1] as {
-      estado_plan: string;
-      gracia_hasta: string;
-    };
+    const llamadas = repo.actualizarEmpresa.mock.calls as unknown as [
+      [number, { estado_plan: string; gracia_hasta: string }],
+    ];
+    const campos = llamadas[0][1];
     expect(campos.estado_plan).toBe('moroso');
     const dias =
       (new Date(campos.gracia_hasta).getTime() - antes) / (24 * 60 * 60 * 1000);

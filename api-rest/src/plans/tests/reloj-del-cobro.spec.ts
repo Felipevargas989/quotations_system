@@ -139,7 +139,11 @@ describe('el reloj del cobro', () => {
     const { client } = armarCliente([
       {
         data: [
-          { id: 3, name: 'Recién Llegada', prueba_vence: '2026-09-18T12:00:00Z' },
+          {
+            id: 3,
+            name: 'Recién Llegada',
+            prueba_vence: '2026-09-18T12:00:00Z',
+          },
         ],
       },
     ]);

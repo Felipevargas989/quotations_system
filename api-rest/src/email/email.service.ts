@@ -10,11 +10,6 @@ import { EmailBranding, fmtCLP } from './templates/brandLayout';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { NewAccountParams, newAccountTemplate } from './templates/newAccount';
-import { PagoFallidoParams, pagoFallidoTemplate } from './templates/pagoFallido';
-import {
-  PruebaPorVencerParams,
-  pruebaPorVencerTemplate,
-} from './templates/pruebaPorVencer';
 import { newAnswerCustomerSatisfactionSurveyTemplate } from './templates/newAnswerCustomerSatisfactionSurvey/template';
 import { NewAnswerCustomerSatisfactionSurveyParams } from './templates/newAnswerCustomerSatisfactionSurvey/types';
 import {
@@ -22,6 +17,10 @@ import {
   newPublicQuotationAdminTemplate,
 } from './templates/newPublicQuotationCreated/forAdmin';
 import { newPublicQuotationClientTemplate } from './templates/newPublicQuotationCreated/forClient';
+import {
+  PagoFallidoParams,
+  pagoFallidoTemplate,
+} from './templates/pagoFallido';
 import { paymentOverdueTemplate } from './templates/paymentOverdue/paymentOverdue';
 import { paymentOverdueAdminTemplate } from './templates/paymentOverdue/paymentOverdueAdmin';
 import { paymentPlanCreatedTemplate } from './templates/paymentPlanCreated/paymentPlanCreated';
@@ -38,6 +37,10 @@ import {
   PortalReceiptAdminParams,
   portalReceiptAdminTemplate,
 } from './templates/portalReceipt/admin';
+import {
+  PruebaPorVencerParams,
+  pruebaPorVencerTemplate,
+} from './templates/pruebaPorVencer';
 import { quotationFollowUpTemplate } from './templates/quotationFollowUp/template';
 import { QuotationFollowUpParams } from './templates/quotationFollowUp/types';
 import { quotationIsSentTemplate } from './templates/quotationIsSent/quotationIsSent';

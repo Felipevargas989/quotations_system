@@ -2,7 +2,8 @@ import { EmailStructure } from '../types';
 
 export const EMAIL_SUBJECTS = {
   [EmailStructure.NEW_ACCOUNT]: 'Bienvenido a Eventia',
-  [EmailStructure.PAGO_FALLIDO]: 'Tu pago no pasó — tienes 7 días para arreglarlo',
+  [EmailStructure.PAGO_FALLIDO]:
+    'Tu pago no pasó — tienes 7 días para arreglarlo',
   [EmailStructure.PRUEBA_POR_VENCER]: 'Tu prueba de Eventia termina en 2 días',
   [EmailStructure.NEW_PUBLIC_QUOTATION_CLIENT]:
     'Solicitud de cotización recibida',

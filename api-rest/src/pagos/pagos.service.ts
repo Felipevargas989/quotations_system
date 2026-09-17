@@ -10,6 +10,7 @@ import { DerechosService } from 'src/auth/derechos.service';
 import { olvidarPerfil } from 'src/cache/memoria';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types';
+import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { MercadoPagoService } from './mercadopago.service';
 import { EmpresaParaCobro, PagosRepository } from './pagos.repository';
@@ -303,7 +304,7 @@ export class PagosService {
     try {
       const usuarios = await this.usersService.findAll(companyId);
       const correos = usuarios
-        .filter((u) => u.role === 'administrador')
+        .filter((u) => u.role === UserRole.ADMINISTRADOR)
         .map((u) => u.email)
         .filter(Boolean);
       for (const correo of correos) {
