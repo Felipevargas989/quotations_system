@@ -304,6 +304,18 @@ export default function Plans() {
                 <strong>{preguntando.precio}</strong> queda amarrado a esa
                 cuenta y puedes cancelarlo cuando quieras.
               </p>
+              {/* La salida para el que no usa Mercado Pago (Felipe,
+                  17-09: "¿y si la gente no tiene Mercado Pago?"): la
+                  venta no muere, se conversa y se paga por
+                  transferencia desde la Torre. */}
+              <button
+                type="button"
+                onClick={() => porWhatsApp(preguntando)}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                ¿No usas Mercado Pago? Escríbenos por WhatsApp y lo
+                arreglamos altiro
+              </button>
             </div>
           </Modal>
         )}

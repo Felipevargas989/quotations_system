@@ -1,17 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CreditCard } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDown, ArrowRight, ArrowUp, CreditCard, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import Modal from "../../components/Modal";
+import { toast } from "../../components/toast/Toast";
 import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
-import { estadoDelPlan } from "../../services/pagos.service";
+import {
+  cambiarPlan,
+  cotizarCambio,
+  CotizacionDeCambio,
+  estadoDelPlan,
+  PlanContratable,
+} from "../../services/pagos.service";
+import { humanizeApiError } from "../../utils/apiErrors";
 
 // LA PESTAÑA DEL PLAN (18-09-2026, sprint "Mi cuenta / Mi empresa").
 //
 // Muestra la verdad de la BASE (no la memoria de la sesión): qué plan
-// tiene la empresa, en qué estado y hasta cuándo corre. El botón lleva
-// a /plans, donde se contrata. Subir con proporcional y bajar
-// agendado es el sprint siguiente (pedido por Felipe el 17-09) — esta
-// pestaña es su casa futura.
+// tiene la empresa, en qué estado y hasta cuándo corre.
+//
+// Y desde el mismo día, el CAMBIO DE PLAN (decisión de Felipe del
+// 17-09, el estándar de la industria):
+//   SUBIR  → se cobra hoy el proporcional de la diferencia por los
+//            días que quedan del mes pagado, y rige al instante.
+//   BAJAR  → rige cuando termine el mes ya pagado; nada se borra.
+// Siempre en dos tiempos: primero se muestra el cálculo y recién con
+// la confirmación se cambia. Solo para empresas que pagan por Mercado
+// Pago; las demás ven el botón a /plans o el WhatsApp.
+
+const ORDEN: PlanContratable[] = ["cotiza", "gestiona", "crece"];
 
 const ESTADOS: Record<
   string,
@@ -56,8 +74,16 @@ const fechaLarga = (iso: string | null | undefined) =>
       })
     : null;
 
+const pesos = (n: number) => `$${n.toLocaleString("es-CL")}`;
+
+const nombre = (plan: string | null | undefined) =>
+  plan && NOMBRE_DEL_PLAN[plan as keyof typeof NOMBRE_DEL_PLAN]
+    ? NOMBRE_DEL_PLAN[plan as keyof typeof NOMBRE_DEL_PLAN]
+    : "Sin plan";
+
 export default function PestanaPlan() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
+  const qc = useQueryClient();
   const estadoQuery = useQuery({
     queryKey: ["pagos", "estado"],
     queryFn: estadoDelPlan,
@@ -67,7 +93,67 @@ export default function PestanaPlan() {
   const estado = estadoQuery.data?.estado_plan ?? company?.estado_plan ?? null;
   const pagadoHasta = fechaLarga(estadoQuery.data?.pagado_hasta);
   const pruebaVence = fechaLarga(company?.prueba_vence);
+  const bajadaAgendada = estadoQuery.data?.plan_programado ?? null;
   const infoEstado = (estado && ESTADOS[estado]) || null;
+  const puedeCambiar =
+    estado === "activo" && estadoQuery.data?.pago_proveedor === "mercadopago";
+
+  // El cambio de plan en dos tiempos.
+  const [cotizacion, setCotizacion] = useState<CotizacionDeCambio | null>(
+    null,
+  );
+  const [cotizando, setCotizando] = useState<PlanContratable | null>(null);
+  const [correoMp, setCorreoMp] = useState("");
+  const [cambiando, setCambiando] = useState(false);
+
+  const pedirCotizacion = async (planNuevo: PlanContratable) => {
+    setCotizando(planNuevo);
+    try {
+      const c = await cotizarCambio(planNuevo);
+      setCorreoMp(user?.email ?? "");
+      setCotizacion(c);
+    } catch (error) {
+      toast.error(humanizeApiError(error));
+    } finally {
+      setCotizando(null);
+    }
+  };
+
+  const confirmar = async () => {
+    if (!cotizacion || cambiando) return;
+    const correo = correoMp.trim();
+    if (cotizacion.modo === "subir" && cotizacion.proporcional > 0) {
+      if (!correo.includes("@")) {
+        toast.warn("Escribe el correo de tu cuenta de Mercado Pago");
+        return;
+      }
+    }
+    setCambiando(true);
+    try {
+      const r = await cambiarPlan(cotizacion.plan_nuevo, correo || undefined);
+      if (r.modo === "subir" && r.enlace) {
+        // A pagar el proporcional; vuelve a /plans/confirmation?plan=…
+        window.location.assign(r.enlace);
+        return;
+      }
+      if (r.modo === "subir") {
+        toast.success(`Listo: ya estás en ${nombre(cotizacion.plan_nuevo)}.`);
+      } else {
+        toast.success(
+          `Agendado: bajas a ${nombre(cotizacion.plan_nuevo)} el ${fechaLarga(r.rige_desde) ?? "fin de tu mes pagado"}.`,
+        );
+      }
+      setCotizacion(null);
+      await qc.invalidateQueries({ queryKey: ["pagos", "estado"] });
+    } catch (error) {
+      toast.error(humanizeApiError(error));
+    } finally {
+      setCambiando(false);
+    }
+  };
+
+  const otrosPlanes = ORDEN.filter((p) => p !== plan);
+  const posicion = (p: string | null) => ORDEN.indexOf(p as PlanContratable);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -83,9 +169,7 @@ export default function PestanaPlan() {
             <CreditCard className="h-6 w-6 text-blue-600" />
           </div>
           <span className="text-2xl font-bold text-gray-900">
-            {plan && NOMBRE_DEL_PLAN[plan as keyof typeof NOMBRE_DEL_PLAN]
-              ? NOMBRE_DEL_PLAN[plan as keyof typeof NOMBRE_DEL_PLAN]
-              : "Sin plan"}
+            {nombre(plan)}
           </span>
           {infoEstado && (
             <span
@@ -111,17 +195,159 @@ export default function PestanaPlan() {
             es automático.
           </p>
         )}
+        {bajadaAgendada && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Tienes agendada la bajada a <strong>{nombre(bajadaAgendada)}</strong>
+            {pagadoHasta ? ` para el ${pagadoHasta}` : ""}: hasta entonces
+            sigues con todo lo de {nombre(plan)}.
+          </p>
+        )}
 
-        {estado !== "gratis" && (
+        {puedeCambiar && !bajadaAgendada && (
+          <div className="pt-2">
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              Cambiar de plan
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {otrosPlanes.map((p) => {
+                const sube = posicion(p) > posicion(plan);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => void pedirCotizacion(p)}
+                    disabled={cotizando !== null}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 ${
+                      sube
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {cotizando === p ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : sube ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )}
+                    {sube ? "Subir a" : "Bajar a"} {nombre(p)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Subir rige al instante (pagas solo los días que faltan del mes);
+              bajar rige cuando termine tu mes ya pagado.
+            </p>
+          </div>
+        )}
+
+        {estado !== "gratis" && !puedeCambiar && (
           <Link
             to="/plans"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Ver los planes{" "}
-            <ArrowRight className="h-4 w-4" />
+            Ver los planes <ArrowRight className="h-4 w-4" />
           </Link>
         )}
       </div>
+
+      {cotizacion && (
+        <Modal
+          titulo={`${cotizacion.modo === "subir" ? "Subir a" : "Bajar a"} ${nombre(cotizacion.plan_nuevo)}`}
+          subtitulo="Revisa antes de confirmar"
+          ancho="max-w-md"
+          onCerrar={() => {
+            if (!cambiando) setCotizacion(null);
+          }}
+          pie={
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setCotizacion(null)}
+                disabled={cambiando}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void confirmar()}
+                disabled={cambiando}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              >
+                {cambiando ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Un momento…
+                  </>
+                ) : cotizacion.modo === "subir" && cotizacion.proporcional > 0 ? (
+                  `Pagar ${pesos(cotizacion.proporcional)} y subir`
+                ) : cotizacion.modo === "subir" ? (
+                  "Subir ahora"
+                ) : (
+                  "Confirmar bajada"
+                )}
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-sm text-gray-700">
+            {cotizacion.modo === "subir" ? (
+              <>
+                <p>
+                  Pasas de <strong>{nombre(cotizacion.plan_actual)}</strong> (
+                  {pesos(cotizacion.precio_actual)}/mes) a{" "}
+                  <strong>{nombre(cotizacion.plan_nuevo)}</strong> (
+                  {pesos(cotizacion.precio_nuevo)}/mes).
+                </p>
+                {cotizacion.proporcional > 0 ? (
+                  <p className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    Hoy pagas <strong>{pesos(cotizacion.proporcional)}</strong>:
+                    la diferencia por los{" "}
+                    <strong>{cotizacion.dias_restantes} días</strong> que
+                    faltan de tu mes ya pagado. El plan nuevo rige al instante
+                    y desde el próximo cobro pagas{" "}
+                    {pesos(cotizacion.precio_nuevo)} al mes.
+                  </p>
+                ) : (
+                  <p className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    Tu mes está por renovarse: no hay nada que cobrar hoy. El
+                    plan nuevo rige al instante y el próximo cobro sale con{" "}
+                    {pesos(cotizacion.precio_nuevo)}.
+                  </p>
+                )}
+                {cotizacion.proporcional > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ¿Con qué correo entras a Mercado Pago?
+                    </label>
+                    <input
+                      type="email"
+                      value={correoMp}
+                      onChange={(e) => setCorreoMp(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p>
+                  Sigues con <strong>{nombre(cotizacion.plan_actual)}</strong>{" "}
+                  hasta el{" "}
+                  <strong>
+                    {fechaLarga(cotizacion.rige_desde) ?? "fin de tu mes pagado"}
+                  </strong>
+                  , que ya está pagado.
+                </p>
+                <p className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  Desde entonces pasas a{" "}
+                  <strong>{nombre(cotizacion.plan_nuevo)}</strong> y pagas{" "}
+                  {pesos(cotizacion.precio_nuevo)} al mes. Nada se borra: lo
+                  que quede fuera del plan se guarda por si vuelves a subir.
+                </p>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

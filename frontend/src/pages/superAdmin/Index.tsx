@@ -216,6 +216,15 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                       })
                     }
                   />
+                  {/* En prueba el plan anotado es el BASE; lo que ve la
+                      empresa es todo Eventia. Felipe (17-09): "¿por qué
+                      La Calma de Rita se ve en Cotiza?" — porque la
+                      columna no lo decía. */}
+                  {e.estado_plan === "prueba" && (
+                    <p className="text-[11px] text-blue-700 mt-1 leading-tight">
+                      Probando todo (Opera y Crece) · base: {e.plan ?? "cotiza"}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-2 min-w-[180px]">
                   {/* El punto AL LADO, no encima: si va encima, la fila

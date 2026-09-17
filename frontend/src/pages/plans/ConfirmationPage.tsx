@@ -25,6 +25,11 @@ export default function ConfirmationPage() {
   );
   const [plan, setPlan] = useState<string | null>(null);
   const intentos = useRef(0);
+  // Al SUBIR de plan (18-09) la empresa ya estaba activa: lo que se
+  // espera no es el estado, sino que el plan nuevo (?plan=…) rija.
+  const planEsperado = new URLSearchParams(window.location.search).get(
+    "plan",
+  );
 
   useEffect(() => {
     let vivo = true;
@@ -32,7 +37,10 @@ export default function ConfirmationPage() {
       try {
         const r = await estadoDelPlan();
         if (!vivo) return;
-        if (r.estado_plan === "activo") {
+        const listo = planEsperado
+          ? r.estado_plan === "activo" && r.plan === planEsperado
+          : r.estado_plan === "activo";
+        if (listo) {
           setPlan(r.plan);
           setEstado("activo");
           return;
@@ -53,7 +61,7 @@ export default function ConfirmationPage() {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [planEsperado]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

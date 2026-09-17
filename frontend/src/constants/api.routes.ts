@@ -101,6 +101,8 @@ export const API_ROUTES = {
   // pagos (sprint B del paso 4+5: el cobro con Mercado Pago)
   PAGOS_SUSCRIBIR: "/pagos/suscribir",
   PAGOS_ESTADO: "/pagos/estado",
+  PAGOS_CAMBIAR_PLAN_COTIZAR: "/pagos/cambiar-plan/cotizar",
+  PAGOS_CAMBIAR_PLAN: "/pagos/cambiar-plan",
 
   // refunds
   REFUNDS: "/refunds",

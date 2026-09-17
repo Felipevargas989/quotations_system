@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), y el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), y el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -72,6 +72,8 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `POST /plans/confirmation` | `PlansController.confirmPlan` | `PlansService.confirmPlan` — responde **410 a propósito** desde el paso 2 (marcaba premium sin verificar pago) | **Nadie** desde el 16-09: `ConfirmationPage` pasó a preguntar `GET /pagos/estado` | solo sesión |
 | `POST /pagos/suscribir` | `PagosController.suscribir` | `PagosService.suscribir` → `MercadoPagoService.crearSuscripcion` (POST `/preapproval` con `external_reference` = id de la empresa) | `pedirEnlaceDePago` (`services/pagos.service.ts`) ← `Plans.contratar` | `ADMIN_ONLY` + `@SinPlan` (una bloqueada TIENE que poder pagar) |
 | `GET /pagos/estado` | `PagosController.estado` | `PagosService.estado` → `PagosRepository.empresa` (directo a la base, sin memoria) | `estadoDelPlan` ← `ConfirmationPage` (pregunta cada 3 s hasta ver `activo`) | sesión + `@SinPlan` |
+| `POST /pagos/cambiar-plan/cotizar` | `PagosController.cotizarCambio` | `PagosService.cotizarCambio` — lee los dos precios del plan real en Mercado Pago y calcula: subir = (nuevo − actual) × días restantes / 30, bajar = 0 y rige al terminar lo pagado | `cotizarCambio` (`services/pagos.service.ts`) ← `PestanaPlan` (Mi empresa → Plan), para MOSTRAR antes de confirmar | `ADMIN_ONLY`; solo empresa activa que paga por Mercado Pago con suscripción viva |
+| `POST /pagos/cambiar-plan` | `PagosController.cambiarPlan` | `PagosService.cambiarPlan`: subir → pago único (Checkout Pro, referencia `cambio:empresa:plan`) cuyo aviso `payment` aplica el plan al instante y ajusta el monto de la suscripción; bajar → `plan_programado` + el monto de la suscripción baja desde ya | `cambiarPlan` ← `PestanaPlan` tras la confirmación | `ADMIN_ONLY` |
 | `POST /pagos/webhook` | `PagosController.webhook` | `verificarFirmaMercadoPago` (HMAC del header `x-signature`) → `PagosService.procesarAviso` (consulta la VERDAD en Mercado Pago, jamás confía en el cuerpo; idempotente por `avisos_de_pago`) | **Mercado Pago**, nadie de la app | `@Public` + `@Throttle` 600/min; la puerta es la FIRMA (fail-closed sin secreto en producción) |
 | `POST /super-admin/suscription` | `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Dentro del motor, `UsersService.signup` llama a `SuperAdminService.createSuscription` | `@Public` + `@Throttle` 10 por minuto |
 | `POST /super-admin/lead` | `SuperAdminController.registerLead` | `SuperAdminService.registerLead` → `SuperAdminRepository.registerLead` + `alertNuevoLead` | `registerLead` (`services/registerLeads.service.ts`) ← `NewUserRegisterForm.handleSubmit`, dentro de la pantalla `RegisterPage` (ruta `/register`) | `@Public` + `@Throttle` 10 por minuto |
@@ -632,6 +634,19 @@ El diseño completo y las 7 decisiones firmadas viven en
    la tocan (Valle del Sol y la demo). Las pruebas
    `pagos/tests/maquina-de-cobros.spec.ts` y
    `plans/tests/reloj-del-cobro.spec.ts` lo juran.
+8. **El cambio de plan** (18-09, migración 115, decisión de Felipe del
+   17-09 que mejora la decisión 4): desde Mi empresa → Plan, en dos
+   tiempos (cotizar y mostrar; confirmar y cambiar). **Subir** rige al
+   instante: se cobra hoy el proporcional de la diferencia por los
+   días que quedan del mes pagado (mes de 30) con un pago único cuya
+   referencia es `cambio:empresa:plan`; su aviso `payment` aplica el
+   plan y sube el monto de la suscripción (PUT /preapproval). **Bajar**
+   rige al terminar lo pagado: queda en `plan_programado`, el monto de
+   la suscripción baja desde ya, y lo aplica el aviso del siguiente
+   cobro o el reloj de las 11:10 (paso 0 de la cosecha). Lo jura
+   `pagos/tests/cambio-de-plan.spec.ts`. Ojo con el webhook de Mercado
+   Pago: el pago único llega por el tema **Pagos**, que hay que tener
+   marcado además de "Planes y suscripciones".
 
 Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
 secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`

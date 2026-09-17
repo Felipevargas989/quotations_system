@@ -59,6 +59,29 @@ export class PagosController {
     return this.pagosService.estado(user.company_id);
   }
 
+  // EL CAMBIO DE PLAN (18-09-2026). Dos tiempos: primero se cotiza (qué
+  // costaría, desde cuándo rige) y se le muestra al cliente; después,
+  // con su confirmación, se cambia. Solo el administrador, y solo una
+  // empresa activa (sin @SinPlan: una bloqueada no cambia, contrata).
+  @Roles(...ADMIN_ONLY)
+  @Post('cambiar-plan/cotizar')
+  cotizarCambio(@CurrentUser() user: User, @Body() dto: SuscribirDto) {
+    return this.pagosService.cotizarCambio(user.company_id, dto.plan);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Post('cambiar-plan')
+  cambiarPlan(@CurrentUser() user: User, @Body() dto: SuscribirDto) {
+    this.logger.info(
+      `POST /pagos/cambiar-plan a ${dto.plan} por la empresa ${user.company_id}`,
+    );
+    return this.pagosService.cambiarPlan(
+      user.company_id,
+      dto.plan,
+      dto.correo_mercado_pago || user.email,
+    );
+  }
+
   @Public()
   // Techo holgado: los reenvíos del proveedor no pueden chocar con un
   // 429 — la puerta de verdad es la firma, no la velocidad (calco del

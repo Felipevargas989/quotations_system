@@ -91,14 +91,15 @@ describe('el reloj del cobro', () => {
 
   it('cancelada con el mes cumplido → bloqueada directo (decisión 5)', async () => {
     const { client, consultas } = armarCliente([
+      { data: [] }, // bajadas agendadas (cambio de plan)
       { data: [{ id: 9, name: 'La que canceló' }] }, // canceladas
       { data: [] }, // morosas nuevas
       { data: [] }, // gracias vencidas
     ]);
     const { reloj, derechos } = armarReloj(client);
     await reloj.cosecharCobrosVencidos();
-    expect(consultas[0].update).toMatchObject({ estado_plan: 'bloqueado' });
-    expect(consultas[0].eq).toMatchObject({
+    expect(consultas[1].update).toMatchObject({ estado_plan: 'bloqueado' });
+    expect(consultas[1].eq).toMatchObject({
       estado_plan: 'activo',
       pago_proveedor: 'mercadopago',
     });
@@ -108,13 +109,14 @@ describe('el reloj del cobro', () => {
   it('pago vencido con suscripción viva → morosa con gracia y correo', async () => {
     const { client, consultas } = armarCliente([
       { data: [] },
+      { data: [] },
       { data: [{ id: 7, name: 'La Morosa' }] },
       { data: [] },
     ]);
     const { reloj, email } = armarReloj(client);
     await reloj.cosecharCobrosVencidos();
-    expect(consultas[1].update).toMatchObject({ estado_plan: 'moroso' });
-    expect(consultas[1].update?.gracia_hasta).toBeDefined();
+    expect(consultas[2].update).toMatchObject({ estado_plan: 'moroso' });
+    expect(consultas[2].update?.gracia_hasta).toBeDefined();
     expect(email.sendEmail).toHaveBeenCalledWith(
       'duena@sur.cl',
       expect.anything(),
@@ -126,13 +128,35 @@ describe('el reloj del cobro', () => {
     const { client, consultas } = armarCliente([
       { data: [] },
       { data: [] },
+      { data: [] },
       { data: [{ id: 5, name: 'Se le acabó la gracia' }] },
     ]);
     const { reloj, derechos } = armarReloj(client);
     await reloj.cosecharCobrosVencidos();
-    expect(consultas[2].update).toMatchObject({ estado_plan: 'bloqueado' });
-    expect(consultas[2].eq).toMatchObject({ estado_plan: 'moroso' });
+    expect(consultas[3].update).toMatchObject({ estado_plan: 'bloqueado' });
+    expect(consultas[3].eq).toMatchObject({ estado_plan: 'moroso' });
     expect(derechos.olvidar).toHaveBeenCalledWith(5);
+  });
+
+  it('una bajada agendada con el mes cumplido se aplica y rige al instante', async () => {
+    const { client, consultas } = armarCliente([
+      { data: [{ id: 8, name: 'La que bajó', plan_programado: 'cotiza' }] },
+      { data: [] }, // el update por id de esa bajada
+      { data: [] },
+      { data: [] },
+      { data: [] },
+    ]);
+    const { reloj, derechos } = armarReloj(client);
+    await reloj.cosecharCobrosVencidos();
+    // La consulta 0 solo mira activas con bajada agendada y vencida...
+    expect(consultas[0].eq).toMatchObject({ estado_plan: 'activo' });
+    // ...y la 1 es el cambio de esa empresa, por su id.
+    expect(consultas[1].update).toMatchObject({
+      plan: 'cotiza',
+      plan_programado: null,
+    });
+    expect(consultas[1].eq).toMatchObject({ id: 8 });
+    expect(derechos.olvidar).toHaveBeenCalledWith(8);
   });
 
   it('la prueba por vencer avisa una vez, al administrador', async () => {
