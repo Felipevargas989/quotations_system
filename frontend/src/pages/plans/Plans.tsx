@@ -14,7 +14,8 @@ import { humanizeApiError } from "../../utils/apiErrors";
 // La versión anterior mostraba UN plan de $10.000 que contradecía a la
 // landing y a la tabla de derechos: quedó de una época con precio único.
 // Ahora muestra los tres planes firmados el 14-09, con los mismos textos
-// y precios que publica la landing (netos, más IVA), y marca cuál tiene
+// y precios que publica la landing (finales, IVA incluido — decisión de
+// Felipe del 17-09: números redondos), y marca cuál tiene
 // contratado la empresa.
 //
 // Desde el sprint B (16-09), contratar es de verdad: el motor pide a
@@ -41,7 +42,7 @@ const PLANES: Array<{
     id: "cotiza",
     nombre: "Cotiza",
     para: "Para dejar el Excel y vender profesional.",
-    precio: "$19.900",
+    precio: "$25.000",
     limites: "Hasta 20 cotizaciones/mes · 1 usuario · eventos de un día",
     incluye: [
       "Cotizador con tu marca y PDF",
@@ -54,7 +55,7 @@ const PLANES: Array<{
     id: "gestiona",
     nombre: "Gestiona y Cobra",
     para: "Para el que ya vende y necesita cobrar sin perder cuentas.",
-    precio: "$49.900",
+    precio: "$60.000",
     limites: "Cotizaciones ilimitadas · 3 usuarios",
     incluye: [
       "Todo lo de Cotiza",
@@ -71,7 +72,7 @@ const PLANES: Array<{
     id: "crece",
     nombre: "Opera y Crece",
     para: "Para la operación que quiere márgenes y controlarlo todo.",
-    precio: "$119.900",
+    precio: "$140.000",
     limites: "Todo ilimitado · equipo completo",
     incluye: [
       "Todo lo de Gestiona y Cobra",
@@ -176,7 +177,7 @@ export default function Plans() {
                   <span className="text-4xl font-bold text-gray-900">
                     {plan.precio}
                   </span>
-                  <span className="text-gray-500 text-sm"> + IVA / mes</span>
+                  <span className="text-gray-500 text-sm"> / mes · IVA incluido</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{plan.limites}</p>
 
@@ -229,7 +230,7 @@ export default function Plans() {
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-8">
-          Precios en pesos chilenos, netos, más IVA. Se paga mes a mes con
+          Precios finales en pesos chilenos, IVA incluido. Se paga mes a mes con
           Mercado Pago. Bajar de plan no borra nada: lo que quede fuera se
           guarda por si vuelves a subir.
         </p>

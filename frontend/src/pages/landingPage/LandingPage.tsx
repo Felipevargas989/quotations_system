@@ -378,7 +378,7 @@ const LANDING_HTML = `<style>
       <div class="plan reveal">
         <div class="pname">Cotiza</div>
         <div class="who">Para dejar el Excel y vender profesional.</div>
-        <div class="amt">$19.900<span> + IVA / mes</span></div>
+        <div class="amt">$25.000<span> / mes · IVA incluido</span></div>
         <div class="limits">Hasta 20 cotizaciones/mes · 1 usuario · eventos de un día</div>
         <ul>
           <li><span class="ck">✓</span> Cotizador con tu marca y PDF</li>
@@ -392,7 +392,7 @@ const LANDING_HTML = `<style>
         <div class="tag">Más popular</div>
         <div class="pname">Gestiona y Cobra</div>
         <div class="who">Para el que ya vende y necesita cobrar sin perder cuentas.</div>
-        <div class="amt">$49.900<span> + IVA / mes</span></div>
+        <div class="amt">$60.000<span> / mes · IVA incluido</span></div>
         <div class="limits">Cotizaciones ilimitadas · 3 usuarios</div>
         <ul>
           <li><span class="ck">✓</span> Todo lo de Cotiza</li>
@@ -408,7 +408,7 @@ const LANDING_HTML = `<style>
       <div class="plan teal reveal">
         <div class="pname">Opera y Crece</div>
         <div class="who">Para la operación que quiere márgenes y controlarlo todo.</div>
-        <div class="amt">$119.900<span> + IVA / mes</span></div>
+        <div class="amt">$140.000<span> / mes · IVA incluido</span></div>
         <div class="limits">Todo ilimitado · equipo completo</div>
         <ul>
           <li><span class="ck">✓</span> Todo lo de Gestiona y Cobra</li>
@@ -422,7 +422,7 @@ const LANDING_HTML = `<style>
         <a class="btn btn-teal" href="/register">Empezar gratis</a>
       </div>
     </div>
-    <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">Precios en pesos chilenos, netos, más IVA. Se paga mes a mes con Mercado Pago. ¿Dudas? <a href="WA_URL_PLACEHOLDER" target="_blank" rel="noopener" style="color:var(--azure)">Escríbenos por WhatsApp</a>.</p>
+    <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:24px">Precios finales en pesos chilenos, IVA incluido. Se paga mes a mes con Mercado Pago. ¿Dudas? <a href="WA_URL_PLACEHOLDER" target="_blank" rel="noopener" style="color:var(--azure)">Escríbenos por WhatsApp</a>.</p>
   </div>
 </section>
 
