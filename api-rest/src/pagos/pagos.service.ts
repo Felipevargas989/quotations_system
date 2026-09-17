@@ -143,11 +143,30 @@ export class PagosService {
 
   // ---- los dos tipos de aviso ----
 
+  /** El external_reference viaja como `empresa:plan` (17-09). El plan
+   *  va adentro porque la suscripción "con pago pendiente" no cuelga
+   *  del plan en Mercado Pago — ver mercadopago.service. */
+  private leerReferencia(ref: string | undefined): {
+    companyId: number | null;
+    plan: Exclude<Plan, null> | null;
+  } {
+    const [idTexto, planTexto] = (ref ?? '').split(':');
+    const companyId = Number(idTexto);
+    const plan = ['cotiza', 'gestiona', 'crece'].includes(planTexto)
+      ? (planTexto as Exclude<Plan, null>)
+      : null;
+    return {
+      companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : null,
+      plan,
+    };
+  }
+
   private async avisoDeSuscripcion(preapprovalId: string) {
     const suscripcion =
       await this.mercadoPago.consultarSuscripcion(preapprovalId);
-    const companyId = Number(suscripcion.external_reference);
-    if (!Number.isFinite(companyId) || companyId <= 0) {
+    const referencia = this.leerReferencia(suscripcion.external_reference);
+    const companyId = referencia.companyId;
+    if (companyId === null) {
       return {
         accion: `suscripción ${preapprovalId} sin empresa adentro: ignorada`,
         companyId: null,
@@ -163,7 +182,9 @@ export class PagosService {
     }
 
     if (suscripcion.status === 'authorized') {
-      const plan = this.mercadoPago.planDe(suscripcion.preapproval_plan_id);
+      const plan =
+        referencia.plan ??
+        this.mercadoPago.planDe(suscripcion.preapproval_plan_id);
       if (!plan) {
         this.logger.error(
           `suscripción ${preapprovalId} autorizada con un plan desconocido (${suscripcion.preapproval_plan_id})`,
@@ -219,8 +240,8 @@ export class PagosService {
         companyId: null,
       };
     }
-    const companyId = Number(pago.external_reference);
-    if (!Number.isFinite(companyId) || companyId <= 0) {
+    const companyId = this.leerReferencia(pago.external_reference).companyId;
+    if (companyId === null) {
       return { accion: 'pago sin empresa adentro: ignorado', companyId: null };
     }
     const empresa = await this.empresa(companyId);

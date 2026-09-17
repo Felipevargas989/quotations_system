@@ -183,6 +183,27 @@ describe('procesarAviso: la suscripción', () => {
     );
   });
 
+  it('la referencia compuesta empresa:plan manda, aunque no haya plan colgado', async () => {
+    const { servicio, repo } = armar({
+      suscripcion: {
+        id: 'susc-2',
+        status: 'authorized',
+        external_reference: '42:crece',
+        next_payment_date: '2026-10-17T12:00:00.000Z',
+      },
+    });
+    const accion = await servicio.procesarAviso(
+      'subscription_preapproval',
+      'susc-2',
+      {},
+    );
+    expect(accion).toBe('activada en crece');
+    expect(repo.actualizarEmpresa).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ plan: 'crece', estado_plan: 'activo' }),
+    );
+  });
+
   it('repetido → una sola vez: ni consulta ni toca nada', async () => {
     const { servicio, mercadoPago, repo } = armar({ yaProcesado: true });
     const accion = await servicio.procesarAviso(

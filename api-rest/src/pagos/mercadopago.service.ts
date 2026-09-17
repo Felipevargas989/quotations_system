@@ -84,8 +84,17 @@ export class MercadoPagoService {
   /**
    * Pide a Mercado Pago la suscripción PROPIA de una empresa (plan §2:
    * un enlace fijo no identifica quién pagó). El external_reference
-   * lleva el id de la empresa: cuando llegue el aviso, el sistema sabe
-   * exactamente a quién activar.
+   * lleva `empresa:plan`: cuando llegue el aviso, el sistema sabe
+   * exactamente a quién activar y en qué plan.
+   *
+   * MEDIDO EL 17-09-2026, no supuesto: crear la suscripción COLGANDO
+   * del plan (`preapproval_plan_id`) exige `card_token_id` — o sea la
+   * tarjeta al tiro, sin checkout. El modelo documentado para que el
+   * cliente ponga su tarjeta DESPUÉS es la suscripción "con pago
+   * pendiente", que va sin plan en la llamada. Para no duplicar los
+   * precios, el monto y la frecuencia SE LEEN del plan real de Felipe
+   * (GET /preapproval_plan): Mercado Pago sigue siendo la única fuente
+   * de la verdad de los montos.
    */
   async crearSuscripcion(
     plan: Exclude<Plan, null>,
@@ -93,10 +102,34 @@ export class MercadoPagoService {
     correoDelPagador: string,
     backUrl: string,
   ): Promise<SuscripcionCreada> {
+    const delPlan = (await this.llamar(
+      'GET',
+      `/preapproval_plan/${encodeURIComponent(this.planId(plan))}`,
+    )) as {
+      auto_recurring?: {
+        frequency?: number;
+        frequency_type?: string;
+        transaction_amount?: number;
+        currency_id?: string;
+      };
+      reason?: string;
+    };
+    const recurrencia = delPlan.auto_recurring;
+    if (!recurrencia?.transaction_amount) {
+      throw new Error(
+        `el plan ${plan} no tiene monto en Mercado Pago: no puedo armar la suscripción`,
+      );
+    }
     const respuesta = await this.llamar('POST', '/preapproval', {
-      preapproval_plan_id: this.planId(plan),
+      reason: delPlan.reason || `Eventia · plan ${plan}`,
+      auto_recurring: {
+        frequency: recurrencia.frequency ?? 1,
+        frequency_type: recurrencia.frequency_type ?? 'months',
+        transaction_amount: recurrencia.transaction_amount,
+        currency_id: recurrencia.currency_id ?? 'CLP',
+      },
       payer_email: correoDelPagador,
-      external_reference: String(companyId),
+      external_reference: `${companyId}:${plan}`,
       back_url: backUrl,
       status: 'pending',
     });
@@ -106,7 +139,15 @@ export class MercadoPagoService {
         `Mercado Pago no devolvió la suscripción completa: ${JSON.stringify(respuesta).slice(0, 200)}`,
       );
     }
-    return { id, init_point };
+    // El fallo abierto del proveedor (issue 480, anotado en el plan §2
+    // desde el 15-09): el enlace del flujo "pago pendiente" viene con
+    // `&activation=true` y esa dirección muestra "esta página no
+    // existe". El arreglo documentado es quitarle el parámetro.
+    const enlace = init_point
+      .replace(/[?&]activation=true/, (m) => (m.startsWith('?') ? '?' : ''))
+      .replace(/\?&/, '?')
+      .replace(/\?$/, '');
+    return { id, init_point: enlace };
   }
 
   /** La verdad de una suscripción. El webhook JAMÁS confía en el cuerpo
