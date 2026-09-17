@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
@@ -87,11 +88,20 @@ const PLANES: Array<{
 ];
 
 export default function Plans() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const planActual = (company?.plan ?? null) as PlanId | null;
   const enPrueba = company?.estado_plan === "prueba";
   const esCortesia = company?.estado_plan === "gratis";
   const [pidiendo, setPidiendo] = useState<PlanId | null>(null);
+  // LA PREGUNTA DEL CORREO (17-09). Mercado Pago exige que el correo de
+  // la suscripción sea el de la CUENTA que paga; si difiere, el
+  // checkout muere en "tu e-mail no coincide". Como el correo de
+  // Eventia no siempre es el de Mercado Pago, se pregunta antes de
+  // viajar, prellenado con el de la sesión.
+  const [preguntando, setPreguntando] = useState<
+    (typeof PLANES)[number] | null
+  >(null);
+  const [correoMp, setCorreoMp] = useState("");
 
   const porWhatsApp = (plan: (typeof PLANES)[number]) => {
     const texto = encodeURIComponent(
@@ -106,11 +116,25 @@ export default function Plans() {
     );
   };
 
-  const contratar = async (plan: (typeof PLANES)[number]) => {
+  const contratar = (plan: (typeof PLANES)[number]) => {
     if (pidiendo) return;
+    setCorreoMp(user?.email ?? "");
+    setPreguntando(plan);
+  };
+
+  const viajarAPagar = async (plan: (typeof PLANES)[number]) => {
+    if (pidiendo) return;
+    const correo = correoMp.trim();
+    if (!correo || !correo.includes("@")) {
+      toast.warn("Escribe el correo de tu cuenta de Mercado Pago");
+      return;
+    }
     setPidiendo(plan.id);
     try {
-      const { enlace } = await pedirEnlaceDePago(plan.id as PlanContratable);
+      const { enlace } = await pedirEnlaceDePago(
+        plan.id as PlanContratable,
+        correo,
+      );
       // Misma pestaña, a propósito: Mercado Pago devuelve al cliente a
       // /plans/confirmation por el back_url (plan §3.2, punto 9).
       window.location.assign(enlace);
@@ -228,6 +252,61 @@ export default function Plans() {
             );
           })}
         </div>
+
+        {preguntando && (
+          <Modal
+            titulo={`Contratar ${preguntando.nombre}`}
+            subtitulo="Un último dato antes de ir a pagar"
+            ancho="max-w-md"
+            onCerrar={() => {
+              if (!pidiendo) setPreguntando(null);
+            }}
+            pie={
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setPreguntando(null)}
+                  disabled={pidiendo !== null}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void viajarAPagar(preguntando)}
+                  disabled={pidiendo !== null}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {pidiendo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Preparando…
+                    </>
+                  ) : (
+                    "Ir a pagar"
+                  )}
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                ¿Con qué correo entras a Mercado Pago?
+              </label>
+              <input
+                type="email"
+                value={correoMp}
+                onChange={(e) => setCorreoMp(e.target.value)}
+                autoFocus
+                placeholder="tu-correo@ejemplo.cl"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500">
+                Mercado Pago exige que sea el correo de la cuenta con que
+                vas a pagar. El pago mensual de{" "}
+                <strong>{preguntando.precio}</strong> queda amarrado a esa
+                cuenta y puedes cancelarlo cuando quieras.
+              </p>
+            </div>
+          </Modal>
+        )}
 
         <p className="text-center text-sm text-gray-500 mt-8">
           Precios finales en pesos chilenos, IVA incluido. Se paga mes a mes con

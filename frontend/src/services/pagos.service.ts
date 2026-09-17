@@ -9,9 +9,11 @@ export type PlanContratable = "cotiza" | "gestiona" | "crece";
 
 export const pedirEnlaceDePago = async (
   plan: PlanContratable,
+  correoMercadoPago?: string,
 ): Promise<{ enlace: string }> => {
   return (await apiRequest(API_ROUTES.PAGOS_SUSCRIBIR, "POST", {
     plan,
+    ...(correoMercadoPago ? { correo_mercado_pago: correoMercadoPago } : {}),
   })) as { enlace: string };
 };
 

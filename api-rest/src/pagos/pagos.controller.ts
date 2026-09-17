@@ -46,7 +46,11 @@ export class PagosController {
     this.logger.info(
       `POST /pagos/suscribir plan ${dto.plan} por la empresa ${user.company_id}`,
     );
-    return this.pagosService.suscribir(dto.plan, user.company_id, user.email);
+    return this.pagosService.suscribir(
+      dto.plan,
+      user.company_id,
+      dto.correo_mercado_pago || user.email,
+    );
   }
 
   @SinPlan()
