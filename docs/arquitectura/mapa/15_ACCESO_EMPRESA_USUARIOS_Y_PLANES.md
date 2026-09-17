@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), y el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), y el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -18,9 +18,9 @@ No pertenece a un momento del evento: está antes de todos. Tiene además dos pi
 | `/forgot-password` | `ForgotPasswordPage` | `frontend/src/pages/auth/ForgotPasswordPage.tsx` | Pide el correo y llama `requestPasswordRecovery`. Siempre dice "Si el correo existe en nuestro sistema, recibirás un enlace…" | público |
 | `/reset-password` | `ResetPasswordPage` | `frontend/src/pages/auth/ResetPasswordPage.tsx` | Lee `access_token` y `type` de la query **o** del hash. Pide la nueva contraseña (mínimo 8) dos veces → `resetPasswordWithToken`. Sin token muestra "Enlace inválido o expirado" | público |
 | `/register` | `RegisterPage` → `NewUserRegisterForm` | `frontend/src/pages/landingPage/RegisterPage.tsx` | Hoy **solo guarda un lead** (`registerLead`). Crear empresa y usuario (`signup`) y el inicio de sesión automático están comentados ("TEMP: Self-service registration is disabled") | público |
-| `/admin/users` | `UserManagementPage` | `frontend/src/pages/UserManagementPage.tsx` | Lista de usuarios de la empresa (queryKey `["users"]`). Crear (correo, nombre, contraseña, cargo con `SelectWithSearch`), editar nombre y cargo (el correo no se cambia), eliminar (no a sí mismo). Tarjeta informativa "Permisos por Rol" y conteo por cargo | administrador (`SECTION_ROLES.user_management`). El enlace del menú de usuario usa `canAccess("admin")` |
-| `/configuration` | `ConfigurationPage` | `frontend/src/pages/configuration/ConfigurationPage.tsx` | **Todos**: cambiar su contraseña y ver su correo. **Solo administrador** (`esAdministrador`): tarjeta "Notificaciones por Email" con los interruptores de `emailCategories`, la lista informativa `equipoEmails` y "Responder a" | todos (`SECTION_ROLES.configuration`) |
-| `/company-configuration` | `CompanyConfiguration` | `frontend/src/pages/configuration/companyConfiguration/CompanyConfiguration.tsx` | Nombre, subtítulo (60 caracteres), WhatsApp, sitio web, Instagram, Facebook, moneda (solo lectura), logo y banner (JPG/PNG/WebP, 5 MB, "Quitar banner"), colores primario y secundario, datos de cobro (6 campos) y umbral de alto valor (`NumberInput`). Guarda y refresca el perfil (`loadUserProfile`) | administrador (`SECTION_ROLES.company_configuration`) |
+| `/admin/users` | **Redirige** a `/company-configuration?tab=usuarios` desde el 18-09 (los marcadores viejos siguen funcionando) | `App.tsx` | La gestión de usuarios vive como pestaña de Mi empresa; la página `UserManagementPage.tsx` sigue siendo la pieza que se renderiza allá | — |
+| `/configuration` | `ConfigurationPage` (**"Mi cuenta"** desde el 18-09) | `frontend/src/pages/configuration/ConfigurationPage.tsx` | SOLO lo personal: cambiar su contraseña y ver su correo. Las notificaciones se mudaron a Mi empresa → Correos (Felipe: "hay que separar todo, hoy está revuelto") | todos (`SECTION_ROLES.configuration`) |
+| `/company-configuration` | `MiEmpresa` (**"Mi empresa"** desde el 18-09, pestañas en `?tab=`) | `frontend/src/pages/configuration/MiEmpresa.tsx` | Cuatro pestañas: **Marca** (la antigua `CompanyConfiguration` embebida tal cual: nombre, subtítulo, redes, logo/banner, colores, datos de cobro, umbral), **Correos** (`CorreosDeLaEmpresa.tsx`, las notificaciones mudadas desde la pantalla personal), **Usuarios** (`UserManagementPage` embebida) y **Plan** (`PestanaPlan.tsx`: plan/estado/fechas desde `GET /pagos/estado`, botón a `/plans`; futura casa del subir/bajar con prorrateo) | administrador (`SECTION_ROLES.company_configuration`) |
 | `/plans` | `Plans` | `frontend/src/pages/plans/Plans.tsx` | Tarjeta "Eventia Profesional", $10.000 CLP/mes. "Suscribirse Ahora" abre un checkout de Mercado Pago en otra pestaña; enlaces a Calendly y WhatsApp | ruta: todos (`SECTION_ROLES.plans`). Se llega desde el banner de prueba de `Layout` |
 | `/plans/confirmation` | `ConfirmationPage` | `frontend/src/pages/plans/ConfirmationPage.tsx` | Al abrirse llama `confirmPlan()` y navega a `/dashboard`. Si falla, un toast fijo | ruta: todos |
 | `/superAdminqweasdzxc` | `SuperAdminPage` con `TorreDeControl` | `frontend/src/pages/superAdmin/Index.tsx` | Torre de Control (6 tarjetas y la tabla "Quién ha entrado"), barras mensuales de cotizaciones por empresa (6 meses), "Actividad de Usuarios" (30 días) y lista de empresas. El botón "Crear nueva empresa" está comentado | ruta **fuera** de `Layout` y **sin** `PermissionGuard` ("TODO: add authentication"). La protege el motor con `SUPER_ADMIN_EMAILS` |
@@ -72,6 +72,8 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `POST /plans/confirmation` | `PlansController.confirmPlan` | `PlansService.confirmPlan` — responde **410 a propósito** desde el paso 2 (marcaba premium sin verificar pago) | **Nadie** desde el 16-09: `ConfirmationPage` pasó a preguntar `GET /pagos/estado` | solo sesión |
 | `POST /pagos/suscribir` | `PagosController.suscribir` | `PagosService.suscribir` → `MercadoPagoService.crearSuscripcion` (POST `/preapproval` con `external_reference` = id de la empresa) | `pedirEnlaceDePago` (`services/pagos.service.ts`) ← `Plans.contratar` | `ADMIN_ONLY` + `@SinPlan` (una bloqueada TIENE que poder pagar) |
 | `GET /pagos/estado` | `PagosController.estado` | `PagosService.estado` → `PagosRepository.empresa` (directo a la base, sin memoria) | `estadoDelPlan` ← `ConfirmationPage` (pregunta cada 3 s hasta ver `activo`) | sesión + `@SinPlan` |
+| `POST /pagos/cambiar-plan/cotizar` | `PagosController.cotizarCambio` | `PagosService.cotizarCambio` — lee los dos precios del plan real en Mercado Pago y calcula: subir = (nuevo − actual) × días restantes / 30, bajar = 0 y rige al terminar lo pagado | `cotizarCambio` (`services/pagos.service.ts`) ← `PestanaPlan` (Mi empresa → Plan), para MOSTRAR antes de confirmar | `ADMIN_ONLY`; solo empresa activa que paga por Mercado Pago con suscripción viva |
+| `POST /pagos/cambiar-plan` | `PagosController.cambiarPlan` | `PagosService.cambiarPlan`: subir → pago único (Checkout Pro, referencia `cambio:empresa:plan`) cuyo aviso `payment` aplica el plan al instante y ajusta el monto de la suscripción; bajar → `plan_programado` + el monto de la suscripción baja desde ya | `cambiarPlan` ← `PestanaPlan` tras la confirmación | `ADMIN_ONLY` |
 | `POST /pagos/webhook` | `PagosController.webhook` | `verificarFirmaMercadoPago` (HMAC del header `x-signature`) → `PagosService.procesarAviso` (consulta la VERDAD en Mercado Pago, jamás confía en el cuerpo; idempotente por `avisos_de_pago`) | **Mercado Pago**, nadie de la app | `@Public` + `@Throttle` 600/min; la puerta es la FIRMA (fail-closed sin secreto en producción) |
 | `POST /super-admin/suscription` | `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Dentro del motor, `UsersService.signup` llama a `SuperAdminService.createSuscription` | `@Public` + `@Throttle` 10 por minuto |
 | `POST /super-admin/lead` | `SuperAdminController.registerLead` | `SuperAdminService.registerLead` → `SuperAdminRepository.registerLead` + `alertNuevoLead` | `registerLead` (`services/registerLeads.service.ts`) ← `NewUserRegisterForm.handleSubmit`, dentro de la pantalla `RegisterPage` (ruta `/register`) | `@Public` + `@Throttle` 10 por minuto |
@@ -632,6 +634,19 @@ El diseño completo y las 7 decisiones firmadas viven en
    la tocan (Valle del Sol y la demo). Las pruebas
    `pagos/tests/maquina-de-cobros.spec.ts` y
    `plans/tests/reloj-del-cobro.spec.ts` lo juran.
+8. **El cambio de plan** (18-09, migración 115, decisión de Felipe del
+   17-09 que mejora la decisión 4): desde Mi empresa → Plan, en dos
+   tiempos (cotizar y mostrar; confirmar y cambiar). **Subir** rige al
+   instante: se cobra hoy el proporcional de la diferencia por los
+   días que quedan del mes pagado (mes de 30) con un pago único cuya
+   referencia es `cambio:empresa:plan`; su aviso `payment` aplica el
+   plan y sube el monto de la suscripción (PUT /preapproval). **Bajar**
+   rige al terminar lo pagado: queda en `plan_programado`, el monto de
+   la suscripción baja desde ya, y lo aplica el aviso del siguiente
+   cobro o el reloj de las 11:10 (paso 0 de la cosecha). Lo jura
+   `pagos/tests/cambio-de-plan.spec.ts`. Ojo con el webhook de Mercado
+   Pago: el pago único llega por el tema **Pagos**, que hay que tener
+   marcado además de "Planes y suscripciones".
 
 Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
 secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`

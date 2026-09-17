@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
@@ -102,6 +102,28 @@ export default function Plans() {
     (typeof PLANES)[number] | null
   >(null);
   const [correoMp, setCorreoMp] = useState("");
+  // CANCELAR MANDA SIEMPRE (Felipe, 18-09): si el cliente se arrepiente
+  // mientras el enlace se está preparando, la ventana se cierra igual y
+  // el enlace que llegue después se ignora — nadie viaja a pagar sin
+  // querer.
+  const cancelado = useRef(false);
+
+  // AL VOLVER CON EL BOTÓN DE ATRÁS (Felipe, 18-09: "cerré el proceso
+  // de Mercado Pago y quedó pegado ahí"). Al viajar al checkout, el
+  // navegador guarda esta página congelada con el spinner puesto; si
+  // el cliente vuelve atrás, revive tal cual y "Preparando…" no
+  // termina nunca. El evento pageshow con `persisted` es exactamente
+  // ese despertar: se limpia todo y los botones vuelven a servir.
+  useEffect(() => {
+    const despertar = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setPidiendo(null);
+        setPreguntando(null);
+      }
+    };
+    window.addEventListener("pageshow", despertar);
+    return () => window.removeEventListener("pageshow", despertar);
+  }, []);
 
   const porWhatsApp = (plan: (typeof PLANES)[number]) => {
     const texto = encodeURIComponent(
@@ -118,8 +140,15 @@ export default function Plans() {
 
   const contratar = (plan: (typeof PLANES)[number]) => {
     if (pidiendo) return;
+    cancelado.current = false;
     setCorreoMp(user?.email ?? "");
     setPreguntando(plan);
+  };
+
+  const cancelar = () => {
+    cancelado.current = true;
+    setPidiendo(null);
+    setPreguntando(null);
   };
 
   const viajarAPagar = async (plan: (typeof PLANES)[number]) => {
@@ -135,10 +164,12 @@ export default function Plans() {
         plan.id as PlanContratable,
         correo,
       );
+      if (cancelado.current) return;
       // Misma pestaña, a propósito: Mercado Pago devuelve al cliente a
       // /plans/confirmation por el back_url (plan §3.2, punto 9).
       window.location.assign(enlace);
     } catch (error) {
+      if (cancelado.current) return;
       const respuesta = (error as { response?: { status?: number } })
         ?.response;
       if (respuesta?.status === 503) {
@@ -258,14 +289,11 @@ export default function Plans() {
             titulo={`Contratar ${preguntando.nombre}`}
             subtitulo="Un último dato antes de ir a pagar"
             ancho="max-w-md"
-            onCerrar={() => {
-              if (!pidiendo) setPreguntando(null);
-            }}
+            onCerrar={cancelar}
             pie={
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setPreguntando(null)}
-                  disabled={pidiendo !== null}
+                  onClick={cancelar}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
                 >
                   Cancelar
@@ -304,6 +332,18 @@ export default function Plans() {
                 <strong>{preguntando.precio}</strong> queda amarrado a esa
                 cuenta y puedes cancelarlo cuando quieras.
               </p>
+              {/* La salida para el que no usa Mercado Pago (Felipe,
+                  17-09: "¿y si la gente no tiene Mercado Pago?"): la
+                  venta no muere, se conversa y se paga por
+                  transferencia desde la Torre. */}
+              <button
+                type="button"
+                onClick={() => porWhatsApp(preguntando)}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                ¿No usas Mercado Pago? Escríbenos por WhatsApp y lo
+                arreglamos altiro
+              </button>
             </div>
           </Modal>
         )}

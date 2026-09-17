@@ -30,6 +30,27 @@ import { EmpresaParaCobro, PagosRepository } from './pagos.repository';
 
 const DIAS_DE_GRACIA = 7; // decisión 2, firmada el 16-09
 
+// EL CAMBIO DE PLAN (18-09-2026, decisión de Felipe del 17-09 que
+// mejora la decisión 4 del plan). Los planes se ordenan de menor a
+// mayor; subir cobra hoy el proporcional de la diferencia por los días
+// que quedan del mes pagado (sobre un mes de 30 días, como la
+// industria), y bajar se agenda para cuando termine ese mes.
+const ORDEN_DE_PLANES: Exclude<Plan, null>[] = ['cotiza', 'gestiona', 'crece'];
+const DIAS_DEL_MES = 30;
+
+export type CotizacionDeCambio = {
+  modo: 'subir' | 'bajar' | 'igual';
+  plan_actual: Exclude<Plan, null>;
+  plan_nuevo: Exclude<Plan, null>;
+  precio_actual: number;
+  precio_nuevo: number;
+  dias_restantes: number;
+  /** Lo que se cobra HOY al subir (0 al bajar o si no quedan días). */
+  proporcional: number;
+  /** Cuándo rige: al subir, ahora; al bajar, cuando termine lo pagado. */
+  rige_desde: string | null;
+};
+
 @Injectable()
 export class PagosService {
   constructor(
@@ -94,6 +115,135 @@ export class PagosService {
       plan: empresa.plan,
       estado_plan: empresa.estado_plan,
       pagado_hasta: empresa.pagado_hasta,
+      // Para la pestaña Plan (18-09): si paga por Mercado Pago puede
+      // cambiar de plan por acá, y si ya agendó una bajada se le dice.
+      pago_proveedor: empresa.pago_proveedor,
+      plan_programado: empresa.plan_programado,
+    };
+  }
+
+  /**
+   * Cuánto cuesta cambiar de plan, ANTES de que el cliente decida. Solo
+   * para empresas activas que pagan por Mercado Pago con su suscripción
+   * viva; las demás (prueba, cortesía, activadas a mano) no cambian de
+   * plan acá.
+   */
+  async cotizarCambio(
+    companyId: number,
+    planNuevo: Exclude<Plan, null>,
+    ahora = new Date(),
+  ): Promise<CotizacionDeCambio> {
+    const empresa = await this.empresaQuePuedeCambiar(companyId);
+    const planActual = empresa.plan as Exclude<Plan, null>;
+    const [precioActual, precioNuevo] = await Promise.all([
+      this.mercadoPago.precioDelPlan(planActual),
+      this.mercadoPago.precioDelPlan(planNuevo),
+    ]);
+    const posicionActual = ORDEN_DE_PLANES.indexOf(planActual);
+    const posicionNueva = ORDEN_DE_PLANES.indexOf(planNuevo);
+    const modo =
+      posicionNueva > posicionActual
+        ? 'subir'
+        : posicionNueva < posicionActual
+          ? 'bajar'
+          : 'igual';
+    const vence = empresa.pagado_hasta ? new Date(empresa.pagado_hasta) : null;
+    const diasRestantes = vence
+      ? Math.min(
+          DIAS_DEL_MES,
+          Math.max(
+            0,
+            Math.ceil(
+              (vence.getTime() - ahora.getTime()) / (24 * 60 * 60 * 1000),
+            ),
+          ),
+        )
+      : 0;
+    const proporcional =
+      modo === 'subir'
+        ? Math.round(
+            ((precioNuevo - precioActual) * diasRestantes) / DIAS_DEL_MES,
+          )
+        : 0;
+    return {
+      modo,
+      plan_actual: planActual,
+      plan_nuevo: planNuevo,
+      precio_actual: precioActual,
+      precio_nuevo: precioNuevo,
+      dias_restantes: diasRestantes,
+      proporcional,
+      rige_desde:
+        modo === 'subir'
+          ? ahora.toISOString()
+          : modo === 'bajar'
+            ? (empresa.pagado_hasta ?? null)
+            : null,
+    };
+  }
+
+  /**
+   * El cambio de plan de verdad.
+   *  - SUBIR: se cobra hoy el proporcional con un pago único; el plan
+   *    nuevo rige cuando llega el aviso de ese pago (o al tiro si no
+   *    hay nada que cobrar). El próximo cobro mensual sale con el
+   *    precio nuevo.
+   *  - BAJAR: queda agendado (plan_programado) y el monto de la
+   *    suscripción baja desde ya, así el próximo cobro es el menor. El
+   *    plan cambia cuando llega ese cobro o cuando el reloj ve
+   *    cumplido lo pagado.
+   */
+  async cambiarPlan(
+    companyId: number,
+    planNuevo: Exclude<Plan, null>,
+    correoDelPagador: string,
+  ): Promise<
+    | { modo: 'subir'; enlace: string | null; proporcional: number }
+    | { modo: 'bajar'; rige_desde: string | null }
+  > {
+    const cotizacion = await this.cotizarCambio(companyId, planNuevo);
+    const empresa = await this.empresaQuePuedeCambiar(companyId);
+    if (cotizacion.modo === 'igual') {
+      throw new BadRequestException('Ese ya es tu plan');
+    }
+
+    if (cotizacion.modo === 'bajar') {
+      await this.mercadoPago.actualizarMontoSuscripcion(
+        empresa.pago_suscripcion_id!,
+        cotizacion.precio_nuevo,
+      );
+      await this.repo.actualizarEmpresa(companyId, {
+        plan_programado: planNuevo,
+      });
+      this.logger.info(
+        `empresa ${companyId} (${empresa.name}) baja a ${planNuevo} cuando termine lo pagado (${cotizacion.rige_desde})`,
+      );
+      return { modo: 'bajar', rige_desde: cotizacion.rige_desde };
+    }
+
+    // Subir sin nada que cobrar (el mes ya está por renovarse): rige al
+    // tiro, y el próximo cobro sale con el precio nuevo.
+    if (cotizacion.proporcional <= 0) {
+      await this.aplicarSubida(companyId, planNuevo);
+      return { modo: 'subir', enlace: null, proporcional: 0 };
+    }
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'https://www.eventi-app.com';
+    const pago = await this.mercadoPago.crearPagoUnico({
+      monto: cotizacion.proporcional,
+      titulo: `Eventia · subir a ${planNuevo} (proporcional de ${cotizacion.dias_restantes} días)`,
+      referencia: `cambio:${companyId}:${planNuevo}`,
+      correoDelPagador,
+      backUrl: `${frontendUrl}/plans/confirmation?plan=${planNuevo}`,
+    });
+    this.logger.info(
+      `empresa ${companyId} (${empresa.name}) pidió subir a ${planNuevo}: proporcional $${cotizacion.proporcional} (pago ${pago.id})`,
+    );
+    return {
+      modo: 'subir',
+      enlace: pago.init_point,
+      proporcional: cotizacion.proporcional,
     };
   }
 
@@ -149,8 +299,12 @@ export class PagosService {
   private leerReferencia(ref: string | undefined): {
     companyId: number | null;
     plan: Exclude<Plan, null> | null;
+    /** `cambio:empresa:plan` = el pago único del proporcional de una subida. */
+    cambio: boolean;
   } {
-    const [idTexto, planTexto] = (ref ?? '').split(':');
+    const partes = (ref ?? '').split(':');
+    const cambio = partes[0] === 'cambio';
+    const [idTexto, planTexto] = cambio ? partes.slice(1) : partes;
     const companyId = Number(idTexto);
     const plan = ['cotiza', 'gestiona', 'crece'].includes(planTexto)
       ? (planTexto as Exclude<Plan, null>)
@@ -158,6 +312,7 @@ export class PagosService {
     return {
       companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : null,
       plan,
+      cambio,
     };
   }
 
@@ -240,7 +395,8 @@ export class PagosService {
         companyId: null,
       };
     }
-    const companyId = this.leerReferencia(pago.external_reference).companyId;
+    const referencia = this.leerReferencia(pago.external_reference);
+    const companyId = referencia.companyId;
     if (companyId === null) {
       return { accion: 'pago sin empresa adentro: ignorado', companyId: null };
     }
@@ -248,6 +404,18 @@ export class PagosService {
     if (empresa.estado_plan === 'gratis') {
       return {
         accion: `empresa ${companyId} es cortesía: aviso ignorado`,
+        companyId,
+      };
+    }
+
+    // El pago único del proporcional de una SUBIDA (cambio de plan).
+    if (referencia.cambio) {
+      if (pago.status === 'approved' && referencia.plan) {
+        await this.aplicarSubida(companyId, referencia.plan);
+        return { accion: `subida a ${referencia.plan} aplicada`, companyId };
+      }
+      return {
+        accion: `pago del cambio en ${pago.status}: sin cambios`,
         companyId,
       };
     }
@@ -263,16 +431,31 @@ export class PagosService {
           .catch(() => null);
         pagadoHasta = suscripcion?.next_payment_date ?? null;
       }
+      // Si había una bajada agendada, este cobro (que ya salió con el
+      // monto menor) es el que la hace efectiva.
+      const bajada = empresa.plan_programado as Exclude<Plan, null> | null;
       await this.repo.actualizarEmpresa(companyId, {
         estado_plan: 'activo',
         pagado_hasta: pagadoHasta,
         gracia_hasta: null,
+        ...(bajada
+          ? {
+              plan: bajada,
+              plan_programado: null,
+              plan_cambiado_en: new Date().toISOString(),
+            }
+          : {}),
       });
       await this.queRijaAlInstante(companyId);
       this.logger.info(
-        `empresa ${companyId} (${empresa.name}): pago aprobado, corre hasta ${pagadoHasta ?? 'la próxima revisión'}`,
+        `empresa ${companyId} (${empresa.name}): pago aprobado, corre hasta ${pagadoHasta ?? 'la próxima revisión'}${bajada ? `, ya en ${bajada}` : ''}`,
       );
-      return { accion: 'pago aprobado: al día', companyId };
+      return {
+        accion: bajada
+          ? `pago aprobado: bajó a ${bajada}`
+          : 'pago aprobado: al día',
+        companyId,
+      };
     }
 
     if (pago.status === 'rejected') {
@@ -303,6 +486,69 @@ export class PagosService {
       throw new BadRequestException(`No existe la empresa ${companyId}`);
     }
     return empresa;
+  }
+
+  /** Solo cambia de plan por acá la empresa activa que paga por Mercado
+   *  Pago con su suscripción viva. Prueba, cortesía, morosa, bloqueada
+   *  o activada a mano: no. */
+  private async empresaQuePuedeCambiar(
+    companyId: number,
+  ): Promise<EmpresaParaCobro> {
+    if (!this.mercadoPago.configurado()) {
+      throw new ServiceUnavailableException(
+        'El cambio de plan en línea aún no está disponible',
+      );
+    }
+    const empresa = await this.empresa(companyId);
+    if (empresa.estado_plan === 'gratis') {
+      throw new BadRequestException(
+        'Tu cuenta es una cortesía: no cambia de plan por acá',
+      );
+    }
+    if (empresa.estado_plan !== 'activo') {
+      throw new BadRequestException(
+        'Para cambiar de plan tu cuenta tiene que estar activa y al día',
+      );
+    }
+    if (
+      empresa.pago_proveedor !== 'mercadopago' ||
+      !empresa.pago_suscripcion_id ||
+      !empresa.plan ||
+      !ORDEN_DE_PLANES.includes(empresa.plan as Exclude<Plan, null>)
+    ) {
+      throw new BadRequestException(
+        'Tu plan no se cobra por Mercado Pago: para cambiarlo escríbenos y lo arreglamos altiro',
+      );
+    }
+    return empresa;
+  }
+
+  /** La subida rige al instante: plan nuevo, memoria olvidada, y la
+   *  suscripción pasa a cobrar el precio nuevo desde el próximo mes. */
+  private async aplicarSubida(
+    companyId: number,
+    planNuevo: Exclude<Plan, null>,
+  ) {
+    const empresa = await this.empresa(companyId);
+    await this.repo.actualizarEmpresa(companyId, {
+      plan: planNuevo,
+      plan_programado: null,
+      plan_cambiado_en: new Date().toISOString(),
+    });
+    await this.queRijaAlInstante(companyId);
+    if (empresa.pago_suscripcion_id) {
+      const precioNuevo = await this.mercadoPago.precioDelPlan(planNuevo);
+      await this.mercadoPago
+        .actualizarMontoSuscripcion(empresa.pago_suscripcion_id, precioNuevo)
+        .catch((error: unknown) =>
+          this.logger.error(
+            `empresa ${companyId}: subió a ${planNuevo} pero no pude ajustar el monto de su suscripción: ${String(error)}`,
+          ),
+        );
+    }
+    this.logger.info(
+      `empresa ${companyId} (${empresa.name}) SUBIÓ a ${planNuevo}: rige al instante`,
+    );
   }
 
   /** Calco de la Torre (paso 3.2): el plan nuevo rige al instante o el

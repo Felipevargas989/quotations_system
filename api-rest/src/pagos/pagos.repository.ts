@@ -13,6 +13,9 @@ export type EmpresaParaCobro = {
   plan: string | null;
   estado_plan: string | null;
   pagado_hasta: string | null;
+  pago_proveedor: string | null;
+  pago_suscripcion_id: string | null;
+  plan_programado: string | null;
 };
 
 @Injectable()
@@ -28,7 +31,9 @@ export class PagosRepository {
     this.logger.info(`empresa ${companyId} para el cobro`);
     const { data } = await this.supabase.client
       .from('companies')
-      .select('id, name, plan, estado_plan, pagado_hasta')
+      .select(
+        'id, name, plan, estado_plan, pagado_hasta, pago_proveedor, pago_suscripcion_id, plan_programado',
+      )
       .eq('id', companyId)
       .maybeSingle();
     return (data as EmpresaParaCobro | null) ?? null;

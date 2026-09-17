@@ -144,22 +144,6 @@ export default function Layout() {
                             </div>
                           )}
                         </div>
-                        {canAccess("admin") && (
-                          <Link
-                            to="/admin/users"
-                            onMouseEnter={() => {
-                              // Precalentado por cursor (12-08): ver Sidebar.
-                              import("../pages/UserManagementPage.tsx").catch(
-                                () => {},
-                              );
-                            }}
-                            onClick={() => setShowUserMenu(false)}
-                            className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <User size={16} />
-                            <span>Gestión de Usuarios</span>
-                          </Link>
-                        )}
                         {canAccess("configuration") && (
                           <Link
                             to="/configuration"
@@ -172,7 +156,7 @@ export default function Layout() {
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
                             <Cog size={16} />
-                            <span>Configuración</span>
+                            <span>Mi cuenta</span>
                           </Link>
                         )}
                         {canAccess("company_configuration") && (
@@ -180,14 +164,14 @@ export default function Layout() {
                             to="/company-configuration"
                             onMouseEnter={() => {
                               import(
-                                "../pages/configuration/companyConfiguration/CompanyConfiguration.tsx"
+                                "../pages/configuration/MiEmpresa.tsx"
                               ).catch(() => {});
                             }}
                             onClick={() => setShowUserMenu(false)}
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
                             <Building size={16} />
-                            <span>Configuración de la Compañía</span>
+                            <span>Mi empresa</span>
                           </Link>
                         )}
                         <button

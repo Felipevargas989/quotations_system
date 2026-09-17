@@ -38,6 +38,16 @@ export type SuscripcionEnMercadoPago = {
   next_payment_date?: string;
 };
 
+export type PlanEnMercadoPago = {
+  reason?: string;
+  auto_recurring?: {
+    frequency?: number;
+    frequency_type?: string;
+    transaction_amount?: number;
+    currency_id?: string;
+  };
+};
+
 export type PagoEnMercadoPago = {
   id: number | string;
   status: string; // approved | rejected | ...
@@ -81,6 +91,28 @@ export class MercadoPagoService {
     return null;
   }
 
+  /** El plan real, tal como está en la cuenta de Felipe: su nombre y
+   *  su recurrencia (monto, moneda, frecuencia). Mercado Pago es la
+   *  única fuente de la verdad de los precios. */
+  async leerPlan(plan: Exclude<Plan, null>): Promise<PlanEnMercadoPago> {
+    const delPlan = (await this.llamar(
+      'GET',
+      `/preapproval_plan/${encodeURIComponent(this.planId(plan))}`,
+    )) as PlanEnMercadoPago;
+    if (!delPlan.auto_recurring?.transaction_amount) {
+      throw new Error(
+        `el plan ${plan} no tiene monto en Mercado Pago: no puedo armar la suscripción`,
+      );
+    }
+    return delPlan;
+  }
+
+  /** El precio mensual de un plan, leído del plan real. */
+  async precioDelPlan(plan: Exclude<Plan, null>): Promise<number> {
+    const delPlan = await this.leerPlan(plan);
+    return delPlan.auto_recurring!.transaction_amount!;
+  }
+
   /**
    * Pide a Mercado Pago la suscripción PROPIA de una empresa (plan §2:
    * un enlace fijo no identifica quién pagó). El external_reference
@@ -102,24 +134,8 @@ export class MercadoPagoService {
     correoDelPagador: string,
     backUrl: string,
   ): Promise<SuscripcionCreada> {
-    const delPlan = (await this.llamar(
-      'GET',
-      `/preapproval_plan/${encodeURIComponent(this.planId(plan))}`,
-    )) as {
-      auto_recurring?: {
-        frequency?: number;
-        frequency_type?: string;
-        transaction_amount?: number;
-        currency_id?: string;
-      };
-      reason?: string;
-    };
-    const recurrencia = delPlan.auto_recurring;
-    if (!recurrencia?.transaction_amount) {
-      throw new Error(
-        `el plan ${plan} no tiene monto en Mercado Pago: no puedo armar la suscripción`,
-      );
-    }
+    const delPlan = await this.leerPlan(plan);
+    const recurrencia = delPlan.auto_recurring!;
     // El payer_email es OBLIGATORIO (medido el 17-09: sin él,
     // "payer_email is required") y el proveedor VETA los dominios
     // desechables (con mailinator respondió "User bad request"). Al
@@ -155,6 +171,63 @@ export class MercadoPagoService {
     return { id, init_point: enlace };
   }
 
+  /**
+   * El monto mensual de una suscripción viva cambia (cambio de plan,
+   * 18-09-2026): el próximo cobro sale con el precio nuevo. La fecha
+   * del cobro no se mueve.
+   */
+  async actualizarMontoSuscripcion(
+    preapprovalId: string,
+    monto: number,
+  ): Promise<void> {
+    await this.llamar(
+      'PUT',
+      `/preapproval/${encodeURIComponent(preapprovalId)}`,
+      {
+        auto_recurring: { transaction_amount: monto, currency_id: 'CLP' },
+      },
+    );
+  }
+
+  /**
+   * Un pago ÚNICO (no recurrente): el proporcional de una subida de
+   * plan (18-09-2026). Va por Checkout Pro con la referencia
+   * `cambio:empresa:plan`, y su aviso llega por el mismo webhook como
+   * `payment`.
+   */
+  async crearPagoUnico(datos: {
+    monto: number;
+    titulo: string;
+    referencia: string;
+    correoDelPagador: string;
+    backUrl: string;
+  }): Promise<{ id: string; init_point: string }> {
+    const respuesta = (await this.llamar('POST', '/checkout/preferences', {
+      items: [
+        {
+          title: datos.titulo,
+          quantity: 1,
+          unit_price: datos.monto,
+          currency_id: 'CLP',
+        },
+      ],
+      payer: { email: datos.correoDelPagador },
+      external_reference: datos.referencia,
+      back_urls: {
+        success: datos.backUrl,
+        pending: datos.backUrl,
+        failure: datos.backUrl,
+      },
+      auto_return: 'approved',
+    })) as { id?: string; init_point?: string };
+    if (!respuesta.id || !respuesta.init_point) {
+      throw new Error(
+        `Mercado Pago no devolvió el pago único completo: ${JSON.stringify(respuesta).slice(0, 200)}`,
+      );
+    }
+    return { id: respuesta.id, init_point: respuesta.init_point };
+  }
+
   /** La verdad de una suscripción. El webhook JAMÁS confía en el cuerpo
    *  del aviso: siempre se consulta acá (plan §3.2 punto 10). */
   async consultarSuscripcion(id: string): Promise<SuscripcionEnMercadoPago> {
@@ -173,7 +246,7 @@ export class MercadoPagoService {
   }
 
   private async llamar(
-    metodo: 'GET' | 'POST',
+    metodo: 'GET' | 'POST' | 'PUT',
     ruta: string,
     cuerpo?: Record<string, unknown>,
   ): Promise<unknown> {

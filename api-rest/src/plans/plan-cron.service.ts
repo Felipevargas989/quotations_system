@@ -115,6 +115,32 @@ export class PlanCronService {
     const ahora = new Date().toISOString();
     const gracia = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // 0. Bajadas agendadas (cambio de plan, 18-09) cuyo mes pagado ya
+    //    terminó y cuyo cobro nuevo aún no avisa: el reloj las aplica.
+    //    PostgREST no sabe "plan = plan_programado" en un solo update,
+    //    así que se leen y se aplican una a una.
+    const { data: bajadas } = await this.supabase.client
+      .from('companies')
+      .select('id, name, plan_programado')
+      .eq('estado_plan', 'activo')
+      .not('plan_programado', 'is', null)
+      .not('pagado_hasta', 'is', null)
+      .lt('pagado_hasta', ahora);
+    for (const empresa of bajadas ?? []) {
+      await this.supabase.client
+        .from('companies')
+        .update({
+          plan: empresa.plan_programado,
+          plan_programado: null,
+          plan_cambiado_en: ahora,
+        })
+        .eq('id', empresa.id);
+      this.derechosService.olvidar(empresa.id);
+      this.logger.info(
+        `empresa ${empresa.id} (${empresa.name}): bajó a ${empresa.plan_programado} al terminar su mes pagado`,
+      );
+    }
+
     // 1. Canceladas con el mes pagado ya cumplido → bloqueadas.
     const { data: canceladas } = await this.supabase.client
       .from('companies')
