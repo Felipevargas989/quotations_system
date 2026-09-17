@@ -120,13 +120,13 @@ export class MercadoPagoService {
         `el plan ${plan} no tiene monto en Mercado Pago: no puedo armar la suscripción`,
       );
     }
-    // Sin payer_email a propósito (medido el 17-09: con él, "User bad
-    // request" — el correo de Eventia no tiene por qué ser una cuenta
-    // de Mercado Pago). El pagador se identifica solo al poner su
-    // tarjeta en el checkout; a la empresa la amarra el
-    // external_reference, no el correo.
-    void correoDelPagador;
+    // El payer_email es OBLIGATORIO (medido el 17-09: sin él,
+    // "payer_email is required") y el proveedor VETA los dominios
+    // desechables (con mailinator respondió "User bad request"). Al
+    // autorizar en el checkout, Mercado Pago asocia al que se loguea;
+    // a la empresa la amarra el external_reference, no el correo.
     const respuesta = await this.llamar('POST', '/preapproval', {
+      payer_email: correoDelPagador,
       reason: delPlan.reason || `Eventia · plan ${plan}`,
       auto_recurring: {
         frequency: recurrencia.frequency ?? 1,
