@@ -19,8 +19,8 @@
 -- por SQL directo lleva su GRANT, su secuencia y su RLS en la MISMA
 -- migración, o la pantalla muere con "permission denied" (42501).
 --
--- Aplicada en LAB el 16-09-2026. En PRODUCCIÓN: pendiente, ANTES del
--- deploy del motor del sprint B.
+-- Aplicada en LAB el 16-09-2026 y en PRODUCCIÓN el 17-09-2026, antes
+-- del deploy del motor del sprint B (orden de la casa).
 -- ============================================================
 
 alter table public.companies
