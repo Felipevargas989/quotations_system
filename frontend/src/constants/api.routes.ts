@@ -103,6 +103,7 @@ export const API_ROUTES = {
   PAGOS_ESTADO: "/pagos/estado",
   PAGOS_CAMBIAR_PLAN_COTIZAR: "/pagos/cambiar-plan/cotizar",
   PAGOS_CAMBIAR_PLAN: "/pagos/cambiar-plan",
+  PAGOS_CANCELAR: "/pagos/cancelar",
 
   // refunds
   REFUNDS: "/refunds",

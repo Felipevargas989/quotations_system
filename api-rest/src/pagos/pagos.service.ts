@@ -119,7 +119,52 @@ export class PagosService {
       // cambiar de plan por acá, y si ya agendó una bajada se le dice.
       pago_proveedor: empresa.pago_proveedor,
       plan_programado: empresa.plan_programado,
+      // "Cancelar mi plan" (18-09): ¿hay suscripción que cancelar? ¿o ya
+      // canceló y corre hasta lo pagado? (la marca de "canceló" es la
+      // suscripción en NULL con el proveedor puesto, decisión 5).
+      suscripcion_viva: Boolean(empresa.pago_suscripcion_id),
+      cancelada:
+        empresa.estado_plan === 'activo' &&
+        empresa.pago_proveedor === 'mercadopago' &&
+        !empresa.pago_suscripcion_id,
     };
+  }
+
+  /**
+   * "CANCELAR MI PLAN" (18-09-2026, términos §9, pedido por Felipe): el
+   * cliente da de baja por el mismo medio por el que contrató (ley
+   * 21.398). Se cancela la suscripción en Mercado Pago —no vuelve a
+   * cobrar— y la empresa CONSERVA su plan hasta que termine el mes ya
+   * pagado; ahí el reloj de las 11:10 (paso 1) la deja pausada, sin
+   * borrar nada. Deja la MISMA marca que el aviso `cancelled` del
+   * proveedor: suscripción en NULL con el proveedor puesto. Una morosa
+   * también puede cancelar: el paso 3 la pausa al vencer su gracia.
+   */
+  async cancelar(companyId: number): Promise<{ sigue_hasta: string | null }> {
+    const empresa = await this.empresa(companyId);
+    if (empresa.estado_plan === 'gratis') {
+      throw new BadRequestException(
+        'Tu cuenta es una cortesía: no tiene un plan que cancelar',
+      );
+    }
+    if (
+      empresa.pago_proveedor !== 'mercadopago' ||
+      !empresa.pago_suscripcion_id
+    ) {
+      throw new BadRequestException(
+        'No tienes una suscripción activa que cancelar',
+      );
+    }
+    await this.mercadoPago.cancelarSuscripcion(empresa.pago_suscripcion_id);
+    await this.repo.actualizarEmpresa(companyId, {
+      pago_suscripcion_id: null,
+      // Una bajada agendada ya no tiene sentido: se va con la suscripción.
+      plan_programado: null,
+    });
+    this.logger.warn(
+      `empresa ${companyId} (${empresa.name}) canceló su plan ${empresa.plan}: sigue hasta ${empresa.pagado_hasta ?? 'que el reloj la revise'}`,
+    );
+    return { sigue_hasta: empresa.pagado_hasta ?? null };
   }
 
   /**

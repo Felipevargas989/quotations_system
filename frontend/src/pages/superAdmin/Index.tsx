@@ -181,6 +181,7 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                 "Usuarios",
                 "Cotizaciones/mes",
                 "Módulos propios",
+                "Llegó por",
               ].map((h) => (
                 <th
                   key={h}
@@ -274,12 +275,17 @@ function TablaDePlanes({ empresas }: { empresas: TorreEmpresa[] }) {
                     ? e.modulos_propios.join(", ")
                     : "—"}
                 </td>
+                {/* DE DÓNDE LLEGÓ (migración 116): "—" = no se sabe (anterior
+                    a la 116 o creada a mano); "Directo" = se registró sola. */}
+                <td className="px-4 py-2 text-sm text-gray-500">
+                  {e.origen ?? "—"}
+                </td>
               </tr>
             ))}
             {empresas.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-6 text-center text-sm text-gray-500"
                 >
                   Todavía no hay empresas.

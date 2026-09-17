@@ -174,6 +174,52 @@ describe('El alta por cuenta propia', () => {
     }
     expect(companies.deleteById).toHaveBeenCalledWith(77);
   });
+
+  // ── DE DÓNDE LLEGÓ (migración 116, 18-09-2026) ────────────────────
+  const empresaCreadaEn = (companies: { create: jest.Mock }) =>
+    (
+      companies.create.mock.calls as unknown as [
+        [{ origen?: string | null; origen_detalle?: unknown }],
+      ]
+    )[0][0];
+
+  it('con huella de Google en la dirección, la empresa nace como "Google Ads"', async () => {
+    const userCreate = jest
+      .fn()
+      .mockResolvedValue({ data: { id: 'u1' }, error: null });
+    const { service, companies } = armar({ userCreate });
+
+    await service.createSuscription({
+      ...dto,
+      origen_detalle: {
+        gclid: 'abc123',
+        utm_campaign: 'lanzamiento',
+        // El navegador no decide qué entra a la base: esto se descarta.
+        inventado: 'MENTIRA',
+      },
+    });
+
+    const creada = empresaCreadaEn(companies);
+    expect(creada.origen).toBe('Google Ads');
+    expect(creada.origen_detalle).toEqual({
+      gclid: 'abc123',
+      utm_campaign: 'lanzamiento',
+    });
+  });
+
+  it('sin ninguna huella, la empresa nace como "Directo" (no como NULL)', async () => {
+    const userCreate = jest
+      .fn()
+      .mockResolvedValue({ data: { id: 'u1' }, error: null });
+    const { service, companies } = armar({ userCreate });
+
+    await service.createSuscription(dto);
+
+    const creada = empresaCreadaEn(companies);
+    // NULL queda para las anteriores a la 116 y las creadas a mano.
+    expect(creada.origen).toBe('Directo');
+    expect(creada.origen_detalle).toBeNull();
+  });
 });
 
 // ── El DTO de la puerta pública: cada campo con su tope y su forma. ────
@@ -204,5 +250,21 @@ describe('SignupDto, la puerta pública endurecida', () => {
 
   it('un nombre de empresa kilométrico, rechazado', () => {
     expect(errores({ company_name: 'x'.repeat(121) })).not.toHaveLength(0);
+  });
+
+  it('las huellas de origen entran como objeto y se rechazan como texto', () => {
+    expect(
+      validateSync(
+        plainToInstance(SignupDto, {
+          ...base,
+          origen_detalle: { gclid: 'abc' },
+        }),
+      ),
+    ).toHaveLength(0);
+    expect(
+      validateSync(
+        plainToInstance(SignupDto, { ...base, origen_detalle: 'gclid=abc' }),
+      ),
+    ).not.toHaveLength(0);
   });
 });

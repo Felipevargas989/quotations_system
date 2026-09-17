@@ -51,4 +51,9 @@ export class Company {
   /** Cuándo termina la prueba gratis. Null si ya no está en prueba. */
   prueba_vence?: string | null;
   plan_cambiado_en?: string;
+  // Migración 116 (18-09-2026): por qué canal llegó el registro. La
+  // etiqueta la decide el motor (quotations/origen-del-lead.ts). NULL =
+  // no se sabe (anterior a la 116, o creada a mano desde la Torre).
+  origen?: string | null;
+  origen_detalle?: Record<string, string> | null;
 }

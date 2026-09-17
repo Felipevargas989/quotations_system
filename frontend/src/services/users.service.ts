@@ -77,6 +77,25 @@ export const signup = async (signupDto: SignupDto) => {
     );
     return { data };
   } catch (error) {
+    // RED DE SEGURIDAD (migración 116, mismo molde que la 110): el motor
+    // rechaza de plano los campos que no conoce. Si esta web llegara a
+    // producción antes que el motor que entiende `origen_detalle`, se
+    // caería el alta entera. Perder el origen cuesta infinitamente menos
+    // que perder al cliente: se reintenta sin la marca.
+    if (signupDto.origen_detalle) {
+      const sinOrigen = { ...signupDto };
+      delete sinOrigen.origen_detalle;
+      try {
+        const data = await apiRequest(
+          `${API_ROUTES.USERS_SIGNUP}`,
+          "POST",
+          sinOrigen,
+        );
+        return { data };
+      } catch (errorDelReintento) {
+        return { data: null, error: errorDelReintento };
+      }
+    }
     return { data: null, error };
   }
 };

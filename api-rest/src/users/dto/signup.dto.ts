@@ -1,6 +1,8 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsObject,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -42,4 +44,12 @@ export class SignupDto {
   @IsNotEmpty()
   @MaxLength(8)
   currency: Company['currency'];
+
+  /** DE DÓNDE LLEGÓ (migración 116, 18-09-2026): las huellas crudas del
+   *  aterrizaje (gclid, fbclid, utm_*, referente). Opcional; el motor se
+   *  queda solo con las llaves conocidas y decide la etiqueta legible
+   *  (quotations/origen-del-lead.ts). */
+  @IsObject()
+  @IsOptional()
+  origen_detalle?: Record<string, string>;
 }

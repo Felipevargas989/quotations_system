@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
@@ -14,6 +14,7 @@ import {
 import { registerLead } from "../../services/registerLeads.service";
 import { LeadData } from "../../types/leads.types";
 import { signup } from "../../services/users.service";
+import { origenDelLead } from "../../lib/origenDelLead";
 import { SignupDto } from "../../types/users.types";
 import { useAuth } from "../../contexts/AuthContext";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -78,6 +79,10 @@ export default function NewUserRegisterForm() {
       // los que empezaron y no terminaron. Va primero y SIN bloquear —
       // que un tropiezo del registro de interesados jamás le impida a
       // alguien crear su cuenta.
+      // DE DÓNDE LLEGÓ (migración 116, 18-09-2026): la huella capturada
+      // al aterrizar viaja con el interesado Y con el alta. El motor
+      // decide la etiqueta; si no hay huella, no se manda nada.
+      const origen = origenDelLead();
       const leadData: LeadData = {
         nombre: formData.nombreContacto,
         telefono: formData.telefonoContacto,
@@ -85,6 +90,7 @@ export default function NewUserRegisterForm() {
         nombre_empresa: formData.nombreEmpresa,
         personas_empresa: formData.personasEmpresa,
         ventas_anuales: formData.ventasAnuales,
+        ...(origen ? { origen_detalle: origen } : {}),
       };
       try {
         await registerLead(leadData);
@@ -101,6 +107,7 @@ export default function NewUserRegisterForm() {
         admin_full_name: formData.nombreContacto,
         company_name: formData.nombreEmpresa,
         currency: formData.currency,
+        ...(origen ? { origen_detalle: origen } : {}),
       };
       const signupResult = await signup(signupDto);
       if (signupResult.error) {
@@ -136,8 +143,8 @@ export default function NewUserRegisterForm() {
             ¡Tu cuenta está lista!
           </h2>
           <p className="text-gray-600 mb-6">
-            Creamos tu empresa y tus 7 días de prueba ya están corriendo.
-            Entra con tu correo y la contraseña que elegiste.
+            Creamos tu empresa y tus 7 días de prueba ya están corriendo. Entra
+            con tu correo y la contraseña que elegiste.
           </p>
           <a
             href="/login"
@@ -406,7 +413,25 @@ export default function NewUserRegisterForm() {
         </button>
 
         <p className="text-xs text-gray-500 text-center">
-          Al crear tu cuenta, aceptas nuestros términos y condiciones
+          Al crear tu cuenta, aceptas nuestros{" "}
+          <Link
+            to="/terminos"
+            target="_blank"
+            rel="noopener"
+            className="text-blue-600 hover:underline"
+          >
+            términos y condiciones
+          </Link>{" "}
+          y nuestra{" "}
+          <Link
+            to="/privacidad"
+            target="_blank"
+            rel="noopener"
+            className="text-blue-600 hover:underline"
+          >
+            política de privacidad
+          </Link>
+          .
         </p>
       </form>
     </div>

@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowRight, ArrowUp, CreditCard, Loader2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  CreditCard,
+  Loader2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
+import ConfirmInline from "../../components/ConfirmInline";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import { NOMBRE_DEL_PLAN } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   cambiarPlan,
+  cancelarPlan,
   cotizarCambio,
   CotizacionDeCambio,
   estadoDelPlan,
@@ -95,16 +103,25 @@ export default function PestanaPlan() {
   const pruebaVence = fechaLarga(company?.prueba_vence);
   const bajadaAgendada = estadoQuery.data?.plan_programado ?? null;
   const infoEstado = (estado && ESTADOS[estado]) || null;
+  const cancelada = estadoQuery.data?.cancelada === true;
+  const suscripcionViva = estadoQuery.data?.suscripcion_viva === true;
   const puedeCambiar =
-    estado === "activo" && estadoQuery.data?.pago_proveedor === "mercadopago";
+    estado === "activo" &&
+    estadoQuery.data?.pago_proveedor === "mercadopago" &&
+    !cancelada;
+  // "Cancelar mi plan" (18-09, términos §9): por el mismo medio por el
+  // que se contrató. Solo con una suscripción viva y ya cobrando; en
+  // prueba no hay nada que cancelar, la prueba simplemente termina.
+  const puedeCancelar =
+    suscripcionViva && (estado === "activo" || estado === "moroso");
 
   // El cambio de plan en dos tiempos.
-  const [cotizacion, setCotizacion] = useState<CotizacionDeCambio | null>(
-    null,
-  );
+  const [cotizacion, setCotizacion] = useState<CotizacionDeCambio | null>(null);
   const [cotizando, setCotizando] = useState<PlanContratable | null>(null);
   const [correoMp, setCorreoMp] = useState("");
   const [cambiando, setCambiando] = useState(false);
+  const [preguntandoCancelar, setPreguntandoCancelar] = useState(false);
+  const [cancelandoPlan, setCancelandoPlan] = useState(false);
   // Cancelar manda siempre (Felipe, 18-09): cerrar a media preparación
   // y que el enlace tardío se ignore.
   const cancelado = useRef(false);
@@ -178,6 +195,24 @@ export default function PestanaPlan() {
     }
   };
 
+  const cancelarPlanDeVerdad = async () => {
+    setCancelandoPlan(true);
+    try {
+      const r = await cancelarPlan();
+      toast.success(
+        r.sigue_hasta
+          ? `Plan cancelado. Sigues con todo hasta el ${fechaLarga(r.sigue_hasta)}; no se cobra el mes siguiente.`
+          : "Plan cancelado: no se cobra el mes siguiente.",
+      );
+      setPreguntandoCancelar(false);
+      await qc.invalidateQueries({ queryKey: ["pagos", "estado"] });
+    } catch (error) {
+      toast.error(humanizeApiError(error));
+    } finally {
+      setCancelandoPlan(false);
+    }
+  };
+
   const otrosPlanes = ORDEN.filter((p) => p !== plan);
   const posicion = (p: string | null) => ORDEN.indexOf(p as PlanContratable);
 
@@ -215,15 +250,26 @@ export default function PestanaPlan() {
             Tu prueba gratis termina el <strong>{pruebaVence}</strong>.
           </p>
         )}
-        {estado === "activo" && pagadoHasta && (
+        {estado === "activo" && pagadoHasta && !cancelada && (
           <p className="text-sm text-gray-700">
-            Pagado hasta el <strong>{pagadoHasta}</strong>. El próximo cobro
-            es automático.
+            Pagado hasta el <strong>{pagadoHasta}</strong>. El próximo cobro es
+            automático.
+          </p>
+        )}
+        {cancelada && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Cancelaste tu plan: sigues con todo lo de{" "}
+            <strong>{nombre(plan)}</strong>
+            {pagadoHasta
+              ? ` hasta el ${pagadoHasta}`
+              : " hasta el fin de tu mes pagado"}
+            . No se cobrará el mes siguiente y nada se borra.
           </p>
         )}
         {bajadaAgendada && (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Tienes agendada la bajada a <strong>{nombre(bajadaAgendada)}</strong>
+            Tienes agendada la bajada a{" "}
+            <strong>{nombre(bajadaAgendada)}</strong>
             {pagadoHasta ? ` para el ${pagadoHasta}` : ""}: hasta entonces
             sigues con todo lo de {nombre(plan)}.
           </p>
@@ -267,6 +313,32 @@ export default function PestanaPlan() {
           </div>
         )}
 
+        {puedeCancelar && (
+          <div className="pt-4 border-t border-gray-100">
+            {preguntandoCancelar ? (
+              <ConfirmInline
+                question={`¿Cancelar tu plan? Sigues con todo${
+                  pagadoHasta
+                    ? ` hasta el ${pagadoHasta}`
+                    : " hasta el fin de tu mes pagado"
+                } y no se cobra el mes siguiente. Nada se borra.`}
+                yesLabel="Sí, cancelar mi plan"
+                onYes={() => void cancelarPlanDeVerdad()}
+                onNo={() => setPreguntandoCancelar(false)}
+                busy={cancelandoPlan}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPreguntandoCancelar(true)}
+                className="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
+              >
+                Cancelar mi plan
+              </button>
+            )}
+          </div>
+        )}
+
         {estado !== "gratis" && !puedeCambiar && (
           <Link
             to="/plans"
@@ -300,7 +372,8 @@ export default function PestanaPlan() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" /> Un momento…
                   </>
-                ) : cotizacion.modo === "subir" && cotizacion.proporcional > 0 ? (
+                ) : cotizacion.modo === "subir" &&
+                  cotizacion.proporcional > 0 ? (
                   `Pagar ${pesos(cotizacion.proporcional)} y subir`
                 ) : cotizacion.modo === "subir" ? (
                   "Subir ahora"
@@ -324,10 +397,10 @@ export default function PestanaPlan() {
                   <p className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                     Hoy pagas <strong>{pesos(cotizacion.proporcional)}</strong>:
                     la diferencia por los{" "}
-                    <strong>{cotizacion.dias_restantes} días</strong> que
-                    faltan de tu mes ya pagado. El plan nuevo rige al instante
-                    y desde el próximo cobro pagas{" "}
-                    {pesos(cotizacion.precio_nuevo)} al mes.
+                    <strong>{cotizacion.dias_restantes} días</strong> que faltan
+                    de tu mes ya pagado. El plan nuevo rige al instante y desde
+                    el próximo cobro pagas {pesos(cotizacion.precio_nuevo)} al
+                    mes.
                   </p>
                 ) : (
                   <p className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
@@ -356,15 +429,16 @@ export default function PestanaPlan() {
                   Sigues con <strong>{nombre(cotizacion.plan_actual)}</strong>{" "}
                   hasta el{" "}
                   <strong>
-                    {fechaLarga(cotizacion.rige_desde) ?? "fin de tu mes pagado"}
+                    {fechaLarga(cotizacion.rige_desde) ??
+                      "fin de tu mes pagado"}
                   </strong>
                   , que ya está pagado.
                 </p>
                 <p className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                   Desde entonces pasas a{" "}
                   <strong>{nombre(cotizacion.plan_nuevo)}</strong> y pagas{" "}
-                  {pesos(cotizacion.precio_nuevo)} al mes. Nada se borra: lo
-                  que quede fuera del plan se guarda por si vuelves a subir.
+                  {pesos(cotizacion.precio_nuevo)} al mes. Nada se borra: lo que
+                  quede fuera del plan se guarda por si vuelves a subir.
                 </p>
               </>
             )}

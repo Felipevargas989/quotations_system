@@ -39,9 +39,9 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111 y 112 (secciones 12 y 13) |
+| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`); de dónde llegó el registro (`origen`, `origen_detalle`, mapa 15 §5.5 punto 6) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111, 112 y 116 (secciones 12 y 13) |
 | `user_profiles` | Perfil del usuario: `user_id` → `auth.users`, `email`, `full_name`, `role` (CHECK con los 4 cargos), `company_id` | 15 | `0_initial_models.sql` |
-| `leads` | Prospectos de Eventia desde la landing: nombre, teléfono, correo, empresa, tamaño, ventas. **No tiene `company_id`** | 15 (super-admin) | `0_initial_models.sql`; la 39 cierra la inserción anónima |
+| `leads` | Prospectos de Eventia desde la landing: nombre, teléfono, correo, empresa, tamaño, ventas; de dónde llegó (`origen`, `origen_detalle`, 116). **No tiene `company_id`** | 15 (super-admin) | `0_initial_models.sql`; la 39 cierra la inserción anónima; la 116 agrega el origen |
 
 ### Clientes
 

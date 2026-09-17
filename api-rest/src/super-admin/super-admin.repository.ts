@@ -299,7 +299,7 @@ export class SuperAdminRepository {
       await this.supabase.client
         .from('companies')
         .select(
-          'id, name, created_at, plan, estado_plan, prueba_vence, modulos_propios',
+          'id, name, created_at, plan, estado_plan, prueba_vence, modulos_propios, origen',
         );
     if (companiesError) {
       this.logger.error(
@@ -378,6 +378,8 @@ export class SuperAdminRepository {
     nombre_empresa?: string;
     personas_empresa?: string;
     ventas_anuales?: string;
+    origen?: string | null;
+    origen_detalle?: Record<string, string> | null;
   }) {
     this.logger.info('registerLead (campos personales redactados)');
     const { data, error } = await this.supabase.client
