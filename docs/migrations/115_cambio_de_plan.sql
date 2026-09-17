@@ -16,8 +16,8 @@
 -- La subida no necesita nada nuevo — se aplica cuando llega el aviso
 -- del pago del proporcional (external_reference `cambio:empresa:plan`).
 --
--- Aplicada en LAB el 18-09-2026. En PRODUCCIÓN: pendiente, ANTES del
--- deploy del motor de este sprint.
+-- Aplicada en LAB el 18-09-2026 y en PRODUCCIÓN el 18-09-2026 (antes del
+-- deploy del motor de este sprint, PR #117).
 -- ============================================================
 
 alter table public.companies
