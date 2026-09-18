@@ -4,6 +4,30 @@ import type {
   CampanaMarketing,
   FiltroSegmento,
 } from "../../services/marketing.service";
+import { toast } from "../../components/toast/Toast";
+
+/** Tope de audiencias por campaña: el MISMO número que el candado del
+ *  motor (CrearCampanaDto / EditarCampanaDto). Nació en 10 el 27-08;
+ *  Felipe chocó con él el 18-09 al elegir "todas" y pidió 30. */
+export const MAX_AUDIENCIAS_POR_CAMPANA = 30;
+
+/**
+ * Avisa en español ANTES de guardar: si la selección nueva pasa el tope,
+ * se rechaza y se explica; si no, se aplica. Pieza compartida entre el
+ * creador y el editor, cero copias.
+ */
+export const elegirAudiencias = (
+  nuevas: string[],
+  aplicar: (v: string[]) => void,
+): void => {
+  if (nuevas.length > MAX_AUDIENCIAS_POR_CAMPANA) {
+    toast.warn(
+      `Puedes elegir hasta ${String(MAX_AUDIENCIAS_POR_CAMPANA)} audiencias por campaña (intentaste ${String(nuevas.length)}). Ojo: "Todos los clientes" ya incluye a todas las guardadas.`,
+    );
+    return;
+  }
+  aplicar(nuevas);
+};
 
 /**
  * LAS AUDIENCIAS DE UNA CAMPAÑA, traducidas (28-08). Pieza compartida

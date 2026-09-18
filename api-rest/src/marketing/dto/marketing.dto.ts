@@ -12,6 +12,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+/** Tope de audiencias por campaña. Nació en 10 el 27-08 como freno de
+ *  seguridad sin razón de negocio; el 18-09 Felipe chocó con él al
+ *  elegir "todas" (19 opciones: todos + 9 guardadas + 9 importadas) y
+ *  pidió 30. La pantalla avisa antes (audienciasDeCampana.ts, mismo
+ *  número); este es el candado de verdad. */
+export const MAX_AUDIENCIAS_POR_CAMPANA = 30;
+
 export class ContactoImportadoDto {
   @IsString()
   @MaxLength(320)
@@ -136,7 +143,9 @@ export class EditarCampanaDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(MAX_AUDIENCIAS_POR_CAMPANA, {
+    message: `Puedes elegir hasta ${MAX_AUDIENCIAS_POR_CAMPANA} audiencias por campaña`,
+  })
   @ValidateNested({ each: true })
   @Type(() => AudienciaElegidaDto)
   audiencias?: AudienciaElegidaDto[];
@@ -225,7 +234,9 @@ export class CrearCampanaDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(MAX_AUDIENCIAS_POR_CAMPANA, {
+    message: `Puedes elegir hasta ${MAX_AUDIENCIAS_POR_CAMPANA} audiencias por campaña`,
+  })
   @ValidateNested({ each: true })
   @Type(() => AudienciaElegidaDto)
   audiencias?: AudienciaElegidaDto[];

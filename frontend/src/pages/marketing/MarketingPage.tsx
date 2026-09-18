@@ -36,6 +36,8 @@ import {
 import SegmentoBuilder from "./SegmentoBuilder";
 import CampanaMarcaPropia from "./CampanaMarcaPropia";
 import {
+  elegirAudiencias,
+  MAX_AUDIENCIAS_POR_CAMPANA,
   opcionesDeAudiencias,
   unaAudiencia,
 } from "./audienciasDeCampana";
@@ -59,7 +61,11 @@ const parsearContactos = (texto: string) =>
     .filter(Boolean)
     .map((l) => {
       const [email, name, empresa] = l.split(/[;,\t]/).map((x) => x?.trim());
-      return { email: email ?? "", name: name || undefined, empresa: empresa || undefined };
+      return {
+        email: email ?? "",
+        name: name || undefined,
+        empresa: empresa || undefined,
+      };
     })
     .filter((c) => c.email && !c.email.toLowerCase().startsWith("email"));
 
@@ -119,8 +125,8 @@ export default function MarketingPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Marketing</h1>
         <p className="text-sm text-gray-500">
-          Campañas por correo con tus propios datos. Todo correo lleva su
-          link de baja; quien se baja no vuelve a recibir nada.
+          Campañas por correo con tus propios datos. Todo correo lleva su link
+          de baja; quien se baja no vuelve a recibir nada.
         </p>
       </div>
 
@@ -239,7 +245,9 @@ function Audiencias({
   const [borrando, setBorrando] = useState<number | null>(null);
   // EL LÁPIZ (Felipe 27-08): renombrar en línea, ✓ para guardar.
   const [renombrando, setRenombrando] = useState<
-    { tipo: "g"; id: number; valor: string } | { tipo: "i"; nombre: string; valor: string } | null
+    | { tipo: "g"; id: number; valor: string }
+    | { tipo: "i"; nombre: string; valor: string }
+    | null
   >(null);
   const renombrar = useMutation({
     mutationFn: () => {
@@ -291,9 +299,9 @@ function Audiencias({
           <Users className="w-4 h-4 text-gray-500" /> Tus audiencias
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-2">
-          Una audiencia guardada es una pregunta viva: el conteo es de hoy
-          y se recalcula solo al momento de enviar. Las importadas son
-          listas fijas que trajiste de afuera.
+          Una audiencia guardada es una pregunta viva: el conteo es de hoy y se
+          recalcula solo al momento de enviar. Las importadas son listas fijas
+          que trajiste de afuera.
         </p>
         {guardadas.length === 0 && importadas.length === 0 ? (
           <p className="text-sm text-gray-500 py-4 text-center">
@@ -312,7 +320,10 @@ function Audiencias({
                     <input
                       value={renombrando.valor}
                       onChange={(e) =>
-                        setRenombrando({ ...renombrando, valor: e.target.value })
+                        setRenombrando({
+                          ...renombrando,
+                          valor: e.target.value,
+                        })
                       }
                       onKeyDown={(e) => {
                         if (e.key === "Enter") renombrar.mutate();
@@ -324,7 +335,9 @@ function Audiencias({
                     <button
                       type="button"
                       onClick={() => renombrar.mutate()}
-                      disabled={!renombrando.valor.trim() || renombrar.isPending}
+                      disabled={
+                        !renombrando.valor.trim() || renombrar.isPending
+                      }
                       className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-40"
                     >
                       <Check className="w-3.5 h-3.5" />
@@ -349,60 +362,60 @@ function Audiencias({
                   {a.total} hoy
                 </span>
                 <span className="flex items-center justify-end gap-0.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setRenombrando({ tipo: "g", id: a.id, valor: a.nombre })
-                  }
-                  title="Cambiar el nombre"
-                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setViendo({
-                      tipo: "guardada",
-                      nombre: a.nombre,
-                      filtro: a.filtro,
-                    })
-                  }
-                  title="Ver quiénes están dentro"
-                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
-                {borrando === a.id ? (
-                  <span className="shrink-0 flex items-center gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        eliminar.mutate(a.id);
-                        setBorrando(null);
-                      }}
-                      className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
-                    >
-                      Borrar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBorrando(null)}
-                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
-                    >
-                      No
-                    </button>
-                  </span>
-                ) : (
                   <button
                     type="button"
-                    onClick={() => setBorrando(a.id)}
-                    title="Eliminar esta audiencia (las campañas ya creadas guardan su propia copia del filtro)"
-                    className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    onClick={() =>
+                      setRenombrando({ tipo: "g", id: a.id, valor: a.nombre })
+                    }
+                    title="Cambiar el nombre"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViendo({
+                        tipo: "guardada",
+                        nombre: a.nombre,
+                        filtro: a.filtro,
+                      })
+                    }
+                    title="Ver quiénes están dentro"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  {borrando === a.id ? (
+                    <span className="shrink-0 flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          eliminar.mutate(a.id);
+                          setBorrando(null);
+                        }}
+                        className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                      >
+                        Borrar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBorrando(null)}
+                        className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setBorrando(a.id)}
+                      title="Eliminar esta audiencia (las campañas ya creadas guardan su propia copia del filtro)"
+                      className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -417,7 +430,10 @@ function Audiencias({
                     <input
                       value={renombrando.valor}
                       onChange={(e) =>
-                        setRenombrando({ ...renombrando, valor: e.target.value })
+                        setRenombrando({
+                          ...renombrando,
+                          valor: e.target.value,
+                        })
                       }
                       onKeyDown={(e) => {
                         if (e.key === "Enter") renombrar.mutate();
@@ -429,7 +445,9 @@ function Audiencias({
                     <button
                       type="button"
                       onClick={() => renombrar.mutate()}
-                      disabled={!renombrando.valor.trim() || renombrar.isPending}
+                      disabled={
+                        !renombrando.valor.trim() || renombrar.isPending
+                      }
                       className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-40"
                     >
                       <Check className="w-3.5 h-3.5" />
@@ -460,60 +478,60 @@ function Audiencias({
                   )}
                 </span>
                 <span className="flex items-center justify-end gap-0.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setRenombrando({
-                      tipo: "i",
-                      nombre: a.audiencia,
-                      valor: a.audiencia,
-                    })
-                  }
-                  title="Cambiar el nombre"
-                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setViendo({ tipo: "importada", nombre: a.audiencia })
-                  }
-                  title="Ver quiénes están dentro (bajas marcadas)"
-                  className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
-                {borrandoImp === a.audiencia ? (
-                  <span className="shrink-0 flex items-center gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        eliminarImp.mutate(a.audiencia);
-                        setBorrandoImp(null);
-                      }}
-                      className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
-                    >
-                      Borrar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBorrandoImp(null)}
-                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
-                    >
-                      No
-                    </button>
-                  </span>
-                ) : (
                   <button
                     type="button"
-                    onClick={() => setBorrandoImp(a.audiencia)}
-                    title="Eliminar esta lista importada (las bajas registradas se conservan)"
-                    className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    onClick={() =>
+                      setRenombrando({
+                        tipo: "i",
+                        nombre: a.audiencia,
+                        valor: a.audiencia,
+                      })
+                    }
+                    title="Cambiar el nombre"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViendo({ tipo: "importada", nombre: a.audiencia })
+                    }
+                    title="Ver quiénes están dentro (bajas marcadas)"
+                    className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  {borrandoImp === a.audiencia ? (
+                    <span className="shrink-0 flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          eliminarImp.mutate(a.audiencia);
+                          setBorrandoImp(null);
+                        }}
+                        className="px-2 py-1 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
+                      >
+                        Borrar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBorrandoImp(null)}
+                        className="px-2 py-1 text-gray-500 hover:bg-gray-100 rounded-lg"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setBorrandoImp(a.audiencia)}
+                      title="Eliminar esta lista importada (las bajas registradas se conservan)"
+                      className="shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -535,8 +553,8 @@ function Audiencias({
                 Nueva audiencia desde tu base
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Arma el filtro, mira la previa, ponle nombre y guárdala.
-                Después cualquier campaña la elige de la lista.
+                Arma el filtro, mira la previa, ponle nombre y guárdala. Después
+                cualquier campaña la elige de la lista.
               </p>
             </div>
           }
@@ -565,8 +583,8 @@ function Audiencias({
           <Upload className="w-4 h-4 text-gray-500" /> Importar audiencia
         </h2>
         <p className="text-xs text-gray-500 mt-0.5 mb-3">
-          Elige un archivo (.txt, .csv, .xlsx) o pega desde Excel: una línea
-          por contacto — <span className="font-mono">correo, nombre, empresa</span>{" "}
+          Elige un archivo (.txt, .csv, .xlsx) o pega desde Excel: una línea por
+          contacto — <span className="font-mono">correo, nombre, empresa</span>{" "}
           (nombre y empresa optativos). Re-importar la misma etiqueta no
           duplica.
         </p>
@@ -595,7 +613,9 @@ function Audiencias({
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             rows={6}
-            placeholder={"paola@empresa.cl, Paola Lagos, Colegio Alemán\njuan@otra.cl"}
+            placeholder={
+              "paola@empresa.cl, Paola Lagos, Colegio Alemán\njuan@otra.cl"
+            }
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
           />
           {contactos.length > 0 && (
@@ -901,7 +921,13 @@ function Campanas({
   };
 
   const filtradas = campanas.filter((c) =>
-    matchesSearch(busca, String(c.id), c.nombre, c.asunto, c.audiencia_ref ?? ""),
+    matchesSearch(
+      busca,
+      String(c.id),
+      c.nombre,
+      c.asunto,
+      c.audiencia_ref ?? "",
+    ),
   );
   const ordenadas = [...filtradas].sort((a, b) => {
     if (sortCol === "numero") {
@@ -957,8 +983,8 @@ function Campanas({
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Historial</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Pincha una campaña para abrir su ficha: indicadores,
-            destinatarios, el correo enviado y la segunda pasada.
+            Pincha una campaña para abrir su ficha: indicadores, destinatarios,
+            el correo enviado y la segunda pasada.
           </p>
         </div>
         {ordenadas.length === 0 ? (
@@ -1109,7 +1135,6 @@ function NuevaCampana({
     });
   };
 
-
   const crear = useMutation({
     mutationFn: () =>
       crearCampanaMarketing({
@@ -1151,16 +1176,17 @@ function NuevaCampana({
           <MultiSelect
             options={opciones}
             value={audSels}
-            onChange={setAudSels}
+            onChange={(v) => elegirAudiencias(v, setAudSels)}
             placeholder="Elegir una o varias audiencias…"
             buscador
             searchPlaceholder="Buscar audiencia por nombre…"
           />
         </div>
         <p className="text-[11px] text-gray-400 mt-1">
-          Puedes elegir varias: se juntan y quien esté en dos recibe UN
-          solo correo. Las audiencias se crean en la pestaña Audiencias;
-          las "en vivo" se recalculan solas al momento de enviar.
+          Puedes elegir varias (hasta {MAX_AUDIENCIAS_POR_CAMPANA}): se juntan y
+          quien esté en dos recibe UN solo correo. Las audiencias se crean en la
+          pestaña Audiencias; las "en vivo" se recalculan solas al momento de
+          enviar.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1208,7 +1234,9 @@ function NuevaCampana({
           value={cuerpo}
           onChange={(e) => setCuerpo(e.target.value)}
           rows={6}
-          placeholder={"El cuerpo del correo. Párrafos separados por línea en blanco.\nSirve {nombre} y {empresa}. Ej: Hola {nombre}, ¿cómo está? Le escribe Felipe de..."}
+          placeholder={
+            "El cuerpo del correo. Párrafos separados por línea en blanco.\nSirve {nombre} y {empresa}. Ej: Hola {nombre}, ¿cómo está? Le escribe Felipe de..."
+          }
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
         {/* Los merge tags a la vista: se insertan donde está el cursor. */}
@@ -1233,16 +1261,16 @@ function NuevaCampana({
             {"{empresa}"}
           </button>
           <span className="text-gray-400">
-            — pínchalo y se escribe donde estás escribiendo (sirven en
-            asunto, preencabezado, título y cuerpo). Si el contacto no
-            tiene el dato, va "estimado cliente" / "su organización".
+            — pínchalo y se escribe donde estás escribiendo (sirven en asunto,
+            preencabezado, título y cuerpo). Si el contacto no tiene el dato, va
+            "estimado cliente" / "su organización".
           </span>
         </div>
       </div>
       <p className="text-[11px] text-gray-400">
-        Los botones van solos: WhatsApp y "Cotiza aquí" (tu formulario
-        público) salen en todos los correos con lo configurado en
-        Configuración de la empresa.
+        Los botones van solos: WhatsApp y "Cotiza aquí" (tu formulario público)
+        salen en todos los correos con lo configurado en Configuración de la
+        empresa.
       </p>
 
       <CampanaMarcaPropia
