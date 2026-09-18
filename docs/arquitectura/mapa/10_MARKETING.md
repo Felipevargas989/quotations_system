@@ -1,6 +1,6 @@
 # Mapa: Marketing por correo
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109, revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 18-09-2026 con el tope de 30 audiencias por campaña (§ Reglas de negocio).
 
 ## 1. Qué hace
 
@@ -147,7 +147,7 @@ Importada:
 
 - La audiencia es una PREGUNTA guardada con nombre (modelo Mailchimp, validado por Felipe el 25-08). Se recalcula al mirarla y al enviar ("si mañana entran 2 que calzan, quedan adentro solos") y la campaña guarda una foto del filtro por si la audiencia se borra. Evidencia: doc 11, puntos 1 y 2; migración 93; `MarketingService.candidatosDeUna`.
 - A personas, no a fichas (26-08; a la pregunta de Felipe "¿se envía uno a cada uno?", sí). Cada cliente que calza se abre a todos sus `client_contacts` con correo; si no tiene, respaldo al correo de la ficha. `{nombre}` es la persona y `{empresa}` el cliente, y cada correo cuenta una sola vez desde la fuente. Evidencia: `resolverSegmento` en `segmento.ts`; bloque "a personas" de `segmento.spec.ts`.
-- Varias audiencias por campaña (27-08): se juntan, y quien está en dos recibe un solo correo. Evidencia: `MarketingService.candidatosDe`; migración 99; texto de ayuda en `NuevaCampana`.
+- Varias audiencias por campaña (27-08): se juntan, y quien está en dos recibe un solo correo. Evidencia: `MarketingService.candidatosDe`; migración 99; texto de ayuda en `NuevaCampana`. **Tope: 30 audiencias por campaña** (`MAX_AUDIENCIAS_POR_CAMPANA`, 18-09-2026; nació en 10 el 27-08 como freno sin razón de negocio y Felipe chocó con él al elegir "todas": 19 opciones = todos + 9 guardadas + 9 importadas). El candado es el motor (`CrearCampanaDto` y `EditarCampanaDto`, mensaje en español); la pantalla avisa antes, al elegir (`elegirAudiencias` en `audienciasDeCampana.ts`, compartida por `NuevaCampana` y `EditorDeBorrador`). Ojo de uso: "Todos los clientes" ya contiene a todas las guardadas (son rebanadas de la misma base). Prueba: `marketing/tests/tope-de-audiencias.spec.ts`.
 - Nombres de negocio de Felipe: "Qué pasó con ellos", "Nos compró" (aceptada y realizada) y "No nos compró" (rechazada y cancelada). El estado real es `cancelada`; `anulada` se acepta como alias de filtros viejos (revisión 26-08). Evidencia: `ACEPTO` y `NO_ACEPTO` en `SegmentoBuilder`; `FiltroSegmento` en `segmento.ts`; `QuotationStatus.CANCELADA` en `api-rest/src/quotations/constants/constants.ts`.
 - La pantalla deja solo tres filtros (Felipe, 25-08). Evidencia: comentario de cabecera de `SegmentoBuilder`.
 - Números honestos: las importadas muestran contactos con las bajas descontadas y a la vista ("2 contactos · 1 baja"), y el ojito marca las bajas en gris en vez de esconderlas. Evidencia: `AudienciasService.audienciasImportadas` y `contactosDeImportada`.
