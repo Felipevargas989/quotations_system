@@ -155,6 +155,21 @@ grafo de dependencias. Antes de cambiar algo, en este orden:
    (con `export PATH="$HOME/.local/bin:$PATH"`; el grafo vive en
    `graphify-out/`, no se versiona y se rehace solo después de cada commit).
 
+**Esto tiene GRILLETE desde el 19-09-2026** (`.claude/hooks/guardian-del-atlas.sh`,
+enganchado en `.claude/settings.json`): antes de escribir en
+`api-rest/src` o `frontend/src`, la sesión tiene que haber leído algún
+capítulo de `docs/arquitectura/mapa/` **o** haber consultado el grafo.
+Basta una vez por sesión; documentos, migraciones y pruebas pasan libres.
+Felipe lo pidió textual —*"dejemos algún grillete para que siempre leas el
+atlas o el grafo antes de tocar algo"*— el mismo día en que quedó a la
+vista que tres sprints completos se construyeron sin abrir el grafo ni una
+vez. Mismo principio que el portero del kit de la casa: **un cartel es un
+cartel, un portero es un portero.** Si el grafo no encuentra piezas
+recientes está atrasado: `PYTHONHASHSEED=0 GRAPHIFY_SKIP_HOOK=1 graphify update .`
+y después el guardián de nombres (`atlas_pendiente/mantener_nombres_del_grafo.py`);
+el gancho de post-commit lo rehace solo, pero deja el trabajo a medias si
+la sesión se cierra antes de que termine.
+
 **El mapa se mantiene en el mismo commit que el código.** Todo cambio que
 altere un flujo, una regla de negocio, un endpoint o una tabla actualiza el
 mapa del módulo (y el flujo, si aplica) y renueva su línea de estado. Un mapa
