@@ -155,11 +155,16 @@ grafo de dependencias. Antes de cambiar algo, en este orden:
    (con `export PATH="$HOME/.local/bin:$PATH"`; el grafo vive en
    `graphify-out/`, no se versiona y se rehace solo después de cada commit).
 
-**Esto tiene GRILLETE desde el 19-09-2026** (`.claude/hooks/guardian-del-atlas.sh`,
+**Esto tiene GRILLETE desde el 19-09-2026** (`.claude/hooks/guardian-del-atlas.py`,
 enganchado en `.claude/settings.json`): antes de escribir en
 `api-rest/src` o `frontend/src`, la sesión tiene que haber leído algún
 capítulo de `docs/arquitectura/mapa/` **o** haber consultado el grafo.
 Basta una vez por sesión; documentos, migraciones y pruebas pasan libres.
+**Vigila también los cambios por consola** (heredoc de python, `sed -i`,
+`cat >`), que es como se editan la mayoría de los archivos: la primera
+versión solo miraba Edit/Write y no habría frenado ni uno de los cambios
+de ese mismo día. Leer nunca se bloquea, y formatear (`prettier --write`)
+tampoco: no decide nada.
 Felipe lo pidió textual —*"dejemos algún grillete para que siempre leas el
 atlas o el grafo antes de tocar algo"*— el mismo día en que quedó a la
 vista que tres sprints completos se construyeron sin abrir el grafo ni una
