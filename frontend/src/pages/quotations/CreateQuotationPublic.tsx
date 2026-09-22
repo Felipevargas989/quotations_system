@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle, Send } from "lucide-react";
 import PieDeMarcaPublico from "../../components/PieDeMarcaPublico";
 import { urlAbsoluta } from "../../utils/urls";
+import { estiloDelCirculoDeMarca } from "../../utils/circuloDeMarca";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../../constants/clientTypes";
 import { createQuotationPublic } from "../../services/quotations.service";
 import { getClientTypesPublic } from "../../services/clientTypes.service";
@@ -239,6 +240,7 @@ export default function CreateQuotationPublic() {
   // ---------- Marca de la empresa (mismo lenguaje de sus documentos) ----------
   const hexOk = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
   const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
+  const tieneLogo = !!company?.logo_url;
   const onBrandP = (() => {
     const n = parseInt(brandP.slice(1), 16);
     const lum =
@@ -368,13 +370,13 @@ export default function CreateQuotationPublic() {
                 <div className="flex items-center gap-3.5">
                   <div
                     className="w-[100px] h-[100px] rounded-full flex items-center justify-center font-extrabold text-3xl overflow-hidden shrink-0"
-                    style={{ backgroundColor: brandP, color: onBrandP }}
+                    style={estiloDelCirculoDeMarca(brandP, onBrandP, tieneLogo)}
                   >
                     {company?.logo_url ? (
                       <img
                         src={company.logo_url}
                         alt={company.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1"
                       />
                     ) : (
                       initials

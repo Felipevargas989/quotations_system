@@ -6,6 +6,8 @@
 // público. Cualquier cambio de diseño de la hoja se hace AQUÍ y aplica
 // a ambos mundos.
 
+import { cssDelCirculoDeMarca } from "./circuloDeMarca";
+
 export interface PrintQuotationItems {
   variable_services?: unknown[];
   fixed_services?: unknown[];
@@ -204,8 +206,7 @@ export function buildQuotationPrintDoc(
   );
 
   // ---------- Colores de marca ----------
-  const hexOk = (c?: string) =>
-    c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+  const hexOk = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
   const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
   const brandS = hexOk(company?.colors?.secondary);
   const onBrandP = (() => {
@@ -238,8 +239,7 @@ export function buildQuotationPrintDoc(
     .qv-hoja { background:#fff; padding:48px 56px; font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif; color:#111827; }
     .qv-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:18px; }
     .qv-marca { display:flex; gap:14px; align-items:center; }
-    .qv-logo { width:88px; height:88px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:32px; overflow:hidden; }
-    .qv-logo img { width:100%; height:100%; object-fit:cover; }
+    ${cssDelCirculoDeMarca(".qv-logo", 88, brandP, onBrandP)}
     /* Peso EXPLÍCITO (Felipe, 05-09): sin él, el nombre dependía del
        entorno — negrita del navegador en el visor, plano dentro de la
        SPA (el reset de Tailwind) y por lo tanto en el PDF del motor. */
@@ -385,7 +385,9 @@ export function buildQuotationPrintDoc(
   const includesOf = (g: VarGroup): { titulo: string; texto: string }[] => {
     const items = (g.items || []).filter((it) => it.nombre);
     if (items.length === 0) return [];
-    const plano = () => [{ titulo: "Incluye:", texto: items.map(conCantidad).join(" · ") }];
+    const plano = () => [
+      { titulo: "Incluye:", texto: items.map(conCantidad).join(" · ") },
+    ];
     if (!menu) return plano();
     // Por id primero (06-08): la caja reencuentra su categoría aunque
     // haya sido renombrada en el catálogo; por nombre como respaldo.
@@ -510,7 +512,7 @@ export function buildQuotationPrintDoc(
     <div class="qv-hoja">
       <div class="qv-head">
         <div class="qv-marca">
-          <div class="qv-logo">${logoHtml}</div>
+          <div class="qv-logo${company?.logo_url ? " con-logo" : ""}">${logoHtml}</div>
           <div><h1>${esc(company?.name || "Empresa")}</h1></div>
         </div>
         <div class="qv-folio">

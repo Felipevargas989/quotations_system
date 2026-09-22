@@ -221,7 +221,11 @@ insensitive), `utils/dates` (`formatISOUTCDateToString` — event and
 due dates are UTC midnight; `new Date()` shifts them a day in Chile),
 `utils/phone` (Chilean canonical `+56XXXXXXXXX`), `utils/quotationMoney`
 (the single source of truth for quotation totals), `utils/apiErrors`
-(`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen).
+(`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen),
+`utils/circuloDeMarca` (the round company logo of the public form, the
+quotation document and the kitchen sheet: white with a brand border when
+there is a logo, brand colour with initials when there is none — a
+transparent logo in the brand colour vanished on 22-09-2026).
 
 **A guard enforces this — `npm run portero`, and a CI step.** Prose in a
 doc is a sign, not a barrier: the Calendar filter was hand-rolled next
