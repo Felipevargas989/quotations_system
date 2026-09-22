@@ -280,6 +280,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
   La razón son las cascadas de la base de datos. Evidencia: `LogisticsService.delete*`; `ProveedoresTab.doBaja`; `logistics.service.spec.ts`.
 
 **Unidades, merma y recetas**
+- **Los tres tipos de merma (Felipe, 22-09-2026, cerrando la pregunta abierta 1).** *Cocina* es la reducción normal de las cosas al prepararlas: NO es merma del sistema, va dentro del gramaje neto de la receta y por eso aumenta la cantidad a comprar. *Caducidad* y *robo* son la merma del insumo (el % de `waste_pct`): no cambian la cantidad, solo suman al costo. Es exactamente lo que hace el código desde el 22-07; el diseño de la migración 31 (19-07, "Compras y bodega usan la bruta") quedó superado y ya no manda.
 - **Regla de merma (Felipe, 22-07).** La cantidad es SIEMPRE la **neta** de la receta ("lo que se cocina, retira y compra"); la merma ("caducidad, robo, pérdida") solo infla el **costo**. Evidencia: `ConsolidatedSupply` y `addRecipeLines` en `eventConsolidation.ts`; `buildRows` en ComprasTab (`qty_base: base, // NETA`); commit ee334a7 del 22-07.
 - **Candado de familia de unidad (31-07).** Es un pedido de Felipe después de pasar a mano la naranja y la manzana de gramos a unidades: cambiar la familia reescribe el significado de las recetas ("100 gr pasarían a leerse como 100 unidades"). Evidencia: `LogisticsService.updateSupply` y `UNITS_BY_FAMILY`.
 - **Familias de unidad (convención Fudo):** masa kg/gr · volumen L/ml · unidad u. El precio se guarda por unidad base. Evidencia: migración 10; `frontend/src/types/logistics.types.ts`.
@@ -438,7 +439,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 
 ## 11. Contradicciones entre documento y código
 
-1. **La merma: cantidad bruta o neta.**
+1. **La merma: cantidad bruta o neta.** → **CERRADA el 22-09-2026** por Felipe: manda la regla del 22-07 (cantidad neta; la merma solo en el costo); ver "Los tres tipos de merma" en §6. El texto de la migración 31 queda como historia.
    - Documentos: `docs/migrations/31_supply_waste_and_package.sql` (19-07) dice "Compras, Gestión, bodega de la ficha y costos usan la bruta". El comentario de `Supply` en `frontend/src/types/logistics.types.ts` dice "compras y costos usan la cantidad BRUTA".
    - Código: la "REGLA DE MERMA (Felipe, 22-07)" de `eventConsolidation.ts` (commit ee334a7) deja la cantidad **neta** y la merma solo en el costo. `ComprasTab.buildRows` guarda `qty_base` neta. `bodegaDe` en la ficha usa `totalBase` neto.
 2. **Doc 10 §6, "El modal de insumos": dos líneas de resumen.**

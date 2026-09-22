@@ -184,7 +184,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
    - **`ThrottlerGuard`.** 300 peticiones por minuto por IP; las rutas públicas tienen techos más duros con `@Throttle` (mapa 11).
    - **`RolesGuard`.** Aplica `@Roles`; en rutas sin `@Roles` basta con la sesión.
 5. **Validación.** `ValidationPipe` global con `whitelist`, `forbidNonWhitelisted` y `transform`. Un campo desconocido, o sin decorador en el DTO, recibe un 400.
-6. **Controller → service → repository → `SupabaseService.client`.** El cliente usa la llave de servicio y salta RLS: el aislamiento por `company_id` lo hace el código.
+6. **Controller → service → repository → `SupabaseService.client`.** El cliente usa la llave de servicio y salta RLS: el aislamiento por `company_id` lo hace el código. **Tope de tiempo desde el 22-09-2026 (incidente 71):** `createClient` recibe `global.fetch = conTope(TOPE_BASE_MS || 10 000)`, un fetch con `AbortSignal.timeout` (combinado con la señal propia de la llamada vía `AbortSignal.any`). Antes ninguna consulta se rendía y una traba de la puerta de datos colgaba cada petición 60-123 s. Los relojes imprimen ahora `mensajeDe(e)` (`logging/mensaje-de-error.ts`) en vez de "[object Object]". Prueba: `supabase/tests/tope-de-tiempo.spec.ts`.
 7. **Después de responder.** `PanelInvalidationInterceptor` (global) actúa si el método no es GET, hay `request.user.company_id` y la respuesta salió bien. Entonces llama a `invalidarPanelEmpresa`, que borra toda la memoria del panel de análisis de esa empresa.
 
 **Al arrancar el servidor.** `validateEnv` (`api-rest/src/config/validate-env.ts`) revisa la configuración:

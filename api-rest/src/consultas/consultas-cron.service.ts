@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { ConsultasService } from './consultas.service';
 
 /**
@@ -27,9 +28,7 @@ export class ConsultasCronService {
     try {
       await this.consultas.despacharPendientes();
     } catch (e) {
-      this.logger.error(
-        `el reloj del embudo tropezó: ${e instanceof Error ? e.message : String(e)}`,
-      );
+      this.logger.error(`el reloj del embudo tropezó: ${mensajeDe(e)}`);
     }
   }
 }

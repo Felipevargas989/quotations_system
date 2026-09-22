@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -103,6 +104,16 @@ export class AuthGuard implements CanActivate {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+      // LA BASE CAÍDA NO ES UNA SESIÓN INVÁLIDA (22-09-2026). Durante la
+      // caída del 21/22-09 cada pantalla recibió 401 porque el guardián
+      // no podía leer el perfil, y la aplicación se vio como "sesión
+      // vencida". Si el fallo es de la base (tope de tiempo o error de
+      // Supabase), se dice la verdad con un 503.
+      if (esFalloDeLaBase(error)) {
+        throw new ServiceUnavailableException(
+          'La base de datos no responde en este momento. Intenta de nuevo en un minuto.',
+        );
+      }
       throw new UnauthorizedException('Invalid token');
     }
   }
@@ -112,3 +123,27 @@ export class AuthGuard implements CanActivate {
     return type === 'Bearer' ? token : undefined;
   }
 }
+
+/** Un error del tope de tiempo (AbortError / TimeoutError) o de Supabase
+ *  (PostgrestError con código, "fetch failed") es la base, no el token. */
+const esFalloDeLaBase = (e: unknown): boolean => {
+  if (e instanceof Error) {
+    return (
+      e.name === 'TimeoutError' ||
+      e.name === 'AbortError' ||
+      /fetch failed|ECONN|ETIMEDOUT|socket hang up/i.test(e.message)
+    );
+  }
+  if (e && typeof e === 'object') {
+    const o = e as { code?: unknown; message?: unknown };
+    return (
+      (typeof o.code === 'string' &&
+        (o.code.startsWith('PGRST') ||
+          o.code === '57014' ||
+          o.code === '08006')) ||
+      (typeof o.message === 'string' &&
+        /fetch failed|Timed out/i.test(o.message))
+    );
+  }
+  return false;
+};

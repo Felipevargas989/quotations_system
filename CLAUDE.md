@@ -155,6 +155,26 @@ grafo de dependencias. Antes de cambiar algo, en este orden:
    (con `export PATH="$HOME/.local/bin:$PATH"`; el grafo vive en
    `graphify-out/`, no se versiona y se rehace solo después de cada commit).
 
+**Esto tiene GRILLETE desde el 19-09-2026** (`.claude/hooks/guardian-del-atlas.py`,
+enganchado en `.claude/settings.json`): antes de escribir en
+`api-rest/src` o `frontend/src`, la sesión tiene que haber leído algún
+capítulo de `docs/arquitectura/mapa/` **o** haber consultado el grafo.
+Basta una vez por sesión; documentos, migraciones y pruebas pasan libres.
+**Vigila también los cambios por consola** (heredoc de python, `sed -i`,
+`cat >`), que es como se editan la mayoría de los archivos: la primera
+versión solo miraba Edit/Write y no habría frenado ni uno de los cambios
+de ese mismo día. Leer nunca se bloquea, y formatear (`prettier --write`)
+tampoco: no decide nada.
+Felipe lo pidió textual —*"dejemos algún grillete para que siempre leas el
+atlas o el grafo antes de tocar algo"*— el mismo día en que quedó a la
+vista que tres sprints completos se construyeron sin abrir el grafo ni una
+vez. Mismo principio que el portero del kit de la casa: **un cartel es un
+cartel, un portero es un portero.** Si el grafo no encuentra piezas
+recientes está atrasado: `PYTHONHASHSEED=0 GRAPHIFY_SKIP_HOOK=1 graphify update .`
+y después el guardián de nombres (`atlas_pendiente/mantener_nombres_del_grafo.py`);
+el gancho de post-commit lo rehace solo, pero deja el trabajo a medias si
+la sesión se cierra antes de que termine.
+
 **El mapa se mantiene en el mismo commit que el código.** Todo cambio que
 altere un flujo, una regla de negocio, un endpoint o una tabla actualiza el
 mapa del módulo (y el flujo, si aplica) y renueva su línea de estado. Un mapa
@@ -201,7 +221,11 @@ insensitive), `utils/dates` (`formatISOUTCDateToString` — event and
 due dates are UTC midnight; `new Date()` shifts them a day in Chile),
 `utils/phone` (Chilean canonical `+56XXXXXXXXX`), `utils/quotationMoney`
 (the single source of truth for quotation totals), `utils/apiErrors`
-(`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen).
+(`humanizeApiError`), `utils/eventoCongelado` (a realized event is frozen),
+`utils/circuloDeMarca` (the company logo of the public form, the
+quotation document and the kitchen sheet: the logo alone, no circle, when
+there is one; a brand-colour circle with initials when there is none — a
+transparent logo in the brand colour vanished on 22-09-2026).
 
 **A guard enforces this — `npm run portero`, and a CI step.** Prose in a
 doc is a sign, not a barrier: the Calendar filter was hand-rolled next

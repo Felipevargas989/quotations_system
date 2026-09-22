@@ -4,6 +4,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { DerechosService } from 'src/auth/derechos.service';
 import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
@@ -232,7 +233,7 @@ export class PlanCronService {
       }
     } catch (error) {
       this.logger.error(
-        `no pude avisar a la empresa ${companyId}: ${String(error)}`,
+        `no pude avisar a la empresa ${companyId}: ${mensajeDe(error)}`,
       );
     }
   }

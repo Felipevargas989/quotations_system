@@ -87,6 +87,15 @@ api.interceptors.response.use(
     // Es solo el aviso: quien decide es el motor. La app esconde lo que
     // no corresponde para no ofrecerlo, pero si algo se escapa, acá el
     // cliente se entera de por qué y de cómo arreglarlo.
+    // LA BASE NO RESPONDE (22-09-2026, seguro 2). El motor ahora dice la
+    // verdad con un 503 cuando Supabase no contesta a tiempo; antes eso
+    // llegaba como 401 y la aplicación parecía "sesión vencida".
+    if (error.response?.status === 503) {
+      toast.error(
+        "El sistema no puede leer la base de datos en este momento. Intenta de nuevo en un minuto.",
+      );
+    }
+
     const cuerpo = error.response?.data as
       | { codigo?: string; mensaje?: string }
       | undefined;

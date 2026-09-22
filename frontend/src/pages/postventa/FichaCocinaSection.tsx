@@ -1,4 +1,5 @@
 import { HoraInput } from "../../components/inputs";
+import { cssDelCirculoDeMarca } from "../../utils/circuloDeMarca";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -577,8 +578,7 @@ export default function FichaCocinaSection({
 
     // Marca de la empresa (mismo lenguaje del PDF a cliente): colores
     // configurados y logo; sin logo, iniciales sobre el color primario.
-    const hexOk = (c?: string) =>
-      c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+    const hexOk = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
     const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
     const brandS = hexOk(company?.colors?.secondary) || "#eef2ff";
     const onBrandP = (() => {
@@ -616,7 +616,7 @@ export default function FichaCocinaSection({
     ) => `<div class="hoja pagina">
   <div class="head">
     <div class="marca">
-      <div class="logo">${logoHtml}</div>
+      <div class="logo${company?.logo_url ? " con-logo" : ""}">${logoHtml}</div>
       <div>
         <h1>${esc(company?.name || "Eventia")}</h1>
         <div class="sub">Documento operativo — uso interno de cocina</div>
@@ -726,8 +726,7 @@ export default function FichaCocinaSection({
   /* ===== Encabezado (mismo lenguaje que el PDF a cliente) ===== */
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${brandP}; padding-bottom:16px; }
   .marca { display:flex; gap:12px; align-items:center; }
-  .logo { width:64px; height:64px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; overflow:hidden; }
-  .logo img { width:100%; height:100%; object-fit:cover; }
+  ${cssDelCirculoDeMarca(".logo", 64, brandP, onBrandP)}
   .marca h1 { font-size:17px; }
   .marca .sub { font-size:10.5px; color:#6b7280; margin-top:1px; }
   .folio { text-align:right; }
@@ -918,7 +917,8 @@ ${paginas}
       {congelado && (
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 text-xs text-gray-700">
           <span className="font-bold">Evento congelado</span>{" "}
-          {AVISO_EVENTO_CONGELADO} Los horarios y las notas quedaron fijos; la ficha se puede seguir revisando e imprimiendo.
+          {AVISO_EVENTO_CONGELADO} Los horarios y las notas quedaron fijos; la
+          ficha se puede seguir revisando e imprimiendo.
         </div>
       )}
       {!multiDay ? (
