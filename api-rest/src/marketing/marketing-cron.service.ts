@@ -4,6 +4,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { tieneDerecho } from 'src/auth/derechos';
 import { DerechosService } from 'src/auth/derechos.service';
 import { CompaniesRepository } from 'src/companies/companies.repository';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { marcaDesdeFila } from './marca';
 import { MarketingRepository } from './marketing.repository';
 import { MarketingService } from './marketing.service';
@@ -68,9 +69,9 @@ export class MarketingCronService {
         );
       } catch (e) {
         this.logger.error(
-          `campaña programada ${c.id} falló al dispararse (queda en borrador): ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `campaña programada ${c.id} falló al dispararse (queda en borrador): ${mensajeDe(
+            e,
+          )}`,
         );
       }
     }

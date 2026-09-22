@@ -5,6 +5,7 @@ import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { EnvioCotizacionService } from '../envio-cotizacion.service';
 import { QuotationsController } from '../quotations.controller';
 import { QuotationsService } from '../quotations.service';
+import { RescateDelFormularioService } from '../rescate-del-formulario.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.
@@ -21,6 +22,10 @@ describe('QuotationsController', () => {
         // puertas públicas, que no tienen sesión (paso 3.2, 14-09-2026).
         provideMock(DerechosService),
         { provide: PinoLogger, useValue: mockPinoLogger() },
+        {
+          provide: RescateDelFormularioService,
+          useValue: { rescatar: jest.fn() },
+        },
       ],
     }).compile();
 

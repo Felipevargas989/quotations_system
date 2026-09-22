@@ -22,6 +22,7 @@ import { QuotationsCronService } from './quotations-cron.service';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
 import { QuotationsService } from './quotations.service';
+import { RescateDelFormularioService } from './rescate-del-formulario.service';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { QuotationsService } from './quotations.service';
     PortalReceiptsController,
   ],
   providers: [
+    RescateDelFormularioService,
     QuotationsService,
     EnvioCotizacionService,
     QuotationsRepository,

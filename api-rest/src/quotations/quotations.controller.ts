@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpException,
   Param,
   Patch,
   Post,
@@ -33,6 +34,7 @@ import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
 import { QuotationsService } from './quotations.service';
+import { RescateDelFormularioService } from './rescate-del-formulario.service';
 
 @Controller('quotations')
 export class QuotationsController {
@@ -43,6 +45,8 @@ export class QuotationsController {
     // Para las puertas públicas, que no tienen sesión de dónde sacar los
     // derechos de la empresa (paso 3.2, 14-09-2026).
     private readonly derechosService: DerechosService,
+    // La red bajo el formulario público (seguro 1, 22-09-2026).
+    private readonly rescate: RescateDelFormularioService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -97,12 +101,27 @@ export class QuotationsController {
     // se preguntan aparte (paso 3.2, 14-09-2026). Con ellos el servicio
     // decide si la solicitud entra al embudo de Consultas o como
     // requerimiento normal; el formulario funciona igual en todo plan.
-    const derechos = await this.derechosService.deEmpresa(company_id);
-    return this.quotationsService.createPublic(
-      createQuotationPublicDto,
-      company_id,
-      derechos,
-    );
+    try {
+      const derechos = await this.derechosService.deEmpresa(company_id);
+      return await this.quotationsService.createPublic(
+        createQuotationPublicDto,
+        company_id,
+        derechos,
+      );
+    } catch (e) {
+      // Errores de VALIDACIÓN del propio motor (400/409: tipo de evento
+      // inválido, cupo del plan) no son una caída: se devuelven tal cual.
+      if (esErrorDeNegocio(e)) throw e;
+      // LA RED (22-09-2026): la base falló. Si el lead llega por correo a
+      // los super-administradores, el visitante ve el "gracias" de siempre.
+      const aSalvo = await this.rescate.rescatar(
+        createQuotationPublicDto,
+        company_id,
+        e,
+      );
+      if (aSalvo) return { tipo: 'rescatada' as const };
+      throw e;
+    }
   }
 
   @Roles(...RECEPTION_AND_UP)
@@ -244,3 +263,8 @@ export class QuotationsController {
     );
   }
 }
+
+/** Un HttpException con código 4xx es una respuesta del negocio (validación,
+ *  cupo, duplicado), no una caída: el rescate solo entra cuando la base falla. */
+const esErrorDeNegocio = (e: unknown): boolean =>
+  e instanceof HttpException && e.getStatus() >= 400 && e.getStatus() < 500;

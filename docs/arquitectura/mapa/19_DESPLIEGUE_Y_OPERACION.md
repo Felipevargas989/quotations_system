@@ -238,6 +238,10 @@ Configuraciones:
 - `.pre-commit-config.yaml` es una plantilla de otro proyecto. Su encabezado dice "Google Drive Clone project", trae hooks de Python (`check-ast`, `debug-statements`, `requirements-txt-fixer`), sus bloques comentados apuntan a `nest-api-rest/` y `nest-graphql/`, que no existen, y el Prettier local hace `source ~/.zshrc`.
 - En este Mac, `.git/hooks` solo tiene `post-checkout` y `post-commit` de graphify, que reconstruyen `graphify-out/` (ignorado en `.gitignore`). **No hay hook `pre-commit` instalado**: ese archivo hoy no hace nada.
 
+## 5b. El vigía (desde el 22-09-2026)
+
+Nadie miraba producción: la caída del 21/22-09 duró 27 horas y se supo por un cliente. Desde el 22-09 hay un vigía **fuera de Eventia**, en el repo `Felipevargas989/valledelsol-automation` (el mismo del bot de Mercado Público), workflow `.github/workflows/vigia-eventia.yml` + `run_vigia_eventia.py`: cada 5 minutos prueba la web (www.eventi-app.com), el motor (`/health`) y una **consulta real a la base a través del motor** (`/event-types/public/1`, con tope de 25 s). Avisa por correo (Microsoft Graph, mismos secretos `MS_*` del bot; destinatarios en la variable `VIGIA_DESTINATARIOS`, por defecto contacto@) cuando algo cae, cada 30 min mientras siga caído, y cuando vuelve. El estado vive en `vigia/estado.json` y se guarda con un commit `[skip ci]`. Se ejecuta a mano con "Run workflow" en GitHub. OJO: GitHub puede atrasar los relojes de 5 min en horas cargadas; sigue siendo minutos, no días. Y el vigía NO reinicia nada: el correo dice qué hacer (Supabase → Restart project).
+
 ## 6. Variables de entorno (solo nombres y para qué sirven)
 
 Los valores del motor se definen en "Railway → servicio api-rest → Variables" (mensaje de `validateEnv`). Los de la app se inyectan al construir (`ci.yml`). Laboratorio y producción tienen juegos distintos.

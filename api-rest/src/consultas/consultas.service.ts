@@ -12,6 +12,7 @@ import { ClientContactsRepository } from 'src/clients/client-contacts.controller
 import { ClientsService } from 'src/clients/clients.service';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { escaparHtml } from 'src/email/templates/utils';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { marcaDesdeFila } from 'src/marketing/marca';
 import { plantillaCampana } from 'src/marketing/plantilla';
 import {
@@ -196,9 +197,7 @@ export class ConsultasService {
         this.logger.info(`consulta ${c.id}: brochure despachado por el reloj`);
       } catch (e) {
         this.logger.error(
-          `consulta ${c.id}: el brochure no salió: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `consulta ${c.id}: el brochure no salió: ${mensajeDe(e)}`,
         );
       }
     }
@@ -349,9 +348,7 @@ export class ConsultasService {
         // Mejor esfuerzo, como la garantía de nacimiento: la persona
         // se puede completar a mano si esto falla.
         this.logger.error(
-          `convertir ${id}: no se pudo asegurar el contacto: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `convertir ${id}: no se pudo asegurar el contacto: ${mensajeDe(e)}`,
         );
       }
     } else {
