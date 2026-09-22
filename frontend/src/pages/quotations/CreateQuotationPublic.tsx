@@ -376,7 +376,7 @@ export default function CreateQuotationPublic() {
                       <img
                         src={company.logo_url}
                         alt={company.name}
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-contain"
                       />
                     ) : (
                       initials

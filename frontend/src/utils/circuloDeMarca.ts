@@ -4,10 +4,11 @@ import type { CSSProperties } from "react";
  * EL CÍRCULO DE MARCA (22-09-2026). El redondel con el logo de la empresa
  * que encabeza el formulario público, el documento de la cotización y la
  * ficha de cocina. Una sola regla para los tres:
- *  - CON logo: fondo blanco y borde fino del color principal. Nació porque
- *    La Calma de Rita subió un logo transparente del mismo burdeos que su
- *    color principal y quedó invisible (burdeos sobre burdeos).
- *  - SIN logo: el color principal de fondo y las iniciales encima.
+ *  - CON logo: SOLO el logo, sin círculo, sin fondo ni borde (Felipe,
+ *    22-09: "elimina el círculo, solo el logo"). Nació porque La Calma de
+ *    Rita subió un logo transparente del mismo burdeos que su color
+ *    principal y quedó invisible sobre el círculo de ese color.
+ *  - SIN logo: el círculo del color principal con las iniciales encima.
  * El logo entra completo (contain), nunca recortado.
  */
 export function estiloDelCirculoDeMarca(
@@ -16,7 +17,7 @@ export function estiloDelCirculoDeMarca(
   tieneLogo: boolean,
 ): CSSProperties {
   return tieneLogo
-    ? { backgroundColor: "#fff", border: `2px solid ${brandP}` }
+    ? { backgroundColor: "transparent", borderRadius: 0 }
     : { backgroundColor: brandP, color: onBrandP };
 }
 
@@ -29,6 +30,6 @@ export function cssDelCirculoDeMarca(
 ): string {
   return `
     ${selector} { width:${tamano}px; height:${tamano}px; border-radius:50%; background:${brandP}; color:${onBrandP}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${Math.round(tamano * 0.36)}px; overflow:hidden; }
-    ${selector} img { width:100%; height:100%; object-fit:contain; padding:${tamano >= 80 ? 4 : 3}px; box-sizing:border-box; }
-    ${selector}.con-logo { background:#fff; border:2px solid ${brandP}; }`;
+    ${selector} img { width:100%; height:100%; object-fit:contain; }
+    ${selector}.con-logo { background:transparent; border-radius:0; }`;
 }
