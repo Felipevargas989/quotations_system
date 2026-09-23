@@ -79,12 +79,16 @@ const pintarStaff = (
     ["people", "staff-evento"],
     ["people", "liquidacion-ventana"],
   ] as const) {
-    for (const [key, data] of qc.getQueriesData<Asignacion[]>({ queryKey: llave })) {
+    for (const [key, data] of qc.getQueriesData<Asignacion[]>({
+      queryKey: llave,
+    })) {
       if (!Array.isArray(data)) continue;
       anteriores.push([key, data]);
       qc.setQueryData<Asignacion[]>(
         key,
-        data.map((a) => (a.id === id ? ({ ...a, ...cambios } as Asignacion) : a)),
+        data.map((a) =>
+          a.id === id ? ({ ...a, ...cambios } as Asignacion) : a,
+        ),
       );
     }
   }
@@ -135,7 +139,6 @@ export const eventosQueryOptions = {
 // liquidado. El ciclo armando → confirmado → trabajado pertenecía a
 // cuando esta pestaña acompañaba el evento desde antes; el armado vive
 // en Planificación, y acá un evento del mes pasado no se está armando.
-
 
 interface EventoFila {
   id: string;
@@ -292,12 +295,10 @@ export default function FichasTab() {
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <div>
-            <h2 className="font-semibold text-gray-900">
-              Días de staff
-            </h2>
+            <h2 className="font-semibold text-gray-900">Días de staff</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Día por día: quiénes trabajaron, cuánta propina hubo y cómo
-              se reparte. Lo ya resuelto vive en Histórico de pagos.
+              Día por día: quiénes trabajaron, cuánta propina hubo y cómo se
+              reparte. Lo ya resuelto vive en Histórico de pagos.
             </p>
           </div>
           {diasPendientes.length > 0 && (
@@ -343,9 +344,9 @@ export default function FichasTab() {
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Eventos por liquidar</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Solo los que ya pasaron. Adentro: se confirman horas y
-            asistencia, se ingresa la propina, se reparte y se liquida —
-            de ahí queda lista para la nómina.
+            Solo los que ya pasaron. Adentro: se confirman horas y asistencia,
+            se ingresa la propina, se reparte y se liquida — de ahí queda lista
+            para la nómina.
           </p>
         </div>
         {pendientes.length === 0 ? (
@@ -359,7 +360,6 @@ export default function FichasTab() {
             ))}
           </ul>
         )}
-
       </div>
 
       {diaModal !== null && tanda[diaModal] && (
@@ -439,11 +439,15 @@ function FichaAbierta({
   };
 
   const cambiarStaff = useMutation({
-    mutationFn: (v: { id: number; cambios: Parameters<typeof updateStaff>[1] }) =>
-      updateStaff(v.id, v.cambios),
+    mutationFn: (v: {
+      id: number;
+      cambios: Parameters<typeof updateStaff>[1];
+    }) => updateStaff(v.id, v.cambios),
     // Optimista: se pinta ya, se confirma detrás, se deshace si falla.
     onMutate: async (v) => {
-      await qc.cancelQueries({ queryKey: ["people", "staff-evento", evento.id] });
+      await qc.cancelQueries({
+        queryKey: ["people", "staff-evento", evento.id],
+      });
       return pintarStaff(qc, v as ParcheDeStaff);
     },
     onError: (e: unknown, _v, deshacer) => {
@@ -501,23 +505,25 @@ function FichaAbierta({
         )}
         {dias.length === 0 ? (
           <p className="text-sm text-gray-500 py-2">
-            Nadie vino a este evento — los nombres se ponen en
-            Planificación.
+            Nadie vino a este evento — los nombres se ponen en Planificación.
           </p>
         ) : (
           <>
             <TablaDeJornadas
               titulo="Quiénes vinieron"
               secciones={dias.map(([d, gente]) => ({
-                titulo: dias.length > 1 ? formatISOUTCDateToString(d) : undefined,
+                titulo:
+                  dias.length > 1 ? formatISOUTCDateToString(d) : undefined,
                 filas: gente,
               }))}
               cerrada={cerrada}
+              etiquetaSoloPropina="staff"
               onCambiar={(id, cambios) => cambiarStaff.mutate({ id, cambios })}
             />
             {/* Los totales al pie, donde se suman. */}
             <p className="mt-2 text-right text-sm text-gray-500">
-              Jornadas: <strong className="text-gray-900">{clp(jornadas)}</strong>
+              Jornadas:{" "}
+              <strong className="text-gray-900">{clp(jornadas)}</strong>
               {propinas > 0 && (
                 <>
                   {" "}
@@ -528,7 +534,6 @@ function FichaAbierta({
             </p>
           </>
         )}
-
       </div>
 
       <Reparto
@@ -794,7 +799,9 @@ function Reparto({
                       hacía nada (mismo tropiezo que con el monto). */}
                   <div
                     className="w-20 justify-self-end"
-                    title={soloUno ? "Es el único cargo: se lleva todo" : undefined}
+                    title={
+                      soloUno ? "Es el único cargo: se lleva todo" : undefined
+                    }
                   >
                     <NumberInput
                       value={pct(id) || undefined}
@@ -820,9 +827,8 @@ function Reparto({
           {/* QUÉ SIGNIFICA EL % (Felipe, 21-08: "la distribuí igual
               entre cocina y garzones y no entiendo la diferencia"). */}
           <p className="text-xs text-gray-500">
-            El % es el valor de la hora de cada cargo: mismas horas y
-            mismo cargo, misma propina. Lo que se lleva cada cargo sale de
-            sus horas.
+            El % es el valor de la hora de cada cargo: mismas horas y mismo
+            cargo, misma propina. Lo que se lleva cada cargo sale de sus horas.
           </p>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
@@ -874,12 +880,14 @@ function EvaluacionesModal({
     return [...m.entries()];
   }, [staff]);
 
-  const [notas, setNotas] = useState<Map<number, { stars: number | null; note: string }>>(
-    new Map(),
-  );
+  const [notas, setNotas] = useState<
+    Map<number, { stars: number | null; note: string }>
+  >(new Map());
   const de = (id: number) => notas.get(id) ?? { stars: null, note: "" };
-  const poner = (id: number, cambio: Partial<{ stars: number | null; note: string }>) =>
-    setNotas((m) => new Map(m).set(id, { ...de(id), ...cambio }));
+  const poner = (
+    id: number,
+    cambio: Partial<{ stars: number | null; note: string }>,
+  ) => setNotas((m) => new Map(m).set(id, { ...de(id), ...cambio }));
 
   const cerrar = useMutation({
     mutationFn: async () => {
@@ -932,28 +940,30 @@ function EvaluacionesModal({
         </>
       }
     >
-        <ul className="divide-y divide-gray-100">
-          {personas.map(([id, nombre]) => (
-            <li key={id} className="py-3 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-gray-900">{nombre}</span>
-                <Estrellas
-                  value={de(id).stars}
-                  onChange={(n) =>
-                    poner(id, { stars: de(id).stars === n ? null : n })
-                  }
-                />
-              </div>
-              <input
-                type="text"
-                value={de(id).note}
-                onChange={(e) => poner(id, { note: e.target.value })}
-                placeholder='Nota sin bajar estrellas: "solo fines de semana", "no maneja"…'
-                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+      <ul className="divide-y divide-gray-100">
+        {personas.map(([id, nombre]) => (
+          <li key={id} className="py-3 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-900">
+                {nombre}
+              </span>
+              <Estrellas
+                value={de(id).stars}
+                onChange={(n) =>
+                  poner(id, { stars: de(id).stars === n ? null : n })
+                }
               />
-            </li>
-          ))}
-        </ul>
+            </div>
+            <input
+              type="text"
+              value={de(id).note}
+              onChange={(e) => poner(id, { note: e.target.value })}
+              placeholder='Nota sin bajar estrellas: "solo fines de semana", "no maneja"…'
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+            />
+          </li>
+        ))}
+      </ul>
     </Modal>
   );
 }
@@ -997,17 +1007,13 @@ function DiaRestaurante({
   // porcentajes se guardan al repartir, migración 87); sin pozo, en
   // blanco. Nada se arrastra de un día al otro.
   useEffect(() => {
-    const pozo = pools.find(
-      (p) => p.day && String(p.day).slice(0, 10) === dia,
-    );
+    const pozo = pools.find((p) => p.day && String(p.day).slice(0, 10) === dia);
     const total = pozo
       ? Number(pozo.first_amount) + Number(pozo.second_amount)
       : 0;
     setMonto(total > 0 ? total : undefined);
     setPcts(
-      new Map(
-        (pozo?.porcentajes ?? []).map((p) => [p.role_id ?? 0, p.pct]),
-      ),
+      new Map((pozo?.porcentajes ?? []).map((p) => [p.role_id ?? 0, p.pct])),
     );
     setSinCargo(new Set());
   }, [dia, pools]);
@@ -1039,25 +1045,25 @@ function DiaRestaurante({
     onSettled: onCambio,
   });
 
-
   const delDia = useMemo(
     () =>
-      staff.filter(
-        (a) =>
-          a.quotation_id === null &&
-          String(a.day).slice(0, 10) === dia &&
-          // La fila solo-de-propina no se edita acá: es el reflejo de
-          // un invitado del evento; abajo vive su checkbox.
-          !a.solo_propina &&
-          // Y el que descansa por cambio de día no vino (migración 89).
-          a.ajuste !== "descansa",
-      )
-      // ORDEN ESTABLE (Felipe, 25-08: "se mueven los garzones al
-      // cargarlos"): la base devuelve las filas del día en cualquier
-      // orden y cada refresco las barajaba. Por nombre, siempre.
-      .sort((a, b) =>
-        (a.people?.name ?? "").localeCompare(b.people?.name ?? ""),
-      ),
+      staff
+        .filter(
+          (a) =>
+            a.quotation_id === null &&
+            String(a.day).slice(0, 10) === dia &&
+            // La fila solo-de-propina no se edita acá: es el reflejo de
+            // un invitado del evento; abajo vive su checkbox.
+            !a.solo_propina &&
+            // Y el que descansa por cambio de día no vino (migración 89).
+            a.ajuste !== "descansa",
+        )
+        // ORDEN ESTABLE (Felipe, 25-08: "se mueven los garzones al
+        // cargarlos"): la base devuelve las filas del día en cualquier
+        // orden y cada refresco las barajaba. Por nombre, siempre.
+        .sort((a, b) =>
+          (a.people?.name ?? "").localeCompare(b.people?.name ?? ""),
+        ),
     [staff, dia],
   );
 
@@ -1107,29 +1113,29 @@ function DiaRestaurante({
         (a.people?.name ?? "").localeCompare(b.people?.name ?? ""),
       )
       .map((ev) => {
-      const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
-      return {
-        ...(solo ?? ev),
-        // El reparto invita por la JORNADA DE EVENTO, no por la fila
-        // solo-de-propina: el backend valida contra ella.
-        eventoId: ev.id,
-        // El horario y el cargo mandan los del EVENTO (el backend los
-        // vuelve a copiar al repartir); el resto — extra, sin propina,
-        // propina del día — vive en la fila solo-de-propina.
-        id: solo ? solo.id : -ev.id,
-        starts_at: ev.starts_at,
-        ends_at: ev.ends_at,
-        break_minutes: ev.break_minutes,
-        role_id: ev.role_id,
-        management_resources: ev.management_resources,
-        people: ev.people,
-        person_id: ev.person_id,
-        solo_propina: true,
-        no_tip: solo ? solo.no_tip : false,
-        amount: solo ? solo.amount : null,
-        tip_amount: solo ? solo.tip_amount : null,
-      };
-    });
+        const solo = ev.person_id != null ? solos.get(ev.person_id) : undefined;
+        return {
+          ...(solo ?? ev),
+          // El reparto invita por la JORNADA DE EVENTO, no por la fila
+          // solo-de-propina: el backend valida contra ella.
+          eventoId: ev.id,
+          // El horario y el cargo mandan los del EVENTO (el backend los
+          // vuelve a copiar al repartir); el resto — extra, sin propina,
+          // propina del día — vive en la fila solo-de-propina.
+          id: solo ? solo.id : -ev.id,
+          starts_at: ev.starts_at,
+          ends_at: ev.ends_at,
+          break_minutes: ev.break_minutes,
+          role_id: ev.role_id,
+          management_resources: ev.management_resources,
+          people: ev.people,
+          person_id: ev.person_id,
+          solo_propina: true,
+          no_tip: solo ? solo.no_tip : false,
+          amount: solo ? solo.amount : null,
+          tip_amount: solo ? solo.tip_amount : null,
+        };
+      });
   }, [delEvento, delDia, staff, dia]);
 
   // Si a toda la gente de un cargo se le marcó "sin propina", ese cargo
@@ -1175,7 +1181,8 @@ function DiaRestaurante({
   const cuadra = Math.abs(total - 100) < 0.001;
 
   const pozoDia = useMemo(
-    () => pools.find((p) => p.day && String(p.day).slice(0, 10) === dia) ?? null,
+    () =>
+      pools.find((p) => p.day && String(p.day).slice(0, 10) === dia) ?? null,
     [pools, dia],
   );
   const yaRepartido = !!pozoDia?.distributed_at;
@@ -1194,7 +1201,8 @@ function DiaRestaurante({
       const k = a.role_id ?? 0;
       porCargo.set(k, (porCargo.get(k) ?? 0) + plata);
     }
-    for (const [k, v] of porCargo) m.set(k, Math.round((v / total) * 1000) / 10);
+    for (const [k, v] of porCargo)
+      m.set(k, Math.round((v / total) * 1000) / 10);
     return m;
   }, [delDia]);
 
@@ -1431,12 +1439,11 @@ function DiaRestaurante({
               rehace solo: quien decide es Felipe. */}
           {yaRepartido && (
             <p className="text-xs text-amber-700 mt-2">
-              Este día ya está repartido. Si cambias horas o sacas a
-              alguien, vuelve a repartir para que la plata se recalcule.
+              Este día ya está repartido. Si cambias horas o sacas a alguien,
+              vuelve a repartir para que la plata se recalcule.
             </p>
           )}
         </div>
-
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">
@@ -1529,8 +1536,8 @@ function DiaRestaurante({
               })}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              El % es el valor de la hora de cada cargo: mismas horas y
-              mismo cargo, misma propina.
+              El % es el valor de la hora de cada cargo: mismas horas y mismo
+              cargo, misma propina.
             </p>
             <p
               className={`text-sm mt-2 ${
