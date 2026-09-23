@@ -748,14 +748,23 @@ export class PeopleRepository {
     return data as unknown as EventStaff | null;
   }
 
-  async plantaEnDias(companyId: number, dias: string[]) {
+  /** Todos los CITADOS al restaurante esos días: la planta con turno y
+   *  quien vino como staff (freelance, o planta en un día extra). Misma
+   *  regla que el día usa para invitar a la gente del evento (Felipe,
+   *  22-09: "trae a la gente de staff, a la de planta y a la del
+   *  evento"). Hasta el 22-09 se llamaba plantaEnDias y solo traía
+   *  `kind = 'planta'`: Paulo trabajó el 18-09 como staff durante el
+   *  evento 499 y la ficha no lo mostraba. */
+  async citadosEnDias(companyId: number, dias: string[]) {
     if (dias.length === 0) return [] as EventStaff[];
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .select('*')
       .eq('company_id', companyId)
       .is('quotation_id', null)
-      .eq('kind', 'planta')
+      // La fila solo-de-propina es el reflejo de un invitado del
+      // evento: no es un citado al restaurante.
+      .or('solo_propina.is.null,solo_propina.eq.false')
       .not('person_id', 'is', null)
       // La fila dormida (cambio de día, migración 89) no la cuenta
       // ninguna pantalla — el imán tampoco (04-09): trajo a Soledad a

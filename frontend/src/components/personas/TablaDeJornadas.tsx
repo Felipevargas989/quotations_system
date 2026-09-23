@@ -1,7 +1,4 @@
-import HoraInput, {
-  formatoHoras,
-  horasTrabajadas,
-} from "../inputs/HoraInput";
+import HoraInput, { formatoHoras, horasTrabajadas } from "../inputs/HoraInput";
 import SelectorColacion from "../inputs/SelectorColacion";
 import NumberInput from "../inputs/NumberInput";
 import type { Asignacion } from "../../types/people.types";
@@ -77,6 +74,7 @@ export default function TablaDeJornadas({
   secciones,
   titulo = "Persona",
   cerrada = false,
+  etiquetaSoloPropina = "evento",
   onCambiar,
 }: {
   readonly secciones: readonly SeccionDeJornadas[];
@@ -84,6 +82,11 @@ export default function TablaDeJornadas({
   readonly titulo?: string;
   /** Ficha cerrada: solo se lee. */
   readonly cerrada?: boolean;
+  /** Qué dice la caja vacía de una fila solo-de-propina: dónde se paga
+   *  su jornada. En el día es "evento" (el invitado vino del evento);
+   *  en la ficha del evento es "staff" (el citado al restaurante ese
+   *  día, Felipe 22-09). */
+  readonly etiquetaSoloPropina?: string;
   readonly onCambiar: (id: number, cambios: CambiosDeJornada) => void;
 }) {
   const todas = secciones.flatMap((s) => s.filas);
@@ -112,153 +115,160 @@ export default function TablaDeJornadas({
           )}
           <ul>
             {s.filas.map((a) => (
-                <li key={a.id} className={`${COLS} h-10 border-b border-gray-100`}>
-                  <span className="truncate text-gray-900" title={nombreDe(a)}>
-                    {nombreDe(a)}
-                  </span>
-                  <span
-                    className="text-gray-500 truncate"
-                    title={a.management_resources?.name ?? "sin cargo"}
-                  >
-                    {a.management_resources?.name ?? "sin cargo"}
-                  </span>
+              <li
+                key={a.id}
+                className={`${COLS} h-10 border-b border-gray-100`}
+              >
+                <span className="truncate text-gray-900" title={nombreDe(a)}>
+                  {nombreDe(a)}
+                </span>
+                <span
+                  className="text-gray-500 truncate"
+                  title={a.management_resources?.name ?? "sin cargo"}
+                >
+                  {a.management_resources?.name ?? "sin cargo"}
+                </span>
 
-                  {/* EL INVITADO DEL EVENTO (Felipe, 24-08): su horario
+                {/* EL INVITADO DEL EVENTO (Felipe, 24-08): su horario
                       es el del evento y se corrige allá — acá va en
                       gris, bloqueado. */}
-                  {cerrada || a.solo_propina ? (
-                    <>
-                      <span className="tabular-nums text-gray-400 text-center">
-                        {a.starts_at?.slice(0, 5) ?? "—"}
-                      </span>
-                      <span className="tabular-nums text-gray-400 text-center">
-                        {a.ends_at?.slice(0, 5) ?? "—"}
-                      </span>
-                      <span className="text-gray-400 text-center">
-                        {!a.break_minutes
-                          ? "—"
-                          : a.break_minutes === 60
-                            ? "1 h"
-                            : `${String(a.break_minutes)} m`}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <HoraInput
-                        value={a.starts_at?.slice(0, 5) ?? null}
-                        onChange={(v) => onCambiar(a.id, { starts_at: v })}
-                        compacta
-                        aria-label={`Entrada de ${nombreDe(a)}`}
-                      />
-                      <HoraInput
-                        value={a.ends_at?.slice(0, 5) ?? null}
-                        onChange={(v) => onCambiar(a.id, { ends_at: v })}
-                        compacta
-                        aria-label={`Salida de ${nombreDe(a)}`}
-                      />
-                      <SelectorColacion
-                        value={a.break_minutes}
-                        onChange={(min) => onCambiar(a.id, { break_minutes: min })}
-                      />
-                    </>
-                  )}
-
-                  <span className="text-right tabular-nums text-gray-700">
-                    {formatoHoras(
-                      horasTrabajadas(
-                        a.starts_at?.slice(0, 5) ?? null,
-                        a.ends_at?.slice(0, 5) ?? null,
-                        a.break_minutes,
-                      ),
-                    )}
-                  </span>
-
-                  {cerrada ? (
-                    <span className="text-right tabular-nums text-gray-700">
-                      {a.amount ? clp(Number(a.amount)) : "—"}
+                {cerrada || a.solo_propina ? (
+                  <>
+                    <span className="tabular-nums text-gray-400 text-center">
+                      {a.starts_at?.slice(0, 5) ?? "—"}
                     </span>
-                  ) : (
-                    <div
-                      className="relative"
-                      title={
-                        a.solo_propina
-                          ? "Extra del día (optativo): su jornada se paga en el evento"
-                          : a.kind === "planta"
-                            ? "Asignación extra (optativa)"
-                            : "Monto de la jornada"
+                    <span className="tabular-nums text-gray-400 text-center">
+                      {a.ends_at?.slice(0, 5) ?? "—"}
+                    </span>
+                    <span className="text-gray-400 text-center">
+                      {!a.break_minutes
+                        ? "—"
+                        : a.break_minutes === 60
+                          ? "1 h"
+                          : `${String(a.break_minutes)} m`}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <HoraInput
+                      value={a.starts_at?.slice(0, 5) ?? null}
+                      onChange={(v) => onCambiar(a.id, { starts_at: v })}
+                      compacta
+                      aria-label={`Entrada de ${nombreDe(a)}`}
+                    />
+                    <HoraInput
+                      value={a.ends_at?.slice(0, 5) ?? null}
+                      onChange={(v) => onCambiar(a.id, { ends_at: v })}
+                      compacta
+                      aria-label={`Salida de ${nombreDe(a)}`}
+                    />
+                    <SelectorColacion
+                      value={a.break_minutes}
+                      onChange={(min) =>
+                        onCambiar(a.id, { break_minutes: min })
                       }
-                    >
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                        $
-                      </span>
-                      {/* VACÍA, SOLO EL "$": el título de la columna ya
+                    />
+                  </>
+                )}
+
+                <span className="text-right tabular-nums text-gray-700">
+                  {formatoHoras(
+                    horasTrabajadas(
+                      a.starts_at?.slice(0, 5) ?? null,
+                      a.ends_at?.slice(0, 5) ?? null,
+                      a.break_minutes,
+                    ),
+                  )}
+                </span>
+
+                {cerrada ? (
+                  <span className="text-right tabular-nums text-gray-700">
+                    {a.amount ? clp(Number(a.amount)) : "—"}
+                  </span>
+                ) : (
+                  <div
+                    className="relative"
+                    title={
+                      a.solo_propina
+                        ? `Extra (optativo): su jornada se paga en el ${etiquetaSoloPropina}`
+                        : a.kind === "planta"
+                          ? "Asignación extra (optativa)"
+                          : "Monto de la jornada"
+                    }
+                  >
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                      $
+                    </span>
+                    {/* VACÍA, SOLO EL "$": el título de la columna ya
                           dice qué es; repetirlo en cada caja era ruido
                           (Felipe, 18-08). Y del MISMO alto, borde y
                           radio que los relojes: NumberInput trae px-3
                           py-2 rounded-lg y hay que pisarlos todos. En un
                           freelance queda ámbar hasta que tiene jornada. */}
-                      <NumberInput
-                        value={a.amount ? Number(a.amount) : undefined}
-                        onCommit={(v: number | undefined) =>
-                          onCambiar(a.id, { amount: v ?? null })
-                        }
-                        // "planta" en gris explica por qué la caja está
-                        // vacía: su sueldo cubre el día (Felipe, 18-08).
-                        // Un freelance sin monto queda vacío y ámbar.
-                        // "evento" explica la caja vacía del invitado:
-                        // su jornada se paga allá (Felipe, 24-08).
-                        placeholder={
-                          a.solo_propina
-                            ? "evento"
-                            : a.kind === "planta"
-                              ? "planta"
-                              : ""
-                        }
-                        aria-label={
-                          a.solo_propina || a.kind === "planta"
-                            ? `Asignación extra de ${nombreDe(a)}`
-                            : `Monto de ${nombreDe(a)}`
-                        }
-                        className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right placeholder:text-gray-400 ${
-                          !a.amount && a.kind !== "planta" && !a.solo_propina
-                            ? "!border-amber-400 bg-amber-50"
-                            : "!border-gray-200"
-                        }`}
-                      />
-                    </div>
-                  )}
+                    <NumberInput
+                      value={a.amount ? Number(a.amount) : undefined}
+                      onCommit={(v: number | undefined) =>
+                        onCambiar(a.id, { amount: v ?? null })
+                      }
+                      // "planta" en gris explica por qué la caja está
+                      // vacía: su sueldo cubre el día (Felipe, 18-08).
+                      // Un freelance sin monto queda vacío y ámbar.
+                      // "evento" explica la caja vacía del invitado:
+                      // su jornada se paga allá (Felipe, 24-08).
+                      placeholder={
+                        a.solo_propina
+                          ? etiquetaSoloPropina
+                          : a.kind === "planta"
+                            ? "planta"
+                            : ""
+                      }
+                      aria-label={
+                        a.solo_propina || a.kind === "planta"
+                          ? `Asignación extra de ${nombreDe(a)}`
+                          : `Monto de ${nombreDe(a)}`
+                      }
+                      className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right placeholder:text-gray-400 ${
+                        !a.amount && a.kind !== "planta" && !a.solo_propina
+                          ? "!border-amber-400 bg-amber-50"
+                          : "!border-gray-200"
+                      }`}
+                    />
+                  </div>
+                )}
 
-                  {/* Propina repartida y el chip, juntos y a la derecha. */}
-                  <span className="flex items-center justify-end gap-2">
-                    <span className="tabular-nums text-emerald-700">
-                      {Number(a.tip_amount ?? 0) > 0 ? clp(Number(a.tip_amount)) : ""}
-                    </span>
-                    {cerrada ? (
-                      a.no_tip && (
-                        <span className="text-[11px] text-red-700 whitespace-nowrap">
-                          sin propina
-                        </span>
-                      )
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onCambiar(a.id, { no_tip: !a.no_tip })}
-                        title={
-                          a.no_tip
-                            ? "No lleva propina este día"
-                            : "Marcar: no lleva propina este día"
-                        }
-                        className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                          a.no_tip
-                            ? "bg-red-50 text-red-700 border-red-300 font-medium"
-                            : "text-gray-400 border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        sin propina
-                      </button>
-                    )}
+                {/* Propina repartida y el chip, juntos y a la derecha. */}
+                <span className="flex items-center justify-end gap-2">
+                  <span className="tabular-nums text-emerald-700">
+                    {Number(a.tip_amount ?? 0) > 0
+                      ? clp(Number(a.tip_amount))
+                      : ""}
                   </span>
-                </li>
+                  {cerrada ? (
+                    a.no_tip && (
+                      <span className="text-[11px] text-red-700 whitespace-nowrap">
+                        sin propina
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onCambiar(a.id, { no_tip: !a.no_tip })}
+                      title={
+                        a.no_tip
+                          ? "No lleva propina este día"
+                          : "Marcar: no lleva propina este día"
+                      }
+                      className={`text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                        a.no_tip
+                          ? "bg-red-50 text-red-700 border-red-300 font-medium"
+                          : "text-gray-400 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      sin propina
+                    </button>
+                  )}
+                </span>
+              </li>
             ))}
           </ul>
         </div>

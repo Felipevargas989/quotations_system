@@ -33,6 +33,7 @@ import type {
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
 import { cambiosParaRevivir, horarioDelDia } from './utils/alta-de-jornada';
+import { filaTraidaAlEvento } from './utils/fila-traida-al-evento';
 import { normalizarRut } from './utils/rut';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
@@ -681,8 +682,8 @@ export class PeopleService {
     await this.sonDeLaEmpresa(companyId, { quotation_id: quotationId });
     const dias = await this.repo.diasDeEvento(companyId, quotationId);
     if (dias.length === 0) return { traidos: 0 };
-    const [planta, yaEnEvento] = await Promise.all([
-      this.repo.plantaEnDias(companyId, dias),
+    const [citados, yaEnEvento] = await Promise.all([
+      this.repo.citadosEnDias(companyId, dias),
       this.repo.findStaff(companyId, quotationId),
     ]);
     const ocupado = new Set(
@@ -690,24 +691,12 @@ export class PeopleService {
         .filter((f) => f.person_id != null)
         .map((f) => `${String(f.person_id)}|${String(f.day).slice(0, 10)}`),
     );
-    const nuevas = planta
+    const nuevas = citados
       .filter(
         (t) =>
           !ocupado.has(`${String(t.person_id)}|${String(t.day).slice(0, 10)}`),
       )
-      .map((t) => ({
-        company_id: companyId,
-        quotation_id: quotationId,
-        person_id: t.person_id,
-        day: String(t.day).slice(0, 10),
-        role_id: t.role_id ?? null,
-        kind: 'planta',
-        status: 'confirmado',
-        amount: null, // la asignación extra, si la hay, se escribe acá
-        starts_at: t.starts_at,
-        ends_at: t.ends_at,
-        break_minutes: t.break_minutes,
-      }));
+      .map((t) => filaTraidaAlEvento(companyId, quotationId, t));
     const traidos = await this.repo.addStaffEnLote(nuevas);
     this.logger.info(`traerPlantaAlEvento ${quotationId}: +${traidos}`);
     return { traidos };
@@ -1669,7 +1658,13 @@ export const esJornadaExtra = (
 export const laMandaronAUnEvento = (fila: {
   quotation_id: string | null;
   kind: string | null;
-}): boolean => fila.quotation_id !== null && fila.kind !== 'planta';
+  solo_propina?: boolean | null;
+}): boolean =>
+  fila.quotation_id !== null &&
+  fila.kind !== 'planta' &&
+  // La fila solo-de-propina que la ficha trae por un citado como staff
+  // (22-09) tampoco la saca del restaurante: estuvo ahí ese día.
+  !fila.solo_propina;
 
 export const laPuedeQuitarLaProyeccion = (fila: {
   kind?: string | null;
