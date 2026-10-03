@@ -13,6 +13,8 @@ Los cuatro cargos, de menor a mayor: **recepción**, **vendedor**,
 
 ## Recepción y arriba
 
+> **03-10-2026, en las pantallas (Felipe: "creo que el perfil de recepción ve demasiadas cosas ... requerimiento y calendario, pero no más que eso"):** recepción ve solo **Requerimientos**, **Calendario** (solo mirar: sin montos, sin estrella de alto valor y sin abrir la ficha del negocio) y **Mi cuenta**. Cotizaciones, Consultas, la ficha del negocio y Clientes pasaron a vendedor para arriba (`SECTION_ROLES.quotations` y `.clients` = `SALES_AND_UP` en `frontend/src/constants/permissions.ts`; `veNegocio` en `pages/calendar/Calendar.tsx`). **El motor no cambió**: recepción sigue pudiendo leer cotizaciones (el calendario y Requerimientos las usan) y buscar o crear clientes y contactos (el formulario de requerimiento lo necesita). Lo de abajo describe las puertas del motor.
+
 Todo lo que usa el mostrador: atender, buscar, mirar.
 
 - Cotizaciones: listar, ver una, crear y editar. El motor ya tiene el

@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { format, startOfMonth, endOfMonth, isValid, parseISO } from "date-fns";
@@ -92,6 +96,10 @@ export default function CalendarPage() {
   );
   const { user, userRole, company } = useAuth();
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // RECEPCIÓN SOLO MIRA (Felipe, 03-10-2026: "requerimiento y calendario,
+  // pero no más que eso"): ve qué hay cada día, sin montos y sin abrir
+  // la ficha del negocio, que ya no le corresponde.
+  const veNegocio = SECTION_ROLES.quotations.includes(userRole as never);
   // Estrella de alto valor: misma regla del tablero (umbral 0/null =
   // sin estrellas).
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
@@ -303,10 +311,15 @@ export default function CalendarPage() {
           // y monto.
           tooltip: `${q.clients?.name || "Sin cliente"}\n${q.event_type} · ${
             q.people_count
-          } personas\n$${(q.total_amount || 0).toLocaleString("es-CL")}`,
+          } personas${
+            veNegocio
+              ? `\n$${(q.total_amount || 0).toLocaleString("es-CL")}`
+              : ""
+          }`,
           // Estrella de alto valor (misma regla del tablero), donde va
           // el texto para no repetirla casilla por casilla.
           star:
+            veNegocio &&
             muestraTexto &&
             umbralAltoValor > 0 &&
             (q.total_amount || 0) >= umbralAltoValor,
@@ -423,8 +436,9 @@ export default function CalendarPage() {
     // y con paso corto — al pinchar, las categorías ya llegaron.
     const seleccionados = new Set(eventsForSelectedDate.map((q) => q.id));
     const eventos = [...(quotations ?? [])]
-      .sort((a, b) =>
-        Number(seleccionados.has(b.id)) - Number(seleccionados.has(a.id)),
+      .sort(
+        (a, b) =>
+          Number(seleccionados.has(b.id)) - Number(seleccionados.has(a.id)),
       )
       .slice(0, 25);
     let i = 0;
@@ -465,11 +479,16 @@ export default function CalendarPage() {
               <span className="font-semibold text-gray-800">
                 {resumenMes.eventos}{" "}
                 {resumenMes.eventos === 1 ? "evento" : "eventos"}
-              </span>{" "}
-              ·{" "}
-              <span className="font-semibold text-gray-800">
-                ${resumenMes.venta.toLocaleString("es-CL")}
               </span>
+              {veNegocio && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="font-semibold text-gray-800">
+                    ${resumenMes.venta.toLocaleString("es-CL")}
+                  </span>
+                </>
+              )}
             </p>
             {selectedStatuses.length === 0 && (
               <p className="ml-11 mt-1 text-sm text-amber-600">
@@ -602,13 +621,16 @@ export default function CalendarPage() {
                       </span>
                     }
                     companyId={company?.id ? Number(company.id) : 0}
-                    onOpen={() => handleNavigateToQuotation(quotation)}
+                    onOpen={
+                      veNegocio
+                        ? () => handleNavigateToQuotation(quotation)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
             )}
           </div>
-
         </div>
       </div>
 
@@ -786,7 +808,6 @@ export default function CalendarPage() {
   );
 }
 
-
 // ---- Tarjeta del panel lateral, v2 (12-08, jerarquía de Felipe) ----
 // N° gris a la esquina · cliente grande · PERSONAS Y MONTO en negrita ·
 // chips de categorías (detalle al seleccionar, clave compartida de la
@@ -800,7 +821,9 @@ function TarjetaEvento({
   readonly q: QuotationWithClient;
   readonly pill: React.ReactNode;
   readonly companyId: number;
-  readonly onOpen: () => void;
+  /** Sin onOpen (recepción) la tarjeta solo se lee: sin monto y sin
+   *  abrir la ficha del negocio. */
+  readonly onOpen?: () => void;
 }) {
   const enPostVenta = ["aceptada", "realizada", "cancelada"].includes(
     q.quotation_status,
@@ -816,9 +839,11 @@ function TarjetaEvento({
   });
   const categorias = [
     ...new Set(
-      ((detalleQuery.data?.items?.variable_services as
-        | { category?: string }[]
-        | undefined) ?? [])
+      (
+        (detalleQuery.data?.items?.variable_services as
+          | { category?: string }[]
+          | undefined) ?? []
+      )
         .map((g) => g.category)
         .filter((c): c is string => !!c),
     ),
@@ -841,17 +866,23 @@ function TarjetaEvento({
   return (
     <div
       onClick={onOpen}
-      role="button"
-      tabIndex={0}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen();
+        if (e.key === "Enter") onOpen?.();
       }}
-      className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      className={
+        onOpen
+          ? "w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          : "w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200"
+      }
     >
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 flex items-center gap-2 min-w-0">
           <span className="truncate">{q.clients.name}</span>
-          <ExternalLink className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          {onOpen && (
+            <ExternalLink className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
         </h3>
         <span className="flex flex-col items-end gap-1 shrink-0">
           {pill}
@@ -861,8 +892,9 @@ function TarjetaEvento({
         </span>
       </div>
       <p className="text-sm font-bold text-gray-900">
-        {q.people_count} personas · $
-        {Math.round(q.total_amount || 0).toLocaleString("es-CL")}
+        {q.people_count} personas
+        {onOpen &&
+          ` · $${Math.round(q.total_amount || 0).toLocaleString("es-CL")}`}
       </p>
       <p className="text-sm text-gray-600 mt-0.5">{q.event_type}</p>
       {detalleQuery.isPending && (
@@ -889,7 +921,10 @@ function TarjetaEvento({
             personal > 0 ? "text-gray-600" : "text-amber-700"
           }`}
         >
-          👥 {personal > 0 ? `Personal: ${personal} asignados` : "Sin personal asignado"}
+          👥{" "}
+          {personal > 0
+            ? `Personal: ${personal} asignados`
+            : "Sin personal asignado"}
         </p>
       )}
     </div>

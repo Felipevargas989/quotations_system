@@ -144,11 +144,14 @@ export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   marketing: "marketing",
 };
 
-export type EmpresaConDerechos = {
-  derechos?: string[] | null;
-  estado_plan?: string | null;
-  plan?: string | null;
-} | null | undefined;
+export type EmpresaConDerechos =
+  | {
+      derechos?: string[] | null;
+      estado_plan?: string | null;
+      plan?: string | null;
+    }
+  | null
+  | undefined;
 
 export const tieneDerecho = (
   company: EmpresaConDerechos,
@@ -161,7 +164,10 @@ export const estaBloqueada = (company: EmpresaConDerechos): boolean =>
 
 // El plan más barato que incluye cada derecho, para decirle al cliente a
 // cuál subirse. Los dos módulos propios no se venden: van en null.
-export const PLAN_MINIMO: Record<Derecho, "cotiza" | "gestiona" | "crece" | null> = {
+export const PLAN_MINIMO: Record<
+  Derecho,
+  "cotiza" | "gestiona" | "crece" | null
+> = {
   base: "cotiza",
   varios_dias: "gestiona",
   post_venta: "gestiona",
@@ -208,10 +214,15 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
   dashboard: ROLE_GROUPS.ADMIN_ONLY,
   requests: ROLE_GROUPS.ALL_ROLES,
-  // Ver: recepción incluida. Editar: de vendedor para arriba.
-  quotations: ROLE_GROUPS.RECEPTION_AND_UP,
+  // Recepción solo ve Requerimientos y Calendario (Felipe, 03-10-2026:
+  // "creo que el perfil de recepción ve demasiadas cosas ... requerimiento
+  // y calendario, pero no más que eso"). Cotizaciones, Consultas, la ficha
+  // del negocio y Clientes pasan a vendedor para arriba. El motor sigue
+  // dejándole buscar y crear clientes DENTRO del formulario de
+  // requerimiento, que lo necesita.
+  quotations: ROLE_GROUPS.SALES_AND_UP,
   quotations_edit: ROLE_GROUPS.SALES_AND_UP,
-  clients: ROLE_GROUPS.ALL_ROLES,
+  clients: ROLE_GROUPS.SALES_AND_UP,
   payments: ROLE_GROUPS.OPERATIONS_AND_UP,
   admin: ROLE_GROUPS.ADMIN_ONLY,
   user_management: ROLE_GROUPS.ADMIN_ONLY,
