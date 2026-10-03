@@ -171,6 +171,8 @@ export class SuperAdminService {
       await this.customerSatisfactionSurveyService.createTemplate(
         companyData.id,
       );
+      // Sus tipos de cliente y de evento nacen con los de Valle del Sol.
+      await this.sembrarTiposBase(companyData.id);
 
       // send email to the admin
       try {
@@ -302,10 +304,29 @@ export class SuperAdminService {
 
   async createCompanyOnly(name: string) {
     const empresa = await this.superAdminRepository.createCompanyOnly(name);
+    await this.sembrarTiposBase(Number(empresa.id));
     // Torre de Control (05-08): aviso 🏢 SIN espera; nunca rompe ni
     // frena la creación (cura 05-08).
     void this.alertNuevaEmpresa(name);
     return empresa;
+  }
+
+  /** Los tipos base de una empresa nueva (02-10-2026): copia de la
+   *  empresa plantilla, `EMPRESA_PLANTILLA_ID` (Valle del Sol = 1 por
+   *  defecto). NUNCA rompe el alta: si falla, la empresa nace igual
+   *  (el formulario tiene su lista de respaldo) y queda en el registro
+   *  para rellenarla a mano. */
+  private async sembrarTiposBase(companyId: number): Promise<void> {
+    const plantilla =
+      Number(this.configService.get<string>('EMPRESA_PLANTILLA_ID')) || 1;
+    if (!companyId || companyId === plantilla) return;
+    try {
+      await this.superAdminRepository.sembrarTiposBase(companyId, plantilla);
+    } catch (e) {
+      this.logger.error(
+        `no se pudieron sembrar los tipos base de la empresa ${companyId}: ${this.mensajeDe(e)}`,
+      );
+    }
   }
 
   // ---------- Torre de Control (tanda 1, 05-08) ----------

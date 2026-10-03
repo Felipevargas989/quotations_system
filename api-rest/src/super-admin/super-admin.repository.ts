@@ -345,6 +345,80 @@ export class SuperAdminRepository {
     return (data || []) as Record<string, unknown>[];
   }
 
+  /**
+   * LOS TIPOS BASE DE UNA EMPRESA (Felipe, 02-10-2026: "deja para todos
+   * los nuevos clientes por defecto los míos, sin perjuicio que se
+   * puedan editar"). Copia los tipos de cliente y de evento de la
+   * empresa plantilla (Valle del Sol) a una empresa que NO tiene, tabla
+   * por tabla: lo que la empresa ya creó no se toca. Todos los tipos de
+   * evento entran como COTIZACIÓN: "consulta" manda un brochure
+   * automático y una empresa nueva todavía no ha subido el suyo (le
+   * llegaría al cliente un "valores para tu matrimonio" sin valores).
+   * Devuelve cuántos sembró de cada uno.
+   */
+  async sembrarTiposBase(companyId: number, plantillaId: number) {
+    const contar = async (tabla: 'client_types' | 'event_types') => {
+      const { count, error } = await this.supabase.client
+        .from(tabla)
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId);
+      if (error) throw error;
+      return count ?? 0;
+    };
+    let clientes = 0;
+    let eventos = 0;
+    if ((await contar('client_types')) === 0) {
+      const { data, error } = await this.supabase.client
+        .from('client_types')
+        .select('name, sort_order')
+        .eq('company_id', plantillaId)
+        .order('sort_order');
+      if (error) throw error;
+      const filas = (
+        (data ?? []) as { name: string; sort_order: number }[]
+      ).map((t) => ({
+        company_id: companyId,
+        name: t.name,
+        sort_order: t.sort_order,
+      }));
+      if (filas.length) {
+        const { error: e2 } = await this.supabase.client
+          .from('client_types')
+          .insert(filas);
+        if (e2) throw e2;
+      }
+      clientes = filas.length;
+    }
+    if ((await contar('event_types')) === 0) {
+      const { data, error } = await this.supabase.client
+        .from('event_types')
+        .select('name, activo, sort_order')
+        .eq('company_id', plantillaId)
+        .order('sort_order');
+      if (error) throw error;
+      const filas = (
+        (data ?? []) as { name: string; activo: boolean; sort_order: number }[]
+      ).map((t) => ({
+        company_id: companyId,
+        name: t.name,
+        entrada: 'cotizacion',
+        activo: t.activo,
+        sort_order: t.sort_order,
+      }));
+      if (filas.length) {
+        const { error: e2 } = await this.supabase.client
+          .from('event_types')
+          .insert(filas);
+        if (e2) throw e2;
+      }
+      eventos = filas.length;
+    }
+    this.logger.info(
+      `sembrarTiposBase empresa ${companyId}: ${clientes} tipos de cliente, ${eventos} tipos de evento`,
+    );
+    return { clientes, eventos };
+  }
+
   async createCompanyOnly(name: string) {
     this.logger.info('createCompanyOnly (super-admin)');
     const { data, error } = await this.supabase.client
