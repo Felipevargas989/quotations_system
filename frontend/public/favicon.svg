@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- El isotipo de Eventia (el mismo de la landing): dos barras azules y
+       un check azul marino. En pestañas oscuras el check se pone blanco
+       para que no desaparezca (03-10-2026). -->
+  <style>
+    .check { stroke: #0B1F33; }
+    @media (prefers-color-scheme: dark) { .check { stroke: #FFFFFF; } }
+  </style>
+  <path d="M8 11 H41 L32 21 H8 Z" fill="#1597E5"/>
+  <path d="M8 25 H35 L26 35 H8 Z" fill="#1597E5"/>
+  <path class="check" d="M11 41 L22 53 L49 24" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
