@@ -41,7 +41,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   // El calendario entra porque sin él no puede responder "¿tienen el 20
   // libre?", que es la pregunta más común del mostrador; y no escribe
   // nada en la base, es solo-mirar por naturaleza.
-  recepcion: ["requests", "clients", "quotations", "calendar", "configuration"],
+  // 03-10-2026 (Felipe: "requerimiento y calendario, pero no más que
+  // eso"): recepción deja de ver Cotizaciones, Consultas y Clientes.
+  // OJO: este archivo tiene DOS listas que deben decir lo mismo: esta
+  // (el menú lateral, vía canAccessSection) y SECTION_ROLES más abajo
+  // (las rutas, vía PermissionGuard). El 03-10 se cambió solo la de
+  // abajo y el menú siguió ofreciendo pantallas que la ruta rebotaba.
+  recepcion: ["requests", "calendar", "configuration"],
   vendedor: [
     "requests",
     "clients",
