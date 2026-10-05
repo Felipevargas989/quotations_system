@@ -1,1 +1,7 @@
+# El formulario de la empresa 25 ya no existe, pero un enlace de la bio de
+# Instagram sigue apuntando ahí (3 solicitudes rescatadas entre el 29-09 y
+# el 04-10-2026). Se manda al de Valle del Sol (1), con su huella de
+# Instagram intacta: Netlify conserva los parámetros de la dirección.
+/public-quotation/25  /public-quotation/1  301
+
 /*  /index.html  200
