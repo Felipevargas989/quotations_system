@@ -188,6 +188,15 @@ export default function NegocioPage() {
 
   // Recepción entra a la ficha para hacer seguimiento, no para editar.
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // ACEPTADA → A POST-VENTA (Felipe, 06-10-2026: "pasé esta aceptada,
+  // pero no se abrieron las pestañas de post venta, ¿debo salir y volver
+  // a entrar?"). Una vez aceptada, el evento se trabaja en Post-Venta;
+  // quien la ve (operaciones y administrador) va directo allá. Un
+  // vendedor no la ve y se queda en esta ficha, como antes.
+  const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
+  const irAPostVenta = (id: string) => {
+    if (puedeVerPostVenta) navigate(`/post-venta/${id}`);
+  };
 
   const refrescarEstado = async () => {
     await queryClient.invalidateQueries({ queryKey: ["quotations"] });
@@ -218,6 +227,7 @@ export default function NegocioPage() {
           if (error) throw new Error(error.message);
           toast.success("Cotización aceptada (el plan de pagos ya existía).");
           await refrescarEstado();
+          irAPostVenta(fila.id);
           return;
         }
         setPlanAbierto(true);
@@ -273,6 +283,7 @@ export default function NegocioPage() {
       );
       setPlanAbierto(false);
       await refrescarEstado();
+      irAPostVenta(fila.id);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "No se pudo crear el plan",

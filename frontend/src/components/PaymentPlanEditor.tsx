@@ -5,6 +5,7 @@ import { Save, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { NumberInput } from "./inputs";
 import { formatFechaEvento } from "../utils/dates";
+import { repartirEnCuotas } from "../utils/repartirEnCuotas";
 
 // Plan de pagos al aceptar: una lista simple de cuotas — comentario, fecha y
 // MONTO en pesos (el % se calcula solo, informativo). Parte con una sola
@@ -26,7 +27,12 @@ interface PaymentPlanEditorProps {
     event_date?: Date;
   };
   readonly onSave: (
-    plan: { payment_type: string; amount: number; due_date: string; notes: string }[],
+    plan: {
+      payment_type: string;
+      amount: number;
+      due_date: string;
+      notes: string;
+    }[],
   ) => void;
   readonly onCancel: () => void;
 }
@@ -57,6 +63,7 @@ export default function PaymentPlanEditor({
     ? formatFechaEvento(quotation.event_date)
     : null;
 
+  const [montosAMano, setMontosAMano] = useState(false);
   const [rows, setRows] = useState<PlanRow[]>([
     { label: "Cuota 1", due_date: today, amount: total },
   ]);
@@ -69,13 +76,15 @@ export default function PaymentPlanEditor({
   useEffect(() => {
     const fresco = frescoQuery.data?.data?.total_amount;
     if (fresco == null || fresco === totalAplicado.current) return;
-    const anterior = totalAplicado.current;
-    setRows((prev) =>
-      prev.length === 1 && prev[0].amount === anterior
-        ? [{ ...prev[0], amount: fresco }]
-        : prev,
-    );
+    // Mientras los montos sigan siendo la propuesta pareja (nadie los
+    // escribió a mano), se vuelven a repartir con el total fresco.
+    setRows((prev) => {
+      if (montosAMano) return prev;
+      const montos = repartirEnCuotas(fresco, prev.length);
+      return prev.map((r, i) => ({ ...r, amount: montos[i] }));
+    });
     totalAplicado.current = fresco;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frescoQuery.data]);
 
   const suma = rows.reduce((s, r) => s + (r.amount || 0), 0);
@@ -83,22 +92,47 @@ export default function PaymentPlanEditor({
   const pct = (amount: number | undefined) =>
     total > 0 ? Math.round(((amount || 0) / total) * 1000) / 10 : 0;
 
-  const updateRow = (i: number, patch: Partial<PlanRow>) =>
-    setRows((prev) => prev.map((r, ix) => (ix === i ? { ...r, ...patch } : r)));
+  // ¿Los montos siguen siendo la propuesta pareja del sistema? Mientras
+  // nadie escriba un monto a mano, cada cuota que se agrega o se quita
+  // vuelve a repartir el total en partes iguales (Felipe, 06-10: "que la
+  // propuesta inicial siempre sea fraccionada"). En cuanto se edita un
+  // monto, se respeta lo escrito y la cuota nueva nace con lo que falte.
+  const repartirParejo = (filas: PlanRow[]) => {
+    const montos = repartirEnCuotas(total, filas.length);
+    return filas.map((r, i) => ({ ...r, amount: montos[i] }));
+  };
 
-  // La cuota nueva nace con lo que falta por asignar (si hay algo).
+  const updateRow = (i: number, patch: Partial<PlanRow>) => {
+    if ("amount" in patch) setMontosAMano(true);
+    setRows((prev) => prev.map((r, ix) => (ix === i ? { ...r, ...patch } : r)));
+  };
+
   const addRow = () =>
-    setRows((prev) => [
-      ...prev,
-      {
-        label: `Cuota ${prev.length + 1}`,
-        due_date: today,
-        amount: diff > 0 ? diff : undefined,
-      },
-    ]);
+    setRows((prev) => {
+      const nuevas = [
+        ...prev,
+        {
+          label: `Cuota ${prev.length + 1}`,
+          due_date: today,
+          amount: undefined,
+        },
+      ];
+      if (!montosAMano) return repartirParejo(nuevas);
+      // Con montos escritos a mano: la nueva nace con lo que falta.
+      return nuevas.map((r, i) =>
+        i === nuevas.length - 1
+          ? { ...r, amount: diff > 0 ? diff : undefined }
+          : r,
+      );
+    });
 
   const removeRow = (i: number) =>
-    setRows((prev) => prev.filter((_, ix) => ix !== i));
+    setRows((prev) => {
+      const quedan = prev.filter((_, ix) => ix !== i);
+      return montosAMano || quedan.length === 0
+        ? quedan
+        : repartirParejo(quedan);
+    });
 
   const rowsValid = rows.every(
     (r) => (r.amount || 0) > 0 && r.due_date && r.label.trim(),
@@ -123,9 +157,7 @@ export default function PaymentPlanEditor({
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Plan de pagos
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900">Plan de pagos</h2>
               <p className="text-sm text-gray-600 mt-1">
                 Cotización #{quotation.quotation_number}
                 {quotation.client_name ? ` · ${quotation.client_name}` : ""}

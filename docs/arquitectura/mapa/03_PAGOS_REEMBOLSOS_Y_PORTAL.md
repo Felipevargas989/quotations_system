@@ -74,7 +74,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 ### A. Aceptar la cotización y armar el plan (con el portero de cuadratura)
 
 1. Pantalla: en `QuotationsPage.applyStatusChange` o `NegocioPage.cambiarEstado` se elige "aceptada". La app pide `getPaymentsByQuotationId`. Si ya hay cuotas, solo hace `PATCH /quotations/:id` con el estado (aviso "el plan de pagos ya existía"). Si no hay, abre `PaymentPlanEditor`.
-2. `PaymentPlanEditor` pide el total **fresco** con `getQuotationById` (`staleTime: 0`) y parte con "Cuota 1" por el total. Solo deja guardar si `diff === 0` y cada fila tiene monto > 0, fecha y comentario.
+2. `PaymentPlanEditor` pide el total **fresco** con `getQuotationById` (`staleTime: 0`) y parte con "Cuota 1" por el total. Solo deja guardar si `diff === 0` y cada fila tiene monto > 0, fecha y comentario. **Cuotas parejas (06-10-2026, Felipe: "que la propuesta inicial siempre sea fraccionada"):** mientras nadie escriba un monto a mano, agregar o quitar una cuota vuelve a repartir el total en partes iguales (`utils/repartirEnCuotas.ts`; el resto de la división va a la primera cuota, el abono). Si se edita un monto, se respeta y la cuota nueva nace con lo que falta, como antes.
 3. La página arma `CreatePayment[]` (`payment_number` = posición + 1, `status: "pendiente"`, montos redondeados) y llama `createPaymentPlan` → `POST /payments/plan`.
 4. `PaymentsService.createPaymentPlan`:
    - trae la cotización con `QuotationsService.findOne`; si es de otra empresa, 404;
@@ -82,7 +82,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
    - `deletePaymentsByQuotationId` y luego `createPaymentPlan` (insert);
    - si el estado previo no era `aceptada`, envía `PAYMENT_PLAN_CREATED` al mandante (`QuotationsService.mandanteOf`) con su token de portal. Sin correo, solo deja un aviso en el log;
    - si el estado no es `realizada`, `QuotationsRepository.update` lo deja `aceptada`. Va directo al repositorio: sin cascada ni candado.
-5. Efecto: el evento aparece en Post-Venta, porque `fetchEvents` arma las filas **desde las cuotas**, y en el portal bajo "Tus eventos confirmados".
+5. Efecto: el evento aparece en Post-Venta, porque `fetchEvents` arma las filas **desde las cuotas**, y en el portal bajo "Tus eventos confirmados". Desde el 06-10-2026, si se aceptó desde la ficha del negocio (`NegocioPage`), quien ve Post-Venta (operaciones y administrador) **queda directo en `/post-venta/:id`** al guardar el plan (o al aceptar con plan ya existente); un vendedor se queda en la ficha. Felipe: *"pasé esta aceptada, pero no se abrieron las pestañas de post venta"*.
 
 ### B. Registrar un pago con derrame y la regla de cuadratura
 
