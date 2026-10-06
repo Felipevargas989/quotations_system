@@ -82,7 +82,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
    - `deletePaymentsByQuotationId` y luego `createPaymentPlan` (insert);
    - si el estado previo no era `aceptada`, envía `PAYMENT_PLAN_CREATED` al mandante (`QuotationsService.mandanteOf`) con su token de portal. Sin correo, solo deja un aviso en el log;
    - si el estado no es `realizada`, `QuotationsRepository.update` lo deja `aceptada`. Va directo al repositorio: sin cascada ni candado.
-5. Efecto: el evento aparece en Post-Venta, porque `fetchEvents` arma las filas **desde las cuotas**, y en el portal bajo "Tus eventos confirmados".
+5. Efecto: el evento aparece en Post-Venta, porque `fetchEvents` arma las filas **desde las cuotas**, y en el portal bajo "Tus eventos confirmados". Desde el 06-10-2026, si se aceptó desde la ficha del negocio (`NegocioPage`), quien ve Post-Venta (operaciones y administrador) **queda directo en `/post-venta/:id`** al guardar el plan (o al aceptar con plan ya existente); un vendedor se queda en la ficha. Felipe: *"pasé esta aceptada, pero no se abrieron las pestañas de post venta"*.
 
 ### B. Registrar un pago con derrame y la regla de cuadratura
 
