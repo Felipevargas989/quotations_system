@@ -4,13 +4,7 @@ import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-
-/** Lo que cuesta el menú por persona: la suma de sus ítems. */
-const precioPorPersonaDe = (g: ServiceGroup) =>
-  g.items.reduce(
-    (s, it) => s + Number(it.service?.price ?? 0) * Number(it.quantity ?? 0),
-    0,
-  );
+import { precioPorPersonaDeMenu as precioPorPersonaDe } from "../../utils/precioPorPersona";
 
 /**
  * EL PANEL DE MENÚS GUARDADOS del cotizador (extraído de QuotationForm
