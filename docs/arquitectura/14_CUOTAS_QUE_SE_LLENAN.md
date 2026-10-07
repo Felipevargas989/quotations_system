@@ -1,7 +1,8 @@
 # 14 · Cuotas que se llenan (regla nueva del plan de pagos)
 
-> **Estado: SPRINT 1 (MOTOR) CONSTRUIDO EN LA RAMA `pruebas`** (07-10-2026),
-> sin publicar en producción. Sprint 2 (pantallas) pendiente.
+> **Estado: SPRINTS 1 (MOTOR) Y 2 (PANTALLAS) CONSTRUIDOS EN LA RAMA
+> `pruebas`** (07-10-2026), sin publicar en producción. Falta la
+> validación de Felipe en el laboratorio y, después, el arreglo de la 506.
 > Reemplaza la regla 2 ("cuadratura de la cuota", 20-07) y la regla 16
 > ("si baja el total, desde la última") del mapa
 > `mapa/03_PAGOS_REEMBOLSOS_Y_PORTAL.md`. Cuando se construya, el mapa 03
@@ -112,5 +113,5 @@ la cuota 1, con sus comprobantes y notas intactos.
 ## Orden de construcción
 
 1. **Sprint 1, motor** — HECHO en `pruebas` (07-10-2026): `reparto-del-cambio-de-total.ts` (pura, 12 pruebas), `PaymentsService.repartirCambioDeTotal` + `renumerarCuotas`, `normalizePaymentAfterTransactions` sin división, cascada de `QuotationsService.update`, recordatorios con saldo (y sin cobrar cuotas sin saldo; en el aviso a administradores "Saldo por cobrar"), ficha 360° con saldo, panel de caja con lo abonado de las parciales como cobrado, y `Number()` en las tres sumas de abonos que faltaban (portal, tope del portal y Post-Venta).
-2. **Sprint 2, pantallas**: Post-Venta, portal, aviso ámbar. En el laboratorio.
+2. **Sprint 2, pantallas** — HECHO en `pruebas` (07-10-2026): Post-Venta ya mostraba "abonado $X de $Y"; ahora la etiqueta dice "Vencido · parcial" / "Pendiente · parcial" (`statusBadge`, cambio mínimo: la página está congelada por tamaño). El portal ya mostraba lo abonado y precarga solo el saldo: sin cambios. `AvisoPlanDePagos` anuncia la regla nueva.
 3. Felipe valida → producción → arreglo de la 506.

@@ -191,7 +191,8 @@ const cuotaStatus = (p: PaymentWithTransactions): string => {
   return p.status;
 };
 
-const statusBadge = (st: string) => {
+// `parcial`: cuota con abonos que no la cubren (cuotas que se llenan, 07-10).
+const statusBadge = (st: string, parcial = false) => {
   const map: Record<string, string> = {
     pagado: "bg-green-100 text-green-800",
     vencido: "bg-red-100 text-red-800",
@@ -202,6 +203,7 @@ const statusBadge = (st: string) => {
       className={`px-2 py-0.5 text-xs font-semibold rounded-full ${map[st] || map.pendiente}`}
     >
       {st ? st.charAt(0).toUpperCase() + st.slice(1) : "—"}
+      {parcial && st !== "pagado" ? " · parcial" : ""}
     </span>
   );
 };
@@ -1792,7 +1794,7 @@ function EventModal({
                                   <div className="font-semibold text-gray-900">
                                     {clp(pay.amount)}
                                   </div>
-                                  {statusBadge(cuotaStatus(pay))}
+                                  {statusBadge(cuotaStatus(pay), cp > 0)}
                                   {txs.length === 0 &&
                                     cuotaStatus(pay) !== "pagado" &&
                                     editCuota?.id !== pay.id && (

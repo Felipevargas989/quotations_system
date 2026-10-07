@@ -108,7 +108,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 ### D. Cambiar el total de un evento aceptado: la cascada (vive en `QuotationsService.update`, mapa 01)
 
-1. Aviso previo: `AvisoPlanDePagos` en `QuotationForm` y en `ServiciosTab`. En la pestaña Servicios, además, el guardado automático se apaga.
+1. Aviso previo: `AvisoPlanDePagos` en `QuotationForm` y en `ServiciosTab` (desde el 07-10-2026 anuncia el reparto proporcional del doc 14). En la pestaña Servicios, además, el guardado automático se apaga.
 2. `PATCH /quotations/:id` → `QuotationsService.update`, en este orden:
    - candado del evento realizado (400);
    - freno de recepción;

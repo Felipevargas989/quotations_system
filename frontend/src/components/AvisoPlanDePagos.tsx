@@ -6,9 +6,11 @@ import { QuotationStatus } from "../types/quotations.types";
  * EL AVISO ÁMBAR DEL PLAN DE PAGOS (caso 501, 06-09 — pedido de
  * Felipe: "un aviso ámbar como el de evento provisionado"). Al editar
  * una cotización ACEPTADA que ya tiene cuotas, anuncia lo que la
- * cascada del motor hará al guardar si cambia el total: descuenta de
- * las cuotas pendientes desde la última, genera reembolso si lo
- * pagado supera el total nuevo, o agranda la última cuota si sube.
+ * cascada del motor hará al guardar si cambia el total. Desde el
+ * 07-10-2026 (cuotas que se llenan, doc 14) la diferencia se reparte
+ * en proporción a lo que le falta a cada cuota: al bajar, entre todas
+ * las no pagadas; al subir, solo entre las que no han vencido. Antes
+ * se descontaba desde la última y se agrandaba la última.
  * La cascada existe desde siempre — esto solo la ANUNCIA antes del
  * guardar, para que nadie se sorprenda.
  */
@@ -44,9 +46,10 @@ export default function AvisoPlanDePagos({
           ? "El guardado automático está apagado en esta pestaña: nada cambia hasta que aprietes «Guardar cambios». "
           : ""}
         Si cambias el total y aprietas Guardar, el plan se ajusta solo: la
-        diferencia se descuenta de las cuotas pendientes (desde la última), y
-        si lo abonado supera el total nuevo se genera un reembolso; si el
-        total sube, se agranda la última cuota.
+        diferencia se reparte entre las cuotas por pagar, en proporción a lo
+        que le falta a cada una (si sube, solo entre las que no han vencido).
+        Lo ya abonado no se toca, y si lo abonado supera el total nuevo se
+        genera un reembolso.
       </p>
     </div>
   );
