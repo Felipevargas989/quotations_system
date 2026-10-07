@@ -3,6 +3,7 @@ import { Package, Search, Trash2 } from "lucide-react";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
 import ConfirmInline from "../ConfirmInline";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
+import { precioPorPersonaDePaquete } from "../../utils/precioPorPersona";
 
 /**
  * "PARTIR DE UN PAQUETE" — el botón y su lista, con buscador.
@@ -84,7 +85,7 @@ export default function SelectorDePaquetes({
       </button>
 
       {abierto && (
-        <div className="absolute right-0 z-10 w-72 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div className="absolute right-0 z-10 w-96 max-w-[90vw] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
           {paquetes.length > 0 && (
             <div className="p-2 border-b border-gray-200">
               <div className="relative">
@@ -141,6 +142,7 @@ export default function SelectorDePaquetes({
                   </div>
                 );
               }
+              const porPersona = precioPorPersonaDePaquete(paquete);
               return (
                 <div
                   key={paquete.id}
@@ -152,9 +154,21 @@ export default function SelectorDePaquetes({
                     type="button"
                     ref={i === lista.marcada ? lista.refMarcada : undefined}
                     onClick={() => elegir(paquete)}
-                    className="flex-1 text-left text-sm"
+                    className="flex-1 min-w-0 text-left text-sm"
                   >
-                    <span className="text-gray-900">{paquete.name}</span>
+                    {/* Igual que los menús guardados: nombre · precio por
+                        persona de los variables (Felipe, 06-10). El precio
+                        nunca se corta; si falta espacio, se corta el nombre. */}
+                    <span className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-gray-900 truncate">
+                        {paquete.name}
+                      </span>
+                      {porPersona > 0 && (
+                        <span className="text-gray-500 shrink-0 whitespace-nowrap">
+                          · ${porPersona.toLocaleString("es-CL")}
+                        </span>
+                      )}
+                    </span>
                   </button>
                   <button
                     type="button"
