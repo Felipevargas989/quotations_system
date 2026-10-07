@@ -109,7 +109,8 @@ La app no toca tablas: `lib/supabase.ts` solo lo importan `services/api.ts` y `c
 2. `SelectWithSearch.abrir()` → `lista.reiniciar()`. `useListaBuscable` pone el foco en el buscador. `useLayoutEffect` mide el contenedor con scroll más cercano **antes de pintar** y decide si abre hacia arriba o hacia abajo, con un alto de 120 a 240 px.
 3. Al escribir se filtra con `matchesSearch(texto, label, hint, group)`. Flechas, Enter y Escape pasan por `teclaEnLista`, y `verEnLista` desplaza solo la lista marcada con `data-lista-scroll`.
 4. Enter o clic llaman `onChange(value)` y la lista se cierra, salvo con `keepOpenOnSelect`. Un clic fuera (`mousedown`) también la cierra.
-5. `AgregadorDeItems` usa el mismo motor con `buscarEnHint: false`, `darLaVuelta: false` y `marcarPrimero: true`. `onAgregar` se puede repetir y la pantalla manda con `abierto` / `onAbiertoChange`.
+5. **Escribir marca la primera que calza, en toda lista** (06-10-2026, Felipe: "no aparece el que se filtra seleccionado para poder pinchar Enter"): `alEscribir` usa `marcaAlEscribir` — con texto, la marca va a la primera fila; con el buscador vacío, la lista plegable no marca nada (como al abrirse). Pruebas: `useListaBuscable.test.ts` y "al escribir queda marcada la primera…" en `SelectWithSearch.test.tsx`.
+   `AgregadorDeItems` usa el mismo motor con `buscarEnHint: false`, `darLaVuelta: false` y `marcarPrimero: true` (marca la primera desde que se abre, sin escribir). `onAgregar` se puede repetir y la pantalla manda con `abierto` / `onAbiertoChange`.
 
 **Flujo 5: el portero en el CI**
 1. Corre a mano con `npm run portero` (`frontend/package.json`) y como último paso del trabajo `frontend` en `.github/workflows/ci.yml`.

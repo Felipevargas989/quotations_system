@@ -72,6 +72,33 @@ describe("SelectWithSearch — el teclado con la lista ABIERTA", () => {
     expect(alElegir).toHaveBeenCalledWith("2"); // Merluza frita
   });
 
+  // Felipe, 06-10-2026: en el buscador de categoría escribía y la
+  // filtrada no quedaba marcada, así que Enter no hacía nada.
+  it("al escribir queda marcada la primera que calza y Enter la elige", async () => {
+    const usuario = userEvent.setup();
+    const alElegir = vi.fn();
+    render(<SelectWithSearch options={PLATOS} onChange={alElegir} />);
+    await abrir(usuario);
+
+    await usuario.type(buscador(), "past");
+    const marcada = lista().getByRole("button", { name: "Pastel de choclo" });
+    expect(marcada.classList.contains("bg-blue-50")).toBe(true);
+
+    await usuario.keyboard("{Enter}");
+    expect(alElegir).toHaveBeenCalledWith("3");
+  });
+
+  it("al abrir sin escribir no queda nada marcado", async () => {
+    const usuario = userEvent.setup();
+    render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} />);
+    await abrir(usuario);
+
+    const marcadas = document.querySelectorAll(
+      "[data-lista-scroll] button.bg-blue-50",
+    );
+    expect(marcadas).toHaveLength(0);
+  });
+
   it("Escape cierra la lista", async () => {
     const usuario = userEvent.setup();
     render(<SelectWithSearch options={PLATOS} onChange={vi.fn()} />);
