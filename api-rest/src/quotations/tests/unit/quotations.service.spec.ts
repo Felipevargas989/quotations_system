@@ -58,6 +58,21 @@ describe('QuotationsService', () => {
       findAllPaymentsFromQuotation: jest.fn(),
       createPayment: jest.fn(),
       update: jest.fn(),
+      // Cuotas que se llenan (doc 14): el reparto real se prueba en
+      // reparto-del-cambio-de-total.spec.ts. Acá basta su contrato: sin
+      // cuotas, la rebaja entera es reembolso y el alza entera es cuota
+      // nueva.
+      repartirCambioDeTotal: jest
+        .fn()
+        .mockImplementation((_id, cuotas: unknown[], diferencia: number) =>
+          Promise.resolve(
+            cuotas.length > 0
+              ? { reembolso: 0, cuotaNueva: 0 }
+              : diferencia < 0
+                ? { reembolso: -diferencia, cuotaNueva: 0 }
+                : { reembolso: 0, cuotaNueva: diferencia },
+          ),
+        ),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
@@ -442,7 +457,7 @@ describe('QuotationsService', () => {
         );
       });
 
-      it('when new quotation total_amount is greather than the original and payments are already created, it should update the amoun of the last payment and update the quotation', async () => {
+      it('cuando sube el total y hay cuotas, reparte el alza entre ellas (cuotas que se llenan, doc 14)', async () => {
         const quotation_id = '1';
         const company_id = 1;
 
@@ -493,15 +508,14 @@ describe('QuotationsService', () => {
         // assert new payment was not created
         expect(paymentsServiceMock.createPayment).toHaveBeenCalledTimes(0);
 
-        // assert update payment was called
-        // get last payment
-        const lastPayment = payments[payments.length - 1];
-        expect(paymentsServiceMock.update).toHaveBeenCalledWith(
-          lastPayment.id,
-          {
-            amount: lastPayment.amount + (newTotalAmount - originalAmount),
-          },
+        // el alza va al reparto proporcional, ya no entera a la última
+        expect(paymentsServiceMock.repartirCambioDeTotal).toHaveBeenCalledWith(
+          quotation_id,
+          payments,
+          newTotalAmount - originalAmount,
+          company_id,
         );
+        expect(paymentsServiceMock.update).not.toHaveBeenCalled();
 
         // assert quotation update was called
         expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(

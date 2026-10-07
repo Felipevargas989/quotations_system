@@ -20,7 +20,7 @@ export const paymentOverdueAdminTemplate = (
         <td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:600;">N° ${params.payment.payment_number}</td>
       </tr>
       <tr>
-        <td style="padding:6px 12px;color:#6b7280;font-size:13px;white-space:nowrap;">Monto</td>
+        <td style="padding:6px 12px;color:#6b7280;font-size:13px;white-space:nowrap;">Saldo por cobrar</td>
         <td style="padding:6px 12px;color:#111827;font-size:14px;font-weight:600;">${formatCurrency(params.payment.amount)}</td>
       </tr>
       <tr>

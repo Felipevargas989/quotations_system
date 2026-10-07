@@ -74,13 +74,23 @@ export class PaymentsCronService {
         // SOLO al mandante; sin persona con correo, no sale nada al
         // cliente (el aviso admin de abajo va igual).
         const mandante = payment.quotations.mandante;
+        // CUOTAS QUE SE LLENAN (doc 14, 07-10-2026): una cuota con
+        // abonos que no la cubren sigue pendiente o vencida, así que el
+        // correo cobra lo que FALTA, no el monto completo. Sin saldo
+        // (una cuota vieja en $0) no se cobra nada.
+        const abonado = (payment.payment_transactions || []).reduce(
+          (s, t) => s + Number(t.amount),
+          0,
+        );
+        const saldo = Number(payment.amount) - abonado;
+        if (saldo <= 0) continue;
         const params: PaymentReminderParams = {
           clientName: mandante?.name || payment.quotations.clients.name,
           companyName: payment.quotations.companies.name,
           quotationId: payment.quotations.quotation_number.toString(),
           payment: {
             payment_number: payment.payment_number,
-            amount: payment.amount,
+            amount: saldo,
             due_date: payment.due_date,
           },
         };

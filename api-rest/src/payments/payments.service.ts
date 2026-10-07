@@ -32,6 +32,12 @@ import {
   UpdatePaymentTransaction,
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
+import {
+  CuotaParaRepartir,
+  hoyEnChile,
+  repartirAlza,
+  repartirRebaja,
+} from './reparto-del-cambio-de-total';
 
 /**
  * Service responsible for managing payment operations including
@@ -247,6 +253,87 @@ export class PaymentsService {
   }
 
   /**
+   * CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): cuando cambia el
+   * total de una cotización aceptada, reparte la diferencia entre sus
+   * cuotas no pagadas en proporción a su saldo (`reparto-del-cambio-de-
+   * total.ts` decide; acá se ejecuta). Devuelve lo que no tuvo cuota
+   * donde ir: `reembolso` (al bajar) o `cuotaNueva` (al subir), que el
+   * llamador resuelve como siempre.
+   *
+   * `cuotas` = las `pendiente` / `vencido` con sus `payment_transactions`.
+   */
+  async repartirCambioDeTotal(
+    quotationId: Quotation['id'],
+    cuotas: Pick<
+      PaymentWithTransactionsAndQuotation,
+      'id' | 'payment_number' | 'amount' | 'due_date' | 'payment_transactions'
+    >[],
+    diferencia: number,
+    companyId: Company['id'],
+  ): Promise<{ reembolso: number; cuotaNueva: number }> {
+    const paraRepartir: CuotaParaRepartir[] = cuotas.map((c) => ({
+      id: c.id,
+      payment_number: c.payment_number,
+      amount: c.amount,
+      due_date: c.due_date as unknown as string,
+      // Numeric llega como texto (ver normalizePaymentAfterTransactions).
+      abonado: (c.payment_transactions || []).reduce(
+        (s: number, t: PaymentTransaction) => s + Number(t.amount),
+        0,
+      ),
+    }));
+    const reparto =
+      diferencia < 0
+        ? repartirRebaja(paraRepartir, -diferencia)
+        : repartirAlza(paraRepartir, diferencia, hoyEnChile());
+    this.logger.info(
+      `repartirCambioDeTotal ${quotationId} diferencia ${diferencia}: ${JSON.stringify(reparto)}`,
+    );
+
+    for (const cambio of reparto.cambios) {
+      const { error } = await this.paymentsRepository.updatePayment(
+        cambio.id,
+        cambio.pagada
+          ? { amount: cambio.amount, status: PaymentStatus.PAGADO }
+          : { amount: cambio.amount },
+      );
+      if (error) throw error;
+    }
+    if (reparto.borrar.length > 0) {
+      for (const id of reparto.borrar) {
+        const { error } = await this.paymentsRepository.removePayment(id);
+        if (error) throw error;
+      }
+      await this.renumerarCuotas(quotationId, companyId);
+    }
+    return { reembolso: reparto.reembolso, cuotaNueva: reparto.cuotaNueva };
+  }
+
+  /** Deja las cuotas numeradas 1..n sin huecos, en su orden actual. */
+  private async renumerarCuotas(
+    quotationId: Quotation['id'],
+    companyId: Company['id'],
+  ) {
+    const { data: todas, error } =
+      await this.paymentsRepository.findAllPaymentsFromQuotation(
+        [quotationId],
+        companyId,
+      );
+    if (error) throw error;
+    // De menor a mayor: cada número nuevo es menor o igual al anterior,
+    // así que nunca pisa uno que todavía está ocupado.
+    for (const [i, cuota] of (todas || []).entries()) {
+      if (cuota.payment_number !== i + 1) {
+        const { error: e } = await this.paymentsRepository.updatePayment(
+          cuota.id,
+          { payment_number: i + 1 },
+        );
+        if (e) throw e;
+      }
+    }
+  }
+
+  /**
    * Calendario de pagos, Nivel A: edita SOLO la fecha de vencimiento y
    * la nota de una cuota. Cuotas con dinero registrado (pagadas o con
    * abonos) son intocables por esta vía — para eso está rectificar el
@@ -330,7 +417,7 @@ export class PaymentsService {
     const paymentsWithTransactions = payments.map((payment) => {
       const transactions = payment.payment_transactions;
       const paid_amount = transactions.reduce(
-        (sum: number, t: PaymentTransaction) => sum + t.amount,
+        (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
         0,
       );
       const payment_count = transactions.length;
@@ -513,8 +600,8 @@ export class PaymentsService {
         );
       }
 
-      // Regla de cuadratura: si la última cuota tocada quedó a medias,
-      // se divide (parte pagada + cuota nueva por el remanente).
+      // La última cuota tocada, si quedó a medias, sigue pendiente o
+      // vencida según su fecha (cuotas que se llenan, doc 14).
       const lastTouched = distribution[distribution.length - 1];
       if (lastTouched && !lastTouched.fully_paid) {
         await this.normalizePaymentAfterTransactions(
@@ -603,8 +690,9 @@ export class PaymentsService {
       }
 
       // 3. Run validation of current_paid < amount
+      // Numeric llega como texto: sumado con + se pegaba (24-08).
       const current_paid = transactions.reduce(
-        (sum: number, t: PaymentTransaction) => sum + t.amount,
+        (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
         0,
       );
       const new_paid =
@@ -693,9 +781,8 @@ export class PaymentsService {
 
         transaction = updatedTransaction;
       }
-      // 5. Cuadratura de la cuota (regla de Felipe, 20-07-2026): tras
-      //    cualquier registro, la cuota queda 100% pagada o 100%
-      //    pendiente; un pago parcial divide la cuota.
+      // 5. El estado de la cuota según lo abonado (doc 14): pagada si se
+      //    completó; si no, pendiente o vencida. Nunca se divide.
       await this.normalizePaymentAfterTransactions(payment_id, companyId);
 
       // 6. Return new transaction
@@ -738,14 +825,18 @@ export class PaymentsService {
   }
 
   /**
-   * Regla de cuadratura (Felipe, 20-07-2026): despues de cualquier
-   * cambio de registros, toda cuota queda 100% pagada o 100% pendiente.
-   * - abonado == monto  -> PAGADO
-   * - 0 < abonado < monto -> DIVISION: la cuota queda pagada por lo
-   *   abonado y nace una cuota nueva por el remanente, heredando la
-   *   fecha de vencimiento original (si estaba vencida, nace vencida);
-   *   las cuotas posteriores corren su numeracion.
-   * - abonado == 0 -> vuelve a PENDIENTE o VENCIDO segun su fecha.
+   * El estado de la cuota después de cualquier cambio de registros.
+   *
+   * CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): la cuota es FIJA.
+   * - abonado >= monto -> PAGADO
+   * - si no -> PENDIENTE o VENCIDO según su fecha, tenga o no abonos.
+   *   Una cuota con abonos que no la cubren es "Parcial" en pantalla;
+   *   en la base sigue pendiente o vencida.
+   *
+   * Antes (regla del 20-07, reemplazada): un abono parcial DIVIDÍA la
+   * cuota en una pagada por lo abonado y otra nueva por el remanente,
+   * corriendo la numeración de las siguientes. La 506 terminó con una
+   * cuota de $1.125.000 partida en tres (07-10-2026).
    */
   private async normalizePaymentAfterTransactions(
     paymentId: Payment['id'],
@@ -771,48 +862,16 @@ export class PaymentsService {
     const monto = Number(payment.amount);
     const overdue = new Date(payment.due_date) < new Date();
 
-    if (paid <= 0) {
-      await this.paymentsRepository.updatePayment(paymentId, {
-        status: overdue ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE,
-        paid_date: null as unknown as Date,
-      });
-      return;
-    }
     if (paid >= monto) {
       await this.paymentsRepository.updatePayment(paymentId, {
         status: PaymentStatus.PAGADO,
       });
       return;
     }
-
-    // Division de la cuota parcial
-    const remainder = monto - paid;
-    const { data: siblings } =
-      await this.paymentsRepository.findAllPaymentsFromQuotation(
-        [payment.quotation_id],
-        companyId,
-      );
-    const later = (siblings || [])
-      .filter((p) => p.payment_number > payment.payment_number)
-      .sort((a, b) => b.payment_number - a.payment_number);
-    for (const p of later) {
-      await this.paymentsRepository.updatePayment(p.id, {
-        payment_number: p.payment_number + 1,
-      });
-    }
     await this.paymentsRepository.updatePayment(paymentId, {
-      amount: paid,
-      status: PaymentStatus.PAGADO,
-    });
-    await this.paymentsRepository.createPayment({
-      quotation_id: payment.quotation_id,
-      payment_number: payment.payment_number + 1,
-      amount: remainder,
-      due_date: payment.due_date,
       status: overdue ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE,
-      payment_type: payment.payment_type,
-      notes: payment.notes,
-    } as CreatePayment);
+      ...(paid <= 0 ? { paid_date: null as unknown as Date } : {}),
+    });
   }
 
   async removePayment(id: Payment['id'], companyId: Company['id']) {

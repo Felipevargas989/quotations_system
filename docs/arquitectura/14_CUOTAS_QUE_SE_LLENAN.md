@@ -1,6 +1,7 @@
 # 14 · Cuotas que se llenan (regla nueva del plan de pagos)
 
-> **Estado: PLAN APROBADO EN SUS REGLAS, SIN CONSTRUIR** (07-10-2026).
+> **Estado: SPRINT 1 (MOTOR) CONSTRUIDO EN LA RAMA `pruebas`** (07-10-2026),
+> sin publicar en producción. Sprint 2 (pantallas) pendiente.
 > Reemplaza la regla 2 ("cuadratura de la cuota", 20-07) y la regla 16
 > ("si baja el total, desde la última") del mapa
 > `mapa/03_PAGOS_REEMBOLSOS_Y_PORTAL.md`. Cuando se construya, el mapa 03
@@ -110,6 +111,6 @@ la cuota 1, con sus comprobantes y notas intactos.
 
 ## Orden de construcción
 
-1. **Sprint 1, motor**: reglas 1 a 7, cron, ficha 360°, panel de caja, pruebas. En el laboratorio.
+1. **Sprint 1, motor** — HECHO en `pruebas` (07-10-2026): `reparto-del-cambio-de-total.ts` (pura, 12 pruebas), `PaymentsService.repartirCambioDeTotal` + `renumerarCuotas`, `normalizePaymentAfterTransactions` sin división, cascada de `QuotationsService.update`, recordatorios con saldo (y sin cobrar cuotas sin saldo; en el aviso a administradores "Saldo por cobrar"), ficha 360° con saldo, panel de caja con lo abonado de las parciales como cobrado, y `Number()` en las tres sumas de abonos que faltaban (portal, tope del portal y Post-Venta).
 2. **Sprint 2, pantallas**: Post-Venta, portal, aviso ámbar. En el laboratorio.
 3. Felipe valida → producción → arreglo de la 506.

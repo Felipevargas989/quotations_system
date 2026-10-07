@@ -242,38 +242,61 @@ describe('normalizePaymentAfterTransactions', () => {
     expect(repo.createPayment).not.toHaveBeenCalled();
   });
 
-  it('un pago parcial sí divide, con el remanente bien restado', async () => {
+  // CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): un abono parcial
+  // ya NO divide la cuota. Queda con su monto y su fecha, pendiente o
+  // vencida según la fecha; la pantalla la muestra "Parcial".
+  const parcial = (due_date: string) => {
     const repo = {
       findPaymentById: jest.fn().mockResolvedValue({
         data: {
           id: 'p10',
-          quotation_id: 'q486',
-          payment_number: 10,
-          amount: '52000',
-          due_date: '2026-08-20',
+          quotation_id: 'q506',
+          payment_number: 1,
+          amount: '1125000',
+          due_date,
           payment_type: 'Cuota 1',
           notes: '',
         },
         error: null,
       }),
-      findAllTransactionsByPaymentId: jest
-        .fn()
-        .mockResolvedValue({ data: [{ amount: '31200' }] }),
+      findAllTransactionsByPaymentId: jest.fn().mockResolvedValue({
+        data: [{ amount: '195000' }, { amount: '795000' }],
+      }),
       updatePayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      createPayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      findAllPaymentsFromQuotation: jest
-        .fn()
-        .mockResolvedValue({ data: [], error: null }),
+      createPayment: jest.fn(),
+      findAllPaymentsFromQuotation: jest.fn(),
     };
-    const service = armar(repo);
-    await service['normalizePaymentAfterTransactions']('p10', 1);
+    return repo;
+  };
+
+  it('un abono parcial NO divide: la cuota conserva su monto y queda vencida si su fecha pasó', async () => {
+    const repo = parcial('2026-10-05');
+    await armar(repo)['normalizePaymentAfterTransactions']('p10', 1);
+    expect(repo.updatePayment).toHaveBeenCalledTimes(1);
     expect(repo.updatePayment).toHaveBeenCalledWith('p10', {
-      amount: 31200,
-      status: 'pagado',
+      status: 'vencido',
     });
-    expect(repo.createPayment).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 20800, payment_number: 11 }),
-    );
+    expect(repo.createPayment).not.toHaveBeenCalled();
+    expect(repo.findAllPaymentsFromQuotation).not.toHaveBeenCalled();
+  });
+
+  it('un abono parcial con fecha futura deja la cuota pendiente', async () => {
+    const repo = parcial('2999-01-01');
+    await armar(repo)['normalizePaymentAfterTransactions']('p10', 1);
+    expect(repo.updatePayment).toHaveBeenCalledWith('p10', {
+      status: 'pendiente',
+    });
+    expect(repo.createPayment).not.toHaveBeenCalled();
+  });
+
+  it('sin abonos vuelve a pendiente y limpia la fecha de pago vieja', async () => {
+    const repo = parcial('2999-01-01');
+    repo.findAllTransactionsByPaymentId.mockResolvedValue({ data: [] });
+    await armar(repo)['normalizePaymentAfterTransactions']('p10', 1);
+    expect(repo.updatePayment).toHaveBeenCalledWith('p10', {
+      status: 'pendiente',
+      paid_date: null,
+    });
   });
 });
 
@@ -307,5 +330,64 @@ describe('fechaDelUltimoAbono (la cuota pagada de a poco, 28-08)', () => {
 
   it('sin abonos: null (la cuota no está pagada)', () => {
     expect(fechaDelUltimoAbono([])).toBeNull();
+  });
+});
+
+// CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): el servicio ejecuta
+// lo que decide reparto-del-cambio-de-total. El caso: bajan TANTO las
+// personas que se acaba el saldo — la parcial queda pagada por lo
+// abonado, la vacía se borra y las que siguen corren su número.
+describe('repartirCambioDeTotal', () => {
+  it('rebaja que acaba el saldo: la parcial queda pagada, la vacía se borra y se renumera', async () => {
+    const repo = {
+      updatePayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      removePayment: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      findAllPaymentsFromQuotation: jest.fn().mockResolvedValue({
+        data: [
+          { id: 'c1', payment_number: 1 },
+          { id: 'c2', payment_number: 2 },
+          { id: 'c4', payment_number: 4 },
+        ],
+        error: null,
+      }),
+    };
+    const service = new PaymentsService(
+      repo as unknown as PaymentsRepository,
+      {} as QuotationsRepository,
+      {} as QuotationsService,
+      {} as EmailService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    const r = await service.repartirCambioDeTotal(
+      'q1',
+      [
+        {
+          id: 'c2',
+          payment_number: 2,
+          amount: '250000' as unknown as number,
+          due_date: '2026-12-01' as unknown as Date,
+          payment_transactions: [{ amount: '100000' }] as never,
+        },
+        {
+          id: 'c3',
+          payment_number: 3,
+          amount: 250000,
+          due_date: '2026-12-01' as unknown as Date,
+          payment_transactions: [],
+        },
+      ],
+      -400000,
+      1,
+    );
+    expect(r).toEqual({ reembolso: 0, cuotaNueva: 0 });
+    expect(repo.updatePayment).toHaveBeenCalledWith('c2', {
+      amount: 100000,
+      status: 'pagado',
+    });
+    expect(repo.removePayment).toHaveBeenCalledWith('c3');
+    // La 4 pasa a ser la 3: sin huecos en la numeración.
+    expect(repo.updatePayment).toHaveBeenCalledWith('c4', {
+      payment_number: 3,
+    });
   });
 });
