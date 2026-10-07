@@ -196,7 +196,7 @@ and no close-on-click-outside) — every one of them already handled inside
 
 | Piece | Use it for | In |
 |---|---|---|
-| `components/selects/SelectWithSearch` | **pick ONE value** — arrows/Enter/Escape with the marked option kept in view, opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint`, `dotClass`, `tamano`, `mostrarConteo`; shows the saved label even when it left the catalog | 17 screens |
+| `components/selects/SelectWithSearch` | **pick ONE value** — arrows/Enter/Escape with the marked option kept in view, typing marks the first match so Enter picks it (06-10-2026), opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint`, `dotClass`, `tamano`, `mostrarConteo`; shows the saved label even when it left the catalog | 17 screens |
 | `components/selects/AgregadorDeItems` | **ADD several to a list** — never shows the selection, stays open with the cursor in the search box, marks the first row for type+Enter, tall list, always opens downward, controlled `abierto`/`onAbiertoChange` so the screen owns open/close | 4 |
 | `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
 | `components/MultiSelect` | multiple choice with chips | 3 |

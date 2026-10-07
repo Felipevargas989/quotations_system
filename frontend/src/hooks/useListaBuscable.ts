@@ -55,11 +55,12 @@ export interface OpcionesListaBuscable {
   readonly darLaVuelta?: boolean;
 
   /**
-   * Si al escribir queda marcada la PRIMERA fila.
+   * Si la PRIMERA fila queda marcada desde que se abre, sin escribir.
    *
-   * Es el flujo de carga rápida: escribir tres letras y apretar Enter
-   * sin tocar las flechas. Los agregadores lo necesitan; una lista
-   * plegable normal no, porque marcaría algo apenas se abre.
+   * Es el flujo de carga rápida de los agregadores. Una lista plegable
+   * normal no lo usa porque marcaría algo apenas se abre; pero en
+   * cuanto se ESCRIBE, toda lista marca la primera que calza (ver
+   * `marcaAlEscribir`).
    */
   readonly marcarPrimero?: boolean;
 
@@ -69,6 +70,18 @@ export interface OpcionesListaBuscable {
   /** Se avisa cuando la lista quiere cerrarse (Escape, clic afuera). */
   readonly alCerrar?: () => void;
 }
+
+/**
+ * Dónde queda la marca después de escribir en el buscador.
+ *
+ * Felipe, 06-10-2026: "en el buscador de categoría no aparece el que se
+ * filtra seleccionado, para poder pinchar Enter y que ingrese". Escribir
+ * ya es elegir: con algo escrito se marca la primera que calza, en
+ * TODA lista (antes solo los agregadores). Con el buscador vacío, la
+ * lista plegable vuelve a no marcar nada, como al abrirse.
+ */
+export const marcaAlEscribir = (texto: string, marcarPrimero: boolean) =>
+  marcarPrimero || texto.trim() !== "" ? 0 : -1;
 
 export function useListaBuscable({
   opciones,
@@ -109,9 +122,8 @@ export function useListaBuscable({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setTexto(e.target.value);
       // Al filtrar, la lista cambia entera: la marca vuelve al principio
-      // (o a ninguna parte) en vez de quedarse apuntando a una fila que
-      // ya no es la misma.
-      setMarcada(marcarPrimero ? 0 : -1);
+      // en vez de quedarse apuntando a una fila que ya no es la misma.
+      setMarcada(marcaAlEscribir(e.target.value, marcarPrimero));
     },
     [marcarPrimero],
   );
