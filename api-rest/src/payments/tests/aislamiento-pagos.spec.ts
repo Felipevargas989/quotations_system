@@ -101,11 +101,13 @@ describe('Pagos: borrar un abono exige que su cuota sea de la empresa', () => {
         .mockResolvedValue({ data: { id: 9, payment_id: 'p-1' }, error: null }),
       findPaymentById: jest.fn().mockResolvedValue({ data: null, error: null }),
       removePaymentTransaction: jest.fn(),
+      removeTransactionsByIds: jest.fn(),
     };
     await expect(
       armarServicio(repo).removePaymentTransaction(9, 52),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.removePaymentTransaction).not.toHaveBeenCalled();
+    expect(repo.removeTransactionsByIds).not.toHaveBeenCalled();
   });
 
   it('abono inexistente: 404', async () => {
@@ -115,10 +117,12 @@ describe('Pagos: borrar un abono exige que su cuota sea de la empresa', () => {
         .mockResolvedValue({ data: null, error: null }),
       findPaymentById: jest.fn(),
       removePaymentTransaction: jest.fn(),
+      removeTransactionsByIds: jest.fn(),
     };
     await expect(
       armarServicio(repo).removePaymentTransaction(9, 1),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.removePaymentTransaction).not.toHaveBeenCalled();
+    expect(repo.removeTransactionsByIds).not.toHaveBeenCalled();
   });
 });

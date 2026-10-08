@@ -58,6 +58,23 @@ describe('QuotationsService', () => {
       findAllPaymentsFromQuotation: jest.fn(),
       createPayment: jest.fn(),
       update: jest.fn(),
+      // Cuotas que se llenan (doc 14): el reparto real se prueba en
+      // reparto-del-cambio-de-total.spec.ts. Acá basta su contrato: sin
+      // cuotas, la rebaja entera es reembolso y el alza entera es cuota
+      // nueva.
+      // El plan mantiene su forma (doc 14): el reparto real se prueba en
+      // cuotas-que-se-llenan(.servicio).spec.ts. Acá basta su contrato:
+      // sin cuotas, la rebaja entera es reembolso y el alza entera es
+      // cuota nueva.
+      cambiarTotalDelPlan: jest
+        .fn()
+        .mockImplementation((_id: string, diferencia: number) =>
+          Promise.resolve(
+            diferencia < 0
+              ? { reembolso: -diferencia, cuotaNueva: 0 }
+              : { reembolso: 0, cuotaNueva: diferencia },
+          ),
+        ),
       // findAll: jest.fn(),
       // findOne: jest.fn(),
       // update: jest.fn(),
@@ -289,20 +306,25 @@ describe('QuotationsService', () => {
     });
 
     describe('if quotation_status is ACEPTADA', () => {
-      it('whenn findAllPaymentsFromQuotation through error, it should throw error', async () => {
+      it('si el reparto del plan falla, la cotización no se guarda con el plan a medias', async () => {
         quotationsRepositoryMock.findOne.mockResolvedValue({
           data: {
             quotation_status: QuotationStatus.ACEPTADA,
+            total_amount: 100,
+            subtotal_amount: 100,
+            fixed_value: 100,
+            items: { fixed_services: [{ precio: 100, quantity: 1 }] },
           },
           error: null,
         });
+        paymentsServiceMock.cambiarTotalDelPlan.mockRejectedValueOnce(
+          new Error('falló la base'),
+        );
 
-        paymentsServiceMock.findAllPaymentsFromQuotation.mockReturnValue({
-          data: null,
-          error: new Error(),
-        });
-
-        await expect(service.update('1', {}, 1)).rejects.toThrow();
+        await expect(
+          service.update('1', { total_amount: 90, discount_amount: 10 }, 1),
+        ).rejects.toThrow();
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
       });
 
       it('when quotation total_amount is the same as original, it should update the quotation', async () => {
@@ -442,7 +464,7 @@ describe('QuotationsService', () => {
         );
       });
 
-      it('when new quotation total_amount is greather than the original and payments are already created, it should update the amoun of the last payment and update the quotation', async () => {
+      it('cuando sube el total y hay cuotas, reparte el alza entre ellas (cuotas que se llenan, doc 14)', async () => {
         const quotation_id = '1';
         const company_id = 1;
 
@@ -483,6 +505,11 @@ describe('QuotationsService', () => {
           data: payments,
           error: null,
         });
+        // Hay cuotas vigentes: el alza entra en ellas, sin cuota nueva.
+        paymentsServiceMock.cambiarTotalDelPlan.mockResolvedValueOnce({
+          reembolso: 0,
+          cuotaNueva: 0,
+        });
 
         // act
         await service.update(quotation_id, params, 1);
@@ -493,15 +520,13 @@ describe('QuotationsService', () => {
         // assert new payment was not created
         expect(paymentsServiceMock.createPayment).toHaveBeenCalledTimes(0);
 
-        // assert update payment was called
-        // get last payment
-        const lastPayment = payments[payments.length - 1];
-        expect(paymentsServiceMock.update).toHaveBeenCalledWith(
-          lastPayment.id,
-          {
-            amount: lastPayment.amount + (newTotalAmount - originalAmount),
-          },
+        // el alza va al reparto proporcional, ya no entera a la última
+        expect(paymentsServiceMock.cambiarTotalDelPlan).toHaveBeenCalledWith(
+          quotation_id,
+          newTotalAmount - originalAmount,
+          company_id,
         );
+        expect(paymentsServiceMock.update).not.toHaveBeenCalled();
 
         // assert quotation update was called
         expect(quotationsRepositoryMock.update).toHaveBeenCalledWith(

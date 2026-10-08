@@ -700,7 +700,7 @@ export class QuotationsService {
         .filter((p) => p.quotation_id === quotationId)
         .map((p) => {
           const abonado = (p.payment_transactions || []).reduce(
-            (s: number, t: PaymentTransaction) => s + t.amount,
+            (s: number, t: PaymentTransaction) => s + Number(t.amount),
             0,
           );
           const vence = p.due_date ? String(p.due_date).slice(0, 10) : null;
@@ -909,18 +909,29 @@ export class QuotationsService {
     if (!cuota) {
       throw new NotFoundException();
     }
-    if (cuota.status === (PaymentStatus.PAGADO as string)) {
-      throw new BadRequestException('Esta cuota ya está pagada');
-    }
-    // Tope: no se puede declarar más de lo pendiente de la cuota.
-    const abonado = (cuota.payment_transactions || []).reduce(
-      (s: number, t: PaymentTransaction) => s + t.amount,
-      0,
+    // Tope: lo que falta pagar del EVENTO, no de la cuota. Desde las
+    // cuotas que se llenan (doc 14, caso 16) lo pagado llena siempre desde
+    // la primera cuota, así que un pago puede cubrir más de una.
+    const delEvento = (payments || []).filter(
+      (p) => p.quotation_id === cuota.quotation_id,
     );
-    const pendiente = cuota.amount - abonado;
+    const pendiente = delEvento.reduce((s, p) => {
+      const abonado = (p.payment_transactions || []).reduce(
+        (a: number, t: PaymentTransaction) => a + Number(t.amount),
+        0,
+      );
+      // Una cuota pagada en el sistema viejo (sin pagos registrados) no
+      // tiene saldo.
+      const pagadaPorFuera =
+        p.status === (PaymentStatus.PAGADO as string) && abonado === 0;
+      return pagadaPorFuera ? s : s + Number(p.amount) - abonado;
+    }, 0);
+    if (pendiente <= 0) {
+      throw new BadRequestException('Este evento ya está pagado');
+    }
     if (monto > pendiente) {
       throw new BadRequestException(
-        `El monto supera lo pendiente de esta cuota ($${pendiente.toLocaleString('es-CL')})`,
+        `El monto supera lo que falta pagar del evento ($${pendiente.toLocaleString('es-CL')})`,
       );
     }
 
@@ -1160,83 +1171,35 @@ export class QuotationsService {
 
       // 1. Check quotation status
       // If quotation_states is accepted, handle update payment plan (payments)
+      // CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): si cambia el
+      // total de una cotización aceptada, EL PLAN MANTIENE SU FORMA
+      // (`PaymentsService.cambiarTotalDelPlan`): al bajar, todas las cuotas
+      // bajan en proporción a su monto y lo que no cabe es reembolso; al
+      // subir, crecen solo las cuotas por pagar que no han vencido y, sin
+      // ninguna, nace una cuota nueva. Después lo pagado se vuelve a
+      // repartir desde la primera cuota.
       if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
-        // Get all payments PENDIENTE or VENCIDO
-        const { data: payments, error: paymentsError } =
-          await this.paymentsService.findAllPaymentsFromQuotation(
-            [id],
-            companyId,
-            [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
-          );
-        if (paymentsError) {
-          throw paymentsError;
-        }
-
         // 2.1 If new total_amount is less than previous one, check if discount if possible or create a refund
         if (
           updateQuotationDto.total_amount &&
           updateQuotationDto.total_amount < quotation.total_amount
         ) {
           // get amount to reduce from the quotation
-          let amountToReduce =
+          const amountToReduce =
             quotation.total_amount - updateQuotationDto.total_amount;
 
-          // if not payments, then create a refund with the difference
-          if (!payments || payments.length === 0) {
+          // Antes se descontaba desde la última cuota hacia atrás y una
+          // cuota vaciada quedaba en $0 (la 506).
+          const { reembolso } = await this.paymentsService.cambiarTotalDelPlan(
+            id,
+            -amountToReduce,
+            companyId,
+          );
+          if (reembolso > 0) {
             await this.refundsService.create({
-              amount: amountToReduce,
+              amount: reembolso,
               quotation_id: id,
             });
-          }
-          // if there is at least one pending payment
-          else {
-            // iterate over each payment (starting from the LAST one, i.e. the
-            // furthest due date) and reduce the amountToReduce from each
-            // payment until the amountToReduce is 0. The remaining balance
-            // stays concentrated in the earliest pending installments.
-            for (const payment of [...payments].reverse()) {
-              // if amountToReduce is 0, then stop the iteration because all the decrements are applied
-              if (amountToReduce === 0) {
-                break;
-              }
-              // get already paid amount of this payment
-              const alreadyPaidAmount = payment.payment_transactions.reduce(
-                (sum: number, transaction: PaymentTransaction) =>
-                  sum + transaction.amount,
-                0,
-              );
-
-              // get pending amount to be paid of this payment
-              const pendingAmountToBePaid = payment.amount - alreadyPaidAmount;
-
-              // if pendingAmountToBePaid is greater than amountToReduce, then reduce the amountToReduce from payment
-              if (pendingAmountToBePaid > amountToReduce) {
-                // update payment with thew new amount
-                await this.paymentsService.update(payment.id, {
-                  amount: payment.amount - amountToReduce,
-                });
-
-                // update amountToReduce to 0
-                amountToReduce = 0;
-              }
-              // if pendingAmountToBePaid is smaller than amountToReduce, then reduce the amount of the payment, update the payment and then continue with the next payment
-              else {
-                // update payment with the new amount (discount the min between pendingAmountToBePaid and amountToReduce)
-                await this.paymentsService.update(payment.id, {
-                  amount: payment.amount - pendingAmountToBePaid,
-                });
-                // update amountToReduce with the difference
-                amountToReduce = amountToReduce - pendingAmountToBePaid;
-              }
-            }
-
-            // check if amountToReduce is 0. If amountToReduce is not 0, then create a refund with the differencei
-            if (amountToReduce > 0) {
-              await this.refundsService.create({
-                amount: amountToReduce,
-                quotation_id: id,
-              });
-            }
           }
         }
 
@@ -1277,23 +1240,21 @@ export class QuotationsService {
             }
           }
 
-          // Only the remainder (if any) becomes new debt
+          // Solo el resto se vuelve deuda: crecen las cuotas por pagar que
+          // NO han vencido (opción B de Felipe: lo nuevo nunca nace
+          // vencido); sin ninguna, cuota nueva. Antes se cargaba entero
+          // en la última cuota.
           if (amountToCharge > 0) {
-            // If payments, then get the last one and increase the amount by the remaining difference
-            if (payments && payments.length > 0) {
-              // Get the last payment and increase the amount by the remaining difference
-              const lastPayment = payments[payments.length - 1];
-              const newAmount = lastPayment.amount + amountToCharge;
-              await this.paymentsService.update(lastPayment.id, {
-                amount: newAmount,
-              });
-            }
-
-            // If not payments, then create new payment with the remaining difference
-            else if (!payments || payments.length === 0) {
+            const { cuotaNueva } =
+              await this.paymentsService.cambiarTotalDelPlan(
+                id,
+                amountToCharge,
+                companyId,
+              );
+            if (cuotaNueva > 0) {
               const newPayment: CreatePaymentDto = {
                 quotation_id: id,
-                amount: amountToCharge,
+                amount: cuotaNueva,
                 notes: 'Pago creado por diferencia de total_amount',
               };
               await this.paymentsService.createPayment(newPayment, companyId);

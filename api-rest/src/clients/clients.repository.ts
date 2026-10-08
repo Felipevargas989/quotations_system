@@ -265,9 +265,11 @@ export class ClientsRepository {
         { data: responses, error: sError },
       ] = await Promise.all([
         // Cuotas impagas (pendiente/vencido) = saldo vivo del cliente.
+        // Con sus abonos: desde las cuotas que se llenan (doc 14,
+        // 07-10-2026) una cuota pendiente puede venir a medio pagar.
         this.supabase.client
           .from('payments')
-          .select('quotation_id, amount, status')
+          .select('quotation_id, amount, status, payment_transactions(amount)')
           .in('quotation_id', qIds)
           .in('status', ['pendiente', 'vencido']),
         this.supabase.client
@@ -277,7 +279,19 @@ export class ClientsRepository {
       ]);
       if (pError) throw pError;
       if (sError) throw sError;
-      pendingPayments = cuotas ?? [];
+      // Se entrega el SALDO en `amount`: la ficha suma estos montos como
+      // deuda viva, y antes eso solo cuadraba porque una cuota pendiente
+      // nunca traía abonos (la regla del 20-07 la partía).
+      pendingPayments = (cuotas ?? []).map((c) => ({
+        quotation_id: c.quotation_id,
+        status: c.status,
+        amount:
+          Number(c.amount) -
+          (c.payment_transactions ?? []).reduce(
+            (s: number, t: { amount: number | string }) => s + Number(t.amount),
+            0,
+          ),
+      }));
       surveys = responses ?? [];
     }
 

@@ -283,12 +283,31 @@ export class AnalyticsService {
           (isPaid && fechaDeCobro ? fechaDeCobro : payment.due_date) as string,
         );
         const key = `${date.getFullYear()}-${date.getMonth()}`;
-        if (!(key in totalPaymentsDetailByMonth)) return;
         // Quién es la cuota, para el desglose del panel (31-08).
         const quien = {
           cliente: payment.quotations?.clients?.name || '—',
           cot: payment.quotations?.quotation_number ?? 0,
         };
+        // CUOTAS QUE SE LLENAN (doc 14, 07-10-2026): una cuota a medio
+        // pagar ya no se parte, así que su parte abonada entra como
+        // COBRADO en el mes de su último abono, aunque la cuota siga
+        // pendiente. Antes esa plata no aparecía en ningún mes.
+        if (!isPaid && fechaDeCobro) {
+          const abonadoYa = (payment.payment_transactions ?? []).reduce(
+            (suma, t) => suma + Number((t as { amount?: number }).amount ?? 0),
+            0,
+          );
+          const f = new Date(fechaDeCobro);
+          const keyAbono = `${f.getFullYear()}-${f.getMonth()}`;
+          if (abonadoYa > 0 && keyAbono in totalPaymentsDetailByMonth) {
+            totalPaymentsDetailByMonth[keyAbono].cobrado += abonadoYa;
+            totalPaymentsDetailByMonth[keyAbono].cobros.push({
+              ...quien,
+              monto: abonadoYa,
+            });
+          }
+        }
+        if (!(key in totalPaymentsDetailByMonth)) return;
         if (isPaid) {
           totalPaymentsDetailByMonth[key].cobrado += payment.amount;
           totalPaymentsDetailByMonth[key].cobros.push({
