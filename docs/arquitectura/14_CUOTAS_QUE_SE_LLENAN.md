@@ -48,7 +48,7 @@ Como todo se recalcula desde cero, la regla **se corrige sola**: si algo
 queda a medias (dos personas a la vez, un corte), el siguiente cambio lo
 deja cuadrado.
 
-## Los casos borde (aprobados por Felipe, 08-10-2026)
+## Los casos borde (aprobados por Felipe, 08-10-2026; el 21 salió de su QA en el laboratorio)
 
 | # | Caso | Cómo queda |
 |---|---|---|
@@ -77,6 +77,7 @@ deja cuadrado.
 | 18 | Reembolso ya devuelto | No se cuenta como pagado: la rebaja solo descuenta lo que cabe en el saldo |
 | 19 | Dos personas a la vez, o un corte a la mitad | El siguiente guardado lo deja cuadrado |
 | 20 | Cotizaciones viejas con cuotas partidas | Funcionan, pero se ven partidas hasta revisarlas una a una |
+| 21 | Suben las personas con una cuota pagada y después se borra ese pago | La cuota que estaba pagada no creció (caso 8) y queda chica; borrar el pago no vuelve a emparejar el plan, y un cambio de total posterior conserva esa forma. Visto en el QA de Felipe (lab, cot. 454, 08-10-2026): $675.000 → $168.750 frente a $443.750 en las demás. Felipe: correcto, "es difícil que ocurra"; no se agrega un botón de "repartir parejo" |
 
 **Caso extra, medido al construir (08-10-2026): cuotas "pagadas por
 fuera".** 40 cuotas están marcadas pagadas con una fecha de pago escrita
