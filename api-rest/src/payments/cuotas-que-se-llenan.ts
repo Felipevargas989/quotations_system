@@ -22,10 +22,11 @@
  * recalcula desde cero, se corrige solo: si algo quedó a medias (dos
  * personas a la vez, un corte), el siguiente cambio lo deja cuadrado.
  *
- * Las cuotas "pagadas por fuera" (marcadas pagadas en el sistema viejo,
- * con su paid_date y SIN ningún pago registrado — 40 en producción el
- * 07-10-2026) no se tocan nunca: no se escalan, no reciben pagos y su
- * monto no cuenta en el plan que se reparte.
+ * Las cuotas "pagadas por fuera" (marcadas pagadas con un paid_date que
+ * escribió una carga de datos y SIN ningún pago registrado — 40 el
+ * 08-10-2026, todas de la empresa 52, ninguna de Valle del Sol) no se
+ * tocan nunca: no se escalan, no reciben pagos y su monto no cuenta en
+ * el plan que se reparte.
  */
 
 export interface CuotaDelPlan {

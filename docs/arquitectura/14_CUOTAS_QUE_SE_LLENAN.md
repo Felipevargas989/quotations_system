@@ -79,12 +79,17 @@ deja cuadrado.
 | 20 | Cotizaciones viejas con cuotas partidas | Funcionan, pero se ven partidas hasta revisarlas una a una |
 
 **Caso extra, medido al construir (08-10-2026): cuotas "pagadas por
-fuera".** 40 cuotas de producción están marcadas pagadas con la fecha
-de pago del sistema viejo (`paid_date`) y **ningún pago registrado** (9
-en cotizaciones aceptadas, N° 20 a 43). Recalcular desde los pagos las
-habría reabierto. La regla las reconoce (pagada + `paid_date` + sin
-registros) y **no las toca nunca**: no se escalan, no reciben pagos y su
-monto no entra en lo que se reparte.
+fuera".** 40 cuotas están marcadas pagadas con una fecha de pago escrita
+por una carga de datos (`paid_date`, que Eventia nunca escribe) y
+**ningún pago registrado**. **Ninguna es de Valle del Sol**: todas son
+de la empresa 52, *Vivo Corriendo SpA* (9 en cotizaciones aceptadas, 29
+realizadas, 2 canceladas; clientes de ejemplo como "Forestal Nahuel" o
+"Banco del Sur"), igual en producción que en el laboratorio. Recalcular
+desde los pagos las habría reabierto. La regla las reconoce (pagada +
+`paid_date` + sin registros) y **no las toca nunca**: no se escalan, no
+reciben pagos y su monto no entra en lo que se reparte. Para Valle del
+Sol no se activa nunca (Felipe, 08-10: en el laboratorio "puede no tener
+mucho sentido").
 
 ## El reloj de la noche (error encontrado el 07-10-2026)
 

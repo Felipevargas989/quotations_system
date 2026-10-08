@@ -276,9 +276,10 @@ export class PaymentsService {
       amount: c.amount,
       due_date: c.due_date as unknown as string,
       status: c.status,
-      // Pagada en el sistema viejo: marcada pagada, con su fecha vieja y
-      // sin ningún pago registrado (40 en producción el 07-10-2026). La
-      // regla no la toca nunca.
+      // Pagada por fuera: marcada pagada, con un paid_date escrito por una
+      // carga de datos y sin ningún pago registrado (40 el 08-10-2026,
+      // todas de la empresa 52; ninguna de Valle del Sol). La regla no la
+      // toca nunca.
       pagadaPorFuera:
         c.status === (PaymentStatus.PAGADO as string) &&
         Boolean(c.paid_date) &&
