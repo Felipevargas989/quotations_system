@@ -173,7 +173,11 @@ export class PortalReceiptsController {
     @CurrentUser() user: User,
   ) {
     const { data: receipt } = await this.repo.findOne(id, user.company_id);
-    if (!receipt || receipt.status !== 'pendiente' || !receipt.payment_id) {
+    // Cuotas que se llenan (doc 14, caso 16): lo pagado llena siempre
+    // desde la primera cuota, así que ya no importa si la cuota del
+    // comprobante cambió de monto o desapareció — antes eso lo dejaba
+    // "no válido" para siempre.
+    if (!receipt || receipt.status !== 'pendiente') {
       throw new BadRequestException(
         'Este comprobante ya fue revisado o no es válido',
       );
@@ -182,7 +186,7 @@ export class PortalReceiptsController {
     // re-cuadre del plan y el comprobante adjunto).
     await this.paymentsService.createPaymentTransaction(
       {
-        payment_id: receipt.payment_id,
+        payment_id: receipt.payment_id ?? '',
         quotation_id: receipt.quotation_id,
         amount: Number(receipt.declared_amount),
         payment_method: dto.payment_method || 'Transferencia bancaria',

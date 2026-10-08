@@ -5,6 +5,7 @@ import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { PaymentStatus } from './constants';
+import { hoyEnChile } from './cuotas-que-se-llenan';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
 import {
@@ -54,7 +55,8 @@ export class PaymentsRepository {
           notes,
           payment_method,
           receipt_photo_url,
-          created_at
+          created_at,
+          pago_grupo
         )
       `,
     );
@@ -126,7 +128,8 @@ export class PaymentsRepository {
       notes,
       payment_method,
       receipt_photo_url,
-      created_at
+      created_at,
+      pago_grupo
     )
   `,
     );
@@ -283,6 +286,40 @@ export class PaymentsRepository {
     return this.supabase.client.from('payments').delete().eq('id', paymentId);
   }
 
+  /**
+   * CUOTAS QUE SE LLENAN (doc 14, migración 118): las piezas de un mismo
+   * pago repartido en varias cuotas comparten `pago_grupo`.
+   */
+  async findTransactionsByGroup(pagoGrupo: string) {
+    this.logger.info(`findTransactionsByGroup ${pagoGrupo}`);
+    return this.supabase.client
+      .from('payment_transactions')
+      .select('*')
+      .eq('pago_grupo', pagoGrupo);
+  }
+
+  /** Mueve una pieza de pago a otra cuota y/o cambia su monto. */
+  async moverPieza(
+    paymentTransactionId: PaymentTransaction['id'],
+    cambio: { payment_id: Payment['id']; amount: number },
+  ) {
+    this.logger.info(
+      `moverPieza ${paymentTransactionId} ${JSON.stringify(cambio)}`,
+    );
+    return this.supabase.client
+      .from('payment_transactions')
+      .update(cambio)
+      .eq('id', paymentTransactionId);
+  }
+
+  async removeTransactionsByIds(ids: PaymentTransaction['id'][]) {
+    this.logger.info(`removeTransactionsByIds ${JSON.stringify(ids)}`);
+    return this.supabase.client
+      .from('payment_transactions')
+      .delete()
+      .in('id', ids);
+  }
+
   async removePaymentTransactionsByPaymentId(paymentId: Payment['id']) {
     this.logger.info(
       `removePaymentTransactionsByPaymentId with paymentId ${paymentId}`,
@@ -301,7 +338,12 @@ export class PaymentsRepository {
       .from('payments')
       .update({ status: PaymentStatus.VENCIDO })
       .eq('status', PaymentStatus.PENDIENTE)
-      .lte('due_date', new Date().toISOString())
+      // Estrictamente ANTES de hoy en Chile (07-10-2026): con `lte` y la
+      // hora UTC, el reloj de la 1 AM (22:00 en Chile) marcaba vencidas
+      // las cuotas que vencían AL DÍA SIGUIENTE — la cuota 2 de la 552
+      // amaneció vencida el día de su vencimiento y su correo de "vence
+      // hoy" no pudo salir.
+      .lt('due_date', hoyEnChile())
       .select();
   }
 }

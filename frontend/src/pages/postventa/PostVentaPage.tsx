@@ -26,6 +26,8 @@ import {
   Mail,
 } from "lucide-react";
 import { format } from "date-fns";
+import { cuotaStatus, statusBadge } from "./estadoCuota";
+import { pagoEntero, preguntaAlBorrar } from "./pagoRepartido";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { useAuth } from "../../contexts/AuthContext";
 import { tieneDerecho } from "../../constants/permissions";
@@ -176,36 +178,6 @@ const fmtDate = (d: string | null) => {
     return "—";
   }
 };
-// Estado EFECTIVO de una cuota. El status guardado en BD solo pasa a
-// "vencido" mediante un cron del backend (1 AM); si el backend no estaba
-// corriendo (típico en dev) una cuota atrasada seguiría diciendo "pendiente".
-// Por eso además comparamos la fecha de vencimiento con hoy (por fecha
-// calendario, sin horas): vence hoy = aún pendiente; desde mañana = vencida.
-const cuotaStatus = (p: PaymentWithTransactions): string => {
-  if (p.status === "pagado") return "pagado";
-  if (p.status === "vencido") return "vencido";
-  const saldo = (p.amount || 0) - (p.paid_amount || 0);
-  const due = (p.due_date || "").slice(0, 10);
-  if (saldo > 0 && due && due < format(new Date(), "yyyy-MM-dd"))
-    return "vencido";
-  return p.status;
-};
-
-const statusBadge = (st: string) => {
-  const map: Record<string, string> = {
-    pagado: "bg-green-100 text-green-800",
-    vencido: "bg-red-100 text-red-800",
-    pendiente: "bg-yellow-100 text-yellow-800",
-  };
-  return (
-    <span
-      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${map[st] || map.pendiente}`}
-    >
-      {st ? st.charAt(0).toUpperCase() + st.slice(1) : "—"}
-    </span>
-  );
-};
-
 export default function PostVentaPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -1737,12 +1709,16 @@ function EventModal({
                       // el basurero son del REGISTRO, nunca de la cuota.
                       const txActions = (t: PaymentTransaction) =>
                         confirmTxId === t.id ? (
-                          <ConfirmInline
-                            question="¿Eliminar este registro?"
-                            onYes={() => onDeleteTx(t)}
-                            onNo={() => setConfirmTxId(null)}
-                            busy={deletingTx}
-                          />
+                          // Margen para que la pregunta no quede pegada a
+                          // los montos (Felipe, 08-10: "se ve desordenado").
+                          <span className="ml-10">
+                            <ConfirmInline
+                              question={preguntaAlBorrar(event.payments, t)}
+                              onYes={() => onDeleteTx(t)}
+                              onNo={() => setConfirmTxId(null)}
+                              busy={deletingTx}
+                            />
+                          </span>
                         ) : (
                           <span className="flex items-center gap-3 shrink-0">
                             {t.receipt_photo_url && (
@@ -1761,9 +1737,11 @@ function EventModal({
                             )}
                             <button
                               type="button"
-                              onClick={() => setEditTx(t)}
+                              onClick={() =>
+                                setEditTx(pagoEntero(event.payments, t))
+                              }
                               className="text-gray-400 hover:text-blue-600"
-                              title="Rectificar registro (fecha, monto o comprobante)"
+                              title="Rectificar el pago (fecha, monto o comprobante)"
                             >
                               <Pencil size={14} />
                             </button>
@@ -1771,7 +1749,7 @@ function EventModal({
                               type="button"
                               onClick={() => setConfirmTxId(t.id)}
                               className="text-gray-400 hover:text-red-600"
-                              title="Eliminar registro (la cuota vuelve a pendiente)"
+                              title="Eliminar el pago (lo pagado se vuelve a repartir desde la primera cuota)"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -1792,7 +1770,7 @@ function EventModal({
                                   <div className="font-semibold text-gray-900">
                                     {clp(pay.amount)}
                                   </div>
-                                  {statusBadge(cuotaStatus(pay))}
+                                  {statusBadge(cuotaStatus(pay), cp > 0)}
                                   {txs.length === 0 &&
                                     cuotaStatus(pay) !== "pagado" &&
                                     editCuota?.id !== pay.id && (
@@ -1837,7 +1815,11 @@ function EventModal({
                             </div>
                             {txs.length === 1 && (
                               <div className="flex items-center gap-3 text-xs text-gray-500">
-                                <span>{txs[0].payment_method || "—"}</span>
+                                {/* Con la pregunta de eliminar a la vista, el
+                                    medio de pago estorba (Felipe, 08-10). */}
+                                {confirmTxId !== txs[0].id && (
+                                  <span>{txs[0].payment_method || "—"}</span>
+                                )}
                                 {txActions(txs[0])}
                               </div>
                             )}
@@ -2408,7 +2390,7 @@ function EditRegistroModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h4 className="font-bold text-gray-900">Rectificar registro</h4>
+          <h4 className="font-bold text-gray-900">Rectificar pago</h4>
           <button
             type="button"
             onClick={onClose}
