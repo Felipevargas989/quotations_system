@@ -1709,12 +1709,16 @@ function EventModal({
                       // el basurero son del REGISTRO, nunca de la cuota.
                       const txActions = (t: PaymentTransaction) =>
                         confirmTxId === t.id ? (
-                          <ConfirmInline
-                            question={preguntaAlBorrar(event.payments, t)}
-                            onYes={() => onDeleteTx(t)}
-                            onNo={() => setConfirmTxId(null)}
-                            busy={deletingTx}
-                          />
+                          // Margen para que la pregunta no quede pegada a
+                          // los montos (Felipe, 08-10: "se ve desordenado").
+                          <span className="ml-10">
+                            <ConfirmInline
+                              question={preguntaAlBorrar(event.payments, t)}
+                              onYes={() => onDeleteTx(t)}
+                              onNo={() => setConfirmTxId(null)}
+                              busy={deletingTx}
+                            />
+                          </span>
                         ) : (
                           <span className="flex items-center gap-3 shrink-0">
                             {t.receipt_photo_url && (
