@@ -1,10 +1,10 @@
 # 14 · Cuotas que se llenan: el plan mantiene su forma
 
-> **Estado: CONSTRUIDO EN LA RAMA `pruebas`** (08-10-2026), sin publicar
-> en producción. Migración 118 aplicada en el LABORATORIO; en producción
-> va ANTES del deploy del motor. Falta la validación de Felipe en el
-> laboratorio y, después, revisar una a una las cotizaciones viejas con
-> cuotas partidas.
+> **Estado: EN PRODUCCIÓN desde el 08-10-2026** (validado por Felipe en
+> el laboratorio: "vamos a producción"). Migración 118 aplicada en el
+> laboratorio (07-10) y en producción (08-10, antes del motor). Queda
+> revisar una a una las cotizaciones viejas con cuotas partidas,
+> partiendo por la 506.
 >
 > Reemplaza la regla 2 ("cuadratura de la cuota", 20-07), las reglas 5 y
 > 6 (rectificar no derrama; borrar no toca otras cuotas) y la regla 16
@@ -137,5 +137,6 @@ revisamos las cotizaciones una a una"*. La 506 quedaría:
    reemplazado.
 2. **Regla definitiva** — HECHA en `pruebas` el 08-10-2026: motor,
    migración 118 (lab), Post-Venta, portal y aviso ámbar.
-3. Felipe valida en el laboratorio → migración 118 en producción →
-   producción → revisión una a una (partiendo por la 506).
+3. ~~Felipe valida en el laboratorio → migración 118 en producción →
+   producción~~ — HECHO el 08-10-2026. Sigue: revisión una a una
+   (partiendo por la 506).

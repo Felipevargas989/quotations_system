@@ -17,8 +17,9 @@
 --   * Las filas que ya existen quedan cada una como su propio pago (no se
 --     adivina cuáles eran del mismo derrame).
 --
--- Idempotente. Aplicada en LAB el 07-10-2026. En producción: pendiente
--- (antes del deploy del motor).
+-- Idempotente. Aplicada en LAB el 07-10-2026 y en PRODUCCIÓN el
+-- 08-10-2026, antes del deploy del motor (263 registros, cada uno su
+-- propio grupo; ninguno quedó sin grupo).
 -- ============================================================
 
 alter table public.payment_transactions
