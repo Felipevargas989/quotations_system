@@ -131,6 +131,13 @@ revisamos las cotizaciones una a una"*. La 506 quedaría:
 | 5 · $2.056.100 pendiente | 3 · $2.056.100 pendiente |
 | 6 · $0 pendiente | (se borra) |
 
+**HECHO el 08-10-2026** con el OK de Felipe ("dale"), en un bloque con
+candados (si la 506 no estaba exactamente como se midió, no se tocaba
+nada): cuota 1 = $1.125.000 vencida con sus dos abonos ($990.000), la 2 y
+la 3 renumeradas, la de $0 borrada; total $6.556.100 verificado. Quedan
+por revisar una a una: 465, 490, 520, 552 (aceptadas), 148, 332, 449,
+486, 499 (realizadas) y la cuota $0 vencida de la 494.
+
 ## Orden de construcción
 
 1. ~~Sprint 1, motor (primer intento, "según lo que falta")~~ — 07-10,
