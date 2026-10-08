@@ -1,6 +1,6 @@
 # Mapa: Pagos, reembolsos y portal del cliente
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); reglas 2 y 16 y flujos B y D reescritos el 07-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); reglas 2, 5, 6, 14 y 16, flujos B, C, D y E y relojes reescritos el 07/08-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -49,7 +49,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 | Horario | Dónde | Qué hace |
 |---|---|---|
-| `EVERY_DAY_AT_1AM` | `PaymentsService.updateOverduePayments` → `PaymentsRepository.updateOverduePayments` | cuotas `pendiente` con `due_date` <= ahora pasan a `vencido` |
+| `5 0 * * *` **hora de Chile** (desde el 08-10-2026; antes `EVERY_DAY_AT_1AM` UTC = 22:00 en Chile) | `PaymentsService.updateOverduePayments` → `PaymentsRepository.updateOverduePayments` | cuotas `pendiente` con `due_date` **antes de hoy en Chile** pasan a `vencido` (antes `<= ahora UTC`: marcaba vencidas la noche ANTES de su día; doc 14) |
 | `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkUpcomingOverduePayments` | cuotas `pendiente` que vencen en 3 días o hoy: `PAYMENT_REMINDER` al mandante + `PAYMENT_REMINDER_ADMIN` a administradores |
 | `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkOverduePayments` | cuotas `vencido` con 7 días de vencidas: `PAYMENT_OVERDUE` al mandante + `PAYMENT_OVERDUE_ADMIN` |
 
@@ -58,7 +58,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 | Tabla | Qué guarda | Lee o escribe | Migración que la crea o modifica |
 |---|---|---|---|
 | `payments` | Las cuotas: `quotation_id`, `payment_number`, `amount`, `due_date`, `status` (`pendiente` / `pagado` / `vencido`, con CHECK), `payment_type` (el comentario, p. ej. "Cuota 1"), `notes`; `paid_date` y `payment_method` son legado | lee y escribe `PaymentsRepository`; lee `QuotationsService` vía `PaymentsService`, `AnalyticsService`, `HoyRepository.alerts` (en `analytics/hoy.controller.ts`), `ClientsRepository.findSummary` (ficha 360°), `MovilService` | `0_initial_models.sql` (foto del esquema); índice `idx_payments_quotation` en `66_indices_de_consultas_calientes.sql` |
-| `payment_transactions` | Los abonos o registros de pago: `payment_id`, `quotation_id`, `amount`, `payment_method`, `transaction_date`, `notes`, `receipt_photo_url`, `created_by`. FK a `payments` **sin** ON DELETE | lee y escribe `PaymentsRepository`; lee `HoyRepository.alerts`, `MovilService`, `QuotationsRepository` (freno del borrado) | `0_initial_models.sql`; índice en `66_...`; etiquetas de medio unificadas en `102_unificar-medios-de-pago.sql` |
+| `payment_transactions` | Los abonos o registros de pago: `payment_id`, `quotation_id`, `amount`, `payment_method`, `transaction_date`, `notes`, `receipt_photo_url`, `created_by`, `pago_grupo` (las piezas de un mismo pago repartido en varias cuotas lo comparten, migración 118). FK a `payments` **sin** ON DELETE (por eso el llenado mueve los pagos ANTES de borrar una cuota) | lee y escribe `PaymentsRepository`; lee `HoyRepository.alerts`, `MovilService`, `QuotationsRepository` (freno del borrado) | `0_initial_models.sql`; índice en `66_...`; etiquetas de medio unificadas en `102_unificar-medios-de-pago.sql`; `pago_grupo` en `118_un_pago_repartido_en_cuotas_es_uno_solo.sql` |
 | `refunds` | Reembolsos: `amount`, `quotation_id`, `is_paid`, `refund_date`, `payment_method`, `receipt_url`. Sin `company_id` propio (se acota vía la cotización) | lee y escribe `RefundsRepository` | `0_initial_models.sql`; columnas ricas en `7_refunds_rich_columns.sql` |
 | `portal_receipts` | Comprobantes subidos desde el portal: `company_id`, `quotation_id` (CASCADE), `payment_id` (SET NULL), `client_contact_id`, `file_url`, `declared_amount`, `status` (`pendiente` / `confirmado` / `rechazado`), `review_note`, `reviewed_at` | lee y escribe `PortalReceiptsRepository` (vive en `portal-receipts.controller.ts`) | `49_comprobantes_portal.sql` (incluye los GRANT a `service_role`) |
 | `client_contacts.portal_token` | El enlace secreto del mandante (64 hex) | lee `QuotationsRepository.findPortalContact`, `findContactById`, `findContactByName`, `findContactPortalToken` y `PaymentsRepository.findAllPaymentsWithTransactions` (embebido `mandante`); lo escribe `ClientContactsRepository.create` (mapa 09) | `48_portal_del_mandante.sql`; relleno en `50_correos_a_personas.sql` |
@@ -88,22 +88,18 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 1. `PostVentaPage` → `EventModal` → `RegistrarPagoPanel`. Calcula las cuotas con saldo (`amount - paid_amount`), muestra una vista previa del reparto y pone como tope el saldo total. El comprobante (imagen o PDF de hasta 5 MB) se sube antes con `uploadPaymentReceipt`, y la ruta usa la primera cuota pendiente.
 2. `createOverflowPayment` → `POST /payments/transactions/overflow`.
-3. `PaymentsService.createOverflowPaymentTransaction`:
-   - trae las cuotas `pendiente` / `vencido` en orden de `payment_number` y calcula cuánto le falta a cada una con `Number()`;
-   - si el monto supera el saldo total, lanza error;
-   - reparte: una `payment_transaction` por cuota tocada, y cada cuota que se llena pasa a `pagado`;
-   - manda **un** correo `PAYMENT_RECEIVED` al mandante;
-   - si la última cuota tocada quedó a medias, llama `normalizePaymentAfterTransactions`.
-4. `normalizePaymentAfterTransactions` (**cuotas que se llenan**, doc `14_CUOTAS_QUE_SE_LLENAN.md`, 07-10-2026):
-   - abono igual o mayor al monto: `pagado`;
-   - si no (con o sin abonos): `pendiente` o `vencido` según su fecha. La cuota **nunca se divide**; con abonos que no la cubren es "Parcial" en pantalla.
-   - Antes (regla del 20-07, reemplazada): el abono parcial partía la cuota en una pagada y otra por el remanente, corriendo la numeración (la 506 quedó con una cuota partida en tres).
+3. `PaymentsService.createOverflowPaymentTransaction` (**cuotas que se llenan**, doc `14_CUOTAS_QUE_SE_LLENAN.md`, 08-10-2026):
+   - lee el plan (`leerPlan`: todas las cuotas y todas las piezas de pago; las "pagadas por fuera" del sistema viejo quedan aparte) y calcula el saldo con `Number()`;
+   - si el monto supera el saldo total, 400;
+   - inserta **una** pieza con un `pago_grupo` nuevo (migración 118) y llama `rellenarCuotas`, que vuelve a repartir TODO lo pagado desde la primera cuota (`planDeLlenado`): parte el pago en las cuotas que toque (todas sus piezas comparten grupo) y deja a cada cuota `pagado`, `pendiente` o `vencido` (fecha de Chile);
+   - manda **un** correo `PAYMENT_RECEIVED` al mandante.
+4. La cuota **nunca se divide**: con pagos que no la cubren sigue pendiente o vencida y la pantalla dice "· parcial". Antes (regla del 20-07, reemplazada): el abono parcial partía la cuota en una pagada y otra por el remanente (la 506 quedó con una cuota partida en tres).
 5. La app llama `refreshAfterSave`, que invalida `["quotations"]`, `["clientSummary"]`, `["quotation"]` y `["postventa"]`.
 
 ### C. Rectificar o eliminar un abono y mover una cuota
 
-- **Rectificar**: `EditRegistroModal` → `PATCH /payments/transactions/:id` → `createOrUpdatePaymentTransaction` en modo edición. Busca el registro (`findPaymentTransactionById`, sin filtro de empresa) y su cuota (`findPaymentById`, con `!inner` a la empresa) e impide pasarse del monto de la cuota: para un pago mayor hay que eliminar el registro y volver a registrarlo, así derrama. Después actualiza y re-cuadra.
-- **Eliminar**: basurero → `DELETE /payments/transactions/:id` → `removePaymentTransaction`. Borra el registro y re-cuadra la cuota; la cuota nunca se borra.
+- **Rectificar** (doc 14, 08-10-2026): `EditRegistroModal` (abre el PAGO ENTERO, `pagoEntero` de `pagoRepartido.ts`) → `PATCH /payments/transactions/:id` → `updatePaymentTransaction`. Busca el registro y su cuota (`findPaymentById`, con `!inner` a la empresa), junta todas las piezas del mismo `pago_grupo`, aplica fecha, medio, nota y comprobante a todas, y si cambia el monto deja una sola pieza con el total nuevo y llama `rellenarCuotas`. Un monto mayor ya **sí** derrama solo; el tope es lo que falta pagar del evento.
+- **Eliminar** (doc 14): basurero (la pregunta avisa si el pago está repartido en varias cuotas, `preguntaAlBorrar`) → `DELETE /payments/transactions/:id` → `removePaymentTransaction`. Borra TODAS las piezas del pago y llama `rellenarCuotas`: se abre la ÚLTIMA cuota que estaba cubierta. Las cuotas nunca se borran por esto.
 - **Mover la cuota (Nivel A)**: el lápiz solo aparece si la cuota no tiene registros y no está pagada. `PATCH /payments/:id` → `updatePaymentSchedule` rechaza si hay plata. Una fecha nueva anterior a hoy deja la cuota `vencido`; si no, `pendiente`.
 
 ### D. Cambiar el total de un evento aceptado: la cascada (vive en `QuotationsService.update`, mapa 01)
@@ -115,8 +111,8 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
    - `assertMoneyMatches`;
    - **guardia de estados**: pasar de post-venta a pre-venta con plata registrada da 400 ("usa Anular evento"); sin plata, `PaymentsService.deletePaymentPlan` borra el plan.
 3. Si la cotización está `aceptada`, trae sus cuotas `pendiente` / `vencido`:
-   - **El total baja** (doc 14, 07-10-2026): `PaymentsService.repartirCambioDeTotal` reparte la rebaja entre **todas** las cuotas no pagadas (vencidas incluidas) en proporción a su saldo (`reparto-del-cambio-de-total.ts`, `repartirRebaja`). Lo abonado no se toca; una cuota sin abonos que se queda sin saldo se **borra** y las siguientes se renumeran; una con abonos queda `pagado` por lo abonado. Lo que no cabe es reembolso (`RefundsService.create`). Antes: desde la última hacia atrás, y la vaciada quedaba en $0.
-   - **El total sube** (tarea #42 + doc 14): primero consume los reembolsos **pendientes**, del más antiguo al más nuevo, achicándolos (`updateAmount`) o borrándolos (`remove`). El resto se reparte en proporción a su saldo **solo entre las cuotas no pagadas que no han vencido** a la fecha de Chile (`repartirAlza`, opción B de Felipe). Sin ninguna, nace una cuota nueva (`PaymentsService.createPayment`: vence 7 días después del evento, u hoy si la cotización no tiene fecha; nota "Pago creado por diferencia de total_amount"). Antes: entero a la última cuota.
+   - **El total baja** (doc 14, 08-10-2026, "el plan mantiene su forma"): `PaymentsService.cambiarTotalDelPlan` → `repartirRebaja` baja **todas** las cuotas (también las pagadas y las vencidas) en proporción a su MONTO, solo por lo que cabe en el saldo; después `planDeLlenado` vuelve a repartir lo pagado desde la primera (lo que una pagada deja de necesitar pasa a la siguiente). Lo que no cabe es reembolso (`RefundsService.create`). Nunca queda una cuota en $0 (si el redondeo deja una, se borra después de mover sus pagos y se renumera). Antes: desde la última hacia atrás, y la vaciada quedaba en $0.
+   - **El total sube** (tarea #42 + doc 14): primero consume los reembolsos **pendientes**, del más antiguo al más nuevo, achicándolos (`updateAmount`) o borrándolos (`remove`). El resto lo absorben, en proporción a su monto, **solo las cuotas por pagar que no han vencido** a la fecha de Chile (`repartirAlza`, opción B de Felipe: lo nuevo nunca nace vencido; una pagada nunca vuelve a deber). Sin ninguna, nace una cuota nueva (`PaymentsService.createPayment`: vence 7 días después del evento, u hoy si la cotización no tiene fecha; nota "Pago creado por diferencia de total_amount"). Antes: entero a la última cuota.
 4. Recién ahí `QuotationsRepository.update` guarda la cotización.
 
 ### E. Portal del mandante y "Ya transferí"
@@ -137,23 +133,23 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
    - inserta en `portal_receipts` con estado `pendiente`;
    - avisa a los administradores con `PORTAL_RECEIPT_ADMIN`.
 5. **El equipo lo revisa** en la bandeja de `PostVentaPage` (el `DashboardPage` muestra el contador):
-   - **Confirmar** → `POST /portal-receipts/:id/confirmar` → `PaymentsService.createPaymentTransaction` con el monto declarado, medio 'Transferencia bancaria' (el que usa si no llega `payment_method`, y `confirmPortalReceipt` no lo manda), fecha de hoy (UTC), nota fija y el archivo como comprobante. Re-cuadra la cuota y marca el comprobante `confirmado`.
+   - **Confirmar** → `POST /portal-receipts/:id/confirmar` → `PaymentsService.createPaymentTransaction`, que desde el 08-10-2026 entra por el **derrame** (`createOverflowPaymentTransaction`): lo pagado llena desde la primera cuota, así que ya no falla si la cuota del comprobante cambió o desapareció (antes quedaba "no válido"). Monto declarado, medio 'Transferencia bancaria' (el que usa si no llega `payment_method`, y `confirmPortalReceipt` no lo manda), fecha de hoy (UTC), nota fija y el archivo como comprobante. Marca el comprobante `confirmado`.
    - **Rechazar** → lo deja `rechazado` con la nota.
 
 ### F. Relojes de cobranza
 
-1. 1 AM: `updateOverduePayments` pasa a `vencido` las cuotas `pendiente` con `due_date` <= ahora.
+1. 00:05 de Chile (desde el 08-10-2026): `updateOverduePayments` pasa a `vencido` las cuotas `pendiente` con `due_date` antes de hoy en Chile.
 2. 11 AM: `PaymentsCronService.checkUpcomingOrOverduePayments` calcula las fechas objetivo (`normalizeDateToUtc`) y usa `findAllPaymentsWithTransactions` sin empresa. Por cada cuota manda correo al mandante (con portal) y un correo aparte a los administradores (`PAYMENT_REMINDER_ADMIN` o `PAYMENT_OVERDUE_ADMIN`). Mandante sin correo: aviso en el log y el correo al cliente no sale.
 3. Cualquier empresa puede apagar un tipo de correo al cliente (los de `EMAILS_SEND_TO_CLIENT`: plan creado, pago recibido, recordatorio y vencido) en su configuración de notificaciones (`EmailService.shouldSendEmail`, mapa 12). Los avisos a administradores no pasan por ese filtro.
 
 ## 6. Reglas de negocio acordadas
 
 1. **El portero del plan (caso 501, 06-09)**: la suma de las cuotas debe calzar **al peso** con el total ACTUAL guardado en la base, no con el que muestra la pantalla. La cuota de la 501 nació doblada porque la lista mostraba un total viejo. Evidencia: comentario en `PaymentsService.createPaymentPlan`; prueba "createPaymentPlan: el portero de cuadratura" en `payments.service.spec.ts`; en la app, total fresco en `PaymentPlanEditor`.
-2. **Cuotas que se llenan (Felipe, 07-10-2026; reemplaza la cuadratura del 20-07)**: el plan es fijo; un abono nunca divide una cuota, llena la más antigua con saldo y derrama a la siguiente. Una cuota con abonos que no la cubren sigue `pendiente` o `vencido` y se muestra "Parcial". Evidencia: `normalizePaymentAfterTransactions`; doc `14_CUOTAS_QUE_SE_LLENAN.md`.
-3. **Al peso y como número (24-08)**: los montos se suman con `Number()`. Supabase entregaba texto, "0" + "20800" daba "020800" y un pago exacto parió una cuota fantasma de $0, vencida (cuota 12 de la #486, Quillón, 20-08 a las 15:57). Evidencia: comentario en `normalizePaymentAfterTransactions`; pruebas `normalizePaymentAfterTransactions` con montos como texto.
+2. **Cuotas que se llenan: el plan mantiene su forma (Felipe, 07/08-10-2026; reemplaza la cuadratura del 20-07)**: lo pagado llena las cuotas desde la primera y, después de cualquier cambio, se vuelve a repartir desde la primera; una cuota nunca se divide. Un mismo pago puede quedar en varias cuotas: sus piezas comparten `pago_grupo` (migración 118). Las cuotas "pagadas por fuera" (sistema viejo: pagada + `paid_date` + sin registros) no se tocan. Evidencia: `cuotas-que-se-llenan.ts` (`planDeLlenado`), `PaymentsService.rellenarCuotas`; doc `14_CUOTAS_QUE_SE_LLENAN.md` con los 20 casos borde.
+3. **Al peso y como número (24-08)**: los montos se suman con `Number()`. Supabase entregaba texto, "0" + "20800" daba "020800" y un pago exacto parió una cuota fantasma de $0, vencida (cuota 12 de la #486, Quillón, 20-08 a las 15:57). Evidencia: `Number()`/`pesos()` en `cuotas-que-se-llenan.ts` y `PaymentsService`; pruebas "montos como texto" en `cuotas-que-se-llenan.spec.ts`.
 4. **Derrame**: un pago se reparte desde la cuota más próxima (menor número) hacia adelante, con una transacción por cuota y un solo correo, y nunca más allá del saldo total. Evidencia: `CreateOverflowTransactionDto`, `createOverflowPaymentTransaction`.
-5. **Rectificar no derrama**: editar un registro no puede pasarse de su cuota; para un monto mayor se elimina y se registra de nuevo. Evidencia: mensaje en `createOrUpdatePaymentTransaction`.
-6. **Eliminar un registro nunca elimina la cuota**; la cuota se re-cuadra. Evidencia: comentario en `removePaymentTransaction`.
+5. **Rectificar corrige el pago entero y sí derrama (08-10-2026; antes "rectificar no derrama")**: un monto mayor se reparte solo, con tope en lo que falta pagar del evento. Evidencia: `PaymentsService.updatePaymentTransaction`.
+6. **Eliminar borra el pago entero (todas sus piezas) y nunca elimina una cuota**; lo que queda se vuelve a repartir desde la primera. Evidencia: `PaymentsService.removePaymentTransaction`.
 7. **Calendario de pagos, Nivel A (29-07)**: por `PATCH /payments/:id` solo se editan la fecha y la nota de una cuota **sin dinero**; el monto y la estructura no se tocan ahí. Evidencia: `UpdatePaymentScheduleDto`, `updatePaymentSchedule`; seis pruebas en `payments.service.spec.ts`.
 8. **La fecha de pago es la del ÚLTIMO abono (28-08)**: antes se tomaba el primero. Medido en producción: 38 de 52 cuotas pagadas de a poco mostraban la fecha equivocada (cotización 114: 149 días de diferencia). Evidencia: `fechaDelUltimoAbono` y sus pruebas. También la usa `AnalyticsService`.
 9. **Hitos anti-spam (Felipe, 29-07)**: como máximo 3 toques por cuota (3 días antes, el día del vencimiento y 7 días después); antes eran hasta 6. Evidencia: `UPCOMING_OVERDUE_PAYMENTS_DAYS_NOTIFICATION` y `OVERDUE_PAYMENTS_DAYS_NOTIFICATION` en `payments/constants/index.ts`.
@@ -161,9 +157,9 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 11. **El portal es de la PERSONA (migración 48, diseño de Felipe, 30-07)**: un contacto tiene un enlace, ve todas sus cotizaciones y solo las suyas; áreas distintas de un mismo cliente no se ven entre sí. Todo contacto nace con su token (`randomBytes(32)`); un token inválido da 404 sin pistas. Evidencia: `48_portal_del_mandante.sql`, `ClientContactsRepository.create`, `getPortalData`.
 12. **Lista blanca**: los costos internos jamás salen por el portal; la misma lista sirve para `/imprimir`. Evidencia: `getPortalQuotation` y `EnvioCotizacionService.hojaParaImprimir` usan `listaBlancaDeHoja`; `docs/arquitectura/13_ENVIO_DE_COTIZACIONES.md`.
 13. **La plata nunca se registra sola (Fase 2b, 30-07)**: lo que sube el cliente queda pendiente hasta que el equipo lo confirma, y confirmar registra el pago por la puerta de siempre. Evidencia: comentario de `portal-receipts.controller.ts`; `49_comprobantes_portal.sql`.
-14. **Tope al monto declarado**: el cliente no puede declarar más de lo pendiente de su cuota; se valida en la pantalla y en el motor. Evidencia: `submitPortalReceipt`, `PortalPage.enviarComprobante`.
+14. **Tope al monto declarado**: el cliente no puede declarar más de lo que falta pagar del EVENTO (desde el 08-10-2026; antes, de la cuota), y el botón "Ya transferí" aparece solo en la próxima cuota por pagar. Se valida en la pantalla y en el motor. Evidencia: `submitPortalReceipt`, `PortalPage.enviarComprobante`.
 15. **Compensación (tarea #42)**: nunca conviven "te debo" y "me debes". Si sube el total, los reembolsos pendientes se consumen antes de crear deuda; los ya pagados no se tocan ("esa plata ya salió"). Evidencia: `QuotationsService.update`, `RefundsService.findPendingByQuotation`.
-16. **Si cambia el total, se reparte en proporción al saldo (Felipe, 07-10-2026)**: al bajar, entre todas las cuotas no pagadas (vencidas incluidas); al subir, solo entre las que no han vencido (opción B). Nunca queda una cuota en $0; lo que no cabe al bajar es reembolso; al subir sin cuotas vigentes nace una cuota nueva. Evidencia: `reparto-del-cambio-de-total.ts`, `PaymentsService.repartirCambioDeTotal`, `QuotationsService.update`.
+16. **Si cambia el total, el plan mantiene su forma (Felipe, 08-10-2026)**: las cuotas cambian en proporción a su monto. Al bajar, todas (también las pagadas: "forma completa") y lo pagado se vuelve a repartir; al subir, solo las por pagar que no han vencido (opción B). Nunca queda una cuota en $0; lo que no cabe al bajar es reembolso; al subir sin cuotas vigentes nace una cuota nueva. Evidencia: `cuotas-que-se-llenan.ts`, `PaymentsService.cambiarTotalDelPlan`, `QuotationsService.update`.
 17. **Guardia de estados**: un evento con plata no vuelve a pre-venta (se anula); sin plata vuelve y su plan se borra entero, sin dejar cuotas huérfanas. Una cotización con abonos, reembolsos o plan no se puede borrar. Evidencia: `QuotationsService.update`; `QuotationsRepository` (`cuantasHay`).
 18. **Candado del evento realizado (Felipe, 13-08)**: la cotización se congela, pero "Puede faltar cobrar": los pagos y reembolsos siguen vivos. Rehacer el plan de un realizado está permitido, pero ya no lo devuelve a "aceptada" (puerta de atrás tapada el 13-08). Evidencia: `quotations/constants/constants.ts`, `createPaymentPlan`, `candado-evento-realizado.spec.ts`.
 19. **Con plan vivo, la pestaña Servicios no guarda sola (Felipe, 06-09)**, y el aviso ámbar anuncia la cascada ("un aviso ámbar como el de evento provisionado"). Evidencia: `ServiciosTab` (`planVivo`), `AvisoPlanDePagos`.
@@ -194,14 +190,14 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 - Personas (mapa 08): el "cajón" de `docs/arquitectura/10_MODULO_DE_PERSONAS.md` tiene pendiente que la liquidación avise si los pagos del evento traen propinas anotadas; hoy `people` no lee estas tablas.
 
 **Efectos automáticos**
-- Relojes: 1 AM (vencidas) y 11 AM (recordatorios), solo en producción.
+- Relojes: 00:05 de Chile (vencidas) y 11 AM del servidor (recordatorios), solo en producción.
 - Correos al mandante: al crear el plan (si la cotización no estaba ya `aceptada`; rehacer el plan de una realizada lo manda de nuevo), al registrar un pago (crear, no editar; también al confirmar un comprobante del portal), en los recordatorios y vencidos. A administradores: recordatorios, vencidos y cada comprobante del portal.
 - Cascadas: la división de cuotas; la cascada de total en `QuotationsService.update`; `portal_receipts.payment_id` pasa a NULL si se borra la cuota.
 - Cachés de la app: `refreshAfterSave` invalida cotizaciones, `clientSummary`, la cotización individual y `["postventa"]`; `["payments", id]` es compartida por `AvisoPlanDePagos` y `ServiciosTab`.
 
 ## 8. Zonas de riesgo: si tocas esto, cuidado con aquello
 
-- **Si tocas** cualquier suma de montos, **se afecta** la cuadratura de cuotas, los saldos del portal y la cascada, **porque** el 24-08 una suma de texto parió una cuota fantasma de $0 (#486). El arreglo con `Number()` vive solo en `normalizePaymentAfterTransactions` y `createOverflowPaymentTransaction`. Siguen sumando con `+ t.amount` sin convertir: `createOrUpdatePaymentTransaction` (`current_paid`), `findAllPaymentsWithTransactions` (`paid_amount`), `getPortalData` y `submitPortalReceipt` (`abonado`) y la cascada de `QuotationsService.update` (`alreadyPaidAmount`, `lastPayment.amount + amountToCharge`). Evidencia: esas funciones. No verifiqué si en esos caminos el monto llega como texto.
+- **Si tocas** cualquier suma de montos, **se afecta** la cuadratura de cuotas, los saldos del portal y la cascada, **porque** el 24-08 una suma de texto parió una cuota fantasma de $0 (#486). Desde el 07/08-10-2026 todas las sumas de pagos convierten con `Number()` (incluidas `findAllPaymentsWithTransactions`, `getPortalData` y `submitPortalReceipt`, que antes sumaban `+ t.amount`); la regla del doc 14 usa `pesos()`. Evidencia: esas funciones; `cuotas-que-se-llenan.ts`.
 - **Si tocas** el `.order('payment_number')` de `PaymentsRepository.findAllPaymentsFromQuotation`, **se afecta** el derrame (de la más próxima hacia adelante), la "última cuota" de la cascada y el número de la cuota nueva de `createPayment`, **porque** los tres dependen de ese orden. Evidencia: comentario "be careful when changing this" en el repositorio.
 - **Si tocas** `createPaymentPlan`, **se afecta** la integridad del plan, **porque**:
   - borra e inserta en dos pasos, sin transacción y sin mirar el resultado del borrado ni del insert;
@@ -211,12 +207,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
   Evidencia: `PaymentsService.createPaymentPlan`, `PaymentsRepository.deletePaymentsByQuotationId`, `0_initial_models.sql`, `49_comprobantes_portal.sql`, `PortalReceiptsController.confirm`.
 - **Si tocas** el cambio de estado dentro de `createPaymentPlan`, **se afecta** el candado y la cascada, **porque** hoy va directo por `QuotationsRepository.update`: no pasa por el candado ni recalcula el plan recién creado. Si alguien lo "limpia" a `QuotationsService.update`, la cascada corre sobre el plan nuevo. Además, sobre una cotización `cancelada` la revive a `aceptada`. Evidencia: `createPaymentPlan`.
 - **Si tocas** `EnvioCotizacionService` para que use `QuotationsService.update`, **se afecta** el plan de pagos, **porque** ese camino dispara la cascada; por eso va por el repositorio. Evidencia: `docs/arquitectura/13_ENVIO_DE_COTIZACIONES.md`.
-- **Si tocas** las reglas de "vencido", **se afecta** qué recordatorios salen, **porque** hay cuatro criterios distintos para el "vence hoy":
-  - `PaymentsRepository.updateOverduePayments` usa `due_date <= ahora`;
-  - `updatePaymentSchedule`, `getPortalData` y `cuotaStatus` (app) usan `< hoy` (los dos del motor con la fecha UTC; `cuotaStatus` con la fecha local del navegador);
-  - `normalizePaymentAfterTransactions` usa `new Date(due_date) < new Date()`;
-  - el recordatorio del "día del vencimiento" busca a las 11 AM cuotas que sigan `pendiente` con `due_date = hoy`.
-  Si el reloj de la 1 AM ya las pasó a `vencido`, ese toque podría no salir nunca. No confirmado: depende de la zona horaria del servidor y de cómo Postgres compara fecha contra texto. Evidencia: esas funciones; `payments/constants/index.ts`.
+- **Si tocas** las reglas de "vencido", **se afecta** qué recordatorios salen, **porque** el "vence hoy" debe ser igual en todas partes: "vencida = su día ya pasó EN CHILE; la que vence hoy sigue pendiente". Desde el 08-10-2026 lo cumplen `updateOverduePayments` (corre a las 00:05 de Chile y marca `due_date < hoyEnChile()`), `updatePaymentSchedule` y el llenado (`estaVencida`). **Confirmado el 07-10-2026**: el reloj viejo (1 AM UTC = 22:00 Chile, `due_date <= ahora`) marcaba vencidas las cuotas la noche ANTES de su día (552, cuota 2) y el recordatorio del "día del vencimiento" (11 AM, busca `pendiente` con `due_date = hoy`) no podía salir. Siguen con su propio criterio: `getPortalData` (`< hoy` UTC) y `cuotaStatus` (app, fecha del navegador). Evidencia: esas funciones; `payments/constants/index.ts`.
 - **Si tocas** los repositorios de pagos y reembolsos, **se afecta** el aislamiento entre empresas, **porque** varias puertas no acotan por `company_id` como pide `CLAUDE.md`. El inventario completo de estas puertas y el plan para cerrarlas, por sprint, viven en `22_AISLAMIENTO_ENTRE_EMPRESAS.md`:
   - `removePaymentTransaction` busca y borra el registro por id sin validar la empresa (solo el re-cuadre posterior, vía `findPaymentById`, filtra), y `removePayment` no recibe empresa — son `DELETE /payments/transactions/:id` y `DELETE /payments/:id` del **Sprint 2** del capítulo 22 ("Los filtros que no filtran"), pendiente;
   - `updatePayment` no filtra y `deletePaymentsByQuotationId` recibe `companyId` y no lo usa — es la "defensa en profundidad" que el **Sprint 3** del capítulo 22 ("La cotización ajena") deja pendiente, junto con `RefundsRepository.findPendingByQuotation`, `updateAmount` y `remove`, que la cascada de `QuotationsService.update` llama sin volver a mirar la empresa;
@@ -241,11 +232,13 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 | Archivo | Qué cubre |
 |---|---|
-| `api-rest/src/payments/tests/payments.service.spec.ts` | Portero del plan: rechaza el descuadre sin borrar nada y da 404 si es de otra empresa. `updatePaymentSchedule`: seis casos (pagada, con abonos, fecha futura → pendiente, fecha pasada → vencido, solo nota, 404). `normalizePaymentAfterTransactions` con montos como texto: el pago exacto no pare cuota de $0, el parcial NO divide (vencida o pendiente según fecha). `repartirCambioDeTotal`: borra la vacía, renumera, marca pagada la parcial. `fechaDelUltimoAbono`: cuatro casos |
+| `api-rest/src/payments/tests/payments.service.spec.ts` | Portero del plan: rechaza el descuadre sin borrar nada y da 404 si es de otra empresa. `updatePaymentSchedule`: seis casos (pagada, con abonos, fecha futura → pendiente, fecha pasada → vencido, solo nota, 404). `fechaDelUltimoAbono`: cuatro casos |
 | `api-rest/src/payments/tests/payments.controller.spec.ts` | Solo que el controller se construya |
 | `api-rest/src/refunds/tests/refunds.controller.spec.ts`, `refunds.service.spec.ts` | Solo que se construyan ("should be defined") |
 | `api-rest/src/quotations/tests/unit/quotations.service.spec.ts` | Cascada con cotización aceptada: error al leer cuotas; total igual; baja sin cuotas pendientes → reembolso; sube sin cuotas → cuota nueva; sube con cuotas → va al reparto proporcional. Los reembolsos pendientes están simulados como lista vacía |
-| `api-rest/src/payments/tests/reparto-del-cambio-de-total.spec.ts` | Doc 14: reparto proporcional al bajar y al subir, la parcial participa con su saldo, rebaja que acaba el saldo, reembolso del exceso, vencidas que no suben (opción B), "vence hoy" no ha vencido, redondeo al peso, montos como texto, limpieza de cuotas en $0 |
+| `api-rest/src/payments/tests/cuotas-que-se-llenan.spec.ts` | Doc 14, los casos borde con su número: Linde ($950.250 parejo, la 1 pagada y la 2 con $49.750), forma completa, vencidas que bajan, rebaja bajo lo pagado, opción B, cuota nueva, pagada que no vuelve a deber, pago que derrama, pago repartido que se junta, borrar abre la última, fecha atrasada, pagadas por fuera, sobrante de datos viejos, sin cuotas, registro de $0, vence hoy, hoy en Chile, redondeo a la primera, montos como texto |
+| `api-rest/src/payments/tests/cuotas-que-se-llenan.servicio.spec.ts` | El servicio de punta a punta contra una base simulada: registrar, cambiar el total (Linde), borrar y corregir un pago repartido, topes, opción B, reembolso, pagadas por fuera |
+| `frontend/src/pages/postventa/pagoRepartido.test.ts` | Un pago repartido en varias cuotas se junta para rectificar y la pregunta de borrar avisa que se elimina entero |
 | `api-rest/src/quotations/tests/unit/candado-evento-realizado.spec.ts` | Un realizado no cambia montos ni fecha y no sale a aceptada, cancelada, en negociación ni rechazada, sin llamar `deletePaymentPlan`; no se borra |
 | `api-rest/src/analytics/tests/por-cobrar.spec.ts` | "Por cobrar" descuenta abonos (mapa 13) |
 
@@ -264,8 +257,8 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 - **Sin uso desde la app**: `DELETE /payments/:id` (`removePayment`), `GET /refunds` + `getRefunds`, `POST /payments/transactions`. Además `UpdateRefundDto`, `PaymentsService.update` (lo usa solo la cascada, sin validación), y endpoints y métodos comentados en `payments.controller.ts`, `refunds.controller.ts` y `refunds.service.ts`.
 - **TODOs**: en `Payment` (`entities/payment.entity.ts`) y en `frontend/src/types/payments.types.ts` ("add status enum", "check if necessary now bcs the payment_transactino contains that info" para `paid_date`, `payment_type` y `payment_method`); "TODO: Move this to the types folder" dos veces en `paymentTransactions.service.ts`.
 - **Columnas legadas**: `payments.paid_date` (solo se limpia, nadie la escribe) y `payments.payment_method`.
-- **El reloj de la 1 AM vive en `PaymentsService`** y no en `PaymentsCronService`. Su comentario interno dice "Update status of overdue payments to PENDIENTE", pero hace lo contrario (a `vencido`).
-- **Comentario viejo**: el de `cuotaStatus` dice que el estado "solo pasa a vencido mediante un cron", pero también lo escriben `updatePaymentSchedule` y `normalizePaymentAfterTransactions`.
+- **El reloj de las vencidas vive en `PaymentsService`** y no en `PaymentsCronService` (desde el 08-10-2026 a las 00:05 de Chile). Su comentario interno dice "Update status of overdue payments to PENDIENTE", pero hace lo contrario (a `vencido`).
+- **Comentario viejo**: el de `cuotaStatus` (ahora en `pages/postventa/estadoCuota.tsx`) dice que el estado "solo pasa a vencido mediante un cron", pero también lo escriben `updatePaymentSchedule` y el llenado (`rellenarCuotas`).
 - **Medio por defecto**: confirmar un comprobante del portal registra 'Transferencia bancaria', la etiqueta vieja que la migración 102 unificó a 'Transferencia'. Vuelve a partir los informes por medio de pago.
 - **La app sin su capa de servicios**: `PortalPage` llama `apiRequest` y `api.request` directo. Los tipos del portal están duplicados a mano entre motor y app.
 - **Modales hechos a mano**: `PaymentPlanEditor` (con `<input type="date">` nativo), `EditRegistroModal` y la bandeja de comprobantes. Según doc 09, Tanda A3, el de reembolso deja libre Cancelar mientras guarda.
@@ -285,8 +278,8 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 ## 12. Preguntas abiertas
 
-1. ¿En qué zona horaria corren los relojes en Railway? `EVERY_DAY_AT_1AM` y `EVERY_DAY_AT_11AM` no fijan `timeZone`. Ningún `@Cron` del motor lo fija (los `America/Santiago` que hay son cálculos de fecha, no relojes); solo `backup-cron.service.ts` anota que su hora es UTC. De eso depende a qué hora chilena salen los recordatorios.
-2. ¿Sale de verdad el recordatorio "el día del vencimiento"? El reloj de la 1 AM marca `vencido` con `due_date <= ahora` antes de que el de las 11 AM busque cuotas `pendiente` con `due_date = hoy`. Hay que medirlo con correos reales o logs.
+1. ¿En qué zona horaria corren los relojes en Railway? **En UTC** (medido el 07-10-2026: el de la "1 AM" corrió a las 01:00 UTC). Desde el 08-10-2026 el de las vencidas fija `timeZone: 'America/Santiago'`; `EVERY_DAY_AT_11AM` (recordatorios) sigue sin fijarlo = 08:00 de Chile en verano. Ningún `@Cron` del motor lo fija (los `America/Santiago` que hay son cálculos de fecha, no relojes); solo `backup-cron.service.ts` anota que su hora es UTC. De eso depende a qué hora chilena salen los recordatorios.
+2. ~~¿Sale de verdad el recordatorio "el día del vencimiento"?~~ **No salía** (medido 07-10-2026, cuota 2 de la 552); arreglado el 08-10-2026 con el reloj a la hora de Chile (doc 14).
 3. ¿Supabase entrega `amount` como texto en todos los caminos (comentario del 24-08) o solo en algunos? Si es en todos, las sumas sin `Number()` de la sección 8 están expuestas al mismo error.
 4. ¿El vendedor debe poder aceptar una cotización y armar su plan? Hoy la app se lo ofrece y el motor lo rechaza con 403.
 5. ¿El filtro de empresa sobre embebidos sin `!inner` (`findAllPaymentsFromQuotation`, `RefundsRepository.findAll`) deja pasar cuotas o reembolsos de otra empresa si se entrega un id ajeno? Hay que probarlo en el laboratorio ("Cotizador"), nunca en "Cotizador-dev", que es producción. **11-09-2026:** la documentación de Supabase (guía *Querying Joins and Nested tables*) confirma el mecanismo: por defecto el embebido es un left join, las filas padre vuelven aunque la tabla relacionada no calce, y solo `!inner` las descarta. En `QuotationsService.update` eso importa: con el UUID de una cotización ajena, la cascada ve las cuotas de la otra empresa. Los ids de `payments` y `quotations` son UUID aleatorios en producción. **Resuelto el 11-09-2026:** sí dejaba pasar; los tres selects ahora usan `!inner` en la rama `pruebas` (sprint 2), todavía no en producción.
@@ -299,7 +292,8 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 **Motor**
 - `api-rest/src/payments/payments.controller.ts`
-- `api-rest/src/payments/payments.service.ts` (`createPaymentPlan`, `createOverflowPaymentTransaction`, `createOrUpdatePaymentTransaction`, `normalizePaymentAfterTransactions`, `updatePaymentSchedule`, `fechaDelUltimoAbono`, `updateOverduePayments`)
+- `api-rest/src/payments/payments.service.ts` (`createPaymentPlan`, `createOverflowPaymentTransaction`, `updatePaymentTransaction`, `removePaymentTransaction`, `leerPlan`, `rellenarCuotas`, `cambiarTotalDelPlan`, `updatePaymentSchedule`, `fechaDelUltimoAbono`, `updateOverduePayments`)
+- `api-rest/src/payments/cuotas-que-se-llenan.ts` (la regla del doc 14, pura)
 - `api-rest/src/payments/payments.repository.ts`
 - `api-rest/src/payments/payments-cron.service.ts`
 - `api-rest/src/payments/constants/index.ts` (estados e hitos anti-spam)

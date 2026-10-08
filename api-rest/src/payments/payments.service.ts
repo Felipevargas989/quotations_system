@@ -5,8 +5,9 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { PostgrestError } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { EmailService } from 'src/email/email.service';
@@ -16,6 +17,15 @@ import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { PaymentStatus } from './constants';
+import {
+  CuotaDelPlan,
+  PiezaDePago,
+  cobertura,
+  hoyEnChile,
+  planDeLlenado,
+  repartirAlza,
+  repartirRebaja,
+} from './cuotas-que-se-llenan';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
@@ -29,15 +39,8 @@ import {
   CreatePaymentTransaction,
   PaymentWithTransactionsAndQuotation,
   UpdatePayment,
-  UpdatePaymentTransaction,
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
-import {
-  CuotaParaRepartir,
-  hoyEnChile,
-  repartirAlza,
-  repartirRebaja,
-} from './reparto-del-cambio-de-total';
 
 /**
  * Service responsible for managing payment operations including
@@ -253,62 +256,168 @@ export class PaymentsService {
   }
 
   /**
-   * CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): cuando cambia el
-   * total de una cotización aceptada, reparte la diferencia entre sus
-   * cuotas no pagadas en proporción a su saldo (`reparto-del-cambio-de-
-   * total.ts` decide; acá se ejecuta). Devuelve lo que no tuvo cuota
-   * donde ir: `reembolso` (al bajar) o `cuotaNueva` (al subir), que el
-   * llamador resuelve como siempre.
-   *
-   * `cuotas` = las `pendiente` / `vencido` con sus `payment_transactions`.
+   * CUOTAS QUE SE LLENAN (doc 14): el plan tal como está — las cuotas,
+   * con su marca de "pagada por fuera", y TODAS las piezas de pago.
    */
-  async repartirCambioDeTotal(
+  private async leerPlan(
     quotationId: Quotation['id'],
-    cuotas: Pick<
-      PaymentWithTransactionsAndQuotation,
-      'id' | 'payment_number' | 'amount' | 'due_date' | 'payment_transactions'
-    >[],
-    diferencia: number,
     companyId: Company['id'],
-  ): Promise<{ reembolso: number; cuotaNueva: number }> {
-    const paraRepartir: CuotaParaRepartir[] = cuotas.map((c) => ({
+  ) {
+    const { data, error } =
+      await this.paymentsRepository.findAllPaymentsFromQuotation(
+        [quotationId],
+        companyId,
+      );
+    if (error) throw error;
+    const filas = data || [];
+    const cuotas = filas.map((c) => ({
       id: c.id,
       payment_number: c.payment_number,
       amount: c.amount,
       due_date: c.due_date as unknown as string,
-      // Numeric llega como texto (ver normalizePaymentAfterTransactions).
-      abonado: (c.payment_transactions || []).reduce(
-        (s: number, t: PaymentTransaction) => s + Number(t.amount),
-        0,
-      ),
+      status: c.status,
+      // Pagada en el sistema viejo: marcada pagada, con su fecha vieja y
+      // sin ningún pago registrado (40 en producción el 07-10-2026). La
+      // regla no la toca nunca.
+      pagadaPorFuera:
+        c.status === (PaymentStatus.PAGADO as string) &&
+        Boolean(c.paid_date) &&
+        (c.payment_transactions || []).length === 0,
     }));
-    const reparto =
-      diferencia < 0
-        ? repartirRebaja(paraRepartir, -diferencia)
-        : repartirAlza(paraRepartir, diferencia, hoyEnChile());
-    this.logger.info(
-      `repartirCambioDeTotal ${quotationId} diferencia ${diferencia}: ${JSON.stringify(reparto)}`,
+    const piezas = filas.flatMap((c) =>
+      (c.payment_transactions || []).map((t) => ({
+        ...t,
+        payment_id: c.id,
+        quotation_id: quotationId,
+        pago_grupo: t.pago_grupo ?? `solo-${t.id}`,
+        transaction_date: t.transaction_date ?? null,
+        created_at: t.created_at ? String(t.created_at) : null,
+      })),
     );
+    return { cuotas, piezas };
+  }
 
-    for (const cambio of reparto.cambios) {
-      const { error } = await this.paymentsRepository.updatePayment(
-        cambio.id,
-        cambio.pagada
-          ? { amount: cambio.amount, status: PaymentStatus.PAGADO }
-          : { amount: cambio.amount },
+  /**
+   * Regla 3 del doc 14: vuelve a repartir lo pagado desde la primera
+   * cuota y deja a cada cuota con su estado. `planDeLlenado` decide; acá
+   * se ejecuta. Como todo se recalcula desde cero, un llenado que quedó a
+   * medias (dos personas a la vez, un corte) lo arregla el siguiente.
+   */
+  private async aplicarLlenado(
+    quotationId: Quotation['id'],
+    cuotas: (CuotaDelPlan & { status: string })[],
+    piezas: (PiezaDePago &
+      Pick<
+        Partial<PaymentTransaction>,
+        'payment_method' | 'notes' | 'receipt_photo_url'
+      >)[],
+  ) {
+    const plan = planDeLlenado(cuotas, piezas, hoyEnChile());
+    for (const m of plan.actualizar) {
+      const { error } = await this.paymentsRepository.moverPieza(m.id, {
+        payment_id: m.payment_id,
+        amount: m.amount,
+      });
+      if (error) throw error;
+    }
+    for (const n of plan.insertar) {
+      // La pieza nueva es el MISMO pago: misma fecha, medio, nota,
+      // comprobante y grupo que la pieza de la que sale.
+      const base = piezas.find((p) => p.id === n.copiaDe);
+      const grupo = base?.pago_grupo?.startsWith('solo-')
+        ? undefined
+        : base?.pago_grupo;
+      const { error } = await this.paymentsRepository.createPaymentTransaction({
+        payment_id: n.payment_id,
+        quotation_id: quotationId,
+        amount: n.amount,
+        payment_method: base?.payment_method,
+        transaction_date: base?.transaction_date,
+        notes: base?.notes,
+        receipt_photo_url: base?.receipt_photo_url,
+        ...(grupo ? { pago_grupo: grupo } : {}),
+      } as CreatePaymentTransaction);
+      if (error) throw error;
+    }
+    if (plan.borrar.length > 0) {
+      const { error } = await this.paymentsRepository.removeTransactionsByIds(
+        plan.borrar,
       );
       if (error) throw error;
     }
-    if (reparto.borrar.length > 0) {
-      for (const id of reparto.borrar) {
+    for (const e of plan.estados) {
+      const antes = cuotas.find((c) => c.id === e.id);
+      if (antes?.status === e.status) continue;
+      const { error } = await this.paymentsRepository.updatePayment(e.id, {
+        status: e.status,
+        ...(e.cubierto <= 0 ? { paid_date: null as unknown as Date } : {}),
+      });
+      if (error) throw error;
+    }
+    return plan;
+  }
+
+  /** Regla 3 sobre el plan actual: después de registrar, corregir o
+   *  borrar un pago. */
+  async rellenarCuotas(quotationId: Quotation['id'], companyId: Company['id']) {
+    const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
+    return this.aplicarLlenado(quotationId, cuotas, piezas);
+  }
+
+  /**
+   * CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): cuando cambia el
+   * total de una cotización aceptada, EL PLAN MANTIENE SU FORMA.
+   * - Baja: todas las cuotas bajan en proporción a su monto, también las
+   *   pagadas ("forma completa"); lo que les sobra pasa a la siguiente.
+   * - Sube: crecen, en proporción a su monto, solo las cuotas por pagar
+   *   que no han vencido (opción B: lo nuevo nunca nace vencido).
+   * Después lo pagado se vuelve a repartir desde la primera. Devuelve lo
+   * que no tuvo cuota donde ir — `reembolso` (al bajar) o `cuotaNueva`
+   * (al subir) — y el llamador lo resuelve como siempre.
+   *
+   * Antes (hasta el 07-10-2026): la rebaja se descontaba desde la última
+   * cuota y el alza se cargaba entera a la última; una cuota vaciada
+   * quedaba en $0 (la 506).
+   */
+  async cambiarTotalDelPlan(
+    quotationId: Quotation['id'],
+    diferencia: number,
+    companyId: Company['id'],
+  ): Promise<{ reembolso: number; cuotaNueva: number }> {
+    const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
+    const pagado = piezas.reduce((s, p) => s + Number(p.amount), 0);
+    const cambio =
+      diferencia < 0
+        ? repartirRebaja(cuotas, pagado, -diferencia)
+        : repartirAlza(cuotas, pagado, diferencia, hoyEnChile());
+    this.logger.info(
+      `cambiarTotalDelPlan ${quotationId} diferencia ${diferencia}: ${JSON.stringify(cambio)}`,
+    );
+
+    for (const c of cambio.cambios) {
+      const { error } = await this.paymentsRepository.updatePayment(c.id, {
+        amount: c.amount,
+      });
+      if (error) throw error;
+    }
+    const quedan = cuotas
+      .filter((c) => !cambio.borrar.includes(c.id))
+      .map((c) => ({
+        ...c,
+        amount: cambio.cambios.find((x) => x.id === c.id)?.amount ?? c.amount,
+      }));
+    // Primero se mueven los pagos (la base no deja borrar una cuota con
+    // pagos colgando) y recién después se borran las cuotas en $0.
+    await this.aplicarLlenado(quotationId, quedan, piezas);
+    if (cambio.borrar.length > 0) {
+      for (const id of cambio.borrar) {
         const { error } = await this.paymentsRepository.removePayment(id);
         if (error) throw error;
       }
       await this.renumerarCuotas(quotationId, companyId);
     }
-    return { reembolso: reparto.reembolso, cuotaNueva: reparto.cuotaNueva };
+    return { reembolso: cambio.reembolso, cuotaNueva: cambio.cuotaNueva };
   }
-
   /** Deja las cuotas numeradas 1..n sin huecos, en su orden actual. */
   private async renumerarCuotas(
     quotationId: Quotation['id'],
@@ -367,7 +476,7 @@ export class PaymentsService {
     const fields: UpdatePayment = {};
     if (dto.due_date !== undefined) {
       fields.due_date = dto.due_date as unknown as Payment['due_date'];
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = hoyEnChile();
       fields.status =
         dto.due_date < hoy ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE;
     }
@@ -440,33 +549,36 @@ export class PaymentsService {
   }
 
   /**
-   * Creates a new payment transaction for a payment.
-   *
-   * @param createPaymentTransactionDto - The transaction details
-   * @param companyId - The company ID
-   * @returns {Promise<PaymentTransaction>} The created transaction
-   * @throws {Error} If validation fails or transaction amount exceeds payment amount
+   * Registra un pago de una cotización. Desde las cuotas que se llenan
+   * (doc 14) da lo mismo a qué cuota diga ir: lo pagado llena siempre
+   * desde la primera, así que entra por la misma puerta que el derrame.
+   * La usa el portal al confirmar un comprobante — y por eso ya no falla
+   * si la cuota del comprobante cambió de monto o desapareció.
    */
   async createPaymentTransaction(
-    createPaymentTransactionDto: CreatePaymentTransactionDto,
+    dto: CreatePaymentTransactionDto,
     companyId: Company['id'],
   ) {
-    return this.createOrUpdatePaymentTransaction(
-      createPaymentTransactionDto,
+    return this.createOverflowPaymentTransaction(
+      {
+        quotation_id: dto.quotation_id,
+        amount: dto.amount,
+        payment_method: dto.payment_method,
+        transaction_date: dto.transaction_date,
+        notes: dto.notes,
+        receipt_photo_url: dto.receipt_photo_url,
+      },
       companyId,
     );
   }
 
   /**
-   * Registers a payment with "overflow" (derrame): the amount cascades across
-   * the pending/overdue installments starting from the EARLIEST one, creating
-   * one transaction per touched installment and marking as PAGADO each
-   * installment that gets fully covered. Sends a SINGLE email to the client
-   * with the total amount.
-   *
-   * @param dto - quotation_id, total amount, method, date, notes, receipt url
-   * @param companyId - The company ID
-   * @returns Distribution summary: one entry per touched installment
+   * Registra UN pago con "derrame": llena desde la primera cuota con
+   * saldo y lo que sobra pasa a la siguiente. Desde las cuotas que se
+   * llenan (doc 14) el pago entra como una sola pieza y `rellenarCuotas`
+   * lo parte en las cuotas que toque; todas sus piezas comparten
+   * `pago_grupo` (migración 118), así que se ve, se corrige y se borra
+   * como uno solo. Un solo correo al cliente, con el total.
    */
   async createOverflowPaymentTransaction(
     dto: CreateOverflowTransactionDto,
@@ -475,323 +587,185 @@ export class PaymentsService {
     this.logger.info(
       `createOverflowPaymentTransaction with dto ${JSON.stringify(dto)}`,
     );
-    try {
-      // 1. Get pending/overdue payments (ordered by payment_number asc)
-      const { data: payments, error } =
-        await this.paymentsRepository.findAllPaymentsFromQuotation(
-          [dto.quotation_id],
-          companyId,
-          [PaymentStatus.PENDIENTE, PaymentStatus.VENCIDO],
-        );
-      if (error) {
-        this.logger.error(error);
-        throw error;
-      }
-      if (!payments || payments.length === 0) {
-        throw new Error('No hay cuotas pendientes para esta cotización');
-      }
-
-      // 2. Compute the remaining amount per installment
-      const withRemaining = payments
-        .map((payment) => {
-          // Numeric llega como texto (ver normalizePaymentAfterTransactions).
-          const alreadyPaid = (payment.payment_transactions || []).reduce(
-            (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
-            0,
-          );
-          return { payment, remaining: Number(payment.amount) - alreadyPaid };
-        })
-        .filter((x) => x.remaining > 0);
-
-      const totalRemaining = withRemaining.reduce(
-        (sum, x) => sum + x.remaining,
-        0,
+    const { cuotas, piezas } = await this.leerPlan(dto.quotation_id, companyId);
+    const vivas = cuotas
+      .filter((c) => !c.pagadaPorFuera)
+      .sort((a, b) => a.payment_number - b.payment_number);
+    if (vivas.length === 0) {
+      throw new BadRequestException(
+        'No hay cuotas pendientes para esta cotización',
       );
-      if (dto.amount > totalRemaining) {
-        throw new Error(
-          `El monto no puede exceder el saldo pendiente total (${totalRemaining})`,
-        );
-      }
+    }
+    const montos = vivas.map((c) => Math.round(Number(c.amount)));
+    const pagado = piezas.reduce((s, p) => s + Number(p.amount), 0);
+    const saldo = montos.reduce((s, m) => s + m, 0) - pagado;
+    if (dto.amount > saldo) {
+      throw new BadRequestException(
+        `El monto no puede exceder el saldo pendiente total (${saldo})`,
+      );
+    }
 
-      // 3. Cascade (derrame): fill each installment in order until the
-      //    amount runs out.
-      let left = dto.amount;
-      const distribution: {
-        payment_id: Payment['id'];
-        payment_number: number;
-        amount: number;
-        fully_paid: boolean;
-      }[] = [];
+    // Cómo se reparte ESTE pago, desde la primera cuota con saldo (lo
+    // que la pantalla ya le mostró al usuario en la vista previa).
+    const cubre = cobertura(montos, pagado);
+    let resto = dto.amount;
+    const distribution: {
+      payment_id: Payment['id'];
+      payment_number: number;
+      amount: number;
+      fully_paid: boolean;
+    }[] = [];
+    vivas.forEach((c, i) => {
+      const espacio = montos[i] - cubre[i];
+      const toma = Math.min(resto, espacio);
+      if (toma <= 0) return;
+      distribution.push({
+        payment_id: c.id,
+        payment_number: c.payment_number,
+        amount: toma,
+        fully_paid: toma === espacio,
+      });
+      resto -= toma;
+    });
 
-      for (const { payment, remaining } of withRemaining) {
-        if (left <= 0) break;
-        const portion = Math.min(remaining, left);
-
-        const { error: txError } =
-          await this.paymentsRepository.createPaymentTransaction({
-            payment_id: payment.id,
-            quotation_id: dto.quotation_id,
-            amount: portion,
-            payment_method: dto.payment_method,
-            transaction_date: dto.transaction_date,
-            notes: dto.notes,
-            receipt_photo_url: dto.receipt_photo_url,
-          } as CreatePaymentTransaction);
-        if (txError) {
-          this.logger.error(txError);
-          throw txError;
-        }
-
-        const fullyPaid = portion === remaining;
-        if (fullyPaid) {
-          const { error: updError } =
-            await this.paymentsRepository.updatePayment(payment.id, {
-              status: PaymentStatus.PAGADO,
-            });
-          if (updError) {
-            this.logger.error(updError);
-            throw updError;
-          }
-        }
-
-        distribution.push({
-          payment_id: payment.id,
-          payment_number: payment.payment_number,
-          amount: portion,
-          fully_paid: fullyPaid,
-        });
-        left -= portion;
-      }
-
-      // 4. Send ONE email to the client with the total amount
-      try {
-        const { data: quotation } = await this.quotationsService.findOne(
-          dto.quotation_id,
-        );
-        if (quotation) {
-          // Correos a personas y punto (30-07): solo al mandante.
-          const mandante = await this.quotationsService.mandanteOf(
-            quotation.client_contact_id,
-          );
-          if (!mandante?.email) {
-            this.logger.warn(
-              `PAYMENT_RECEIVED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
-            );
-          } else {
-            void this.emailService.sendEmail(
-              mandante.email,
-              EmailStructure.PAYMENT_RECEIVED,
-              {
-                clientName: mandante.name,
-                companyName: quotation.companies.name,
-                amount: dto.amount,
-                paymentMethod: dto.payment_method || '',
-                transactionDate: dto.transaction_date || new Date(),
-              },
-              companyId,
-              mandante.portalToken || null,
-            );
-          }
-        }
-      } catch (emailError) {
-        // Log email error but don't throw - payments were already created
-        this.logger.error(
-          `Failed to send payment received email: ${emailError}`,
-        );
-      }
-
-      // La última cuota tocada, si quedó a medias, sigue pendiente o
-      // vencida según su fecha (cuotas que se llenan, doc 14).
-      const lastTouched = distribution[distribution.length - 1];
-      if (lastTouched && !lastTouched.fully_paid) {
-        await this.normalizePaymentAfterTransactions(
-          lastTouched.payment_id,
-          companyId,
-        );
-      }
-
-      return { total: dto.amount, distribution };
+    try {
+      const { error: txError } =
+        await this.paymentsRepository.createPaymentTransaction({
+          payment_id: distribution[0]?.payment_id ?? vivas[0].id,
+          quotation_id: dto.quotation_id,
+          amount: dto.amount,
+          payment_method: dto.payment_method,
+          transaction_date: dto.transaction_date,
+          notes: dto.notes,
+          receipt_photo_url: dto.receipt_photo_url,
+          pago_grupo: randomUUID(),
+        } as CreatePaymentTransaction);
+      if (txError) throw txError;
+      await this.rellenarCuotas(dto.quotation_id, companyId);
     } catch (error) {
       this.logger.error(error);
       throw new Error(error);
     }
+
+    // Un solo correo al cliente con el total.
+    try {
+      const { data: quotation } = await this.quotationsService.findOne(
+        dto.quotation_id,
+      );
+      if (quotation) {
+        // Correos a personas y punto (30-07): solo al mandante.
+        const mandante = await this.quotationsService.mandanteOf(
+          quotation.client_contact_id,
+        );
+        if (!mandante?.email) {
+          this.logger.warn(
+            `PAYMENT_RECEIVED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
+          );
+        } else {
+          void this.emailService.sendEmail(
+            mandante.email,
+            EmailStructure.PAYMENT_RECEIVED,
+            {
+              clientName: mandante.name,
+              companyName: quotation.companies.name,
+              amount: dto.amount,
+              paymentMethod: dto.payment_method || '',
+              transactionDate: dto.transaction_date || new Date(),
+            },
+            companyId,
+            mandante.portalToken || null,
+          );
+        }
+      }
+    } catch (emailError) {
+      // El pago ya quedó registrado: un correo que falla no lo deshace.
+      this.logger.error(`Failed to send payment received email: ${emailError}`);
+    }
+
+    return { total: dto.amount, distribution };
   }
 
+  /**
+   * Rectificar un pago: fecha, medio, nota, comprobante o monto. Desde las
+   * cuotas que se llenan (doc 14) se corrige el PAGO ENTERO aunque esté
+   * repartido en varias cuotas, y un monto mayor ya no exige borrarlo y
+   * registrarlo de nuevo: lo pagado se vuelve a repartir solo. El tope es
+   * lo que falta pagar del evento.
+   */
   async updatePaymentTransaction(
     paymentTransactionId: PaymentTransaction['id'],
-    updatePaymentTransactionDto: UpdatePaymentTransactionDto,
+    dto: UpdatePaymentTransactionDto,
     companyId: Company['id'],
   ) {
     this.logger.info(
-      `updatePaymentTransaction with id ${paymentTransactionId} and updatePaymentTransactionDto ${JSON.stringify(updatePaymentTransactionDto)}`,
+      `updatePaymentTransaction with id ${paymentTransactionId} and dto ${JSON.stringify(dto)}`,
     );
-    return this.createOrUpdatePaymentTransaction(
-      {
-        ...updatePaymentTransactionDto,
-        payment_transaction_id: paymentTransactionId,
-      } as UpdatePaymentTransaction,
-      companyId,
-      true,
-    );
-  }
-
-  async createOrUpdatePaymentTransaction(
-    payload: CreatePaymentTransactionDto | UpdatePaymentTransaction,
-    companyId: Company['id'],
-    isUpdate: boolean = false,
-  ) {
-    try {
-      let transaction: PaymentTransaction | null = null;
-      let payment_id: Payment['id'] = !isUpdate
-        ? (payload as CreatePaymentTransactionDto).payment_id
-        : '';
-      let transactionFromDB: PaymentTransaction | null = null;
-
-      // 0. if it's udpate, get payment_id from paymentTransactionId
-      if (isUpdate) {
-        const { data: _transactionFromDB, error: transactionError } =
-          await this.paymentsRepository.findPaymentTransactionById(
-            (payload as UpdatePaymentTransaction).payment_transaction_id,
-          );
-        if (transactionError) {
-          this.logger.error(transactionError);
-          throw transactionError;
-        }
-        if (!_transactionFromDB) {
-          this.logger.error('Transaction not found');
-          throw new Error('Transaction not found');
-        }
-        transactionFromDB = _transactionFromDB;
-        payment_id = transactionFromDB.payment_id;
-      }
-
-      // 1. Get current payment to validate against limits
-      const { data: payment, error: paymentError } =
-        await this.paymentsRepository.findPaymentById(payment_id, companyId);
-
-      if (paymentError) {
-        this.logger.error(paymentError);
-        throw paymentError;
-      }
-      if (!payment) {
-        this.logger.error('Payment not found');
-        throw new Error('Payment not found');
-      }
-
-      // 2. Get all current transactions for this payment to calculate current total
-      const { data: transactions, error: transactionsError } =
-        await this.paymentsRepository.findAllTransactionsByPaymentId(
-          payment_id,
-        );
-
-      if (transactionsError) {
-        this.logger.error(transactionsError);
-        throw transactionsError;
-      }
-
-      // 3. Run validation of current_paid < amount
-      // Numeric llega como texto: sumado con + se pegaba (24-08).
-      const current_paid = transactions.reduce(
-        (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
-        0,
+    const { data: tx } =
+      await this.paymentsRepository.findPaymentTransactionById(
+        paymentTransactionId,
       );
-      const new_paid =
-        current_paid +
-        payload.amount -
-        (isUpdate ? transactionFromDB?.amount || 0 : 0);
-      if (new_paid > payment.amount) {
-        this.logger.error('Current paid is greater than amount');
-        throw new Error(
-          isUpdate
-            ? `El monto excede esta cuota (máximo ${payment.amount - current_paid + (transactionFromDB?.amount || 0)}). Para un pago mayor, elimina el registro y regístralo de nuevo: el excedente se derramará a las cuotas siguientes.`
-            : `El monto total no puede exceder ${payment.amount - current_paid}`,
-        );
-      }
+    if (!tx) throw new NotFoundException('Registro de pago no encontrado');
+    // Aislamiento entre empresas: la cuota del registro debe ser de la
+    // empresa de la sesión.
+    const { data: cuota } = await this.paymentsRepository.findPaymentById(
+      tx.payment_id,
+      companyId,
+    );
+    if (!cuota) throw new NotFoundException('Registro de pago no encontrado');
 
-      // 4. Create one or update transaction
-
-      // 4.1 Create new transaction
-      if (!isUpdate) {
-        const { data: newTransaction, error: newTransactionError } =
-          await this.paymentsRepository.createPaymentTransaction(
-            payload as CreatePaymentTransaction,
-          );
-
-        if (newTransactionError) {
-          this.logger.error(newTransactionError);
-          throw newTransactionError;
-        }
-
-        transaction = newTransaction;
-
-        // Send email to client with payment transaction details
-        try {
-          const { data: quotation } = await this.quotationsService.findOne(
-            (payload as CreatePaymentTransaction).quotation_id,
-          );
-
-          if (quotation) {
-            // Correos a personas y punto (30-07): solo al mandante.
-            const mandante = await this.quotationsService.mandanteOf(
-              quotation.client_contact_id,
-            );
-            if (!mandante?.email) {
-              this.logger.warn(
-                `PAYMENT_RECEIVED sin destinatario: cotización ${quotation.quotation_number} sin mandante con correo`,
-              );
-            } else {
-              void this.emailService.sendEmail(
-                mandante.email,
-                EmailStructure.PAYMENT_RECEIVED,
-                {
-                  clientName: mandante.name,
-                  companyName: quotation.companies.name,
-                  amount: payload.amount || 0,
-                  paymentMethod: payload.payment_method || '',
-                  transactionDate: payload.transaction_date || new Date(),
-                },
-                companyId,
-                mandante.portalToken || null,
-              );
-            }
-          }
-        } catch (emailError) {
-          // Log email error but don't throw - payment was already created
-          this.logger.error(
-            `Failed to send payment received email: ${emailError}`,
-          );
-        }
-      }
-
-      // 4.2 Update transaction
-      else {
-        const { payment_transaction_id, ...payloadWithoutId } =
-          payload as UpdatePaymentTransaction;
-
-        const { data: updatedTransaction, error: updatedTransactionError } =
-          await this.paymentsRepository.updatePaymentTransaction(
-            payment_transaction_id,
-            payloadWithoutId,
-          );
-
-        if (updatedTransactionError) {
-          this.logger.error(updatedTransaction);
-          throw updatedTransactionError;
-        }
-
-        transaction = updatedTransaction;
-      }
-      // 5. El estado de la cuota según lo abonado (doc 14): pagada si se
-      //    completó; si no, pendiente o vencida. Nunca se divide.
-      await this.normalizePaymentAfterTransactions(payment_id, companyId);
-
-      // 6. Return new transaction
-      return transaction;
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error(error);
+    const { cuotas, piezas } = await this.leerPlan(tx.quotation_id, companyId);
+    const grupo = piezas
+      .filter((p) =>
+        tx.pago_grupo ? p.pago_grupo === tx.pago_grupo : p.id === tx.id,
+      )
+      .sort((a, b) => a.id - b.id);
+    const totalGrupo = grupo.reduce((s, p) => s + Number(p.amount), 0);
+    const nuevoTotal =
+      dto.amount !== undefined ? Math.round(Number(dto.amount)) : totalGrupo;
+    if (nuevoTotal <= 0) {
+      throw new BadRequestException('El monto debe ser mayor que cero.');
     }
+    const totalCuotas = cuotas
+      .filter((c) => !c.pagadaPorFuera)
+      .reduce((s, c) => s + Math.round(Number(c.amount)), 0);
+    const pagado = piezas.reduce((s, p) => s + Number(p.amount), 0);
+    const maximo = totalCuotas - pagado + totalGrupo;
+    if (nuevoTotal > maximo) {
+      throw new BadRequestException(
+        `El monto supera lo que falta pagar del evento (máximo $${maximo.toLocaleString('es-CL')}).`,
+      );
+    }
+
+    // Fecha, medio, nota y comprobante: iguales en todas las piezas.
+    const comunes: UpdatePaymentTransactionDto = { ...dto };
+    delete comunes.amount;
+    if (Object.keys(comunes).length > 0) {
+      for (const p of grupo) {
+        const { error } =
+          await this.paymentsRepository.updatePaymentTransaction(p.id, comunes);
+        if (error) throw error;
+      }
+    }
+    // El monto: una sola pieza con el total nuevo; el llenado la reparte.
+    if (nuevoTotal !== totalGrupo && grupo.length > 0) {
+      const [primera, ...otras] = grupo;
+      const { error } = await this.paymentsRepository.moverPieza(primera.id, {
+        payment_id: primera.payment_id,
+        amount: nuevoTotal,
+      });
+      if (error) throw error;
+      if (otras.length > 0) {
+        const { error: e } =
+          await this.paymentsRepository.removeTransactionsByIds(
+            otras.map((p) => p.id),
+          );
+        if (e) throw e;
+      }
+    }
+    await this.rellenarCuotas(tx.quotation_id, companyId);
+    return { ok: true };
   }
+
   // findOne(id: number) {
   //   return `This action returns a #${id} payment`;
   // }
@@ -799,6 +773,12 @@ export class PaymentsService {
   update(id: Payment['id'], updatePaymentDto: UpdatePaymentDto) {
     return this.paymentsRepository.updatePayment(id, updatePaymentDto);
   }
+  /**
+   * Borra un PAGO entero — todas sus piezas, aunque esté repartido en
+   * varias cuotas — y vuelve a repartir lo que queda desde la primera
+   * cuota (doc 14, caso 12: se abre la ÚLTIMA cuota que estaba cubierta,
+   * no la del pago borrado). Las cuotas nunca se borran por esto.
+   */
   async removePaymentTransaction(id: number, companyId: Company['id']) {
     this.logger.info(`removePaymentTransaction with id ${id}`);
     const { data: tx } =
@@ -815,65 +795,17 @@ export class PaymentsService {
     if (!cuotaDeLaEmpresa) {
       throw new NotFoundException('Registro de pago no encontrado');
     }
-    const result = await this.paymentsRepository.removePaymentTransaction(id);
-    // La cuota vuelve a pendiente/vencido (o se re-cuadra) segun lo que
-    // quede abonado. La cuota nunca se elimina junto con el registro.
-    if (tx?.payment_id) {
-      await this.normalizePaymentAfterTransactions(tx.payment_id, companyId);
-    }
+    const { data: delGrupo } = tx.pago_grupo
+      ? await this.paymentsRepository.findTransactionsByGroup(tx.pago_grupo)
+      : { data: null };
+    const ids = (delGrupo?.length ? delGrupo : [tx])
+      .filter((p: PaymentTransaction) => p.quotation_id === tx.quotation_id)
+      .map((p: PaymentTransaction) => p.id);
+    const result = await this.paymentsRepository.removeTransactionsByIds(ids);
+    if (result.error) throw result.error;
+    await this.rellenarCuotas(tx.quotation_id, companyId);
     return result;
   }
-
-  /**
-   * El estado de la cuota después de cualquier cambio de registros.
-   *
-   * CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): la cuota es FIJA.
-   * - abonado >= monto -> PAGADO
-   * - si no -> PENDIENTE o VENCIDO según su fecha, tenga o no abonos.
-   *   Una cuota con abonos que no la cubren es "Parcial" en pantalla;
-   *   en la base sigue pendiente o vencida.
-   *
-   * Antes (regla del 20-07, reemplazada): un abono parcial DIVIDÍA la
-   * cuota en una pagada por lo abonado y otra nueva por el remanente,
-   * corriendo la numeración de las siguientes. La 506 terminó con una
-   * cuota de $1.125.000 partida en tres (07-10-2026).
-   */
-  private async normalizePaymentAfterTransactions(
-    paymentId: Payment['id'],
-    companyId: Company['id'],
-  ) {
-    const { data: payment } = await this.paymentsRepository.findPaymentById(
-      paymentId,
-      companyId,
-    );
-    if (!payment) return;
-    const { data: txs } =
-      await this.paymentsRepository.findAllTransactionsByPaymentId(paymentId);
-    // AL PESO Y COMO NÚMERO (24-08). Supabase entrega los numeric como
-    // TEXTO: sumarlos con + pegaba "0" + "20800" = "020800", y la
-    // comparación de abajo, al ser texto contra texto, era alfabética.
-    // Un pago EXACTO ("020800" >= "20800" da falso) caía en la rama de
-    // división y paría una cuota fantasma de $0, vencida — la cuota 12
-    // de la #486 (Quillón), 20-08 a las 15:57.
-    const paid = (txs || []).reduce(
-      (sum: number, t: PaymentTransaction) => sum + Number(t.amount),
-      0,
-    );
-    const monto = Number(payment.amount);
-    const overdue = new Date(payment.due_date) < new Date();
-
-    if (paid >= monto) {
-      await this.paymentsRepository.updatePayment(paymentId, {
-        status: PaymentStatus.PAGADO,
-      });
-      return;
-    }
-    await this.paymentsRepository.updatePayment(paymentId, {
-      status: overdue ? PaymentStatus.VENCIDO : PaymentStatus.PENDIENTE,
-      ...(paid <= 0 ? { paid_date: null as unknown as Date } : {}),
-    });
-  }
-
   async removePayment(id: Payment['id'], companyId: Company['id']) {
     this.logger.info(`removePayment with id ${id} of company ${companyId}`);
 
@@ -900,13 +832,13 @@ export class PaymentsService {
   }
 
   /**
-   * Scheduled task that runs daily at 1 AM to update overdue payments.
-   * Changes payment status from PENDIENTE to VENCIDO for payments past their due date.
-   *
-   * @throws {Error} If the update operation fails
-   * @returns {Promise<void>}
+   * Reloj de la MEDIANOCHE DE CHILE (07-10-2026): pasa a `vencido` las
+   * cuotas pendientes cuyo día ya pasó en Chile. Antes corría a la 1 AM
+   * del servidor (UTC = 22:00 en Chile) y comparaba con la hora UTC: la
+   * noche ANTES del vencimiento ya marcaba vencida la cuota (552, cuota
+   * 2), y su correo de "vence hoy" no salía.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  @Cron('5 0 * * *', { timeZone: 'America/Santiago' })
   async updateOverduePayments() {
     this.logger.info('CRON job to update overdue payments');
     try {

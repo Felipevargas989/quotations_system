@@ -1,117 +1,135 @@
-# 14 · Cuotas que se llenan (regla nueva del plan de pagos)
+# 14 · Cuotas que se llenan: el plan mantiene su forma
 
-> **Estado: SPRINTS 1 (MOTOR) Y 2 (PANTALLAS) CONSTRUIDOS EN LA RAMA
-> `pruebas`** (07-10-2026), sin publicar en producción. Falta la
-> validación de Felipe en el laboratorio y, después, el arreglo de la 506.
-> Reemplaza la regla 2 ("cuadratura de la cuota", 20-07) y la regla 16
+> **Estado: CONSTRUIDO EN LA RAMA `pruebas`** (08-10-2026), sin publicar
+> en producción. Migración 118 aplicada en el LABORATORIO; en producción
+> va ANTES del deploy del motor. Falta la validación de Felipe en el
+> laboratorio y, después, revisar una a una las cotizaciones viejas con
+> cuotas partidas.
+>
+> Reemplaza la regla 2 ("cuadratura de la cuota", 20-07), las reglas 5 y
+> 6 (rectificar no derrama; borrar no toca otras cuotas) y la regla 16
 > ("si baja el total, desde la última") del mapa
-> `mapa/03_PAGOS_REEMBOLSOS_Y_PORTAL.md`. Cuando se construya, el mapa 03
-> se actualiza en el mismo commit y este documento pasa a "construido".
+> `mapa/03_PAGOS_REEMBOLSOS_Y_PORTAL.md`.
 
 ## Por qué
 
-Felipe, 07-10-2026, sobre la cotización 506 (Manantial de vida): *"ajusté
-la cantidad de personas y el calendario de pagos se volvió loco"*. Medido:
-una cuota de $1.125.000 quedó partida en tres filas ($195.000 pagada,
-$795.000 pagada, $135.000 vencida) por dos abonos parciales, y al bajar las
-personas la última cuota quedó en **$0**. Todo cuadraba al peso, pero el
-calendario dejó de parecerse al plan que se acordó con el cliente.
+**07-10-2026, cotización 506 (Manantial de vida).** Felipe: *"ajusté la
+cantidad de personas y el calendario de pagos se volvió loco"*. Medido:
+una cuota de $1.125.000 quedó partida en tres filas por dos abonos
+parciales, y al bajar las personas la última cuota quedó en **$0**.
+Felipe: *"¿no será más simple que las cuotas queden estáticas y que se
+vaya rellenando la cuota a medida que se van pagando…? Creo que la regla
+es la que está mal."*
 
-*"¿No será más simple que las cuotas queden estáticas y que se vaya
-rellenando la cuota a medida que se van pagando, y que si bajo la cantidad
-de personas se reduzcan los saldos de todas las cuotas pendientes? Creo que
-la regla es la que está mal."*
+**Primer intento (07-10, laboratorio): repartir "según lo que le falta a
+cada cuota".** Lo probó con Linde (cotización 456 del laboratorio): 4
+cuotas de $1.590.750, abono de $1.000.000, el total baja a $3.801.000.
+Quedó 1.308.539 / 830.821 / 830.820 / 830.820. Felipe: *"no me cuadra…
+debieron quedar todas 950.250 y quedar totalmente pagada la primera y
+parcialmente la segunda"*. De ahí la regla definitiva: **el plan mantiene
+su forma.**
 
-## Las reglas (aprobadas por Felipe, 07-10-2026)
+## La regla (aprobada por Felipe, 07/08-10-2026)
 
-1. **El plan es fijo.** Cada cuota conserva su monto y su fecha; un abono
-   nunca la divide.
-2. **Los abonos llenan en orden.** Un abono entra en la cuota más antigua
-   con saldo y lo que sobra pasa a la siguiente (el derrame de hoy). Una
-   cuota a medio pagar se muestra **"Parcial: $X de $Y"**.
-3. **Estado**: pagada si lo abonado cubre el monto; si no, vencida (su
-   fecha ya pasó) o pendiente. "Parcial" es una etiqueta de pantalla, no un
-   estado nuevo de la base: en la base sigue siendo `pendiente` o
-   `vencido`. **No hay migración de esquema.**
-4. **Si el total BAJA**, la rebaja se reparte entre **todas** las cuotas
-   no pagadas (vencidas incluidas: favorece al cliente), **en proporción a
-   su saldo** (lo que les falta). Lo abonado nunca se toca. Si la rebaja
-   supera todo el saldo, lo que sobra es reembolso (como hoy).
-5. **Si el total SUBE**, primero se consumen los reembolsos pendientes
-   (regla 15 de hoy, sin cambio). El resto se reparte **en proporción a su
-   saldo entre las cuotas no pagadas que todavía no vencen** (opción B de
-   Felipe: *"las modificaciones de cantidad de personas ya son más
-   cercanas al evento"*; una cuota vencida no amanece debiendo más). Si no
-   queda ninguna sin vencer, nace una cuota nueva, como hoy.
-6. **Nunca una cuota en $0.** Una cuota sin abonos que se queda sin saldo
-   se borra y las siguientes corren su número. Una con abonos queda
-   `pagado` con `amount = abonado`.
-7. **Redondeo**: al peso; lo que sobre del reparto va a la última cuota
-   que participa.
+1. **Lo pagado llena las cuotas desde la primera.** Qué cuotas están
+   pagadas depende SOLO de cuánto se ha pagado en total, no del orden de
+   los pagos ni de a qué cuota se registraron.
+2. **Si cambia el total, las cuotas cambian en proporción a su monto**:
+   si eran iguales, siguen iguales.
+   - **Baja** → todas las cuotas, también las pagadas ("forma completa").
+     Lo que una cuota pagada deja de necesitar pasa a la siguiente.
+   - **Sube** → solo las cuotas por pagar que **no han vencido**
+     (opción B: lo nuevo nunca nace vencido; los cambios de personas
+     llegan cerca del evento). Sin ninguna, nace una cuota nueva.
+3. **Después de cualquier cambio, lo pagado se vuelve a repartir desde la
+   primera.**
 
-## Casos borde
+Como todo se recalcula desde cero, la regla **se corrige sola**: si algo
+queda a medias (dos personas a la vez, un corte), el siguiente cambio lo
+deja cuadrado.
 
-| Caso | Qué pasa |
-|---|---|
-| Abono menor que la cuota | Cuota "Parcial", sin partirse |
-| Abono mayor que la cuota | Completa esa y derrama a la siguiente (una transacción por cuota, como hoy) |
-| Abono mayor que todo el saldo | Se bloquea (como hoy) |
-| Cuota parcial y SUBEN las personas | Si no ha vencido, sube en proporción a lo que le falta; si ya venció, no sube |
-| Cuota parcial y BAJAN las personas | Baja en proporción a lo que le falta; nunca por debajo de lo abonado |
-| La rebaja iguala todo el saldo | Las parciales quedan pagadas por lo abonado; las sin abonos desaparecen |
-| La rebaja supera todo el saldo | Lo anterior + el exceso como reembolso |
-| Corregir un abono (lápiz) | Su cuota recalcula su estado; para un monto mayor que el saldo de la cuota se borra y se registra de nuevo (como hoy) |
-| Borrar un abono | Su cuota recalcula su estado. Los abonos NO se mueven entre cuotas: si queda un hueco en una cuota anterior, el próximo pago lo llena primero (regla 2) |
-| Comprobante del portal confirmado | Entra por la misma puerta que un pago registrado a mano |
-| Cambiar el monto de una cuota a mano | Hoy no se puede (Nivel A: solo fecha y nota sin plata). Sin cambio |
-| Recordatorios y vencidas | Cobran el **saldo** de la cuota, no su monto |
+## Los casos borde (aprobados por Felipe, 08-10-2026)
 
-## Qué hay que tocar (medido en el código y el grafo, 07-10-2026)
-
-`graphify affected normalizePaymentAfterTransactions` → la llaman
-`createOverflowPaymentTransaction`, `createOrUpdatePaymentTransaction`,
-`removePaymentTransaction`, `createPaymentTransaction` (portal) y
-`updatePaymentTransaction`. Lectores del monto o el estado de las cuotas,
-buscados en el código:
-
-| Pieza | Archivo | Qué cambia |
+| # | Caso | Cómo queda |
 |---|---|---|
-| Cuadratura de la cuota | `payments/payments.service.ts` `normalizePaymentAfterTransactions` | Deja de dividir: solo fija el estado (pagado si cubre; si no, pendiente o vencido según fecha) |
-| Cascada del total | `quotations/quotations.service.ts` `update` | Reparto proporcional (reglas 4 a 7) en vez de "desde la última"; borra cuotas que quedan en $0 sin abonos |
-| Recordatorios | `payments/payments-cron.service.ts` | El correo dice el saldo, no el monto |
-| Ficha 360° del cliente | `clients/clients.repository.ts` `findSummary` | Hoy suma el monto completo de las cuotas pendientes ("solo cuadra gracias a la regla de cuadratura"): debe restar lo abonado |
-| Panel de caja | `analytics/analytics.service.ts` | Lo abonado de una cuota parcial cuenta como cobrado en el mes del abono (hoy solo cuenta si la cuota está pagada; el saldo ya se resta bien) |
-| Fila HOY y app móvil | `analytics/hoy.controller.ts`, `movil/movil.service.ts` | Ya restan abonos: solo verificar |
-| Post-Venta | `frontend/src/pages/postventa/PostVentaPage.tsx` (gigante congelado: la pieza va en archivo propio) | Etiqueta "Parcial $X de $Y" y saldo por cuota; la vista previa del derrame ya usa `amount - paid_amount` |
-| Portal del cliente | `quotations/quotations.service.ts` `getPortalData`, `frontend/src/pages/portal/PortalPage.tsx` | Mostrar abonado y saldo por cuota; `submitPortalReceipt` ya topa con lo pendiente |
-| Aviso ámbar | `frontend/src/components/AvisoPlanDePagos.tsx` | Texto nuevo: "se reparte entre las cuotas pendientes" |
-| Pruebas | `payments.service.spec.ts`, `quotations.service.spec.ts` | Hoy prueban la división y "agranda la última": se reescriben para la regla nueva + los casos borde de arriba |
+| | **Baja el total** | |
+| 1 | Hay una cuota a medio pagar (Linde) | Todas bajan parejo ($950.250 c/u); la 1 queda pagada y la 2 con $49.750 |
+| 2 | Hay cuotas ya pagadas | También bajan ("forma completa") y lo que les sobra pasa a la siguiente |
+| 3 | Hay cuotas vencidas | También bajan: favorece al cliente |
+| 4 | Baja por debajo de lo ya pagado | Todas quedan pagadas y la diferencia es reembolso. Nunca queda una cuota en $0 |
+| | **Sube el total** | |
+| 5 | Regla general | Crecen solo las cuotas por pagar que no han vencido, parejas entre ellas (opción B) |
+| 6 | Ya no queda ninguna cuota que venga | Nace una cuota nueva; vence 7 días después del evento (como siempre) |
+| 7 | Hay un reembolso pendiente | Primero se descuenta del reembolso (tarea #42) |
+| 8 | Una cuota pagada | Nunca vuelve a deber |
+| 9 | Baja de lo pagado y después vuelve a subir | El plan no recupera su forma: la subida va a una cuota nueva |
+| | **Pagos** | |
+| 10 | Registrar un pago | Llena desde la primera cuota y lo que sobra pasa a la siguiente, sin importar la fecha del pago |
+| 11 | Un pago queda repartido en dos cuotas | Se ve, se corrige y se borra como uno solo (migración 118: `pago_grupo`) |
+| 12 | Borrar un pago | Se reparte de nuevo desde la primera: se abre la ÚLTIMA cuota que estaba cubierta |
+| 13 | Corregir un pago a un monto mayor | Se reparte solo; ya no hay que borrarlo y registrarlo de nuevo. Tope: lo que falta pagar del evento |
+| | **Fechas, cobranza y portal** | |
+| 14 | Una cuota que vence hoy | Sigue pendiente hasta la medianoche de Chile (ver "El reloj de la noche") |
+| 15 | Correos de cobro | Cobran siempre lo que falta (el saldo). Una cuota que se reabre queda en rojo, sin correo extra (salen solo en 3 fechas fijas) |
+| 16 | "Ya transferí" en el portal | El cliente paga la próxima cuota, hasta el saldo del evento; al confirmarlo, se reparte desde la primera aunque el plan haya cambiado |
+| | **Otros** | |
+| 17 | Redondeo | Lo que sobra al repartir va a la primera cuota (igual que el editor del plan, `repartirEnCuotas`) |
+| 18 | Reembolso ya devuelto | No se cuenta como pagado: la rebaja solo descuenta lo que cabe en el saldo |
+| 19 | Dos personas a la vez, o un corte a la mitad | El siguiente guardado lo deja cuadrado |
+| 20 | Cotizaciones viejas con cuotas partidas | Funcionan, pero se ven partidas hasta revisarlas una a una |
 
-Lo que NO cambia: el portero del plan (suma al peso), el derrame, el
-candado del evento realizado, la guardia de estados, los reembolsos y la
-compensación, los hitos anti-spam, el Nivel A del calendario.
+**Caso extra, medido al construir (08-10-2026): cuotas "pagadas por
+fuera".** 40 cuotas de producción están marcadas pagadas con la fecha
+de pago del sistema viejo (`paid_date`) y **ningún pago registrado** (9
+en cotizaciones aceptadas, N° 20 a 43). Recalcular desde los pagos las
+habría reabierto. La regla las reconoce (pagada + `paid_date` + sin
+registros) y **no las toca nunca**: no se escalan, no reciben pagos y su
+monto no entra en lo que se reparte.
+
+## El reloj de la noche (error encontrado el 07-10-2026)
+
+`updateOverduePayments` corría a la 1 AM del servidor (UTC = **22:00 en
+Chile**) y marcaba vencida toda cuota con `due_date <= ahora (UTC)`: la
+noche ANTES de su vencimiento. Medido: la cuota 2 de la **552** (vence
+07-10) quedó vencida el 06-10 a las 22:00, y por eso su correo de "vence
+hoy" (que busca cuotas `pendiente`) no pudo salir. Arreglo: corre a las
+**00:05 de Chile** (`@Cron('5 0 * * *', { timeZone: 'America/Santiago' })`)
+y marca solo `due_date < hoy en Chile`. El mismo criterio (`hoyEnChile`)
+usan el llenado, el calendario de la cuota y el reparto.
+
+## Cómo está construido
+
+| Pieza | Archivo | Qué hace |
+|---|---|---|
+| La regla, pura | `api-rest/src/payments/cuotas-que-se-llenan.ts` | `repartirRebaja` (forma completa), `repartirAlza` (opción B), `planDeLlenado` (vuelve a repartir los pagos desde la primera, reutilizando las piezas), `escalarEnProporcion` (resto a la primera), `hoyEnChile`, `estaVencida` |
+| El servicio | `api-rest/src/payments/payments.service.ts` | `leerPlan`, `aplicarLlenado`, `rellenarCuotas`, `cambiarTotalDelPlan`; registrar (`createOverflowPaymentTransaction`: una pieza con `pago_grupo` nuevo + llenado), corregir (`updatePaymentTransaction`: el pago entero) y borrar (`removePaymentTransaction`: todas las piezas del grupo). `normalizePaymentAfterTransactions` ya no existe |
+| La cascada | `api-rest/src/quotations/quotations.service.ts` `update` | Llama `cambiarTotalDelPlan`; el reembolso y la cuota nueva se resuelven como siempre |
+| El portal | `quotations.service.ts` `submitPortalReceipt`, `portal-receipts.controller.ts` `confirm`, `PortalPage.tsx` | Tope = saldo del evento; confirmar entra por el derrame y ya no exige que la cuota siga existiendo; el botón solo en la próxima cuota |
+| Base | `docs/migrations/118_un_pago_repartido_en_cuotas_es_uno_solo.sql` | `payment_transactions.pago_grupo` (uuid, default `gen_random_uuid()`, segura antes del deploy) |
+| Post-Venta | `PostVentaPage.tsx`, `pagoRepartido.ts`, `estadoCuota.tsx` | Rectificar abre el pago entero; borrar avisa "está repartido en N cuotas y se elimina entero"; etiqueta "· parcial" |
+| Lo que ya funcionaba | ficha 360°, panel de caja, fila HOY, app móvil, correos | Leen lo abonado por cuota desde los registros: el llenado les deja los registros donde corresponde |
+| Pruebas | `payments/tests/cuotas-que-se-llenan.spec.ts` (21, los casos borde), `cuotas-que-se-llenan.servicio.spec.ts` (10, de punta a punta con base simulada), `frontend/.../pagoRepartido.test.ts` (4) | |
 
 ## Datos existentes (decisión de Felipe, 07-10-2026)
 
 Medido en producción: **10 cotizaciones** tienen cuotas partidas por la
 regla vieja (465, 490, 506, 520, 552 aceptadas; 148, 332, 449, 486, 499
 realizadas) y **2 cuotas en $0** (506 cuota 6 pendiente; 494 cuota 2
-vencida, sin abonos). Felipe: *"solamente actualicemos la 506, el resto
-dejemos como está"*. La 506 se junta a mano, mostrándole antes el
-resultado:
+vencida, sin abonos). Felipe: *"primero hagamos el cambio y luego
+revisamos las cotizaciones una a una"*. La 506 quedaría:
 
 | Hoy | Después |
 |---|---|
-| 1 · $195.000 pagado · 2 · $795.000 pagado · 3 · $135.000 vencido | 1 · $1.125.000 · Parcial $990.000 · vencida |
+| 1 · $195.000 pagado · 2 · $795.000 pagado · 3 · $135.000 vencido | 1 · $1.125.000 · parcial $990.000 |
 | 4 · $3.375.000 pendiente | 2 · $3.375.000 pendiente |
 | 5 · $2.056.100 pendiente | 3 · $2.056.100 pendiente |
 | 6 · $0 pendiente | (se borra) |
 
-Los dos abonos ($195.000 del 06-10 y $795.000 del 07-10) pasan a colgar de
-la cuota 1, con sus comprobantes y notas intactos.
-
 ## Orden de construcción
 
-1. **Sprint 1, motor** — HECHO en `pruebas` (07-10-2026): `reparto-del-cambio-de-total.ts` (pura, 12 pruebas), `PaymentsService.repartirCambioDeTotal` + `renumerarCuotas`, `normalizePaymentAfterTransactions` sin división, cascada de `QuotationsService.update`, recordatorios con saldo (y sin cobrar cuotas sin saldo; en el aviso a administradores "Saldo por cobrar"), ficha 360° con saldo, panel de caja con lo abonado de las parciales como cobrado, y `Number()` en las tres sumas de abonos que faltaban (portal, tope del portal y Post-Venta).
-2. **Sprint 2, pantallas** — HECHO en `pruebas` (07-10-2026): Post-Venta ya mostraba "abonado $X de $Y"; ahora la etiqueta dice "Vencido · parcial" / "Pendiente · parcial" (`statusBadge`, cambio mínimo: la página está congelada por tamaño). El portal ya mostraba lo abonado y precarga solo el saldo: sin cambios. `AvisoPlanDePagos` anuncia la regla nueva.
-3. Felipe valida → producción → arreglo de la 506.
+1. ~~Sprint 1, motor (primer intento, "según lo que falta")~~ — 07-10,
+   reemplazado.
+2. **Regla definitiva** — HECHA en `pruebas` el 08-10-2026: motor,
+   migración 118 (lab), Post-Venta, portal y aviso ámbar.
+3. Felipe valida en el laboratorio → migración 118 en producción →
+   producción → revisión una a una (partiendo por la 506).

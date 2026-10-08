@@ -16,6 +16,9 @@ export interface PaymentTransaction {
   created_by: string;
   created_at: string;
   receipt_photo_url?: string;
+  /** Las piezas de un mismo pago repartido en varias cuotas comparten
+   *  grupo (migración 118, cuotas que se llenan). */
+  pago_grupo?: string;
 }
 
 // TODO: Move this to the types folder

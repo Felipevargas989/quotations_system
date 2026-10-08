@@ -202,7 +202,7 @@ export default function PortalPage() {
     }
     if (compMax > 0 && monto > compMax) {
       setCompError(
-        `El monto supera lo pendiente de esta cuota (${clp(compMax)})`,
+        `El monto supera lo que falta pagar del evento (${clp(compMax)})`,
       );
       return;
     }
@@ -295,8 +295,7 @@ export default function PortalPage() {
     const abiertoEste = abierto === ev.numero;
     // Historial de UNA cuota: el plan repetiría el mismo monto — la
     // fecha de pago va en la línea y el desplegable desaparece.
-    const unaCuotaSaldada =
-      compacta && (ev.cuotas || []).length === 1;
+    const unaCuotaSaldada = compacta && (ev.cuotas || []).length === 1;
     if (unaCuotaSaldada) expandible = false;
     const togglePlan = expandible && (
       <button
@@ -392,9 +391,8 @@ export default function PortalPage() {
                   <p className="text-sm text-gray-600">
                     {ev.saldo > 0 ? (
                       <>
-                        saldo{" "}
-                        <b style={{ color: primary }}>{clp(ev.saldo)}</b> de{" "}
-                        {clp(ev.total)}
+                        saldo <b style={{ color: primary }}>{clp(ev.saldo)}</b>{" "}
+                        de {clp(ev.total)}
                       </>
                     ) : (
                       <b className="text-green-700">Totalmente pagado ✓</b>
@@ -454,92 +452,103 @@ export default function PortalPage() {
                           : `vence ${fecha(c.vence)}`}
                   </span>
                 </div>
-                {/* Fase 2b: "Ya transferí" en cuotas sin pagar. */}
-                {c.estado !== "pagado" && !c.enRevision && (
-                  <div className="mt-1.5">
-                    {compCuotaId === c.id ? (
-                      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
-                        <p className="text-xs font-bold text-gray-600">
-                          Envíanos tu comprobante y lo confirmamos
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="flex-1 min-w-36">
-                            <NumberInput
-                              value={compMonto}
-                              onChange={(v) => setCompMonto(v)}
-                              currency
-                              min={1}
-                              max={compMax || undefined}
-                              placeholder="Monto transferido"
-                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
-                            />
-                          </div>
-                          <label
-                            className="px-3 py-1.5 text-sm font-semibold rounded-lg cursor-pointer border"
-                            style={{
-                              color: primary,
-                              borderColor: mix(primary, 0.4),
-                              background: mix(primary, 0.06),
-                            }}
-                          >
-                            Adjuntar comprobante
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              onChange={(e) =>
-                                setCompArchivo(e.target.files?.[0] || null)
-                              }
-                            />
-                          </label>
-                        </div>
-                        {/* El nombre del archivo va ABAJO, azulito, a la
-                            usanza de los sistemas (pedido de Felipe). */}
-                        {compArchivo && (
-                          <p className="text-xs text-blue-600 truncate">
-                            {compArchivo.name}
+                {/* Fase 2b: "Ya transferí". Desde las cuotas que se llenan
+                    (08-10-2026, doc 14) solo en la PRÓXIMA cuota por pagar:
+                    lo pagado llena siempre desde la primera. */}
+                {(ev.cuotas || []).find((x) => x.estado !== "pagado")?.id ===
+                  c.id &&
+                  !c.enRevision && (
+                    <div className="mt-1.5">
+                      {compCuotaId === c.id ? (
+                        <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                          <p className="text-xs font-bold text-gray-600">
+                            Envíanos tu comprobante y lo confirmamos
                           </p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            disabled={compEnviando || !compArchivo}
-                            onClick={enviarComprobante}
-                            className="px-3 py-1.5 text-white text-xs rounded-lg font-semibold disabled:opacity-50"
-                            style={{ background: primary }}
-                          >
-                            {compEnviando ? "Enviando…" : "Enviar comprobante"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setCompCuotaId(null);
-                              setCompError(null);
-                            }}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold"
-                          >
-                            Cancelar
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex-1 min-w-36">
+                              <NumberInput
+                                value={compMonto}
+                                onChange={(v) => setCompMonto(v)}
+                                currency
+                                min={1}
+                                max={compMax || undefined}
+                                placeholder="Monto transferido"
+                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+                              />
+                            </div>
+                            <label
+                              className="px-3 py-1.5 text-sm font-semibold rounded-lg cursor-pointer border"
+                              style={{
+                                color: primary,
+                                borderColor: mix(primary, 0.4),
+                                background: mix(primary, 0.06),
+                              }}
+                            >
+                              Adjuntar comprobante
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="hidden"
+                                onChange={(e) =>
+                                  setCompArchivo(e.target.files?.[0] || null)
+                                }
+                              />
+                            </label>
+                          </div>
+                          {/* El nombre del archivo va ABAJO, azulito, a la
+                            usanza de los sistemas (pedido de Felipe). */}
+                          {compArchivo && (
+                            <p className="text-xs text-blue-600 truncate">
+                              {compArchivo.name}
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              disabled={compEnviando || !compArchivo}
+                              onClick={enviarComprobante}
+                              className="px-3 py-1.5 text-white text-xs rounded-lg font-semibold disabled:opacity-50"
+                              style={{ background: primary }}
+                            >
+                              {compEnviando
+                                ? "Enviando…"
+                                : "Enviar comprobante"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setCompCuotaId(null);
+                                setCompError(null);
+                              }}
+                              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          {compError && (
+                            <p className="text-xs text-red-600">{compError}</p>
+                          )}
                         </div>
-                        {compError && (
-                          <p className="text-xs text-red-600">{compError}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setCompCuotaId(c.id);
-                          setCompMonto(c.monto - c.abonado);
-                          setCompMax(c.monto - c.abonado);
-                          setCompArchivo(null);
-                          setCompError(null);
-                        }}
-                        className="text-xs font-semibold underline"
-                        style={{ color: primary }}
-                      >
-                        Ya transferí — enviar mi comprobante
-                      </button>
-                    )}
-                  </div>
-                )}
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setCompCuotaId(c.id);
+                            setCompMonto(c.monto - c.abonado);
+                            // Tope: lo que falta pagar del evento entero.
+                            setCompMax(
+                              typeof ev.saldo === "number" && ev.saldo > 0
+                                ? ev.saldo
+                                : c.monto - c.abonado,
+                            );
+                            setCompArchivo(null);
+                            setCompError(null);
+                          }}
+                          className="text-xs font-semibold underline"
+                          style={{ color: primary }}
+                        >
+                          Ya transferí — enviar mi comprobante
+                        </button>
+                      )}
+                    </div>
+                  )}
               </div>
             ))}
             {datosCobro}

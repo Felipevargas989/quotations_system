@@ -117,6 +117,15 @@ describe('cotizar el cambio de plan', () => {
 });
 
 describe('cambiar de plan', () => {
+  // `cambiarPlan` mira el reloj de verdad. Con la empresa pagada hasta
+  // HOY + 20 días, desde el 08-10-2026 no quedaba proporcional que cobrar
+  // y la prueba se cayó sola: el reloj de la prueba se fija en HOY.
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    jest.setSystemTime(HOY);
+  });
+  afterEach(() => jest.useRealTimers());
+
   it('subir: crea el pago único del proporcional con la referencia cambio:empresa:plan', async () => {
     const { servicio, mercadoPago, repo } = armar();
     const r = await servicio.cambiarPlan(42, 'gestiona', 'duena@sur.cl');

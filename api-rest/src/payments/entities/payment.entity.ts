@@ -31,4 +31,7 @@ export class PaymentTransaction {
   created_by: Date;
   created_at: Date;
   receipt_photo_url?: string;
+  /** Las piezas de un mismo pago repartido en cuotas comparten este
+   *  grupo (migración 118, cuotas que se llenan). */
+  pago_grupo?: string;
 }

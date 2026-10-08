@@ -7,10 +7,11 @@ import { QuotationStatus } from "../types/quotations.types";
  * Felipe: "un aviso ámbar como el de evento provisionado"). Al editar
  * una cotización ACEPTADA que ya tiene cuotas, anuncia lo que la
  * cascada del motor hará al guardar si cambia el total. Desde el
- * 07-10-2026 (cuotas que se llenan, doc 14) la diferencia se reparte
- * en proporción a lo que le falta a cada cuota: al bajar, entre todas
- * las no pagadas; al subir, solo entre las que no han vencido. Antes
- * se descontaba desde la última y se agrandaba la última.
+ * 08-10-2026 (cuotas que se llenan, doc 14) EL PLAN MANTIENE SU FORMA:
+ * al bajar, todas las cuotas bajan en proporción a su monto y lo pagado
+ * se vuelve a repartir desde la primera; al subir, crecen solo las que
+ * no han vencido. Antes se descontaba desde la última y se agrandaba la
+ * última.
  * La cascada existe desde siempre — esto solo la ANUNCIA antes del
  * guardar, para que nadie se sorprenda.
  */
@@ -45,11 +46,10 @@ export default function AvisoPlanDePagos({
         {conGuardadoManual
           ? "El guardado automático está apagado en esta pestaña: nada cambia hasta que aprietes «Guardar cambios». "
           : ""}
-        Si cambias el total y aprietas Guardar, el plan se ajusta solo: la
-        diferencia se reparte entre las cuotas por pagar, en proporción a lo
-        que le falta a cada una (si sube, solo entre las que no han vencido).
-        Lo ya abonado no se toca, y si lo abonado supera el total nuevo se
-        genera un reembolso.
+        Si cambias el total y aprietas Guardar, el plan mantiene su forma: las
+        cuotas cambian en proporción a su monto (si sube, solo las que no han
+        vencido) y lo pagado se vuelve a repartir desde la primera cuota. Si lo
+        pagado supera el total nuevo, se genera un reembolso.
       </p>
     </div>
   );
