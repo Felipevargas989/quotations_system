@@ -1811,7 +1811,11 @@ function EventModal({
                             </div>
                             {txs.length === 1 && (
                               <div className="flex items-center gap-3 text-xs text-gray-500">
-                                <span>{txs[0].payment_method || "—"}</span>
+                                {/* Con la pregunta de eliminar a la vista, el
+                                    medio de pago estorba (Felipe, 08-10). */}
+                                {confirmTxId !== txs[0].id && (
+                                  <span>{txs[0].payment_method || "—"}</span>
+                                )}
                                 {txActions(txs[0])}
                               </div>
                             )}
