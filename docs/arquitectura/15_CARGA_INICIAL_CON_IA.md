@@ -54,16 +54,46 @@ Bocados salados · Bocados dulces.
 
 **Servicios paquetizados** (sin secciones).
 
-**Servicios fijos** (salón y otros): Arriendos · Audiovisuales ·
-Decoraciones · Actividades.
+**Servicios fijos — se cobran POR EVENTO, no por persona** (Felipe,
+09-10: *"ojo con los servicios fijos también, cómo es su estructura"*;
+medido ese día en la empresa 1):
+
+| Sección | Qué va ahí (ejemplos de VDS, solo como forma) |
+|---|---|
+| Arriendos | Salones por medio día / día completo |
+| Audiovisuales | Servicio audiovisual por horas, producciones, arriendo de sillas |
+| Decoraciones | Decoración básica, de graduación, de matrimonio |
+| Actividades | Tinajas por horas o por el día, masajes |
+
+Cómo se cobran (`fixed_services.calculation_type`, regla en
+`quotations/utils/money.ts` `resolveFixedServicePrice`):
+- **Fijo**: un monto por evento (un salón medio día).
+- **Fijo + por persona** (`fijo_variable`): base por evento + un monto por
+  persona (las sillas: base + $1.200 por persona). Son 2 de 45 en VDS.
+- ("Variable con límites" está retirado desde el 18-07: el agente nunca
+  lo propone.)
+- Las variantes por duración son servicios distintos (medio día / día
+  completo, 4 horas / por el día).
+- Los costos de cada fijo (costo fijo, costo por persona, "sin costo")
+  son de Logística: el agente no los inventa; si un documento los trae,
+  van como sugerencia aparte.
+
+**Fijos de categoría — lo que SIEMPRE va en una comida, por persona** (la
+sección "Fijos (por defecto)" de cada categoría; sello ámbar «fijo» en el
+cotizador). En VDS: Desayuno y Once → té, café y leche; Almuerzo, Cena y
+Almuerzo niños → bebida libre consumo + pan con pebre; Lunch box →
+packaging. El agente los detecta en frases como "todos los menús
+incluyen…" y no los confunde con los servicios fijos por evento.
 
 **Tipos de cliente y de evento**: los de Valle del Sol (ya se siembran al
 crear la empresa: migración 117, `sembrarTiposBase`).
 
 **Reglas de la casa que el agente aplica**: nombre de menú guardado
 "principal - agregado"; precios con IVA cuando se factura (preguntar si
-no está claro); la sección "Fijos (por defecto)" es lo que va siempre en
-esa comida.
+no está claro); separar lo que se cobra **por persona** (ítems de comida)
+de lo que se cobra **por evento** (servicios fijos); detectar "base + por
+persona"; la sección "Fijos (por defecto)" es lo que va siempre en esa
+comida.
 
 **Fuera de la plantilla**: las categorías Sernatur (programa propio de
 Valle del Sol).
