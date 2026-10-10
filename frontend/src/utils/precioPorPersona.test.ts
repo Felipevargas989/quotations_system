@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  porPrecioYNombre,
   precioPorPersonaDeMenu,
   precioPorPersonaDePaquete,
 } from "./precioPorPersona";
 
 const menu = (...lineas: [number, number][]) =>
   ({
-    items: lineas.map(([price, quantity]) => ({ quantity, service: { price } })),
+    items: lineas.map(([price, quantity]) => ({
+      quantity,
+      service: { price },
+    })),
   }) as never;
 
 describe("precio por persona", () => {
@@ -27,5 +31,22 @@ describe("precio por persona", () => {
     expect(
       precioPorPersonaDePaquete({ groups: [{ group: null }] } as never),
     ).toBe(0);
+  });
+
+  it("para elegir: de menor a mayor precio y, a igual precio, por nombre", () => {
+    const menus = [
+      { name: "Filete - Papas gratinadas y vino", precio: 23900 },
+      { name: "Trutro de pollo - Arroz", precio: 9900 },
+      { name: "pastel de papas - Leche asada", precio: 13400 },
+      { name: "Cazuela de ave - Leche asada", precio: 13400 },
+    ];
+    expect(
+      [...menus].sort(porPrecioYNombre((m) => m.precio)).map((m) => m.name),
+    ).toEqual([
+      "Trutro de pollo - Arroz",
+      "Cazuela de ave - Leche asada",
+      "pastel de papas - Leche asada",
+      "Filete - Papas gratinadas y vino",
+    ]);
   });
 });

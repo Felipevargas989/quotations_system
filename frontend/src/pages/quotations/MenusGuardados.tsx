@@ -4,7 +4,10 @@ import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { precioPorPersonaDeMenu as precioPorPersonaDe } from "../../utils/precioPorPersona";
+import {
+  porPrecioYNombre,
+  precioPorPersonaDeMenu as precioPorPersonaDe,
+} from "../../utils/precioPorPersona";
 
 /**
  * EL PANEL DE MENÚS GUARDADOS del cotizador (extraído de QuotationForm
@@ -40,8 +43,10 @@ export default function MenusGuardados({
     nombre: string;
   } | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const ordenados = [...grupos].sort((a, b) =>
-    a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+  // De menor a mayor precio por persona (Felipe, 10-10-2026); antes,
+  // alfabético.
+  const ordenados = [...grupos].sort(
+    porPrecioYNombre<ServiceGroup>(precioPorPersonaDe),
   );
 
   const guardarNombre = async () => {
