@@ -114,8 +114,8 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 
     Si Resend devuelve error, el endpoint responde 400.
 11. **Bitácora**: `followups.create` inserta en `quotation_followups` "Cotización enviada por correo a X, con el PDF adjunto." con `tipo = 'correo'`; desde la versión 2 agrega "(versión N)" antes de la coma. Si falla, solo queda en el log.
-12. **Estado**: si la cotización estaba `solicitada`, se llama `QuotationsRepository.update(id, { quotation_status: 'enviada' }, company_id)`. No pasa por `QuotationsService.update`, así que **no sella `sent_at` ni manda el aviso `QUOTATION_IS_SENT`**. Si falla, solo queda en el log.
-13. **Respuesta**: el motor devuelve `{ enviado_a }`. La ficha muestra un toast e invalida `["followups", id]`, `["quotation", id]` y `["quotations", "ficha-lista"]`.
+12. **Estado**: si la cotización estaba `solicitada`, se llama `QuotationsRepository.update(id, { quotation_status: 'enviada', sent_at: ahora }, company_id)`. Desde el 10-10-2026 **sella `sent_at`**, igual que el paso a mano, y así arranca el reloj de los días 7 y 14 (Felipe: 19 cotizaciones de Valle del Sol habían quedado sin fecha desde el 04-10). No pasa por `QuotationsService.update`, así que **no manda el aviso `QUOTATION_IS_SENT`** (el cliente ya recibió el correo con el PDF). Si falla, solo queda en el log.
+13. **Respuesta**: el motor devuelve `{ enviado_a }`. La ficha muestra un toast e invalida la bitácora (`["seguimientos", id]` y `["seguimientos", "map"]`), `["quotation", id]` y TODAS las listas (`["quotations"]`, tablero incluido). Hasta el 10-10-2026 invalidaba `["followups", id]` (una llave que nadie lee) y solo `ficha-lista`: el tablero seguía mostrando la cotización en Solicitadas (Felipe, cotizaciones 590 y 594).
 
 ### 5.2 Cambiar el estado a mano (tablero o ficha)
 
@@ -160,7 +160,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
    - el compromiso vigente: la nota más reciente con fecha y sin cumplir.
 
    Con eso se pintan el semáforo del tablero (`semaforoDe`) y el aviso ámbar de Post-Venta.
-6. La línea gris "Cotización enviada al cliente" del hilo no es una fila: sale de `quotations.sent_at`.
+6. La línea gris "Cotización enviada al cliente" del hilo no es una fila: sale de `quotations.sent_at`. Desde el 10-10-2026 no se muestra si el hilo ya tiene la nota del botón ("Cotización enviada por correo a …"), que dice lo mismo y más.
 
 ### 5.4 Los relojes (`api-rest/src/quotations/quotations-cron.service.ts`)
 
@@ -341,8 +341,8 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 
 ## 8. Zonas de riesgo: si tocas esto, cuidado con aquello
 
-- **Si tocas** el marcado de estado dentro de `EnvioCotizacionService.enviarDeVerdad`, **se afecta** el reloj de seguimiento, **porque** hoy escribe por el repositorio solo `{ quotation_status: 'enviada' }` y no sella `sent_at`.
-  - Una cotización enviada con el botón desde Solicitada nunca recibe los toques de los días 7 y 14, porque `findFollowUps` filtra por `sent_at`.
+- **Si tocas** el marcado de estado dentro de `EnvioCotizacionService.enviarDeVerdad`, **se afecta** el reloj de seguimiento, **porque** de ahí sale el `sent_at` de lo enviado con el botón (desde el 10-10-2026; antes no se sellaba).
+  - Sin `sent_at`, una cotización enviada con el botón nunca recibe los toques de los días 7 y 14, porque `findFollowUps` filtra por `sent_at`. Prueba: "una SOLICITADA que se envía queda ENVIADA y con fecha de envío".
   - Tampoco muestra la línea "Cotización enviada al cliente" en el hilo.
   - Pasarla por `QuotationsService.update` sellaría la fecha, pero mandaría además `QUOTATION_IS_SENT`: un segundo correo al cliente.
   - Evidencia: `enviarDeVerdad`; `QuotationsService.update`; `QuotationsRepository.findFollowUps`; la prueba "una SOLICITADA que se envía queda ENVIADA" exige ese payload exacto.
@@ -384,7 +384,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
   - El archivo alcanza a subir al balde (`POST /storage/upload` no tiene `@Roles`) y después `POST /event-documents` lo rebota; la lista le sale vacía porque `getDocumentsByQuotation` se traga el error.
   - Es la misma quemadura del 12-08 que se tapó solo para recepción.
   - Evidencia: `NegocioPage` (`puedeEditar` y su comentario del 12-08); `AdjuntosComerciales.subir`; `event-documents.controller.ts`; `api-rest/src/storage/storage.controller.ts`; `documents.service.ts`; `roles.decorator.ts`.
-- **Si tocas** las invalidaciones de `NegocioPage`, **se afecta** la bitácora, **porque** tras enviar y tras `MotivoPerdida` se invalida `["followups", id]`, pero el hilo usa `["seguimientos", id]`.
+- **Si tocas** las invalidaciones de `NegocioPage`, **se afectan** la bitácora y el tablero, **porque** el hilo vive en `["seguimientos", id]` (y Post-Venta en `["seguimientos", "map"]`) y el tablero en `["quotations", "embudo-y-rechazadas"]`. Tras enviar y tras `MotivoPerdida` se usa `refrescarBitacora` (desde el 10-10-2026; antes se invalidaba `["followups", id]`, que nadie lee).
   - La nota nueva aparece recién cuando la ventana recupera el foco o el hilo se vuelve a montar.
   - Evidencia: `NegocioPage.enviarPorCorreo`; `HiloSeguimiento`; `frontend/src/lib/queryClient.ts`.
 - **Si escalas** el motor a más de una instancia o sube el volumen de envíos, **se afectan** la memoria y el doble envío, **porque** `enviosEnCurso` vive en la memoria de un solo proceso y solo frena la misma cotización.
@@ -497,10 +497,10 @@ App (Vitest, corre en CI con `npm run test`):
 2. **Por qué el marcado de estado va por el repositorio.**
    - Doc 13, "El estado se mueve SOLO en la primera salida": pasar por `quotations.service.update` "dispara la cascada del plan de pagos".
    - Código: `QuotationsService.update` corre la cascada solo si la cotización actual está `aceptada` o sale de post-venta. En Solicitada → Enviada no hay cascada. Lo que sí haría es mandar `QUOTATION_IS_SENT` y sellar `sent_at`.
-   - Consecuencia no mencionada en el doc: el envío por botón no sella `sent_at`, del que dependen la migración 51 y el cron de los días 7 y 14.
+   - Consecuencia no mencionada en el doc: el envío por botón no sellaba `sent_at`, del que dependen la migración 51 y el cron de los días 7 y 14. **Resuelto el 10-10-2026**: ahora lo sella (ver flujo 5.1, paso 12).
 3. **Refresco al enviar.**
    - Doc 13: "Al enviar se refrescan la bitácora, la ficha y la lista".
-   - Código: `NegocioPage.enviarPorCorreo` invalida `["followups", id]`, pero `HiloSeguimiento` usa `["seguimientos", quotation.id]`, así que esa invalidación no refresca la bitácora. La lista que se invalida es `["quotations", "ficha-lista"]`, no la del tablero (`["quotations", "embudo-y-rechazadas"]`).
+   - Código: `NegocioPage.enviarPorCorreo` invalidaba `["followups", id]`, pero `HiloSeguimiento` usa `["seguimientos", quotation.id]`, así que esa invalidación no refrescaba la bitácora. La lista que se invalidaba era `["quotations", "ficha-lista"]`, no la del tablero (`["quotations", "embudo-y-rechazadas"]`). **Resuelto el 10-10-2026** (Felipe: "pinché enviar… y no se movieron a enviadas").
 4. **"Un envío a la vez".**
    - Doc 13, paso 4 del circuito: "un envío a la vez".
    - Código: `enviosEnCurso` es un `Set` por id de cotización, en memoria. Solo impide duplicar la misma; dos cotizaciones distintas imprimen en paralelo.
@@ -520,7 +520,7 @@ App (Vitest, corre en CI con `npm run test`):
 
 ## 12. Preguntas abiertas
 
-1. **`sent_at` al enviar con el botón.** ¿Es intencional que no se selle al pasar de Solicitada a Enviada? Hoy eso deja esas cotizaciones sin toques automáticos de los días 7 y 14 y sin la línea de sistema en el hilo.
+1. ~~**`sent_at` al enviar con el botón.**~~ **CERRADA el 10-10-2026**: no era intencional; ahora se sella. Las 19 cotizaciones de Valle del Sol que habían quedado `enviada` sin fecha (enviadas con el botón entre el 04-10 y el 10-10) recibieron como `sent_at` la hora de su primera nota de envío, con el OK de Felipe. En Valle del Sol los toques de los días 7 y 14 están apagados, así que eso no mandó ningún correo.
 2. **Recepción y el botón.** ¿Recepción debe poder apretar "Enviar cotización"? El endpoint no tiene `@Roles` y el botón se ve sin revisar el rol.
 3. **El botón en las cerradas.** ¿Debe funcionar en aceptadas, realizadas, rechazadas y anuladas? El motor no frena por estado y el botón quedó visible en todas desde el `912c912`.
 4. **Pie del PDF del motor.** ¿Lleva "Página N de M"?
