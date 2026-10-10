@@ -148,6 +148,12 @@ export default function NegocioPage() {
   // muestra su veredicto.
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  // La bitácora (SeguimientoPanel) vive bajo ["seguimientos", id], y la
+  // columna de Post-Venta bajo ["seguimientos", "map"].
+  const refrescarBitacora = () => {
+    void queryClient.invalidateQueries({ queryKey: ["seguimientos", id] });
+    void queryClient.invalidateQueries({ queryKey: ["seguimientos", "map"] });
+  };
   const enviarPorCorreo = async () => {
     if (!fila) return;
     setEnviandoCorreo(true);
@@ -155,13 +161,14 @@ export default function NegocioPage() {
       const r = await enviarCotizacionPorCorreo(fila.id);
       toast.success(`Cotización enviada a ${r.enviado_a}.`);
       // La bitácora ganó una anotación con el envío, y una SOLICITADA
-      // acaba de pasar a ENVIADA en el motor: el chip de estado y la
-      // lista tienen que enterarse sin recargar la página.
-      void queryClient.invalidateQueries({ queryKey: ["followups", id] });
+      // acaba de pasar a ENVIADA en el motor: el chip de estado, la
+      // bitácora y TODAS las listas tienen que enterarse sin recargar.
+      // Antes se refrescaba solo la lista de esta ficha y una clave que
+      // nadie lee: el tablero seguía mostrando la cotización en
+      // Solicitadas (Felipe, 10-10-2026, cotizaciones 590 y 594).
+      refrescarBitacora();
       void queryClient.invalidateQueries({ queryKey: ["quotation", id] });
-      void queryClient.invalidateQueries({
-        queryKey: ["quotations", "ficha-lista"],
-      });
+      void queryClient.invalidateQueries({ queryKey: ["quotations"] });
     } catch (e) {
       toast.error(humanizeApiError(e));
     } finally {
@@ -622,9 +629,7 @@ export default function NegocioPage() {
                     quotation_id: id!,
                     note: comentario,
                   }).catch(() => {});
-                queryClient.invalidateQueries({
-                  queryKey: ["followups", id],
-                });
+                refrescarBitacora();
                 setPidiendoMotivo(null);
               } finally {
                 setGuardandoMotivo(false);
