@@ -463,29 +463,20 @@ export default function NegocioPage() {
                 <IconoWhatsApp /> WhatsApp
               </a>
             )}
-            {confirmandoEnvio ? (
-              <ConfirmInline
-                question={
-                  contacto.email
-                    ? `Se enviará el correo con el PDF adjunto a ${contacto.email}.`
-                    : "¿Enviar la cotización por correo?"
-                }
-                yesLabel="Sí, enviar"
-                tono="normal"
-                busy={enviandoCorreo}
-                onYes={() => void enviarPorCorreo()}
-                onNo={() => setConfirmandoEnvio(false)}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmandoEnvio(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
-                title="Enviar la cotización por correo, con el PDF adjunto"
-              >
-                <Send size={15} /> Enviar cotización
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={enviandoCorreo}
+              onClick={() => setConfirmandoEnvio((v) => !v)}
+              aria-pressed={confirmandoEnvio}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm font-semibold ${
+                confirmandoEnvio
+                  ? "bg-blue-800 ring-2 ring-blue-200"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+              title="Enviar la cotización por correo, con el PDF adjunto"
+            >
+              <Send size={15} /> Enviar cotización
+            </button>
             <button
               type="button"
               onClick={() => setVerPdf(true)}
@@ -495,6 +486,28 @@ export default function NegocioPage() {
               <FileText size={15} /> PDF
             </button>
           </div>
+          {/* La pregunta va en su propia línea, bajo los botones y a la
+              derecha. Puesta en el lugar del botón era más larga que él y
+              mandaba toda la fila de botones a la línea de abajo (Felipe,
+              10-10-2026, cotización 597). */}
+          {confirmandoEnvio && (
+            <div className="basis-full flex justify-end">
+              <div className="rounded-lg bg-blue-50 px-3 py-2">
+                <ConfirmInline
+                  question={
+                    contacto.email
+                      ? `Se enviará el correo con el PDF adjunto a ${contacto.email}.`
+                      : "¿Enviar la cotización por correo?"
+                  }
+                  yesLabel="Sí, enviar"
+                  tono="normal"
+                  busy={enviandoCorreo}
+                  onYes={() => void enviarPorCorreo()}
+                  onNo={() => setConfirmandoEnvio(false)}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Las cajitas del evento: pieza única compartida con
