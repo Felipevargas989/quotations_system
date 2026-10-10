@@ -77,7 +77,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 
 ### 5.1 Enviar cotización (el botón de la ficha)
 
-1. **Pantalla**: en `NegocioPage` se aprieta "Enviar cotización". `ConfirmInline` muestra el correo que calcula `contactoDe`, la regla de la app. Desde el 10-10-2026 la pregunta sale en su propia línea, bajo los botones y a la derecha, y el botón queda apretado mientras se confirma: puesta en el lugar del botón era más larga que él y mandaba toda la fila de botones a la línea de abajo (Felipe, cotización 597).
+1. **Pantalla**: en `NegocioPage` se aprieta "Enviar cotización". `ConfirmInline` muestra el correo que calcula `contactoDe`, la regla de la app. Desde el 10-10-2026 la pregunta es corta ("¿Enviar el PDF a correo?") y sale bajo los botones, en el hueco libre al lado de los datos del cliente, sin agrandar el encabezado; el botón queda apretado mientras se confirma. Antes, en el lugar del botón, mandaba toda la fila de botones a la línea de abajo (cotización 597), y en una línea propia bajo el encabezado lo estiraba hacia abajo (cotización 416). Medido con los estilos reales: la pregunta corta mide 412-468 px y la fila de botones 467 px, así que la columna no se ensancha.
 2. **App**: `enviarCotizacionPorCorreo` llama `POST /quotations/:id/enviar-correo`.
 3. **Motor**: `EnvioCotizacionService.enviar` anota la cotización en `enviosEnCurso`, un `Set` en memoria, y rechaza un segundo envío simultáneo de la misma.
 4. `enviarDeVerdad` lee `QuotationsRepository.findOne`. Si la cotización es de otra empresa, responde 404.
