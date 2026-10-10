@@ -3,7 +3,10 @@ import { Package, Search, Trash2 } from "lucide-react";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
 import ConfirmInline from "../ConfirmInline";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
-import { precioPorPersonaDePaquete } from "../../utils/precioPorPersona";
+import {
+  porPrecioYNombre,
+  precioPorPersonaDePaquete,
+} from "../../utils/precioPorPersona";
 
 /**
  * "PARTIR DE UN PAQUETE" — el botón y su lista, con buscador.
@@ -49,8 +52,12 @@ export default function SelectorDePaquetes({
     setConfirma(null);
   };
 
+  // De menor a mayor precio por persona (Felipe, 10-10-2026); antes, en
+  // el orden en que llegaban.
   const lista = useListaBuscable({
-    opciones: paquetes.map((p) => ({ value: String(p.id), label: p.name })),
+    opciones: [...paquetes]
+      .sort(porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete))
+      .map((p) => ({ value: String(p.id), label: p.name })),
     abierta: abierto,
     marcarPrimero: true,
     alCerrar: cerrar,
@@ -126,7 +133,9 @@ export default function SelectorDePaquetes({
                           : `¿Eliminar "${paquete.name}"?`
                       }
                       yesLabel={
-                        confirma.accion === "cargar" ? "Agregar" : "Sí, eliminar"
+                        confirma.accion === "cargar"
+                          ? "Agregar"
+                          : "Sí, eliminar"
                       }
                       onYes={async () => {
                         if (confirma.accion === "cargar") {
