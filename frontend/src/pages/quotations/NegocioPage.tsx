@@ -390,110 +390,129 @@ export default function NegocioPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* El chip cambia de estado solo si quien mira puede
+          {/* Columna de acciones: los botones arriba y, al confirmar el
+              envío, la pregunta justo debajo. */}
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              {/* El chip cambia de estado solo si quien mira puede
                 editar (12-08). Sin permiso cae al chip fijo de abajo,
                 que ya existía para las cerradas: se lee el estado y no
                 se ofrece una puerta que el servidor cierra con 403. */}
-            {puedeEditar &&
-            ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (
-              <span className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setEstadoMenu((v) => !v)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
-                  title="Cambiar estado"
-                >
-                  {etiquetaEstado(fila?.quotation_status || "")}
-                  <ChevronDown size={12} className="shrink-0" />
-                </button>
-                {estadoMenu && (
-                  <>
-                    <span
-                      className="fixed inset-0 z-10 block"
-                      onClick={() => setEstadoMenu(false)}
-                    />
-                    <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
-                      {/* Cancelada NO va: es destino exclusivo de lo
+              {puedeEditar &&
+              ESTADOS_VIVOS_FICHA.includes(fila?.quotation_status || "") ? (
+                <span className="relative inline-block">
+                  <button
+                    type="button"
+                    onClick={() => setEstadoMenu((v) => !v)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
+                    title="Cambiar estado"
+                  >
+                    {etiquetaEstado(fila?.quotation_status || "")}
+                    <ChevronDown size={12} className="shrink-0" />
+                  </button>
+                  {estadoMenu && (
+                    <>
+                      <span
+                        className="fixed inset-0 z-10 block"
+                        onClick={() => setEstadoMenu(false)}
+                      />
+                      <span className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+                        {/* Cancelada NO va: es destino exclusivo de lo
                           aceptado (regla de Felipe 04-08), y las
                           aceptadas llevan chip fijo en esta ficha. */}
-                      {[
-                        "solicitada",
-                        "enviada",
-                        "en_negociacion",
-                        "aceptada",
-                        "rechazada",
-                      ].map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          onClick={() => {
-                            setEstadoMenu(false);
-                            void cambiarEstado(st);
-                          }}
-                          className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
-                        >
-                          <span
-                            className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(st)}`}
+                        {[
+                          "solicitada",
+                          "enviada",
+                          "en_negociacion",
+                          "aceptada",
+                          "rechazada",
+                        ].map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => {
+                              setEstadoMenu(false);
+                              void cambiarEstado(st);
+                            }}
+                            className="block w-full text-left px-2.5 py-1.5 hover:bg-gray-50"
                           >
-                            {etiquetaEstado(st)}
-                          </span>
-                        </button>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </span>
-            ) : (
-              <span
-                className={`px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
-                title="Las cerradas se gestionan en Post-Venta"
-              >
-                {etiquetaEstado(fila?.quotation_status || "")}
-              </span>
-            )}
-            {wspHref && (
-              <a
-                href={wspHref}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-white text-sm font-semibold hover:brightness-95"
-                title="Abrir WhatsApp con el mandante"
-              >
-                <IconoWhatsApp /> WhatsApp
-              </a>
-            )}
-            {confirmandoEnvio ? (
-              <ConfirmInline
-                question={
-                  contacto.email
-                    ? `Se enviará el correo con el PDF adjunto a ${contacto.email}.`
-                    : "¿Enviar la cotización por correo?"
-                }
-                yesLabel="Sí, enviar"
-                tono="normal"
-                busy={enviandoCorreo}
-                onYes={() => void enviarPorCorreo()}
-                onNo={() => setConfirmandoEnvio(false)}
-              />
-            ) : (
+                            <span
+                              className={`block w-full px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(st)}`}
+                            >
+                              {etiquetaEstado(st)}
+                            </span>
+                          </button>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </span>
+              ) : (
+                <span
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-full ${chipEstado(fila?.quotation_status || "")}`}
+                  title="Las cerradas se gestionan en Post-Venta"
+                >
+                  {etiquetaEstado(fila?.quotation_status || "")}
+                </span>
+              )}
+              {wspHref && (
+                <a
+                  href={wspHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-white text-sm font-semibold hover:brightness-95"
+                  title="Abrir WhatsApp con el mandante"
+                >
+                  <IconoWhatsApp /> WhatsApp
+                </a>
+              )}
               <button
                 type="button"
-                onClick={() => setConfirmandoEnvio(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+                disabled={enviandoCorreo}
+                onClick={() => setConfirmandoEnvio((v) => !v)}
+                aria-pressed={confirmandoEnvio}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm font-semibold ${
+                  confirmandoEnvio
+                    ? "bg-blue-800 ring-2 ring-blue-200"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
                 title="Enviar la cotización por correo, con el PDF adjunto"
               >
                 <Send size={15} /> Enviar cotización
               </button>
+              <button
+                type="button"
+                onClick={() => setVerPdf(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
+                title="Ver el documento de la cotización"
+              >
+                <FileText size={15} /> PDF
+              </button>
+            </div>
+            {/* La pregunta va bajo los botones, en el hueco libre al lado de
+              los datos del cliente, y no agranda el encabezado. En el lugar
+              del botón mandaba la fila entera a la línea de abajo (cot.
+              597), y en una línea propia bajo el encabezado lo estiraba
+              hacia abajo (cot. 416) — Felipe, 10-10-2026. El texto es
+              corto a propósito: así la pregunta no es más ancha que la
+              fila de botones (medido: 412-468 px contra 467) y la columna
+              no se ensancha. */}
+            {confirmandoEnvio && (
+              <div className="rounded-lg bg-blue-50 px-3 py-1">
+                <ConfirmInline
+                  question={
+                    contacto.email
+                      ? `¿Enviar el PDF a ${contacto.email}?`
+                      : "¿Enviar la cotización por correo?"
+                  }
+                  yesLabel="Sí, enviar"
+                  tono="normal"
+                  busy={enviandoCorreo}
+                  onYes={() => void enviarPorCorreo()}
+                  onNo={() => setConfirmandoEnvio(false)}
+                />
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => setVerPdf(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
-              title="Ver el documento de la cotización"
-            >
-              <FileText size={15} /> PDF
-            </button>
           </div>
         </div>
 
