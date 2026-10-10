@@ -333,7 +333,16 @@ export function HiloSeguimiento({
           at: n.created_at,
           nota: n,
         })),
-        ...(quotation.sent_at
+        // El botón "Enviar cotización" deja su propia nota ("Cotización
+        // enviada por correo a …", más completa) y desde el 10-10-2026
+        // también sella sent_at: con la nota a la vista, la línea del
+        // sistema repetiría lo mismo.
+        ...(quotation.sent_at &&
+        !notas.some(
+          (n) =>
+            n.tipo === "correo" &&
+            n.note.startsWith("Cotización enviada por correo"),
+        )
           ? [
               {
                 kind: "sistema" as const,
@@ -635,7 +644,8 @@ export function HiloSeguimiento({
                           {/* En vivos, editar también exige tipo y fecha
                               (misma regla de Close); en muertos la nota
                               es de archivo y solo se toca el texto. */}
-                          {compromisoVivo && chipsTipo(editTipo, setEditTipo, true)}
+                          {compromisoVivo &&
+                            chipsTipo(editTipo, setEditTipo, true)}
                           <div className="flex flex-wrap items-center justify-end gap-2">
                             {compromisoVivo && (
                               <label className="flex items-center gap-1.5 text-xs text-gray-600 mr-1">

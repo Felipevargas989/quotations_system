@@ -16,6 +16,7 @@ import { QuotationFollowupsService } from 'src/quotation-followups/quotation-fol
 import type { User } from 'src/users/entities/user.entity';
 import { QuotationStatus } from './constants/constants';
 import { correoDeCotizacion, reparosDelPortero } from './correo-cotizacion';
+import type { UpdateQuotationDto } from './dto/update-quotation.dto';
 import type { Quotation } from './entities/quotation.entity';
 import { firmarTokenImpresion, validarTokenImpresion } from './firma-impresion';
 import { listaBlancaDeHoja } from './hoja-publica';
@@ -285,11 +286,19 @@ export class EnvioCotizacionService {
     // el repositorio y no por quotations.service.update a propósito: ese
     // camino dispara la CASCADA del plan de pagos, que aquí no toca.
     // Si fallara, el correo YA salió: se anota y no se rompe el envío.
+    // Con el estado se sella la FECHA DE ENVÍO, igual que al cambiar el
+    // estado a mano (quotations.service.update): de ella cuentan los
+    // correos de seguimiento de los días 7 y 14 (migración 51). Sin ella,
+    // lo enviado con este botón nunca los recibía (Felipe, 10-10-2026:
+    // 19 cotizaciones de Valle del Sol quedaron sin fecha desde el 04-10).
     if (q.quotation_status === ESTADO_ANTES_DE_ENVIAR) {
       try {
         await this.quotationsRepository.update(
           quotationId,
-          { quotation_status: ESTADO_TRAS_ENVIAR },
+          {
+            quotation_status: ESTADO_TRAS_ENVIAR,
+            sent_at: new Date().toISOString(),
+          } as unknown as UpdateQuotationDto,
           user.company_id,
         );
       } catch (e) {

@@ -241,16 +241,27 @@ describe('enviar cotización por correo', () => {
   // EL ESTADO SE MUEVE SOLO EN LA PRIMERA SALIDA (Felipe, 10-09-2026):
   // "si ya está enviada no hacer nada, si aparece en negociación y es un
   // correo de ajuste mantenerse en el estado que está".
-  it('una SOLICITADA que se envía queda ENVIADA', async () => {
+  // Con el estado se sella la fecha de envío (Felipe, 10-10-2026): de ella
+  // cuentan los correos de seguimiento de los días 7 y 14, y sin ella lo
+  // enviado con el botón nunca los recibía.
+  it('una SOLICITADA que se envía queda ENVIADA y con fecha de envío', async () => {
     const { service, repo } = armar({
       quotation: { ...COTIZACION, quotation_status: 'solicitada' },
     });
+    const antes = Date.now();
     await service.enviar('q-1', USUARIO);
     expect(repo.update).toHaveBeenCalledWith(
       'q-1',
-      { quotation_status: 'enviada' },
+      { quotation_status: 'enviada', sent_at: expect.any(String) },
       1,
     );
+    const [, { sent_at }] = repo.update.mock.calls[0] as [
+      string,
+      { sent_at: string },
+      number,
+    ];
+    expect(Date.parse(sent_at)).toBeGreaterThanOrEqual(antes);
+    expect(Date.parse(sent_at)).toBeLessThanOrEqual(Date.now());
   });
 
   it.each(['enviada', 'en_negociacion', 'aceptada', 'rechazada'])(
