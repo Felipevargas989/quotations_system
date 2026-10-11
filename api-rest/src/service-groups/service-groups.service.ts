@@ -62,9 +62,12 @@ export class ServiceGroupsService {
       // choque esperable — el frontend necesita poder decírselo al
       // usuario en vez de un "no se pudo" mudo (pillado 05-08 con
       // "Desayuno de campo", que ya existía en una categoría vieja).
+      // Desde la migración 119 (11-10-2026) el nombre es único dentro de
+      // su CATEGORÍA: Almuerzo y Cena pueden tener un menú que se llame
+      // igual.
       if ((error as { code?: string })?.code === '23505') {
         throw new HttpException(
-          'Ya existe un menú guardado con ese nombre. Elige otro.',
+          'Ya existe un menú guardado con ese nombre en esta categoría. Elige otro.',
           HttpStatus.CONFLICT,
         );
       }
@@ -126,7 +129,7 @@ export class ServiceGroupsService {
     if (error) {
       if ((error as { code?: string })?.code === '23505') {
         throw new HttpException(
-          'Ya existe un menú guardado con ese nombre. Elige otro.',
+          'Ya existe un menú guardado con ese nombre en esta categoría. Elige otro.',
           HttpStatus.CONFLICT,
         );
       }

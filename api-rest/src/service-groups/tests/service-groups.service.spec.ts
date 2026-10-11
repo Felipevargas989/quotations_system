@@ -31,7 +31,8 @@ describe('ServiceGroupsService.rename', () => {
     const { service } = armar({ data: null, error: { code: '23505' } });
     await expect(service.rename(7, 1, 'Coffee Clásico')).rejects.toMatchObject({
       status: 409,
-      message: 'Ya existe un menú guardado con ese nombre. Elige otro.',
+      message:
+        'Ya existe un menú guardado con ese nombre en esta categoría. Elige otro.',
     });
   });
 
