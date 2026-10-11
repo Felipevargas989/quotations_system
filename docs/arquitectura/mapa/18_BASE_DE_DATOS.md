@@ -79,7 +79,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `variable_service_categories` | Vínculo servicio ↔ categoría (multicategoría), con orden y sección | 05 | 5; 24 |
 | `category_sections` | Secciones de una categoría; a lo más una fija (`is_default`) | 05 | 24; 25 |
 | `fixed_service_sections` | Secciones de los servicios fijos | 05 | 53 |
-| `service_groups` | Menús guardados | 05 | 1; 2 |
+| `service_groups` | Menús guardados | 05 | 1; 2; 119 |
 | `service_group_items` | Servicios de un menú, con cantidad | 05 | 1 |
 | `service_group_collections` | Paquetes | 05 | 3 |
 | `service_group_collection_items` | Menús de un paquete | 05 | 3 |
