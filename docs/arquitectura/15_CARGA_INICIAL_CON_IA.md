@@ -2,10 +2,9 @@
 
 > **Estado: PLAN APROBADO POR FELIPE (09-10-2026), SIN CONSTRUIR.** Sprint 0
 > en curso: el MDS (Marina del Sol) armado a mano como lo haría el agente
-> —catálogo, recetas con costo estimado, menús guardados y paquetes—,
-> ensayado en el laboratorio el 09-10 y por cargar en producción, en una
-> empresa nueva, para la revisión de Felipe. Después se construye la carga
-> automática.
+> —catálogo, recetas con costo estimado, menús guardados y paquetes—
+> quedó **cargado de cero en su empresa de producción (51) el 10-10-2026**
+> para la revisión de Felipe. Después se construye la carga automática.
 
 ## Por qué
 
@@ -129,7 +128,21 @@ componente con un precio calculado para que el menú sume exacto (el cóctel
 cuadra en sus cuatro formatos con montaje $22.729 + piezas). Tiene 114
 ítems, 6 menús, 2 cotizaciones (18-07) y **0 vínculos ítem-categoría**:
 su carta probablemente se ve vacía al cotizar (sin comprobar en pantalla).
-No se toca; la prueba va en una empresa nueva.
+
+**Cargado de cero el 10-10-2026** en esa misma empresa 51 de producción.
+Felipe: *"puedes borrar todo no más, está en onboarding así que hagámoslo
+de cero y bien"*. El cargador ganó el modo "de cero": borra el catálogo
+viejo (6 menús, 114 ítems, 12 fijos y 9 categorías) y carga el nuevo en
+la misma transacción, solo si nada fuera del catálogo apunta a esas filas
+(recursos de eventos) y no hay insumos, recetas ni paquetes. Las 2
+cotizaciones de julio guardan su propia copia y no se tocaron. Decisiones
+aplicadas: salones **con IVA** (la ficha no lo decía; como el resto de la
+carta, "más IVA"), reparto por sección propio, y la pantalla LED de abril
+($952.000) recreada en "Audiovisuales" porque no está en los documentos.
+Quedó: 9 categorías, 121 ítems, 134 insumos sin proveedor, 528 líneas de
+receta, 25 menús, 6 paquetes y 12 fijos. Lección del cargador: un alias de
+tabla que se llame igual que una variable del bloque (`f`, `x`) rompe el
+bloque ("record is not assigned yet"); se usan alias propios.
 
 ## La plantilla de rubro (medida en Eventia el 09-10-2026, empresa 1)
 
@@ -223,9 +236,9 @@ tilde en Lunch box.
 ## Orden de construcción
 
 0. **Sprint 0, sin tocar el sistema**: MDS armado a mano (hecho y
-   ensayado el 09-10) → cargado en producción en una empresa nueva →
-   revisión de Felipe → Mokka y Neuralis → se mide costo y demora del
-   modelo con los mismos documentos.
+   ensayado el 09-10) → ~~cargado en producción~~ (hecho el 10-10, de
+   cero en su empresa 51) → revisión de Felipe → Mokka y Neuralis → se
+   mide costo y demora del modelo con los mismos documentos.
 1. Motor: carga de documentos + agente + borrador guardado.
 2. Pantalla de revisión en el alta + "Crear" con un clic (usa el
    cargador del sprint 0).
