@@ -1,8 +1,9 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { ReglasDeGrupos } from 'src/grupos-de-lista/reglas-de-grupos';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
-import { ServiceGroup } from './entities/service-group.entity';
+import { MenuGroup, ServiceGroup } from './entities/service-group.entity';
 import { ServiceGroupsRepository } from './service-groups.repository';
 
 @Injectable()
@@ -164,5 +165,145 @@ export class ServiceGroupsService {
       );
     }
     return { removed: true };
+  }
+
+  // ---------- GRUPOS DE MENÚS GUARDADOS (12-10-2026, migración 121) ----------
+  // Felipe: "así podemos ordenar también los menús guardados de cada
+  // categoría". Cada categoría tiene sus grupos (Almuerzo: Nivel 1,
+  // Nivel 2…). Las reglas son las MISMAS de los grupos de paquetes y
+  // viven en src/grupos-de-lista; acá se presta la tabla, filtrada por
+  // empresa y categoría.
+
+  private grupos(companyId: Company['id'], category: string) {
+    return new ReglasDeGrupos(
+      {
+        listar: () =>
+          this.serviceGroupsRepository.gruposDeMenus(companyId, category),
+        crear: (name, orden) =>
+          this.serviceGroupsRepository.crearGrupoDeMenus(
+            companyId,
+            category,
+            name,
+            orden,
+          ),
+        renombrar: (id, name) =>
+          this.serviceGroupsRepository.renombrarGrupoDeMenus(
+            id,
+            companyId,
+            name,
+          ),
+        ordenar: (id, orden) =>
+          this.serviceGroupsRepository.ordenarGrupoDeMenus(
+            id,
+            companyId,
+            orden,
+          ),
+        borrar: (id) =>
+          this.serviceGroupsRepository.borrarGrupoDeMenus(id, companyId),
+      },
+      this.logger,
+    );
+  }
+
+  /** Todos los grupos de la empresa, de todas las categorías. */
+  async listarGrupos(companyId: Company['id']) {
+    const { data, error } =
+      await this.serviceGroupsRepository.todosLosGruposDeMenus(companyId);
+    if (error) {
+      this.logger.error(error);
+      throw new HttpException(
+        'No se pudieron leer los grupos',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return (data ?? []) as Pick<
+      MenuGroup,
+      'id' | 'name' | 'category' | 'sort_order'
+    >[];
+  }
+
+  async crearGrupo(category: string, nombre: string, companyId: Company['id']) {
+    const categoria = (category ?? '').trim();
+    if (!categoria) {
+      throw new HttpException('Falta la categoría', HttpStatus.BAD_REQUEST);
+    }
+    return this.grupos(companyId, categoria).crear(nombre);
+  }
+
+  renombrarGrupo(
+    id: MenuGroup['id'],
+    nombre: string,
+    companyId: Company['id'],
+  ) {
+    // Renombrar va por id y empresa: la categoría no hace falta.
+    return this.grupos(companyId, '').renombrar(id, nombre);
+  }
+
+  /** El orden de UNA categoría: los id de otra categoría o de otra
+   *  empresa se descartan (la lista ya viene filtrada por las dos). */
+  ordenarGrupos(category: string, ids: number[], companyId: Company['id']) {
+    return this.grupos(companyId, category).ordenar(ids);
+  }
+
+  borrarGrupo(id: MenuGroup['id'], companyId: Company['id']) {
+    return this.grupos(companyId, '').borrar(id);
+  }
+
+  /** Cambiar un menú de grupo (null = sin grupo). El menú y el grupo
+   *  tienen que ser de la empresa, y el grupo de la MISMA categoría del
+   *  menú: un grupo de Desayuno no puede tener un menú de Almuerzo. */
+  async asignarGrupo(
+    id: ServiceGroup['id'],
+    menuGroupId: MenuGroup['id'] | null,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(`asignarGrupo menú ${id} → ${menuGroupId}`);
+    const { data: menus, error: errorMenu } =
+      await this.serviceGroupsRepository.categoriaDelMenu(id, companyId);
+    const [menu] = (Array.isArray(menus) ? menus : []) as Pick<
+      ServiceGroup,
+      'id' | 'category'
+    >[];
+    if (errorMenu || !menu) {
+      throw new HttpException(
+        'Menú guardado no encontrado',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (menuGroupId !== null) {
+      const { data: grupos, error: errorGrupo } =
+        await this.serviceGroupsRepository.categoriaDelGrupoDeMenus(
+          menuGroupId,
+          companyId,
+        );
+      const [grupo] = (Array.isArray(grupos) ? grupos : []) as Pick<
+        MenuGroup,
+        'id' | 'category'
+      >[];
+      if (errorGrupo || !grupo) {
+        throw new HttpException('Grupo no encontrado', HttpStatus.NOT_FOUND);
+      }
+      if (grupo.category !== menu.category) {
+        throw new HttpException(
+          'Ese grupo es de otra categoría',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    const { data, error } =
+      await this.serviceGroupsRepository.asignarGrupoAlMenu(
+        id,
+        companyId,
+        menuGroupId,
+      );
+    const [actualizado] = Array.isArray(data) ? data : [];
+    if (error || !actualizado) {
+      this.logger.error(error);
+      throw new HttpException(
+        'No se pudo cambiar el grupo del menú',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return actualizado as Pick<ServiceGroup, 'id' | 'name' | 'menu_group_id'>;
   }
 }

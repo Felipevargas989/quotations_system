@@ -1,30 +1,39 @@
 import { useState } from "react";
 import { Save } from "lucide-react";
 import Modal from "../Modal";
-import ElegirGrupoDePaquete from "./ElegirGrupoDePaquete";
+import ElegirGrupo from "./ElegirGrupo";
 import { toast } from "../toast/Toast";
 import { humanizeApiError } from "../../utils/apiErrors";
-import {
-  CambiosDePaquete,
-  ServiceGroupCollection,
-} from "../../types/serviceGroupCollections.types";
 
 /**
- * EDITAR UN PAQUETE YA CREADO (12-10-2026): el lápiz de cada fila de
- * "Partir de un paquete". Cambia su nombre y su grupo; lo que lleva
- * adentro (menús, sueltos y fijos) se arma al crearlo.
+ * EDITAR UN PAQUETE O UN MENÚ GUARDADO (12-10-2026): el lápiz de cada fila
+ * de "Partir de un paquete" y de "Usar menú guardado". Cambia su nombre y
+ * su grupo; lo que lleva adentro se arma al crearlo.
  */
-export default function EditarPaquete({
-  paquete,
+export default function EditarGuardado({
+  titulo,
+  etiquetaNombre,
+  nombre: nombreInicial,
+  grupoId: grupoInicial,
+  grupos,
+  ayudaGrupos,
   onGuardar,
   onCerrar,
 }: {
-  readonly paquete: ServiceGroupCollection;
-  readonly onGuardar: (cambios: CambiosDePaquete) => Promise<void>;
+  readonly titulo: string;
+  readonly etiquetaNombre: string;
+  readonly nombre: string;
+  readonly grupoId: number | null;
+  readonly grupos: readonly { id: number; name: string }[];
+  readonly ayudaGrupos: string;
+  readonly onGuardar: (cambios: {
+    nombre: string;
+    grupoId: number | null;
+  }) => Promise<void>;
   readonly onCerrar: () => void;
 }) {
-  const [nombre, setNombre] = useState(paquete.name);
-  const [grupoId, setGrupoId] = useState(paquete.package_group_id ?? null);
+  const [nombre, setNombre] = useState(nombreInicial);
+  const [grupoId, setGrupoId] = useState(grupoInicial);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,11 +42,11 @@ export default function EditarPaquete({
     setGuardando(true);
     setError(null);
     try {
-      await onGuardar({ name: nombre.trim(), package_group_id: grupoId });
-      toast.success("Paquete guardado.");
+      await onGuardar({ nombre: nombre.trim(), grupoId });
+      toast.success("Cambios guardados.");
       onCerrar();
     } catch (e) {
-      setError(humanizeApiError(e, "No se pudo guardar el paquete."));
+      setError(humanizeApiError(e, "No se pudieron guardar los cambios."));
     } finally {
       setGuardando(false);
     }
@@ -45,7 +54,7 @@ export default function EditarPaquete({
 
   return (
     <Modal
-      titulo="Editar paquete"
+      titulo={titulo}
       ancho="max-w-md"
       onCerrar={onCerrar}
       pie={
@@ -59,7 +68,7 @@ export default function EditarPaquete({
           </button>
           <button
             type="button"
-            onClick={guardar}
+            onClick={() => void guardar()}
             disabled={guardando || !nombre.trim()}
             className="px-4 py-2 rounded-lg flex items-center space-x-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:text-gray-600 disabled:cursor-not-allowed"
           >
@@ -70,17 +79,23 @@ export default function EditarPaquete({
       }
     >
       <label className="block text-sm font-medium text-gray-700 mb-1">
-        Nombre del paquete
+        {etiquetaNombre}
       </label>
       <input
         type="text"
         autoFocus
         value={nombre}
+        maxLength={120}
         onChange={(e) => setNombre(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && guardar()}
+        onKeyDown={(e) => e.key === "Enter" && void guardar()}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
       />
-      <ElegirGrupoDePaquete valor={grupoId} onCambio={setGrupoId} />
+      <ElegirGrupo
+        grupos={grupos}
+        valor={grupoId}
+        onCambio={setGrupoId}
+        ayuda={ayudaGrupos}
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
     </Modal>
   );
