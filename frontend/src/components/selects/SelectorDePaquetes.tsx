@@ -152,7 +152,8 @@ export default function SelectorDePaquetes({
               );
               if (!paquete) return null;
               // Título cuando empieza un grupo (también en la lista
-              // filtrada por el buscador).
+              // filtrada por el buscador). Mismo diseño que las secciones
+              // de SelectWithSearch y AgregadorDeItems (Felipe, 12-10).
               const grupo = grupoDe.get(opcion.value) ?? null;
               const grupoAnterior =
                 i > 0
@@ -162,7 +163,7 @@ export default function SelectorDePaquetes({
                 hayGrupos &&
                 (grupoAnterior === undefined ||
                   (grupoAnterior?.id ?? null) !== (grupo?.id ?? null)) ? (
-                  <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-t border-gray-100 first:border-t-0">
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50">
                     {grupo?.name ?? "Otros"}
                   </div>
                 ) : null;
