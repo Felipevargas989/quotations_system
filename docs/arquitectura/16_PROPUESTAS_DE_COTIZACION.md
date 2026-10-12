@@ -162,30 +162,61 @@ Lectura:
   frecuentes cierran mejor (lomo liso ~43%, completo italiano en la once
   43%, mechada en el desayuno ~48%).
 
-Paquetes vigentes (12-10). Felipe pidió **agruparlos por tipo de
-requerimiento** (*"un cliente me pregunta por un paseo y debo tener dos o
-tres alternativas juntas y no estar scrolleando"*). La forma es **"Grupo:
-qué incluye"**, y si lleva alojamiento, la temporada al final:
+Paquetes vigentes (foto del 12-10 en la tarde; Felipe ajusta nombres con el
+lápiz, así que la base manda sobre esta tabla). Felipe pidió **agruparlos
+por tipo de requerimiento** (*"un cliente me pregunta por un paseo y debo
+tener dos o tres alternativas juntas y no estar scrolleando"*):
 
 | Grupo | Paquete | Por persona |
 |---|---|---|
-| Full day | Full day: paseo de curso (alumnos) | $29.400 |
+| Full day | Paseo de curso (alumnos) | $29.400 |
 | Full day | Full day: adulto mayor (sin ticket, confirmado por Felipe) | $34.300 |
-| Full day | Full day: niños | $38.300 |
-| Full day | Full day: estándar (nuevo 12-10: la comida del de adulto mayor + ticket) | $44.300 |
-| Full day | Full day: empresa (almuerzo nivel 3) | $57.000 |
-| Alojamiento | Alojamiento: noche con desayuno y once, temporada media | $39.400 |
-| Alojamiento | Alojamiento: adulto mayor 2 noches simple, temporada baja | $97.000 |
-| Alojamiento | Alojamiento: adulto mayor 2 noches estándar, temporada baja | $121.000 |
-| Alojamiento | Alojamiento: pensión completa 3 noches, temporada media | $157.500 |
+| Full day | Paseo empresa niños | $38.300 |
+| Full day | Clasico (la comida del de adulto mayor + ticket) | $44.300 |
+| Full day | Paseo empresa (almuerzo nivel 3) | $57.000 |
+| Alojamiento | 1 noche con desayuno y once | $39.400 |
+| Alojamiento | 1N Media pensión básico | $41.600 |
+| Alojamiento | 1N Pensión completa básico | $52.500 |
+| Alojamiento | 2N Media pensión básico | $83.200 |
+| Alojamiento | 2N Media pensión estándar | $95.200 |
+| Alojamiento | 2N Pensión completa básico | $105.000 |
+| Alojamiento | 3N Media pensión básico | $124.800 |
+| Alojamiento | 2N Pensión completa estándar | $129.000 |
+| Alojamiento | 3N Media pensión estándar | $142.800 |
+| Alojamiento | 3N Pensión completa básico | $157.500 |
+| Alojamiento | 3N Pensión completa estándar | $193.500 |
 | Graduación | Graduación: cóctel | $27.600 |
 | Graduación | Graduación: cena, alojamiento y desayuno, temporada media | $47.600 |
 | Matrimonio | Matrimonio: cóctel extendido | $30.900 |
 | Matrimonio | Matrimonio: de día con cóctel y almuerzo | $46.100 |
 | Matrimonio | Matrimonio: de noche con cóctel, cena y barra libre | $64.100 |
-| Jornada de trabajo | Jornada de trabajo: 1 día | $45.200 |
-| Jornada de trabajo | Jornada de trabajo: 2 días con 1 noche, temporada media | $101.000 |
+| Trabajadores | Jornada de trabajo: 1 día | $45.200 |
+| Trabajadores | Jornada de trabajo: 2 días con 1 noche, temporada media | $101.000 |
 | Sernatur | Sernatur: programa 4, 5 y 6 días (fuera: contrato) | — |
+
+**Nombres de los paquetes con noches (Felipe, 12-10).** La forma es
+**noches · servicio · versión**, y el precio por persona al lado del nombre
+termina de explicarlo (*"igual el precio también es explicativo"*):
+
+- **1N, 2N, 3N** = cantidad de noches. **AM** = adultos mayores.
+- **Pensión completa** = desayuno, almuerzo y cena. **Media pensión** =
+  desayuno y cena (decidido: el trabajador sale de día y vuelve a cenar).
+- **Básico** = menús nivel 1 ($8.700 el desayuno, $10.900 almuerzo y cena).
+  **Estándar** = almuerzo y cena de nivel 2 ($16.900) con desayuno de
+  nivel 1, como el antiguo paquete de adulto mayor estándar. En 1 noche hay
+  solo versión básica.
+- **No se separan adulto mayor y trabajadores** (Felipe: *"distinguirlos por
+  adultos mayores y por trabajadores no tiene sentido, es los mismos menús
+  y precios"*): un solo grupo, Alojamiento. Los dos paquetes de adulto mayor
+  de 2 noches pasaron a ser «2N Pensión completa básico» y «estándar».
+- **Temporada media para todos** ($22.000 la noche), para que se comparen
+  parejo; en otra temporada se cambia la caja de alojamiento en la
+  cotización. Los de adulto mayor estaban en baja y subieron $8.000.
+- **Orden de las cajas = orden del día.** Pensión completa: almuerzo, cena,
+  noche, desayuno, almuerzo… Media pensión: cena, noche, desayuno, cena…
+  Ningún plato se repite dentro de un paquete, salvo la mechada del 3N
+  Pensión completa estándar (con otra guarnición): el nivel 2 tiene 5
+  platos de fondo para 6 comidas.
 
 Ningún código depende del nombre de un paquete (revisado con grep el
 12-10). Ese mismo día los grupos pasaron a ser **listas de verdad**
@@ -273,9 +304,11 @@ por noche). Lo que sigue quedó como registro de la revisión:
   de alojamiento por noche existen solo en temporada baja. En temporada
   alta, el suelto "Alojamiento temporada alta" arma su caja con una
   categoría que ya no existe ("Servicios de alojamiento"). Faltan los menús
-  "Alojamiento temporada media/alta - Noche N".
+  "Alojamiento temporada media/alta - Noche N". **Hecho el 12-10:** los 10
+  paquetes 1N/2N/3N de media pensión y pensión completa (sección 5).
 - **Pensión completa para tour operadores** (desayuno, almuerzo, cena y
-  alojamiento por día).
+  alojamiento por día). **Hecho el 12-10:** son los mismos de pensión
+  completa; el 15% de tour operador va en la cotización.
 - **Pedidos que no tenemos** (12-10): hamburguesa, waffles y helado soft,
   risotto, Milo, leche descremada y sin lactosa, agua mineral con y sin gas
   en estación, bebidas zero (confirmar si la bebida libre las incluye) e
