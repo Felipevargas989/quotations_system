@@ -1,8 +1,17 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import {
+  fallar,
+  nombreValido,
+  ReglasDeGrupos,
+} from 'src/grupos-de-lista/reglas-de-grupos';
 import { CreateServiceGroupCollectionDto } from './dto/create-service-group-collection.dto';
-import { ServiceGroupCollection } from './entities/service-group-collection.entity';
+import { ActualizarPaqueteDto } from './dto/grupos-de-paquetes.dto';
+import {
+  PackageGroup,
+  ServiceGroupCollection,
+} from './entities/service-group-collection.entity';
 import { ServiceGroupCollectionsRepository } from './service-group-collections.repository';
 
 @Injectable()
@@ -39,6 +48,14 @@ export class ServiceGroupCollectionsService {
       await this.exigirDeLaEmpresa(
         'fixed_services',
         (fixed_services ?? []).map((f) => f.fixed_service_id),
+        companyId,
+      );
+      // Su grupo (12-10-2026), si viene, también tiene que ser propio.
+      await this.exigirDeLaEmpresa(
+        'package_groups',
+        collection.package_group_id != null
+          ? [collection.package_group_id]
+          : [],
         companyId,
       );
 
@@ -107,7 +124,11 @@ export class ServiceGroupCollectionsService {
   /** Candado de catálogo (11-09-2026): todas las piezas pedidas tienen que
    *  existir en esta empresa. */
   private async exigirDeLaEmpresa(
-    tabla: 'service_groups' | 'variable_services' | 'fixed_services',
+    tabla:
+      | 'service_groups'
+      | 'variable_services'
+      | 'fixed_services'
+      | 'package_groups',
     ids: number[],
     companyId: Company['id'],
   ) {
@@ -160,5 +181,100 @@ export class ServiceGroupCollectionsService {
       throw new HttpException('Paquete no encontrado', HttpStatus.NOT_FOUND);
     }
     return { removed: true };
+  }
+
+  /** Renombrar un paquete y/o cambiarlo de grupo (12-10-2026). Grupo
+   *  null = sin grupo ("Otros"). El grupo tiene que ser de la empresa, y
+   *  el paquete también: sin fila actualizada, 404. */
+  async actualizar(
+    id: ServiceGroupCollection['id'],
+    dto: ActualizarPaqueteDto,
+    companyId: Company['id'],
+  ) {
+    this.logger.info(`actualizar paquete ${id} of ${companyId}`);
+    const cambios: Partial<
+      Pick<ServiceGroupCollection, 'name' | 'package_group_id'>
+    > = {};
+    if (dto.name !== undefined) {
+      cambios.name = nombreValido(dto.name, 'paquete');
+    }
+    if (dto.package_group_id !== undefined) {
+      if (dto.package_group_id !== null) {
+        await this.exigirDeLaEmpresa(
+          'package_groups',
+          [dto.package_group_id],
+          companyId,
+        );
+      }
+      cambios.package_group_id = dto.package_group_id;
+    }
+    if (Object.keys(cambios).length === 0) {
+      throw new HttpException(
+        'No hay nada que cambiar',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const { data, error } = await this.repository.actualizarPaquete(
+      id,
+      companyId,
+      cambios,
+    );
+    if (error) {
+      fallar(
+        this.logger,
+        error,
+        'No se pudo guardar el paquete',
+        'Ya existe un paquete con ese nombre. Elige otro.',
+      );
+    }
+    if (!data || data.length === 0) {
+      throw new HttpException('Paquete no encontrado', HttpStatus.NOT_FOUND);
+    }
+    return data[0];
+  }
+
+  // ---------- GRUPOS DE PAQUETES (12-10-2026, migración 120) ----------
+  // Las reglas son las MISMAS que las de los grupos de menús guardados y
+  // viven en una sola pieza (src/grupos-de-lista). Acá solo se le presta
+  // la tabla de grupos de paquetes, filtrada por empresa.
+
+  private grupos(companyId: Company['id']) {
+    return new ReglasDeGrupos(
+      {
+        listar: () => this.repository.gruposDeLaEmpresa(companyId),
+        crear: (name, orden) =>
+          this.repository.crearGrupo(companyId, name, orden),
+        renombrar: (id, name) =>
+          this.repository.renombrarGrupo(id, companyId, name),
+        ordenar: (id, orden) =>
+          this.repository.ordenarGrupo(id, companyId, orden),
+        borrar: (id) => this.repository.borrarGrupo(id, companyId),
+      },
+      this.logger,
+    );
+  }
+
+  listarGrupos(companyId: Company['id']) {
+    return this.grupos(companyId).listar();
+  }
+
+  crearGrupo(nombre: string, companyId: Company['id']) {
+    return this.grupos(companyId).crear(nombre);
+  }
+
+  renombrarGrupo(
+    id: PackageGroup['id'],
+    nombre: string,
+    companyId: Company['id'],
+  ) {
+    return this.grupos(companyId).renombrar(id, nombre);
+  }
+
+  ordenarGrupos(ids: number[], companyId: Company['id']) {
+    return this.grupos(companyId).ordenar(ids);
+  }
+
+  borrarGrupo(id: PackageGroup['id'], companyId: Company['id']) {
+    return this.grupos(companyId).borrar(id);
   }
 }

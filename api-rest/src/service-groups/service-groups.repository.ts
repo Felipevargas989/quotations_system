@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import {
+  MenuGroup,
   ServiceGroup,
   ServiceGroupItem,
 } from './entities/service-group.entity';
@@ -80,5 +81,116 @@ export class ServiceGroupsRepository {
       .eq('id', id)
       .eq('company_id', companyId)
       .select('id');
+  }
+
+  // ---------- GRUPOS DE MENÚS GUARDADOS (12-10-2026, migración 121) ----------
+  // Cada categoría tiene los suyos. Todo filtrado por empresa: los id de
+  // la tabla son correlativos.
+
+  /** Todos los grupos de la empresa, de todas las categorías: la pantalla
+   *  los pide una vez y filtra por la categoría de la casilla. */
+  todosLosGruposDeMenus(companyId: Company['id']) {
+    this.logger.info(`todosLosGruposDeMenus of company ${companyId}`);
+    return this.supabase.client
+      .from('menu_groups')
+      .select('id, name, category, sort_order')
+      .eq('company_id', companyId)
+      .order('category', { ascending: true })
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+  }
+
+  gruposDeMenus(companyId: Company['id'], category: string) {
+    return this.supabase.client
+      .from('menu_groups')
+      .select('id, name, sort_order')
+      .eq('company_id', companyId)
+      .eq('category', category)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+  }
+
+  crearGrupoDeMenus(
+    companyId: Company['id'],
+    category: string,
+    name: string,
+    sortOrder: number,
+  ) {
+    this.logger.info(`crearGrupoDeMenus ${category} of company ${companyId}`);
+    return this.supabase.client
+      .from('menu_groups')
+      .insert({ company_id: companyId, category, name, sort_order: sortOrder })
+      .select('id, name, category, sort_order')
+      .single();
+  }
+
+  renombrarGrupoDeMenus(
+    id: MenuGroup['id'],
+    companyId: Company['id'],
+    name: string,
+  ) {
+    this.logger.info(`renombrarGrupoDeMenus ${id} of company ${companyId}`);
+    return this.supabase.client
+      .from('menu_groups')
+      .update({ name })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id, name, sort_order');
+  }
+
+  ordenarGrupoDeMenus(
+    id: MenuGroup['id'],
+    companyId: Company['id'],
+    sortOrder: number,
+  ) {
+    return this.supabase.client
+      .from('menu_groups')
+      .update({ sort_order: sortOrder })
+      .eq('id', id)
+      .eq('company_id', companyId);
+  }
+
+  /** Sus menús quedan sin grupo: la base los suelta sola (ON DELETE SET
+   *  NULL, migración 121). */
+  borrarGrupoDeMenus(id: MenuGroup['id'], companyId: Company['id']) {
+    this.logger.info(`borrarGrupoDeMenus ${id} of company ${companyId}`);
+    return this.supabase.client
+      .from('menu_groups')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
+  }
+
+  /** La categoría de un menú, solo si es de la empresa. */
+  categoriaDelMenu(id: ServiceGroup['id'], companyId: Company['id']) {
+    return this.supabase.client
+      .from('service_groups')
+      .select('id, category')
+      .eq('id', id)
+      .eq('company_id', companyId);
+  }
+
+  /** La categoría de un grupo de menús, solo si es de la empresa. */
+  categoriaDelGrupoDeMenus(id: MenuGroup['id'], companyId: Company['id']) {
+    return this.supabase.client
+      .from('menu_groups')
+      .select('id, category')
+      .eq('id', id)
+      .eq('company_id', companyId);
+  }
+
+  asignarGrupoAlMenu(
+    id: ServiceGroup['id'],
+    companyId: Company['id'],
+    menuGroupId: MenuGroup['id'] | null,
+  ) {
+    this.logger.info(`asignarGrupoAlMenu ${id} of company ${companyId}`);
+    return this.supabase.client
+      .from('service_groups')
+      .update({ menu_group_id: menuGroupId })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id, name, menu_group_id');
   }
 }

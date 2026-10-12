@@ -29,6 +29,9 @@ export interface ServiceGroupCollection {
   groups: ServiceGroupCollectionItem[];
   services?: ServiceGroupCollectionService[];
   fixed_services?: ServiceGroupCollectionFixedService[];
+  // Su grupo en "Partir de un paquete" (12-10-2026, migración 120).
+  // Sin grupo, va al final bajo "Otros".
+  package_group_id?: GrupoDePaquetes["id"] | null;
 }
 
 export interface CreateServiceGroupCollection {
@@ -36,4 +39,19 @@ export interface CreateServiceGroupCollection {
   items: { service_group_id: ServiceGroup["id"] }[];
   services?: { variable_service_id: VariableService["id"]; quantity: number }[];
   fixed_services?: { fixed_service_id: number; quantity: number }[];
+  package_group_id?: GrupoDePaquetes["id"] | null;
+}
+
+// GRUPO DE PAQUETES (12-10-2026, migración 120). Felipe: "mejor crear y
+// editar listas". Una lista con nombre y orden: Full day, Alojamiento…
+export interface GrupoDePaquetes {
+  id: number;
+  name: string;
+  sort_order: number;
+}
+
+/** Lo que se puede cambiar de un paquete ya creado. */
+export interface CambiosDePaquete {
+  name?: string;
+  package_group_id?: GrupoDePaquetes["id"] | null;
 }

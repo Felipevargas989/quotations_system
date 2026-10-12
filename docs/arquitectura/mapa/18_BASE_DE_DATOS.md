@@ -82,6 +82,8 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `service_groups` | Menús guardados | 05 | 1; 2; 119 |
 | `service_group_items` | Servicios de un menú, con cantidad | 05 | 1 |
 | `service_group_collections` | Paquetes | 05 | 3 |
+| `package_groups` | Grupos de paquetes (Full day, Alojamiento…; 12-10-2026) | 05 | 120 |
+| `menu_groups` | Grupos de menús guardados por categoría (Nivel 1, Nivel 2…; 12-10-2026) | 05 | 121 |
 | `service_group_collection_items` | Menús de un paquete | 05 | 3 |
 | `service_group_collection_services` | Servicios variables sueltos de un paquete, con cantidad | 05 | 67 |
 | `service_group_collection_fixed_services` | Servicios fijos de un paquete, con cantidad | 05 | 100 |
@@ -316,6 +318,8 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `service_groups` | `service-groups` | `service-groups`; embebida desde `services` y `service-group-collections` |
 | `service_group_items` | `service-groups` (insert; se borran en cascada) | `services`; embebida desde `service-groups` |
 | `service_group_collections` | `service-group-collections` | `service-group-collections` |
+| `package_groups` | `service-group-collections` (grupos de paquetes, 12-10-2026) | `service-group-collections` |
+| `menu_groups` | `service-groups` (grupos de menús, 12-10-2026) | `service-groups` |
 | `service_group_collection_items`, `service_group_collection_services`, `service_group_collection_fixed_services` | `service-group-collections` (insert; se borran en cascada) | embebidas desde `service-group-collections` |
 | `suppliers`, `supplies`, `furniture_items`, `service_recipe_items`, `fixed_service_cost_items`, `event_supply_provisions`, `event_resources`, `event_service_times`, `event_kitchen_notes`, `event_day_prints` | `logistics` | `logistics` |
 | **`management_resources`** | `logistics` (catálogo de recursos); `people` (cargos: insert, update) | `logistics`, `people` (también embebida desde `event_staff` y `people`) |

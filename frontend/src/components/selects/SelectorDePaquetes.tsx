@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { Package, Search, Trash2 } from "lucide-react";
+import { Package, Search } from "lucide-react";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
-import ConfirmInline from "../ConfirmInline";
+import { useGruposDePaquetes } from "../../hooks/useGruposDePaquetes";
+import ListaConGrupos, { PreguntaEnFila } from "../listas/ListaConGrupos";
+import EditarGuardado from "../listas/EditarGuardado";
+import GruposDeLista from "../listas/GruposDeLista";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import {
   porPrecioYNombre,
   precioPorPersonaDePaquete,
 } from "../../utils/precioPorPersona";
+import { nombreBajoElGrupo, ordenarPorGrupo } from "../../utils/gruposDeLista";
 
 /**
  * "PARTIR DE UN PAQUETE" — el botón y su lista, con buscador.
@@ -17,9 +21,12 @@ import {
  * de la casa (useListaBuscable): busca sin tildes, flechas y Enter,
  * Escape, cierra al pinchar fuera.
  *
- * No es un SelectWithSearch porque cada fila lleva además su basurero
- * (eliminar el paquete, con confirmación) y el pie trae "+ Crear
- * paquete nuevo…" — acciones que la pieza estándar no carga.
+ * GRUPOS (12-10-2026, migración 120). Felipe: "un cliente me pregunta por
+ * un paseo y debo tener dos o tres alternativas juntas" y "mejor crear y
+ * editar listas". La lista es la pieza común ListaConGrupos (la misma de
+ * "Usar menú guardado"): un título por grupo, en el orden que decide la
+ * empresa ("Ordenar grupos…", al pie) y, dentro, de menor a mayor precio.
+ * Cada fila lleva su lápiz (nombre y grupo) y su basurero.
  */
 export default function SelectorDePaquetes({
   paquetes,
@@ -46,22 +53,37 @@ export default function SelectorDePaquetes({
     id: number;
     accion: "cargar" | "eliminar";
   } | null>(null);
+  const [editando, setEditando] = useState<ServiceGroupCollection | null>(null);
+  const [ordenandoGrupos, setOrdenandoGrupos] = useState(false);
+  const { grupos, crear, renombrar, ordenar, borrar, editarPaquete } =
+    useGruposDePaquetes();
 
   const cerrar = () => {
     setAbierto(false);
     setConfirma(null);
   };
 
-  // De menor a mayor precio por persona (Felipe, 10-10-2026); antes, en
-  // el orden en que llegaban.
+  // Por grupo y, dentro, de menor a mayor precio por persona (10-10). El
+  // buscador mira el nombre del paquete Y el de su grupo: "full day" trae
+  // el grupo entero aunque los nombres no lo digan.
+  const enLista = ordenarPorGrupo(
+    paquetes,
+    grupos,
+    (p) => p.package_group_id,
+    porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete),
+  );
+  const porId = new Map(enLista.map((x) => [String(x.elemento.id), x]));
   const lista = useListaBuscable({
-    opciones: [...paquetes]
-      .sort(porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete))
-      .map((p) => ({ value: String(p.id), label: p.name })),
+    opciones: enLista.map(({ elemento, grupo }) => ({
+      value: String(elemento.id),
+      label: grupo ? `${elemento.name} · ${grupo.name}` : elemento.name,
+    })),
     abierta: abierto,
     marcarPrimero: true,
     alCerrar: cerrar,
   });
+
+  const paqueteDe = (id: number) => paquetes.find((p) => p.id === id);
 
   const elegir = (paquete: ServiceGroupCollection) => {
     if (hayServiciosCargados()) {
@@ -77,6 +99,46 @@ export default function SelectorDePaquetes({
     setConfirma(null);
     setAbierto(true);
   };
+
+  const filas = lista.filtradas.flatMap((opcion) => {
+    const x = porId.get(opcion.value);
+    if (!x) return [];
+    const { elemento: p, grupo } = x;
+    return [
+      {
+        id: p.id,
+        nombre: p.name,
+        visible: grupo ? nombreBajoElGrupo(p.name, grupo.name) : p.name,
+        precio: precioPorPersonaDePaquete(p),
+        grupo,
+      },
+    ];
+  });
+
+  const confirmando = confirma ? paqueteDe(confirma.id) : undefined;
+  const pregunta: PreguntaEnFila | null =
+    confirma && confirmando
+      ? confirma.accion === "cargar"
+        ? {
+            id: confirma.id,
+            pregunta:
+              "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza.",
+            si: "Agregar",
+            onSi: () => {
+              onCargar(confirmando);
+              cerrar();
+            },
+          }
+        : {
+            id: confirma.id,
+            pregunta: `¿Eliminar "${confirmando.name}"?`,
+            si: "Sí, eliminar",
+            onSi: async () => {
+              await onEliminar(confirmando);
+              setConfirma(null);
+            },
+          }
+      : null;
 
   return (
     <div ref={lista.refRaiz} className="relative">
@@ -106,93 +168,36 @@ export default function SelectorDePaquetes({
                   onChange={lista.alEscribir}
                   onKeyDown={(e) =>
                     lista.teclaEnLista(e, (valor) => {
-                      const p = paquetes.find((x) => String(x.id) === valor);
+                      const p = paqueteDe(Number(valor));
                       if (p) elegir(p);
                     })
                   }
-                  placeholder="Buscar paquete…"
+                  placeholder="Buscar paquete o grupo…"
                   className="w-full pl-8 pr-2 py-1.5 border border-gray-300 rounded-lg text-sm"
                   aria-label="Buscar paquete"
                 />
               </div>
             </div>
           )}
-          <div className="max-h-60 overflow-y-auto">
-            {lista.filtradas.map((opcion, i) => {
-              const paquete = paquetes.find(
-                (p) => String(p.id) === opcion.value,
-              );
-              if (!paquete) return null;
-              if (confirma?.id === paquete.id) {
-                return (
-                  <div key={paquete.id} className="px-3 py-2">
-                    <ConfirmInline
-                      question={
-                        confirma.accion === "cargar"
-                          ? "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza."
-                          : `¿Eliminar "${paquete.name}"?`
-                      }
-                      yesLabel={
-                        confirma.accion === "cargar"
-                          ? "Agregar"
-                          : "Sí, eliminar"
-                      }
-                      onYes={async () => {
-                        if (confirma.accion === "cargar") {
-                          onCargar(paquete);
-                          cerrar();
-                        } else {
-                          await onEliminar(paquete);
-                          setConfirma(null);
-                        }
-                      }}
-                      onNo={() => setConfirma(null)}
-                    />
-                  </div>
-                );
-              }
-              const porPersona = precioPorPersonaDePaquete(paquete);
-              return (
-                <div
-                  key={paquete.id}
-                  className={`flex items-center justify-between px-3 py-2 hover:bg-gray-100 ${
-                    i === lista.marcada ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <button
-                    type="button"
-                    ref={i === lista.marcada ? lista.refMarcada : undefined}
-                    onClick={() => elegir(paquete)}
-                    className="flex-1 min-w-0 text-left text-sm"
-                  >
-                    {/* Igual que los menús guardados: nombre · precio por
-                        persona de los variables (Felipe, 06-10). El precio
-                        nunca se corta; si falta espacio, se corta el nombre. */}
-                    <span className="flex items-baseline gap-1 min-w-0">
-                      <span className="text-gray-900 truncate">
-                        {paquete.name}
-                      </span>
-                      {porPersona > 0 && (
-                        <span className="text-gray-500 shrink-0 whitespace-nowrap">
-                          · ${porPersona.toLocaleString("es-CL")}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirma({ id: paquete.id, accion: "eliminar" });
-                    }}
-                    className="ml-2 text-red-600 hover:text-red-800"
-                    title="Eliminar paquete"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              );
-            })}
+          <div className="max-h-96 overflow-y-auto">
+            <ListaConGrupos
+              filas={filas}
+              conTitulos={grupos.length > 0}
+              marcada={lista.marcada}
+              refMarcada={lista.refMarcada}
+              pregunta={pregunta}
+              onNo={() => setConfirma(null)}
+              onElegir={(id) => {
+                const p = paqueteDe(id);
+                if (p) elegir(p);
+              }}
+              onEditar={(id) => {
+                cerrar();
+                setEditando(paqueteDe(id) ?? null);
+              }}
+              onPedirEliminar={(id) => setConfirma({ id, accion: "eliminar" })}
+              tituloEliminar="Eliminar paquete"
+            />
             {paquetes.length === 0 && (
               <p className="px-3 py-2 text-sm text-gray-400">
                 Aún no hay paquetes guardados.
@@ -204,19 +209,66 @@ export default function SelectorDePaquetes({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              cerrar();
-              onCrearNuevo();
-            }}
-            disabled={!puedeCrear}
-            className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
-            title="Crear un paquete agrupando menús guardados"
-          >
-            + Crear paquete nuevo…
-          </button>
+          <div className="flex border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                cerrar();
+                onCrearNuevo();
+              }}
+              disabled={!puedeCrear}
+              className="flex-1 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+              title="Crear un paquete agrupando menús guardados"
+            >
+              + Crear paquete nuevo…
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                cerrar();
+                setOrdenandoGrupos(true);
+              }}
+              className="px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              title="Crear, renombrar, ordenar y borrar los grupos de esta lista"
+            >
+              Ordenar grupos…
+            </button>
+          </div>
         </div>
+      )}
+
+      {editando && (
+        <EditarGuardado
+          titulo="Editar paquete"
+          etiquetaNombre="Nombre del paquete"
+          nombre={editando.name}
+          grupoId={editando.package_group_id ?? null}
+          grupos={grupos}
+          ayudaGrupos="Aún no hay grupos: se crean en «Ordenar grupos…», al pie de «Partir de un paquete»."
+          onGuardar={({ nombre, grupoId }) =>
+            editarPaquete(editando.id, {
+              name: nombre,
+              package_group_id: grupoId,
+            })
+          }
+          onCerrar={() => setEditando(null)}
+        />
+      )}
+      {ordenandoGrupos && (
+        <GruposDeLista
+          titulo="Grupos de paquetes"
+          subtitulo="Ordenan «Partir de un paquete»: un título por grupo y, dentro, de menor a mayor precio."
+          grupos={grupos}
+          cuantos={(id) =>
+            paquetes.filter((p) => p.package_group_id === id).length
+          }
+          unidad={{ uno: "paquete", varios: "paquetes" }}
+          crear={crear}
+          renombrar={renombrar}
+          ordenar={ordenar}
+          borrar={borrar}
+          onCerrar={() => setOrdenandoGrupos(false)}
+        />
       )}
     </div>
   );
