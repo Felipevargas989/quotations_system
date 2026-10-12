@@ -24,6 +24,7 @@ import { useServiceGroupCollections } from "../../hooks/useServiceGroupCollectio
 import { ServiceGroup } from "../../types/serviceGroups.types";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import SelectorDePaquetes from "../../components/selects/SelectorDePaquetes";
+import ElegirGrupoDePaquete from "../../components/paquetes/ElegirGrupoDePaquete";
 import { useDateAvailability } from "../../hooks/useDateAvailability";
 import Modal from "../../components/Modal";
 import PkgFijosPicker from "./PkgFijosPicker";
@@ -330,6 +331,9 @@ export default function QuotationForm() {
   // Service group collections / "paquetes" (a group of service groups)
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [collectionName, setCollectionName] = useState("");
+  const [collectionGroupId, setCollectionGroupId] = useState<number | null>(
+    null,
+  );
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   // Fijos del paquete (28-08): codigo -> cantidad. Vive acá; la UI en
   // PkgFijosPicker y la traducción en paqueteFijos.ts (higuera).
@@ -1238,12 +1242,14 @@ export default function QuotationForm() {
       }));
       await saveCollection({
         name: collectionName.trim(),
+        package_group_id: collectionGroupId,
         items: selectedGroupIds.map((id) => ({ service_group_id: id })),
         ...(sueltos.length ? { services: sueltos } : {}),
         ...(fijosPkg.length ? { fixed_services: fijosPkg } : {}),
       });
       setShowCollectionModal(false);
       setCollectionName("");
+      setCollectionGroupId(null);
       setSelectedGroupIds([]);
       setPkgServices([]);
       setPkgFijos([]);
@@ -2127,6 +2133,10 @@ export default function QuotationForm() {
             onChange={(e) => setCollectionName(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
             placeholder="Ej: Paquete Matrimonio Full"
+          />
+          <ElegirGrupoDePaquete
+            valor={collectionGroupId}
+            onCambio={setCollectionGroupId}
           />
 
           <div className="bg-gray-50 rounded-lg p-3">

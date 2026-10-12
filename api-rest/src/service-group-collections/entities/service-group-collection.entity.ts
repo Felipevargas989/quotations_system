@@ -38,4 +38,18 @@ export class ServiceGroupCollection {
   created_at: Date;
   name: string;
   company_id: Company['id'];
+  // Su grupo en "Partir de un paquete" (12-10-2026, migración 120). Sin
+  // grupo, va al final bajo "Otros".
+  package_group_id?: PackageGroup['id'] | null;
+}
+
+// GRUPO DE PAQUETES (12-10-2026, migración 120). Felipe: "mejor crear y
+// editar listas, es más fácil que una sección que se arme por el nombre
+// del paquete". Una lista con nombre y orden: Full day, Alojamiento…
+export class PackageGroup {
+  id: number;
+  company_id: Company['id'];
+  name: string;
+  sort_order: number;
+  created_at: Date;
 }

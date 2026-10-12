@@ -1,18 +1,19 @@
 import { Fragment, useState } from "react";
-import { Package, Search, Trash2 } from "lucide-react";
+import { Package, Pencil, Search, Trash2 } from "lucide-react";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
+import { useGruposDePaquetes } from "../../hooks/useGruposDePaquetes";
 import ConfirmInline from "../ConfirmInline";
+import EditarPaquete from "../paquetes/EditarPaquete";
+import GruposDePaquetes from "../paquetes/GruposDePaquetes";
 import { ServiceGroupCollection } from "../../types/serviceGroupCollections.types";
 import {
   porPrecioYNombre,
   precioPorPersonaDePaquete,
 } from "../../utils/precioPorPersona";
 import {
-  grupoDePaquete,
-  mismoGrupo,
-  nombreSinGrupo,
-  porGrupoY,
-} from "../../utils/grupoDePaquete";
+  nombreBajoElGrupo,
+  ordenarPorGrupo,
+} from "../../utils/gruposDePaquetes";
 
 /**
  * "PARTIR DE UN PAQUETE" — el botón y su lista, con buscador.
@@ -23,9 +24,16 @@ import {
  * de la casa (useListaBuscable): busca sin tildes, flechas y Enter,
  * Escape, cierra al pinchar fuera.
  *
- * No es un SelectWithSearch porque cada fila lleva además su basurero
- * (eliminar el paquete, con confirmación) y el pie trae "+ Crear
- * paquete nuevo…" — acciones que la pieza estándar no carga.
+ * GRUPOS (12-10-2026, migración 120). Felipe: "un cliente me pregunta por
+ * un paseo y debo tener dos o tres alternativas juntas" y "mejor crear y
+ * editar listas". Un título por grupo, en el orden que decide la empresa
+ * ("Ordenar grupos…", al pie) y, dentro, de menor a mayor precio. Los sin
+ * grupo van al final bajo "Otros"; sin ningún grupo creado, la lista se ve
+ * como antes. Cada fila lleva su lápiz (nombre y grupo) y su basurero.
+ *
+ * No es un SelectWithSearch porque cada fila lleva sus acciones y el pie
+ * trae "+ Crear paquete nuevo…" y "Ordenar grupos…" — acciones que la
+ * pieza estándar no carga.
  */
 export default function SelectorDePaquetes({
   paquetes,
@@ -52,26 +60,32 @@ export default function SelectorDePaquetes({
     id: number;
     accion: "cargar" | "eliminar";
   } | null>(null);
+  const [editando, setEditando] = useState<ServiceGroupCollection | null>(null);
+  const [ordenandoGrupos, setOrdenandoGrupos] = useState(false);
+  const { grupos, editarPaquete } = useGruposDePaquetes();
 
   const cerrar = () => {
     setAbierto(false);
     setConfirma(null);
   };
 
-  // Agrupados por lo que va antes de los dos puntos del nombre ("Full
-  // day: …", "Matrimonio: …"; Felipe, 12-10-2026: "un cliente me pregunta
-  // por un paseo y debo tener dos o tres alternativas juntas") y, dentro
-  // de cada grupo, de menor a mayor precio por persona (10-10-2026). El
-  // buscador sigue mirando el nombre entero: "full day" los trae todos.
-  const hayGrupos = paquetes.some((p) => grupoDePaquete(p.name));
+  // Por grupo y, dentro, de menor a mayor precio por persona (10-10). El
+  // buscador mira el nombre del paquete Y el de su grupo: "full day" trae
+  // el grupo entero aunque los nombres no lo digan.
+  const enLista = ordenarPorGrupo(
+    paquetes,
+    grupos,
+    porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete),
+  );
+  const grupoDe = new Map(
+    enLista.map(({ paquete, grupo }) => [String(paquete.id), grupo]),
+  );
+  const hayGrupos = grupos.length > 0;
   const lista = useListaBuscable({
-    opciones: [...paquetes]
-      .sort(
-        porGrupoY<ServiceGroupCollection>(
-          porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete),
-        ),
-      )
-      .map((p) => ({ value: String(p.id), label: p.name })),
+    opciones: enLista.map(({ paquete, grupo }) => ({
+      value: String(paquete.id),
+      label: grupo ? `${paquete.name} · ${grupo.name}` : paquete.name,
+    })),
     abierta: abierto,
     marcarPrimero: true,
     alCerrar: cerrar,
@@ -124,7 +138,7 @@ export default function SelectorDePaquetes({
                       if (p) elegir(p);
                     })
                   }
-                  placeholder="Buscar paquete…"
+                  placeholder="Buscar paquete o grupo…"
                   className="w-full pl-8 pr-2 py-1.5 border border-gray-300 rounded-lg text-sm"
                   aria-label="Buscar paquete"
                 />
@@ -137,20 +151,19 @@ export default function SelectorDePaquetes({
                 (p) => String(p.id) === opcion.value,
               );
               if (!paquete) return null;
-              // Título cuando empieza un grupo. Solo si la empresa usa
-              // grupos: si ningún paquete los tiene, la lista queda como
-              // antes. Los sin grupo van al final, bajo "Otros".
-              const anterior =
+              // Título cuando empieza un grupo (también en la lista
+              // filtrada por el buscador).
+              const grupo = grupoDe.get(opcion.value) ?? null;
+              const grupoAnterior =
                 i > 0
-                  ? paquetes.find(
-                      (p) => String(p.id) === lista.filtradas[i - 1].value,
-                    )
+                  ? (grupoDe.get(lista.filtradas[i - 1].value) ?? null)
                   : undefined;
               const titulo =
                 hayGrupos &&
-                (!anterior || !mismoGrupo(anterior.name, paquete.name)) ? (
+                (grupoAnterior === undefined ||
+                  (grupoAnterior?.id ?? null) !== (grupo?.id ?? null)) ? (
                   <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-t border-gray-100 first:border-t-0">
-                    {grupoDePaquete(paquete.name) || "Otros"}
+                    {grupo?.name ?? "Otros"}
                   </div>
                 ) : null;
               if (confirma?.id === paquete.id) {
@@ -202,12 +215,12 @@ export default function SelectorDePaquetes({
                       {/* Igual que los menús guardados: nombre · precio por
                         persona de los variables (Felipe, 06-10). El precio
                         nunca se corta; si falta espacio, se corta el nombre.
-                        Bajo un título, sin repetir el grupo ("Adulto
-                        mayor" bajo "Full day"). */}
+                        Bajo su título no repite el grupo ("Estándar" bajo
+                        "Full day"). */}
                       <span className="flex items-baseline gap-1 min-w-0">
                         <span className="text-gray-900 truncate">
-                          {hayGrupos
-                            ? nombreSinGrupo(paquete.name)
+                          {grupo
+                            ? nombreBajoElGrupo(paquete.name, grupo.name)
                             : paquete.name}
                         </span>
                         {porPersona > 0 && (
@@ -216,6 +229,19 @@ export default function SelectorDePaquetes({
                           </span>
                         )}
                       </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cerrar();
+                        setEditando(paquete);
+                      }}
+                      className="ml-2 text-gray-400 hover:text-blue-600"
+                      title="Cambiar nombre o grupo"
+                      aria-label={`Editar ${paquete.name}`}
+                    >
+                      <Pencil size={14} />
                     </button>
                     <button
                       type="button"
@@ -243,19 +269,46 @@ export default function SelectorDePaquetes({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              cerrar();
-              onCrearNuevo();
-            }}
-            disabled={!puedeCrear}
-            className="w-full border-t border-gray-200 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
-            title="Crear un paquete agrupando menús guardados"
-          >
-            + Crear paquete nuevo…
-          </button>
+          <div className="flex border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                cerrar();
+                onCrearNuevo();
+              }}
+              disabled={!puedeCrear}
+              className="flex-1 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+              title="Crear un paquete agrupando menús guardados"
+            >
+              + Crear paquete nuevo…
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                cerrar();
+                setOrdenandoGrupos(true);
+              }}
+              className="px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              title="Crear, renombrar, ordenar y borrar los grupos de esta lista"
+            >
+              Ordenar grupos…
+            </button>
+          </div>
         </div>
+      )}
+
+      {editando && (
+        <EditarPaquete
+          paquete={editando}
+          onGuardar={(cambios) => editarPaquete(editando.id, cambios)}
+          onCerrar={() => setEditando(null)}
+        />
+      )}
+      {ordenandoGrupos && (
+        <GruposDePaquetes
+          paquetes={paquetes}
+          onCerrar={() => setOrdenandoGrupos(false)}
+        />
       )}
     </div>
   );
