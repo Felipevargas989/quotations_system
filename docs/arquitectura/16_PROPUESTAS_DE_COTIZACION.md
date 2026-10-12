@@ -187,9 +187,14 @@ tener dos o tres alternativas juntas y no estar scrolleando"*):
 | Alojamiento | 3N Pensión completa estándar | $193.500 |
 | Graduación | Solo cóctel | $27.600 |
 | Graduación | Cena, alojamiento y desayuno | $47.600 |
-| Matrimonio | Matrimonio: cóctel extendido | $30.900 |
-| Matrimonio | Matrimonio: de día con cóctel y almuerzo | $46.100 |
+| Matrimonio | Matrimonio: solo cóctel (ex «cóctel extendido») + fijos $1.400.000 | $30.900 |
+| Matrimonio | Matrimonio: cóctel y fiesta + fijos $1.400.000 | $41.400 |
+| Matrimonio | Matrimonio: de día con cóctel y almuerzo + fijos $1.400.000 | $46.100 |
+| Matrimonio | Matrimonio íntimo (folleto) + fijos $1.400.000 | $46.100 |
+| Matrimonio | Matrimonio Origen (folleto) + salón cúpula $400.000 | $46.800 |
+| Matrimonio | Experiencia Valle del Sol (folleto) + salón cúpula $400.000 | $62.400 |
 | Matrimonio | Matrimonio: de noche con cóctel, cena y barra libre | $64.100 |
+| Matrimonio | Matrimonio: cóctel, cena y fiesta + fijos $1.400.000 | $71.300 |
 | Salones | Salón medio día (+ salón auditorio medio día $200.000) | $8.900 |
 | Salones | Salón medio día con almuerzo (+ salón auditorio medio día $200.000) | $25.800 |
 | Salones | Salón día completo (+ salón auditorio día completo $250.000) | $36.700 |
@@ -237,6 +242,25 @@ Los tres llevan el **salón como fijo del paquete**: al aplicarlo entra
 solo, como en Graduación y Matrimonio. «Salón medio día con almuerzo» lo
 pidió Felipe ("coffee y almuerzo nada más", almuerzo nivel 2): coffee de
 media mañana y cierre con almuerzo.
+
+**Matrimonios, armados con lo vendido (Felipe, 12-10).** Primero se
+armaron tres desde los folletos 2026 (íntimo, Origen y Experiencia; el
+íntimo calza al peso, Origen y Experiencia quedan ~$1,2 millones por
+evento bajo el folleto con 80 personas, y Felipe ajusta los folletos).
+Después Felipe pidió basarse en lo vendido (*"en realidad no se ha vendido
+ninguno, entonces vamos a hacer paquetes de cosas que no se venden"*). En
+todo el histórico hay 15 matrimonios cotizados y 2 vendidos (#124, 45
+personas, $75.790 p.p.; #388, 40 personas, $74.000 p.p. + arriendo de
+salón $2.500.000): los dos con cóctel, cena, barra libre y trasnoche. El
+folleto Origen ($66.900) se cotizó 4 veces y se perdieron las 4. De ahí
+salen tres escalones, todos con los fijos del íntimo (salón cúpula,
+audiovisual 6 h y decoración premium, $1.400.000): **solo cóctel** (el
+cóctel extendido, porque reemplaza la cena), **cóctel y fiesta** (el
+cóctel vendido con 8 bocados + barra libre 4 h + trasnoche de consomé y
+pizza) y **cóctel, cena y fiesta** (lo anterior + la cena vendida:
+ensalada, filete con pastelera de choclo, tiramisú, vino, jugo, bebida y
+café). La cabaña de los novios, el montaje y los garzones no se itemizan
+(Felipe: *"es verbalizar lo obvio"*).
 
 Ningún código depende del nombre de un paquete (revisado con grep el
 12-10). Ese mismo día los grupos pasaron a ser **listas de verdad**
