@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Package, Search, Trash2 } from "lucide-react";
 import { useListaBuscable } from "../../hooks/useListaBuscable";
 import ConfirmInline from "../ConfirmInline";
@@ -7,6 +7,12 @@ import {
   porPrecioYNombre,
   precioPorPersonaDePaquete,
 } from "../../utils/precioPorPersona";
+import {
+  grupoDePaquete,
+  mismoGrupo,
+  nombreSinGrupo,
+  porGrupoY,
+} from "../../utils/grupoDePaquete";
 
 /**
  * "PARTIR DE UN PAQUETE" — el botón y su lista, con buscador.
@@ -52,11 +58,19 @@ export default function SelectorDePaquetes({
     setConfirma(null);
   };
 
-  // De menor a mayor precio por persona (Felipe, 10-10-2026); antes, en
-  // el orden en que llegaban.
+  // Agrupados por lo que va antes de los dos puntos del nombre ("Full
+  // day: …", "Matrimonio: …"; Felipe, 12-10-2026: "un cliente me pregunta
+  // por un paseo y debo tener dos o tres alternativas juntas") y, dentro
+  // de cada grupo, de menor a mayor precio por persona (10-10-2026). El
+  // buscador sigue mirando el nombre entero: "full day" los trae todos.
+  const hayGrupos = paquetes.some((p) => grupoDePaquete(p.name));
   const lista = useListaBuscable({
     opciones: [...paquetes]
-      .sort(porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete))
+      .sort(
+        porGrupoY<ServiceGroupCollection>(
+          porPrecioYNombre<ServiceGroupCollection>(precioPorPersonaDePaquete),
+        ),
+      )
       .map((p) => ({ value: String(p.id), label: p.name })),
     abierta: abierto,
     marcarPrimero: true,
@@ -117,80 +131,105 @@ export default function SelectorDePaquetes({
               </div>
             </div>
           )}
-          <div className="max-h-60 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto">
             {lista.filtradas.map((opcion, i) => {
               const paquete = paquetes.find(
                 (p) => String(p.id) === opcion.value,
               );
               if (!paquete) return null;
+              // Título cuando empieza un grupo. Solo si la empresa usa
+              // grupos: si ningún paquete los tiene, la lista queda como
+              // antes. Los sin grupo van al final, bajo "Otros".
+              const anterior =
+                i > 0
+                  ? paquetes.find(
+                      (p) => String(p.id) === lista.filtradas[i - 1].value,
+                    )
+                  : undefined;
+              const titulo =
+                hayGrupos &&
+                (!anterior || !mismoGrupo(anterior.name, paquete.name)) ? (
+                  <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-t border-gray-100 first:border-t-0">
+                    {grupoDePaquete(paquete.name) || "Otros"}
+                  </div>
+                ) : null;
               if (confirma?.id === paquete.id) {
                 return (
-                  <div key={paquete.id} className="px-3 py-2">
-                    <ConfirmInline
-                      question={
-                        confirma.accion === "cargar"
-                          ? "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza."
-                          : `¿Eliminar "${paquete.name}"?`
-                      }
-                      yesLabel={
-                        confirma.accion === "cargar"
-                          ? "Agregar"
-                          : "Sí, eliminar"
-                      }
-                      onYes={async () => {
-                        if (confirma.accion === "cargar") {
-                          onCargar(paquete);
-                          cerrar();
-                        } else {
-                          await onEliminar(paquete);
-                          setConfirma(null);
+                  <Fragment key={paquete.id}>
+                    {titulo}
+                    <div className="px-3 py-2">
+                      <ConfirmInline
+                        question={
+                          confirma.accion === "cargar"
+                            ? "Ya hay servicios cargados. El paquete se agrega abajo, no los reemplaza."
+                            : `¿Eliminar "${paquete.name}"?`
                         }
-                      }}
-                      onNo={() => setConfirma(null)}
-                    />
-                  </div>
+                        yesLabel={
+                          confirma.accion === "cargar"
+                            ? "Agregar"
+                            : "Sí, eliminar"
+                        }
+                        onYes={async () => {
+                          if (confirma.accion === "cargar") {
+                            onCargar(paquete);
+                            cerrar();
+                          } else {
+                            await onEliminar(paquete);
+                            setConfirma(null);
+                          }
+                        }}
+                        onNo={() => setConfirma(null)}
+                      />
+                    </div>
+                  </Fragment>
                 );
               }
               const porPersona = precioPorPersonaDePaquete(paquete);
               return (
-                <div
-                  key={paquete.id}
-                  className={`flex items-center justify-between px-3 py-2 hover:bg-gray-100 ${
-                    i === lista.marcada ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <button
-                    type="button"
-                    ref={i === lista.marcada ? lista.refMarcada : undefined}
-                    onClick={() => elegir(paquete)}
-                    className="flex-1 min-w-0 text-left text-sm"
+                <Fragment key={paquete.id}>
+                  {titulo}
+                  <div
+                    className={`flex items-center justify-between px-3 py-2 hover:bg-gray-100 ${
+                      i === lista.marcada ? "bg-blue-50" : ""
+                    }`}
                   >
-                    {/* Igual que los menús guardados: nombre · precio por
+                    <button
+                      type="button"
+                      ref={i === lista.marcada ? lista.refMarcada : undefined}
+                      onClick={() => elegir(paquete)}
+                      className="flex-1 min-w-0 text-left text-sm"
+                    >
+                      {/* Igual que los menús guardados: nombre · precio por
                         persona de los variables (Felipe, 06-10). El precio
-                        nunca se corta; si falta espacio, se corta el nombre. */}
-                    <span className="flex items-baseline gap-1 min-w-0">
-                      <span className="text-gray-900 truncate">
-                        {paquete.name}
-                      </span>
-                      {porPersona > 0 && (
-                        <span className="text-gray-500 shrink-0 whitespace-nowrap">
-                          · ${porPersona.toLocaleString("es-CL")}
+                        nunca se corta; si falta espacio, se corta el nombre.
+                        Bajo un título, sin repetir el grupo ("Adulto
+                        mayor" bajo "Full day"). */}
+                      <span className="flex items-baseline gap-1 min-w-0">
+                        <span className="text-gray-900 truncate">
+                          {hayGrupos
+                            ? nombreSinGrupo(paquete.name)
+                            : paquete.name}
                         </span>
-                      )}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirma({ id: paquete.id, accion: "eliminar" });
-                    }}
-                    className="ml-2 text-red-600 hover:text-red-800"
-                    title="Eliminar paquete"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+                        {porPersona > 0 && (
+                          <span className="text-gray-500 shrink-0 whitespace-nowrap">
+                            · ${porPersona.toLocaleString("es-CL")}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirma({ id: paquete.id, accion: "eliminar" });
+                      }}
+                      className="ml-2 text-red-600 hover:text-red-800"
+                      title="Eliminar paquete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </Fragment>
               );
             })}
             {paquetes.length === 0 && (
