@@ -174,7 +174,7 @@ tener dos o tres alternativas juntas y no estar scrolleando"*):
 | Full day | Paseo empresa niños | $38.300 |
 | Full day | Clasico (la comida del de adulto mayor + ticket) | $44.300 |
 | Full day | Paseo empresa (almuerzo nivel 3) | $57.000 |
-| Alojamiento | 1 noche con desayuno y once | $39.400 |
+| Alojamiento | 1N Media pensión economico (desayuno y once; nombre puesto por Felipe) | $39.400 |
 | Alojamiento | 1N Media pensión básico | $41.600 |
 | Alojamiento | 1N Pensión completa básico | $52.500 |
 | Alojamiento | 2N Media pensión básico | $83.200 |
@@ -204,7 +204,10 @@ termina de explicarlo (*"igual el precio también es explicativo"*):
 - **Básico** = menús nivel 1 ($8.700 el desayuno, $10.900 almuerzo y cena).
   **Estándar** = almuerzo y cena de nivel 2 ($16.900) con desayuno de
   nivel 1, como el antiguo paquete de adulto mayor estándar. En 1 noche hay
-  solo versión básica.
+  solo versión básica, más el **económico**: Felipe le puso «1N Media
+  pensión economico» al de 1 noche con desayuno y once (la once en vez de
+  la cena). Su alojamiento va como servicio suelto, no como caja «Noche 1»;
+  funciona igual (categoría Servicios de Ingreso).
 - **No se separan adulto mayor y trabajadores** (Felipe: *"distinguirlos por
   adultos mayores y por trabajadores no tiene sentido, es los mismos menús
   y precios"*): un solo grupo, Alojamiento. Los dos paquetes de adulto mayor
