@@ -2,42 +2,57 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import Modal from "../Modal";
 import ConfirmInline from "../ConfirmInline";
-import { useGruposDePaquetes } from "../../hooks/useGruposDePaquetes";
 import { humanizeApiError } from "../../utils/apiErrors";
-import {
-  GrupoDePaquetes,
-  ServiceGroupCollection,
-} from "../../types/serviceGroupCollections.types";
+
+interface Grupo {
+  id: number;
+  name: string;
+}
 
 /**
- * "ORDENAR GRUPOS…" (12-10-2026, migración 120). Felipe: "mejor crear y
- * editar listas, es más fácil que una sección que se arme por el nombre
- * del paquete". Crear, renombrar, subir y bajar, y borrar los grupos de
- * "Partir de un paquete". Mismo trato que "Gestionar tipos" de Clientes:
- * flechas para el orden, la pregunta de borrar en su lugar. Borrar un
- * grupo NO borra sus paquetes: pasan a "Otros".
+ * "ORDENAR GRUPOS…" (12-10-2026). Felipe: "mejor crear y editar listas".
+ * Pieza común de "Partir de un paquete" y "Usar menú guardado": crear,
+ * renombrar, subir y bajar, y borrar los grupos de una lista. Mismo trato
+ * que "Gestionar tipos" de Clientes: flechas para el orden, la pregunta de
+ * borrar en su lugar. Borrar un grupo NO borra lo que tiene: pasa a "Otros".
  */
-export default function GruposDePaquetes({
-  paquetes,
+export default function GruposDeLista({
+  titulo,
+  subtitulo,
+  grupos,
+  cuantos,
+  unidad,
+  crear,
+  renombrar,
+  ordenar,
+  borrar,
   onCerrar,
 }: {
-  readonly paquetes: ServiceGroupCollection[];
+  readonly titulo: string;
+  readonly subtitulo: string;
+  /** En su orden actual, de arriba abajo. */
+  readonly grupos: readonly Grupo[];
+  /** Cuántos elementos tiene cada grupo. */
+  readonly cuantos: (id: number) => number;
+  /** Cómo se llama lo que se agrupa: { uno: "paquete", varios: "paquetes" }. */
+  readonly unidad: { uno: string; varios: string };
+  readonly crear: (nombre: string) => Promise<void>;
+  readonly renombrar: (id: number, nombre: string) => Promise<void>;
+  readonly ordenar: (ids: number[]) => Promise<void>;
+  readonly borrar: (id: number) => Promise<void>;
   readonly onCerrar: () => void;
 }) {
-  const { grupos, crear, renombrar, ordenar, borrar } = useGruposDePaquetes();
   const [nuevo, setNuevo] = useState("");
   const [editando, setEditando] = useState<{
-    id: GrupoDePaquetes["id"];
+    id: number;
     nombre: string;
   } | null>(null);
-  const [borrandoId, setBorrandoId] = useState<GrupoDePaquetes["id"] | null>(
-    null,
-  );
+  const [borrandoId, setBorrandoId] = useState<number | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cuantos = (id: GrupoDePaquetes["id"]) =>
-    paquetes.filter((p) => p.package_group_id === id).length;
+  const cuenta = (id: number) =>
+    cuantos(id) === 1 ? `1 ${unidad.uno}` : `${cuantos(id)} ${unidad.varios}`;
 
   const intentar = async (accion: () => Promise<void>, falla: string) => {
     if (ocupado) return false;
@@ -83,15 +98,15 @@ export default function GruposDePaquetes({
     void intentar(() => ordenar(ids), "No se pudo cambiar el orden.");
   };
 
-  const quitar = async (id: GrupoDePaquetes["id"]) => {
+  const quitar = async (id: number) => {
     await intentar(() => borrar(id), "No se pudo borrar el grupo.");
     setBorrandoId(null);
   };
 
   return (
     <Modal
-      titulo="Grupos de paquetes"
-      subtitulo="Ordenan «Partir de un paquete»: un título por grupo y, dentro, de menor a mayor precio."
+      titulo={titulo}
+      subtitulo={subtitulo}
       ancho="max-w-md"
       onCerrar={onCerrar}
       pie={
@@ -116,8 +131,8 @@ export default function GruposDePaquetes({
               <ConfirmInline
                 question={`¿Borrar «${g.name}»? ${
                   cuantos(g.id) === 1
-                    ? "Su paquete pasa"
-                    : `Sus ${cuantos(g.id)} paquetes pasan`
+                    ? `Su ${unidad.uno} pasa`
+                    : `Sus ${cuantos(g.id)} ${unidad.varios} pasan`
                 } a «Otros».`}
                 yesLabel="Sí, borrar"
                 onYes={() => void quitar(g.id)}
@@ -160,9 +175,7 @@ export default function GruposDePaquetes({
                 <span className="flex-1 min-w-0 text-sm text-gray-900 truncate">
                   {g.name}
                   <span className="ml-2 text-xs text-gray-400">
-                    {cuantos(g.id) === 1
-                      ? "1 paquete"
-                      : `${cuantos(g.id)} paquetes`}
+                    {cuenta(g.id)}
                   </span>
                 </span>
                 <button
@@ -215,7 +228,7 @@ export default function GruposDePaquetes({
           value={nuevo}
           onChange={(e) => setNuevo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void agregar()}
-          placeholder="Nuevo grupo, ej: Full day"
+          placeholder="Nuevo grupo"
           aria-label="Nombre del grupo nuevo"
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
         />

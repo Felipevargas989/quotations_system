@@ -1,26 +1,41 @@
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
-import ConfirmInline from "../../components/ConfirmInline";
-import { toast } from "../../components/toast/Toast";
+import { Search } from "lucide-react";
+import ListaConGrupos, {
+  PreguntaEnFila,
+} from "../../components/listas/ListaConGrupos";
+import EditarGuardado from "../../components/listas/EditarGuardado";
+import GruposDeLista from "../../components/listas/GruposDeLista";
+import { useListaBuscable } from "../../hooks/useListaBuscable";
+import { useGruposDeMenus } from "../../hooks/useGruposDeMenus";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
-import { humanizeApiError } from "../../utils/apiErrors";
 import {
   porPrecioYNombre,
   precioPorPersonaDeMenu as precioPorPersonaDe,
 } from "../../utils/precioPorPersona";
+import { nombreBajoElGrupo, ordenarPorGrupo } from "../../utils/gruposDeLista";
 
 /**
  * EL PANEL DE MENÚS GUARDADOS del cotizador (extraído de QuotationForm
  * el 09-09 por el portero de tamaño). Cada fila es NOMBRE · PRECIO POR
  * PERSONA (Felipe, 09-09: "el nombre, un punto y el precio; ese dato
- * vale ahí"), siempre en orden alfabético, con un lápiz para cambiar
- * el nombre ahí mismo (Enter guarda, Escape cancela) y el basurero.
- * La categoría no se repite: la lista ya es de la categoría de la
- * casilla; solo cuando la casilla no tiene categoría se dice de cuál
- * es cada menú, en gris chico debajo.
+ * vale ahí"). La categoría no se repite: la lista ya es de la categoría de
+ * la casilla; solo cuando la casilla no tiene categoría se dice de cuál es
+ * cada menú, en gris chico debajo.
+ *
+ * GRUPOS (12-10-2026, migración 121). Felipe: "¿podría este tener el mismo
+ * diseño (lo tenemos como pieza?) así podemos ordenar también los menús
+ * guardados de cada categoría". La lista es la pieza común ListaConGrupos
+ * (la misma de "Partir de un paquete"): buscador, un título por grupo de la
+ * categoría en el orden que decide la empresa ("Ordenar grupos…", al pie),
+ * de menor a mayor precio dentro, y el lápiz de cada menú cambia su nombre
+ * y su grupo. Sin categoría en la casilla, la lista mezcla categorías y no
+ * se agrupa.
+ *
+ * Las ventanas van FUERA del panel (hermanas): el panel tiene su propio
+ * z-index y las taparía.
  */
 export default function MenusGuardados({
-  grupos,
+  grupos: menus,
   conCategoria,
   confirmandoId,
   onElegir,
@@ -38,123 +53,154 @@ export default function MenusGuardados({
   readonly onCancelarEliminar: () => void;
   readonly onRenombrar: (id: number, nombre: string) => Promise<void>;
 }) {
-  const [editando, setEditando] = useState<{
-    id: number;
-    nombre: string;
-  } | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  // De menor a mayor precio por persona (Felipe, 10-10-2026); antes,
-  // alfabético.
-  const ordenados = [...grupos].sort(
+  const [editando, setEditando] = useState<ServiceGroup | null>(null);
+  const [ordenandoGrupos, setOrdenandoGrupos] = useState(false);
+  const gruposDeMenus = useGruposDeMenus();
+
+  // La categoría de la casilla: todos los menús de la lista son de ella.
+  const categoria = conCategoria ? (menus[0]?.category ?? null) : null;
+  const grupos = categoria ? gruposDeMenus.gruposDe(categoria) : [];
+
+  // Por grupo y, dentro, de menor a mayor precio por persona (10-10). El
+  // buscador mira el nombre del menú Y el de su grupo.
+  const enLista = ordenarPorGrupo(
+    menus,
+    grupos,
+    (m) => (categoria ? m.menu_group_id : null),
     porPrecioYNombre<ServiceGroup>(precioPorPersonaDe),
   );
+  const porId = new Map(enLista.map((x) => [String(x.elemento.id), x]));
+  const lista = useListaBuscable({
+    opciones: enLista.map(({ elemento, grupo }) => ({
+      value: String(elemento.id),
+      label: grupo ? `${elemento.name} · ${grupo.name}` : elemento.name,
+    })),
+    abierta: true,
+    marcarPrimero: true,
+  });
 
-  const guardarNombre = async () => {
-    if (!editando || guardando) return;
-    const nombre = editando.nombre.trim();
-    const original = grupos.find((g) => g.id === editando.id)?.name ?? "";
-    if (!nombre || nombre === original) {
-      setEditando(null);
-      return;
-    }
-    setGuardando(true);
-    try {
-      await onRenombrar(editando.id, nombre);
-      setEditando(null);
-    } catch (e) {
-      toast.error(humanizeApiError(e, "No se pudo cambiar el nombre."));
-    } finally {
-      setGuardando(false);
-    }
-  };
+  const menuDe = (id: number) => menus.find((m) => m.id === id);
+
+  const filas = lista.filtradas.flatMap((opcion) => {
+    const x = porId.get(opcion.value);
+    if (!x) return [];
+    const { elemento: m, grupo } = x;
+    return [
+      {
+        id: m.id,
+        nombre: m.name,
+        visible: grupo ? nombreBajoElGrupo(m.name, grupo.name) : m.name,
+        precio: precioPorPersonaDe(m),
+        grupo,
+        detalle: conCategoria ? undefined : m.category,
+      },
+    ];
+  });
+
+  const borrando = confirmandoId != null ? menuDe(confirmandoId) : undefined;
+  const pregunta: PreguntaEnFila | null = borrando
+    ? {
+        id: borrando.id,
+        pregunta: `¿Eliminar "${borrando.name}"?`,
+        si: "Sí, eliminar",
+        onSi: () => onConfirmarEliminar(borrando.id),
+      }
+    : null;
 
   return (
-    <div className="absolute left-0 z-10 w-[26rem] max-w-[calc(100vw-2rem)] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-      {ordenados.map((group) =>
-        confirmandoId === group.id ? (
-          <div key={group.id} className="px-3 py-2">
-            <ConfirmInline
-              question={`¿Eliminar "${group.name}"?`}
-              onYes={() => onConfirmarEliminar(group.id)}
-              onNo={onCancelarEliminar}
+    <>
+      <div className="absolute left-0 z-10 w-[26rem] max-w-[calc(100vw-2rem)] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div className="p-2 border-b border-gray-200">
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
             />
-          </div>
-        ) : editando?.id === group.id ? (
-          <div key={group.id} className="px-3 py-2">
             <input
-              autoFocus
-              type="text"
-              value={editando.nombre}
-              maxLength={80}
-              disabled={guardando}
-              onChange={(e) =>
-                setEditando({ id: group.id, nombre: e.target.value })
+              ref={lista.refBuscador}
+              value={lista.texto}
+              onChange={lista.alEscribir}
+              onKeyDown={(e) =>
+                lista.teclaEnLista(e, (valor) => {
+                  const m = menuDe(Number(valor));
+                  if (m) onElegir(m);
+                })
               }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void guardarNombre();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setEditando(null);
-                }
-              }}
-              onBlur={() => void guardarNombre()}
-              className="w-full text-sm border border-blue-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              aria-label="Nuevo nombre del menú"
+              placeholder="Buscar menú o grupo…"
+              className="w-full pl-8 pr-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+              aria-label="Buscar menú guardado"
             />
-            <p className="mt-1 text-[11px] text-gray-400">
-              Enter guarda · Escape cancela
+          </div>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <ListaConGrupos
+            filas={filas}
+            conTitulos={grupos.length > 0}
+            marcada={lista.marcada}
+            refMarcada={lista.refMarcada}
+            pregunta={pregunta}
+            onNo={onCancelarEliminar}
+            onElegir={(id) => {
+              const m = menuDe(id);
+              if (m) onElegir(m);
+            }}
+            onEditar={(id) => setEditando(menuDe(id) ?? null)}
+            onPedirEliminar={onPedirEliminar}
+            tituloEliminar="Eliminar menú guardado"
+          />
+          {lista.filtradas.length === 0 && (
+            <p className="px-3 py-2 text-sm text-gray-400">
+              Ninguno calza con la búsqueda.
             </p>
-          </div>
-        ) : (
-          <div
-            key={group.id}
-            className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
-          >
+          )}
+        </div>
+        {categoria && (
+          <div className="flex justify-end border-t border-gray-200">
             <button
               type="button"
-              onClick={() => onElegir(group)}
-              className="flex-1 min-w-0 text-left text-sm"
+              onClick={() => setOrdenandoGrupos(true)}
+              className="px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              title="Crear, renombrar, ordenar y borrar los grupos de esta categoría"
             >
-              {/* El precio nunca se corta: si falta espacio, se corta el nombre. */}
-              <span className="flex items-baseline gap-1 min-w-0">
-                <span className="text-gray-900 truncate">{group.name}</span>
-                <span className="text-gray-500 shrink-0 whitespace-nowrap">
-                  · ${precioPorPersonaDe(group).toLocaleString("es-CL")}
-                </span>
-              </span>
-              {!conCategoria && (
-                <span className="block text-xs text-gray-400 truncate">
-                  {group.category}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditando({ id: group.id, nombre: group.name });
-              }}
-              className="ml-2 shrink-0 text-gray-300 hover:text-blue-600"
-              title="Cambiar el nombre"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPedirEliminar(group.id);
-              }}
-              className="ml-2 shrink-0 text-gray-300 hover:text-red-600"
-              title="Eliminar menú guardado"
-            >
-              <Trash2 size={14} />
+              Ordenar grupos…
             </button>
           </div>
-        ),
+        )}
+      </div>
+
+      {editando && (
+        <EditarGuardado
+          titulo="Editar menú guardado"
+          etiquetaNombre="Nombre del menú"
+          nombre={editando.name}
+          grupoId={editando.menu_group_id ?? null}
+          grupos={gruposDeMenus.gruposDe(editando.category)}
+          ayudaGrupos={`Aún no hay grupos de ${editando.category}: se crean en «Ordenar grupos…», al pie de esta lista.`}
+          onGuardar={async ({ nombre, grupoId }) => {
+            if (nombre !== editando.name) {
+              await onRenombrar(editando.id, nombre);
+            }
+            if (grupoId !== (editando.menu_group_id ?? null)) {
+              await gruposDeMenus.asignar(editando.id, grupoId);
+            }
+          }}
+          onCerrar={() => setEditando(null)}
+        />
       )}
-    </div>
+      {ordenandoGrupos && categoria && (
+        <GruposDeLista
+          titulo={`Grupos de ${categoria}`}
+          subtitulo="Ordenan «Usar menú guardado» de esta categoría: un título por grupo y, dentro, de menor a mayor precio."
+          grupos={grupos}
+          cuantos={(id) => menus.filter((m) => m.menu_group_id === id).length}
+          unidad={{ uno: "menú", varios: "menús" }}
+          crear={(nombre) => gruposDeMenus.crear(categoria, nombre)}
+          renombrar={gruposDeMenus.renombrar}
+          ordenar={(ids) => gruposDeMenus.ordenar(categoria, ids)}
+          borrar={gruposDeMenus.borrar}
+          onCerrar={() => setOrdenandoGrupos(false)}
+        />
+      )}
+    </>
   );
 }

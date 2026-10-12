@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { olvidarFiltrosTablero } from "./filtrosTablero";
@@ -3234,9 +3235,10 @@ export default function QuotationForm() {
                                           isRestrictedEditing ||
                                           boxGroups.length === 0
                                         }
-                                        className="text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
+                                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
                                       >
-                                        Usar un menú guardado de esta categoría…
+                                        <BookOpen size={12} /> Usar menú
+                                        guardado
                                       </button>
                                       {openDropdown === `groups-${box.id}` &&
                                         boxGroups.length > 0 && (

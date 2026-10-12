@@ -1,6 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import {
+  fallar,
+  nombreValido,
+  ReglasDeGrupos,
+} from 'src/grupos-de-lista/reglas-de-grupos';
 import { CreateServiceGroupCollectionDto } from './dto/create-service-group-collection.dto';
 import { ActualizarPaqueteDto } from './dto/grupos-de-paquetes.dto';
 import {
@@ -191,7 +196,7 @@ export class ServiceGroupCollectionsService {
       Pick<ServiceGroupCollection, 'name' | 'package_group_id'>
     > = {};
     if (dto.name !== undefined) {
-      cambios.name = this.nombreValido(dto.name, 'paquete');
+      cambios.name = nombreValido(dto.name, 'paquete');
     }
     if (dto.package_group_id !== undefined) {
       if (dto.package_group_id !== null) {
@@ -215,7 +220,8 @@ export class ServiceGroupCollectionsService {
       cambios,
     );
     if (error) {
-      this.fallar(
+      fallar(
+        this.logger,
         error,
         'No se pudo guardar el paquete',
         'Ya existe un paquete con ese nombre. Elige otro.',
@@ -228,114 +234,47 @@ export class ServiceGroupCollectionsService {
   }
 
   // ---------- GRUPOS DE PAQUETES (12-10-2026, migración 120) ----------
-  // Felipe: "un cliente me pregunta por un paseo y debo tener dos o tres
-  // alternativas juntas" y "mejor crear y editar listas, es más fácil que
-  // una sección que se arme por el nombre del paquete". Cada paquete va
-  // en un grupo o en ninguno; el orden de los grupos lo decide la empresa.
+  // Las reglas son las MISMAS que las de los grupos de menús guardados y
+  // viven en una sola pieza (src/grupos-de-lista). Acá solo se le presta
+  // la tabla de grupos de paquetes, filtrada por empresa.
 
-  async listarGrupos(companyId: Company['id']): Promise<GrupoListado[]> {
-    const { data, error } = await this.repository.gruposDeLaEmpresa(companyId);
-    if (error) this.fallar(error, 'No se pudieron leer los grupos');
-    return (data ?? []) as GrupoListado[];
-  }
-
-  /** Un grupo nuevo va al final del orden. */
-  async crearGrupo(nombre: string, companyId: Company['id']) {
-    const name = this.nombreValido(nombre, 'grupo');
-    const actuales = await this.listarGrupos(companyId);
-    const siguiente =
-      actuales.reduce((max, g) => Math.max(max, g.sort_order ?? 0), 0) + 1;
-    const { data, error } = await this.repository.crearGrupo(
-      companyId,
-      name,
-      siguiente,
+  private grupos(companyId: Company['id']) {
+    return new ReglasDeGrupos(
+      {
+        listar: () => this.repository.gruposDeLaEmpresa(companyId),
+        crear: (name, orden) =>
+          this.repository.crearGrupo(companyId, name, orden),
+        renombrar: (id, name) =>
+          this.repository.renombrarGrupo(id, companyId, name),
+        ordenar: (id, orden) =>
+          this.repository.ordenarGrupo(id, companyId, orden),
+        borrar: (id) => this.repository.borrarGrupo(id, companyId),
+      },
+      this.logger,
     );
-    if (error) {
-      this.fallar(
-        error,
-        'No se pudo crear el grupo',
-        'Ya existe un grupo con ese nombre. Elige otro.',
-      );
-    }
-    return data;
   }
 
-  async renombrarGrupo(
+  listarGrupos(companyId: Company['id']) {
+    return this.grupos(companyId).listar();
+  }
+
+  crearGrupo(nombre: string, companyId: Company['id']) {
+    return this.grupos(companyId).crear(nombre);
+  }
+
+  renombrarGrupo(
     id: PackageGroup['id'],
     nombre: string,
     companyId: Company['id'],
   ) {
-    const name = this.nombreValido(nombre, 'grupo');
-    const { data, error } = await this.repository.renombrarGrupo(
-      id,
-      companyId,
-      name,
-    );
-    if (error) {
-      this.fallar(
-        error,
-        'No se pudo renombrar el grupo',
-        'Ya existe un grupo con ese nombre. Elige otro.',
-      );
-    }
-    if (!data || data.length === 0) {
-      throw new HttpException('Grupo no encontrado', HttpStatus.NOT_FOUND);
-    }
-    return data[0];
+    return this.grupos(companyId).renombrar(id, nombre);
   }
 
-  /** Guarda el orden que llega, del 1 en adelante. Los id que no son de
-   *  la empresa se descartan sin aviso (igual que los tipos de cliente). */
-  async ordenarGrupos(ids: number[], companyId: Company['id']) {
-    const propios = new Set(
-      (await this.listarGrupos(companyId)).map((g) => g.id),
-    );
-    const orden = ids.filter((id) => propios.has(id));
-    for (const [i, id] of orden.entries()) {
-      const { error } = await this.repository.ordenarGrupo(
-        id,
-        companyId,
-        i + 1,
-      );
-      if (error) this.fallar(error, 'No se pudo ordenar los grupos');
-    }
-    return this.listarGrupos(companyId);
+  ordenarGrupos(ids: number[], companyId: Company['id']) {
+    return this.grupos(companyId).ordenar(ids);
   }
 
-  /** Borrar un grupo NO borra sus paquetes: quedan sin grupo, en "Otros"
-   *  (ON DELETE SET NULL de la migración 120). */
-  async borrarGrupo(id: PackageGroup['id'], companyId: Company['id']) {
-    const { data, error } = await this.repository.borrarGrupo(id, companyId);
-    if (error) this.fallar(error, 'No se pudo borrar el grupo');
-    if (!data || data.length === 0) {
-      throw new HttpException('Grupo no encontrado', HttpStatus.NOT_FOUND);
-    }
-    return { removed: true };
-  }
-
-  private nombreValido(nombre: string, que: 'grupo' | 'paquete') {
-    const name = (nombre ?? '').trim();
-    if (!name) {
-      throw new HttpException(
-        `El nombre del ${que} no puede quedar vacío`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return name;
-  }
-
-  /** Error de la base → aviso en castellano. 23505 = nombre repetido. */
-  private fallar(
-    error: { code?: string; message?: string },
-    mensaje: string,
-    repetido?: string,
-  ): never {
-    if (repetido && error?.code === '23505') {
-      throw new HttpException(repetido, HttpStatus.CONFLICT);
-    }
-    this.logger.error(error);
-    throw new HttpException(mensaje, HttpStatus.INTERNAL_SERVER_ERROR);
+  borrarGrupo(id: PackageGroup['id'], companyId: Company['id']) {
+    return this.grupos(companyId).borrar(id);
   }
 }
-
-type GrupoListado = Pick<PackageGroup, 'id' | 'name' | 'sort_order'>;

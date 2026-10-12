@@ -15,4 +15,19 @@ export class ServiceGroup {
   name: string;
   category: string;
   company_id: Company['id'];
+  // Su grupo dentro de la categoría (12-10-2026, migración 121). Sin
+  // grupo, va al final de "Usar menú guardado", bajo "Otros".
+  menu_group_id?: MenuGroup['id'] | null;
+}
+
+// GRUPO DE MENÚS GUARDADOS (12-10-2026, migración 121): cada categoría
+// tiene los suyos (Almuerzo: Nivel 1, Nivel 2, Nivel 3…). Mismas reglas
+// que los grupos de paquetes (src/grupos-de-lista).
+export class MenuGroup {
+  id: number;
+  company_id: Company['id'];
+  category: string;
+  name: string;
+  sort_order: number;
+  created_at: Date;
 }
