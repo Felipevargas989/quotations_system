@@ -68,4 +68,10 @@ export class CreateServiceGroupCollectionDto {
   @ValidateNested({ each: true })
   @Type(() => CreateServiceGroupCollectionFixedServiceDto)
   fixed_services?: CreateServiceGroupCollectionFixedServiceDto[];
+
+  // Su grupo (12-10-2026, migración 120). Opcional: sin grupo, el
+  // paquete va al final de la lista, bajo "Otros".
+  @IsOptional()
+  @IsInt()
+  package_group_id?: number | null;
 }

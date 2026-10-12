@@ -4,19 +4,44 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import SelectorDePaquetes from "./SelectorDePaquetes";
 
-// "PARTIR DE UN PAQUETE" AGRUPADO (12-10-2026). Felipe: "un cliente me
-// pregunta por un paseo y debo tener dos o tres alternativas juntas y si
-// no tengo que estar scrolleando mucho". Lo que cuidan estas pruebas: un
-// título por grupo (lo que va antes de los dos puntos), de menor a mayor
-// precio dentro de cada grupo, los sin grupo al final bajo "Otros", y que
-// una empresa sin grupos vea la lista como antes.
+// "PARTIR DE UN PAQUETE" CON GRUPOS (12-10-2026, migración 120). Felipe:
+// "un cliente me pregunta por un paseo y debo tener dos o tres
+// alternativas juntas" y "mejor crear y editar listas". Lo que cuidan
+// estas pruebas: un título por grupo en el orden que decide la empresa,
+// de menor a mayor precio dentro, los sin grupo al final bajo "Otros",
+// la lista de siempre si no hay grupos, el buscador que encuentra por el
+// nombre del grupo y el lápiz de cada paquete.
+
+const estado = vi.hoisted(() => ({
+  grupos: [] as { id: number; name: string; sort_order: number }[],
+}));
+
+vi.mock("../../hooks/useGruposDePaquetes", () => ({
+  useGruposDePaquetes: () => ({
+    grupos: estado.grupos,
+    crear: vi.fn(),
+    renombrar: vi.fn(),
+    ordenar: vi.fn(),
+    borrar: vi.fn(),
+    editarPaquete: vi.fn(),
+  }),
+}));
 
 afterEach(cleanup);
 
-const paquete = (id: number, name: string, precio: number) =>
+const FULL_DAY = { id: 1, name: "Full day", sort_order: 1 };
+const MATRIMONIO = { id: 2, name: "Matrimonio", sort_order: 2 };
+
+const paquete = (
+  id: number,
+  name: string,
+  precio: number,
+  package_group_id: number | null,
+) =>
   ({
     id,
     name,
+    package_group_id,
     groups: [
       { group: { items: [{ quantity: 1, service: { price: precio } }] } },
     ],
@@ -52,13 +77,14 @@ const enOrden = (texto: string, partes: string[]) => {
   }
 };
 
-describe("SelectorDePaquetes agrupado", () => {
+describe("SelectorDePaquetes con grupos", () => {
   it("un título por grupo, por precio dentro, y los sin grupo al final", () => {
+    estado.grupos = [FULL_DAY, MATRIMONIO];
     const { container } = abrir([
-      paquete(1, "Matrimonio: de noche", 64100),
-      paquete(2, "Full day: empresa", 57000),
-      paquete(3, "Paquete viejo", 1000),
-      paquete(4, "Full day: adulto mayor", 34300),
+      paquete(1, "Matrimonio: de noche", 64100, 2),
+      paquete(2, "Full day: empresa", 57000, 1),
+      paquete(3, "Paquete viejo", 1000, null),
+      paquete(4, "Full day: adulto mayor", 34300, 1),
     ]);
     enOrden(textoDeLaLista(container), [
       "Full day",
@@ -73,27 +99,54 @@ describe("SelectorDePaquetes agrupado", () => {
     ]);
   });
 
-  it("sin grupos, la lista queda como antes: sin títulos y por precio", () => {
+  it("el orden de los grupos es el que decide la empresa", () => {
+    estado.grupos = [
+      { ...MATRIMONIO, sort_order: 1 },
+      { ...FULL_DAY, sort_order: 2 },
+    ];
     const { container } = abrir([
-      paquete(1, "Paseo caro", 50000),
-      paquete(2, "Paseo barato", 20000),
+      paquete(1, "Barato de full day", 10000, 1),
+      paquete(2, "Caro de matrimonio", 90000, 2),
+    ]);
+    enOrden(textoDeLaLista(container), [
+      "Matrimonio",
+      "Caro de matrimonio",
+      "Full day",
+      "Barato de full day",
+    ]);
+  });
+
+  it("sin grupos creados, la lista queda como antes", () => {
+    estado.grupos = [];
+    const { container } = abrir([
+      paquete(1, "Paseo caro", 50000, null),
+      paquete(2, "Paseo barato", 20000, null),
     ]);
     const texto = textoDeLaLista(container);
     expect(texto).not.toContain("Otros");
     enOrden(texto, ["Paseo barato", "Paseo caro"]);
   });
 
-  it("el buscador mira el nombre entero: 'full day' trae todo el grupo", () => {
+  it("el buscador encuentra por el nombre del grupo", () => {
+    estado.grupos = [FULL_DAY, MATRIMONIO];
     const { container } = abrir([
-      paquete(1, "Matrimonio: de noche", 64100),
-      paquete(2, "Full day: empresa", 57000),
-      paquete(4, "Full day: adulto mayor", 34300),
+      paquete(1, "Estándar", 44300, 1),
+      paquete(2, "Empresa", 57000, 1),
+      paquete(3, "De noche", 64100, 2),
     ]);
     fireEvent.change(screen.getByLabelText("Buscar paquete"), {
       target: { value: "full day" },
     });
     const texto = textoDeLaLista(container);
-    enOrden(texto, ["Full day", "Adulto mayor", "Empresa"]);
-    expect(texto).not.toContain("Matrimonio");
+    enOrden(texto, ["Full day", "Estándar", "Empresa"]);
+    expect(texto).not.toContain("De noche");
+  });
+
+  it("el lápiz abre la edición del paquete con su nombre", () => {
+    estado.grupos = [FULL_DAY];
+    abrir([paquete(2, "Full day: empresa", 57000, 1)]);
+    fireEvent.click(screen.getByLabelText("Editar Full day: empresa"));
+    expect(screen.getByText("Editar paquete")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Full day: empresa")).toBeInTheDocument();
   });
 });
