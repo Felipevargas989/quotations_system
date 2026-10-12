@@ -185,13 +185,14 @@ tener dos o tres alternativas juntas y no estar scrolleando"*):
 | Alojamiento | 3N Media pensión estándar | $142.800 |
 | Alojamiento | 3N Pensión completa básico | $157.500 |
 | Alojamiento | 3N Pensión completa estándar | $193.500 |
-| Graduación | Graduación: cóctel | $27.600 |
-| Graduación | Graduación: cena, alojamiento y desayuno, temporada media | $47.600 |
+| Graduación | Solo cóctel | $27.600 |
+| Graduación | Cena, alojamiento y desayuno | $47.600 |
 | Matrimonio | Matrimonio: cóctel extendido | $30.900 |
 | Matrimonio | Matrimonio: de día con cóctel y almuerzo | $46.100 |
 | Matrimonio | Matrimonio: de noche con cóctel, cena y barra libre | $64.100 |
-| Trabajadores | Jornada de trabajo: 1 día | $45.200 |
-| Trabajadores | Jornada de trabajo: 2 días con 1 noche, temporada media | $101.000 |
+| Salones | Salón medio día (+ salón auditorio medio día $200.000) | $8.900 |
+| Salones | Salón medio día con almuerzo (+ salón auditorio medio día $200.000) | $25.800 |
+| Salones | Salón día completo (+ salón auditorio día completo $250.000) | $36.700 |
 | Sernatur | Sernatur: programa 4, 5 y 6 días (fuera: contrato) | — |
 
 **Nombres de los paquetes con noches (Felipe, 12-10).** La forma es
@@ -220,6 +221,22 @@ termina de explicarlo (*"igual el precio también es explicativo"*):
   Ningún plato se repite dentro de un paquete, salvo la mechada del 3N
   Pensión completa estándar (con otra guarnición): el nivel 2 tiene 5
   platos de fondo para 6 comidas.
+
+**Salones, armados con lo que compran los centros de capacitación (Felipe,
+12-10: *"veamos qué es lo que más se vende a centros de capacitación"*).**
+En Uso salones, últimos 15 meses, gana **desayuno + almuerzo + un coffee en
+la tarde**: 12 cotizadas, 8 ganadas (67%), ~$39.150 por persona en comida,
+~29 personas. Después vienen solo coffee (6 cotizadas, 2 ganadas), solo el
+salón (6 y 2), almuerzo con dos coffees (3 y 1); con alojamiento hubo solo
+2 en 15 meses. El cliente ancla es Brito Pradenas Asesoría y Capacitación:
+9 de 12 ganadas, siempre salón auditorio + desayuno + almuerzo + un
+coffee, 8 a 36 personas, ~$42.000 por persona. Por eso el grupo «Jornada
+de trabajo» pasó a llamarse **Salones**, el de 1 día perdió el coffee de
+la mañana y el de «2 días con 1 noche» se reemplazó (no lo pide nadie).
+Los tres llevan el **salón como fijo del paquete**: al aplicarlo entra
+solo, como en Graduación y Matrimonio. «Salón medio día con almuerzo» lo
+pidió Felipe ("coffee y almuerzo nada más", almuerzo nivel 2): coffee de
+media mañana y cierre con almuerzo.
 
 Ningún código depende del nombre de un paquete (revisado con grep el
 12-10). Ese mismo día los grupos pasaron a ser **listas de verdad**
@@ -298,8 +315,11 @@ por noche). Lo que sigue quedó como registro de la revisión:
   Clásico $8.900, Campestre $10.700, Ejecutivo $12.300, Premium $15.700,
   Graduación $23.200). Falta el **paquete "Jornada de trabajo"**
   (desayuno, coffee, almuerzo, coffee): Uso salones es el cuarto tipo en
-  volumen y convierte 38%. El salón y el audiovisual van aparte porque un
-  paquete no lleva fijos.
+  volumen y convierte 38%. ~~El salón y el audiovisual van aparte porque un
+  paquete no lleva fijos.~~ Corregido el 12-10: un paquete SÍ lleva fijos
+  (tabla `service_group_collection_fixed_services`; Graduación y Matrimonio
+  ya los usaban) y entran solos al aplicarlo. **Hecho el 12-10:** grupo
+  Salones (sección 5), con el salón dentro de cada paquete.
 - **Cócteles:** los menús Cóctel I a IV ($9.700 a $21.200) bastan. Falta el
   **paquete "Matrimonio de noche"** (cóctel, cena, barra libre y café),
   que es lo que pide la mayoría.
