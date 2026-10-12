@@ -188,8 +188,14 @@ qué incluye"**, y si lleva alojamiento, la temporada al final:
 | Sernatur | Sernatur: programa 4, 5 y 6 días (fuera: contrato) | — |
 
 Ningún código depende del nombre de un paquete (revisado con grep el
-12-10). Mientras la lista no muestre títulos por grupo, escribir el grupo
-en el buscador ("full day", "matrimonio") los junta. El ticket del paquete
+12-10). Ese mismo día los grupos pasaron a ser **listas de verdad**
+(Felipe: *"mejor crear y editar listas, es más fácil que una sección que
+se arme por el nombre del paquete"*): tabla `package_groups`, migración
+120. "Partir de un paquete" muestra un título por grupo en el orden que
+decide la empresa; cada paquete tiene su lápiz (nombre y grupo) y al pie
+está "Ordenar grupos…" (crear, renombrar, subir y bajar, borrar). Un
+paquete nuevo elige su grupo al crearse. Los nombres "Grupo: …" se
+conservan, pero bajo su título la fila no repite el grupo. El ticket del paquete
 de paseo de curso se renombró "Ticket paseo de curso con alimentación"
 ($2.400), para que nadie lo use suelto en una entrada sola; el nombre sale
 impreso en el programa del cliente, por eso no dice "solo en paquete".
