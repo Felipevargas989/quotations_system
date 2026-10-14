@@ -20,7 +20,7 @@ Lo usan vendedores, operaciones y administración. Recepción mira el tablero y 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
 | `/quotations` | `QuotationsPage` | `frontend/src/pages/quotations/QuotationsPage.tsx` | Tablero único de 3 columnas con la suma por columna. Ahí se puede:<br>• cambiar el estado con el menú de la tarjeta o arrastrándola<br>• ordenar por monto, urgencia, fecha o N°<br>• filtrar "Requieren seguimiento"<br>• buscar, que también encuentra cerradas y rechazadas plegadas<br>• ver el aviso de requerimientos pendientes<br>• abrir la ficha o el visor PDF | `SECTION_ROLES.quotations` (recepción, vendedor, operaciones, administrador). Cambiar estado, arrastrar y "nueva cotización": solo `quotations_edit` |
-| `/negocio/:id` | `NegocioPage` | `frontend/src/pages/quotations/NegocioPage.tsx` | Encabezado con cliente y mandante (copiar teléfono y correo), chip de estado, WhatsApp, **Enviar cotización** y PDF. Abajo `EventoCajitas` (fecha editable si el evento no está congelado). Pestaña Seguimiento: `HiloSeguimiento` + `AdjuntosComerciales`. Pestaña Servicios: `ServiciosTab`, el editor completo | `SECTION_ROLES.quotations`. Chip que cambia estado, fecha de las cajitas, pestaña Servicios y respaldos: solo `quotations_edit`. El botón Enviar cotización lo ve cualquiera que entre |
+| `/negocio/:id` | `NegocioPage` | `frontend/src/pages/quotations/NegocioPage.tsx` | Encabezado con cliente y mandante (copiar teléfono y correo; el nombre del cliente lleva a su ficha `/clients/:id`, 14-10-2026), chip de estado, WhatsApp, **Enviar cotización** y PDF. Abajo `EventoCajitas` (fecha editable si el evento no está congelado). Pestaña Seguimiento: `HiloSeguimiento` + `AdjuntosComerciales`. Pestaña Servicios: `ServiciosTab`, el editor completo | `SECTION_ROLES.quotations`. Chip que cambia estado, fecha de las cajitas, pestaña Servicios y respaldos: solo `quotations_edit`. El botón Enviar cotización lo ve cualquiera que entre |
 | `/imprimir/:token` | `ImprimirCotizacion` | `frontend/src/pages/quotations/ImprimirCotizacion.tsx` | Ninguna persona: la abre el navegador invisible del motor para imprimir el PDF. Pinta `buildQuotationPrintDoc` | Pública, fuera de `Layout`; solo con token firmado |
 | `/requests` | `RequestsPage` | `frontend/src/pages/RequestsPage.tsx` y `frontend/src/components/RequestForm.tsx` | Lista y busca requerimientos; los crea o edita con `RequestForm`; los elimina con `ConfirmInline`; comparte el enlace del formulario público. "Cotizar" lleva a `/quotation-form/:id` (mapa 01) | `SECTION_ROLES.requests` (todos). Cotizar solo `quotations_edit` |
 
@@ -34,6 +34,7 @@ Piezas del módulo que no son ruta:
 Otras puertas a la ficha:
 - `Calendar.handleNavigateToQuotation` (`frontend/src/pages/calendar/Calendar.tsx`) manda a `/negocio/:id` lo que está en juego y todo lo de recepción.
 - La cosecha del mes de `DashboardPage` abre la ficha en pestaña nueva.
+- `ClientDetailPage`: el N° de cada cotización del historial (14-10-2026). Ida y vuelta con el nombre del cliente del encabezado.
 
 ## 3. Endpoints del motor
 
