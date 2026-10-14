@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "../components/toast/Toast";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -103,7 +103,6 @@ const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 // corresponde — ver utils/dates.
 
 // Mismos colores de estado que la lista de cotizaciones.
-
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -1020,7 +1019,19 @@ export default function ClientDetailPage() {
                         className="hover:bg-gray-50 cursor-pointer"
                       >
                         <td className="px-4 py-3 text-sm font-semibold text-blue-600">
-                          #{q.quotation_number}
+                          {/* El N° lleva a la ficha de la cotización
+                              (Felipe, 14-10-2026: "en el cliente si pincho
+                              el #601 me debería llevar de vuelta"). El resto
+                              de la fila sigue abriendo el resumen, y el
+                              lápiz, el cotizador. */}
+                          <Link
+                            to={`/negocio/${q.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:text-blue-800 hover:underline"
+                            title="Abrir la ficha de la cotización"
+                          >
+                            #{q.quotation_number}
+                          </Link>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {q.event_type || "—"}

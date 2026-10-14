@@ -5,7 +5,7 @@
 // hilo comercial + respaldos + compartir por WhatsApp/correo) y
 // Cotización (resumen + PDF + editar).
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, FileText, Mail, Phone, Send } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -353,7 +353,20 @@ export default function NegocioPage() {
             {/* La identidad manda: el cliente en grande, el número en
                 gris discreto (pedido de Felipe 04-08). */}
             <h1 className="text-xl font-bold text-gray-900">
-              {fila?.clients?.name}{" "}
+              {/* El nombre lleva a la ficha del cliente (Felipe, 14-10-2026:
+                  "si pincho el nombre del cliente me debería llevar al
+                  cliente"); desde ahí, el N° de la cotización trae de vuelta. */}
+              {fila?.client_id ? (
+                <Link
+                  to={`/clients/${fila.client_id}`}
+                  className="hover:text-blue-700 hover:underline"
+                  title="Ver la ficha del cliente"
+                >
+                  {fila.clients?.name}
+                </Link>
+              ) : (
+                fila?.clients?.name
+              )}{" "}
               <span className="text-base font-semibold text-gray-400">
                 #{fila?.quotation_number}
               </span>
