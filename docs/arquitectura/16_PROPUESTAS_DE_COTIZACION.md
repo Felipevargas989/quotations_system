@@ -286,8 +286,19 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 
 ## 6. El botón (diseño, sin construir)
 
-- **Dónde:** "Proponer cotización" en la ficha del requerimiento, y
-  "Proponer todas" en Requerimientos.
+> **15-10-2026: EN STAND BY por decisión de Felipe.** Lo pidió así: *"un
+> botón que sea generar cotizaciones y con un icono de una varita de IA,
+> que vea la cotización, todo lo que está en los comentarios, y genere una
+> cotización que después pueda editar, la deje como solicitada, con la
+> versión más actualizada de Claude"*. Para retomarlo hace falta una llave
+> de Anthropic en el motor (la crea y la guarda Felipe en Railway) y
+> probarlo primero en el laboratorio.
+
+- **Nombre e ícono (Felipe, 15-10):** «Generar cotización», con una varita
+  mágica (`WandSparkles` de lucide). El modelo, el más nuevo de Claude,
+  queda en una variable del motor para subir de versión sin tocar código.
+- **Dónde:** «Generar cotización» en la ficha del requerimiento, y
+  «Generar todas» en Requerimientos.
 - **Motor:** `POST /quotations/:id/propuesta` arma el contexto
   (requerimiento, cliente e historial, catálogo de la empresa: paquetes,
   menús, sueltos y fijos, las reglas de la sección 2 y la tabla de la
