@@ -26,13 +26,20 @@ y recién entonces la envíe.
 1. **Nunca se envía.** La propuesta queda en `solicitada` y pasa de
    requerimiento a cotización (`request_type = 'cotizacion'`), igual que
    cuando alguien la arma en el cotizador. La envía una persona.
-2. **Los comentarios van en las mismas observaciones**, debajo de una línea
-   separadora (Felipe, 12-10: *"los comentarios déjalos en las mismas
-   observaciones separados por una línea, yo mismo las borro post
-   revisar"*). Separador en uso:
-   `──────── PROPUESTA DEL ASISTENTE · revisar y borrar antes de enviar ────────`.
-   **Ojo: las observaciones salen impresas en el PDF.** Nunca enviar sin
-   borrarlas.
+2. **Los comentarios van a la bitácora (pestaña Seguimiento), NUNCA a las
+   Observaciones.** Las Observaciones salen impresas en el PDF que recibe
+   el cliente. Una línea en `quotation_followups`, autor «Asistente», tipo
+   `otro`, que parte con «Cotización armada por el asistente. Ojo con lo
+   siguiente:». Las Observaciones quedan solo con lo que escribió el
+   cliente o Recepción.
+
+   Historia: el 12-10 Felipe pidió dejarlos en las mismas observaciones,
+   bajo una línea separadora, para borrarlos él antes de enviar. El 14-10
+   lo cambió: *"no me gustó que dejaras en comentarios tus observaciones
+   de las cotizaciones, salieron varias a los clientes (…) quizás debió
+   quedar en seguimiento un hilo que dijera cotización creada por
+   asistente, ojo con lo siguiente"*. Nueve PDF salieron con las notas
+   internas, y ese día se movieron a la bitácora las once que quedaban.
 3. **Se ofrece lo que hay en el catálogo.** Lo que el cliente pide y no
    tenemos se escribe explícito y en mayúsculas: "NO TENEMOS risotto: va
    pastelera de choclo".
@@ -86,13 +93,15 @@ y recién entonces la envíe.
    - propina: `tip_percentage` en null.
 6. **Respaldar y guardar con candados**, todas en un solo bloque: estado
    `solicitada`, `request_type = 'requerimiento'`, ítems vacíos, monto 0,
-   personas iguales a lo medido, sin un separador previo, y total igual al
-   calculado a mano. Si una falla, no se guarda ninguna.
-7. **Comentar:** qué se armó y cuánto queda por persona, sustituciones, lo
-   que NO tenemos, supuestos (fecha, niños, interpretación del pedido),
-   alternativas de precio, historial del cliente y qué conviene preguntar.
+   personas iguales a lo medido y total igual al calculado a mano. Si una
+   falla, no se guarda ninguna.
+7. **Comentar en la bitácora, no en las Observaciones** (regla 2): qué se
+   armó y cuánto queda por persona, sustituciones, lo que NO tenemos,
+   supuestos (fecha, niños, interpretación del pedido), alternativas de
+   precio, historial del cliente y qué conviene preguntar.
 8. **Verificar** recalculando desde lo guardado y comparando con las
-   columnas. Revisar también que haya un solo separador.
+   columnas. Revisar también que las Observaciones no tengan nada escrito
+   por el asistente.
 9. **Reportar a Felipe** en una tabla: número, cliente, total, valor por
    persona y lo que tiene que decidir.
 
@@ -304,6 +313,13 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 Las 11 quedaron en solicitada, cuadradas al peso, con los comentarios en
 las observaciones. Respaldo del estado anterior en el scratchpad de la
 sesión; las observaciones originales quedan intactas arriba del separador.
+
+**14-10-2026:** nueve de esas cotizaciones se enviaron con los comentarios
+impresos en el PDF (562, 574, 585, 588, 591, 599, 601, 602 y 605). Las
+once que todavía los tenían quedaron con sus Observaciones originales, y
+los comentarios pasaron a la bitácora (regla 2). Respaldo en
+`02_RESPALDOS/cambios_de_datos/respaldo_observaciones_asistente_2026-10-14.json`
+de la carpeta maestra.
 
 | N° | Cliente | Propuesta | Total | Por persona |
 |---|---|---|---|---|
