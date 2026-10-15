@@ -1,6 +1,7 @@
 # 16 · Propuestas de cotización (hoy a mano, mañana un botón)
 
-> **Estado: MÉTODO EN USO desde el 12-10-2026, BOTÓN SIN CONSTRUIR.**
+> **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
+> `armar-cotizacion`), BOTÓN EN STAND BY.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -293,6 +294,15 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 > versión más actualizada de Claude"*. Para retomarlo hace falta una llave
 > de Anthropic en el motor (la crea y la guarda Felipe en Railway) y
 > probarlo primero en el laboratorio.
+>
+> **Decidido el mismo 15-10:** mientras tanto se arman por el chat (Felipe:
+> *"¿no me conviene mientras pedírtelos por acá?"*), con la skill
+> `armar-cotizacion` (`~/.claude/skills/armar-cotizacion/SKILL.md`), que
+> lleva las lecciones y el registro de correcciones (*"la vamos
+> mejorando"*). El botón se construye cuando unas 10 cotizaciones seguidas
+> salgan sin correcciones de Felipe, o antes si Camila o Recepción
+> necesitan armarlas sin él. Esa skill es el borrador de las instrucciones
+> del agente.
 
 - **Nombre e ícono (Felipe, 15-10):** «Generar cotización», con una varita
   mágica (`WandSparkles` de lucide). El modelo, el más nuevo de Claude,
