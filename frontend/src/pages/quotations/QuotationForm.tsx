@@ -1431,6 +1431,25 @@ export default function QuotationForm() {
 
   const handleCreateClient = nuevoCliente.enviar;
 
+  // Cerrar "Crear nuevo cliente" (el ✕, Cancelar, Escape o el fondo):
+  // limpia los errores marcados para la próxima vez.
+  const cerrarVentanaCliente = () => {
+    setShowClientModal(false);
+    setClientErrors({
+      name: "",
+      email: "",
+      phone: "",
+      contact_person: "",
+    });
+    setIsFormValid(false);
+    setTouchedFields({
+      name: false,
+      email: false,
+      phone: false,
+      contact_person: false,
+    });
+  };
+
   const getFilteredProducts = (categoria: string) => {
     return products.filter((p) => p.categoria === categoria);
   };
@@ -1787,207 +1806,170 @@ export default function QuotationForm() {
         estado={quotation?.quotation_status}
       />
       {/* Client Creation Modal */}
+      {/* La ventana de la casa (16-10-2026): con el aviso de cliente
+          parecido, la hecha a mano y centrada se salía de la pantalla
+          sin dejar bajar. Anclada arriba y sin tope: crece y se
+          desplaza la página (el tipo de cliente es un buscador). */}
       {showClientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Crear Nuevo Cliente
-              </h3>
-              <button
-                onClick={() => {
-                  setShowClientModal(false);
-                  setClientErrors({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    contact_person: "",
-                  });
-                  setIsFormValid(false);
-                  setTouchedFields({
-                    name: false,
-                    email: false,
-                    phone: false,
-                    contact_person: false,
-                  });
+        <Modal
+          titulo="Crear Nuevo Cliente"
+          ancho="max-w-md"
+          sinTope
+          onCerrar={cerrarVentanaCliente}
+        >
+          <form onSubmit={handleCreateClient} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre del Cliente
+              </label>
+              <input
+                type="text"
+                required
+                value={clientFormData.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, name }));
                 }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, name: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
+                placeholder="Nombre completo o empresa"
+              />
+              {shouldShowError("name") && (
+                <p className="text-red-500 text-sm mt-1">{clientErrors.name}</p>
+              )}
             </div>
 
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre del Cliente
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={clientFormData.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, name }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, name: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
-                  placeholder="Nombre completo o empresa"
-                />
-                {shouldShowError("name") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.name}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={clientFormData.email}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, email }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, email: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
+                placeholder="correo@ejemplo.com"
+              />
+              {shouldShowError("email") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.email}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={clientFormData.email}
-                  onChange={(e) => {
-                    const email = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, email }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, email: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
-                  placeholder="correo@ejemplo.com"
-                />
-                {shouldShowError("email") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.email}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                value={clientFormData.phone}
+                onChange={(e) => {
+                  const phone = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, phone }));
+                }}
+                onBlur={() => {
+                  // Al salir del recuadro el número queda ordenado y a la
+                  // vista, para que se note que quedó bien guardado.
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    phone: normalizePhone(prev.phone || ""),
+                  }));
+                  setTouchedFields((prev) => ({ ...prev, phone: true }));
+                }}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
+                placeholder={PHONE_PLACEHOLDER}
+              />
+              {shouldShowError("phone") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.phone}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={clientFormData.phone}
-                  onChange={(e) => {
-                    const phone = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, phone }));
-                  }}
-                  onBlur={() => {
-                    // Al salir del recuadro el número queda ordenado y a la
-                    // vista, para que se note que quedó bien guardado.
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      phone: normalizePhone(prev.phone || ""),
-                    }));
-                    setTouchedFields((prev) => ({ ...prev, phone: true }));
-                  }}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
-                  placeholder={PHONE_PLACEHOLDER}
-                />
-                {shouldShowError("phone") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.phone}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Persona de Contacto
+              </label>
+              <input
+                type="text"
+                value={clientFormData.contact_person}
+                onChange={(e) => {
+                  const contact_person = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, contact_person }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({
+                    ...prev,
+                    contact_person: true,
+                  }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
+                placeholder="Nombre del contacto principal"
+              />
+              {shouldShowError("contact_person") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.contact_person}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Persona de Contacto
-                </label>
-                <input
-                  type="text"
-                  value={clientFormData.contact_person}
-                  onChange={(e) => {
-                    const contact_person = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, contact_person }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({
-                      ...prev,
-                      contact_person: true,
-                    }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
-                  placeholder="Nombre del contacto principal"
-                />
-                {shouldShowError("contact_person") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.contact_person}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Cliente
+              </label>
+              <SelectWithSearch
+                options={clientTypesList.map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                value={clientFormData.client_type}
+                onChange={(v) =>
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    client_type: v,
+                  }))
+                }
+                placeholder="Tipo de cliente"
+                searchPlaceholder="Buscar tipo…"
+                noResultsText="Sin resultados"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Cliente
-                </label>
-                <SelectWithSearch
-                  options={clientTypesList.map((type) => ({
-                    value: type,
-                    label: type,
-                  }))}
-                  value={clientFormData.client_type}
-                  onChange={(v) =>
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      client_type: v,
-                    }))
-                  }
-                  placeholder="Tipo de cliente"
-                  searchPlaceholder="Buscar tipo…"
-                  noResultsText="Sin resultados"
-                />
-              </div>
-
-              {nuevoCliente.aviso}
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowClientModal(false);
-                    setClientErrors({
-                      name: "",
-                      email: "",
-                      phone: "",
-                      contact_person: "",
-                    });
-                    setIsFormValid(false);
-                    setTouchedFields({
-                      name: false,
-                      email: false,
-                      phone: false,
-                      contact_person: false,
-                    });
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={nuevoCliente.cargando || !isFormValid}
-                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                    nuevoCliente.cargando || !isFormValid
-                      ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <Plus size={16} />
-                  <span>
-                    {nuevoCliente.cargando ? "Creando..." : "Crear Cliente"}
-                  </span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            {nuevoCliente.aviso}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={cerrarVentanaCliente}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={nuevoCliente.cargando || !isFormValid}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  nuevoCliente.cargando || !isFormValid
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Plus size={16} />
+                <span>
+                  {nuevoCliente.cargando ? "Creando..." : "Crear Cliente"}
+                </span>
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Save Group Modal */}
