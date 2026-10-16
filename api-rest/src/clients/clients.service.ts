@@ -6,6 +6,7 @@ import { ClientContactsRepository } from './client-contacts.controller';
 import { ClientsRepository } from './clients.repository';
 import { CoincidenciaCliente, buscarCoincidencias } from './coincidencias';
 import { CreateClientDto } from './dto/create-client.dto';
+import { RevisarClienteDto } from './dto/revisar-cliente.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateClient } from './interfaces/clients.interfaces';
 
@@ -27,9 +28,11 @@ export class ClientsService {
    * Los clientes de la empresa que se parecen al que se va a crear
    * (correo, teléfono, nombre o dominio de institución). Ver
    * `coincidencias.ts`: solo sirven para PREGUNTAR, nunca enganchan solos.
+   * Lo usan el portero de POST /clients y el aviso mientras se escribe
+   * (POST /clients/coincidencias), que pueden traer datos a medio escribir.
    */
   async coincidencias(
-    dto: CreateClientDto,
+    dto: RevisarClienteDto,
     companyId: number,
   ): Promise<CoincidenciaCliente[]> {
     const [clientes, equipo] = await Promise.all([
@@ -41,7 +44,7 @@ export class ClientsService {
       .filter(Boolean);
     return buscarCoincidencias(
       {
-        nombre: dto.name,
+        nombre: dto.name || '',
         correos: [dto.email, dto.contact_email],
         telefonos: [dto.phone, dto.contact_phone],
       },

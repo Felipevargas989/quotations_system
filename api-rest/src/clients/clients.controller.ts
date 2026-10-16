@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -21,6 +22,7 @@ import { ClientsService } from './clients.service';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { ReorderClientTypesDto } from './dto/reorder-client-types.dto';
+import { RevisarClienteDto } from './dto/revisar-cliente.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
 @Controller('clients')
@@ -89,6 +91,18 @@ export class ClientsController {
       `PATCH /clients/types/reorder ${reorderDto.ids.join(',')}`,
     );
     return this.clientsService.reorderTypes(user.company_id, reorderDto.ids);
+  }
+
+  // El aviso mientras se escribe (16-10-2026, Felipe: "mejor cuando apenas
+  // termine de escribir"): las mismas coincidencias que revisa el portero
+  // de POST /clients, sin crear nada. POST para que el correo y el teléfono
+  // no viajen en la dirección (quedarían en los registros).
+  @Roles(...RECEPTION_AND_UP)
+  @Post('coincidencias')
+  @HttpCode(200)
+  revisar(@Body() dto: RevisarClienteDto, @CurrentUser() user: User) {
+    this.logger.info(`POST /clients/coincidencias with user ${user.id}`);
+    return this.clientsService.coincidencias(dto, user.company_id);
   }
 
   // Con portero (16-10-2026): si el cliente se parece a uno que ya

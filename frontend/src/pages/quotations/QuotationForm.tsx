@@ -1409,6 +1409,10 @@ export default function QuotationForm() {
   // crear, avisar y sus tres salidas viven en useCrearCliente.
   const nuevoCliente = useCrearCliente({
     abierto: showClientModal,
+    datos: clientFormData,
+    // Los campos con problema quedan marcados en rojo (aviso 8 de la
+    // lista del destierro: la ventana repetía lo visible — fuera).
+    armar: () => (user && validateClientFormData() ? clientFormData : null),
     alElegir: (c, persona) => {
       handleClientSelect(c.id, c);
       if (persona) setFormData((prev) => ({ ...prev, contact_name: persona }));
@@ -1425,14 +1429,7 @@ export default function QuotationForm() {
     },
   });
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    // Los campos con problema ya quedan marcados en rojo (aviso 8 de
-    // la lista del destierro: la ventana repetía lo visible — fuera).
-    if (!validateClientFormData()) return;
-    await nuevoCliente.crear(clientFormData);
-  };
+  const handleCreateClient = nuevoCliente.enviar;
 
   const getFilteredProducts = (categoria: string) => {
     return products.filter((p) => p.categoria === categoria);

@@ -235,6 +235,12 @@ export default function ClientsPage() {
   // usar un cliente existente o sumarle el contacto abre su ficha.
   const nuevoCliente = useCrearCliente({
     abierto: showForm,
+    datos: {
+      ...formData,
+      contact_email: newContactEmail,
+      contact_phone: newContactPhone,
+    },
+    armar: () => armarCliente(),
     alElegir: (c, _persona, origen) => {
       if (origen !== "creado") navigate(`/clients/${c.id}`);
     },
@@ -253,19 +259,18 @@ export default function ClientsPage() {
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    // (03-08) Este formulario es SOLO de creación: editar vive en la
-    // ficha 360° (una sola puerta por regla).
+  // El cliente a crear con lo escrito, ya revisado; null si falta algo.
+  // (03-08) Este formulario es SOLO de creación: editar vive en la
+  // ficha 360° (una sola puerta por regla).
+  const armarCliente = (): ClientFormData | null => {
+    if (!user) return null;
 
     // Portero (30-07): los datos de la persona se revisan antes de crear.
     const problema =
       phoneProblem(newContactPhone) || emailProblem(newContactEmail);
     if (problema) {
       setContactErr(problema);
-      return;
+      return null;
     }
     setContactErr(null);
 
@@ -285,13 +290,14 @@ export default function ClientsPage() {
     const personaNombre =
       formData.contact_person?.trim() ||
       (!isEmpresa ? formData.name.trim() : "");
-    await nuevoCliente.crear({
+    return {
       ...payload,
       contact_person: personaNombre || payload.contact_person,
       contact_email: newContactEmail.trim() || null,
       contact_phone: normalizePhone(newContactPhone) || null,
-    } as typeof formData);
+    } as typeof formData;
   };
+  const handleSubmit = nuevoCliente.enviar;
 
   // (03-08) handleEdit/handleDelete jubilados: editar y eliminar
   // viven SOLO en la ficha 360°.

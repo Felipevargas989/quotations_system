@@ -3,6 +3,7 @@ import {
   CoincidenciaCliente,
   admiteOtroContacto,
   coincidenciasDe,
+  datosParaRevisar,
   detalleDeCoincidencia,
   tituloDelAviso,
 } from "./avisoCliente";
@@ -55,6 +56,24 @@ describe("aviso de cliente parecido", () => {
     ).toBe(
       "Ya tienes a «Universidad del Bío-Bío» (cotización #574), con ese mismo correo de institución. ¿Sumar a esta persona ahí?",
     );
+  });
+
+  it("mientras se escribe, solo se revisan datos completos", () => {
+    expect(datosParaRevisar({ email: "judiaz@cc", phone: "9 95" })).toBeNull();
+    expect(datosParaRevisar({ name: "CC" })).toBeNull();
+    expect(datosParaRevisar({ name: "CCU" })).toEqual({ name: "CCU" });
+    expect(
+      datosParaRevisar({
+        name: "CCU Chile",
+        email: " judiaz@ccu.cl ",
+        phone: "+56 9 5095 5947",
+        contact_email: "",
+      }),
+    ).toEqual({
+      name: "CCU Chile",
+      email: "judiaz@ccu.cl",
+      phone: "+56 9 5095 5947",
+    });
   });
 
   it("a un Particular no se le suman contactos (una sola persona)", () => {

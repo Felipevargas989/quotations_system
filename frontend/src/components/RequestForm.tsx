@@ -11,7 +11,6 @@ import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { useQuery } from "@tanstack/react-query";
 import { eventTypesQueryOptions } from "../services/eventTypes.service";
 
-import { ClientFormData } from "../types/clients.types";
 import {
   createQuotation,
   updateQuotation,
@@ -177,6 +176,8 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   // pieza del cotizador y de Clientes).
   const nuevoCliente = useCrearCliente({
     abierto: showClientModal,
+    datos: clientFormData,
+    armar: () => (user ? { ...clientFormData, address: "", notes: "" } : null),
     alElegir: (c, persona) => {
       handleClientSelect(c.id, c);
       if (persona) setFormData((prev) => ({ ...prev, contact_name: persona }));
@@ -193,16 +194,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     },
   });
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    const payload: ClientFormData = {
-      ...clientFormData,
-      address: "",
-      notes: "",
-    };
-    await nuevoCliente.crear(payload);
-  };
+  const handleCreateClient = nuevoCliente.enviar;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

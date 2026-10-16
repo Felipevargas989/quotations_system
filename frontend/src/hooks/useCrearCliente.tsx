@@ -7,10 +7,14 @@ import {
   createClientContact,
   getClientContacts,
 } from "../services/clientContacts.service";
-import { createClient } from "../services/clients.service";
+import { createClient, revisarCliente } from "../services/clients.service";
 import { ClientFormData } from "../types/clients.types";
 import { humanizeApiError } from "../utils/apiErrors";
-import { CoincidenciaCliente, coincidenciasDe } from "../utils/avisoCliente";
+import {
+  CoincidenciaCliente,
+  coincidenciasDe,
+  datosParaRevisar,
+} from "../utils/avisoCliente";
 import { normalizeText } from "../utils/searchMatch";
 
 export type OrigenDelCliente = "creado" | "existente" | "contacto";
@@ -30,42 +34,86 @@ interface Opciones {
   ) => void;
   /** Cerrar y limpiar la ventana: pasa en los tres finales felices. */
   alTerminar: () => void;
+  /** El cliente a crear con lo escrito, ya revisado por la pantalla; null
+   *  si falta algo (la pantalla marca el error). */
+  armar: () => ClientFormData | null;
+  /** Lo escrito en la ventana ahora: el aviso sale apenas se termina de
+   *  escribir (Felipe, 16-10: "es más rápido"). */
+  datos?: Partial<ClientFormData>;
   /** Si la ventana se cierra, el aviso viejo no vuelve a aparecer. */
   abierto?: boolean;
 }
 
+// Cuánto se espera después de la última tecla para revisar.
+const PAUSA_MS = 700;
+
 // EL GANCHO DE "CREAR NUEVO CLIENTE" (Felipe, 16-10-2026: "sí, ármalo
-// así"). Crea pasando por el portero del motor y, si ya existe un cliente
-// parecido, muestra el aviso con las tres salidas: usar este cliente,
-// sumar como contacto a este cliente, o es otro cliente, crear igual.
-// Una sola copia para Recepción (RequestForm), el cotizador
-// (QuotationForm, gigante congelado que no puede engordar) y Clientes.
-export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
+// así"). Revisa mientras se escribe si ya existe un cliente parecido y,
+// si lo hay, muestra el aviso con las tres salidas: usar este cliente,
+// sumar como contacto a este cliente, o es otro cliente, crear igual. Al
+// crear, el portero del motor vuelve a revisar (por si el aviso en vivo
+// no alcanzó a llegar). Una sola copia para Recepción (RequestForm), el
+// cotizador (QuotationForm, gigante congelado que no puede engordar) y
+// Clientes.
+export function useCrearCliente({
+  alElegir,
+  alTerminar,
+  armar,
+  datos,
+  abierto,
+}: Opciones) {
   const queryClient = useQueryClient();
   const { company } = useAuth();
   const [coincidencias, setCoincidencias] = useState<
     CoincidenciaCliente[] | null
   >(null);
   const [cargando, setCargando] = useState(false);
-  const pendiente = useRef<ClientFormData | null>(null);
+  // Cada revisión lleva su turno: una respuesta vieja no pisa a una nueva.
+  const turno = useRef(0);
 
   const limpiarAviso = () => {
+    turno.current++;
     setCoincidencias(null);
-    pendiente.current = null;
   };
   useEffect(() => {
     if (abierto === false) limpiarAviso();
   }, [abierto]);
+
+  // El aviso en vivo: solo con datos completos (un correo con su dominio,
+  // un teléfono de 8 dígitos o más, un nombre de 3 letras o más, como CCU).
+  // La firma es el texto de lo que se revisa: solo cuando cambia un dato
+  // que importa se vuelve a preguntar (no en cada tecla de las notas).
+  const conDatos = datos !== undefined;
+  const firma = JSON.stringify(datos ? datosParaRevisar(datos) : null);
+  useEffect(() => {
+    if (abierto === false || !conDatos) return;
+    const n = ++turno.current;
+    const paraRevisar = JSON.parse(firma) as Record<string, string> | null;
+    if (!paraRevisar) {
+      setCoincidencias(null);
+      return;
+    }
+    const espera = setTimeout(() => {
+      revisarCliente(paraRevisar)
+        .then((lista) => {
+          if (n === turno.current)
+            setCoincidencias(lista.length > 0 ? lista : null);
+        })
+        // Es una ayuda, no el candado: si falla, el portero revisa al crear.
+        .catch(() => undefined);
+    }, PAUSA_MS);
+    return () => clearTimeout(espera);
+  }, [abierto, conDatos, firma]);
 
   const terminar = () => {
     limpiarAviso();
     alTerminar();
   };
 
-  const crear = async (datos: ClientFormData, confirmado = false) => {
+  const crear = async (cliente: ClientFormData, confirmado: boolean) => {
     setCargando(true);
     try {
-      const { data: nuevo } = await createClient(datos, confirmado);
+      const { data: nuevo } = await createClient(cliente, confirmado);
       if (nuevo) {
         // Entra al caché al instante y se confirma con el servidor.
         queryClient.setQueryData<unknown[]>(["clients"], (prev) => [
@@ -76,7 +124,7 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
         // La persona principal nace con este nombre (garantía de
         // nacimiento del motor): queda marcada como contacto.
         const persona =
-          (datos.contact_person || "").trim() || datos.name.trim() || null;
+          (cliente.contact_person || "").trim() || cliente.name.trim() || null;
         alElegir(nuevo as ClienteElegido, persona, "creado");
       }
       toast.success("Cliente creado.");
@@ -84,7 +132,7 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
     } catch (error) {
       const parecidos = coincidenciasDe(error);
       if (parecidos) {
-        pendiente.current = datos;
+        turno.current++;
         setCoincidencias(parecidos);
       } else {
         toast.error(humanizeApiError(error, "No se pudo crear el cliente."));
@@ -92,6 +140,13 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
     } finally {
       setCargando(false);
     }
+  };
+
+  /** El "Crear Cliente" de la ventana. */
+  const enviar = (e?: { preventDefault: () => void }) => {
+    e?.preventDefault();
+    const cliente = armar();
+    if (cliente) void crear(cliente, false);
   };
 
   const usar = (
@@ -108,9 +163,9 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
   };
 
   const sumarContacto = async (c: CoincidenciaCliente) => {
-    const datos = pendiente.current;
-    if (!datos) return;
-    const nombre = (datos.contact_person || "").trim() || datos.name.trim();
+    const cliente = armar();
+    if (!cliente) return;
+    const nombre = (cliente.contact_person || "").trim() || cliente.name.trim();
     setCargando(true);
     try {
       // Si ya es contacto de ese cliente, no se duplica: se usa.
@@ -125,8 +180,8 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
         company_id: Number(company?.id),
         client_id: c.cliente_id,
         name: nombre,
-        email: datos.contact_email || datos.email || null,
-        phone: datos.contact_phone || datos.phone || null,
+        email: cliente.contact_email || cliente.email || null,
+        phone: cliente.contact_phone || cliente.phone || null,
       });
       if (error) {
         toast.error(humanizeApiError(error, "No se pudo sumar el contacto."));
@@ -152,10 +207,11 @@ export function useCrearCliente({ alElegir, alTerminar, abierto }: Opciones) {
       onUsar={(c) => usar(c)}
       onSumarContacto={(c) => void sumarContacto(c)}
       onCrearIgual={() => {
-        if (pendiente.current) void crear(pendiente.current, true);
+        const cliente = armar();
+        if (cliente) void crear(cliente, true);
       }}
     />
   ) : null;
 
-  return { crear, cargando, aviso };
+  return { enviar, cargando, aviso };
 }
