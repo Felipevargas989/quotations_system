@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { ClienteParaCoincidir, PersonaParaCoincidir } from './coincidencias';
 import { Client } from './entities/client.entity';
 import { CreateClient, UpdateClient } from './interfaces/clients.interfaces';
 
@@ -348,6 +349,46 @@ export class ClientsRepository {
     );
     if (!match) return null;
     return rows.find((c) => c.id === match.client_id) || null;
+  }
+
+  // El aviso de cliente parecido (16-10-2026): todos los clientes de la
+  // empresa con sus personas y el N° de su última cotización, para que
+  // `buscarCoincidencias` decida en memoria. Consulta propia a propósito:
+  // la forma de findAll la consumen muchas pantallas (mapa 09, zona 5).
+  async paraCoincidir(companyId: number): Promise<ClienteParaCoincidir[]> {
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .select(
+        'id, name, client_type, email, phone, client_contacts(id, name, email, phone), quotations(quotation_number)',
+      )
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return (
+      (data || []) as unknown as {
+        id: string;
+        name: string;
+        client_type: string | null;
+        email: string | null;
+        phone: string | null;
+        client_contacts: PersonaParaCoincidir[] | null;
+        quotations: { quotation_number: number | null }[] | null;
+      }[]
+    ).map((c) => ({
+      id: c.id,
+      name: c.name,
+      client_type: c.client_type,
+      email: c.email,
+      phone: c.phone,
+      personas: c.client_contacts ?? [],
+      ultimaCotizacion: (c.quotations ?? []).reduce<number | null>(
+        (max, q) =>
+          q.quotation_number != null &&
+          (max == null || q.quotation_number > max)
+            ? q.quotation_number
+            : max,
+        null,
+      ),
+    }));
   }
 
   findOne(company_id: number, id?: number, email?: string, phone?: string) {

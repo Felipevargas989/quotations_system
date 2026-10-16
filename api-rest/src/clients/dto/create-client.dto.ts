@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -56,4 +57,10 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   contact_phone?: string;
+
+  // Respuesta al aviso de cliente parecido (16-10-2026): la persona
+  // revisó las coincidencias y dijo "es otro cliente, crear igual".
+  @IsBoolean()
+  @IsOptional()
+  confirmado?: boolean;
 }

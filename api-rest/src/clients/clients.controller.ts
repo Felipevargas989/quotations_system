@@ -91,13 +91,18 @@ export class ClientsController {
     return this.clientsService.reorderTypes(user.company_id, reorderDto.ids);
   }
 
+  // Con portero (16-10-2026): si el cliente se parece a uno que ya
+  // existe, responde 409 CLIENTE_PARECIDO y la pantalla pregunta.
   @Roles(...RECEPTION_AND_UP)
   @Post()
   create(@Body() createClientDto: CreateClientDto, @CurrentUser() user: User) {
     this.logger.info(
       `POST /clients with createClientDto ${logSafe(createClientDto)}`,
     );
-    return this.clientsService.create(createClientDto, user.company_id);
+    return this.clientsService.crearDesdePantalla(
+      createClientDto,
+      user.company_id,
+    );
   }
 
   @Roles(...RECEPTION_AND_UP)

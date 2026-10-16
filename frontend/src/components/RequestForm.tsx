@@ -6,9 +6,9 @@ import { validateCompleteClientForm } from "../utils/validation";
 import { normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import { clientsQueryOptions } from "../services/clients.service";
-import { createClient } from "../services/clients.service";
+import { useCrearCliente } from "../hooks/useCrearCliente";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { eventTypesQueryOptions } from "../services/eventTypes.service";
 
 import { ClientFormData } from "../types/clients.types";
@@ -64,7 +64,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
       .catch(() => setClientContacts([]));
   }, [formData.client_id]);
   // Clientes desde el caché compartido de React Query (Etapa 2)
-  const queryClientRQ = useQueryClient();
   const { data: clients = [] } = useQuery(clientsQueryOptions);
   const [loading, setLoading] = useState(false);
   const [, setIsExistingClient] = useState(false);
@@ -81,7 +80,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   const clientTypesList: string[] = clientTypesData?.map((t) => t.name) ?? [
     ...CLIENT_TYPES,
   ];
-  const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -122,8 +120,8 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         client_id: request.client_id,
         // La persona que escribió la solicitud viene guardada: se
         // muestra en vez de perderse (Felipe, 05-09).
-        contact_name: (request as { contact_name?: string | null })
-          .contact_name ?? null,
+        contact_name:
+          (request as { contact_name?: string | null }).contact_name ?? null,
       };
 
       setFormData(requestData);
@@ -174,37 +172,16 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     }
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setClientLoading(true);
-
-    try {
-      const payload: ClientFormData = {
-        ...clientFormData,
-        address: "",
-        notes: "",
-      };
-
-      const { data: newClient } = await createClient(payload);
-
-      // if (error) throw error;
-
-      if (newClient) {
-        // El cliente nuevo entra al caché al instante y se confirma
-        // con el servidor por detrás.
-        queryClientRQ.setQueryData<any[]>(["clients"], (prev) => [
-          ...(prev ?? []),
-          newClient,
-        ]);
-        queryClientRQ.invalidateQueries({ queryKey: ["clients"] });
-
-        // Auto-select the newly created client with its data
-        handleClientSelect(newClient.id, newClient);
-      }
-
-      // Reset client form and close modal
+  // "Crear nuevo cliente" con el aviso de cliente parecido (16-10-2026):
+  // crear, avisar y sus tres salidas viven en useCrearCliente (la misma
+  // pieza del cotizador y de Clientes).
+  const nuevoCliente = useCrearCliente({
+    abierto: showClientModal,
+    alElegir: (c, persona) => {
+      handleClientSelect(c.id, c);
+      if (persona) setFormData((prev) => ({ ...prev, contact_name: persona }));
+    },
+    alTerminar: () => {
       setClientFormData({
         name: "",
         email: "",
@@ -213,13 +190,18 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         client_type: DEFAULT_CLIENT_TYPE,
       });
       setShowClientModal(false);
-      toast.success("Cliente creado.");
-    } catch (error) {
-      console.error("Error creating client:", error);
-      toast.error("No se pudo crear el cliente.");
-    } finally {
-      setClientLoading(false);
-    }
+    },
+  });
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    const payload: ClientFormData = {
+      ...clientFormData,
+      address: "",
+      notes: "",
+    };
+    await nuevoCliente.crear(payload);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,7 +212,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
     try {
       if (request?.id) {
-
         const { error } = await updateQuotation(formData, request.id);
 
         if (error) throw error;
@@ -433,6 +414,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                 />
               </div>
 
+              {nuevoCliente.aviso}
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -458,15 +440,17 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
                 </button>
                 <button
                   type="submit"
-                  disabled={clientLoading || !isFormValid}
+                  disabled={nuevoCliente.cargando || !isFormValid}
                   className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                    clientLoading || !isFormValid
+                    nuevoCliente.cargando || !isFormValid
                       ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
                   <Plus size={16} />
-                  <span>{clientLoading ? "Creando..." : "Crear Cliente"}</span>
+                  <span>
+                    {nuevoCliente.cargando ? "Creando..." : "Crear Cliente"}
+                  </span>
                 </button>
               </div>
             </form>
