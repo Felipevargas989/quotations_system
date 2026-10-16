@@ -1,6 +1,6 @@
 # Mapa: Clientes y contactos
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). **Actualizado el 16-10-2026: el aviso de cliente parecido** (portero en `POST /clients`, flujo A y regla 26). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -41,7 +41,8 @@ Todas las rutas pasan por `AuthGuard` y `RolesGuard` globales (`api-rest/src/app
 | `POST /clients/types` | `ClientsController.createType` | `ClientsService.createType` → `ClientsRepository.createType` | `createClientType` ← `ClientsPage.handleCreateType` | solo sesión |
 | `DELETE /clients/types/:id` | `ClientsController.removeType` | `ClientsService.removeType` → `ClientsRepository.removeType` | `deleteClientType` ← `ClientsPage.handleDeleteType` | solo sesión |
 | `PATCH /clients/types/reorder` | `ClientsController.reorderTypes` | `ClientsService.reorderTypes` → `ClientsRepository.reorderTypes` | `reorderClientTypes` ← `ClientsPage.moveType` | solo sesión |
-| `POST /clients` | `ClientsController.create` | `ClientsService.create` (siembra a la persona principal) | `createClient` (`services/clients.service.ts`) ← `ClientsPage.handleSubmit`, `QuotationForm.handleCreateClient`, `RequestForm.handleCreateClient` | solo sesión |
+| `POST /clients` | `ClientsController.create` | `ClientsService.crearDesdePantalla` (**portero, 16-10-2026**: si `ClientsService.coincidencias` encuentra un cliente parecido responde **409 `CLIENTE_PARECIDO`** con las coincidencias; con `confirmado: true` no pregunta) → `ClientsService.create` (siembra a la persona principal) | `createClient(datos, confirmado)` (`services/clients.service.ts`) ← `useCrearCliente` (`hooks/useCrearCliente.tsx`) ← `ClientsPage.handleSubmit`, `QuotationForm.handleCreateClient`, `RequestForm.handleCreateClient` | `@Roles(RECEPTION_AND_UP)` |
+| `POST /clients/coincidencias` (16-10-2026) | `ClientsController.revisar` (`@HttpCode(200)`, `RevisarClienteDto`: los cinco datos, sin `@IsEmail` porque pueden venir a medio escribir) | `ClientsService.coincidencias` (no crea nada) | `revisarCliente` ← `useCrearCliente`, mientras se escribe | `@Roles(RECEPTION_AND_UP)` |
 | `GET /clients` | `ClientsController.findAll` | `ClientsService.findAll` → `ClientsRepository.findAll` | `getClients` / `clientsQueryOptions` ← `ClientsPage`, `QuotationForm`, `RequestForm`, `PostVentaPage.fetchEvents`, `NewAccount` | solo sesión |
 | `GET /clients/:id/summary` | `ClientsController.findSummary` | `ClientsService.findSummary` → `ClientsRepository.findSummary` | `getClientSummary` ← `ClientDetailPage` (queryKey `["clientSummary", id]`) | solo sesión |
 | `PATCH /clients/:id` | `ClientsController.update` | `ClientsService.update` → `ClientsRepository.update` | `updateClient` ← `ClientDetailPage.saveHeader`, `saveNotes`, `syncPrimaryMirror` | solo sesión |
@@ -57,7 +58,8 @@ Usos dentro del motor, sin pasar por HTTP (`ClientsModule` exporta `ClientsServi
 | Pieza | La usa | Para qué |
 |---|---|---|
 | `ClientsService.findMatch` | `QuotationsService.createPublic`, `ConsultasService.convertir` | anti-duplicados, solo por correo |
-| `ClientsService.create` | `QuotationsService.createPublic`, `ConsultasService.convertir` | crear cliente y sembrar a su persona |
+| `ClientsService.create` | `QuotationsService.createPublic`, `ConsultasService.convertir` | crear cliente y sembrar a su persona. **Sin portero a propósito**: ahí no hay nadie a quien preguntar (regla 12) |
+| `ClientsService.coincidencias` → `buscarCoincidencias` (`clients/coincidencias.ts`, puro) | `ClientsService.crearDesdePantalla` | clientes parecidos por correo, teléfono, nombre o dominio de institución; lee `ClientsRepository.paraCoincidir` (consulta propia, no la de `findAll`) y los dominios del equipo con `UsersRepository.findAll` |
 | `ClientsService.findAll` | `AnalyticsService` (estadísticas del dashboard) | `totalClients = clients.length` |
 | `ClientContactsRepository.findByClient` | `EnvioCotizacionService.correoDeDestino`, `ConsultasService.convertir` | destinatario del envío; ver si el consultante ya es persona del cliente |
 | `ClientContactsRepository.create` | `ConsultasService.convertir` | agregar al consultante como persona no principal |
@@ -89,6 +91,14 @@ El módulo no tiene relojes ni manda correos propios.
 6. La app invalida `["clients"]`. En el motor, `PanelInvalidationInterceptor` borra de la memoria el panel de análisis de la empresa (pasa con cualquier POST, PATCH o DELETE exitoso).
 
 Este mismo camino lo recorren el modal del cotizador y el de `RequestForm` (mapa 01), además de `QuotationsService.createPublic` y `ConsultasService.convertir` en el motor.
+
+**El aviso de cliente parecido (16-10-2026, Felipe: "veamos cómo evitar duplicidades" → "sí, ármalo así").** Las tres pantallas crean con la misma pieza, `useCrearCliente` (`frontend/src/hooks/useCrearCliente.tsx`):
+
+1. **Mientras se escribe** (Felipe, 16-10: *"mejor cuando apenas termine de escribir, es más rápido"*): 700 ms después de la última tecla, si hay un dato completo (`datosParaRevisar`: un correo con dominio, un teléfono de 8 dígitos o más, un nombre de 3 letras o más), `revisarCliente` → `POST /clients/coincidencias` → `ClientsService.coincidencias`, sin crear nada; si hay coincidencias, el aviso aparece en la ventana antes de apretar «Crear Cliente». Cada revisión lleva un turno: una respuesta vieja no pisa a una nueva. Si falla, no avisa: el portero del paso 2 igual revisa al crear.
+2. Al crear, `createClient` → `POST /clients` → `ClientsService.crearDesdePantalla`, que antes de crear llama `ClientsService.coincidencias`: `buscarCoincidencias` compara contra todos los clientes de la empresa por **correo** (ficha o personas), **teléfono** (últimos 9 dígitos), **nombre** (trigramas ≥ 0,75, o un nombre de 2 palabras metido entero en el otro) y **dominio de institución** (nunca gmail, hotmail y similares, ni el dominio del propio equipo, que Recepción usa de relleno). Devuelve hasta 3, primero las que calzan por correo.
+3. Si hay coincidencias, NO crea: responde 409 `CLIENTE_PARECIDO`. La pantalla muestra `AvisoClienteExistente` (`components/clientes/`) dentro de la misma ventana, con los textos de `utils/avisoCliente.ts` y tres salidas (palabras de Felipe): **Usar este cliente** (elige el existente y marca a la persona que calzó como contacto), **Sumar como contacto a este cliente** (`createClientContact`; si ya era contacto, solo lo usa; no aparece en Particulares, regla 10) y **Es otro cliente, crear igual** (`createClient(datos, true)` → `confirmado`). Las tres salidas arman el cliente con la misma revisión de la pantalla (`armar`: en Clientes, el portero de teléfono y correo del 30-07).
+4. En Clientes, usar o sumar abre la ficha del cliente existente. En el cotizador y en Recepción, el cliente queda elegido y el contacto marcado; al crear uno nuevo también queda marcada su persona principal.
+5. El botón "Crear Cliente" de las tres ventanas queda bloqueado mientras guarda (tanda A3).
 
 ### B. La ficha 360
 
@@ -162,7 +172,7 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 9. **Una sola principal por cliente.** La base lo asegura con el índice único parcial de la migración 36; la migración 56 fija la regla: "siempre exactamente una principal por cliente". Evidencia: `36_primary_contact.sql`, `ClientContactsRepository.setPrimary`.
 10. **Particulares = UNA persona** (regla de Felipe, 30-07; medido: 0 de 134 tenían más). La base no tiene candado para esto. Evidencia: comentario en `ClientDetailPage` y `saveHeader` ("Puerta trasera cerrada").
 11. **Si viene correo, tiene que ser un correo real** (candado del 03-08, pillada de Felipe: "payasoqlflojo@" había quedado guardado; "un correo inválido guardado hoy es un envío que rebota mañana"). El teléfono queda libre a propósito, por los formatos extranjeros. Evidencia: `dto/client-contact.dto.ts`, `dto/create-client.dto.ts`. En la app, `phoneProblem` y `emailProblem` (portero del 30-07).
-12. **El anti-duplicados calza SOLO por correo** (22-07, afinado el 05-09). Regla de Felipe: la gente cambia de empresa o colegio y conserva su número, así que el teléfono engancharía la solicitud a la organización vieja; el correo acompaña a la organización. Evidencia: `QuotationsService.createPublic`, `ConsultasService.convertir`, `12_MODULO_DE_CONSULTAS.md`.
+12. **El anti-duplicados calza SOLO por correo** (22-07, afinado el 05-09). Regla de Felipe: la gente cambia de empresa o colegio y conserva su número, así que el teléfono engancharía la solicitud a la organización vieja; el correo acompaña a la organización. Evidencia: `QuotationsService.createPublic`, `ConsultasService.convertir`, `12_MODULO_DE_CONSULTAS.md`. El aviso de las pantallas (regla 26) usa el teléfono, el nombre y el dominio **solo para preguntar**: una persona decide, nada engancha solo.
 13. **"Tus datos" son la persona; el cliente es quien organiza** (05-09). La organización le da el nombre al cliente y la persona queda como su principal. Evidencia: `createPublic`, `convertir`, doc 12.
 14. **El consultante queda como persona de contacto del cliente existente** (Felipe, 05-09: *"persona de contacto no me trajo a nadie"*), sin duplicar y sin tocar a la principal. Evidencia: `ConsultasService.convertir`; prueba "cliente existente: el consultante queda como persona de contacto".
 15. **Correos a personas y punto** (30-07): el destinatario es el mandante vinculado. Persona sin correo = no se envía, "mejor silencio que un enlace de portal en una casilla desconocida". Evidencia: `50_correos_a_personas.sql`, `QuotationsService.resolveRecipient`, `PaymentsService`. Excepción escrita: el envío de cotización cae a la ficha (doc 13; ver sección 11).
@@ -176,6 +186,7 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 23. **La dirección salió del formulario** (medición del 30-07: solo 6 de 291 clientes la tenían). La columna sigue en la base. Evidencia: comentario en `ClientsPage`.
 24. **La fecha del evento se formatea en UTC** (13-08: salía un día antes en la tabla de la ficha). Evidencia: comentario en `ClientDetailPage` con `formatFechaEvento`.
 25. **Mandante obligatorio para guardar una cotización** ("Falta el mandante"): sin él no hay destinatario de correos ni cruce de la cosecha. Evidencia: `QuotationForm` (mapa 01).
+26. **Antes de crear un cliente desde una pantalla, se avisa si ya existe uno parecido** (Felipe, 16-10-2026, después de fusionar cinco duplicados en producción: René Neira y su club, tres "Nueva Esperanza", ID Consulting e IDHR, Milton Riffo y la Universidad del Bío-Bío). El aviso sale apenas se termina de escribir y no bloquea: pregunta, con "usar este cliente" (*"más que ficha"*), "sumar como contacto a este cliente" y "es otro cliente, crear igual" (para quien organiza varios grupos con el mismo correo). Evidencia: `ClientsService.crearDesdePantalla`, `clients/coincidencias.ts`, `useCrearCliente`, `AvisoClienteExistente`, pruebas `coincidencias.spec.ts`, `clients.service.spec.ts` y `avisoCliente.test.ts`.
 
 ## 7. Conexiones con otros módulos
 
@@ -246,13 +257,16 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 13. **Si reactivas** `GET :id` en `ClientsController` (hoy comentado) y lo declaras antes de `GET types`, **se rompe** la lista de tipos, **porque** `"types"` se leería como id de cliente. Hoy el orden no rompe nada: `GET :id` está comentado, y las otras rutas de tipos (`types/:id`, `types/reorder`, `types/public/:company_id`) tienen más tramos que `PATCH :id` y `DELETE :id`, así que no se confunden. El comentario "IMPORTANTE" del controller pide igual mantenerlas arriba. Evidencia: `ClientsController` (orden de las rutas y `findOne` comentado).
 14. **Si mandas** `contact_email` o `contact_phone` en un `PATCH /clients/:id`, **falla** la escritura, **porque** `UpdateClientDto` (`PartialType(CreateClientDto)`) los acepta, pero `ClientsService.update` no los separa (solo `create` lo hace) y la tabla `clients` no tiene esas columnas. Hoy ninguna pantalla los manda. Evidencia: `dto/update-client.dto.ts`, `ClientsService.update`.
 15. **Si tocas** `ClientContactsRepository.create` o `update`, **cuidado con el aislamiento entre empresas**: `create` pone el `company_id` de la sesión pero **no verifica que `client_id` sea de esa empresa**. El embebido `client_contacts(...)` de `findSummary` y `findAll` no filtra por empresa, así que una persona colgada de un cliente ajeno se vería en la ficha del otro. Requiere conocer el UUID. Evidencia: `ClientContactsRepository.create`, `ClientsRepository.findSummary`.
+16. **Si tocas** el portero de `POST /clients` (`crearDesdePantalla`) o `buscarCoincidencias`, **se afecta** la regla 12, **porque** el aviso pregunta por teléfono, nombre y dominio, y eso solo es correcto con una persona al frente. Si `createPublic` o `convertir` pasaran por el portero, el formulario público recibiría un 409 que nadie contesta y la solicitud se perdería; si el aviso enganchara solo por teléfono, volvería el problema de la organización vieja. Evidencia: comentarios en `clients.service.ts` y `coincidencias.ts`.
 
 ## 9. Pruebas que lo protegen
 
 | Archivo | Qué cubre |
 |---|---|
 | `api-rest/src/clients/tests/clients.controller.spec.ts` | Esqueleto: el controller se construye con el service simulado ("should be defined") |
-| `api-rest/src/clients/tests/clients.service.spec.ts` | Esqueleto: el service se construye con sus dependencias simuladas. El comentario dice "las pruebas de comportamiento se agregan cuando se toque este módulo" |
+| `api-rest/src/clients/tests/clients.service.spec.ts` | El portero (16-10-2026): con un cliente parecido no crea y devuelve 409 `CLIENTE_PARECIDO`; con `confirmado` crea sin preguntar y sin guardar la marca; sin coincidencias crea con su persona principal |
+| `api-rest/src/clients/tests/coincidencias.spec.ts` | Los duplicados reales del 16-10 (René Neira por teléfono, Nueva Esperanza por correo y teléfono, UBB por nombre y dominio) y los parecidos que NO avisan (otra universidad, Bobadilla y Padilla, municipalidades, correos gratuitos, correos del equipo) |
+| `frontend/src/utils/avisoCliente.test.ts` | Reconoce el 409 del portero, el título y el detalle del aviso, y que a un Particular no se le suman contactos |
 | `api-rest/src/consultas/tests/consultas.service.spec.ts` | "convertir matchea al cliente existente y es idempotente"; "cliente existente: el consultante queda como persona de contacto" (no la duplica si el correo ya está, sin distinguir mayúsculas) |
 | `api-rest/src/quotations/tests/unit/envio-cotizacion.service.spec.ts` | "el circuito feliz: PDF adjunto, correo al contacto y bitácora"; "sin contacto con correo cae al correo del cliente"; "el portero frena ANTES de imprimir: sin correo ninguno" |
 | `api-rest/src/marketing/tests/segmento.spec.ts` | "a personas: uno a cada contacto del cliente": varios contactos, un correo a cada uno con su nombre; cliente sin contactos con correo, respaldo al correo de la ficha |
@@ -283,7 +297,7 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 - **Registros con datos personales**: `ClientsRepository.create` y `update` registran `JSON.stringify(...)` con nombre, correo, teléfono y notas, aunque `logSafe` existe justamente para eso ("los logs guardaban ... datos personales de clientes"). El controller sí usa `logSafe`.
 - **Deuda ya anotada en `09_PLAN_DE_HOMOLOGACION.md` y todavía presente**:
   - Tanda A2: `ClientsPage` no revisa si la carga falló (usa `isPending`, sin `isError`), así que una caída de red se ve igual que "No se encontraron clientes".
-  - Tanda A3: el botón "Crear Cliente" no se bloquea mientras guarda (dos clics = dos clientes).
+  - ~~Tanda A3: el botón "Crear Cliente" no se bloquea mientras guarda (dos clics = dos clientes).~~ Resuelta el 16-10-2026 con `useCrearCliente.cargando` en las tres ventanas.
 - **Errores tragados**: `clientContacts.service.ts` devuelve `{ error }` en vez de lanzar, y `getClientContacts` devuelve `[]` ante cualquier error. `addContact`, `saveContactEdit`, `removeContact` y `makePrimary` de la ficha no revisan ese `{ error }` ni muestran `Toast` si algo falla.
 - **`any`**: `catch (error: any)` en los handlers de tipos de `ClientsPage`, y `useState<any>` para el visor en `ClientDetailPage`.
 - **Lista fija que sobrevive**: `constants/clientTypes.ts` (`CLIENT_TYPES`) sigue como respaldo en `clientTypesQueryOptions`, `QuotationForm`, `RequestForm` y `CreateQuotationPublic`. El respaldo usa ids negativos, así que reordenar o eliminar con el catálogo caído opera sobre ids falsos.
@@ -326,6 +340,7 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 - `api-rest/src/clients/client-contacts.controller.ts` (`ClientContactsController` y `ClientContactsRepository`)
 - `api-rest/src/clients/clients.service.ts`
 - `api-rest/src/clients/clients.repository.ts`
+- `api-rest/src/clients/coincidencias.ts` (el aviso de cliente parecido, puro)
 - `api-rest/src/clients/dto/create-client.dto.ts`, `update-client.dto.ts`, `client-contact.dto.ts`, `create-client-type.dto.ts`, `reorder-client-types.dto.ts`
 - `api-rest/src/clients/entities/client.entity.ts`, `api-rest/src/clients/interfaces/clients.interfaces.ts`
 - `api-rest/src/clients/tests/clients.controller.spec.ts`, `api-rest/src/clients/tests/clients.service.spec.ts`
@@ -350,6 +365,7 @@ Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora e
 - `frontend/src/pages/ClientsPage.tsx`
 - `frontend/src/pages/ClientDetailPage.tsx`
 - `frontend/src/services/clients.service.ts`, `frontend/src/services/clientContacts.service.ts`, `frontend/src/services/clientTypes.service.ts`
+- `frontend/src/hooks/useCrearCliente.tsx`, `frontend/src/components/clientes/AvisoClienteExistente.tsx`, `frontend/src/utils/avisoCliente.ts` (el aviso de cliente parecido)
 - `frontend/src/utils/clientTypeColor.ts`
 - `frontend/src/types/clients.types.ts`, `frontend/src/constants/clientTypes.ts`, `frontend/src/constants/api.routes.ts` (`CLIENTS`, `CLIENT_TYPES`, `CLIENT_TYPES_PUBLIC`, `CLIENT_CONTACTS`)
 - `frontend/src/constants/permissions.ts`, `frontend/src/App.tsx` (rutas `clients` y `clients/:id`), `frontend/src/layout/Sidebar.tsx`

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { toast } from "../components/toast/Toast";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,7 +21,8 @@ import {
   normalizePhone,
   phoneProblem,
 } from "../utils/phone";
-import { clientsQueryOptions, createClient } from "../services/clients.service";
+import { clientsQueryOptions } from "../services/clients.service";
+import { useCrearCliente } from "../hooks/useCrearCliente";
 import {
   clientTypesQueryOptions,
   createClientType,
@@ -230,19 +230,47 @@ export default function ClientsPage() {
   const loadClients = () =>
     queryClient.invalidateQueries({ queryKey: ["clients"] });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+  // "Crear nuevo cliente" con el aviso de cliente parecido (16-10-2026):
+  // la misma pieza de Recepción y del cotizador (useCrearCliente). Acá,
+  // usar un cliente existente o sumarle el contacto abre su ficha.
+  const nuevoCliente = useCrearCliente({
+    abierto: showForm,
+    datos: {
+      ...formData,
+      contact_email: newContactEmail,
+      contact_phone: newContactPhone,
+    },
+    armar: () => armarCliente(),
+    alElegir: (c, _persona, origen) => {
+      if (origen !== "creado") navigate(`/clients/${c.id}`);
+    },
+    alTerminar: () => {
+      setShowForm(false);
+      setFormData({
+        name: "",
+        client_type: "Particulares",
+        address: "",
+        contact_person: "",
+        notes: "",
+      });
+      setNewContactEmail("");
+      setNewContactPhone("");
+      loadClients();
+    },
+  });
 
-    // (03-08) Este formulario es SOLO de creación: editar vive en la
-    // ficha 360° (una sola puerta por regla).
+  // El cliente a crear con lo escrito, ya revisado; null si falta algo.
+  // (03-08) Este formulario es SOLO de creación: editar vive en la
+  // ficha 360° (una sola puerta por regla).
+  const armarCliente = (): ClientFormData | null => {
+    if (!user) return null;
 
     // Portero (30-07): los datos de la persona se revisan antes de crear.
     const problema =
       phoneProblem(newContactPhone) || emailProblem(newContactEmail);
     if (problema) {
       setContactErr(problema);
-      return;
+      return null;
     }
     setContactErr(null);
 
@@ -255,41 +283,21 @@ export default function ClientsPage() {
       phone: normalizePhone(newContactPhone) || null,
     } as typeof formData;
 
-    try {
-      {
-        // En Particulares, si no se escribió persona, la persona ES el
-        // cliente (boceto 30-07): se crea sola con su nombre.
-        // La SIEMBRA la hace el backend (garantía de nacimiento, 31-07):
-        // acá solo viajan los datos de la persona en el mismo payload.
-        const personaNombre =
-          formData.contact_person?.trim() ||
-          (!isEmpresa ? formData.name.trim() : "");
-        const payloadConPersona = {
-          ...payload,
-          contact_person: personaNombre || payload.contact_person,
-          contact_email: newContactEmail.trim() || null,
-          contact_phone: normalizePhone(newContactPhone) || null,
-        } as typeof formData;
-        await createClient(payloadConPersona);
-        setNewContactEmail("");
-        setNewContactPhone("");
-
-        toast.success("Cliente creado.");
-      }
-
-      setShowForm(false);
-      setFormData({
-        name: "",
-        client_type: "Particulares",
-        address: "",
-        contact_person: "",
-        notes: "",
-      });
-      loadClients();
-    } catch (error) {
-      toast.error("No se pudo guardar el cliente.");
-    }
+    // En Particulares, si no se escribió persona, la persona ES el
+    // cliente (boceto 30-07): se crea sola con su nombre.
+    // La SIEMBRA la hace el backend (garantía de nacimiento, 31-07):
+    // acá solo viajan los datos de la persona en el mismo payload.
+    const personaNombre =
+      formData.contact_person?.trim() ||
+      (!isEmpresa ? formData.name.trim() : "");
+    return {
+      ...payload,
+      contact_person: personaNombre || payload.contact_person,
+      contact_email: newContactEmail.trim() || null,
+      contact_phone: normalizePhone(newContactPhone) || null,
+    } as typeof formData;
   };
+  const handleSubmit = nuevoCliente.enviar;
 
   // (03-08) handleEdit/handleDelete jubilados: editar y eliminar
   // viven SOLO en la ficha 360°.
@@ -659,6 +667,7 @@ export default function ClientsPage() {
               />
             </div>
 
+            {nuevoCliente.aviso}
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
@@ -669,11 +678,14 @@ export default function ClientsPage() {
               >
                 Cancelar
               </button>
+              {/* Bloqueado mientras guarda (deuda A3 del plan de
+                  homologación: dos clics hacían dos clientes). */}
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={nuevoCliente.cargando}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                Crear Cliente
+                {nuevoCliente.cargando ? "Creando…" : "Crear Cliente"}
               </button>
             </div>
           </form>

@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { toast } from "./toast/Toast";
-import { Save, RotateCcw, Plus, X, CheckCircle } from "lucide-react";
+import { Save, RotateCcw, Plus, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
 import { normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
 import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import { clientsQueryOptions } from "../services/clients.service";
-import { createClient } from "../services/clients.service";
+import { useCrearCliente } from "../hooks/useCrearCliente";
+import Modal from "./Modal";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { eventTypesQueryOptions } from "../services/eventTypes.service";
 
-import { ClientFormData } from "../types/clients.types";
 import {
   createQuotation,
   updateQuotation,
@@ -64,7 +64,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
       .catch(() => setClientContacts([]));
   }, [formData.client_id]);
   // Clientes desde el caché compartido de React Query (Etapa 2)
-  const queryClientRQ = useQueryClient();
   const { data: clients = [] } = useQuery(clientsQueryOptions);
   const [loading, setLoading] = useState(false);
   const [, setIsExistingClient] = useState(false);
@@ -81,7 +80,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   const clientTypesList: string[] = clientTypesData?.map((t) => t.name) ?? [
     ...CLIENT_TYPES,
   ];
-  const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -122,8 +120,8 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         client_id: request.client_id,
         // La persona que escribió la solicitud viene guardada: se
         // muestra en vez de perderse (Felipe, 05-09).
-        contact_name: (request as { contact_name?: string | null })
-          .contact_name ?? null,
+        contact_name:
+          (request as { contact_name?: string | null }).contact_name ?? null,
       };
 
       setFormData(requestData);
@@ -174,37 +172,18 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     }
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setClientLoading(true);
-
-    try {
-      const payload: ClientFormData = {
-        ...clientFormData,
-        address: "",
-        notes: "",
-      };
-
-      const { data: newClient } = await createClient(payload);
-
-      // if (error) throw error;
-
-      if (newClient) {
-        // El cliente nuevo entra al caché al instante y se confirma
-        // con el servidor por detrás.
-        queryClientRQ.setQueryData<any[]>(["clients"], (prev) => [
-          ...(prev ?? []),
-          newClient,
-        ]);
-        queryClientRQ.invalidateQueries({ queryKey: ["clients"] });
-
-        // Auto-select the newly created client with its data
-        handleClientSelect(newClient.id, newClient);
-      }
-
-      // Reset client form and close modal
+  // "Crear nuevo cliente" con el aviso de cliente parecido (16-10-2026):
+  // crear, avisar y sus tres salidas viven en useCrearCliente (la misma
+  // pieza del cotizador y de Clientes).
+  const nuevoCliente = useCrearCliente({
+    abierto: showClientModal,
+    datos: clientFormData,
+    armar: () => (user ? { ...clientFormData, address: "", notes: "" } : null),
+    alElegir: (c, persona) => {
+      handleClientSelect(c.id, c);
+      if (persona) setFormData((prev) => ({ ...prev, contact_name: persona }));
+    },
+    alTerminar: () => {
       setClientFormData({
         name: "",
         email: "",
@@ -213,13 +192,28 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         client_type: DEFAULT_CLIENT_TYPE,
       });
       setShowClientModal(false);
-      toast.success("Cliente creado.");
-    } catch (error) {
-      console.error("Error creating client:", error);
-      toast.error("No se pudo crear el cliente.");
-    } finally {
-      setClientLoading(false);
-    }
+    },
+  });
+
+  const handleCreateClient = nuevoCliente.enviar;
+
+  // Cerrar "Crear nuevo cliente" (el ✕, Cancelar, Escape o el fondo):
+  // limpia los errores marcados para la próxima vez.
+  const cerrarVentanaCliente = () => {
+    setShowClientModal(false);
+    setClientErrors({
+      name: "",
+      email: "",
+      phone: "",
+      contact_person: "",
+    });
+    setIsFormValid(false);
+    setTouchedFields({
+      name: false,
+      email: false,
+      phone: false,
+      contact_person: false,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,7 +224,6 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
     try {
       if (request?.id) {
-
         const { error } = await updateQuotation(formData, request.id);
 
         if (error) throw error;
@@ -268,210 +261,174 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       {/* Client Creation Modal */}
+      {/* La ventana de la casa (16-10-2026): con el aviso de cliente
+          parecido, la hecha a mano y centrada se salía de la pantalla
+          sin dejar bajar. Anclada arriba y sin tope: crece y se
+          desplaza la página (el tipo de cliente es un buscador). */}
       {showClientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Crear Nuevo Cliente
-              </h3>
-              <button
-                onClick={() => {
-                  setShowClientModal(false);
-                  setClientErrors({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    contact_person: "",
-                  });
-                  setIsFormValid(false);
-                  setTouchedFields({
-                    name: false,
-                    email: false,
-                    phone: false,
-                    contact_person: false,
-                  });
+        <Modal
+          titulo="Crear Nuevo Cliente"
+          ancho="max-w-md"
+          sinTope
+          onCerrar={cerrarVentanaCliente}
+        >
+          <form onSubmit={handleCreateClient} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre del Cliente
+              </label>
+              <input
+                type="text"
+                required
+                value={clientFormData.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, name }));
+                  setClientErrors((prev) => ({
+                    ...prev,
+                    name: !name.trim() ? "Nombre del cliente es requerido" : "",
+                  }));
                 }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, name: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
+                placeholder="Nombre completo o empresa"
+              />
+              {shouldShowError("name") && (
+                <p className="text-red-500 text-sm mt-1">{clientErrors.name}</p>
+              )}
             </div>
 
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre del Cliente
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={clientFormData.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, name }));
-                    setClientErrors((prev) => ({
-                      ...prev,
-                      name: !name.trim()
-                        ? "Nombre del cliente es requerido"
-                        : "",
-                    }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, name: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
-                  placeholder="Nombre completo o empresa"
-                />
-                {shouldShowError("name") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.name}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={clientFormData.email}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, email }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, email: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
+                placeholder="correo@ejemplo.com"
+              />
+              {shouldShowError("email") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.email}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={clientFormData.email}
-                  onChange={(e) => {
-                    const email = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, email }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, email: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
-                  placeholder="correo@ejemplo.com"
-                />
-                {shouldShowError("email") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.email}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                value={clientFormData.phone}
+                onChange={(e) => {
+                  const phone = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, phone }));
+                }}
+                onBlur={() => {
+                  // Al salir del recuadro el número queda ordenado y a la
+                  // vista, para que se note que quedó bien guardado.
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    phone: normalizePhone(prev.phone || ""),
+                  }));
+                  setTouchedFields((prev) => ({ ...prev, phone: true }));
+                }}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
+                placeholder={PHONE_PLACEHOLDER}
+              />
+              {shouldShowError("phone") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.phone}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={clientFormData.phone}
-                  onChange={(e) => {
-                    const phone = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, phone }));
-                  }}
-                  onBlur={() => {
-                    // Al salir del recuadro el número queda ordenado y a la
-                    // vista, para que se note que quedó bien guardado.
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      phone: normalizePhone(prev.phone || ""),
-                    }));
-                    setTouchedFields((prev) => ({ ...prev, phone: true }));
-                  }}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
-                  placeholder={PHONE_PLACEHOLDER}
-                />
-                {shouldShowError("phone") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.phone}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Persona de Contacto
+              </label>
+              <input
+                type="text"
+                value={clientFormData.contact_person}
+                onChange={(e) => {
+                  const contact_person = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, contact_person }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({
+                    ...prev,
+                    contact_person: true,
+                  }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
+                placeholder="Nombre del contacto principal"
+              />
+              {shouldShowError("contact_person") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.contact_person}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Persona de Contacto
-                </label>
-                <input
-                  type="text"
-                  value={clientFormData.contact_person}
-                  onChange={(e) => {
-                    const contact_person = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, contact_person }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({
-                      ...prev,
-                      contact_person: true,
-                    }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
-                  placeholder="Nombre del contacto principal"
-                />
-                {shouldShowError("contact_person") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.contact_person}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Cliente
+              </label>
+              <SelectWithSearch
+                options={clientTypesList.map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                value={clientFormData.client_type}
+                onChange={(v) =>
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    client_type: v,
+                  }))
+                }
+                placeholder="Tipo de cliente"
+                searchPlaceholder="Buscar tipo…"
+                noResultsText="Sin resultados"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Cliente
-                </label>
-                <SelectWithSearch
-                  options={clientTypesList.map((type) => ({
-                    value: type,
-                    label: type,
-                  }))}
-                  value={clientFormData.client_type}
-                  onChange={(v) =>
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      client_type: v,
-                    }))
-                  }
-                  placeholder="Tipo de cliente"
-                  searchPlaceholder="Buscar tipo…"
-                  noResultsText="Sin resultados"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowClientModal(false);
-                    setClientErrors({
-                      name: "",
-                      email: "",
-                      phone: "",
-                      contact_person: "",
-                    });
-                    setIsFormValid(false);
-                    setTouchedFields({
-                      name: false,
-                      email: false,
-                      phone: false,
-                      contact_person: false,
-                    });
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={clientLoading || !isFormValid}
-                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                    clientLoading || !isFormValid
-                      ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <Plus size={16} />
-                  <span>{clientLoading ? "Creando..." : "Crear Cliente"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            {nuevoCliente.aviso}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={cerrarVentanaCliente}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={nuevoCliente.cargando || !isFormValid}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  nuevoCliente.cargando || !isFormValid
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Plus size={16} />
+                <span>
+                  {nuevoCliente.cargando ? "Creando..." : "Crear Cliente"}
+                </span>
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
