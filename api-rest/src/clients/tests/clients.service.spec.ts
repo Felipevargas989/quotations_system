@@ -91,4 +91,23 @@ describe('ClientsService', () => {
     expect(creado).toEqual({ id: 'nuevo' });
     expect(personas.create).toHaveBeenCalledTimes(1);
   });
+
+  it('el aviso mientras se escribe: con solo el teléfono ya lo encuentra, y no crea nada', async () => {
+    repo.paraCoincidir.mockResolvedValue([
+      {
+        id: 'rene',
+        name: 'Rene Neira',
+        client_type: 'Club Adulto Mayor',
+        email: null,
+        phone: null,
+        personas: [
+          { id: 436, name: 'Rene Neira', email: null, phone: '+56991644870' },
+        ],
+        ultimaCotizacion: 590,
+      },
+    ]);
+    const r = await service.coincidencias({ phone: '9 9164 4870' }, 1);
+    expect(r.map((c) => c.cliente_id)).toEqual(['rene']);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
 });

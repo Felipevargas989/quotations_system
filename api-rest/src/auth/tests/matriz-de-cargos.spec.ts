@@ -98,6 +98,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST types': S,
       'DELETE types/:id': S,
       'PATCH types/reorder': S,
+      // El aviso de cliente parecido mientras se escribe (16-10-2026):
+      // el mismo cargo que crear un cliente.
+      'POST coincidencias': R,
       'POST ': R,
       'GET ': R,
       'GET :id/summary': R,

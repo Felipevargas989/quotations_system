@@ -68,6 +68,40 @@ export const detalleDeCoincidencia = (c: CoincidenciaCliente): string => {
   return `Ya tienes a «${c.nombre}»${cot}, con ese mismo correo de institución. ¿Sumar a esta persona ahí?`;
 };
 
+type DatosRevisables = {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+};
+
+const correoCompleto = (v?: string | null) =>
+  /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test((v || "").trim());
+const telefonoCompleto = (v?: string | null) =>
+  (v || "").replace(/\D/g, "").length >= 8;
+const nombreSuficiente = (v?: string | null) =>
+  (v || "").replace(/[^\p{L}\p{N}]/gu, "").length >= 3;
+
+/**
+ * Lo que vale la pena revisar mientras se escribe (Felipe, 16-10: "mejor
+ * cuando apenas termine de escribir"): solo datos completos, para no
+ * preguntarle al motor por "judiaz@cc". Null si todavía no hay nada.
+ */
+export const datosParaRevisar = (
+  d: DatosRevisables,
+): Record<string, string> | null => {
+  const r: Record<string, string> = {};
+  if (nombreSuficiente(d.name)) r.name = (d.name || "").trim();
+  if (correoCompleto(d.email)) r.email = (d.email || "").trim();
+  if (correoCompleto(d.contact_email))
+    r.contact_email = (d.contact_email || "").trim();
+  if (telefonoCompleto(d.phone)) r.phone = (d.phone || "").trim();
+  if (telefonoCompleto(d.contact_phone))
+    r.contact_phone = (d.contact_phone || "").trim();
+  return Object.keys(r).length > 0 ? r : null;
+};
+
 /** Particulares = UNA persona (regla de Felipe, 30-07): no se le suman contactos. */
 export const admiteOtroContacto = (c: CoincidenciaCliente): boolean =>
   (c.tipo || "").trim().toLowerCase() !== "particulares";
