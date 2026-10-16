@@ -18,8 +18,18 @@ export const clientsQueryOptions = {
   },
 };
 
-export const createClient = async (client: ClientFormData) => {
-  const response = await apiRequest(`${API_ROUTES.CLIENTS}`, "POST", client);
+// Con portero (16-10-2026): si ya existe un cliente parecido, el motor
+// responde 409 CLIENTE_PARECIDO (ver utils/avisoCliente). `confirmado`
+// es la respuesta "es otro cliente, crear igual".
+export const createClient = async (
+  client: ClientFormData,
+  confirmado = false,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENTS}`,
+    "POST",
+    confirmado ? { ...client, confirmado: true } : client,
+  );
   return { data: response };
 };
 

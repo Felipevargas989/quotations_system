@@ -135,7 +135,7 @@ Ojo al buscar con grep: en `super-admin.controller.ts` hay un comentario que dic
 ### 5.5 Requerimiento: del formulario público o del teléfono a la cotización
 
 1. `RequestsPage` pide `getQuotations(REQUERIMIENTO, [SOLICITADA])` con la query `["requirements"]`, la misma de `QuotationsPage`.
-2. "Nuevo Requerimiento" abre `RequestForm`. Si el cliente es nuevo: `createClient`. Al guardar: `createQuotation` con `request_type` requerimiento y estado solicitada → `POST /quotations` → `QuotationsController.create` (recepción no puede crear otra cosa, 28-07).
+2. "Nuevo Requerimiento" abre `RequestForm`. Si el cliente es nuevo: `createClient` por `useCrearCliente`, con el aviso de cliente parecido (mapa 09, flujo A, 16-10-2026). Al guardar: `createQuotation` con `request_type` requerimiento y estado solicitada → `POST /quotations` → `QuotationsController.create` (recepción no puede crear otra cosa, 28-07).
 3. Editar: `updateQuotation` → `PATCH /quotations/:id`. `RequestForm` conserva `contact_name` (Felipe, 05-09).
 4. "Crear Cotización" (solo con `quotations_edit`) → `/quotation-form/:id`, que ya es el cotizador (mapa 01).
 5. "Eliminar" (solo administrador en pantalla) → `ConfirmInline` → `deleteQuotation` → `DELETE /quotations/:id`.

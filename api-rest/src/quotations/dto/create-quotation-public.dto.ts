@@ -21,7 +21,9 @@ export class CreateQuotationPublicDto extends IntersectionType(
   // 2.0), pero acá se REDEFINEN obligatorios — por eso se omiten del
   // padre: heredarlos arrastraba su ValidateIf, que salta la validación
   // justo cuando el correo viene vacío (hoyo pillado el 30-07).
-  OmitType(CreateClientDto, ['email', 'phone'] as const),
+  // `confirmado` es la respuesta al aviso de cliente parecido de las
+  // pantallas internas (16-10-2026): el formulario público no lo lleva.
+  OmitType(CreateClientDto, ['email', 'phone', 'confirmado'] as const),
 ) {
   // Puerta del SERVIDOR cerrada (regla de Felipe 30-07): en el
   // formulario público el correo y el teléfono son obligatorios —
