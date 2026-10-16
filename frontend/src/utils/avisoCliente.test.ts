@@ -41,9 +41,9 @@ describe("aviso de cliente parecido", () => {
     ).toBe("Ya hay un cliente con un nombre parecido");
   });
 
-  it("el detalle nombra a la persona y la cotización", () => {
+  it("el detalle nombra a la persona y al cliente, sin la cotización", () => {
     expect(detalleDeCoincidencia(rene)).toBe(
-      "Es de René Neira, contacto del cliente «Rejuveneciendo a la vida» (cotización #590). ¿Es el mismo cliente?",
+      "Es René Neira, contacto del cliente «Rejuveneciendo a la vida». ¿Es el mismo cliente?",
     );
     expect(
       detalleDeCoincidencia({
@@ -54,7 +54,7 @@ describe("aviso de cliente parecido", () => {
         cotizacion: 574,
       }),
     ).toBe(
-      "Ya tienes a «Universidad del Bío-Bío» (cotización #574), con ese mismo correo de institución. ¿Sumar a esta persona ahí?",
+      "Ya tienes a «Universidad del Bío-Bío», con ese mismo correo de institución. ¿Sumar a esta persona ahí?",
     );
   });
 

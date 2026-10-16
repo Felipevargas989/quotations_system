@@ -57,15 +57,16 @@ export const tituloDelAviso = (lista: CoincidenciaCliente[]): string => {
   return "Ya tienes un cliente con ese correo de institución";
 };
 
-/** Qué cliente es y por qué se parece, en una frase. */
+/** Qué cliente es y por qué se parece, en una frase. Sin el N° de
+ *  cotización (Felipe, 16-10: "solo decir es July Díaz contacto del
+ *  cliente CCU, ¿es el mismo cliente?"). */
 export const detalleDeCoincidencia = (c: CoincidenciaCliente): string => {
-  const cot = c.cotizacion ? ` (cotización #${c.cotizacion})` : "";
   if (porDato(c) && c.persona)
-    return `Es de ${c.persona.nombre}, contacto del cliente «${c.nombre}»${cot}. ¿Es el mismo cliente?`;
+    return `Es ${c.persona.nombre}, contacto del cliente «${c.nombre}». ¿Es el mismo cliente?`;
   if (porDato(c))
-    return `Está en el cliente «${c.nombre}»${cot}. ¿Es el mismo cliente?`;
-  if (c.motivos.includes("nombre")) return `¿Es «${c.nombre}»${cot}?`;
-  return `Ya tienes a «${c.nombre}»${cot}, con ese mismo correo de institución. ¿Sumar a esta persona ahí?`;
+    return `Está en el cliente «${c.nombre}». ¿Es el mismo cliente?`;
+  if (c.motivos.includes("nombre")) return `¿Es «${c.nombre}»?`;
+  return `Ya tienes a «${c.nombre}», con ese mismo correo de institución. ¿Sumar a esta persona ahí?`;
 };
 
 type DatosRevisables = {

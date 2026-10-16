@@ -18,8 +18,14 @@ interface Props {
   onCrearIgual: () => void;
 }
 
-const botonClaro =
-  "rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50";
+// Botones parejos, uno bajo el otro (Felipe, 16-10: "podemos ordenar un
+// poquito los botones"): primero lo más común, al final la salida para
+// todos, separada por una línea.
+const boton =
+  "w-full rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50";
+const usar = `${boton} bg-amber-600 text-white hover:bg-amber-700`;
+const sumar = `${boton} border border-amber-300 bg-white text-amber-900 hover:bg-amber-100`;
+const otro = `${boton} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
 
 export default function AvisoClienteExistente({
   coincidencias,
@@ -40,12 +46,12 @@ export default function AvisoClienteExistente({
           {coincidencias.map((c) => (
             <div key={c.cliente_id} className="space-y-2">
               <p>{detalleDeCoincidencia(c)}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2">
                 <button
                   type="button"
                   disabled={ocupado}
                   onClick={() => onUsar(c)}
-                  className={botonClaro}
+                  className={usar}
                 >
                   Usar este cliente
                 </button>
@@ -54,7 +60,7 @@ export default function AvisoClienteExistente({
                     type="button"
                     disabled={ocupado}
                     onClick={() => onSumarContacto(c)}
-                    className={botonClaro}
+                    className={sumar}
                   >
                     Sumar como contacto a este cliente
                   </button>
@@ -62,14 +68,16 @@ export default function AvisoClienteExistente({
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            disabled={ocupado}
-            onClick={onCrearIgual}
-            className="text-sm font-medium text-amber-800 underline hover:text-amber-950 disabled:opacity-50"
-          >
-            Es otro cliente, crear igual
-          </button>
+          <div className="border-t border-amber-200 pt-3">
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={onCrearIgual}
+              className={otro}
+            >
+              Es otro cliente, crear igual
+            </button>
+          </div>
         </div>
       </div>
     </div>
