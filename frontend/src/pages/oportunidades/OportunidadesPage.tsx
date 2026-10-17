@@ -28,6 +28,7 @@ import {
   filtrarSinSemaforo,
   type Filtros,
   SEMAFOROS,
+  textoDelAnterior,
   TIPOS,
   VISTAS,
 } from "./oportunidades.utils";
@@ -419,6 +420,11 @@ function FilaDeOportunidad({
           </span>
         </p>
         {o.razon && <p className="text-sm text-gray-700 mt-1">{o.razon}</p>}
+        {o.anterior && (
+          <p className="text-xs text-gray-600 mt-1">
+            {textoDelAnterior(o.anterior)}
+          </p>
+        )}
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {o.alertas.map((a) => (
             <span
