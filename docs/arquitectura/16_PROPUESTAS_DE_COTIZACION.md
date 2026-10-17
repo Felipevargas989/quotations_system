@@ -331,16 +331,18 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   el motor cuenta, por categoría, el nivel del menú guardado más parecido
 >   a cada caja de las cotizaciones aceptadas y realizadas del mismo tipo de
 >   evento en los últimos 18 meses (por cotización, no por caja); con menos
->   de 3, toma todos los tipos. Lo anota en la nota. Medido el 17-10, todos
->   los tipos: cena → Nivel 1 (8 de 12 eventos); almuerzo → Básicos (7),
->   muy cerca de Matrimonio (6) y Estándar (5). Lo que nunca hace: escribir un precio (elige por id y el motor
+>   de 3, toma todos los tipos. Lo anota en la nota. **Se calcula al
+>   apretar el botón, nunca queda fijo** (Felipe, 17-10: *"la historia se
+>   va moviendo"*). Foto del 17-10, solo de ejemplo: cena → Nivel 1 (8 de
+>   12 eventos); almuerzo → Básicos (7), cerca de Matrimonio (6) y
+>   Estándar (5). Lo que nunca hace: escribir un precio (elige por id y el motor
 >   pone el del catálogo) ni recortar lo pedido por el presupuesto; si se
 >   aleja mucho, lo anota en el comentario interno y guarda igual (regla
 >   13). «Cuadrar al peso» es la suma interna de Eventia
 >   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
 >   presupuesto nunca frena el guardado.
 > - **La historia manda cuando faltan datos** (Felipe, 17-10: *"ocupemos
->   la historia"*). Medido el 17-10 sobre las 204 cotizaciones de los
+>   la historia"*), siempre la del momento de apretar el botón. Medido el 17-10 sobre las 204 cotizaciones de los
 >   últimos 6 meses: 37 (1 de cada 5) eran de clientes que ya habían
 >   comprado, y las 204 tenían 3 o más eventos vendidos del mismo tipo.
 >   - **Cliente que ya compró:** parte de su última cotización vendida
@@ -377,6 +379,11 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   tiene poco cupo por minuto, cuidarlo (caché del catálogo y las reglas).
 >   Para producción, una llave aparte que Felipe crea y pega él en el
 >   servicio de producción; el motor parte sin ella.
+> - **Roadmap (Felipe, 17-10: *"vamos con los botones (…) dame el roadmap"*):**
+>   2a el motor con la IA; 2b los botones y el enlace a Mi empresa; 2c las
+>   pruebas fijas con costo y tiempo medidos; 3 producción (llave propia,
+>   migración 128, motor y vitrina); 4 medir las 10 seguidas y decidir el
+>   plan para otras empresas. Todo lo 2 en el laboratorio.
 > - **Plan en tres pasos** (Felipe, 17-10: *"vamos por el paso 1"*): 1) el
 >   comentario interno; 2) el botón en el laboratorio, con requerimientos
 >   reales; 3) producción cuando 10 seguidas salgan sin corrección (la regla
