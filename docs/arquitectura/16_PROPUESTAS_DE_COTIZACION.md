@@ -339,6 +339,19 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   13). «Cuadrar al peso» es la suma interna de Eventia
 >   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
 >   presupuesto nunca frena el guardado.
+> - **La historia manda cuando faltan datos** (Felipe, 17-10: *"ocupemos
+>   la historia"*). Medido el 17-10 sobre las 204 cotizaciones de los
+>   últimos 6 meses: 37 (1 de cada 5) eran de clientes que ya habían
+>   comprado, y las 204 tenían 3 o más eventos vendidos del mismo tipo.
+>   - **Cliente que ya compró:** parte de su última cotización vendida
+>     (mismas comidas, niveles y salón), a precios de hoy, salvo que el
+>     pedido diga otra cosa.
+>   - **Eventos parecidos:** la IA recibe 3 a 5 cotizaciones vendidas del
+>     mismo tipo y de tamaño parecido, resumidas (día, comida, nivel,
+>     personas, fijos), como ejemplo de cómo se arman.
+>   - **Lo más vendido:** elige el nivel cuando falta dato (arriba).
+>   - Siempre anota qué historia usó («basada en la N° 500», «parecida a
+>     la 615 y la 590»).
 > - **Lo que tiene que saber armar** (Felipe, 17-10):
 >   - *"si pido un menú en particular que no esté paquetizado"*: lo arma
 >     con los platos sueltos del catálogo (49 de almuerzos y cenas, 21 de
