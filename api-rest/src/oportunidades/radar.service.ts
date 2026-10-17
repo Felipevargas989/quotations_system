@@ -45,7 +45,9 @@ import {
 // configuró. Las compras ágiles se piden solo de esas regiones (su API
 // tiene menos cupo).
 
-const DETALLES_EN_PARALELO = 4;
+/** De a uno: la API de Mercado Público rechaza las peticiones simultáneas
+ *  con el mismo ticket (el bot de GitHub también pide de a uno). */
+const DETALLES_EN_PARALELO = 1;
 /** Una cuenta nueva de Anthropic tiene poco cupo por minuto. */
 const LECTURAS_EN_PARALELO = 3;
 /** Tope por corrida: la primera trae miles; las siguientes, decenas. */
@@ -56,7 +58,13 @@ const FALLAS_SEGUIDAS_PARA_CORTAR = 10;
 /** Tantas lecturas fallidas seguidas = algo anda mal con la IA (no con un
  *  proceso): se deja la lectura para la próxima corrida. */
 const LECTURAS_FALLIDAS_PARA_CORTAR = 10;
-const HORA = 60 * 60 * 1000;
+const MINUTO = 60 * 1000;
+const HORA = 60 * MINUTO;
+/** Tiempo de cada corrida: pedir detalles hasta los 80 minutos y leer hasta
+ *  los 150. Así una corrida nunca llega a las 3 horas en que la siguiente
+ *  la da por muerta; lo que falta entra en la próxima. */
+const PRESUPUESTO_DETALLES_MS = 80 * MINUTO;
+const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
 
@@ -67,6 +75,8 @@ export type ResumenCorrida = {
     nuevas: number;
     guardadas: number;
     sin_detalle: number;
+    /** Nuevas que no alcanzaron a pedirse en esta corrida. */
+    pendientes: number;
     cambios: number;
   };
   compras_agiles: {
@@ -97,6 +107,7 @@ const resumenVacio = (): ResumenCorrida => ({
     nuevas: 0,
     guardadas: 0,
     sin_detalle: 0,
+    pendientes: 0,
     cambios: 0,
   },
   compras_agiles: { estado: 'ok', listadas: 0, nuevas: 0, guardadas: 0 },
@@ -113,6 +124,18 @@ const resumenVacio = (): ResumenCorrida => ({
   },
   avisos: [],
 });
+
+/** Las licitaciones de la lista, de la que cierra antes a la que cierra
+ *  después; sin cierre informado, al final. */
+const ordenarPorCierre = (filas: LicitacionListada[]): LicitacionListada[] =>
+  filas
+    .map((fila) => {
+      const iso = fechaChileAIso(fila.FechaCierre);
+      const t = iso ? new Date(iso).getTime() : NaN;
+      return { fila, t: Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t };
+    })
+    .sort((a, b) => a.t - b.t)
+    .map((x) => x.fila);
 
 /** El cierre como número, para ordenar: sin cierre informado, al final. */
 const cierreParaOrdenar = (p: { fecha_cierre: string | null }): number => {
@@ -191,9 +214,9 @@ export class RadarService {
         ...new Set([...configs.values()].flatMap((c) => c.regiones ?? [])),
       ];
 
-      await this.licitaciones(resumen);
+      await this.licitaciones(resumen, inicio);
       await this.comprasAgiles(resumen, regiones);
-      await this.leer(resumen, empresas, configs);
+      await this.leer(resumen, empresas, configs, inicio);
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
@@ -217,7 +240,10 @@ export class RadarService {
   // ------------------------------------------------------------
   // Licitaciones: todo Chile, solo lo que no está en la base
   // ------------------------------------------------------------
-  private async licitaciones(resumen: ResumenCorrida): Promise<void> {
+  private async licitaciones(
+    resumen: ResumenCorrida,
+    inicio: number,
+  ): Promise<void> {
     const r = resumen.licitaciones;
     if (!this.mp.configurado) {
       r.estado = 'sin_ticket';
@@ -287,8 +313,11 @@ export class RadarService {
     if (cambios.length > 0) await this.repo.registrarCambios(cambios);
     r.cambios = cambios.length;
 
-    // Lo nuevo: se pide el detalle (ahí viene la región) y se guarda.
-    const nuevas = filas.filter((f) => !conocidos.has(f.CodigoExterno!.trim()));
+    // Lo nuevo: se pide el detalle (ahí viene la región) y se guarda. Lo
+    // que cierra antes, primero: si la corrida se corta, lo urgente ya está.
+    const nuevas = ordenarPorCierre(
+      filas.filter((f) => !conocidos.has(f.CodigoExterno!.trim())),
+    );
     r.nuevas = nuevas.length;
     let pendientes: ProcesoMp[] = [];
     const vaciar = async () => {
@@ -300,11 +329,18 @@ export class RadarService {
     };
 
     let fallasSeguidas = 0;
+    let intentadas = 0;
+    let sinTiempo = false;
     try {
       await enParalelo(
         nuevas.slice(0, MAX_DETALLES_POR_CORRIDA),
         DETALLES_EN_PARALELO,
         async (fila: LicitacionListada) => {
+          if (sinTiempo || Date.now() - inicio > PRESUPUESTO_DETALLES_MS) {
+            sinTiempo = true;
+            return;
+          }
+          intentadas++;
           const codigo = fila.CodigoExterno!.trim();
           let detalle;
           try {
@@ -334,6 +370,13 @@ export class RadarService {
       );
     } finally {
       await vaciar();
+      r.pendientes = nuevas.length - intentadas;
+    }
+    if (sinTiempo) {
+      r.estado = 'cortada';
+      resumen.avisos.push(
+        `Se acabó el tiempo de esta corrida para pedir detalles: quedan ${r.pendientes} licitaciones nuevas para la próxima.`,
+      );
     }
   }
 
@@ -387,21 +430,25 @@ export class RadarService {
 
     const procesos: ProcesoMp[] = [];
     let sinCupo = false;
-    await enParalelo(nuevas, 2, async (item: CompraAgilListada) => {
-      let detalle: CompraAgilDetalle | null = null;
-      if (!sinCupo) {
-        try {
-          detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
-        } catch (error) {
-          if (!(error instanceof MercadoPublicoError)) throw error;
-          if (error.sinCupo) sinCupo = true;
+    await enParalelo(
+      nuevas,
+      DETALLES_EN_PARALELO,
+      async (item: CompraAgilListada) => {
+        let detalle: CompraAgilDetalle | null = null;
+        if (!sinCupo) {
+          try {
+            detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
+          } catch (error) {
+            if (!(error instanceof MercadoPublicoError)) throw error;
+            if (error.sinCupo) sinCupo = true;
+          }
         }
-      }
-      // Sin detalle igual se guarda: nombre, comprador y monto vienen en la
-      // lista, y la próxima vez no se vuelve a pedir.
-      const proceso = procesoDesdeCompraAgil(item, detalle);
-      if (proceso) procesos.push(proceso);
-    });
+        // Sin detalle igual se guarda: nombre, comprador y monto vienen en la
+        // lista, y la próxima vez no se vuelve a pedir.
+        const proceso = procesoDesdeCompraAgil(item, detalle);
+        if (proceso) procesos.push(proceso);
+      },
+    );
     if (sinCupo) {
       r.estado = 'sin_cupo';
       resumen.avisos.push(
@@ -419,6 +466,7 @@ export class RadarService {
     resumen: ResumenCorrida,
     empresas: EmpresaConModulo[],
     configs: Map<number, ConfigOportunidades>,
+    inicio: number,
   ): Promise<void> {
     const r = resumen.lectura;
     if (!this.lectura.configurado) {
@@ -459,6 +507,11 @@ export class RadarService {
         restantes -= tanda.length;
 
         await enParalelo(tanda, LECTURAS_EN_PARALELO, async (proceso) => {
+          if (Date.now() - inicio > PRESUPUESTO_CORRIDA_MS) {
+            throw new LecturaDetenida(
+              'Se acabó el tiempo de esta corrida: lo que falta se lee en la próxima.',
+            );
+          }
           const lectura = await this.lectura.leer(proceso, perfil, uso);
           if (!lectura) {
             r.sin_leer++;

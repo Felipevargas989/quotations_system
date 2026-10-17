@@ -21,10 +21,34 @@ import type {
 // La lección del bot de GitHub (agosto de 2026): el servidor de Mercado
 // Público responde 504 a ratos. Ante 5xx o un corte de red se reintenta con
 // pausa creciente; un 429 (cupo del día) no se reintenta.
+//
+// Y la del código del bot: la API de licitaciones a veces responde 200 con
+// el error ADENTRO ({ Codigo, Mensaje }), y rechaza las peticiones
+// simultáneas con el mismo ticket. Por eso se revisa el cuerpo de cada
+// respuesta y el radar pide de a una.
 
 const LICITACIONES =
   'https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json';
 const COMPRA_AGIL = 'https://api2.mercadopublico.cl/v2/compra-agil';
+
+/** El error que la API escribe dentro del cuerpo, aunque responda 200. */
+const errorDeLaApi = (
+  cuerpo: unknown,
+): { codigo: string; mensaje: string; simultaneas: boolean } | null => {
+  if (!cuerpo || typeof cuerpo !== 'object') return null;
+  const { Codigo, Mensaje } = cuerpo as { Codigo?: unknown; Mensaje?: unknown };
+  const codigo =
+    typeof Codigo === 'number' || typeof Codigo === 'string'
+      ? String(Codigo).trim()
+      : '';
+  if (!codigo || codigo === '0') return null;
+  const mensaje = typeof Mensaje === 'string' ? Mensaje.trim() : '';
+  return {
+    codigo,
+    mensaje,
+    simultaneas: codigo === '10500' || /simult/i.test(mensaje),
+  };
+};
 
 /** El servidor falló (5xx, red) o no tiene cupo (429). */
 export class MercadoPublicoError extends Error {
@@ -45,8 +69,9 @@ export class MercadoPublicoError extends Error {
 export class MercadoPublicoClient {
   /** Pausas entre reintentos, en milisegundos (las pruebas las acortan). */
   esperas: number[] = [15_000, 30_000];
-  /** Tope de cada petición. */
+  /** Tope de cada petición (la lista de activas tiene el suyo, más largo). */
   topeMs = 60_000;
+  topeListaMs = 120_000;
 
   constructor(private readonly logger: PinoLogger) {
     this.logger.setContext(MercadoPublicoClient.name);
@@ -72,10 +97,21 @@ export class MercadoPublicoClient {
    *  consulta liviana: código, nombre, estado y cierre. Sin región. */
   async licitacionesActivas(): Promise<LicitacionListada[]> {
     const url = `${LICITACIONES}?estado=activas&ticket=${encodeURIComponent(this.ticket)}`;
-    const json = (await this.pedir(url, {}, 'licitaciones activas')) as {
-      Listado?: LicitacionListada[];
-    };
-    return json?.Listado ?? [];
+    const json = (await this.pedir(
+      url,
+      {},
+      'licitaciones activas',
+      this.topeListaMs,
+    )) as { Listado?: LicitacionListada[] } | null;
+    // Siempre hay miles abiertas: una respuesta sin lista es una falla, no
+    // "no hay nada".
+    if (!Array.isArray(json?.Listado)) {
+      throw new MercadoPublicoError(
+        'licitaciones activas: Mercado Público respondió sin la lista',
+        null,
+      );
+    }
+    return json.Listado;
   }
 
   async detalleLicitacion(codigo: string): Promise<LicitacionDetalle | null> {
@@ -127,7 +163,18 @@ export class MercadoPublicoClient {
         }
         throw error;
       }
-      if (json?.success !== 'OK') break;
+      if (json?.success !== 'OK') {
+        if (pagina === 1) {
+          throw new MercadoPublicoError(
+            'compras ágiles: Mercado Público respondió sin éxito',
+            null,
+          );
+        }
+        this.logger.warn(
+          `compras ágiles: la página ${pagina} vino sin éxito; sigo con las ${items.length} ya traídas`,
+        );
+        break;
+      }
       items.push(...(json.payload?.items ?? []));
       const total = json.payload?.paginacion?.total_paginas ?? 1;
       if (pagina >= total) break;
@@ -140,8 +187,10 @@ export class MercadoPublicoClient {
       `${COMPRA_AGIL}/${encodeURIComponent(codigo)}`,
       { ticket: this.ticket },
       `compra ágil ${codigo}`,
-    )) as { success?: string; payload?: CompraAgilDetalle };
-    return json?.success === 'OK' ? (json.payload ?? null) : null;
+    )) as { success?: string; payload?: CompraAgilDetalle } | null;
+    if (json?.success === 'OK') return json.payload ?? null;
+    this.logger.warn(`compra ágil ${codigo}: el detalle vino sin éxito`);
+    return null;
   }
 
   /** GET con reintentos ante 5xx o corte de red. `que` es lo que se pide,
@@ -150,13 +199,15 @@ export class MercadoPublicoClient {
     url: string,
     cabeceras: Record<string, string>,
     que: string,
+    topeMs = this.topeMs,
   ): Promise<unknown> {
     for (let intento = 0; ; intento++) {
       let status: number | null = null;
+      let motivo: string | null = null;
       try {
         const resp = await fetch(url, {
           headers: { accept: 'application/json', ...cabeceras },
-          signal: AbortSignal.timeout(this.topeMs),
+          signal: AbortSignal.timeout(topeMs),
         });
         status = resp.status;
         if (resp.status === 429) {
@@ -165,8 +216,18 @@ export class MercadoPublicoClient {
             429,
           );
         }
-        if (resp.ok) return await resp.json();
-        if (resp.status < 500) {
+        const cuerpo: unknown = await resp.json().catch(() => null);
+        const error = errorDeLaApi(cuerpo);
+        if (error?.simultaneas) {
+          motivo = 'peticiones simultáneas';
+        } else if (error) {
+          throw new MercadoPublicoError(
+            `${que}: Mercado Público respondió ${error.codigo}${error.mensaje ? ` (${error.mensaje})` : ''}`,
+            resp.status,
+          );
+        } else if (resp.ok) {
+          return cuerpo;
+        } else if (resp.status < 500) {
           throw new MercadoPublicoError(
             `${que}: Mercado Público respondió ${resp.status}`,
             resp.status,
@@ -176,15 +237,16 @@ export class MercadoPublicoClient {
         if (error instanceof MercadoPublicoError) throw error;
         // Corte de red o tope de tiempo: se reintenta como un 5xx.
       }
+      const razon = motivo ?? String(status ?? 'sin respuesta');
       if (intento >= this.esperas.length) {
         throw new MercadoPublicoError(
-          `${que}: Mercado Público no respondió (${status ?? 'sin respuesta'}) tras ${intento + 1} intentos`,
+          `${que}: Mercado Público no respondió (${razon}) tras ${intento + 1} intentos`,
           status,
         );
       }
       const espera = this.esperas[intento];
       this.logger.warn(
-        `${que}: Mercado Público respondió ${status ?? 'sin respuesta'}; reintento en ${Math.round(espera / 1000)} s`,
+        `${que}: Mercado Público respondió ${razon}; reintento en ${Math.round(espera / 1000)} s`,
       );
       await new Promise((r) => setTimeout(r, espera));
     }

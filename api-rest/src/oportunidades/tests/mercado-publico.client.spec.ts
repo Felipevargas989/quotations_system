@@ -111,6 +111,45 @@ describe('MercadoPublicoClient', () => {
     });
   });
 
+  describe('el error que viene escrito dentro de la respuesta', () => {
+    it('200 con { Codigo, Mensaje } es un error, no una respuesta vacía', async () => {
+      fetchFalso.mockImplementation(
+        siempre(200, { Codigo: 203, Mensaje: 'Ticket no válido.' }),
+      );
+      const error = await fallaDe(cliente.detalleLicitacion('X-1-LE26'));
+      expect(error).toBeInstanceOf(MercadoPublicoError);
+      expect(error.message).toContain('203');
+      expect(error.message).toContain('Ticket no válido.');
+      expect(fetchFalso).toHaveBeenCalledTimes(1);
+    });
+
+    it('"peticiones simultáneas" se espera y se reintenta', async () => {
+      fetchFalso
+        .mockResolvedValueOnce(
+          respuesta(500, {
+            Codigo: 10500,
+            Mensaje:
+              'Lo sentimos. Hemos detectado que existen peticiones simultáneas.',
+          }),
+        )
+        .mockResolvedValueOnce(
+          respuesta(200, { Listado: [{ CodigoExterno: 'A-1-LE26' }] }),
+        );
+      await expect(cliente.detalleLicitacion('A-1-LE26')).resolves.toEqual({
+        CodigoExterno: 'A-1-LE26',
+      });
+      expect(fetchFalso).toHaveBeenCalledTimes(2);
+      expect(logger.warn.mock.calls.join(' ')).toContain('simultáneas');
+    });
+
+    it('la lista de activas sin "Listado" es una falla (siempre hay miles abiertas)', async () => {
+      fetchFalso.mockImplementation(siempre(200, {}));
+      await expect(cliente.licitacionesActivas()).rejects.toBeInstanceOf(
+        MercadoPublicoError,
+      );
+    });
+  });
+
   describe('el ticket', () => {
     it('nunca aparece en un error ni en el registro', async () => {
       fetchFalso.mockImplementation(siempre(503));
@@ -169,6 +208,15 @@ describe('MercadoPublicoClient', () => {
       await expect(
         cliente.comprasAgiles('2026-10-14T10:00:00Z', [16]),
       ).resolves.toEqual([{ codigo: 'A' }]);
+    });
+
+    it('una primera página "sin éxito" también es un error', async () => {
+      fetchFalso.mockImplementation(
+        siempre(200, { success: 'ERROR', errors: ['ticket'] }),
+      );
+      await expect(
+        cliente.comprasAgiles('2026-10-14T10:00:00Z', [16]),
+      ).rejects.toBeInstanceOf(MercadoPublicoError);
     });
 
     it('si cae en la primera página, avisa con error (no es "no hubo nada")', async () => {

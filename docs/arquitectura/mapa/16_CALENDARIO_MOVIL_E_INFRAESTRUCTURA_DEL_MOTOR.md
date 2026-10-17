@@ -84,7 +84,7 @@ Ninguna de estas rutas tiene `@Throttle` propio: todas quedan bajo el techo glob
 | `companies` | `high_value_threshold`: el umbral de la estrella de alto valor | Solo lectura, en la app, desde `useAuth().company` | `60_umbral_alto_valor.sql` |
 | `payments` y `payment_transactions` | Cuotas y abonos | Lee `MovilService.avisosDeEmpresa` para la regla de pago vencido | mapa 03 |
 | `clients` | Nombre del cliente | Leída por join desde el calendario y los avisos | mapa 09 |
-| Todas las tablas de `public` | — | Lee `BackupCronService.runBackup`, de a 1000 filas, con la lista que entrega la función SQL `get_backup_tables()` | La función **no** está en `docs/migrations` |
+| Todas las tablas de `public`, salvo `mp_procesos` (`FUERA_DEL_RESPALDO`, 17-10-2026) | — | Lee `BackupCronService.runBackup`, de a 1000 filas, con la lista que entrega la función SQL `get_backup_tables()` | La función **no** está en `docs/migrations` |
 
 Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 
@@ -216,7 +216,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 
 **Infraestructura**
 - **Los relojes corren solo en producción.** Evidencia: `ScheduleModule.forRoot({ cronJobs: process.env.NODE_ENV === 'production' })` en `app.module.ts`, desde el commit `50f31de` (21-10-2025). Lo repiten los documentos 11 y 12.
-- **Respaldo automático diario, "pedido por Felipe" (23-07-2026).** A las 07:00 UTC, más uno al arrancar si falta el del día; 30 días de retención; las tablas nuevas entran solas. Evidencia: cabecera de `backup-cron.service.ts`.
+- **Respaldo automático diario, "pedido por Felipe" (23-07-2026).** A las 07:00 UTC, más uno al arrancar si falta el del día; 30 días de retención; las tablas nuevas entran solas, salvo las de `FUERA_DEL_RESPALDO` (desde el 17-10-2026, `mp_procesos`: datos públicos de Mercado Público que crecen con todo Chile, mapa 24 §8). Evidencia: cabecera de `backup-cron.service.ts`.
 - **Una sola puerta para archivos (misión storage, 28-07).** "el navegador NUNCA elige la ruta final". El balde de comprobantes es privado (antes "cualquiera con el enlace veía un comprobante bancario"). El enlace firmado dura 5 minutos, "corto a propósito". Evidencia: cabeceras de `storage.service.ts` y `upload-file.dto.ts`; `42_storage_candado.sql`.
 - **Sin configuración crítica, el servidor no parte.** La lección: "RESEND_API_KEY faltó 5 días y el servidor partió igual, fallando después en silencio". Evidencia: `validate-env.ts`.
 - **Registros sin datos sensibles (Fase 3, 28-07).** "Ante la duda, un campo se tapa: la verbosidad se recupera fácil; una contraseña filtrada, no". Evidencia: `logging/log-safe.ts` y el `redact` de `app.module.ts`.
