@@ -142,7 +142,7 @@ export function catalogoComoTexto(
 
   lineas.push(
     '',
-    'MENÚS GUARDADOS, por categoría y nivel (id «nombre» $ por persona: platos por sección):',
+    'MENÚS GUARDADOS, por categoría y nivel: la base de cada comida (id «nombre» $ por persona: platos por sección, cada uno con su id para adaptarlo):',
   );
   for (const cat of categorias) {
     const menus = c.menus.filter((m) => m.categoria === cat.nombre);
@@ -164,7 +164,8 @@ export function catalogoComoTexto(
         const platos = porSeccion(
           cat,
           m.items.filter((i) => !cat.seccionFija.includes(i.id)),
-          (i) => (i.cantidad > 1 ? `${i.nombre} x${i.cantidad}` : i.nombre),
+          (i) =>
+            `${i.id} ${i.nombre}${i.cantidad > 1 ? ` x${i.cantidad}` : ''}`,
           ', ',
         ).join('; ');
         lineas.push(
@@ -176,7 +177,7 @@ export function catalogoComoTexto(
 
   lineas.push(
     '',
-    'PAQUETES, por grupo: recetas de cómo se arma un evento. Para usar uno, pon sus menús, sueltos y fijos en tus cajas.',
+    'PAQUETES DE EVENTO, por grupo: la base del evento. Para usar uno, pon sus menús, sueltos y fijos en tus cajas, cada uno en su día (en los de noches, los menús vienen día por día); si no encaja del todo, adáptalo.',
   );
   const grupos = [...new Set(c.paquetes.map((p) => p.grupo))].sort(
     (a, b) =>

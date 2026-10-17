@@ -203,8 +203,9 @@ export class GenerarCotizacionService {
 
     // Dos intentos. Si lo primero no calza con el catálogo, la IA recibe
     // la lista de errores y corrige; si calza pero alguna comida no tiene
-    // la forma de la casa (dos principales, sin postre…), la recibe para
-    // corregir o explicar. Se queda la última que se pudo armar.
+    // la forma de la casa (dos principales, sin postre…) o no parte de un
+    // menú guardado, la recibe para corregir o explicar. Se queda la
+    // última que se pudo armar.
     let elegido: { plan: PlanDeLaIA; armado: ArmadoValido } | null = null;
     let errores: string[] = [];
     for (let intento = 1; intento <= 2; intento++) {
@@ -219,14 +220,14 @@ export class GenerarCotizacionService {
       if (intento === 2) break;
       const reparos = armado.ok ? armado.avisos : armado.errores;
       this.logger.warn(
-        `N° ${req.quotation_number}: intento ${intento} con ${reparos.length} ${armado.ok ? 'avisos de forma' : 'errores'}`,
+        `N° ${req.quotation_number}: intento ${intento} con ${reparos.length} ${armado.ok ? 'avisos' : 'errores'}`,
       );
       conversacion.push(
         { role: 'assistant', content: respuesta.contenido },
         {
           role: 'user',
           content: armado.ok
-            ? `Revisa la forma de estas comidas (reglas de la casa, «La forma de cada comida»):\n- ${reparos.join('\n- ')}\nSi el pedido lo pide así, déjalas y explícalo en la nota; si no, corrígelas. Devuelve la cotización completa.`
+            ? `Revisa estas cajas con las reglas de la casa («Cómo se arma» y «La forma de cada comida»):\n- ${reparos.join('\n- ')}\nSi el pedido lo pide así, déjalas y explícalo en la nota; si no, corrígelas partiendo de un menú guardado y adaptándolo. Devuelve la cotización completa.`
             : `Eso no se puede guardar:\n- ${reparos.join('\n- ')}\nCorrige y devuelve la cotización completa.`,
         },
       );
