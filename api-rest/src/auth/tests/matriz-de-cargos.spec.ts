@@ -167,6 +167,8 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET :id/adjuntos': A,
       'POST :id/adjuntos': A,
       'DELETE :id/adjuntos/:adjuntoId': A,
+      'GET :id/analisis': A,
+      'POST :id/analisis': A,
     },
   ],
 ];

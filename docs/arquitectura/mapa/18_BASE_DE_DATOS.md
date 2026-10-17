@@ -141,6 +141,7 @@ Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empre
 | `oportunidades_config` | Por empresa: regiones, comunas cercanas y perfil para la IA | 24 | 122 |
 | `mp_historia` | Un día por fila (3 años): qué días de historia ya se revisaron | 24 | 123 (en el laboratorio) |
 | `oportunidad_adjuntos` | Las bases y anexos que sube la empresa: de qué oportunidad, nombre original, ruta en el balde privado, tipo, peso, quién y cuándo | 24 | 124 (en el laboratorio) |
+| `oportunidad_analisis` | Cada análisis de bases con IA: estado, resultado, archivos leídos y no leídos, modelo, tokens, costo, error, quién y cuándo; uno a la vez por oportunidad | 24 | 125 (sin aplicar) |
 
 ### Consultas y formularios públicos
 
@@ -541,4 +542,10 @@ y **antes** del deploy del motor.
 **Por qué.** Mercado Público protege su lista de adjuntos con un control antirrobots que esta casa no esquiva. Felipe eligió el 17-10 que los baje una persona y los arrastre a la ficha (doc 17 §12 punto 8, opción d).
 
 **Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. En producción, sin aplicar: va **antes** del deploy del motor.
+
+## 18. Migración 125: la IA lee las bases (17-10-2026)
+
+**Qué hace.** Crea `oportunidad_analisis`: una fila por cada vez que se aprieta "Analizar bases con IA" en la ficha de una oportunidad (doc 17, sprint 3, paso 1). Guarda el estado (`procesando`, `listo`, `error`), el `resultado` que devolvió Opus 5.5 en jsonb, qué archivos leyó y cuáles no, el modelo, los tokens, el costo en dólares, el error, quién lo pidió (`user_profiles`) y cuándo. El índice único parcial `oportunidad_analisis_uno_en_curso` impide dos análisis a la vez de la misma oportunidad. Es de cada empresa (`company_id`), con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
+
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Sin aplicar**: espera el OK de Felipe para el laboratorio. En producción va **antes** del deploy del motor.
 

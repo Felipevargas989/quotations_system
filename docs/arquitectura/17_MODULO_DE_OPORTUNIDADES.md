@@ -267,6 +267,28 @@ En la ficha de una oportunidad "Me interesa", con su cotización ya armada:
 4. Felipe revisa, firma y sube. Los archivos que entrega la API vencen: el
    motor los copia al almacenamiento de Eventia apenas llegan.
 
+**El sprint 3 en pasos cortos (17-10).** Felipe mandó pantallazos de Licify
+(el panel de detalle, la pestaña Criterios y "Mis Documentos" con Subir,
+Crear Documento, Adjuntar Anexos y Validar documentos) y pidió:
+
+1. *"pinchar un modal con el detalle, la opción de ver la ficha; ahí
+   podríamos poner un en estudio o descartar"*;
+2. *"destacar criterios es importante"*;
+3. *"opción de subir, crear documento, adjuntar anexos (que se generen con
+   IA y la firma con una foto de la firma) y lo más importante validar
+   documentos"*; y antes de llenar, *"una forma de meter la información de
+   la empresa, la firma (una foto de la firma)"*.
+
+Orden acordado:
+
+| Paso | Qué |
+|---|---|
+| 1 | **Analizar bases** (Opus 5.5, migración 125): resumen, **criterios destacados** (arriba, por peso, con el % grande), checklist de requisitos con la página, fechas, garantías y alertas |
+| 1b | El **panel de detalle** al pinchar en la bandeja, con En estudio, Descartar y Ver ficha |
+| 2 | **Datos de la empresa como oferente y la foto de la firma**; la carpeta con vencimientos (§5.5) |
+| 3 | **Validar documentos** (lo más importante para Felipe): los documentos de la postulación contra el checklist de las bases, uno por uno: cumple, falta o vencido |
+| 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica) |
+
 ### 5.5 La carpeta y la ficha del oferente
 
 - **Carpeta de documentos de la empresa** con fecha de vencimiento y aviso
@@ -343,7 +365,7 @@ desde el 16-10; en producción al pasar) y el ticket de Mercado Público
 | 1. Radar | Migraciones, derecho `oportunidades` para Valle del Sol, radar con solo lo nuevo, cierre y cambios, lectura con Haiku 5.5, adjudicaciones, historia de 2–3 años | En el laboratorio aparecen el Día del Profesor y el del Funcionario bien marcados, la historia muestra "Día del Profesor 2025: ganó Centro Turístico Sol de Quillón por $12.000.000", y en una semana de comparación Licify no muestra nada del rubro que el radar no tenga |
 | 2. Pantalla | "Oportunidades", ficha, año anterior, decidir, calendario, competidores, avisos | Felipe la usa una semana en vez del correo del bot; ahí se apaga la parte de Mercado Público del bot de GitHub |
 | 3. Generar documentos | Carpeta y ficha del oferente, botón, checklist, anexos, propuesta técnica | Una postulación real sale lista para firmar y subir |
-| 4. Generar cotización | Botón del doc 16 §6 y "Me interesa" → requerimiento | Se prueba en el laboratorio; la regla de "10 seguidas sin corrección" (skill `armar-cotizacion`) sigue siendo la vara para abrirlo a todos |
+| 4. Generar cotización (Felipe, 17-10: *"lo del botón para crear cotizaciones con IA desde requerimientos lo veré en otro chat"*) | Botón del doc 16 §6 y "Me interesa" → requerimiento | Se prueba en el laboratorio; la regla de "10 seguidas sin corrección" (skill `armar-cotizacion`) sigue siendo la vara para abrirlo a todos |
 
 **El sprint 1 se partió en dos al construir (16-10).** 1a: migración,
 derecho, radar con solo lo nuevo, cierres movidos y reaperturas, lectura con

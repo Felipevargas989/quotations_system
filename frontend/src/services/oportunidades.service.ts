@@ -216,6 +216,56 @@ export const guardarConfigOportunidades = async (config: {
     config,
   )) as ConfigOportunidades;
 
+/** Lo que Opus leyó de las bases (doc 17, sprint 3, paso 1; migración
+ *  125). */
+export interface ResultadoDeBases {
+  resumen: string;
+  lugar: string;
+  se_puede_en_el_complejo: "si" | "no" | "dudoso";
+  /** 0 = las bases no lo dicen. */
+  monto: number;
+  monto_detalle: string;
+  fechas: Array<{ que: string; cuando: string }>;
+  criterios: Array<{ nombre: string; peso: string; como_se_evalua: string }>;
+  requisitos: Array<{
+    que: string;
+    tipo: "administrativo" | "tecnico" | "economico" | "garantia" | "otro";
+    obligatorio: boolean;
+    documento: string;
+    /** 0 = sin página (un Word). */
+    pagina: number;
+  }>;
+  garantias: string[];
+  alertas: string[];
+}
+
+export interface AnalisisDeBases {
+  id: number;
+  estado: "procesando" | "listo" | "error";
+  resultado: ResultadoDeBases | null;
+  archivos: Array<{ id: number; nombre: string }>;
+  no_leidos: Array<{ nombre: string; motivo: string }>;
+  modelo: string | null;
+  tokens_entrada: number | null;
+  tokens_salida: number | null;
+  costo_usd: number | null;
+  error: string | null;
+  creado_en: string;
+  terminado_en: string | null;
+}
+
+export const getAnalisis = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/analisis`,
+    "GET",
+  )) as AnalisisDeBases | null;
+
+export const pedirAnalisis = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/analisis`,
+    "POST",
+  )) as AnalisisDeBases;
+
 export const getCalendario = async () =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/calendario`,

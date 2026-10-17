@@ -211,6 +211,47 @@ export const urlMercadoPublico = (codigo: string, tipo: TipoProceso): string =>
     ? `https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(codigo)}`
     : `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(codigo)}`;
 
+/** "30%", "30 puntos", "30,5 %" → 30 / 30,5; sin número, -1 (va al
+ *  final). Sirve para ordenar los criterios de más a menos peso. */
+export const pesoComoNumero = (peso: string): number => {
+  const m = /(\d+(?:[.,]\d+)?)/.exec(peso ?? "");
+  return m ? Number(m[1].replace(",", ".")) : -1;
+};
+
+/** Los criterios de más peso a menos (Felipe, 17-10: "destacar criterios
+ *  es importante"). */
+export const criteriosPorPeso = <T extends { peso: string }>(criterios: T[]) =>
+  [...criterios].sort(
+    (a, b) => pesoComoNumero(b.peso) - pesoComoNumero(a.peso),
+  );
+
+export const TIPOS_DE_REQUISITO: ReadonlyArray<[string, string]> = [
+  ["administrativo", "Administrativos"],
+  ["tecnico", "Técnicos"],
+  ["economico", "Económicos"],
+  ["garantia", "Garantías"],
+  ["otro", "Otros"],
+];
+
+/** El checklist agrupado por tipo, en el orden de la casa, sin grupos
+ *  vacíos. */
+export const requisitosPorTipo = <T extends { tipo: string }>(
+  requisitos: T[],
+): Array<[string, T[]]> =>
+  TIPOS_DE_REQUISITO.map(
+    ([tipo, etiqueta]) =>
+      [etiqueta, requisitos.filter((r) => r.tipo === tipo)] as [string, T[]],
+  ).filter(([, lista]) => lista.length > 0);
+
+/** US$0,42 */
+export const textoDeCosto = (usd: number | null): string =>
+  usd == null
+    ? ""
+    : `US$${usd.toLocaleString("es-CL", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
 /** La ficha de un competidor en Eventia. */
 export const urlCompetidor = (rut: string): string =>
   `/oportunidades/competidores/${encodeURIComponent(rut)}`;
