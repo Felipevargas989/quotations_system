@@ -1,9 +1,11 @@
 import type {
+  Anterior,
   EstadoOportunidad,
   Oportunidad,
   Semaforo,
   TipoProceso,
 } from "../../services/oportunidades.service";
+import { formatCurrency } from "../../utils/currencies";
 import { matchesSearch } from "../../utils/searchMatch";
 
 // Lo que la pantalla de Oportunidades necesita saber pintar y filtrar
@@ -221,4 +223,21 @@ export const esPrioridad = (o: Pick<Oportunidad, "semaforo" | "alertas">) =>
 export const TIPOS: Record<TipoProceso, string> = {
   licitacion: "Licitación",
   compra_agil: "Compra ágil",
+};
+
+/** "2025: ganó SOL DE QUILLON SPA por $12.000.000 · 1 oferta" */
+export const textoDelAnterior = (a: Anterior): string => {
+  const quien =
+    a.ganadores
+      .map((g) =>
+        g.monto != null
+          ? `${g.nombre} por ${formatCurrency(g.monto, "CLP")}`
+          : g.nombre,
+      )
+      .join(", ") || "sin ganador informado";
+  const ofertas =
+    a.oferentes != null
+      ? ` · ${a.oferentes} ${a.oferentes === 1 ? "oferta" : "ofertas"}`
+      : "";
+  return `${a.anio ?? "Antes"}: ganó ${quien}${ofertas}`;
 };

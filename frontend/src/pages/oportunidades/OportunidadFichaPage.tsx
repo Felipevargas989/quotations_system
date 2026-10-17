@@ -24,6 +24,7 @@ import {
   ETIQUETAS,
   SE_HACE_EN_EL_COMPLEJO,
   SEMAFOROS,
+  textoDelAnterior,
   TIPOS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
@@ -300,10 +301,42 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
       </Seccion>
 
       <Seccion titulo="El año anterior">
-        <p className="text-sm text-gray-500">
-          Quién ganó, a qué precio y cuántos ofertaron llega con la historia de
-          Mercado Público (sprint 1b).
-        </p>
+        {ficha.anterior ? (
+          <div className="space-y-1">
+            <p className="text-sm text-gray-800">
+              {textoDelAnterior(ficha.anterior)}
+            </p>
+            <p className="text-xs text-gray-500">
+              {ficha.anterior.nombre} ·{" "}
+              <a
+                href={urlMercadoPublico(ficha.anterior.codigo, "licitacion")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 hover:underline"
+              >
+                {ficha.anterior.codigo}
+              </a>
+              {ficha.anterior.url_acta && (
+                <>
+                  {" · "}
+                  <a
+                    href={ficha.anterior.url_acta}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 hover:underline"
+                  >
+                    Acta de adjudicación
+                  </a>
+                </>
+              )}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Todavía no hay historia de este comprador. Se va cargando de noche:
+            3 años, primero las fechas de hace un año.
+          </p>
+        )}
       </Seccion>
 
       <Seccion titulo="Notas">

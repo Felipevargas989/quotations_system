@@ -5,6 +5,7 @@ import {
   cuandoCierra,
   esPrioridad,
   FILTROS_DE_PARTIDA,
+  textoDelAnterior,
   filtrar,
   filtrarSinSemaforo,
   urlMercadoPublico,
@@ -25,6 +26,7 @@ const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
     tipo: "licitacion",
     nombre: `Proceso ${parcial.id}`,
     organismo: "I. Municipalidad de Quillón",
+    organismo_codigo: null,
     unidad: null,
     comuna: "Quillón",
     region: "Región del Ñuble",
@@ -134,5 +136,34 @@ describe("esPrioridad", () => {
     expect(esPrioridad({ semaforo: "rojo", alertas: ["alto_valor"] })).toBe(
       false,
     );
+  });
+});
+
+describe("textoDelAnterior", () => {
+  it("quién ganó, por cuánto y cuántos ofertaron", () => {
+    const t = textoDelAnterior({
+      codigo: "4364-5-LE25",
+      nombre: "Día del profesor",
+      anio: 2025,
+      oferentes: 1,
+      url_acta: null,
+      ganadores: [{ nombre: "SOL DE QUILLON SPA", monto: 12_000_000 }],
+    });
+    expect(t).toMatch(
+      /^2025: ganó SOL DE QUILLON SPA por \$\s?12\.000\.000 · 1 oferta$/,
+    );
+  });
+
+  it("sin monto ni oferentes, lo que haya", () => {
+    expect(
+      textoDelAnterior({
+        codigo: "X",
+        nombre: "x",
+        anio: null,
+        oferentes: null,
+        url_acta: null,
+        ganadores: [{ nombre: "A", monto: null }],
+      }),
+    ).toBe("Antes: ganó A");
   });
 });

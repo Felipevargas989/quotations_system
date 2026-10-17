@@ -21,6 +21,7 @@ export interface ProcesoDeLista {
   tipo: TipoProceso;
   nombre: string;
   organismo: string | null;
+  organismo_codigo: string | null;
   unidad: string | null;
   comuna: string | null;
   region: string | null;
@@ -28,6 +29,17 @@ export interface ProcesoDeLista {
   fecha_publicacion: string | null;
   fecha_cierre: string | null;
   estado: string | null;
+}
+
+/** La misma compra del año anterior: quién ganó, por cuánto y cuántos
+ *  ofertaron (sprint 1b). */
+export interface Anterior {
+  codigo: string;
+  nombre: string;
+  anio: number | null;
+  oferentes: number | null;
+  url_acta: string | null;
+  ganadores: Array<{ nombre: string; monto: number | null }>;
 }
 
 export interface Oportunidad {
@@ -43,6 +55,7 @@ export interface Oportunidad {
   responsable_id: string | null;
   leida_en: string | null;
   proceso: ProcesoDeLista;
+  anterior?: Anterior | null;
 }
 
 export interface CambioDeProceso {
@@ -74,6 +87,7 @@ export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
     actualizado_en: string;
   };
   cambios: CambioDeProceso[];
+  anterior: Anterior | null;
 }
 
 export interface ConfigOportunidades {
