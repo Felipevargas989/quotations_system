@@ -9,7 +9,7 @@
 
 import type { Catalogo } from './catalogo';
 import { diasEntre, esFechaValida, MAX_DIAS } from './fechas';
-import { avisosDeForma } from './forma-de-comida';
+import { avisosDeForma, tipoDeComida } from './forma-de-comida';
 import type { PlanDeLaIA } from './tipos';
 
 export type EventoParaArmar = {
@@ -157,6 +157,10 @@ export function armarFoto(
       });
     };
 
+    // La base es un menú guardado (Felipe, 17-10: "que se base
+    // mayoritariamente en los paquetes (…) si no encaja, adaptarlos"): se
+    // adapta sacando platos (`quitar`) y sumando sueltos (`servicios`).
+    const quitar = caja.quitar ?? [];
     if (caja.menu_id > 0) {
       const menu = catalogo.menus.find((m) => m.id === caja.menu_id);
       if (!menu) {
@@ -169,18 +173,38 @@ export function armarFoto(
         );
         return;
       }
+      const ajenos = quitar.filter(
+        (id) => !menu.items.some((it) => it.id === id),
+      );
+      if (ajenos.length > 0) {
+        errores.push(
+          `${donde}: «quitar» trae ${ajenos.join(', ')}, que no ${ajenos.length === 1 ? 'es plato' : 'son platos'} del menú ${menu.id}.`,
+        );
+        return;
+      }
       for (const it of menu.items) {
+        if (quitar.includes(it.id)) continue;
         if (!catalogo.servicios.has(it.id)) {
           errores.push(
-            `${donde}: el menú ${menu.id} trae «${it.nombre}», que ya no está activo; elige otro menú.`,
+            `${donde}: el menú ${menu.id} trae «${it.nombre}», que ya no está activo; sácalo con «quitar» o elige otro menú.`,
           );
           return;
         }
         agregar(it.id, it.cantidad || 1);
       }
+    } else if (quitar.length > 0) {
+      errores.push(`${donde}: «quitar» solo vale con un menú guardado.`);
+      return;
     } else if (!caja.servicios?.length) {
       errores.push(`${donde}: sin menú_id ni servicios.`);
       return;
+    } else if (
+      tipoDeComida(cat) !== null &&
+      catalogo.menus.some((m) => m.categoria === cat.nombre)
+    ) {
+      avisos.push(
+        `${donde}: va armada con sueltos, sin partir de un menú guardado de la casa.`,
+      );
     }
 
     for (const s of caja.servicios ?? []) {

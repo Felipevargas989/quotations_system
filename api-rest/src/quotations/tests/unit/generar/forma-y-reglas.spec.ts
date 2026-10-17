@@ -73,6 +73,7 @@ describe('la forma de cada comida', () => {
     );
     expect(r.ok).toBe(true);
     expect(r.ok && r.avisos).toEqual([
+      'caja 1 (día 1, Cena): va armada con sueltos, sin partir de un menú guardado de la casa.',
       'caja 1 (día 1, Cena): trae 2 principales (la casa sirve uno).',
       'caja 1 (día 1, Cena): no trae postre.',
     ]);
@@ -83,7 +84,7 @@ describe('el catálogo por secciones y las reglas de la casa', () => {
   it('la IA ve qué plato es principal, guarnición o postre', () => {
     const t = catalogoComoTexto(catalogoDePrueba(), ofrecible);
     expect(t).toContain(
-      '94 «Pollo arvejado - arroz» $10.900: Principales: Pollo arvejado; Guarniciones: Arroz primavera; Postres: Mousse de chocolate',
+      '94 «Pollo arvejado - arroz» $10.900: Principales: 3001 Pollo arvejado; Guarniciones: 3002 Arroz primavera; Postres: 3003 Mousse de chocolate',
     );
     expect(t).toContain(
       '  Principales: 3001 «Pollo arvejado» $6.000 · 3004 «Plateada» $9.000',
@@ -94,7 +95,8 @@ describe('el catálogo por secciones y las reglas de la casa', () => {
     const reglas = reglasDeArmado();
     expect(reglas).toContain('# Reglas de armado de Valle del Sol');
     expect(reglas).toContain('## La forma de cada comida');
-    expect(reglas).toContain('Los paquetes primero');
+    expect(reglas).toContain('La base son los paquetes de la casa');
+    expect(reglas).toContain('Si no encaja, se adapta; no se arma de cero');
     expect(instrucciones()).toContain('QUÉ DEVUELVES');
     expect(instrucciones()).toContain('## Lecciones');
   });

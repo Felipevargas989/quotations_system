@@ -53,21 +53,39 @@ el catálogo de Eventia, y una persona del equipo la revisa antes de enviarla.
   principales, dos postres, dos puntos de hidratación), salvo que el pedido
   lo pida. En coffee y cóctel sí van varios bocados: es su forma.
 - Un menú guardado que no cumple esta forma (por ejemplo, uno de prueba) no
-  se usa: se arma con sueltos y se dice en la nota.
+  se usa: se parte de otro de la misma comida y, si no hay ninguno, se arma
+  con sueltos. Se dice en la nota.
 
 ## Cómo se arma
 
-- **Los paquetes primero** (Felipe, 17-10: *"usar dentro de lo posible los
-  paquetes que tenemos; si no calzan, modificarlos y adaptarlos"*). Si hay un
-  paquete para ese tipo de evento, se parte de él: sus menús, sueltos y fijos
-  van a las cajas. Si calza solo en parte, se adapta (otro menú del mismo
-  nivel, una comida más o una menos, otro salón, más noches) y la nota dice
-  qué paquete se usó y qué se le cambió.
-- Después, menús guardados; después, servicios sueltos; al final, los fijos.
-- Un menú que no está guardado se arma con servicios sueltos de su categoría,
-  sección por sección. Lo que el cliente pide y NO está en el catálogo va en
-  la nota en mayúsculas con su reemplazo: «NO TENEMOS risotto: va pastelera
-  de choclo».
+- **La base son los paquetes de la casa** (Felipe, 17-10: *"quiero que se
+  base mayoritariamente en los paquetes: desayunos, almuerzos, cenas, onces,
+  cócteles, todos están paquetizados; en caso que un paquete no encaje, debe
+  adaptarlos"*). Son de dos clases: los **paquetes de evento** (full day,
+  salones, noches 1N, 2N y 3N, matrimonio, graduación) y los **menús
+  guardados** de cada comida, por nivel. Toda comida sale de un menú
+  guardado.
+- En este orden: 1) si hay un paquete de evento para el pedido, se parte de
+  él: sus menús, sueltos y fijos van a las cajas, cada uno en su día; 2)
+  cada comida que falte, con un menú guardado de su nivel; 3) los sueltos,
+  solo para adaptar; 4) al final, los fijos.
+- **Si no encaja, se adapta; no se arma de cero:**
+  - otro plato: se parte del menú guardado más parecido del nivel y se
+    cambia SOLO ese plato, en su misma sección (principal por principal,
+    postre por postre);
+  - otro nivel: el menú del nivel pedido, en la misma comida;
+  - una comida más o una menos que el paquete: se suma o se saca esa caja,
+    con un menú guardado del mismo nivel;
+  - más noches que el paquete: se repite la forma con otros menús del
+    nivel, sin repetir platos; otro salón: se cambia el fijo;
+  - un agregado que el cliente pide además: se suma al menú.
+- La nota dice de qué paquete y de qué menús se partió, y qué se les
+  cambió.
+- Una comida entera con servicios sueltos, sin un menú guardado de base,
+  solo si ninguno sirve; la nota dice por qué.
+- Lo que el cliente pide y NO está en el catálogo va en la nota en
+  mayúsculas con su reemplazo: «NO TENEMOS risotto: va pastelera de
+  choclo».
 - Cada comida en SU día, y dentro del día en orden: desayuno, coffee,
   almuerzo, once, cena, extras y al final el alojamiento. Nunca todas en el
   día 1.
@@ -80,7 +98,8 @@ el catálogo de Eventia, y una persona del equipo la revisa antes de enviarla.
   llegada (si no dice, con el almuerzo) y termina con el desayuno del día de
   salida. «Básico» = Nivel 1 o Básicos con desayuno Estándar; «Estándar» =
   almuerzo y cena Nivel 2 o Estándar con desayuno Estándar. Si la estadía
-  calza exacto con un paquete de noches (1N, 2N, 3N), se usa como receta.
+  calza con un paquete de noches (1N, 2N, 3N), se parte de él; si es más
+  larga o de otro nivel, se adapta.
 - No se repiten platos dentro de una misma cotización: se rotan los menús del
   nivel.
 - Si son varios días o fechas alternativas y el pedido no lo deja claro, se
@@ -139,6 +158,9 @@ el catálogo de Eventia, y una persona del equipo la revisa antes de enviarla.
   80 por persona y sumó $450 millones). Un menú guardado de prueba, con dos
   principales y dos puntos de hidratación, sin postre ni guarnición, no se
   usa (Felipe: *"no tiene sentido"*).
+- **17-10, Felipe**: la base son los paquetes y los menús guardados; si no
+  encajan, se adaptan (un plato por otro en su sección, una comida más o
+  una menos), no se arma de cero.
 
 ## La nota (para el equipo, nunca para el cliente)
 

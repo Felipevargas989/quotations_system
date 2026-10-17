@@ -226,7 +226,7 @@ describe('GenerarCotizacionService', () => {
 
     expect(parse).toHaveBeenCalledTimes(2);
     expect(parse.mock.calls[1][0].messages[2].content).toContain(
-      'Revisa la forma de estas comidas',
+      'Revisa estas cajas con las reglas de la casa',
     );
     const cambios = quotations.update.mock.calls[0][1];
     expect(cambios.comentario_interno).toContain(

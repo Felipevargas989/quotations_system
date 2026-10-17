@@ -11,9 +11,15 @@ export type CajaDelPlan = {
   categoria: string;
   audiencia: 'adultos' | 'ninos';
   personas: number;
-  /** Menú guardado de la categoría; 0 si la caja va con servicios sueltos. */
+  /** El menú guardado que es la BASE de la caja (Felipe, 17-10: "que se
+   *  base mayoritariamente en los paquetes"); 0 solo si ninguno sirve y la
+   *  caja va entera con sueltos. */
   menu_id: number;
-  /** Servicios sueltos de la categoría (vacío si va con menú). */
+  /** Platos del menú guardado que se sacan para adaptarlo; vacío si va tal
+   *  cual. Opcional acá (las pruebas lo omiten); el esquema lo exige. */
+  quitar?: number[];
+  /** Sueltos de la categoría: lo que se le agrega al menú (el plato que
+   *  reemplaza a uno quitado, un agregado), o la caja entera sin menú. */
   servicios: Array<{ id: number; cantidad: number }>;
 };
 
@@ -55,9 +61,21 @@ export const ESQUEMA_DEL_PLAN = {
             description:
               'Cuántas personas comen o duermen en esta caja. Eventia multiplica la caja por este número.',
           },
-          menu_id: { type: 'integer' },
+          menu_id: {
+            type: 'integer',
+            description:
+              'El menú guardado que es la base de la caja. 0 solo si ningún menú guardado de esa comida sirve de base.',
+          },
+          quitar: {
+            type: 'array',
+            description:
+              'Ids de los platos del menú guardado que se sacan para adaptarlo. Vacío si el menú va tal cual o si menu_id es 0.',
+            items: { type: 'integer' },
+          },
           servicios: {
             type: 'array',
+            description:
+              'Sueltos de la categoría: lo que se agrega al menú (el plato que reemplaza a uno quitado, en su misma sección, o un agregado), o la caja entera si menu_id es 0.',
             items: {
               type: 'object',
               properties: {
@@ -79,6 +97,7 @@ export const ESQUEMA_DEL_PLAN = {
           'audiencia',
           'personas',
           'menu_id',
+          'quitar',
           'servicios',
         ],
         additionalProperties: false,
