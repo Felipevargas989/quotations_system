@@ -139,7 +139,8 @@ Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empre
 | `mp_radar_corridas` | Bitácora del radar; su índice único parcial es el candado | 24 | 122 |
 | `oportunidades` | La lectura de la IA para cada empresa y lo que la empresa decide; única por empresa y código | 24 | 122 |
 | `oportunidades_config` | Por empresa: regiones, comunas cercanas y perfil para la IA | 24 | 122 |
-| `mp_historia` | Un día por fila (3 años): qué días de historia ya se revisaron | 24 | 123 (sin aplicar) |
+| `mp_historia` | Un día por fila (3 años): qué días de historia ya se revisaron | 24 | 123 (en el laboratorio) |
+| `oportunidad_adjuntos` | Las bases y anexos que sube la empresa: de qué oportunidad, nombre original, ruta en el balde privado, tipo, peso, quién y cuándo | 24 | 124 (en el laboratorio) |
 
 ### Consultas y formularios públicos
 
@@ -525,11 +526,19 @@ y **antes** del deploy del motor.
 
 **Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: desde el 17-10-2026 deja `mp_procesos` fuera (`FUERA_DEL_RESPALDO`, decisión de Felipe; son datos públicos que se vuelven a pedir y Supabase guarda su propia copia diaria).
 
-**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Sin aplicar** en el laboratorio ni en producción: espera el OK de Felipe. Como siempre, en producción va **antes** del deploy del motor.
+**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. En producción, sin aplicar: va **antes** del deploy del motor.
 
 ## 16. Migración 123: la historia de Oportunidades (17-10-2026)
 
 **Qué hace.** Crea `mp_historia` (un día por fila, 3 años hacia atrás desde ayer en hora de Chile, con `prioridad` = días de distancia a "hace un año", que es el orden en que se revisan) con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, y el índice `idx_mp_procesos_organismo` para buscar "el año anterior" por organismo. Dato público: sin `company_id`. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Sin aplicar**: espera el OK de Felipe para el laboratorio. En producción va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. En producción, sin aplicar: va **antes** del deploy del motor.
+
+## 17. Migración 124: las bases y anexos de Oportunidades (17-10-2026)
+
+**Qué hace.** Crea `oportunidad_adjuntos`: una fila por archivo que la empresa sube a una oportunidad. Guarda la oportunidad, el nombre original para mostrar, la `ruta` única en el balde privado (`payment-receipts`, el de la misión storage, con `c<empresa>/oportunidades/<id>/...`), el tipo, los bytes (mayor que cero), quién lo subió (`user_profiles`, `set null` si se va) y cuándo. Es de cada empresa: lleva `company_id` y el índice `(company_id, oportunidad_id)`. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada. **Ojo:** borrar la tabla no borra los archivos del balde.
+
+**Por qué.** Mercado Público protege su lista de adjuntos con un control antirrobots que esta casa no esquiva. Felipe eligió el 17-10 que los baje una persona y los arrastre a la ficha (doc 17 §12 punto 8, opción d).
+
+**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. En producción, sin aplicar: va **antes** del deploy del motor.
 
