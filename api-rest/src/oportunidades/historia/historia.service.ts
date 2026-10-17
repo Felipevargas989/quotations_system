@@ -35,8 +35,9 @@ const MAX_ADJUDICACIONES_POR_CORRIDA = 60;
 /** El filtro de la historia lee los nombres de a tantos. */
 const NOMBRES_POR_TANDA = 150;
 
-/** ChileCompra pide las descargas grandes entre las 22:00 y las 07:00. */
-const esDeNocheEnChile = (instante: number): boolean => {
+/** ChileCompra pide las descargas grandes entre las 22:00 y las 07:00. Las
+ *  corridas de noche del reloj (23, 02 y 05 h) caen aquí; las de día, no. */
+export const esDeNocheEnChile = (instante: number): boolean => {
   const hora = Number(
     new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Santiago',

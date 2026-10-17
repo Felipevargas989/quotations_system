@@ -124,6 +124,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 17. **Sin avisos por correo, tampoco el inmediato** (17-10): *"no, sin
     correo, revisaré la app diario"*. La comuna cercana y el alto valor se
     ven en el bloque **Prioridad** de la bandeja y en "Se viene".
+18. **El horario del radar** (17-10): *"nada se mueve después de las 18:00,
+    sistema público"*. Cuatro pasadas de día, en horario de oficina (09, 12,
+    15 y 18 h), y tres de noche (23, 02 y 05 h) que además cargan la
+    historia de 3 años; todo en hora de Chile. Antes era cada 2 horas. La API
+    de Mercado Público limita por consultas (10.000 al día por ticket, de a
+    una), no por volumen: una pasada sin novedades gasta unas pocas.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -144,7 +150,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 
 ## 5. Cómo funciona
 
-### 5.1 El radar (cada 2 horas)
+### 5.1 El radar (09, 12, 15 y 18 h, y de noche)
 
 1. **Licitaciones:** una sola consulta liviana a
    `licitaciones.json?estado=activas` ("todas las licitaciones publicadas al
@@ -153,7 +159,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
    - código que no está → se pide el detalle (`?codigo=`) y se guarda, **de
      todo Chile**. Cambio al construir (16-10): la
      región solo viene en el detalle, así que hay que abrir cada licitación
-     igual, y guardarla evita volver a abrirla cada 2 horas. La IA lee solo
+     igual, y guardarla evita volver a abrirla en cada pasada. La IA lee solo
      las de las regiones de cada empresa. **Confirmado por Felipe el
      17-10** (decisión 12);
    - código que ya está y cambió su fecha de cierre → se actualiza y se anota
@@ -244,7 +250,7 @@ postulada → ganada / perdida / descartada). Ficha con fechas, archivos,
 criterios con su peso e historial de cambios. Calendario de las recurrentes
 ("en noviembre viene el Día de Campo del Dirigente"). Ficha de cada
 competidor. **Sin resumen por correo** (decisión 15, 17-10): se revisa en
-Eventia, que se pone al día cada 2 horas. El aviso inmediato para las
+Eventia, que se pone al día a las 9, 12, 15 y 18 h (decisión 18). El aviso inmediato para las
 comunas cercanas y las de alto valor, al correo de la empresa
 (`companies.notifications.replyTo`; Valle del Sol:
 contacto@valledelsolquillon.cl), queda por confirmar. Solo la ven los
@@ -448,7 +454,7 @@ candado; no estaba en esta propuesta), `oportunidades` y
 | `postulaciones` | Cada "Generar documentos": estado del trabajo, checklist, archivos generados, tokens usados |
 
 **Motor:** módulo `oportunidades/` con el patrón de 4 capas; reloj
-`oportunidades-cron.service.ts` cada 2 horas; ruta "correr ahora" para el
+`oportunidades-cron.service.ts` (horario de la decisión 18); ruta "correr ahora" para el
 laboratorio (ahí los relojes no corren); candado en la base para que dos
 corridas no se pisen; derecho `oportunidades` en cada ruta (la prueba
 `matriz-de-derechos.spec.ts` frena una ruta sin decidir).
@@ -549,11 +555,12 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
    42501 (mapa 18): cada migración lo incluye.
 7. **Lo que firma Felipe es responsabilidad de Felipe**: la declaración
    jurada y la oferta se revisan siempre antes de subir.
-8. **El bot de GitHub y el motor comparten el ticket de Mercado Público**
-   (10.000 consultas al día por ticket): mientras convivan, se reparten el
-   cupo. La primera corrida pide unos 6.000 detalles; laboratorio y
-   producción usan el mismo ticket, así que no hacen su primera corrida el
-   mismo día.
+8. **El ticket de Mercado Público es uno solo** (10.000 consultas al día,
+   de a una): el bot de GitHub quedó apagado el 17-10 y el radar del
+   laboratorio ya no corre al encender (`OPORTUNIDADES_RADAR_AL_ARRANCAR=0`
+   desde el 17-10), así que el cupo es de producción. La primera corrida de
+   producción (17-10) vio 4.886 licitaciones activas: la carga inicial se
+   reparte en varias pasadas.
 9. **El respaldo diario de Eventia arma un solo archivo en memoria con
    todas las tablas** (mapa 16), y `mp_procesos` crece con todo Chile (unas
    500 por día). **Resuelto en el código el 17-10** (decisión 13):

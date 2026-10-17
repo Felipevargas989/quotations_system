@@ -51,9 +51,9 @@ import SeVieneOportunidades from "./SeVieneOportunidades";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
-// ágiles que el radar trae cada 2 horas y la IA lee. Base: el mockup del
-// 16-10. Solo administrador. Sin resumen por correo (Felipe, 17-10: "se
-// revisa en Eventia").
+// ágiles que el radar trae (09, 12, 15 y 18 h, y de noche; decisión 18) y la
+// IA lee. Base: el mockup del 16-10. Solo administrador. Sin resumen por
+// correo (Felipe, 17-10: "se revisa en Eventia").
 
 const CLAVE_FILTROS = "op.filtros";
 const CLAVE_PESTANA = "op.pestana";
@@ -104,7 +104,7 @@ export default function OportunidadesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Oportunidades</h1>
           <p className="text-sm text-gray-500">
             Licitaciones y compras ágiles de Mercado Público, leídas con IA. Se
-            pone al día cada 2 horas.
+            pone al día a las 9, 12, 15 y 18 h, y de noche.
           </p>
         </div>
         <EstadoDelRadar />
@@ -355,7 +355,7 @@ function Bandeja() {
       ) : visibles.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
           {lista.length === 0
-            ? "Todavía no hay oportunidades leídas. El radar las trae solo, cada 2 horas."
+            ? "Todavía no hay oportunidades leídas. El radar las trae solo, a las 9, 12, 15 y 18 h."
             : "Nada con estos filtros."}
         </p>
       ) : (
