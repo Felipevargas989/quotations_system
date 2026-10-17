@@ -6,7 +6,11 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { randomBytes } from 'node:crypto';
 import { sanitize } from 'src/storage/storage.service';
-import { type Adjunto, AdjuntosRepository } from './adjuntos.repository';
+import {
+  type Adjunto,
+  AdjuntosRepository,
+  type Seccion,
+} from './adjuntos.repository';
 
 // LAS BASES Y ANEXOS DE UNA OPORTUNIDAD (doc 17 §12 punto 8, opción d).
 // Felipe, 17-10: "ok dale con el botón y arrastro".
@@ -88,18 +92,25 @@ export class AdjuntosService {
     }
   }
 
-  async listar(companyId: number, oportunidadId: number): Promise<Adjunto[]> {
+  async listar(
+    companyId: number,
+    oportunidadId: number,
+    seccion: Seccion = 'bases',
+  ): Promise<Adjunto[]> {
     await this.comprobar(companyId, oportunidadId);
-    return this.repo.listar(companyId, oportunidadId);
+    return this.repo.listar(companyId, oportunidadId, seccion);
   }
 
   /** `cuentaId` es el id de la sesión (`user.id`); quién lo subió se guarda
-   *  con el perfil de esa cuenta en la empresa. */
+   *  con el perfil de esa cuenta en la empresa. `seccion`: 'bases' (lo que
+   *  publicó el comprador) o 'postulacion' (lo que la empresa presentará,
+   *  migración 127). */
   async subir(
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
     archivo: Express.Multer.File | undefined,
+    seccion: Seccion = 'bases',
   ): Promise<Adjunto> {
     if (!archivo) throw new BadRequestException('No llegó ningún archivo.');
     const nombre = nombreLimpio(archivo.originalname);
@@ -118,7 +129,11 @@ export class AdjuntosService {
     await this.comprobar(companyId, oportunidadId);
     const subidoPor = await this.repo.perfilDe(companyId, cuentaId);
 
-    const ruta = `c${companyId}/oportunidades/${oportunidadId}/${sello()}_${sanitize(nombre)}`;
+    const carpeta =
+      seccion === 'postulacion'
+        ? `c${companyId}/oportunidades/${oportunidadId}/postulacion`
+        : `c${companyId}/oportunidades/${oportunidadId}`;
+    const ruta = `${carpeta}/${sello()}_${sanitize(nombre)}`;
     await this.repo.subirArchivo(ruta, archivo.buffer, tipo);
     try {
       return await this.repo.guardar({
@@ -128,6 +143,7 @@ export class AdjuntosService {
         ruta,
         tipo,
         bytes: archivo.size,
+        seccion,
         subido_por: subidoPor,
       });
     } catch (error) {

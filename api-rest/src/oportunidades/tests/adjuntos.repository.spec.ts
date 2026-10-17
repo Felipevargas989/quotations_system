@@ -71,13 +71,14 @@ describe('AdjuntosRepository — cada consulta es de UNA empresa', () => {
     ]);
   });
 
-  it('listar filtra por empresa y oportunidad', async () => {
+  it('listar filtra por empresa, oportunidad y sección', async () => {
     const { repo, consultas } = armar({ data: [] });
-    await repo.listar(1, 9);
+    await repo.listar(1, 9, 'postulacion');
     expect(consultas[0].tabla).toBe('oportunidad_adjuntos');
     expect(filtros(consultas[0])).toEqual([
       ['company_id', 1],
       ['oportunidad_id', 9],
+      ['seccion', 'postulacion'],
     ]);
   });
 

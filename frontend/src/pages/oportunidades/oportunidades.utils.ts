@@ -252,6 +252,70 @@ export const textoDeCosto = (usd: number | null): string =>
         maximumFractionDigits: 2,
       })}`;
 
+/** VALIDAR DOCUMENTOS (doc 17, sprint 3, paso 3): cómo queda cada
+ *  requisito, en el orden en que se muestran los conteos. */
+export const ESTADOS_DE_VALIDACION: ReadonlyArray<{
+  value: "cumple" | "falta" | "vencido" | "revisar";
+  label: string;
+  plural: string;
+  clases: string;
+}> = [
+  {
+    value: "cumple",
+    label: "Cumple",
+    plural: "cumplen",
+    clases: "bg-green-50 text-green-700",
+  },
+  {
+    value: "falta",
+    label: "Falta",
+    plural: "faltan",
+    clases: "bg-red-50 text-red-700",
+  },
+  {
+    value: "vencido",
+    label: "Vencido",
+    plural: "vencidos",
+    clases: "bg-red-50 text-red-700",
+  },
+  {
+    value: "revisar",
+    label: "Revisar",
+    plural: "por revisar",
+    clases: "bg-amber-100 text-amber-800",
+  },
+];
+
+/** Cuántos requisitos hay en cada estado. */
+export const contarPorEstadoDeValidacion = (
+  requisitos: Array<{ estado: string }>,
+): Record<"cumple" | "falta" | "vencido" | "revisar", number> => {
+  const conteo = { cumple: 0, falta: 0, vencido: 0, revisar: 0 };
+  for (const r of requisitos) {
+    if (r.estado in conteo) conteo[r.estado as keyof typeof conteo] += 1;
+  }
+  return conteo;
+};
+
+/** El veredicto de arriba: ¿se puede subir así? */
+export const LISTO_PARA_POSTULAR: Record<
+  "si" | "casi" | "no",
+  { titulo: string; clases: string }
+> = {
+  si: {
+    titulo: "Lista para postular",
+    clases: "bg-green-50 border-green-200 text-green-800",
+  },
+  casi: {
+    titulo: "Casi lista: faltan detalles",
+    clases: "bg-amber-50 border-amber-200 text-amber-900",
+  },
+  no: {
+    titulo: "Todavía no: falta algo obligatorio",
+    clases: "bg-red-50 border-red-200 text-red-800",
+  },
+};
+
 /** La carpeta de documentos de la empresa (doc 17 §5.5): lo que suelen
  *  pedir las bases. Mismos valores que `TIPOS_DE_DOCUMENTO` del motor. */
 export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{

@@ -75,6 +75,7 @@ describe('AdjuntosService — subir', () => {
       ruta,
       tipo: 'application/pdf',
       bytes: 1200,
+      seccion: 'bases',
       subido_por: PERFIL,
     });
     expect(r).toMatchObject({
@@ -145,6 +146,34 @@ describe('AdjuntosService — subir', () => {
       servicio.subir(1, CUENTA, 9, archivo('bases.pdf')),
     ).rejects.toThrow('se cayó la base');
     expect(repo.borrarArchivo).toHaveBeenCalledWith(subidas(repo)[0][0]);
+  });
+});
+
+describe('AdjuntosService — mi postulación (migración 127)', () => {
+  it('lo de la postulación va a su carpeta y queda con su sección', async () => {
+    const { repo, servicio } = armar();
+    await servicio.subir(
+      1,
+      CUENTA,
+      9,
+      archivo('Anexo 1 firmado.pdf'),
+      'postulacion',
+    );
+    const [ruta] = subidas(repo)[0];
+    expect(ruta).toMatch(
+      /^c1\/oportunidades\/9\/postulacion\/[\w-]+_Anexo_1_firmado\.pdf$/,
+    );
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ seccion: 'postulacion' }),
+    );
+  });
+
+  it('listar sin decir la sección trae las bases', async () => {
+    const { repo, servicio } = armar();
+    await servicio.listar(1, 9);
+    expect(repo.listar).toHaveBeenCalledWith(1, 9, 'bases');
+    await servicio.listar(1, 9, 'postulacion');
+    expect(repo.listar).toHaveBeenLastCalledWith(1, 9, 'postulacion');
   });
 });
 

@@ -201,6 +201,8 @@ describe('AnalisisService — pedir', () => {
       const fila = await servicio.pedir(1, CUENTA, 40);
 
       expect(fila).toMatchObject({ id: 5, estado: 'procesando' });
+      // Lee solo las bases (no lo que la empresa va a presentar).
+      expect(adjuntos.listar).toHaveBeenCalledWith(1, 40, 'bases');
       expect(repo.crear).toHaveBeenCalledWith({
         company_id: 1,
         oportunidad_id: 40,
@@ -417,6 +419,6 @@ describe('lo que lee y dice la IA', () => {
     ).toContain('llave');
     expect(
       errorDeAnalisis(new Error('prompt is too long: 1200000 tokens')),
-    ).toContain('demasiado largas');
+    ).toContain('demasiadas páginas');
   });
 });

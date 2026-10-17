@@ -382,6 +382,37 @@ export const borrarDocumentoDeEmpresa = async (id: number) =>
     "DELETE",
   )) as { borrado: boolean };
 
+/** Lo que dijo Opus al validar la postulación (doc 17, sprint 3, paso 3;
+ *  migración 127). */
+export interface ResultadoDeValidacion {
+  resumen: string;
+  listo: "si" | "casi" | "no";
+  requisitos: Array<{
+    que: string;
+    estado: "cumple" | "falta" | "vencido" | "revisar";
+    donde: string;
+    observacion: string;
+  }>;
+  otros_problemas: string[];
+}
+
+export interface ValidacionDeDocumentos
+  extends Omit<AnalisisDeBases, "resultado"> {
+  resultado: ResultadoDeValidacion | null;
+}
+
+export const getValidacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/validacion`,
+    "GET",
+  )) as ValidacionDeDocumentos | null;
+
+export const pedirValidacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/validacion`,
+    "POST",
+  )) as ValidacionDeDocumentos;
+
 export const getCalendario = async () =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/calendario`,
@@ -414,16 +445,30 @@ export interface AdjuntoDeOportunidad {
   quien: { full_name: string | null } | null;
 }
 
-export const getAdjuntos = async (id: number) =>
+/** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
+ *  lo que la empresa va a presentar (migración 127). */
+export type SeccionDeArchivos = "bases" | "postulacion";
+
+export const getAdjuntos = async (
+  id: number,
+  seccion: SeccionDeArchivos = "bases",
+) =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
     "GET",
+    undefined,
+    { seccion },
   )) as AdjuntoDeOportunidad[];
 
 /** Un archivo por pedido (el motor valida tipo y tamaño). */
-export const subirAdjunto = async (id: number, archivo: File) => {
+export const subirAdjunto = async (
+  id: number,
+  archivo: File,
+  seccion: SeccionDeArchivos = "bases",
+) => {
   const form = new FormData();
   form.append("file", archivo);
+  form.append("seccion", seccion);
   const { data } = await api.request({
     url: `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
     method: "POST",

@@ -7,12 +7,17 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 // `oportunidad_adjuntos` y el archivo en el balde privado de la empresa.
 // Toda consulta filtra por company_id.
 
+/** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
+ *  lo que la empresa va a presentar (migración 127). */
+export type Seccion = 'bases' | 'postulacion';
+
 export type Adjunto = {
   id: number;
   nombre: string;
   ruta: string;
   tipo: string;
   bytes: number;
+  seccion: Seccion;
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
@@ -25,12 +30,13 @@ export type AdjuntoNuevo = {
   ruta: string;
   tipo: string;
   bytes: number;
+  seccion: Seccion;
   /** El PERFIL (user_profiles.id), no el id de la sesión: ver perfilDe. */
   subido_por: string | null;
 };
 
 const COLUMNAS =
-  'id, nombre, ruta, tipo, bytes, creado_en, subido_por, quien:user_profiles(full_name)';
+  'id, nombre, ruta, tipo, bytes, seccion, creado_en, subido_por, quien:user_profiles(full_name)';
 
 @Injectable()
 export class AdjuntosRepository {
@@ -77,13 +83,18 @@ export class AdjuntosRepository {
     return (data as { id: string } | null)?.id ?? null;
   }
 
-  /** Lo subido a una oportunidad, lo último primero. */
-  async listar(companyId: number, oportunidadId: number): Promise<Adjunto[]> {
+  /** Lo subido a una oportunidad en una sección, lo último primero. */
+  async listar(
+    companyId: number,
+    oportunidadId: number,
+    seccion: Seccion,
+  ): Promise<Adjunto[]> {
     const { data, error } = await this.db
       .from('oportunidad_adjuntos')
       .select(COLUMNAS)
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
+      .eq('seccion', seccion)
       .order('creado_en', { ascending: false });
     if (error) throw error;
     return (data ?? []) as unknown as Adjunto[];
