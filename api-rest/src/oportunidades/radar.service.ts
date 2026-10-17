@@ -60,11 +60,13 @@ const FALLAS_SEGUIDAS_PARA_CORTAR = 10;
 const LECTURAS_FALLIDAS_PARA_CORTAR = 10;
 const MINUTO = 60 * 1000;
 const HORA = 60 * MINUTO;
-/** Tiempo de cada corrida: pedir detalles hasta los 80 minutos y leer hasta
- *  los 150. Así una corrida nunca llega a las 3 horas en que la siguiente
- *  la da por muerta; lo que falta entra en la próxima. */
-const PRESUPUESTO_DETALLES_MS = 80 * MINUTO;
-const PRESUPUESTO_COMPRAS_MS = 100 * MINUTO;
+/** Tiempo de cada corrida, contado desde que parte: detalles de
+ *  licitaciones hasta los 45 minutos, compras ágiles hasta los 70 y lectura
+ *  hasta los 150. Así una corrida nunca llega a las 3 horas en que la
+ *  siguiente la da por muerta, y lo leído llega antes; lo que falta entra en
+ *  la próxima. */
+const PRESUPUESTO_DETALLES_MS = 45 * MINUTO;
+const PRESUPUESTO_COMPRAS_MS = 70 * MINUTO;
 const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
@@ -246,9 +248,13 @@ export class RadarService {
         ...new Set([...configs.values()].flatMap((c) => c.regiones ?? [])),
       ];
 
+      // Se lee dos veces: tras las licitaciones (lo más grande se lee antes,
+      // sin esperar las compras ágiles, que son lentas) y tras las compras.
+      const intentadas = new Set<string>();
       await this.licitaciones(resumen, inicio);
+      await this.leer(resumen, empresas, configs, inicio, intentadas);
       await this.comprasAgiles(resumen, regiones, inicio);
-      await this.leer(resumen, empresas, configs, inicio);
+      await this.leer(resumen, empresas, configs, inicio, intentadas);
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
@@ -534,13 +540,18 @@ export class RadarService {
   // ------------------------------------------------------------
   // La lectura con IA, por empresa
   // ------------------------------------------------------------
+  /** `intentadas` (empresa:código) evita releer o reintentar en la misma
+   *  corrida lo que ya se intentó en la primera pasada. */
   private async leer(
     resumen: ResumenCorrida,
     empresas: EmpresaConModulo[],
     configs: Map<number, ConfigOportunidades>,
     inicio: number,
+    intentadas: Set<string>,
   ): Promise<void> {
     const r = resumen.lectura;
+    // Si la primera pasada se detuvo o no hay llave, la segunda no insiste.
+    if (r.estado !== 'ok') return;
     if (!this.lectura.configurado) {
       r.estado = 'sin_llave';
       resumen.avisos.push(
@@ -550,14 +561,17 @@ export class RadarService {
     }
 
     const uso: Uso = { entrada: 0, salida: 0 };
-    let restantes = MAX_LECTURAS_POR_CORRIDA;
+    let restantes = MAX_LECTURAS_POR_CORRIDA - r.leidas;
     let fallidasSeguidas = 0;
+    let empresasLeidas = 0;
+    // Lo que queda sin leer lo dice la última pasada.
+    r.sin_leer = 0;
     try {
       const abiertos = await this.repo.procesosAbiertos();
       for (const empresa of empresas) {
         const config = configs.get(empresa.id);
         if (!config || (config.regiones ?? []).length === 0) continue;
-        r.empresas++;
+        empresasLeidas++;
 
         const catalogo = await this.repo.catalogoResumido(empresa.id);
         const perfil = {
@@ -574,8 +588,15 @@ export class RadarService {
               !leidos.has(p.codigo) && regionCalza(p.region, config.regiones),
           )
           .sort((a, b) => cierreParaOrdenar(a) - cierreParaOrdenar(b));
-        const tanda = pendientes.slice(0, Math.max(restantes, 0));
-        r.sin_leer += pendientes.length - tanda.length;
+        const yaIntentadas = pendientes.filter((p) =>
+          intentadas.has(`${empresa.id}:${p.codigo}`),
+        ).length;
+        r.sin_leer += yaIntentadas;
+        const nuevas = pendientes.filter(
+          (p) => !intentadas.has(`${empresa.id}:${p.codigo}`),
+        );
+        const tanda = nuevas.slice(0, Math.max(restantes, 0));
+        r.sin_leer += nuevas.length - tanda.length;
         restantes -= tanda.length;
 
         await enParalelo(tanda, LECTURAS_EN_PARALELO, async (proceso) => {
@@ -584,6 +605,7 @@ export class RadarService {
               'Se acabó el tiempo de esta corrida: lo que falta se lee en la próxima.',
             );
           }
+          intentadas.add(`${empresa.id}:${proceso.codigo}`);
           const lectura = await this.lectura.leer(proceso, perfil, uso);
           if (!lectura) {
             r.sin_leer++;
@@ -616,8 +638,9 @@ export class RadarService {
       r.estado = 'detenida';
       resumen.avisos.push(error.message);
     } finally {
-      r.tokens_entrada = uso.entrada;
-      r.tokens_salida = uso.salida;
+      r.empresas = Math.max(r.empresas, empresasLeidas);
+      r.tokens_entrada += uso.entrada;
+      r.tokens_salida += uso.salida;
     }
   }
 }
