@@ -1,8 +1,8 @@
 # 16 · Propuestas de cotización (hoy a mano, mañana un botón)
 
 > **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
-> `armar-cotizacion`). BOTÓN: Felipe lo retomó el 17-10 (sección 6);
-> evaluado, esperando su OK para el paso 1.**
+> `armar-cotizacion`). BOTÓN: Felipe lo retomó el 17-10 (sección 6); el
+> paso 1 (comentario interno) está EN EL LABORATORIO desde el mismo día.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -334,10 +334,15 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   tiene poco cupo por minuto, cuidarlo (caché del catálogo y las reglas).
 >   Para producción, una llave aparte que Felipe crea y pega él en el
 >   servicio de producción; el motor parte sin ella.
-> - **Plan propuesto, esperando el OK:** 1) el comentario interno; 2) el
->   botón en el laboratorio, con requerimientos reales; 3) producción cuando
->   10 seguidas salgan sin corrección (la regla del 15-10 pasa a ser la
->   puerta de producción).
+> - **Plan en tres pasos** (Felipe, 17-10: *"vamos por el paso 1"*): 1) el
+>   comentario interno; 2) el botón en el laboratorio, con requerimientos
+>   reales; 3) producción cuando 10 seguidas salgan sin corrección (la regla
+>   del 15-10 pasa a ser la puerta de producción).
+> - **Paso 1 EN EL LABORATORIO (17-10):** migración 128
+>   (`quotations.comentario_interno`), la pieza `ComentariosDelEvento` en
+>   Recepción y el cotizador, y la puerta pública que solo lo entrega a la
+>   empresa (mapa 01, regla 31). Rama `feature/comentario-interno`. En
+>   producción, la migración va antes que el motor.
 > - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
 >   laboratorio; la del comentario interno toma el número libre que siga.
 
