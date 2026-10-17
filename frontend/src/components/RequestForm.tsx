@@ -8,6 +8,8 @@ import { CLIENT_TYPES, DEFAULT_CLIENT_TYPE } from "../constants/clientTypes";
 import { clientsQueryOptions } from "../services/clients.service";
 import { useCrearCliente } from "../hooks/useCrearCliente";
 import Modal from "./Modal";
+import ComentariosDelEvento from "./ComentariosDelEvento";
+import { comentarioParaGuardar } from "../utils/comentarioInterno";
 import { clientTypesQueryOptions } from "../services/clientTypes.service";
 import { useQuery } from "@tanstack/react-query";
 import { eventTypesQueryOptions } from "../services/eventTypes.service";
@@ -45,6 +47,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     event_date: "",
     people_count: 1,
     observations: "",
+    comentario_interno: "",
     client_id: "",
     contact_name: null,
   });
@@ -117,6 +120,12 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         event_date: request.event_date.split("T")[0],
         people_count: request.people_count,
         observations: request.observations,
+        // El comentario interno (17-10-2026): si la fila llegó sin el
+        // campo, queda undefined y no se toca (utils/comentarioInterno).
+        comentario_interno:
+          "comentario_interno" in request
+            ? (request.comentario_interno ?? "")
+            : undefined,
         client_id: request.client_id,
         // La persona que escribió la solicitud viene guardada: se
         // muestra en vez de perderse (Felipe, 05-09).
@@ -224,13 +233,20 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
 
     try {
       if (request?.id) {
-        const { error } = await updateQuotation(formData, request.id);
+        const { error } = await updateQuotation(
+          {
+            ...formData,
+            ...comentarioParaGuardar(formData.comentario_interno),
+          },
+          request.id,
+        );
 
         if (error) throw error;
         toast.success("Requerimiento actualizado.");
       } else {
         const { error } = await createQuotation({
           ...formData,
+          ...comentarioParaGuardar(formData.comentario_interno),
           request_type: QuotationRequestType.REQUERIMIENTO,
           quotation_status: QuotationStatus.SOLICITADA,
         });
@@ -253,6 +269,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
       event_date: "",
       people_count: 1,
       observations: "",
+      comentario_interno: "",
       client_id: "",
     });
     setIsExistingClient(false);
@@ -636,21 +653,18 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
           </div>
         </div>
 
-        {/* Observaciones */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Observaciones
-          </label>
-          <textarea
-            value={formData.observations}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, observations: e.target.value }))
-            }
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            placeholder="Detalles adicionales, requerimientos especiales, etc."
-          />
-        </div>
+        {/* Los dos comentarios (17-10-2026): el que ve el cliente y el
+            interno, que nunca sale. */}
+        <ComentariosDelEvento
+          observaciones={formData.observations}
+          onObservaciones={(observations) =>
+            setFormData((prev) => ({ ...prev, observations }))
+          }
+          comentarioInterno={formData.comentario_interno}
+          onComentarioInterno={(comentario_interno) =>
+            setFormData((prev) => ({ ...prev, comentario_interno }))
+          }
+        />
 
         {/* Botones */}
         <div className="flex justify-end space-x-3">
