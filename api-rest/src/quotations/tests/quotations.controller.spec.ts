@@ -8,6 +8,7 @@ import { GenerarCotizacionService } from '../generar/generar.service';
 import { QuotationsController } from '../quotations.controller';
 import { QuotationsService } from '../quotations.service';
 import { RescateDelFormularioService } from '../rescate-del-formulario.service';
+import { SeguimientoConIAService } from '../seguimiento/seguimiento.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.
@@ -35,6 +36,8 @@ describe('QuotationsController', () => {
         provideMock(SesionOpcional, { empresaDe }),
         // El botón «✨ Crear con IA» (17-10-2026).
         provideMock(GenerarCotizacionService),
+        // «✉ Generar seguimiento» (17-10-2026, doc 18).
+        provideMock(SeguimientoConIAService),
       ],
     }).compile();
 

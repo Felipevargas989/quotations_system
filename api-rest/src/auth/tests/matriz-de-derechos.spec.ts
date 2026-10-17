@@ -214,6 +214,25 @@ describe('la matriz de derechos', () => {
     expect(por('PATCH /quotations/:id')?.derecho).toBeUndefined();
   });
 
+  it('Seguimiento con IA: solo sus dos rutas llevan el candado', () => {
+    const rutas = rutasDe(QuotationsController);
+    // «✉ Generar seguimiento» (doc 18, 17-10-2026): módulo propio de Valle
+    // del Sol (migración 140). Enviar la cotización es de todo plan.
+    expect(
+      rutas
+        .filter((r) => r.derecho === 'seguimiento_con_ia')
+        .map((r) => r.via)
+        .sort(),
+    ).toEqual([
+      'GET /quotations/seguimiento/pendientes',
+      'POST /quotations/:id/seguimiento',
+    ]);
+    expect(
+      rutas.find((r) => r.via === 'POST /quotations/:id/enviar-correo')
+        ?.derecho,
+    ).toBeUndefined();
+  });
+
   it('Análisis es del nivel 2 del Dashboard; el panel del nivel 1 queda abierto', () => {
     const rutas = rutasDe(AnalyticsController);
     const por = (via: string) => rutas.find((r) => r.via === via);

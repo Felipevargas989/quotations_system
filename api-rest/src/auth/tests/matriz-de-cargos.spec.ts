@@ -73,6 +73,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET check-conflicts': R,
       'POST :id/enviar-correo': S,
       'POST :id/generar': S,
+      // «✉ Generar seguimiento» (doc 18, 17-10-2026): quien vende.
+      'GET seguimiento/pendientes': S,
+      'POST :id/seguimiento': S,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,
