@@ -20,18 +20,22 @@ describe("tieneDerecho", () => {
   });
 
   it("pide el derecho exacto que trae la empresa", () => {
-    expect(tieneDerecho({ derechos: ["base", "calendario"] }, "calendario")).toBe(true);
+    expect(
+      tieneDerecho({ derechos: ["base", "calendario"] }, "calendario"),
+    ).toBe(true);
     expect(tieneDerecho({ derechos: ["base"] }, "calendario")).toBe(false);
     expect(tieneDerecho({ derechos: null }, "post_venta")).toBe(false);
     expect(tieneDerecho(null, "post_venta")).toBe(false);
   });
 
   it("Personal y Marketing siguen siendo derechos como los demás", () => {
-    expect(tieneDerecho({ derechos: ["personal", "marketing"] }, "personal")).toBe(true);
+    expect(
+      tieneDerecho({ derechos: ["personal", "marketing"] }, "personal"),
+    ).toBe(true);
     expect(tieneDerecho({ derechos: ["personal"] }, "marketing")).toBe(false);
   });
 
-  it("las secciones con candado son las seis que corresponden", () => {
+  it("las secciones con candado son las siete que corresponden", () => {
     expect(SECTION_DERECHO).toEqual({
       payments: "post_venta",
       logistics: "logistica",
@@ -39,6 +43,7 @@ describe("tieneDerecho", () => {
       customer_satisfaction_survey: "encuestas",
       people: "personal",
       marketing: "marketing",
+      oportunidades: "oportunidades",
     });
   });
 
