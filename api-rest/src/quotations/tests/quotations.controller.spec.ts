@@ -4,6 +4,7 @@ import { DerechosService } from 'src/auth/derechos.service';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { EnvioCotizacionService } from '../envio-cotizacion.service';
+import { GenerarCotizacionService } from '../generar/generar.service';
 import { QuotationsController } from '../quotations.controller';
 import { QuotationsService } from '../quotations.service';
 import { RescateDelFormularioService } from '../rescate-del-formulario.service';
@@ -32,6 +33,8 @@ describe('QuotationsController', () => {
         },
         // GET /quotations/:id es pública: quién pregunta (17-10-2026).
         provideMock(SesionOpcional, { empresaDe }),
+        // El botón «✨ Crear con IA» (17-10-2026).
+        provideMock(GenerarCotizacionService),
       ],
     }).compile();
 

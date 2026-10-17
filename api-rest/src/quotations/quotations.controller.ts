@@ -14,6 +14,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import { DerechosService } from 'src/auth/derechos.service';
 import {
   ADMIN_ONLY,
@@ -36,6 +37,7 @@ import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
+import { GenerarCotizacionService } from './generar/generar.service';
 import { QuotationsService } from './quotations.service';
 import { RescateDelFormularioService } from './rescate-del-formulario.service';
 
@@ -52,6 +54,8 @@ export class QuotationsController {
     private readonly rescate: RescateDelFormularioService,
     // Quién pregunta en GET /quotations/:id, que es pública (17-10-2026).
     private readonly sesionOpcional: SesionOpcional,
+    // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
+    private readonly generarCotizacion: GenerarCotizacionService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -198,6 +202,18 @@ export class QuotationsController {
       this.sesionOpcional.empresaDe(authorization),
     ]);
     return sinComentarioAjeno(respuesta, empresa);
+  }
+
+  // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026): arma el
+  // requerimiento con Claude y lo deja en solicitada; nunca envía. Solo
+  // quien cotiza (convertir es pega de venta, 12-08) y solo la empresa con
+  // el módulo propio cotizar_con_ia (Valle del Sol, migración 129).
+  @Roles(...SALES_AND_UP)
+  @Derecho('cotizar_con_ia')
+  @Post(':id/generar')
+  generar(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/generar`);
+    return this.generarCotizacion.generar(id, user);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
