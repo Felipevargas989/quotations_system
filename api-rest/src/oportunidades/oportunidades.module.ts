@@ -7,6 +7,7 @@ import {
 } from './analisis/analisis.repository';
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
+import { EventiaRepository } from './eventia/eventia.repository';
 import { GeneracionRepository } from './generacion/generacion.repository';
 import { GeneracionService } from './generacion/generacion.service';
 import { HistoriaService } from './historia/historia.service';
@@ -41,6 +42,7 @@ import { RadarService } from './radar.service';
     GeneracionRepository,
     GeneracionService,
     MisLicitacionesService,
+    EventiaRepository,
     OferenteRepository,
     OferenteService,
     HistoriaService,

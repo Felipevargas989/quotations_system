@@ -19,6 +19,7 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import ListaDeRequisitos from "./ListaDeRequisitos";
+import PuedoCumplir from "./PuedoCumplir";
 import {
   alertasDelAnalisis,
   criteriosPorPeso,
@@ -170,6 +171,8 @@ function Resultado({
           </ul>
         </div>
       )}
+
+      <PuedoCumplir r={r} />
 
       {condiciones.length > 0 && (
         <Plegable

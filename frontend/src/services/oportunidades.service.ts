@@ -243,7 +243,25 @@ export interface ResultadoDeBases {
   alertas?: string[];
   /** Para "en una mirada": cuándo es y para cuántos (0 = no lo dicen). */
   fecha_del_servicio?: string;
+  fecha_del_servicio_iso?: string;
   personas?: number;
+  /** "¿Puedo cumplir?" (17-10): cada exigencia técnica contra lo que la
+   *  empresa tiene en Eventia (carta, instalaciones y agenda de ese día). */
+  cumplimiento?: {
+    resumen: string;
+    items: ItemDeCumplimiento[];
+    /** La fecha cuya agenda se miró (AAAA-MM-DD). */
+    agenda_de: string | null;
+  };
+  cumplimiento_error?: string;
+}
+
+export interface ItemDeCumplimiento {
+  requisito: number;
+  que: string;
+  estado: "tengo" | "conseguir" | "no_se_puede";
+  con_que: string;
+  por_que: string;
 }
 
 export interface AnalisisDeBases {

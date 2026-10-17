@@ -4,6 +4,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
+import type { EventiaRepository } from '../eventia/eventia.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import {
   GeneracionService,
@@ -88,6 +89,25 @@ const ANALISIS = {
         pagina: 18,
       },
     ],
+    cumplimiento: {
+      resumen: 'Tienes las mesas; el show hay que conseguirlo.',
+      items: [
+        {
+          requisito: 1,
+          que: 'Mesas y sillas para 160 personas',
+          estado: 'tengo',
+          con_que: 'Salón principal',
+          por_que: '',
+        },
+        {
+          requisito: 2,
+          que: 'Show de baile de 40 minutos',
+          estado: 'conseguir',
+          con_que: '',
+          por_que: 'No hay show en tu carta.',
+        },
+      ],
+    },
   },
 };
 
@@ -99,6 +119,7 @@ class GeneracionDePrueba extends GeneracionService {
       repos.adjuntos as AdjuntosRepository,
       repos.oferente as OferenteRepository,
       repos.oportunidades as OportunidadesRepository,
+      repos.eventia as EventiaRepository,
       mockPinoLogger() as unknown as PinoLogger,
     );
   }
@@ -175,12 +196,37 @@ function armar() {
       fijos: ['Salón principal'],
     }),
   };
+  const eventia = {
+    carta: jest.fn().mockResolvedValue({
+      fijos: [{ nombre: 'Salón principal', seccion: 'Salones' }],
+      menus: [
+        {
+          categoria: 'Cena',
+          nombre: 'Plateada',
+          platos: ['Plateada al jugo', 'Papas rústicas'],
+        },
+      ],
+      paquetes: ['Matrimonio: cóctel, cena y fiesta'],
+    }),
+    eventosRealizados: jest.fn().mockResolvedValue([
+      {
+        numero: 455,
+        tipo: 'Celebraciones',
+        fecha: '2025-12-12',
+        personas: 150,
+        monto: 9_800_000,
+        cliente: 'Municipalidad de Bulnes',
+        fijos: ['Salón principal'],
+      },
+    ]),
+  };
   const servicio = new GeneracionDePrueba({
     repo,
     analisis,
     adjuntos,
     oferente,
     oportunidades,
+    eventia,
   });
   const ejecutar = jest
     .spyOn(servicio, 'ejecutar')
@@ -191,6 +237,7 @@ function armar() {
     adjuntos,
     oferente,
     oportunidades,
+    eventia,
     servicio,
     ejecutar,
   };
@@ -268,6 +315,14 @@ describe('Generar anexos', () => {
       expect(plan.sistema).toContain(
         '2. [tecnico, obligatorio] Mesas y sillas para 160 personas (pág. 18)',
       );
+      // La experiencia de verdad, de Eventia, y lo que no se promete.
+      expect(plan.sistema).toContain(
+        '- 2025-12-12 · Celebraciones · Municipalidad de Bulnes · 150 personas',
+      );
+      expect(plan.sistema).toContain(
+        '- [hay que conseguirlo] Show de baile de 40 minutos (No hay show en tu carta.)',
+      );
+      expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
     }));
 
   it('sin monto, la oferta económica queda en blanco: nunca un precio inventado', () =>
@@ -356,6 +411,14 @@ describe('Firmar', () => {
       expect(plan.sistema).toContain('NO cambies nada más');
     }));
 
+  it('la firma no necesita ni la carta ni los eventos', () =>
+    entorno(async () => {
+      const { eventia, servicio } = armar();
+      await servicio.firmar(1, CUENTA, 40, [12]);
+      expect(eventia.carta).not.toHaveBeenCalled();
+      expect(eventia.eventosRealizados).not.toHaveBeenCalled();
+    }));
+
   it('sin foto de la firma, algo que no es de la postulación, que no es Word o que ya está firmado: no se firma', () =>
     entorno(async () => {
       const { oferente, repo, servicio } = armar();
@@ -411,8 +474,15 @@ describe('Crear propuesta técnica', () => {
       ]);
       expect(plan.esfuerzo).toBe('high');
       expect(plan.sistema).toContain('Nunca escribas precios ni montos');
-      expect(plan.sistema).toContain('Salón principal');
+      expect(plan.sistema).toContain('- Salones: Salón principal');
+      expect(plan.sistema).toContain(
+        '- [Cena] Plateada: Plateada al jugo, Papas rústicas',
+      );
+      expect(plan.sistema).toContain(
+        '- [lo tiene] Mesas y sillas para 160 personas → con Salón principal',
+      );
       expect(plan.sistema).toContain('[COMPLETAR: qué falta]');
+      expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
     }));
 
   it('sin análisis listo, 400; un logo de fuera de la casa no se baja', () =>

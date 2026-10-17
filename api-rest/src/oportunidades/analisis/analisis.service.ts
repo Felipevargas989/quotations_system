@@ -11,6 +11,8 @@ import {
   type Adjunto,
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
+import { EventiaRepository } from '../eventia/eventia.repository';
+import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { AnalisisRepository, type FilaDeAnalisis } from './analisis.repository';
 import {
@@ -20,10 +22,17 @@ import {
   errorDeIA,
   MAX_BYTES_DE_PDF,
   MODELO_OPUS,
+  MODELO_SONNET,
   type NoLeido,
   pesoDePdf,
   separar,
 } from './comun';
+import {
+  armarCumplimiento,
+  type Cumplimiento,
+  ESQUEMA_DE_CUMPLIMIENTO,
+  instruccionesDeCumplimiento,
+} from './cumplimiento';
 
 // LA IA LEE LAS BASES (doc 17, sprint 3, paso 1; migración 125). Felipe,
 // 17-10: "vamos". Con Opus 5.5, lo decidido para documentos (decisión 6).
@@ -105,6 +114,8 @@ export const ESQUEMA_DE_BASES = {
     condiciones: { type: 'array', items: { type: 'string' } },
     // Para "en una mirada": cuándo es y para cuántos.
     fecha_del_servicio: { type: 'string' },
+    // Para mirar la agenda de ese día en "¿Puedo cumplir?".
+    fecha_del_servicio_iso: { type: 'string' },
     personas: { type: 'integer' },
   },
   required: [
@@ -120,6 +131,7 @@ export const ESQUEMA_DE_BASES = {
     'te_dejan_fuera',
     'condiciones',
     'fecha_del_servicio',
+    'fecha_del_servicio_iso',
     'personas',
   ],
   additionalProperties: false,
@@ -156,6 +168,7 @@ export const instruccionesDeBases = (c: ContextoDeBases): string =>
     '- te_dejan_fuera: lo que deja la oferta fuera de bases o la descalifica, lo más grave primero. MÁXIMO 5, una frase corta cada una (menos de 20 palabras). Puede ser un requisito, si su falta deja fuera (por ejemplo, "Sin los anexos 3, 4 y 5 quedas fuera de bases").',
     '- condiciones: lo demás que conviene saber antes de postular: multas, forma y plazo de pago, subcontratación, cambios de fecha, exigencias raras, contradicciones entre documentos, cambios de una aclaratoria, plazos muy cortos. Una frase corta cada una, de lo más importante a lo menos.',
     '- fecha_del_servicio: cuándo es el evento o el servicio, como lo dicen (por ejemplo "viernes 30 de octubre, 18:00 a 02:00"); vacío si no lo dicen.',
+    '- fecha_del_servicio_iso: el primer día del servicio como AAAA-MM-DD (por ejemplo "2026-10-30"); vacío si no lo dicen.',
     '- personas: para cuántas personas es; 0 si no lo dicen.',
   ].join('\n');
 
@@ -167,6 +180,8 @@ export class AnalisisService {
     private readonly repo: AnalisisRepository,
     private readonly adjuntos: AdjuntosRepository,
     private readonly oportunidades: OportunidadesRepository,
+    private readonly eventia: EventiaRepository,
+    private readonly oferente: OferenteRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AnalisisService.name);
@@ -250,6 +265,102 @@ export class AnalisisService {
     return fila;
   }
 
+  /** "¿PUEDO CUMPLIR?": cruza las exigencias técnicas de las bases con lo
+   *  que la empresa tiene en Eventia (carta, instalaciones y agenda de ese
+   *  día), con Sonnet 5.5. Si falla, el análisis igual queda listo y la
+   *  falla se anota al lado. */
+  async puedoCumplir(
+    companyId: number,
+    contexto: ContextoDeBases,
+    bases: Record<string, unknown>,
+  ): Promise<{
+    resultado: { cumplimiento?: Cumplimiento; cumplimiento_error?: string };
+    entrada: number;
+    salida: number;
+    costo: number;
+  }> {
+    const nada = { resultado: {}, entrada: 0, salida: 0, costo: 0 };
+    const requisitos = Array.isArray(bases.requisitos)
+      ? (bases.requisitos as Array<{
+          que: string;
+          tipo: string;
+          obligatorio: boolean;
+        }>)
+      : [];
+    const tecnicos = requisitos.filter((r) => r.tipo === 'tecnico');
+    if (tecnicos.length === 0) return nada;
+    try {
+      const iso =
+        typeof bases.fecha_del_servicio_iso === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(bases.fecha_del_servicio_iso)
+          ? bases.fecha_del_servicio_iso
+          : null;
+      const [carta, oferente, agenda] = await Promise.all([
+        this.eventia.carta(companyId),
+        this.oferente.oferente(companyId),
+        iso ? this.eventia.agendaDelDia(companyId, iso) : Promise.resolve(null),
+      ]);
+      const respuesta = await this.cliente().messages.parse({
+        model: MODELO_SONNET,
+        max_tokens: 8000,
+        output_config: {
+          effort: 'medium',
+          format: jsonSchemaOutputFormat(ESQUEMA_DE_CUMPLIMIENTO),
+        },
+        system: instruccionesDeCumplimiento({
+          codigo: contexto.codigo,
+          nombre: contexto.nombre,
+          organismo: contexto.organismo,
+          lugar: typeof bases.lugar === 'string' ? bases.lugar : '',
+          tecnicos,
+          oferente,
+          carta,
+          fecha: iso,
+          agenda,
+        }),
+        messages: [
+          { role: 'user', content: 'Revisa si la empresa puede cumplir.' },
+        ],
+      });
+      const entrada = respuesta.usage.input_tokens ?? 0;
+      const salida = respuesta.usage.output_tokens ?? 0;
+      const costo = costoEnDolares(entrada, salida, MODELO_SONNET);
+      if (!respuesta.parsed_output) {
+        return {
+          resultado: {
+            cumplimiento_error: 'La IA no pudo revisar si puedes cumplir.',
+          },
+          entrada,
+          salida,
+          costo,
+        };
+      }
+      return {
+        resultado: {
+          cumplimiento: armarCumplimiento(
+            respuesta.parsed_output as Parameters<typeof armarCumplimiento>[0],
+            tecnicos,
+            iso,
+          ),
+        },
+        entrada,
+        salida,
+        costo,
+      };
+    } catch (error) {
+      this.logger.warn(`¿puedo cumplir?: ${mensajeDe(error)}`);
+      return {
+        ...nada,
+        resultado: {
+          cumplimiento_error: errorDeIA(
+            error,
+            'No se pudo revisar si puedes cumplir',
+          ),
+        },
+      };
+    }
+  }
+
   /** Por detrás: baja los archivos, llama a Opus y guarda. Nunca lanza: lo
    *  que falle queda escrito en la fila, en palabras de la casa. */
   async ejecutar(
@@ -306,19 +417,21 @@ export class AnalisisService {
         });
         return;
       }
+      const bases = respuesta.parsed_output as unknown as Record<
+        string,
+        unknown
+      >;
+      const cumplir = await this.puedoCumplir(companyId, contexto, bases);
       await this.repo.terminar(companyId, analisisId, {
         estado: 'listo',
-        resultado: respuesta.parsed_output as unknown as Record<
-          string,
-          unknown
-        >,
+        resultado: { ...bases, ...cumplir.resultado },
         no_leidos: noLeidosFinal,
-        tokens_entrada: entrada,
-        tokens_salida: salida,
-        costo_usd: costo,
+        tokens_entrada: entrada + cumplir.entrada,
+        tokens_salida: salida + cumplir.salida,
+        costo_usd: Math.round((costo + cumplir.costo) * 10_000) / 10_000,
       });
       this.logger.info(
-        `análisis ${analisisId} listo: ${entrada} tokens de entrada, ${salida} de salida, US$${costo}`,
+        `análisis ${analisisId} listo: ${entrada} tokens de entrada, ${salida} de salida, US$${costo}; ¿puedo cumplir?: US$${cumplir.costo}`,
       );
     } catch (error) {
       this.logger.warn(`análisis ${analisisId}: ${mensajeDe(error)}`);

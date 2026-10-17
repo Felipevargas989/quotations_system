@@ -30,6 +30,7 @@ import {
   type NoLeido,
 } from '../analisis/comun';
 import { nombresDelZip, textoDeDocx } from '../analisis/docx';
+import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
@@ -156,6 +157,7 @@ export class GeneracionService {
     private readonly adjuntos: AdjuntosRepository,
     private readonly oferente: OferenteRepository,
     private readonly oportunidades: OportunidadesRepository,
+    private readonly eventia: EventiaRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(GeneracionService.name);
@@ -218,7 +220,7 @@ export class GeneracionService {
         `Elige hasta ${MAX_DOCUMENTOS} anexos por vez.`,
       );
     }
-    const contexto = await this.contexto(companyId, oportunidadId, ficha);
+    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
     if (!contexto.oferente.razon_social || !contexto.oferente.rut) {
       throw new BadRequestException(
         'Primero llena los datos de la empresa en «Mi empresa» (al menos la razón social y el RUT).',
@@ -381,7 +383,7 @@ export class GeneracionService {
     oportunidadId: number,
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
-    const contexto = await this.contexto(companyId, oportunidadId, ficha);
+    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
     if (!contexto.datos.bases || contexto.analisisId === null) {
       throw new BadRequestException(
         'Primero analiza las bases: la propuesta responde a lo que piden.',
@@ -392,10 +394,7 @@ export class GeneracionService {
         'Primero llena los datos de la empresa en «Mi empresa».',
       );
     }
-    const [bases, catalogo] = await Promise.all([
-      this.adjuntos.listar(companyId, oportunidadId, 'bases'),
-      this.oportunidades.catalogoResumido(companyId),
-    ]);
+    const bases = await this.adjuntos.listar(companyId, oportunidadId, 'bases');
     const paraLeer: Adjunto[] = [];
     const noLeidos: NoLeido[] = [];
     let peso = 0;
@@ -429,7 +428,6 @@ export class GeneracionService {
       plan: {
         sistema: instruccionesDePropuesta(
           contexto.datos,
-          catalogo,
           paraLeer.map((a) => ({
             enElTaller: enElTaller(a),
             original: a.nombre,
@@ -621,16 +619,25 @@ export class GeneracionService {
   }
 
   /** Lo que lee la IA de la licitación, la empresa y el último análisis
-   *  listo de las bases. */
+   *  listo de las bases. `conEventia`: también la carta y los eventos
+   *  realizados de los últimos 4 años (anexos y propuesta; la firma no los
+   *  necesita). */
   private async contexto(
     companyId: number,
     oportunidadId: number,
     ficha: NonNullable<Awaited<ReturnType<OportunidadesRepository['ficha']>>>,
+    conEventia = false,
   ) {
-    const [analisis, oferente, empresa] = await Promise.all([
+    const hoy = hoyEnChile();
+    const haceCuatroAnios = `${Number(hoy.slice(0, 4)) - 4}${hoy.slice(4)}`;
+    const [analisis, oferente, empresa, carta, eventos] = await Promise.all([
       this.analisis.ultimo(companyId, oportunidadId),
       this.oferente.oferente(companyId),
       this.oferente.empresa(companyId),
+      conEventia ? this.eventia.carta(companyId) : Promise.resolve(null),
+      conEventia
+        ? this.eventia.eventosRealizados(companyId, haceCuatroAnios)
+        : Promise.resolve([]),
     ]);
     const listo =
       analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
@@ -639,7 +646,7 @@ export class GeneracionService {
       nombre: ficha.proceso.nombre,
       organismo: ficha.proceso.organismo,
       fecha_cierre: ficha.proceso.fecha_cierre,
-      hoy: hoyEnChile(),
+      hoy,
       hoyLargo: fechaLarga(),
       oferente: {
         razon_social: null,
@@ -661,6 +668,8 @@ export class GeneracionService {
       },
       empresa,
       bases: loQuePidenLasBases(listo?.resultado ?? null),
+      carta,
+      eventos,
     };
     return {
       datos,
