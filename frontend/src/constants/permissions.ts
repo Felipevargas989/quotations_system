@@ -146,7 +146,10 @@ export type Derecho =
   | "marketing"
   | "oportunidades"
   // El botón «✨ Crear con IA» (17-10-2026): módulo propio de Valle del Sol.
-  | "cotizar_con_ia";
+  | "cotizar_con_ia"
+  // «✉ Generar seguimiento» (17-10-2026, doc 18): módulo propio de Valle
+  // del Sol (sus llaves y sus buzones).
+  | "seguimiento_con_ia";
 
 export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   payments: "post_venta",
@@ -200,6 +203,7 @@ export const PLAN_MINIMO: Record<
   marketing: null,
   oportunidades: null,
   cotizar_con_ia: null,
+  seguimiento_con_ia: null,
 };
 
 export const NOMBRE_DEL_PLAN = {
@@ -227,6 +231,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   marketing: "El módulo Marketing",
   oportunidades: "El módulo de Oportunidades",
   cotizar_con_ia: "Cotizar con IA",
+  seguimiento_con_ia: "El seguimiento con IA",
 };
 
 export const SECTION_ROLES: Record<Section, UserRole[]> = {

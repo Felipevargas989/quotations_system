@@ -1,10 +1,12 @@
 # 18 · Seguimiento con IA (el botón «Generar seguimiento»)
 
-> **Estado: PASO 1 CONSTRUIDO (17-10-2026), rama `feature/seguimiento-con-ia`.**
-> Felipe: *"dale construye el paso 1"*. El motor ya busca el hilo, escribe
-> con IA y deja el borrador (mapa 01 §5.8, regla 33, riesgo 17). Falta: la
-> llave de Outlook en el Railway del laboratorio (la pega Felipe) y la
-> prueba ahí; después, los botones (paso 2). Este documento manda sobre la memoria de cualquier sesión:
+> **Estado: PASOS 1 Y 2 CONSTRUIDOS (17-10-2026), rama `feature/seguimiento-con-ia`.**
+> Paso 1 (el motor) probado en el laboratorio: la 475 dejó un correo nuevo
+> en Borradores de felipe@ (14 s, US$ 0,04). Paso 2 (Felipe: *"vamos con el
+> paso 2"*): «✉ Generar seguimiento» en la tarjeta del tablero y en el aviso
+> «Contacto comprometido» de la ficha, y «✉ Generar seguimientos (N)» arriba
+> (mapa 01 §5.8, mapa 02 §2). Falta: probarlo en la pantalla del
+> laboratorio, el paso 3 (prueba en producción) y el 4. Este documento manda sobre la memoria de cualquier sesión:
 > si una conversación cambia una decisión, se actualiza aquí en el mismo
 > movimiento.
 

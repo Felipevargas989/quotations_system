@@ -19,7 +19,15 @@ import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
-import { ROLE_GROUPS, SECTION_ROLES } from "../../constants/permissions";
+import {
+  ROLE_GROUPS,
+  SECTION_ROLES,
+  tieneDerecho,
+} from "../../constants/permissions";
+import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
+import GenerarSeguimientos from "../../components/GenerarSeguimientos";
+import ResultadosDeSeguimiento from "../../components/ResultadosDeSeguimiento";
+import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
@@ -125,6 +133,12 @@ export default function QuotationsPage() {
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
+  // empresa con el módulo propio. El motor dice cuáles vencieron por correo.
+  const conSeguimientoIA =
+    puedeEditar && tieneDerecho(company, "seguimiento_con_ia");
+  const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
+  const pendientesIA = new Set(seguimientoIA.pendientes.map((p) => p.id));
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
   const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
@@ -316,7 +330,6 @@ export default function QuotationsPage() {
     const s = semaforoDe(q);
     return !!s && s.urgencia >= 103;
   };
-
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     // Guardia de estados: volver de post-venta (aceptada/realizada/
@@ -811,6 +824,9 @@ export default function QuotationsPage() {
           >
             Requieren seguimiento ({nRequieren})
           </button>
+          {conSeguimientoIA && (
+            <GenerarSeguimientos seguimiento={seguimientoIA} />
+          )}
           <div className="flex items-center gap-3 ml-auto">
             {/* Requerimientos pendientes: aviso junto al botón (la
                 conversión vive en su módulo). */}
@@ -839,6 +855,11 @@ export default function QuotationsPage() {
           </div>
         </div>
       </div>
+
+      <ResultadosDeSeguimiento
+        resultados={seguimientoIA.resultados}
+        onCerrar={seguimientoIA.limpiar}
+      />
 
       {/* Tablero (Etapa 2): el embudo vivo en 3 columnas. Sin arrastre
           por ahora — el estado se cambia con la píldora de siempre. */}
@@ -1014,6 +1035,27 @@ export default function QuotationsPage() {
                             </button>
                           </div>
                         </div>
+                        {/* Vencida por correo: la IA deja el seguimiento
+                            de borrador en Outlook (doc 18). */}
+                        {conSeguimientoIA && pendientesIA.has(quotation.id) && (
+                          <div className="mt-2">
+                            <BotonSeguimientoIA
+                              trabajando={
+                                seguimientoIA.trabajando === quotation.id
+                              }
+                              ocupado={seguimientoIA.ocupado}
+                              resultado={seguimientoIA.resultadoDe(
+                                quotation.id,
+                              )}
+                              onGenerar={() =>
+                                void seguimientoIA.generar({
+                                  id: quotation.id,
+                                  numero: quotation.quotation_number,
+                                })
+                              }
+                            />
+                          </div>
+                        )}
                       </div>
                     );
                   })
