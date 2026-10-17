@@ -86,6 +86,23 @@ export class OportunidadesController {
     return this.repo.ultimasCorridas(10);
   }
 
+  /** "Se viene": lo que se repite cada año y todavía no sale. */
+  @Get('calendario')
+  calendario(@CurrentUser() user: User) {
+    return this.servicio.calendario(user.company_id);
+  }
+
+  /** Quién gana en las regiones de la empresa. */
+  @Get('competidores')
+  competidores(@CurrentUser() user: User) {
+    return this.servicio.competidores(user.company_id);
+  }
+
+  @Get('competidores/:rut')
+  competidor(@Param('rut') rut: string, @CurrentUser() user: User) {
+    return this.servicio.competidor(user.company_id, rut);
+  }
+
   @Get(':id')
   ficha(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.servicio.ficha(user.company_id, id);

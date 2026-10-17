@@ -49,7 +49,11 @@ describe('anteriorDe: la misma compra del año pasado', () => {
       oferentes: 1,
       url_acta: 'http://acta',
       ganadores: [
-        { nombre: 'CENTRO TURISTICO SOL DE QUILLON SPA', monto: 12_000_000 },
+        {
+          rut: null,
+          nombre: 'CENTRO TURISTICO SOL DE QUILLON SPA',
+          monto: 12_000_000,
+        },
       ],
     });
   });
@@ -70,6 +74,7 @@ describe('anteriorDe: la misma compra del año pasado', () => {
           ganadores: [
             {
               nombre: 'BPM EVENTOS SPA',
+              rut: '76.430.926-k',
               cantidad: 1,
               monto_unitario: 13_949_580,
             },
@@ -79,8 +84,10 @@ describe('anteriorDe: la misma compra del año pasado', () => {
       pasado({ codigo: 'OTRO', nombre: 'Insumos dentales CESFAM' }),
     ]);
     expect(r?.codigo).toBe('4352-6-LE25');
+    // Con su RUT (sin puntos y con K mayúscula): la pantalla enlaza a la
+    // ficha del competidor.
     expect(r?.ganadores).toEqual([
-      { nombre: 'BPM EVENTOS SPA', monto: 13_949_580 },
+      { rut: '76430926-K', nombre: 'BPM EVENTOS SPA', monto: 13_949_580 },
     ]);
   });
 
@@ -124,8 +131,8 @@ describe('anteriorDe: la misma compra del año pasado', () => {
       }),
     ]);
     expect(r?.ganadores).toEqual([
-      { nombre: 'A', monto: 2_500 },
-      { nombre: 'B', monto: null },
+      { rut: null, nombre: 'A', monto: 2_500 },
+      { rut: null, nombre: 'B', monto: null },
     ]);
   });
 });

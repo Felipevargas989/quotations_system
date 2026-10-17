@@ -8,7 +8,11 @@ import {
   textoDelAnterior,
   filtrar,
   filtrarSinSemaforo,
+  agruparPorMes,
+  mesDe,
   problemaDelAdjunto,
+  textoDeAnios,
+  urlCompetidor,
   seVeEnElVisor,
   tamanoLegible,
   urlMercadoPublico,
@@ -212,5 +216,37 @@ describe("bases y anexos", () => {
     expect(seVeEnElVisor("c1/oportunidades/9/x_plano.jpg")).toBe(true);
     expect(seVeEnElVisor("c1/oportunidades/9/x_Anexos.docx")).toBe(false);
     expect(seVeEnElVisor("c1/oportunidades/9/x_Todo.zip")).toBe(false);
+  });
+});
+
+describe("Se viene y competidores", () => {
+  it("el mes en hora de Chile, con mayúscula", () => {
+    expect(mesDe("2026-11-10T15:00:00.000Z")).toBe("Noviembre de 2026");
+    // 1 de diciembre a las 01:00 UTC todavía es noviembre en Chile.
+    expect(mesDe("2026-12-01T01:00:00.000Z")).toBe("Noviembre de 2026");
+  });
+
+  it("agrupa por mes en el orden en que llega", () => {
+    const g = agruparPorMes([
+      { esperada: "2026-10-20T15:00:00.000Z", n: 1 },
+      { esperada: "2026-11-10T15:00:00.000Z", n: 2 },
+      { esperada: "2026-11-25T15:00:00.000Z", n: 3 },
+    ]);
+    expect(g.map(([mes, items]) => [mes, items.map((i) => i.n)])).toEqual([
+      ["Octubre de 2026", [1]],
+      ["Noviembre de 2026", [2, 3]],
+    ]);
+  });
+
+  it("los años, en castellano", () => {
+    expect(textoDeAnios([2025])).toBe("Salió en 2025");
+    expect(textoDeAnios([2023, 2024, 2025])).toBe("Salió en 2023, 2024 y 2025");
+    expect(textoDeAnios([])).toBe("");
+  });
+
+  it("la ficha del competidor, con el RUT en la dirección", () => {
+    expect(urlCompetidor("76154667-8")).toBe(
+      "/oportunidades/competidores/76154667-8",
+    );
   });
 });

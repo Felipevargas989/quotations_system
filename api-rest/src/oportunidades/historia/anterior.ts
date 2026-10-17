@@ -1,4 +1,5 @@
 import { normalizar } from '../mercado-publico/mapeo';
+import { type Ganador, ganadoresDe } from './ganadores';
 
 // EL AÑO ANTERIOR (doc 17, decisión 3: "quién ganó el año anterior, a qué
 // valor y con qué servicios"). Funciones puras: las pruebas las cubren.
@@ -33,8 +34,9 @@ export type Anterior = {
   anio: number | null;
   oferentes: number | null;
   url_acta: string | null;
-  /** Quién ganó y por cuánto (suma de lo adjudicado a cada uno). */
-  ganadores: Array<{ nombre: string; monto: number | null }>;
+  /** Quién ganó y por cuánto (suma de lo adjudicado a cada uno); con su
+   *  RUT, la pantalla enlaza a la ficha del competidor. */
+  ganadores: Ganador[];
 };
 
 /** Palabras que no dicen nada del objeto de la compra. */
@@ -137,25 +139,13 @@ export const anteriorDe = (
   }
   if (!mejor) return null;
 
-  const porGanador = new Map<string, number | null>();
-  for (const g of mejor.p.adjudicacion?.ganadores ?? []) {
-    const nombre = (g.nombre ?? g.rut ?? '').trim();
-    if (!nombre) continue;
-    const linea =
-      g.monto_unitario != null ? g.monto_unitario * (g.cantidad ?? 1) : null;
-    const antes = porGanador.get(nombre);
-    porGanador.set(
-      nombre,
-      linea == null ? (antes ?? null) : (antes ?? 0) + linea,
-    );
-  }
   return {
     codigo: mejor.p.codigo,
     nombre: mejor.p.nombre,
     anio: anioDe(mejor.p.fecha_publicacion),
     oferentes: mejor.p.adjudicacion?.oferentes ?? null,
     url_acta: mejor.p.adjudicacion?.url_acta ?? null,
-    ganadores: [...porGanador].map(([nombre, monto]) => ({ nombre, monto })),
+    ganadores: ganadoresDe(mejor.p.adjudicacion),
   };
 };
 

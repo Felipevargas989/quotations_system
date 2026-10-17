@@ -19,6 +19,7 @@ const METODOS = [
   'eq',
   'lt',
   'gt',
+  'gte',
   'is',
   'not',
   'in',
@@ -277,13 +278,24 @@ describe('OportunidadesRepository — sprint 1b', () => {
     expect(paso(c, 'limit')).toEqual(['limit', 300]);
   });
 
-  it('el próximo día de historia: pendiente y de menor prioridad (cerca de hace un año)', async () => {
-    const { repo, consultas } = armar(() => ({
-      data: [{ fecha: '2025-10-03' }],
-    }));
-    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
+  it('el próximo día de historia: primero los últimos 60 días, del más nuevo al más viejo', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'gte') ? { data: [{ fecha: '2026-10-16' }] } : {},
+    );
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2026-10-16');
+    expect(consultas).toHaveLength(1);
     const c = consultas[0];
     expect(c.tabla).toBe('mp_historia');
+    expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
+    expect(paso(c, 'order')).toEqual(['order', 'fecha', { ascending: false }]);
+  });
+
+  it('sin días recientes pendientes: el de menor prioridad (cerca de hace un año)', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'gte') ? { data: [] } : { data: [{ fecha: '2025-10-03' }] },
+    );
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
+    const c = consultas[1];
     expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
     expect(paso(c, 'order')).toEqual([
       'order',
@@ -332,5 +344,37 @@ describe('OportunidadesRepository — procesos comunes', () => {
     await repo.guardarProcesos(procesos as never);
     expect(consultas).toHaveLength(3);
     expect(paso(consultas[0], 'upsert')?.[2]).toEqual({ onConflict: 'codigo' });
+  });
+});
+
+describe('OportunidadesRepository — la zona (Se viene y competidores)', () => {
+  it('licitaciones de 3 años, de a 1000, y solo las de las regiones (sin mirar tildes)', async () => {
+    const fila = (codigo: string, region: string) => ({ codigo, region });
+    const { repo, consultas } = armar((c) => {
+      const desde = (paso(c, 'range')?.[1] ?? 0) as number;
+      if (desde === 0) {
+        return {
+          data: [
+            ...Array.from({ length: 998 }, (_, i) =>
+              fila(`X-${i}`, 'Región Metropolitana de Santiago'),
+            ),
+            fila('NUBLE', 'Región del Ñuble'),
+            fila('BIOBIO', 'Región del Biobío'),
+          ],
+        };
+      }
+      return { data: [fila('ULTIMA', 'Region del Nuble')] };
+    });
+    const r = await repo.procesosDeLaZona(['Ñuble', 'Biobio']);
+    expect(r.map((p) => p.codigo)).toEqual(['NUBLE', 'BIOBIO', 'ULTIMA']);
+    expect(consultas).toHaveLength(2);
+    expect(consultas[0].pasos).toContainEqual(['eq', 'tipo', 'licitacion']);
+    expect(tiene(consultas[0], 'gte')).toBe(true);
+  });
+
+  it('sin regiones configuradas no pregunta nada', async () => {
+    const { repo, consultas } = armar();
+    await expect(repo.procesosDeLaZona([])).resolves.toEqual([]);
+    expect(consultas).toHaveLength(0);
   });
 });

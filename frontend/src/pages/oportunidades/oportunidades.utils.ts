@@ -211,6 +211,42 @@ export const urlMercadoPublico = (codigo: string, tipo: TipoProceso): string =>
     ? `https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(codigo)}`
     : `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(codigo)}`;
 
+/** La ficha de un competidor en Eventia. */
+export const urlCompetidor = (rut: string): string =>
+  `/oportunidades/competidores/${encodeURIComponent(rut)}`;
+
+/** "Noviembre de 2026", en hora de Chile. */
+export const mesDe = (fecha: string): string => {
+  const t = new Intl.DateTimeFormat("es-CL", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  }).format(new Date(fecha));
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+/** "Se viene" agrupado por mes, en el orden en que llega (ya viene por
+ *  fecha). */
+export const agruparPorMes = <T extends { esperada: string }>(
+  items: T[],
+): Array<[string, T[]]> => {
+  const grupos: Array<[string, T[]]> = [];
+  for (const item of items) {
+    const mes = mesDe(item.esperada);
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo[0] === mes) ultimo[1].push(item);
+    else grupos.push([mes, [item]]);
+  }
+  return grupos;
+};
+
+/** "Salió en 2025" · "Salió en 2023, 2024 y 2025". */
+export const textoDeAnios = (anios: number[]): string => {
+  if (anios.length === 0) return "";
+  if (anios.length === 1) return `Salió en ${anios[0]}`;
+  return `Salió en ${anios.slice(0, -1).join(", ")} y ${anios[anios.length - 1]}`;
+};
+
 /** BASES Y ANEXOS (doc 17 §12 punto 8): lo que se puede subir, lo mismo
  *  que acepta el motor (`TIPOS_POR_EXTENSION`, adjuntos.service.ts). */
 export const EXTENSIONES_DE_ADJUNTOS: ReadonlyArray<string> = [

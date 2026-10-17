@@ -31,6 +31,14 @@ export interface ProcesoDeLista {
   estado: string | null;
 }
 
+/** Quién ganó un proceso y por cuánto. Con RUT, enlaza a su ficha de
+ *  competidor. */
+export interface GanadorDeProceso {
+  rut?: string | null;
+  nombre: string;
+  monto: number | null;
+}
+
 /** La misma compra del año anterior: quién ganó, por cuánto y cuántos
  *  ofertaron (sprint 1b). */
 export interface Anterior {
@@ -39,7 +47,50 @@ export interface Anterior {
   anio: number | null;
   oferentes: number | null;
   url_acta: string | null;
-  ganadores: Array<{ nombre: string; monto: number | null }>;
+  ganadores: GanadorDeProceso[];
+}
+
+/** SE VIENE (doc 17 §5.3): lo que se repite cada año y todavía no sale. */
+export interface SeViene {
+  nombre: string;
+  organismo: string | null;
+  comuna: string | null;
+  /** Cuándo debería publicarse: la última vez, un año después. */
+  esperada: string;
+  /** Ya debió salir y todavía no aparece. */
+  atrasada: boolean;
+  anios: number[];
+  comuna_cercana: boolean;
+  alto_valor: boolean;
+  ultima: {
+    codigo: string;
+    fecha_publicacion: string;
+    monto: number | null;
+    oferentes: number | null;
+    ganadores: GanadorDeProceso[];
+  };
+}
+
+/** Quién gana en las regiones de la empresa (los últimos 3 años). */
+export interface Competidor {
+  rut: string;
+  nombre: string;
+  triunfos: number;
+  monto_total: number;
+  ultimo: string | null;
+  organismos: Array<{ nombre: string; veces: number }>;
+}
+
+export interface FichaDeCompetidor extends Competidor {
+  triunfos_detalle: Array<{
+    codigo: string;
+    nombre: string;
+    organismo: string | null;
+    comuna: string | null;
+    fecha_publicacion: string | null;
+    monto: number | null;
+    oferentes: number | null;
+  }>;
 }
 
 export interface Oportunidad {
@@ -164,6 +215,24 @@ export const guardarConfigOportunidades = async (config: {
     "PATCH",
     config,
   )) as ConfigOportunidades;
+
+export const getCalendario = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/calendario`,
+    "GET",
+  )) as SeViene[];
+
+export const getCompetidores = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/competidores`,
+    "GET",
+  )) as Competidor[];
+
+export const getCompetidor = async (rut: string) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/competidores/${encodeURIComponent(rut)}`,
+    "GET",
+  )) as FichaDeCompetidor;
 
 /** Una base o anexo que subió la empresa (migración 124). `ruta` vive en
  *  el balde privado: se ve con el visor de la casa (FileViewLink), que

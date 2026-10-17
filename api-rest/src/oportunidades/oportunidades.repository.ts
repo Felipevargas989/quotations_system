@@ -3,8 +3,10 @@ import { PinoLogger } from 'nestjs-pino';
 import { derechosDe, tieneDerecho } from 'src/auth/derechos';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ProcesoPasado } from './historia/anterior';
+import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
 import type { LecturaFinal } from './lectura/reglas';
+import { regionCalza } from './mercado-publico/mapeo';
 import type { ProcesoMp } from './mercado-publico/tipos';
 
 // LA ÚNICA CAPA QUE TOCA LA BASE en este módulo (regla del motor).
@@ -21,6 +23,12 @@ const HORA = 60 * 60 * 1000;
 const DIA = 24 * HORA;
 /** Una corrida que lleva más que esto "corriendo" murió con el proceso. */
 const CORRIDA_COLGADA_MS = 3 * 60 * 60 * 1000;
+/** La historia revisa primero estos días recientes: sin ellos, "Se viene"
+ *  anunciaría algo que este año ya salió antes de que el radar existiera. */
+const DIAS_RECIENTES_DE_HISTORIA = 60;
+/** "Se viene" y competidores miran 3 años y un poco más (la misma compra
+ *  de hace 3 años más sus días de diferencia). */
+const MESES_DE_LA_ZONA = 38;
 
 export type EmpresaConModulo = {
   id: number;
@@ -292,6 +300,34 @@ export class OportunidadesRepository {
     return filas;
   }
 
+  /** Las licitaciones de los últimos 3 años de estas regiones, para "Se
+   *  viene" y los competidores (doc 17 §5.3). Dato público: sin
+   *  company_id. La región se compara en memoria con la misma regla del
+   *  radar (`regionCalza`: sin tildes ni espacios); ver la deuda en el
+   *  mapa 24. */
+  async procesosDeLaZona(regiones: string[]): Promise<ProcesoDeLaZona[]> {
+    if (regiones.length === 0) return [];
+    const desde = new Date();
+    desde.setUTCMonth(desde.getUTCMonth() - MESES_DE_LA_ZONA);
+    const filas: ProcesoDeLaZona[] = [];
+    for (let inicio = 0; ; inicio += PAGINA) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select(
+          'codigo, nombre, organismo, organismo_codigo, unidad, comuna, region, fecha_publicacion, monto, adjudicacion',
+        )
+        .eq('tipo', 'licitacion')
+        .gte('fecha_publicacion', desde.toISOString())
+        .order('codigo', { ascending: true })
+        .range(inicio, inicio + PAGINA - 1);
+      if (error) throw error;
+      const pagina = (data ?? []) as ProcesoDeLaZona[];
+      filas.push(...pagina.filter((p) => regionCalza(p.region, regiones)));
+      if (pagina.length < PAGINA) break;
+    }
+    return filas;
+  }
+
   // ------------------------------------------------------------
   // Lo de cada empresa
   // ------------------------------------------------------------
@@ -474,7 +510,24 @@ export class OportunidadesRepository {
 
   /** El próximo día de historia por revisar: primero los cercanos a "hace
    *  un año". null = la historia está completa. */
+  /** El próximo día por revisar: primero los últimos 60 días (lo que ya
+   *  salió este año, para que "Se viene" no lo anuncie), del más nuevo al
+   *  más viejo; después, por prioridad (cerca de "hace un año"). */
   async siguienteDiaDeHistoria(): Promise<string | null> {
+    const reciente = new Date(Date.now() - DIAS_RECIENTES_DE_HISTORIA * DIA)
+      .toISOString()
+      .slice(0, 10);
+    const { data: recientes, error: errorRecientes } = await this.db
+      .from('mp_historia')
+      .select('fecha')
+      .eq('estado', 'pendiente')
+      .gte('fecha', reciente)
+      .order('fecha', { ascending: false })
+      .limit(1);
+    if (errorRecientes) throw errorRecientes;
+    const primero = (recientes?.[0] as { fecha?: string } | undefined)?.fecha;
+    if (primero) return primero;
+
     const { data, error } = await this.db
       .from('mp_historia')
       .select('fecha')
