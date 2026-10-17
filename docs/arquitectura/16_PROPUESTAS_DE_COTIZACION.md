@@ -367,8 +367,19 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
   estrellitas de IA (`Sparkles` de lucide, foto de Felipe del 17-10; el
   15-10 había sido la varita `WandSparkles`). El modelo, el más nuevo de Claude,
   queda en una variable del motor para subir de versión sin tocar código.
-- **Dónde:** «Generar cotización» en la ficha del requerimiento, y
-  «Generar todas» en Requerimientos.
+- **Dónde (Felipe, 17-10):** *"al lado un botón más chiquitito que sea
+  crear manual y una que sea crear con IA (…) y una arriba que diga generar
+  todas"*.
+  - En cada fila de Requerimientos, dos botones chicos lado a lado:
+    «Crear manual» (el «Crear Cotización» de hoy, que abre el cotizador) y
+    «✨ Crear con IA». El de IA solo en requerimientos sin servicios.
+  - Dentro de «Editar requerimiento», junto a «Actualizar»: «✨ Crear con
+    IA» guarda lo escrito y genera en un solo paso.
+  - Arriba de la lista, «✨ Generar todas», en el lugar del botón «Enlace
+    público», que se muda a Mi empresa (*"me choca que está ahí (…) es
+    algo como de configuración"*). Va de a una, con contador: la cuenta
+    de Anthropic es nueva, con poco cupo por minuto, y la comparte con el
+    radar de licitaciones.
 - **Motor:** `POST /quotations/:id/propuesta` arma el contexto
   (requerimiento, cliente e historial, catálogo de la empresa: paquetes,
   menús, sueltos y fijos, las reglas de la sección 2 y la tabla de la
