@@ -86,10 +86,19 @@ aclaraciones, redactar desde la experiencia anterior, revisión humana siempre.
    está bien"*). Opus 5.5 para generar cotizaciones y documentos.
 7. **La llave de Anthropic va en Railway.** Creada por Felipe el 16-10
    (`eventia-motor`, ver `00_DOCUMENTACION/01_CLAVES.md` §5 en la carpeta
-   maestra). Quedó como variable `ANTHROPIC_API_KEY` de `api-rest-pruebas`,
-   **en espera de aplicar** (cambio pendiente en Railway) el 16-10.
+   maestra). Variable `ANTHROPIC_API_KEY` de `api-rest-pruebas`, aplicada
+   por Felipe el mismo 16-10 (el redespliegue del laboratorio terminó bien).
 8. **"Generar cotización" entra al módulo.** Es el mismo botón diseñado en
    `16_PROPUESTAS_DE_COTIZACION.md` §6, que estaba en pausa.
+9. **"Grande" es el monto de alto valor de la empresa**, el que ya existe en
+   Configuración de empresa (`companies.high_value_threshold`): *"usemos la
+   misma definición que está en la configuración de empresa así queda
+   variable"*. Valle del Sol: $3.000.000 (medido el 16-10).
+10. **Los avisos van al correo de la empresa** (`companies.notifications.replyTo`):
+    Valle del Sol, contacto@valledelsolquillon.cl (medido el 16-10).
+11. **Las regiones se configuran en el módulo**, por empresa: *"eso debería
+    ser configurable en el módulo de Eventia"*. Lo mismo las comunas
+    cercanas (§5.7).
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -124,7 +133,9 @@ aclaraciones, redactar desde la experiencia anterior, revisión humana siempre.
 2. **Compras ágiles:** API v2 con `publicado_desde` = última corrida exitosa
    menos un margen (48 h) y región 8,16; se compara con la base igual que
    arriba.
-3. **Regiones:** Ñuble y Biobío para partir.
+3. **Regiones:** las que tenga configuradas cada empresa en el módulo
+   (§5.7); el radar trae la unión de todas. Valle del Sol parte con Ñuble y
+   Biobío.
 4. **Archivos:** para las que la IA marca del rubro, se bajan bases, anexos y
    aclaratorias desde la ficha pública de Mercado Público (la API no los
    entrega) y se pasan a texto, con OCR si vienen escaneados. **A verificar
@@ -154,10 +165,13 @@ palabras clave.
 
 Reglas que mandan sobre la IA:
 
-- organismo de Quillón o comunas cercanas (lista del bot: Quillón, Bulnes,
-  Ránquil, Portezuelo, San Ignacio, El Carmen, Pemuco, Coelemu, Ninhue,
-  Treguaco, Florida, Yumbel, Cabrero) → nunca rojo, y aviso inmediato;
-- monto sobre el umbral (por decidir) → aviso inmediato;
+- organismo de una comuna cercana (lista configurable, §5.7; Valle del Sol
+  parte con la del bot: Quillón, Bulnes, Ránquil, Portezuelo, San Ignacio,
+  El Carmen, Pemuco, Coelemu, Ninhue, Treguaco, Florida, Yumbel, Cabrero) →
+  nunca rojo, y aviso inmediato;
+- monto igual o mayor al de **alto valor** de la empresa
+  (`companies.high_value_threshold`, Configuración de empresa; Valle del Sol
+  $3.000.000) → aviso inmediato;
 - las rojas no se botan: quedan en la base, y el primer mes se revisa una
   muestra cada semana para medir lo que se le escapa a la IA.
 
@@ -171,7 +185,9 @@ postulada → ganada / perdida / descartada). Ficha con fechas, archivos,
 criterios con su peso e historial de cambios. Calendario de las recurrentes
 ("en noviembre viene el Día de Campo del Dirigente"). Ficha de cada
 competidor. Avisos: correo corto dos veces al día con lo nuevo, y aviso
-inmediato para Quillón y las grandes. Piezas del kit de la casa (`CLAUDE.md`):
+inmediato para las comunas cercanas y las de alto valor, al correo de la
+empresa (`companies.notifications.replyTo`; Valle del Sol:
+contacto@valledelsolquillon.cl). Piezas del kit de la casa (`CLAUDE.md`):
 `SelectWithSearch`, `ChipDeEstado`, `Modal`, `Toast`, `ConfirmInline`.
 
 ### 5.4 Botón "Generar documentos" (Opus 5.5)
@@ -217,6 +233,19 @@ módulo: **Me interesa** crea el requerimiento con los datos de la licitación
 (personas, fechas, comidas, lugar). La skill `armar-cotizacion` del chat es la
 receta que se convierte en las instrucciones del agente.
 
+### 5.7 Configuración del módulo (por empresa)
+
+Una pestaña "Configuración" dentro de Oportunidades:
+
+- **Regiones de interés** (Valle del Sol parte con Ñuble y Biobío).
+- **Comunas cercanas**: las que nunca quedan en rojo y avisan al instante
+  (Valle del Sol parte con la lista del bot, §5.2).
+
+Lo que **no** se configura aquí, porque ya existe en Configuración de
+empresa y no se duplica: el monto de alto valor
+(`companies.high_value_threshold`) y el correo de avisos
+(`companies.notifications.replyTo`).
+
 ## 6. Piezas (propuesta para el sprint 1, a confirmar al construir)
 
 **Tablas comunes (datos públicos de Mercado Público, sin `company_id`):**
@@ -232,6 +261,7 @@ receta que se convierte en las instrucciones del agente.
 | Tabla | Qué guarda |
 |---|---|
 | `oportunidades` | La lectura de la IA para esa empresa (etiquetas, semáforo, razón, modelo usado) y lo que la empresa decide (estado, responsable, notas, cotización asociada). Única por empresa y código |
+| `oportunidades_config` | La configuración del módulo (§5.7): regiones de interés y comunas cercanas. Tabla aparte para no sumarle columnas a `companies` (cada campo nuevo de `companies` queda editable desde la Torre, mapa 15) |
 | `oferente_documentos` | La carpeta: tipo, archivo, vence el, notas |
 | `oferente_ficha` | La ficha del oferente (§5.5) |
 | `postulaciones` | Cada "Generar documentos": estado del trabajo, checklist, archivos generados, tokens usados |
@@ -242,9 +272,9 @@ laboratorio (ahí los relojes no corren); candado en la base para que dos
 corridas no se pisen; derecho `oportunidades` en cada ruta (la prueba
 `matriz-de-derechos.spec.ts` frena una ruta sin decidir).
 
-**Variables nuevas en Railway:** `ANTHROPIC_API_KEY` (hecha el 16-10, en
-espera de aplicar) y el ticket de Mercado Público (`MP_TICKET`, lo pega
-Felipe).
+**Variables nuevas en Railway:** `ANTHROPIC_API_KEY` (en el laboratorio
+desde el 16-10; en producción al pasar) y el ticket de Mercado Público
+(`MP_TICKET`, lo pega Felipe).
 
 ## 7. Sprints
 
@@ -316,12 +346,15 @@ apertura si la licitación lo indica), análisis del acta cuando se pierde,
 indicadores de pago del comprador, foro, firma escaneada, orden de compra →
 evento confirmado.
 
-## 12. Pendiente de decidir (Felipe)
+## 12. Pendiente (Felipe)
 
-1. Umbral de monto para el aviso inmediato.
-2. Quién recibe los avisos (¿contacto@?).
-3. Pegar el ticket de Mercado Público en Railway (`MP_TICKET`).
-4. Aplicar el cambio pendiente de Railway (`ANTHROPIC_API_KEY` en
-   `api-rest-pruebas`): redespliega el laboratorio.
-5. Activar o no los USD 200 al mes de créditos de API del plan Max.
-6. ¿Solo Ñuble y Biobío, o también Maule o la Región Metropolitana?
+1. Pegar el ticket de Mercado Público en Railway (`MP_TICKET` en
+   `api-rest-pruebas`) y aplicar el cambio con Deploy. Es un secreto: lo pega
+   Felipe. El del bot de GitHub no se puede leer de vuelta (GitHub guarda los
+   secretos sin mostrarlos); está en el correo con que llegó desde ChileCompra,
+   o se pide en chilecompra.cl/api ("Pide tu ticket", con ClaveÚnica).
+2. Activar o no los USD 200 al mes de créditos de API del plan Max.
+
+Decidido el 16-10 (§3, puntos 9 a 11): "grande" = monto de alto valor de la
+empresa; avisos al correo de la empresa; regiones y comunas cercanas
+configurables en el módulo.
