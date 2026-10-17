@@ -5,6 +5,8 @@ import {
   coincidenciasDe,
   datosParaRevisar,
   detalleDeCoincidencia,
+  motivoCorto,
+  tituloConLista,
   tituloDelAviso,
 } from "./avisoCliente";
 
@@ -74,6 +76,29 @@ describe("aviso de cliente parecido", () => {
       email: "judiaz@ccu.cl",
       phone: "+56 9 5095 5947",
     });
+  });
+
+  it("con varios, una lista: el título pregunta y cada fila dice por qué", () => {
+    const ccu: CoincidenciaCliente = {
+      ...rene,
+      cliente_id: "ccu",
+      nombre: "CCU",
+      motivos: ["correo", "nombre"],
+      persona: { id: 1, nombre: "July Díaz" },
+    };
+    const sindicato: CoincidenciaCliente = {
+      ...rene,
+      cliente_id: "sindicato",
+      nombre: "Sindicato CCU",
+      motivos: ["dominio"],
+      persona: null,
+    };
+    expect(tituloConLista([ccu, sindicato])).toBe(
+      "Este correo ya está en Eventia. ¿Es uno de estos?",
+    );
+    expect(motivoCorto(ccu)).toBe("July Díaz · mismo correo · nombre parecido");
+    expect(motivoCorto(sindicato)).toBe("mismo correo de institución");
+    expect(motivoCorto(rene)).toBe("René Neira · mismo teléfono");
   });
 
   it("a un Particular no se le suman contactos (una sola persona)", () => {

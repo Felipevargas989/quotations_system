@@ -173,6 +173,57 @@ describe('coincidencias: los casos de Valle del Sol', () => {
     expect(r[0].persona).toBeNull();
   });
 
+  it('CCU: con el correo exacto de July, el Sindicato CCU (solo dominio) no sale', () => {
+    const r = buscarCoincidencias(
+      { nombre: 'CCU', correos: ['judiaz@ccu.cl'], telefonos: [] },
+      [
+        cliente({
+          id: 'ccu',
+          name: 'CCU',
+          client_type: 'Empresas',
+          personas: [
+            {
+              id: 1,
+              name: 'July Díaz',
+              email: 'judiaz@ccu.cl',
+              phone: '+56978888409',
+            },
+          ],
+          ultimaCotizacion: 472,
+        }),
+        cliente({
+          id: 'sindicato',
+          name: 'Sindicato CCU',
+          client_type: 'Empresas',
+          personas: [
+            { id: 2, name: 'Luis Ramos', email: 'lramos@ccu.cl', phone: null },
+          ],
+        }),
+      ],
+    );
+    expect(r.map((c) => c.cliente_id)).toEqual(['ccu']);
+  });
+
+  it('sin calce exacto, el mismo dominio sí avisa', () => {
+    const r = buscarCoincidencias(
+      {
+        nombre: 'Gerencia de Personas',
+        correos: ['nueva@ccu.cl'],
+        telefonos: [],
+      },
+      [
+        cliente({
+          id: 'sindicato',
+          name: 'Sindicato CCU',
+          personas: [
+            { id: 2, name: 'Luis Ramos', email: 'lramos@ccu.cl', phone: null },
+          ],
+        }),
+      ],
+    );
+    expect(r.map((c) => c.motivos)).toEqual([['dominio']]);
+  });
+
   it('un correo gratuito no junta a dos personas por el dominio', () => {
     const r = buscarCoincidencias(
       { nombre: 'Fulano de Tal', correos: ['fulano@gmail.com'], telefonos: [] },
