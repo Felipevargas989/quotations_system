@@ -1,8 +1,12 @@
 import type {
+  AdjuntoDeOportunidad,
   Anterior,
   EstadoOportunidad,
+  Generacion,
+  OrigenDeArchivo,
   Oportunidad,
   Semaforo,
+  TipoDeGeneracion,
   TipoProceso,
 } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
@@ -489,3 +493,62 @@ export const textoDelAnterior = (a: Anterior): string => {
       : "";
   return `${a.anio ?? "Antes"}: ganó ${quien}${ofertas}`;
 };
+
+/** DOCUMENTOS CON IA (doc 17, sprint 3, paso 4). La oferta la pone la
+ *  empresa con IVA (Felipe: "valores con IVA porque se factura"); el neto
+ *  y el IVA se calculan igual que en el motor, nunca los inventa la IA. */
+export const IVA = 0.19;
+
+export const desgloseDeOferta = (total: number) => {
+  const neto = Math.round(total / (1 + IVA));
+  return { total, neto, iva: total - neto };
+};
+
+/** Lo que se puede llenar o firmar: Word moderno (.docx). Un .doc antiguo
+ *  hay que guardarlo como .docx primero. */
+export const esWordModerno = (nombre: string): boolean =>
+  /\.docx$/i.test(nombre);
+
+/** El sello de cada archivo de «Mi postulación» según de dónde salió; lo
+ *  subido por una persona no lleva sello. */
+export const ORIGENES: Record<
+  OrigenDeArchivo,
+  { readonly label: string; readonly clases: string } | null
+> = {
+  subido: null,
+  generado: {
+    label: "Hecho con IA · sin firma",
+    clases: "bg-amber-100 text-amber-800",
+  },
+  firmado: { label: "Firmado", clases: "bg-green-100 text-green-800" },
+};
+
+/** La firma va en dos tiempos (decidido el 17-10): se firma un Word que
+ *  todavía no está firmado, después de revisarlo. */
+export const sePuedeFirmar = (
+  a: Pick<AdjuntoDeOportunidad, "nombre" | "origen">,
+): boolean => a.origen !== "firmado" && esWordModerno(a.nombre);
+
+export const TEXTOS_DE_GENERACION: Record<
+  TipoDeGeneracion,
+  { readonly trabajando: string; readonly titulo: string }
+> = {
+  anexos: {
+    trabajando:
+      "La IA está llenando los anexos… suele tardar entre 3 y 8 minutos.",
+    titulo: "Anexos llenos",
+  },
+  firma: {
+    trabajando: "La IA está poniendo la firma… suele tardar 1 a 3 minutos.",
+    titulo: "Firma",
+  },
+  propuesta: {
+    trabajando:
+      "La IA está escribiendo la propuesta técnica… suele tardar entre 5 y 10 minutos.",
+    titulo: "Propuesta técnica",
+  },
+};
+
+export const algunaEnCurso = (
+  g: Partial<Record<TipoDeGeneracion, Generacion | null>> | null | undefined,
+): boolean => Object.values(g ?? {}).some((x) => x?.estado === "procesando");

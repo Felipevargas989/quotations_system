@@ -287,7 +287,7 @@ Orden acordado:
 | 1b | El **panel de detalle** al pinchar en la bandeja, con En estudio, Descartar y Ver ficha. **Construido el 17-10** |
 | 2 | **Datos de la empresa como oferente y la foto de la firma**; la carpeta con vencimientos (§5.5). **Construido el 17-10** (pestaña "Mi empresa"); la migración 126 espera el OK de Felipe |
 | 3 | **Validar documentos** (lo más importante para Felipe): los documentos de la postulación contra el checklist de las bases, uno por uno: cumple, falta o vencido. **Construido el 17-10** ("Mi postulación" y "Validar documentos" en la ficha); la migración 127 espera el OK de Felipe |
-| 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica) |
+| 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica). **Construido el 17-10** ("Crear documentos con IA" y «Firmar» en la ficha); la migración 128 espera el OK de Felipe |
 
 **Paso 4: diseño propuesto, para decidir con Felipe (escrito el 17-10
 mientras estaba fuera; no se construyó: gasta plata de su cuenta y tiene
@@ -326,6 +326,48 @@ decisiones suyas).**
 
 Para decidir: (1) ¿Word original con ejecución de código, como dice §5.4?
 (2) ¿Firma en dos tiempos? (3) ¿Por cuál documento partimos?
+
+**Decidido el 17-10** (Felipe: *"1.- si 2.- si 3.- si, pero primero
+dejemos todo listo y luego testeamos con estas licitaciones"*):
+1. el Word original, con ejecución de código;
+2. la firma en dos tiempos;
+3. se parte por la propuesta técnica.
+
+Se deja todo listo en el laboratorio y después se prueba con el Día del
+Profesor y el del Funcionario de Quillón.
+
+**Construido el 17-10** (rama `feature/oportunidades-radar`, migración 128
+sin aplicar). Cómo quedó:
+
+- **"Crear documentos con IA"**, en la ficha, entre "Lo que piden las
+  bases" y "Mi postulación":
+  - **Anexos del comprador**: los Word (.docx) de «Bases y anexos» con su
+    casilla y el **monto total de la oferta con IVA** (opcional). El neto
+    y el IVA los calcula el motor, no la IA; sin monto, la oferta
+    económica queda en blanco.
+  - **Propuesta técnica**: un Word nuevo que responde punto por punto a
+    las especificaciones técnicas, con el logo, los datos de «Mi empresa»
+    y el catálogo. Sin precios. Necesita el análisis de las bases.
+- **«Firmar»** en cada Word sin firma de «Mi postulación», con la pregunta
+  "¿Ya lo revisaste?". Cada archivo lleva su sello: «Hecho con IA · sin
+  firma» o «Firmado».
+- **La revisión del motor**: lo que entrega la IA tiene que ser un Word que
+  se abre. El firmado, además, tiene que traer el mismo texto que el
+  revisado y una imagen más (la firma). Si no, se descarta y se dice por
+  qué.
+- Lo que falta queda en blanco o como [COMPLETAR: …], y sale en "Lo que te
+  toca completar".
+- Los archivos pasan por la Files API de Anthropic y se borran al
+  terminar.
+- **Costo**: los tokens de Opus 5.5, con caché; el cómputo del contenedor
+  trae 1.550 horas gratis al mes. Queda anotado en cada trabajo.
+- **Por ahora no**:
+  - un anexo que viene solo en PDF, o como .doc antiguo, se llena a mano
+    (el .doc se puede guardar como .docx y subir de nuevo);
+  - las fotos del complejo en la propuesta (no hay dónde tomarlas todavía).
+
+Mapa 24 §6 tiene las reglas; el detalle técnico está en
+`api-rest/src/oportunidades/generacion/`.
 
 ### 5.5 La carpeta y la ficha del oferente
 

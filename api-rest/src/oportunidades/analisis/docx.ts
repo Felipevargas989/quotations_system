@@ -20,6 +20,30 @@ const finDelDirectorio = (zip: Buffer): number => {
   return -1;
 };
 
+/** Los nombres de lo que trae un ZIP, o null si no es un ZIP que se pueda
+ *  leer. Sirve para contar las imágenes de un Word (`word/media/`): un
+ *  documento firmado trae una más que el que se firmó. */
+export const nombresDelZip = (zip: Buffer): string[] | null => {
+  try {
+    const fin = finDelDirectorio(zip);
+    if (fin < 0) return null;
+    const total = zip.readUInt16LE(fin + 10);
+    let p = zip.readUInt32LE(fin + 16);
+    const nombres: string[] = [];
+    for (let i = 0; i < total; i++) {
+      if (zip.readUInt32LE(p) !== ENTRADA_DEL_DIRECTORIO) return null;
+      const largoNombre = zip.readUInt16LE(p + 28);
+      const largoExtra = zip.readUInt16LE(p + 30);
+      const largoComentario = zip.readUInt16LE(p + 32);
+      nombres.push(zip.toString('utf8', p + 46, p + 46 + largoNombre));
+      p += 46 + largoNombre + largoExtra + largoComentario;
+    }
+    return nombres;
+  } catch {
+    return null;
+  }
+};
+
 /** Un archivo de adentro de un ZIP, o null si no está o no se puede leer. */
 export const archivoDelZip = (zip: Buffer, nombre: string): Buffer | null => {
   try {

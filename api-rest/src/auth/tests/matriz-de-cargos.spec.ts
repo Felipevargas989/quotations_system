@@ -177,6 +177,10 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/analisis': A,
       'GET :id/validacion': A,
       'POST :id/validacion': A,
+      'GET :id/generaciones': A,
+      'POST :id/generaciones/anexos': A,
+      'POST :id/generaciones/firma': A,
+      'POST :id/generaciones/propuesta': A,
     },
   ],
 ];

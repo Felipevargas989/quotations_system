@@ -11,6 +11,11 @@ import { SupabaseService } from 'src/supabase/supabase.service';
  *  lo que la empresa va a presentar (migración 127). */
 export type Seccion = 'bases' | 'postulacion';
 
+/** De dónde salió (migración 128): 'subido' lo subió una persona;
+ *  'generado' lo hizo la IA, SIN firma; 'firmado' es la versión con la foto
+ *  de la firma. */
+export type Origen = 'subido' | 'generado' | 'firmado';
+
 export type Adjunto = {
   id: number;
   nombre: string;
@@ -18,6 +23,10 @@ export type Adjunto = {
   tipo: string;
   bytes: number;
   seccion: Seccion;
+  origen: Origen;
+  /** El archivo del que salió: el anexo del comprador (generado) o el
+   *  generado (firmado). */
+  viene_de: number | null;
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
@@ -33,10 +42,15 @@ export type AdjuntoNuevo = {
   seccion: Seccion;
   /** El PERFIL (user_profiles.id), no el id de la sesión: ver perfilDe. */
   subido_por: string | null;
+  /** Sin decirlo, 'subido' (lo pone la base). */
+  origen?: Origen;
+  viene_de?: number | null;
+  /** El trabajo de la IA que lo hizo (migración 128). */
+  generacion_id?: number | null;
 };
 
 const COLUMNAS =
-  'id, nombre, ruta, tipo, bytes, seccion, creado_en, subido_por, quien:user_profiles(full_name)';
+  'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, creado_en, subido_por, quien:user_profiles(full_name)';
 
 @Injectable()
 export class AdjuntosRepository {
