@@ -127,7 +127,7 @@ Las tres se habrían evitado leyendo el documento.
 |---|---|
 | Gestión de Personas | `docs/arquitectura/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
 | Homologación de piezas | `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md` |
-| Oportunidades (licitaciones y compras ágiles) | `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md` — plan del 16-10-2026: radar con base propia, lectura con Haiku 5.5, "Generar documentos" y "Generar cotización". Sprint 1a (el radar, sin pantalla) construido en la rama `feature/oportunidades-radar`, sin aplicar; su mapa es `mapa/24_OPORTUNIDADES.md` |
+| Oportunidades (licitaciones y compras ágiles) | `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md` — plan del 16-10-2026: radar con base propia, lectura con Haiku 5.5, "Generar documentos" y "Generar cotización". Sprint 1a (el radar) y sprint 2 (la pantalla) en el laboratorio desde el 17-10, rama `feature/oportunidades-radar`; nada en producción; su mapa es `mapa/24_OPORTUNIDADES.md` |
 
 Viven **dentro del repo** desde el 14-08: antes estaban solo en la carpeta
 maestra, sin versionar y fuera de los respaldos — un solo archivo en un solo

@@ -336,6 +336,17 @@ derecho, radar con solo lo nuevo, cierres movidos y reaperturas, lectura con
 Haiku 5.5 — hecho en la rama `feature/oportunidades-radar`, sin aplicar. 1b:
 bajar los archivos, guardar quién ganó al cerrar y la historia de 2–3 años.
 
+**Primera prueba en el laboratorio (17-10, corrida 5):** el Día del
+Funcionario (1532886-5-LE26) y el Día del Profesor (4364-13-LE26) de
+Quillón quedaron en la base y salieron en **amarillo con "comuna
+cercana"** (el Funcionario también con "alto valor"): la IA los ve del
+rubro pero las descripciones no dicen dónde se hacen. En la primera
+lectura: 121 leídas de Ñuble y Biobío, 9 amarillas, 112 rojas, ninguna
+verde. **Ojo:** en el Día del Profesor Quillón ocultó el monto en Mercado
+Público (`VisibilidadMonto` 0), así que la API no lo trae y la alerta de
+alto valor no se puede encender; Licify lo sacó de las bases, y eso llega
+con los archivos (sprint 1b).
+
 **Sprint 2, construido el 17-10** (Felipe: *"terminado esto, anda directo al
 sprint 2"*): la bandeja, la ficha y la configuración, sin resumen por
 correo. Quedan para después de la historia (1b): "el año anterior", el
