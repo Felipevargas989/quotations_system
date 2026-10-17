@@ -103,6 +103,31 @@ export const datosParaRevisar = (
   return Object.keys(r).length > 0 ? r : null;
 };
 
+/** El título cuando hay varios para elegir (Felipe, 16-10: "¿cómo
+ *  fusionamos el aviso?" → una lista y un solo juego de botones). */
+export const tituloConLista = (lista: CoincidenciaCliente[]): string =>
+  `${tituloDelAviso(lista)}. ¿Es uno de estos?`;
+
+/** Por qué se parece, corto, para la fila de la lista. */
+export const motivoCorto = (c: CoincidenciaCliente): string => {
+  const correo = c.motivos.includes("correo");
+  const fono = c.motivos.includes("telefono");
+  const dato =
+    correo && fono
+      ? "mismo correo y teléfono"
+      : correo
+        ? "mismo correo"
+        : fono
+          ? "mismo teléfono"
+          : "";
+  const partes = [
+    dato && c.persona ? `${c.persona.nombre} · ${dato}` : dato,
+    c.motivos.includes("nombre") ? "nombre parecido" : "",
+    c.motivos.includes("dominio") ? "mismo correo de institución" : "",
+  ].filter(Boolean);
+  return partes.join(" · ");
+};
+
 /** Particulares = UNA persona (regla de Felipe, 30-07): no se le suman contactos. */
 export const admiteOtroContacto = (c: CoincidenciaCliente): boolean =>
   (c.tipo || "").trim().toLowerCase() !== "particulares";
