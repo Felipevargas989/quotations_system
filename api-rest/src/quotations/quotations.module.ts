@@ -14,6 +14,8 @@ import {
   EventDocumentsController,
   EventDocumentsRepository,
 } from './event-documents.controller';
+import { GenerarRepository } from './generar/generar.repository';
+import { GenerarCotizacionService } from './generar/generar.service';
 import {
   PortalReceiptsController,
   PortalReceiptsRepository,
@@ -49,6 +51,9 @@ import { RescateDelFormularioService } from './rescate-del-formulario.service';
     RescateDelFormularioService,
     QuotationsService,
     EnvioCotizacionService,
+    // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
+    GenerarCotizacionService,
+    GenerarRepository,
     QuotationsRepository,
     QuotationsCronService,
     EventDocumentsRepository,
