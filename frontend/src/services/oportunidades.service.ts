@@ -1,5 +1,5 @@
 import { API_ROUTES } from "../constants/api.routes";
-import { apiRequest } from "./api";
+import { api, apiRequest } from "./api";
 
 // OPORTUNIDADES (doc 17): licitaciones y compras ágiles de Mercado Público
 // que el radar trae y la IA lee. Solo administrador, solo empresas con el
@@ -164,6 +164,45 @@ export const guardarConfigOportunidades = async (config: {
     "PATCH",
     config,
   )) as ConfigOportunidades;
+
+/** Una base o anexo que subió la empresa (migración 124). `ruta` vive en
+ *  el balde privado: se ve con el visor de la casa (FileViewLink), que
+ *  pide un enlace firmado de pocos minutos. */
+export interface AdjuntoDeOportunidad {
+  id: number;
+  nombre: string;
+  ruta: string;
+  tipo: string;
+  bytes: number;
+  creado_en: string;
+  subido_por: string | null;
+  quien: { full_name: string | null } | null;
+}
+
+export const getAdjuntos = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
+    "GET",
+  )) as AdjuntoDeOportunidad[];
+
+/** Un archivo por pedido (el motor valida tipo y tamaño). */
+export const subirAdjunto = async (id: number, archivo: File) => {
+  const form = new FormData();
+  form.append("file", archivo);
+  const { data } = await api.request({
+    url: `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
+    method: "POST",
+    data: form,
+    headers: { "Content-Type": undefined },
+  });
+  return data as AdjuntoDeOportunidad;
+};
+
+export const borrarAdjunto = async (id: number, adjuntoId: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/${adjuntoId}`,
+    "DELETE",
+  )) as { borrado: boolean };
 
 export const getCorridasDelRadar = async () =>
   (await apiRequest(

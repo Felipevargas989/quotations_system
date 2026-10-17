@@ -8,6 +8,9 @@ import {
   textoDelAnterior,
   filtrar,
   filtrarSinSemaforo,
+  problemaDelAdjunto,
+  seVeEnElVisor,
+  tamanoLegible,
   urlMercadoPublico,
 } from "./oportunidades.utils";
 
@@ -165,5 +168,49 @@ describe("textoDelAnterior", () => {
         ganadores: [{ nombre: "A", monto: null }],
       }),
     ).toBe("Antes: ganó A");
+  });
+});
+
+describe("bases y anexos", () => {
+  const MB = 1024 * 1024;
+
+  it("sirven las bases de siempre: PDF, Word, Excel, ZIP (sin mirar mayúsculas)", () => {
+    for (const name of [
+      "Bases.pdf",
+      "Anexos.DOCX",
+      "Oferta.xlsx",
+      "Todo.zip",
+    ]) {
+      expect(problemaDelAdjunto({ name, size: MB })).toBeNull();
+    }
+  });
+
+  it("no sirven HTML, ejecutables ni archivos sin extensión", () => {
+    for (const name of ["pagina.html", "instalar.exe", "bases"]) {
+      expect(problemaDelAdjunto({ name, size: MB })).toContain(
+        "no se puede subir",
+      );
+    }
+  });
+
+  it("vacío o de más de 30 MB, lo dice antes de subirlo", () => {
+    expect(problemaDelAdjunto({ name: "a.pdf", size: 0 })).toContain("vacío");
+    expect(problemaDelAdjunto({ name: "a.pdf", size: 30 * MB + 1 })).toContain(
+      "30 MB",
+    );
+    expect(problemaDelAdjunto({ name: "a.pdf", size: 30 * MB })).toBeNull();
+  });
+
+  it("el tamaño, legible", () => {
+    expect(tamanoLegible(800)).toBe("800 B");
+    expect(tamanoLegible(2048)).toBe("2 KB");
+    expect(tamanoLegible(1.25 * MB)).toBe("1,3 MB");
+  });
+
+  it("PDF e imágenes se ven en el visor; Word, Excel y ZIP se descargan", () => {
+    expect(seVeEnElVisor("c1/oportunidades/9/x_Bases.PDF")).toBe(true);
+    expect(seVeEnElVisor("c1/oportunidades/9/x_plano.jpg")).toBe(true);
+    expect(seVeEnElVisor("c1/oportunidades/9/x_Anexos.docx")).toBe(false);
+    expect(seVeEnElVisor("c1/oportunidades/9/x_Todo.zip")).toBe(false);
   });
 });

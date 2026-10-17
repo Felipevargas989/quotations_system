@@ -1,6 +1,6 @@
 # Mapa: Oportunidades (licitaciones y compras ágiles de Mercado Público)
 
-> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16 y 17-10-2026).** Sprint 1a del documento 17 (el radar) **en el laboratorio desde el 17-10** (migración 122 aplicada en la base del lab, motor en `pruebas`); sprint 2 (la pantalla) construido el 17-10. **Nada en producción.** Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16 y 17-10-2026).** En el laboratorio desde el 17-10: el sprint 1a del documento 17 (el radar), el sprint 2 (la pantalla), el sprint 1b (quién ganó, la historia y el año anterior) y las bases y anexos que se suben a mano. Las migraciones 122, 123 y 124 están aplicadas en la base del laboratorio y el motor corre en `pruebas`. **Nada en producción.** Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -16,7 +16,9 @@ Cada 2 horas el radar:
 5. La pantalla **Oportunidades** (sprint 2): la bandeja con semáforo, la ficha de cada una y la configuración del módulo. Solo administradores.
 6. **Sprint 1b** (`HistoriaService`, al final de cada corrida): revisa las licitaciones cerradas de las regiones configuradas hasta que digan **quién ganó**, y de noche (o en la corrida de arranque del laboratorio) carga **3 años de historia**, un día a la vez. Con eso cada fila y cada ficha muestran **la misma compra del año anterior**: quién ganó, por cuánto y cuántos ofertaron.
 
-Lo que **todavía no hace** (doc 17 §7): generar documentos (sprint 3); generar cotización (sprint 4). Y **no baja bases ni anexos**: Mercado Público protege la lista de adjuntos con un reCAPTCHA (medido el 17-10) y esta casa no lo esquiva (doc 17 §12). **No manda resumen por correo**: Felipe, 17-10, *"se revisa en Eventia"*.
+7. **Las bases y anexos** (`AdjuntosService`): los baja una persona desde Mercado Público y los arrastra a la ficha. Quedan en el balde privado de la empresa y se ven con el visor de la casa.
+
+Lo que **todavía no hace** (doc 17 §7): generar documentos (sprint 3); generar cotización (sprint 4); leer con IA las bases subidas. Y **el robot no baja bases ni anexos**: Mercado Público protege la lista de adjuntos con un reCAPTCHA (medido el 17-10) y esta casa no lo esquiva (doc 17 §12). **No manda resumen por correo**: Felipe, 17-10, *"se revisa en Eventia"*.
 
 ## 2. Pantallas y rutas de la app
 
@@ -24,7 +26,7 @@ Lo que **todavía no hace** (doc 17 §7): generar documentos (sprint 3); generar
 |---|---|---|---|---|
 | `/oportunidades` (pestaña Bandeja, la de entrada) | `OportunidadesPage` → `Bandeja` | `frontend/src/pages/oportunidades/OportunidadesPage.tsx` | La lista de lo vigente, de lo que cierra antes a lo que cierra después: semáforo, nombre, organismo, tipo y código, monto, cierre con cuenta regresiva (en rojo si cierra en 3 días o menos), la razón de la IA y sus etiquetas. Chips por color con su conteo (las rojas apagadas de partida), vista (abiertas, nuevas, en estudio, postuladas, descartadas, historial), tipo, región y buscador. "Me interesa" (pasa a en estudio), "Descartar" (no se borra) y "Recuperar". Arriba a la derecha: cuándo se revisó Mercado Público y "Revisar ahora" | administrador: `SECTION_ROLES.oportunidades` = `ROLE_GROUPS.ADMIN_ONLY`, con `PermissionGuard` y `derecho="oportunidades"` en `frontend/src/App.tsx` |
 | `/oportunidades` (pestaña Configuración) | `ConfiguracionOportunidades` | `frontend/src/pages/oportunidades/ConfiguracionOportunidades.tsx` | Regiones (`MultiSelect` con las 16), comunas cercanas (agregar y quitar), qué vende la empresa (lo lee la IA). El monto de alto valor y el correo se muestran sin poder cambiarlos: viven en Configuración de empresa | igual |
-| `/oportunidades/:id` | `OportunidadFichaPage` | `frontend/src/pages/oportunidades/OportunidadFichaPage.tsx` | La ficha: enlace a Mercado Público, monto, cierre, estado (`ChipDeEstado`), responsable (`SelectWithSearch` con los administradores), lo que leyó la IA, qué piden (descripción y productos), fechas, historial de cambios, notas. "El año anterior" queda anunciado para el sprint 1b | igual |
+| `/oportunidades/:id` | `OportunidadFichaPage` | `frontend/src/pages/oportunidades/OportunidadFichaPage.tsx` | La ficha: enlace a Mercado Público, monto, cierre, estado (`ChipDeEstado`), responsable (`SelectWithSearch` con los administradores), lo que leyó la IA, qué piden (descripción y productos), **bases y anexos** (`AdjuntosDeLaOportunidad`), fechas, historial de cambios, el año anterior y notas. En **Bases y anexos**: el botón "Bajar de Mercado Público" abre la ficha allá (en una licitación los archivos están en «Ver adjuntos»). Se arrastran a la zona punteada o se eligen; suben de a uno con su aviso. La lista muestra nombre, peso, quién y cuándo. PDF e imágenes se abren con "Ver" (`FileViewLink`, el visor de la casa); Word, Excel y ZIP con "Descargar", con su nombre original. Se eliminan con `ConfirmInline` | igual |
 
 Notas:
 
@@ -35,7 +37,7 @@ Notas:
 
 ## 3. Endpoints del motor
 
-Todos en `OportunidadesController` (`api-rest/src/oportunidades/oportunidades.controller.ts`), con `@Roles(...ADMIN_ONLY)` y `@Derecho('oportunidades')` en la clase. La app no los llama todavía.
+Todos en `OportunidadesController` (`api-rest/src/oportunidades/oportunidades.controller.ts`), con `@Roles(...ADMIN_ONLY)` y `@Derecho('oportunidades')` en la clase.
 
 | Método y ruta | Controller y método | Service | Quién lo llama | Cargo y derecho |
 |---|---|---|---|---|
@@ -46,6 +48,11 @@ Todos en `OportunidadesController` (`api-rest/src/oportunidades/oportunidades.co
 | `PATCH /oportunidades/:id` | `actualizar` | `OportunidadesService.actualizar`: estado, responsable (tiene que ser usuario de la empresa: `esUsuarioDeLaEmpresa`) y notas | `actualizarOportunidad` ← `Bandeja` y `OportunidadFichaPage` | administrador; `oportunidades` |
 | `POST /oportunidades/radar` | `correrRadar` | `RadarService.iniciar('manual')`: toma el candado, responde al tiro `{ iniciada: true, corrida }` y la corrida sigue sola; si ya hay una, `{ iniciada: false, motivo }` | `correrRadar` ← el botón "Revisar ahora" (`EstadoDelRadar`) | administrador; `oportunidades` |
 | `GET /oportunidades/radar/corridas` | `corridas` | `OportunidadesRepository.ultimasCorridas(10)` | `getCorridasDelRadar` ← `EstadoDelRadar` (cada minuto) | administrador; `oportunidades` |
+| `GET /oportunidades/:id/adjuntos` | `listarAdjuntos` | `AdjuntosService.listar`: `esDeLaEmpresa` (404 si no) → `AdjuntosRepository.listar`, lo último primero, con quién lo subió | `getAdjuntos` ← `AdjuntosDeLaOportunidad` | administrador; `oportunidades` |
+| `POST /oportunidades/:id/adjuntos` (multipart, campo `file`) | `subirAdjunto` | `AdjuntosService.subir`: tipo por extensión, ni vacío ni más de 30 MB → `esDeLaEmpresa` → `subirArchivo` al balde privado → `guardar` la fila (si falla, borra el archivo) | `subirAdjunto` ← `AdjuntosDeLaOportunidad` | administrador; `oportunidades` |
+| `DELETE /oportunidades/:id/adjuntos/:adjuntoId` | `borrarAdjunto` | `AdjuntosService.borrar`: `borrarFila` (empresa, oportunidad e id; 404 si no) → `borrarArchivo` | `borrarAdjunto` ← `AdjuntosDeLaOportunidad` | administrador; `oportunidades` |
+
+Para **ver** un adjunto no hay ruta propia: el visor de la casa pide `GET /storage/signed-url` (mapa 16, misión storage), que firma por 5 minutos todo lo que empiece con `c<empresa>/` de la empresa de la sesión.
 
 Las rutas fijas (`config`, `radar/...`) van declaradas ANTES de las de `:id`: si no, Nest intentaría leer "config" como un número.
 
@@ -61,8 +68,11 @@ Migración `docs/migrations/122_oportunidades_radar.sql`. Dos clases de tabla (d
 | `oportunidades` | La lectura de la IA para una empresa (semáforo, etiquetas, `se_hace_en_el_complejo`, razón, alertas, modelo y fecha) y lo que la empresa decide (estado, responsable, notas, cotización). Única por `(company_id, codigo)` | `guardarLectura` (upsert con `ignoreDuplicates`: **nunca pisa** una fila que ya existe) | `codigosLeidos`, `listar` |
 | `oportunidades_config` | Por empresa: regiones de interés, comunas cercanas y el perfil que lee la IA ("qué vende y qué no") | la migración 122 (Valle del Sol); la pantalla de configuración llega en el sprint 2 | `configDe` |
 | `mp_historia` | Migración 123 (sprint 1b). Un día por fila, 3 años hacia atrás: pendiente, hecha o error, con cuántas había, cuántas pasó el filtro y cuántas se guardaron. `prioridad` = días de distancia a "hace un año": se revisa de menor a mayor | `marcarDiaDeHistoria` | `siguienteDiaDeHistoria` |
+| `oportunidad_adjuntos` | Migración 124. Las bases y anexos que sube la empresa: oportunidad, nombre original, `ruta` única en el balde privado, tipo, bytes, `subido_por` (`user_profiles`) y fecha. Lleva `company_id` | `AdjuntosRepository.guardar`, `borrarFila` | `AdjuntosRepository.listar` |
 
-Las cinco nacen con RLS encendido, sin políticas, con `REVOKE ALL` a `anon` y `authenticated` y los `GRANT` a `service_role` (y sus secuencias) en la misma migración: la lección de la 107 y del error 42501 (mapa 18).
+Todas nacen con RLS encendido, sin políticas, con `REVOKE ALL` a `anon` y `authenticated` y los `GRANT` a `service_role` (y sus secuencias) en la misma migración: la lección de la 107 y del error 42501 (mapa 18).
+
+Los **archivos** no están en una tabla: viven en el balde privado `payment-receipts` (el mismo de comprobantes y documentos de evento), con la ruta `c<empresa>/oportunidades/<id>/<sello>_<nombre sin tildes>`.
 
 La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la empresa 1 y siembra su configuración: regiones Ñuble y Biobío, las 13 comunas cercanas del bot y el perfil de Valle del Sol.
 
@@ -100,7 +110,9 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 - **La lectura de una empresa nunca se reescribe** sola: `ignoreDuplicates`. Lo que la empresa decidió (estado, responsable, notas) no lo toca el radar.
 - **Las rojas no se botan**: quedan en la base (doc 17 §5.2).
 - **El año anterior** (`historia/anterior.ts`, `anteriorDe`): la misma compra es del **mismo organismo comprador** (no de la misma unidad: el Día del Funcionario de Quillón cambió de unidad entre 2025 y 2026), adjudicada, publicada entre 6 y 30 meses antes, y con el nombre más parecido (palabras en común sobre palabras en total, sin tildes, años ni palabras vacías; mínimo 0,3). La bandeja lo calcula de una vez para toda la lista (`indexarPorOrganismo`); el historial de lo cerrado no lo lleva.
-- **No se bajan bases ni anexos.** La página de adjuntos de Mercado Público solo muestra la lista tras pasar un reCAPTCHA de Google (medido el 17-10 con el Día del Profesor). Esquivarlo sería saltarse a propósito una protección de ChileCompra: no se hace. Alternativas en el doc 17 §12.
+- **El robot no baja bases ni anexos; los sube una persona.** La página de adjuntos de Mercado Público solo muestra la lista tras pasar un reCAPTCHA de Google (medido el 17-10 con el Día del Profesor). Esquivarlo sería saltarse a propósito una protección de ChileCompra: no se hace. Felipe eligió el 17-10 el botón y el arrastre (doc 17 §12 punto 8, opción d: *"ok dale con el botón y arrastro"*). Licify sí los tiene porque cada cliente le agrega un "usuario de sistema" con mandato en su cuenta de Mercado Público. Eso no se copia: sería un robot con la cuenta de proveedor de la empresa (doc 17 §12).
+- **Qué se puede subir** (`TIPOS_POR_EXTENSION`, `adjuntos.service.ts`; la vitrina revisa lo mismo antes de mandar con `problemaDelAdjunto`): PDF, Word, Excel, PowerPoint, OpenDocument, ZIP, RAR, 7z, texto, CSV e imágenes. Hasta 30 MB cada uno, ni uno vacío. El tipo se decide **por la extensión**, no por lo que diga el navegador, que a veces manda `application/octet-stream`. Nada que un navegador ejecute (HTML, SVG).
+- **El nombre original se conserva** para mostrarlo, con tildes. El interceptor usa `defParamCharset: 'utf8'`: sin eso multer lee el nombre en latin1 y "Día" llega como "DÃ­a". En la ruta del balde va sin tildes (`sanitize` de `storage.service.ts`) y con un sello de hora y azar, así dos archivos del mismo nombre no chocan.
 - **Hora de Chile.** La API de licitaciones entrega fechas sin zona, en hora de Chile; `fechaChileAIso` las pasa a UTC con el desfase real de ese día (verano −3, invierno −4).
 
 ## 7. Conexiones con otros módulos
@@ -119,6 +131,9 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 4. **Un `upsert` sin `ignoreDuplicates` en `guardarLectura`** pisaría lo que la empresa decidió. La prueba `oportunidades.repository.spec.ts` lo fija.
 5. **Las consultas de empresa sin `company_id`** filtrarían lecturas de otra empresa. Lo fija la misma prueba; `listar` usa `!inner` (un embebido sin `!inner` no filtra, lección del mapa 22).
 6. **El ticket nunca va a un registro**: los errores dicen el código HTTP y qué se pedía, no la URL (`mercado-publico.client.spec.ts`).
+7. **Los adjuntos viven en el balde de los comprobantes** (`BUCKET_PRIVADO`, exportado de `storage.service.ts`). Si cambias cómo `StorageService.verificarDueno` reconoce las rutas `c<empresa>/`, el visor deja de abrir las bases. Y si alguien vuelve público ese balde, quedan públicas también las bases y los comprobantes bancarios (misión storage, migración 42).
+8. **Borrar una oportunidad** (nadie lo hace: las rojas no se botan) borraría sus filas de adjuntos en cascada, pero **no sus archivos**: quedarían en el balde sin que nadie los vea. Lo mismo pasa si falla el balde al eliminar un adjunto: la fila se borra igual y queda anotado en el registro (`AdjuntosService.borrar`).
+9. **Subir pasa por la memoria del motor** (multer en memoria, hasta 30 MB por archivo, uno por pedido). Si algún día se suben muchos a la vez o archivos más grandes, cambiar a subida firmada directa al balde.
 
 ## 9. Pruebas que lo protegen
 
@@ -136,7 +151,11 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 | `oportunidades/tests/oportunidades-cron.service.spec.ts` | Al encender suelta el candado de una corrida a medias; la palanca corre el radar un minuto después |
 | `frontend/src/pages/oportunidades/oportunidades.utils.test.ts` | Lo que se ve de partida (sin rojas ni descartadas), contadores por color, buscador sin tildes, cuenta regresiva del cierre, enlaces a Mercado Público |
 | `oportunidades/tests/oportunidades.repository.spec.ts` | El candado contra la base; empresa bloqueada fuera; cada consulta de empresa filtra por `company_id`; la lectura no se pisa |
-| `auth/tests/matriz-de-derechos.spec.ts`, `matriz-de-cargos.spec.ts`, `derechos.spec.ts` | Las tres rutas cerradas con `oportunidades` y solo para administrador; ningún plan da el derecho |
+| `auth/tests/matriz-de-derechos.spec.ts`, `matriz-de-cargos.spec.ts`, `derechos.spec.ts` | Todas las rutas del controller (también las de adjuntos) cerradas con `oportunidades` y solo para administrador; ningún plan da el derecho |
+| `oportunidades/tests/adjuntos.service.spec.ts` | La ruta la arma el motor con la empresa; el tipo sale de la extensión; dos del mismo nombre no chocan; fuera HTML, SVG, ejecutables y sin extensión; ni vacío ni más de 30 MB; oportunidad de otra empresa = 404 sin subir nada; si no se anota, el archivo se borra; borrar = fila y después archivo |
+| `oportunidades/tests/adjuntos.repository.spec.ts` | Cada consulta de adjuntos filtra por `company_id`; el archivo va al balde privado sin pisar nada |
+| `frontend/src/hooks/useArrastreDeArchivos.test.ts` | La zona se enciende solo con archivos, no parpadea con los hijos y desactivada no recibe |
+| `frontend/src/pages/oportunidades/oportunidades.utils.test.ts` ("bases y anexos") | Qué se puede subir y por qué no; tamaño legible; qué se ve en el visor y qué se descarga |
 
 ## 10. Deuda y rarezas conocidas
 
@@ -156,6 +175,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 - `api-rest/src/oportunidades/historia/historia.service.ts`, `anterior.ts` (sprint 1b)
 - `api-rest/src/auth/derechos.ts` (el derecho `oportunidades`), `api-rest/src/config/validate-env.ts` (las dos variables)
 - `api-rest/src/oportunidades/oportunidades.service.ts`, `dto/actualizar-oportunidad.dto.ts`, `dto/guardar-config.dto.ts`
-- `frontend/src/pages/oportunidades/OportunidadesPage.tsx`, `OportunidadFichaPage.tsx`, `ConfiguracionOportunidades.tsx`, `oportunidades.utils.ts`
+- `api-rest/src/oportunidades/adjuntos/adjuntos.service.ts`, `adjuntos.repository.ts` (las bases y anexos); `api-rest/src/storage/storage.service.ts` (`BUCKET_PRIVADO` y `sanitize`, compartidos)
+- `frontend/src/pages/oportunidades/OportunidadesPage.tsx`, `OportunidadFichaPage.tsx`, `AdjuntosDeLaOportunidad.tsx`, `ConfiguracionOportunidades.tsx`, `oportunidades.utils.ts`
+- `frontend/src/hooks/useArrastreDeArchivos.ts` (pieza de la casa para arrastrar archivos)
 - `frontend/src/services/oportunidades.service.ts`; `frontend/src/constants/permissions.ts` (sección y derecho `oportunidades`)
-- `docs/migrations/122_oportunidades_radar.sql`, `123_oportunidades_historia.sql`
+- `docs/migrations/122_oportunidades_radar.sql`, `123_oportunidades_historia.sql`, `124_oportunidades_adjuntos.sql`

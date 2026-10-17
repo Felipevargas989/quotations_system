@@ -211,6 +211,62 @@ export const urlMercadoPublico = (codigo: string, tipo: TipoProceso): string =>
     ? `https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(codigo)}`
     : `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(codigo)}`;
 
+/** BASES Y ANEXOS (doc 17 §12 punto 8): lo que se puede subir, lo mismo
+ *  que acepta el motor (`TIPOS_POR_EXTENSION`, adjuntos.service.ts). */
+export const EXTENSIONES_DE_ADJUNTOS: ReadonlyArray<string> = [
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "odt",
+  "ods",
+  "zip",
+  "rar",
+  "7z",
+  "txt",
+  "csv",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+];
+export const MAX_MB_POR_ADJUNTO = 30;
+
+/** Por qué no se puede subir ese archivo; null = se puede. Se revisa antes
+ *  de mandarlo, para no esperar a que suban 30 MB que el motor rechazaría. */
+export const problemaDelAdjunto = (archivo: {
+  name: string;
+  size: number;
+}): string | null => {
+  const punto = archivo.name.lastIndexOf(".");
+  const ext = punto > 0 ? archivo.name.slice(punto + 1).toLowerCase() : "";
+  if (!EXTENSIONES_DE_ADJUNTOS.includes(ext)) {
+    return `"${archivo.name}" no se puede subir: sirven PDF, Word, Excel, PowerPoint, ZIP, RAR, 7z, texto e imágenes.`;
+  }
+  if (archivo.size <= 0) return `"${archivo.name}" está vacío.`;
+  if (archivo.size > MAX_MB_POR_ADJUNTO * 1024 * 1024) {
+    return `"${archivo.name}" pesa más de ${MAX_MB_POR_ADJUNTO} MB.`;
+  }
+  return null;
+};
+
+/** 1.234.567 bytes → "1,2 MB". */
+export const tamanoLegible = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString("es-CL", {
+    maximumFractionDigits: 1,
+  })} MB`;
+};
+
+/** El visor de la casa (FileViewLink) muestra PDF e imágenes; Word, Excel
+ *  y ZIP se descargan. Se mira la RUTA guardada, igual que el visor. */
+export const seVeEnElVisor = (ruta: string): boolean =>
+  /\.(pdf|jpe?g|png|webp)$/i.test(ruta);
+
 /** PRIORIDAD (Felipe, 17-10: "hay dos que son directas mías y están en
  *  amarillo y deberían ser prioridad"): lo de una comuna cercana o de alto
  *  valor que no quedó en rojo va arriba, aunque la IA lo deje en amarillo

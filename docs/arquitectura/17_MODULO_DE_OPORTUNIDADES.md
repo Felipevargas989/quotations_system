@@ -172,7 +172,9 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
    enlaza a la lista de adjuntos, pero esa página solo muestra los archivos
    después de pasar un reCAPTCHA de Google (el control antirrobots);
    esquivarlo sería saltarse a propósito una protección de ChileCompra.
-   Alternativas en §12.
+   Alternativas en §12. **Decidido el 17-10** (Felipe: *"ok dale con el
+   botón y arrastro"*): los baja una persona y los arrastra a la ficha
+   (opción d). Construido ese día y en el laboratorio (migración 124).
 5. **Al cerrar:** se guarda quién ganó, el precio, cuántos ofertaron y el
    enlace al acta (vienen en el detalle de la API: `Adjudicacion`,
    `NumeroOferentes`, `UrlActa`, ganador por ítem). **Construido el 17-10**
@@ -361,7 +363,8 @@ quién ganó al cerrar, la historia de 3 años y "el año anterior" en la
 bandeja y en la ficha; además el bloque **Prioridad** arriba de la bandeja
 (Felipe: *"hay dos que son directas mías y están en amarillo y deberían
 ser prioridad"*). Lo que no se pudo: bajar las bases (reCAPTCHA, §5.1
-punto 4). La migración 123 espera el OK de Felipe.
+punto 4). La migración 123 se aplicó en el laboratorio el 17-10 con el OK
+de Felipe.
 
 **Sprint 2, construido el 17-10** (Felipe: *"terminado esto, anda directo al
 sprint 2"*): la bandeja, la ficha y la configuración, sin resumen por
@@ -447,7 +450,8 @@ evento confirmado.
 3. ~~OK para el laboratorio~~: dado el 17-10.
 4. ~~¿Todo Chile o solo las regiones?~~: todo Chile (decisión 12).
 5. ~~Sacar `mp_procesos` del respaldo~~: hecho en el código (decisión 13).
-7. OK para aplicar la migración 123 (la historia) en el laboratorio.
+7. ~~OK para aplicar la migración 123 (la historia) en el laboratorio~~:
+   dado el 17-10 junto con la 124; las dos aplicadas en la base del lab.
 8. **Las bases, sin poder bajarlas solas** (reCAPTCHA, §5.1 punto 4). Opciones:
    (a) **subirlas a mano** en la ficha (Felipe o Camila las bajan de Mercado
    Público, que es una persona pasando el control, y la IA las lee: se
@@ -483,6 +487,19 @@ evento confirmado.
      ritmo de persona);
    - (f) la API de Licify en Apify (acción `list-files`, desde US$0,10 por
      1.000 resultados); falta probar si trae el archivo o solo el nombre.
+
+   **Decidido el 17-10: (d).** Felipe: *"ok dale con el botón y
+   arrastro"*. Construido ese día: sección "Bases y anexos" en la ficha,
+   con el botón a Mercado Público, la zona de arrastre y la lista (Ver,
+   Descargar, Eliminar). Migración 124 aplicada en el laboratorio. Felipe
+   preguntó si Licify de verdad lo hace así: no usó su Clave Única, solo
+   la extensión, y la navegación es fluida. Las dos cosas calzan con sus
+   términos: la extensión usa la sesión abierta del cliente para agregar
+   el usuario de Licify, que después entra con su propia cuenta. Y Licify
+   baja los archivos antes en su servidor y muestra su copia. Lo que no
+   dicen es cómo pasa su servidor el control antirrobots. Siguen
+   pendientes (e) y (f), y que la IA lea lo subido (monto oculto, lugar,
+   checklist).
 6. ~~Quién ve el módulo y el resumen por correo~~: administradores, sin
    resumen (decisiones 14 y 15). Queda: ¿el aviso inmediato de comuna
    cercana y alto valor se mantiene? ¿Las rojas se esconden por omisión?
