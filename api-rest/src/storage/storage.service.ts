@@ -20,7 +20,10 @@ import { UploadFileDto } from './dto/upload-file.dto';
 // Fotos de mobiliario y logos quedan en baldes de lectura pública (no
 // son sensibles) pero también se SUBEN por aquí.
 
-const BUCKET_PRIVADO = 'payment-receipts';
+// El balde privado de TODO lo de cada empresa (el nombre es histórico):
+// comprobantes, documentos de evento, brochures y, desde el 17-10, las
+// bases de Oportunidades (`oportunidades/adjuntos`).
+export const BUCKET_PRIVADO = 'payment-receipts';
 const MAX_BYTES = 5 * 1024 * 1024;
 const MIMES = new Set([
   'image/jpeg',
@@ -33,7 +36,7 @@ const MIMES = new Set([
 // pide uno nuevo cada vez que se abre.
 const VIGENCIA_FIRMA = 300;
 
-const sanitize = (name: string) =>
+export const sanitize = (name: string) =>
   name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
