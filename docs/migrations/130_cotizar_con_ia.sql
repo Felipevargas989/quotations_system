@@ -1,5 +1,5 @@
 -- ============================================================
--- 129 · El derecho «Cotizar con IA» para Valle del Sol (17-10-2026)
+-- 130 · El derecho «Cotizar con IA» para Valle del Sol (17-10-2026)
 --
 -- El botón «✨ Crear con IA» (doc 16, sección 6) arma la cotización de un
 -- requerimiento con Claude. La llave de Anthropic la paga Valle del Sol y
@@ -11,6 +11,8 @@
 -- Solo datos: agrega 'cotizar_con_ia' a la empresa 1 si no lo tiene. Se
 -- aplica primero en el laboratorio y después en producción, ANTES de
 -- publicar el motor que lo pide. Idempotente.
+--
+-- Número: la 129 es de Oportunidades (129_oportunidades_generacion).
 -- ============================================================
 
 update public.companies

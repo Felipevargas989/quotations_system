@@ -2,7 +2,7 @@
 //
 // Son las de Valle del Sol: doc 16 (secciones 2, 4, 5 y 6) y la skill
 // `armar-cotizacion`, con lo que Felipe decidió el 17-10. El derecho
-// `cotizar_con_ia` es solo de Valle del Sol (migración 129); cuando otra
+// `cotizar_con_ia` es solo de Valle del Sol (migración 130); cuando otra
 // empresa lo tenga, sus reglas irán aparte (doc 16 §6, "Multiempresa").
 //
 // Si una regla cambia, se cambia ACÁ, en el doc 16 y en la skill, en el
