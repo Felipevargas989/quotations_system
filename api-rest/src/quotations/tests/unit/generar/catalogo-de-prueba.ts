@@ -32,6 +32,10 @@ export const catalogoDePrueba = (): Catalogo => {
         orden: 1,
         sueltos: [2033, 3101, 3102],
         seccionFija: [2033],
+        secciones: [
+          { nombre: 'Salado', servicios: [3101] },
+          { nombre: 'Dulces', servicios: [3102] },
+        ],
       },
       {
         id: 30,
@@ -39,6 +43,12 @@ export const catalogoDePrueba = (): Catalogo => {
         orden: 6,
         sueltos: [2054, 2205, 3001, 3002, 3003, 3004, 3005, 3006],
         seccionFija: [2054, 2205],
+        secciones: [
+          { nombre: 'Entradas', servicios: [] },
+          { nombre: 'Principales', servicios: [3001, 3004] },
+          { nombre: 'Guarniciones', servicios: [3002, 3005] },
+          { nombre: 'Postres', servicios: [3003, 3006] },
+        ],
       },
       {
         id: 31,
@@ -46,6 +56,7 @@ export const catalogoDePrueba = (): Catalogo => {
         orden: 7,
         sueltos: [2054, 2205, 4001],
         seccionFija: [2054, 2205],
+        secciones: [{ nombre: 'Principales', servicios: [4001] }],
       },
       {
         id: 90,
@@ -53,6 +64,7 @@ export const catalogoDePrueba = (): Catalogo => {
         orden: 13,
         sueltos: [2154, 2244, 2155],
         seccionFija: [],
+        secciones: [{ nombre: 'Alojamiento', servicios: [2154, 2244, 2155] }],
       },
       {
         id: 99,
@@ -60,6 +72,7 @@ export const catalogoDePrueba = (): Catalogo => {
         orden: 17,
         sueltos: [5001],
         seccionFija: [],
+        secciones: [],
       },
     ],
     menus: [

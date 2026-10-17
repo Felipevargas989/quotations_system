@@ -272,3 +272,78 @@ describe('armar la foto: orden y fijos', () => {
     expect(r.ok && r.ultimoDia).toBeNull();
   });
 });
+
+describe('armar la foto: la base es un menú guardado (Felipe, 17-10)', () => {
+  it('se adapta cambiando un plato en su sección: pollo arvejado por plateada', () => {
+    const r = armarFoto(
+      plan({
+        cajas: [
+          caja({
+            menu_id: 94,
+            quitar: [3001],
+            servicios: [{ id: 3004, cantidad: 1 }],
+          }),
+        ],
+      }),
+      catalogoDePrueba(),
+      evento,
+      ofrecible,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.items.variable_services[0].items.map((i) => i.codigo)).toEqual([
+      '3002',
+      '3003',
+      '3004',
+      '2054',
+      '2205',
+    ]);
+    // Un principal con su guarnición y un postre: nada que revisar.
+    expect(r.avisos).toEqual([]);
+  });
+
+  it('«quitar» solo saca platos de ese menú, y solo con menú', () => {
+    const errores = (c: Partial<CajaDelPlan>) => {
+      const r = armarFoto(
+        plan({ cajas: [caja(c)] }),
+        catalogoDePrueba(),
+        evento,
+      );
+      return r.ok ? [] : r.errores;
+    };
+    expect(errores({ menu_id: 94, quitar: [3004] })).toEqual([
+      'caja 1 (día 1, Cena): «quitar» trae 3004, que no es plato del menú 94.',
+    ]);
+    expect(
+      errores({ quitar: [3001], servicios: [{ id: 3004, cantidad: 1 }] }),
+    ).toEqual([
+      'caja 1 (día 1, Cena): «quitar» solo vale con un menú guardado.',
+    ]);
+  });
+
+  it('una comida armada de cero con sueltos se avisa; el alojamiento no', () => {
+    const r = armarFoto(
+      plan({
+        cajas: [
+          caja({
+            servicios: [
+              { id: 3001, cantidad: 1 },
+              { id: 3002, cantidad: 1 },
+              { id: 3003, cantidad: 1 },
+            ],
+          }),
+          caja({
+            categoria: 'Servicios de Ingreso',
+            servicios: [{ id: 2155, cantidad: 1 }],
+          }),
+        ],
+      }),
+      catalogoDePrueba(),
+      evento,
+      ofrecible,
+    );
+    expect(r.ok && r.avisos).toEqual([
+      'caja 1 (día 1, Cena): va armada con sueltos, sin partir de un menú guardado de la casa.',
+    ]);
+  });
+});
