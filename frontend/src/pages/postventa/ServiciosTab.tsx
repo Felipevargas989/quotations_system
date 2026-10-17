@@ -15,6 +15,8 @@ import { updateQuotation } from "../../services/quotations.service";
 import { getPaymentsByQuotationId } from "../../services/payments.service";
 import AvisoPlanDePagos from "../../components/AvisoPlanDePagos";
 import { Quotation } from "../../types/quotations.types";
+import ComentariosDelEvento from "../../components/ComentariosDelEvento";
+import { comentarioParaGuardar } from "../../utils/comentarioInterno";
 import {
   AVISO_EVENTO_CONGELADO,
   esEventoCongelado,
@@ -155,6 +157,13 @@ export default function ServiciosTab({
   );
   const [tipPct, setTipPct] = useState<number>(quote.tip_percentage ?? 10);
   const [obs, setObs] = useState<string>(quote.observations || "");
+  // El comentario interno (17-10-2026): undefined si la cotización llegó
+  // sin el campo; entonces no se edita ni se manda (utils/comentarioInterno).
+  const [interno, setInterno] = useState<string | null | undefined>(
+    "comentario_interno" in quote
+      ? (quote.comentario_interno ?? "")
+      : undefined,
+  );
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   // Aviso transparente del reajuste del plan de pagos tras guardar.
@@ -801,6 +810,7 @@ export default function ServiciosTab({
           tip_percentage: tipEnabled ? tipPct || 0 : null,
           tip_amount: Math.round(tipAmount),
           observations: obs,
+          ...comentarioParaGuardar(interno),
           items: itemsPayload,
         } as any,
         quote.id,
@@ -879,6 +889,7 @@ export default function ServiciosTab({
       tipEnabled,
       tipPct,
       obs,
+      interno,
       items: buildItemsSnapshot(),
     });
 
@@ -978,7 +989,7 @@ export default function ServiciosTab({
     }
     const timer = setTimeout(() => void autoRef.current(), 20000);
     return () => clearTimeout(timer);
-  }, [obs]);
+  }, [obs, interno]);
 
   // ---- Post-Venta: el margen deja la estimación y usa la REALIDAD ----
   // (12-08, pillada de Felipe: cargar recursos no movía este cuadro).
@@ -2212,17 +2223,15 @@ export default function ServiciosTab({
             {/* Comentarios + Guardar: cierre de la columna (orden del
           cotizador: Resumen → Descuento → Margen → Observaciones). */}
             <div className="bg-white rounded-xl shadow p-4">
-              <p className="text-xs font-semibold text-gray-700 mb-1">
-                Comentarios / observaciones
-              </p>
-              <textarea
-                rows={3}
-                value={obs}
-                onChange={(e) => setObs(e.target.value)}
-                // Salir del campo es señal de "ya está": guarda al tiro y
-                // no hay que esperar los cinco segundos.
-                onBlur={() => void autoRef.current()}
-                className="w-full text-sm border border-gray-300 rounded-lg p-3"
+              {/* Los dos comentarios (17-10-2026): el que ve el cliente y
+                  el interno. Salir de un campo es señal de "ya está":
+                  guarda al tiro, sin esperar los 20 s. */}
+              <ComentariosDelEvento
+                observaciones={obs}
+                onObservaciones={setObs}
+                comentarioInterno={interno}
+                onComentarioInterno={setInterno}
+                onSalir={() => void autoRef.current()}
               />
               <div className="flex items-center justify-end gap-3 mt-4">
                 {/* Indicador sutil del auto-guardado; el botón queda como
